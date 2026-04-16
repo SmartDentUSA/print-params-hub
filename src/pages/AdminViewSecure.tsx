@@ -26,7 +26,8 @@ import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { Wrench } from "lucide-react";
+import { Wrench, RefreshCw, Database, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // Smart Ops components (flattened from SmartOpsTab)
 import { SmartOpsBowtie } from "@/components/SmartOpsBowtie";
@@ -56,7 +57,39 @@ export default function AdminViewSecure() {
   const [connectionError, setConnectionError] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('models');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [syncingIncremental, setSyncingIncremental] = useState(false);
+  const [syncingFull, setSyncingFull] = useState(false);
   const { toast } = useToast();
+
+  const handleSyncIncremental = async () => {
+    setSyncingIncremental(true);
+    try {
+      const { error } = await supabase.functions.invoke("smart-ops-sync-piperun");
+      if (error) throw error;
+      toast({ title: "Sync incremental concluído", description: "Deals recentes sincronizados com sucesso." });
+      setRefreshKey(prev => prev + 1);
+    } catch (e: any) {
+      toast({ title: "Erro no sync incremental", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingIncremental(false);
+    }
+  };
+
+  const handleFullSync = async () => {
+    setSyncingFull(true);
+    try {
+      const { error } = await supabase.functions.invoke("piperun-full-sync");
+      if (error) throw error;
+      toast({ title: "Full Sync concluído", description: "Todos os pipelines sincronizados." });
+      setRefreshKey(prev => prev + 1);
+    } catch (e: any) {
+      toast({ title: "Erro no full sync", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingFull(false);
+    }
+  };
+
+  const isSmartOps = activeSection.startsWith('so-');
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
@@ -261,6 +294,44 @@ export default function AdminViewSecure() {
             </h1>
           </header>
           <main className="flex-1 overflow-auto p-6">
+            {isSmartOps && (
+              <div className="flex items-center justify-between mb-4 p-3 rounded-lg border border-border bg-card">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-foreground">Smart Ops</span>
+                  <Badge variant="outline" className="text-xs border-green-500/50 text-green-400">
+                    <Zap className="w-3 h-3 mr-1" /> Webhook ativo
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncIncremental}
+                    disabled={syncingIncremental || syncingFull}
+                  >
+                    {syncingIncremental ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Database className="w-4 h-4 mr-1" />}
+                    Sync Incremental
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleFullSync}
+                    disabled={syncingIncremental || syncingFull}
+                  >
+                    {syncingFull ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Database className="w-4 h-4 mr-1" />}
+                    Full Sync
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRefreshKey(prev => prev + 1)}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    Atualizar
+                  </Button>
+                </div>
+              </div>
+            )}
             {renderContent()}
           </main>
         </div>
