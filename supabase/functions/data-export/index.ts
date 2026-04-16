@@ -49,29 +49,73 @@ function parseProcessingInstructions(instructions: string): any {
   const lines = instructions.split('\n').filter((l: string) => l.trim());
   const preSteps: string[] = [];
   const postSteps: string[] = [];
+  const extraSections: Record<string, string[]> = {};
   let section: 'pre' | 'post' | null = null;
+  let currentExtra: string | null = null;
   
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
+    
+    // Detect PRÉ-PROCESSAMENTO (plain or Markdown headers)
+    if (trimmed.match(/^#{1,3}\s*(?:PRÉ|PRE)[-\s]?PROCESSAMENTO/i) ||
+        trimmed.match(/^(?:PRÉ|PRE)[-\s]?PROCESSAMENTO/i)) {
       section = 'pre';
+      currentExtra = null;
       continue;
     }
-    if (trimmed.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
+    if (trimmed.match(/^#{1,3}\s*(?:PÓS|POS)[-\s]?PROCESSAMENTO/i) ||
+        trimmed.match(/^(?:PÓS|POS)[-\s]?PROCESSAMENTO/i)) {
       section = 'post';
+      currentExtra = null;
       continue;
     }
     
-    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-      const step = trimmed.replace(/^[•\-]\s*/, '');
-      if (section === 'pre') preSteps.push(step);
-      if (section === 'post') postSteps.push(step);
+    // Sub-sections (### Lavagem) stay in current section
+    if (trimmed.startsWith('###') && section) {
+      const name = trimmed.replace(/^#{1,3}\s*/, '').trim();
+      const target = section === 'pre' ? preSteps : postSteps;
+      target.push(`[${name}]`);
+      continue;
+    }
+    
+    // Extra ## sections after post
+    const h2Match = trimmed.match(/^##\s+(.+)/);
+    if (h2Match && section === 'post') {
+      currentExtra = h2Match[1].trim();
+      extraSections[currentExtra] = [];
+      continue;
+    }
+    
+    // Bullets: •, -, *, numbered
+    const bulletMatch = trimmed.match(/^(?:[•\-\*]|\d+[.)]\s*)\s*(.*)/);
+    if (bulletMatch && bulletMatch[1]?.trim()) {
+      const step = bulletMatch[1].trim();
+      if (currentExtra) {
+        extraSections[currentExtra].push(step);
+      } else if (section === 'pre') {
+        preSteps.push(step);
+      } else if (section === 'post') {
+        postSteps.push(step);
+      }
+      continue;
+    }
+    
+    // Non-bullet content lines
+    if (section && !trimmed.startsWith('#') && trimmed.length > 3 && trimmed.match(/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/)) {
+      if (currentExtra) {
+        extraSections[currentExtra].push(trimmed);
+      } else if (section === 'pre') {
+        preSteps.push(trimmed);
+      } else if (section === 'post') {
+        postSteps.push(trimmed);
+      }
     }
   }
   
   return {
     pre: preSteps,
     post: postSteps,
+    extra_sections: Object.keys(extraSections).length > 0 ? extraSections : undefined,
     raw: instructions
   };
 }
@@ -155,7 +199,7 @@ async function fetchParameterSets(supabase: any, options: any) {
 async function fetchResins(supabase: any, options: any) {
   let query = supabase
     .from('resins')
-    .select('*')
+    .select('*, ai_context')
     .order('name');
   
   if (options.approved_only) {
@@ -535,7 +579,18 @@ async function fetchKnowledgeCategories(supabase: any, options: any) {
 async function fetchKnowledgeContents(supabase: any, options: any) {
   let query = supabase
     .from('knowledge_contents')
-    .select('*, knowledge_categories(*), authors(*)')
+    .select(`
+      *,
+      title_en, title_es,
+      excerpt_en, excerpt_es,
+      content_html_en, content_html_es,
+      faqs_en, faqs_es,
+      veredict_data, answer_block, technical_properties, recommended_products,
+      is_medical_device, is_scholarly, norm_references,
+      geo_city, geo_state, geo_state_code, client_name, client_specialty,
+      ai_context, ai_context_en, ai_context_es,
+      knowledge_categories(*), authors(*)
+    `)
     .order('updated_at', { ascending: false });
   
   if (options.approved_only) {
@@ -883,6 +938,7 @@ function formatCompact(data: any) {
       cta_4_description: r.cta_4_description,
       
       // Metadata
+      ai_context: r.ai_context || null,
       active: r.active,
       public_url: r.public_url
     })),
@@ -946,20 +1002,25 @@ function formatCompact(data: any) {
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
       id: c.id,
       title: c.title,
+      title_en: c.title_en || null,
+      title_es: c.title_es || null,
       slug: c.slug,
       excerpt: c.excerpt,
+      excerpt_en: c.excerpt_en || null,
+      excerpt_es: c.excerpt_es || null,
       category_id: c.category_id,
       category_name: c.category_name,
       category_letter: c.category_letter,
       author_id: c.author_id,
       keyword_ids: c.keyword_ids,
       recommended_resins: c.recommended_resins,
+      recommended_products: c.recommended_products || null,
+      veredict_data: c.veredict_data || null,
+      answer_block: c.answer_block || null,
+      ai_context: c.ai_context || null,
       public_url: c.public_url,
       active: c.active,
-      // Include AI metadata for Category F
-      ...(c.ai_metadata && {
-        ai_metadata: c.ai_metadata
-      })
+      ...(c.ai_metadata && { ai_metadata: c.ai_metadata })
     })),
     knowledge_videos: (data.knowledge_videos || []).map((v: any) => ({
       id: v.id,
@@ -1232,11 +1293,17 @@ function formatAiReady(data: any) {
       artigos: (data.knowledge_contents || []).map((c: any) => ({
         id: c.id,
         titulo: c.title,
+        titulo_en: c.title_en || null,
+        titulo_es: c.title_es || null,
         slug: c.slug,
         categoria: c.category_name,
         categoria_letra: c.category_letter,
         resumo: c.excerpt,
+        resumo_en: c.excerpt_en || null,
+        resumo_es: c.excerpt_es || null,
         conteudo_html: c.content_html,
+        conteudo_html_en: c.content_html_en || null,
+        conteudo_html_es: c.content_html_es || null,
         conteudo_texto: c.content_text || stripHtmlTags(c.content_html || ''),
         imagem: c.content_image_url,
         imagem_alt: c.content_image_alt,
@@ -1244,6 +1311,32 @@ function formatAiReady(data: any) {
         palavras_chave: c.keywords || [],
         keywords_detalhadas: c.keywords_data || [],
         cor_icone: c.icon_color,
+        
+        // Enriched content
+        veredict_data: c.veredict_data || null,
+        answer_block: c.answer_block || null,
+        technical_properties: c.technical_properties || null,
+        recommended_products: c.recommended_products || null,
+        
+        // Scientific metadata
+        is_medical_device: c.is_medical_device || false,
+        is_scholarly: c.is_scholarly || false,
+        norm_references: c.norm_references || null,
+        
+        // Geolocation
+        geo: (c.geo_city || c.geo_state) ? {
+          cidade: c.geo_city,
+          estado: c.geo_state,
+          uf: c.geo_state_code,
+          cliente: c.client_name,
+          especialidade: c.client_specialty,
+        } : null,
+        
+        // AI context
+        ai_context: c.ai_context || null,
+        ai_context_en: c.ai_context_en || null,
+        ai_context_es: c.ai_context_es || null,
+        
         // AI Metadata for Category F
         ...(c.ai_metadata && {
           metadados_ia: c.ai_metadata
@@ -1263,6 +1356,8 @@ function formatAiReady(data: any) {
           embed_url: v.embed_url
         })),
         faqs: c.faqs || [],
+        faqs_en: c.faqs_en || null,
+        faqs_es: c.faqs_es || null,
         resinas_recomendadas: (c.recommended_resins_data || []).map((r: any) => ({
           id: r.id,
           nome: r.name,
@@ -1755,7 +1850,7 @@ Deno.serve(async (req) => {
     
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     console.log('🔄 Data Export Request:', {
