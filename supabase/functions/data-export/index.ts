@@ -49,29 +49,73 @@ function parseProcessingInstructions(instructions: string): any {
   const lines = instructions.split('\n').filter((l: string) => l.trim());
   const preSteps: string[] = [];
   const postSteps: string[] = [];
+  const extraSections: Record<string, string[]> = {};
   let section: 'pre' | 'post' | null = null;
+  let currentExtra: string | null = null;
   
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
+    
+    // Detect PRÉ-PROCESSAMENTO (plain or Markdown headers)
+    if (trimmed.match(/^#{1,3}\s*(?:PRÉ|PRE)[-\s]?PROCESSAMENTO/i) ||
+        trimmed.match(/^(?:PRÉ|PRE)[-\s]?PROCESSAMENTO/i)) {
       section = 'pre';
+      currentExtra = null;
       continue;
     }
-    if (trimmed.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
+    if (trimmed.match(/^#{1,3}\s*(?:PÓS|POS)[-\s]?PROCESSAMENTO/i) ||
+        trimmed.match(/^(?:PÓS|POS)[-\s]?PROCESSAMENTO/i)) {
       section = 'post';
+      currentExtra = null;
       continue;
     }
     
-    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-      const step = trimmed.replace(/^[•\-]\s*/, '');
-      if (section === 'pre') preSteps.push(step);
-      if (section === 'post') postSteps.push(step);
+    // Sub-sections (### Lavagem) stay in current section
+    if (trimmed.startsWith('###') && section) {
+      const name = trimmed.replace(/^#{1,3}\s*/, '').trim();
+      const target = section === 'pre' ? preSteps : postSteps;
+      target.push(`[${name}]`);
+      continue;
+    }
+    
+    // Extra ## sections after post
+    const h2Match = trimmed.match(/^##\s+(.+)/);
+    if (h2Match && section === 'post') {
+      currentExtra = h2Match[1].trim();
+      extraSections[currentExtra] = [];
+      continue;
+    }
+    
+    // Bullets: •, -, *, numbered
+    const bulletMatch = trimmed.match(/^(?:[•\-\*]|\d+[.)]\s*)\s*(.*)/);
+    if (bulletMatch && bulletMatch[1]?.trim()) {
+      const step = bulletMatch[1].trim();
+      if (currentExtra) {
+        extraSections[currentExtra].push(step);
+      } else if (section === 'pre') {
+        preSteps.push(step);
+      } else if (section === 'post') {
+        postSteps.push(step);
+      }
+      continue;
+    }
+    
+    // Non-bullet content lines
+    if (section && !trimmed.startsWith('#') && trimmed.length > 3 && trimmed.match(/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]/)) {
+      if (currentExtra) {
+        extraSections[currentExtra].push(trimmed);
+      } else if (section === 'pre') {
+        preSteps.push(trimmed);
+      } else if (section === 'post') {
+        postSteps.push(trimmed);
+      }
     }
   }
   
   return {
     pre: preSteps,
     post: postSteps,
+    extra_sections: Object.keys(extraSections).length > 0 ? extraSections : undefined,
     raw: instructions
   };
 }
