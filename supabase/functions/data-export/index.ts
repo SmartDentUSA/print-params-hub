@@ -199,7 +199,7 @@ async function fetchParameterSets(supabase: any, options: any) {
 async function fetchResins(supabase: any, options: any) {
   let query = supabase
     .from('resins')
-    .select('*')
+    .select('*, ai_context')
     .order('name');
   
   if (options.approved_only) {
@@ -579,7 +579,18 @@ async function fetchKnowledgeCategories(supabase: any, options: any) {
 async function fetchKnowledgeContents(supabase: any, options: any) {
   let query = supabase
     .from('knowledge_contents')
-    .select('*, knowledge_categories(*), authors(*)')
+    .select(`
+      *,
+      title_en, title_es,
+      excerpt_en, excerpt_es,
+      content_html_en, content_html_es,
+      faqs_en, faqs_es,
+      veredict_data, answer_block, technical_properties, recommended_products,
+      is_medical_device, is_scholarly, norm_references,
+      geo_city, geo_state, geo_state_code, client_name, client_specialty,
+      ai_context, ai_context_en, ai_context_es,
+      knowledge_categories(*), authors(*)
+    `)
     .order('updated_at', { ascending: false });
   
   if (options.approved_only) {
@@ -1799,7 +1810,7 @@ Deno.serve(async (req) => {
     
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     console.log('🔄 Data Export Request:', {
