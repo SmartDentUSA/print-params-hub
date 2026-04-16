@@ -44,7 +44,18 @@ serve(async (req) => {
       for (const col of columns) {
         const html = article[col];
         if (!html) continue;
-        const { cleaned, fixCount, sample } = cleanCorruptedHtml(html);
+        let { cleaned, fixCount, sample } = cleanCorruptedHtml(html);
+        
+        // Strip inline-product-card divs from visible body if requested
+        if (stripProductCards) {
+          const pcResult = stripProductCardsFromBody(cleaned);
+          if (pcResult.fixCount > 0) {
+            cleaned = pcResult.cleaned;
+            fixCount += pcResult.fixCount;
+            if (!sample) sample = pcResult.sample;
+          }
+        }
+        
         if (fixCount === 0) continue;
         articleFixCount += fixCount;
         updates[col] = cleaned;
