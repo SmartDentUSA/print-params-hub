@@ -444,7 +444,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_deal_history",
-      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use esta ferramenta sempre que precisar consultar deals fechados, ganhos, perdidos ou buscar por produto em propostas.",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_product_mix. NUNCA invente nomes de produtos.",
       parameters: {
         type: "object",
         properties: {
@@ -500,7 +500,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_sales_summary",
-      description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para perguntas sobre faturamento, receita, total de vendas, ranking de vendedores. NUNCA use query_deal_history ou PipeRun API para calcular totais de receita.",
+      description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para perguntas sobre faturamento, receita, total de vendas, ranking de vendedores. NUNCA use query_deal_history ou PipeRun API para calcular totais de receita. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
       parameters: {
         type: "object",
         properties: {
@@ -509,6 +509,37 @@ const tools = [
           include_ranking: { type: "boolean", description: "Se true, inclui ranking por vendedor (padrão true)" }
         },
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_mix",
+      description: "Retorna o MIX REAL de produtos vendidos no mês via fn_mix_produtos_mes (Omie ERP — fonte oficial). Lista produtos com quantidade, receita, ticket médio e categoria. USE SEMPRE para perguntas como 'quais produtos foram vendidos', 'top produtos do mês', 'mix de vendas', 'produtos mais vendidos'. NUNCA invente nomes de produtos — se a função retornar vazio, diga que não há dados.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_sales",
+      description: "Busca vendas de um produto ou família específica via fn_vendas_produto. Use para 'quanto vendi de Vitality', 'vendas de scanners INO200', 'histórico do Rayshape'. Retorna vendas reais do Omie ERP no período.",
+      parameters: {
+        type: "object",
+        properties: {
+          busca: { type: "string", description: "Termo de busca do produto (ex: 'Vitality', 'INO200', 'Rayshape')" },
+          inicio: { type: "string", description: "Data inicial YYYY-MM-DD (padrão: início do ano atual)" },
+          fim: { type: "string", description: "Data final YYYY-MM-DD (padrão: hoje)" }
+        },
+        required: ["busca"]
       }
     }
   }
@@ -1304,6 +1335,42 @@ async function executeQuerySalesSummary(args: any) {
   }
 }
 
+async function executeQueryProductMix(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { periodo: `${mes}/${ano}`, produtos: [], aviso: "Nenhuma venda registrada no período. NÃO invente produtos." };
+    }
+    return { periodo: `${mes}/${ano}`, total_produtos: data.length, produtos: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function executeQueryProductSales(args: any) {
+  try {
+    const now = new Date();
+    const inicio = args.inicio || `${now.getFullYear()}-01-01`;
+    const fim = args.fim || now.toISOString().slice(0, 10);
+    const { data, error } = await supabase.rpc("fn_vendas_produto", {
+      p_busca: args.busca,
+      p_inicio: inicio,
+      p_fim: fim
+    });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { busca: args.busca, periodo: `${inicio} a ${fim}`, vendas: [], aviso: "Nenhuma venda encontrada para este produto no período." };
+    }
+    return { busca: args.busca, periodo: `${inicio} a ${fim}`, total_registros: data.length, vendas: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1333,6 +1400,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_enrollments: executeQueryEnrollments,
   query_opportunity_rules: executeQueryOpportunityRules,
   query_sales_summary: executeQuerySalesSummary,
+  query_product_mix: executeQueryProductMix,
+  query_product_sales: executeQueryProductSales,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -1383,15 +1452,23 @@ Você executa 6 tipos de trabalho:
 🚨 **REGRA ABSOLUTA DE VENDAS:**
 - Total de vendas / faturamento / receita → SEMPRE use \`query_sales_summary\`
 - Ranking / performance por vendedor → SEMPRE use \`query_sales_summary\` com include_ranking=true
-- Análise por produto vendido → use \`query_deal_history\` com status="ganho" OU consulte vw_deal_items_dedup via query_table
-- Filtros customizados de deals → use \`query_deal_history\`
+- **MIX / TOP PRODUTOS VENDIDOS DO MÊS → SEMPRE use \`query_product_mix\`** (fonte: Omie ERP)
+- **Vendas de um produto específico → SEMPRE use \`query_product_sales\`** (ex: "quanto vendi de Vitality")
+- Filtros customizados de deals (status/vendedor) → use \`query_deal_history\`
 - **PROIBIDO**: consultar API do PipeRun para calcular receita
 - **PROIBIDO**: somar valores direto da tabela deal_items sem usar view de dedup
 - **PROIBIDO**: usar query_leads ou query_leads_advanced para responder perguntas de vendas/faturamento
 
+🚨 **REGRA CRÍTICA — PRODUTOS (ANTI-ALUCINAÇÃO):**
+- **NUNCA invente nomes de produtos.** Sempre consulte \`query_product_mix\` ou \`query_product_sales\` antes de listar produtos vendidos.
+- **Catálogo SmartDent (produtos REAIS vendidos):** Scanner BLZ INO200, BLZ INO100, BLZ LS100, Scanner I600, Scanner I700, Impressora Rayshape Edge Mini, Smart Print Vitality, Smart Print Bite Splint Flex, Smart Print Modelo DLP, NanoClean, Smartmake, SmartGum, Wash & Cure Elegoo, Cura Rayshape ShapeCure, Notebook Avell A50.
+- **Marcas CONCORRENTES (NUNCA listar como vendidas):** Formlabs (Form 3B+), Asiga (MAX UV), iTero (Element 5D), Exocad (DentalCAD), Medit (i700/i900/T310), 3Shape, Phrozen, Anycubic. Estas aparecem nos campos \`equip_*\` apenas para detectar oportunidades de migração — NÃO são produtos do portfólio SmartDent.
+- Se \`query_product_mix\` retornar vazio/aviso → responda **"Não há dados de vendas no período"**. NÃO invente, NÃO complete com produtos do catálogo, NÃO use conhecimento prévio.
+
 **Dado de referência (conferir consistência):**
 - Abril 2026 até 09/04: R$ 440.329,19 em 84 deals
 - Top vendedor: Lucas Silva (R$ 141.344,99 / 32,1%)
+- Top produtos abril/2026: Scanner BLZ INO200 (R$ 715K), Scanner I600 (R$ 251K), Rayshape Edge Mini (R$ 203K), BLZ LS100 (R$ 122K)
 
 ---
 
