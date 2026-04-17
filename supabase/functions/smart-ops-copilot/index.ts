@@ -444,7 +444,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_deal_history",
-      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use esta ferramenta sempre que precisar consultar deals fechados, ganhos, perdidos ou buscar por produto em propostas.",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_product_mix. NUNCA invente nomes de produtos.",
       parameters: {
         type: "object",
         properties: {
