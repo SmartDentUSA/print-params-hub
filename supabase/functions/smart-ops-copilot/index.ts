@@ -1400,6 +1400,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_enrollments: executeQueryEnrollments,
   query_opportunity_rules: executeQueryOpportunityRules,
   query_sales_summary: executeQuerySalesSummary,
+  query_product_mix: executeQueryProductMix,
+  query_product_sales: executeQueryProductSales,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
