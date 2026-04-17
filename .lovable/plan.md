@@ -1,63 +1,47 @@
 
+## Diagnóstico
 
-## Diagnóstico da Alucinação do Copilot
+O usuário aponta que o `query_product_mix` (e `query_product_sales`) deve considerar **apenas oportunidades GANHAS**, não em aberto. Preciso verificar o que as funções SQL atuais (`fn_mix_produtos_mes`, `fn_vendas_produto`) estão filtrando.
 
-O Copilot está inventando produtos **concorrentes** (Formlabs Form 3B+, Asiga MAX UV, iTero Element 5D, Exocad DentalCAD, Medit T310) como se fossem vendidos pela SmartDent. **Esses produtos NÃO existem no catálogo SmartDent** — são equipamentos da concorrência usados nos campos `equip_*` para detectar oportunidades de migração.
+Vou checar a definição dessas funções no banco para confirmar se filtram por status `ganha` ou se trazem deals em qualquer estado.
 
-### Causa Raiz
+## Verificação Necessária
 
-1. **Falta de tool para "produtos vendidos"**: O Copilot tem `query_sales_summary` (totais e ranking de vendedores) e `query_deal_history` (busca por status), mas **nenhuma ferramenta retorna agregação de produtos vendidos no mês**. Quando perguntado, ele alucina baseado no contexto do prompt (que cita Medit, Asiga, Exocad como concorrentes).
+1. Inspecionar `fn_mix_produtos_mes(ano, mes)` — fonte de dados (Omie ou deals?), filtro de status
+2. Inspecionar `fn_vendas_produto(busca, inicio, fim)` — mesmo
+3. Confirmar campo de data correto (`closed_at` para ganhas, não `created_at`)
 
-2. **Funções SQL prontas e não expostas**: O banco já tem 4 funções perfeitas que NUNCA foram conectadas ao Copilot:
-   - `fn_mix_produtos_mes(ano, mes)` — produtos vendidos no mês (Omie ERP). **Validei: retorna dados reais** (BLZ INO200 R$715K, Rayshape Edge Mini R$202K, Smart Print Vitality R$88K).
-   - `fn_vendas_produto(busca, inicio, fim)` — busca vendas por produto.
-   - `fn_resumo_familias(inicio, fim)` — agregação por categoria.
-   - `fn_list_proposal_products()` — lista nomes canônicos de produtos.
-
-3. **Prompt não proíbe alucinação de produtos**: O system prompt instrui sobre receita (`query_sales_summary`), mas não tem regra contra inventar nomes de produtos.
-
-### Dados Reais de Abril 2026 (validados via SQL)
-
-| Produto | Qtd | Receita |
-|---|---|---|
-| Scanner BLZ INO200 | 16 | R$ 715.725 |
-| Scanner I600 | 4 | R$ 250.990 |
-| Impressora Rayshape Edge Mini | 15 | R$ 202.900 |
-| Scanner BLZ LS100 | 10 | R$ 122.228 |
-| Notebook Avell A50 | 15 | R$ 116.000 |
-| Resina Smart Print Vitality B1 | 53 | R$ 88.413 |
+Se as funções já filtram por ganhas (Omie só tem faturado), apenas reforçar no prompt. Se não filtram, criar nova migration com versão corrigida ou ajustar a tool no edge function para passar filtro adicional.
 
 ## Plano de Correção
 
-### Arquivo: `supabase/functions/smart-ops-copilot/index.ts`
+### Passo 1 — Auditar funções SQL existentes
+Ler definição de `fn_mix_produtos_mes` e `fn_vendas_produto` via `pg_get_functiondef` para confirmar o filtro atual.
 
-**1. Adicionar 2 novas tools:**
+### Passo 2 — Garantir filtro "ganha apenas"
+Dois cenários possíveis:
 
-- **`query_product_mix`** → invoca `fn_mix_produtos_mes(ano, mes)`. Retorna mix de produtos vendidos no mês com qtd, receita, ticket médio e categoria. Usado para "quais produtos foram vendidos", "top produtos do mês", "mix de vendas".
+**A) Funções já usam Omie (faturamento real)** — então já são "ganhas por definição". Apenas reforçar no system prompt.
 
-- **`query_product_sales`** → invoca `fn_vendas_produto(busca, inicio, fim)`. Busca vendas de um produto específico ou família. Usado para "quanto vendi de Vitality", "vendas de scanners".
+**B) Funções usam tabela `deals` sem filtro de status** — criar migration substituindo as funções para filtrar `WHERE status = 'ganha'` (ou equivalente CRM_Won) e usar `closed_at` no lugar de `created_at`.
 
-**2. Atualizar tool descriptions de `query_sales_summary` e `query_deal_history`:**
-
-Adicionar instrução explícita: *"Para LISTAR produtos vendidos use `query_product_mix`. NUNCA invente nomes de produtos."*
-
-**3. Adicionar guarda anti-alucinação no system prompt** (linha ~1342):
+### Passo 3 — Reforçar no system prompt do Copilot
+Em `supabase/functions/smart-ops-copilot/index.ts`, atualizar a descrição das tools `query_product_mix` e `query_product_sales` e a "REGRA CRÍTICA — PRODUTOS":
 
 ```
-REGRA CRÍTICA — PRODUTOS:
-- NUNCA invente nomes de produtos. Sempre consulte query_product_mix ou query_product_sales.
-- Catálogo SmartDent inclui: BLZ INO200/INO100/LS100, Scanner I600/I700, Rayshape Edge Mini, Smart Print (Vitality, Bite Splint Flex, Modelo DLP), NanoClean, Smartmake, SmartGum, Wash & Cure Elegoo, Cura Rayshape ShapeCure.
-- Marcas como Formlabs, Asiga, iTero, Exocad, 3Shape, Phrozen, Anycubic são CONCORRENTES detectados em campos equip_*, NUNCA produtos vendidos.
-- Se query_product_mix retornar vazio, diga "Não há dados de vendas no período" — NÃO invente.
+- query_product_mix retorna APENAS produtos de deals GANHOS (status='ganha').
+- NUNCA inclua deals em aberto, em negociação ou perdidos no mix de produtos vendidos.
+- Para pipeline em aberto use query_deal_history com status='aberta'.
 ```
 
-**4. Registrar executors no `toolExecutors`** (linha ~1307).
+### Passo 4 — Validar com SQL
+Rodar SELECT comparando totais por status para confirmar que o mix bate com `query_sales_summary` (que já é ganhas).
 
-## Arquivo Afetado
+## Arquivos Afetados
 
-- `supabase/functions/smart-ops-copilot/index.ts` (1 arquivo)
+- `supabase/migrations/` — nova migration corrigindo as funções (se necessário após auditoria)
+- `supabase/functions/smart-ops-copilot/index.ts` — reforçar descrições e regra crítica
 
 ## Resultado Esperado
 
-Copilot passará a responder com produtos reais do catálogo SmartDent (BLZ INO200, Rayshape Edge Mini, Smart Print Vitality) ao invés de inventar Formlabs/Asiga/iTero.
-
+Mix de produtos retornado pelo Copilot reflete somente vendas concluídas (ganhas/faturadas), batendo numericamente com a receita reportada por `query_sales_summary`.
