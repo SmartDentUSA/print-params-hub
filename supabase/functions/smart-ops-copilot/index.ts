@@ -500,7 +500,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_sales_summary",
-      description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para perguntas sobre faturamento, receita, total de vendas, ranking de vendedores. NUNCA use query_deal_history ou PipeRun API para calcular totais de receita.",
+      description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para perguntas sobre faturamento, receita, total de vendas, ranking de vendedores. NUNCA use query_deal_history ou PipeRun API para calcular totais de receita. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
       parameters: {
         type: "object",
         properties: {
@@ -509,6 +509,37 @@ const tools = [
           include_ranking: { type: "boolean", description: "Se true, inclui ranking por vendedor (padrão true)" }
         },
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_mix",
+      description: "Retorna o MIX REAL de produtos vendidos no mês via fn_mix_produtos_mes (Omie ERP — fonte oficial). Lista produtos com quantidade, receita, ticket médio e categoria. USE SEMPRE para perguntas como 'quais produtos foram vendidos', 'top produtos do mês', 'mix de vendas', 'produtos mais vendidos'. NUNCA invente nomes de produtos — se a função retornar vazio, diga que não há dados.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_sales",
+      description: "Busca vendas de um produto ou família específica via fn_vendas_produto. Use para 'quanto vendi de Vitality', 'vendas de scanners INO200', 'histórico do Rayshape'. Retorna vendas reais do Omie ERP no período.",
+      parameters: {
+        type: "object",
+        properties: {
+          busca: { type: "string", description: "Termo de busca do produto (ex: 'Vitality', 'INO200', 'Rayshape')" },
+          inicio: { type: "string", description: "Data inicial YYYY-MM-DD (padrão: início do ano atual)" },
+          fim: { type: "string", description: "Data final YYYY-MM-DD (padrão: hoje)" }
+        },
+        required: ["busca"]
       }
     }
   }
