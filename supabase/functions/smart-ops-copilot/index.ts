@@ -1335,7 +1335,42 @@ async function executeQuerySalesSummary(args: any) {
   }
 }
 
-const toolExecutors: Record<string, (args: any) => Promise<any>> = {
+async function executeQueryProductMix(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { periodo: `${mes}/${ano}`, produtos: [], aviso: "Nenhuma venda registrada no período. NÃO invente produtos." };
+    }
+    return { periodo: `${mes}/${ano}`, total_produtos: data.length, produtos: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function executeQueryProductSales(args: any) {
+  try {
+    const now = new Date();
+    const inicio = args.inicio || `${now.getFullYear()}-01-01`;
+    const fim = args.fim || now.toISOString().slice(0, 10);
+    const { data, error } = await supabase.rpc("fn_vendas_produto", {
+      p_busca: args.busca,
+      p_inicio: inicio,
+      p_fim: fim
+    });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { busca: args.busca, periodo: `${inicio} a ${fim}`, vendas: [], aviso: "Nenhuma venda encontrada para este produto no período." };
+    }
+    return { busca: args.busca, periodo: `${inicio} a ${fim}`, total_registros: data.length, vendas: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
   add_tags: executeAddTags,
