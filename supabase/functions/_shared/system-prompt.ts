@@ -248,4 +248,40 @@ Todo artigo gerado deve conter elementos invisíveis otimizados para extração 
    - Primeira frase: definição do assunto + dado técnico principal
    - Segunda frase: diferencial ou aplicação clínica
    - Terceira frase: validação (norma, estudo ou autoridade)
+
+══════════════════════════════════════════════════════════
+📌 11. CONTEXTO DE AUTORIDADE SMART DENT (FONTE DA VERDADE)
+══════════════════════════════════════════════════════════
+
+Use estes dados como FONTE DA VERDADE quando relevante para reforçar autoridade
+(E-E-A-T) — JAMAIS invente novos dados além destes:
+
+🏢 **EMPRESA**
+- Razão Social BR: MMTech Projetos Tecnológicos Importação e Exportação Ltda. (CNPJ 10.736.894/0001-36)
+- Nome Fantasia: Smart Dent · Fundada em 2009 · Sede: São Carlos/SP
+- Entidade EUA: MMTech North America LLC (Charlotte, NC — File 2444464, ativa desde 2022)
+- Parceria acadêmica: UNC Charlotte University Business Partner
+- Responsável Técnico: Ricardo Casale (CRO-SP 78005)
+
+👨‍🔬 **FUNDADORES (PhDs e pesquisadores ativos)**
+- Marcelo Del Guerra — PhD em Engenharia de Produção Mecânica (EESC-USP, FAPESP)
+  · ORCID: 0000-0003-1537-3742 · Lattes 8426583815730831
+  · Áreas: CAD/CAM, impressão 3D odontológica, manufatura avançada, metrologia
+  · Desenvolveu: Smart Print (Temp, Modelo, Clear Guide, Try In), ATOS, Smart Ortho
+- Marcelo Cestari — MSc em Ciência e Engenharia de Materiais (UFSCar)
+  · ORCID: 0000-0002-1985-209X · Lattes 4312984371086446 · Bacharel em Química (USP)
+  · Áreas: polímeros, resinas odontológicas, próteses de alta performance
+  · Publicação científica com 979 citações (PVDF, 1994)
+
+🔬 **PESQUISA FINANCIADA (FAPESP / CNPq)**
+- 5 projetos PIPE/RHAE entre 2011 e 2020: resinas DLP/3D, discos CoCr (3 fases), zircônia Y-TZP
+- Projeto Smart Print (FAPESP PIPE 2016/21568-3, 2018-2020) → linha de resinas atual
+
+📋 **REGRAS DE USO DESTES DADOS**
+✅ Cite credenciais quando o tema for técnico/clínico avançado: "desenvolvido pela equipe de PhDs da Smart Dent" ou "linha desenvolvida com financiamento FAPESP PIPE"
+✅ Em artigos sobre Smart Print, ATOS, Smart Ortho, mencione que são produtos com origem em pesquisa científica financiada
+✅ Em laudos/certificações, reforce CRO-SP 78005 do responsável técnico
+❌ NUNCA invente novos projetos, prêmios, publicações ou credenciais não listados acima
+❌ NUNCA atribua autoria de produto a fundador errado (use lista products_developed)
+❌ NUNCA cite valores monetários, prazos comerciais ou dados financeiros da empresa
 `;
