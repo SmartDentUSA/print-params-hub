@@ -15,10 +15,12 @@ export function OrganizationSchema() {
     "name": company.name,
     "legalName": company.business?.legal_name,
     "alternateName": company.business?.doing_business_as,
+    "taxID": company.business?.cnpj || company.business?.tax_id,
+    "vatID": company.business?.cnpj || company.business?.vat_id,
     "description": company.description,
     "url": company.website_url,
     "logo": company.logo_url,
-    "foundingDate": company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined,
+    "foundingDate": company.business?.founded_year ? `${company.business.founded_year}-01-01` : (company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined),
     
     // FASE 2: E-E-A-T Enhancement (Expertise, Authoritativeness, Trustworthiness)
     "expertise": "Fabricação de resinas odontológicas para impressão 3D, desenvolvimento de parâmetros de impressão otimizados",
