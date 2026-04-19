@@ -165,6 +165,84 @@ export function OrganizationSchema() {
       },
       "datePublished": mention.date,
     })),
+
+    // Parent Organization (entidade controladora EUA — MMTech NA LLC)
+    "parentOrganization": (() => {
+      const us = company.legal_entities?.find(e => e.country === 'US');
+      if (!us) return undefined;
+      return {
+        "@type": "Organization",
+        "@id": "https://parametros.smartdent.com.br/#organization-us",
+        "name": us.legal_name,
+        "alternateName": us.trade_name,
+        "url": us.website,
+        "foundingDate": us.founded_year ? `${us.founded_year}-01-01` : undefined,
+        "identifier": us.file_number ? [{
+          "@type": "PropertyValue",
+          "propertyID": "NC-SOS-File-Number",
+          "value": us.file_number,
+        }] : undefined,
+        "address": us.address ? {
+          "@type": "PostalAddress",
+          "streetAddress": us.address.street,
+          "addressLocality": us.address.city,
+          "addressRegion": us.address.state,
+          "postalCode": us.address.postal_code,
+          "addressCountry": us.address.country,
+        } : undefined,
+        "telephone": us.phone,
+        "memberOf": us.partnership ? {
+          "@type": "Organization",
+          "name": us.partnership,
+        } : undefined,
+      };
+    })(),
+
+    // Founders (Person Schema completo — E-E-A-T máximo)
+    "founder": company.founders?.map(f => ({
+      "@type": "Person",
+      "@id": `https://parametros.smartdent.com.br/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
+      "name": f.name,
+      "honorificSuffix": f.title,
+      "jobTitle": [f.role_br, f.role_us].filter(Boolean).join(' / '),
+      "identifier": [
+        f.orcid ? { "@type": "PropertyValue", "propertyID": "ORCID", "value": f.orcid } : null,
+        f.lattes_id ? { "@type": "PropertyValue", "propertyID": "Lattes", "value": f.lattes_id } : null,
+      ].filter(Boolean),
+      "sameAs": [f.orcid_url, f.lattes_url, f.fapesp_url].filter(Boolean),
+      "alumniOf": (f.education || []).map(ed => ({
+        "@type": "CollegeOrUniversity",
+        "name": ed.institution,
+      })),
+      "hasCredential": (f.education || []).map(ed => ({
+        "@type": "EducationalOccupationalCredential",
+        "credentialCategory": "degree",
+        "educationalLevel": ed.degree,
+        "about": ed.field,
+      })),
+      "knowsAbout": f.knows_about || [],
+    })),
+
+    // Responsável Técnico (CRO-SP — exigência ANVISA)
+    "employee": company.responsible_technician ? [{
+      "@type": "Person",
+      "name": company.responsible_technician.name,
+      "jobTitle": "Responsável Técnico",
+      "identifier": [{
+        "@type": "PropertyValue",
+        "propertyID": company.responsible_technician.council,
+        "value": company.responsible_technician.license_number,
+      }],
+    }] : undefined,
+
+    // Pesquisa financiada (autoridade científica)
+    "funding": company.research_grants?.map(g => ({
+      "@type": "Grant",
+      "name": g.title,
+      "funder": { "@type": "Organization", "name": g.funder },
+      "identifier": g.grant_id,
+      "description": [g.program, g.period].filter(Boolean).join(' · '),
+    })),
   };
 
   // Remove undefined fields to keep schema clean
