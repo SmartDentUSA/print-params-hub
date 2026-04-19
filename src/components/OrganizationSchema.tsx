@@ -129,8 +129,6 @@ export function OrganizationSchema() {
     
     // Corporate Data
     "numberOfEmployees": company.business?.number_of_employees,
-    "vatID": company.business?.vat_id,
-    "taxID": company.business?.tax_id,
     "duns": company.business?.duns_number,
     
     // Mission & Values
