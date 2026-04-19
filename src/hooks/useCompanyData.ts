@@ -9,12 +9,59 @@ interface CompanyData {
   business?: {
     legal_name?: string;
     doing_business_as?: string;
+    cnpj?: string;
+    company_type?: string;
     duns_number?: string;
     vat_id?: string;
     tax_id?: string;
     number_of_employees?: string;
     annual_revenue?: string;
+    founded_year?: number;
+    sector?: string;
   };
+  legal_entities?: Array<{
+    country: string;
+    legal_name: string;
+    trade_name?: string;
+    tax_id?: string;
+    tax_id_type?: string;
+    file_number?: string;
+    state?: string;
+    status?: string;
+    founded_year?: number;
+    address?: any;
+    phone?: string;
+    website?: string;
+    managers?: string[];
+    partnership?: string;
+  }>;
+  responsible_technician?: {
+    name: string;
+    council: string;
+    license_number: string;
+  };
+  founders?: Array<{
+    name: string;
+    title?: string;
+    role_br?: string;
+    role_us?: string;
+    orcid?: string;
+    orcid_url?: string;
+    lattes_id?: string;
+    lattes_url?: string;
+    fapesp_url?: string;
+    education?: Array<{ degree: string; field: string; institution: string; years?: string; funding?: string }>;
+    knows_about?: string[];
+    products_developed?: string[];
+    key_publication?: { title: string; year: number; citations?: number };
+  }>;
+  research_grants?: Array<{
+    title: string;
+    funder: string;
+    program?: string;
+    grant_id?: string;
+    period: string;
+  }>;
   reviews_reputation?: {
     google_rating?: number;
     google_review_count?: number;
@@ -132,6 +179,10 @@ export function useCompanyData() {
         logo_url: data.image_url || "",
         website_url: data.canonical_url || "",
         business: extraData.business || {},
+        legal_entities: extraData.legal_entities || [],
+        responsible_technician: extraData.responsible_technician || undefined,
+        founders: extraData.founders || [],
+        research_grants: extraData.research_grants || [],
         reviews_reputation: extraData.reviews_reputation || {},
         media: extraData.media || {},
         corporate: extraData.corporate || {},

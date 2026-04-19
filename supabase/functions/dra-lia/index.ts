@@ -28,14 +28,17 @@ const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 // ── Fetch company context from external knowledge-base (ai_training format, live data) ──
 // Timeout: 3s. Falls back to hardcoded values if fetch fails — zero risk to main flow.
 async function fetchCompanyContext(): Promise<string> {
-  const FALLBACK = `- Telefone: (16) 99383-1794
-- WhatsApp: https://wa.me/5516993831794
+  const FALLBACK = `- Razão Social: MMTech Projetos Tecnológicos Importação e Exportação Ltda. (CNPJ 10.736.894/0001-36)
+- Telefone BR: (16) 3419-4735 | WhatsApp: https://wa.me/5516993831794
+- Telefone EUA: +1 704-755-6220 (MMTech North America LLC, Charlotte/NC)
 - E-mail: comercial@smartdent.com.br
-- Endereço: Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP — CEP 13560-460
+- Endereço BR: Rua Doutor Procópio de Toledo Malta, 62 — Morada dos Deuses, São Carlos, SP — CEP 13562-291
 - Horário: Segunda a Sexta, 8h às 18h
-- Fundada em: 2009 | CEO: Marcelo Del Guerra
+- Fundada em: 2009 | Sócios Diretores PhD: Marcelo Del Guerra (ORCID 0000-0003-1537-3742) e Marcelo Cestari (ORCID 0000-0002-1985-209X)
+- Responsável Técnico: Ricardo Casale (CRO-SP 78005)
+- Pesquisa: 5 projetos FAPESP PIPE / CNPq (resinas 3D, CoCr, zircônia)
 - NPS: 96 | Google: 5.0 ⭐ (150+ avaliações)
-- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA
+- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA, UNC Charlotte
 - Loja: https://loja.smartdent.com.br/
 - Parâmetros: https://parametros.smartdent.com.br/
 - Cursos: https://smartdentacademy.astronmembers.com/
@@ -77,11 +80,13 @@ async function fetchCompanyContext(): Promise<string> {
 
       const built = `- Telefone/WhatsApp: ${phone.replace(/\D/g, '').length >= 10 ? phone : "(16) 99383-1794"} | https://wa.me/5516993831794
 - E-mail: ${email.includes('@') ? email : "comercial@smartdent.com.br"}
-- Endereço: ${endereco || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP"}
+- Endereço: ${endereco || "Rua Doutor Procópio de Toledo Malta, 62 — Morada dos Deuses, São Carlos, SP — CEP 13562-291"}
 - Horário: ${horario}
-- Fundada em: 2009 | CEO: Marcelo Del Guerra
+- Razão Social: MMTech Projetos Tecnológicos Importação e Exportação Ltda. (CNPJ 10.736.894/0001-36) | Filial EUA: MMTech North America LLC (NC, USA)
+- Fundada em: 2009 | Sócios PhD: Marcelo Del Guerra (ORCID 0000-0003-1537-3742, EESC-USP) e Marcelo Cestari (ORCID 0000-0002-1985-209X, UFSCar)
+- Resp. Técnico: Ricardo Casale (CRO-SP 78005)
 - NPS: ${nps} | Google: ${rating} (150+ avaliações)
-- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA
+- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA, UNC Charlotte University Business Partner
 - Loja: https://loja.smartdent.com.br/
 - Parâmetros: https://parametros.smartdent.com.br/
 - Cursos: https://smartdentacademy.astronmembers.com/

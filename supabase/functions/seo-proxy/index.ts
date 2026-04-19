@@ -474,14 +474,16 @@ function detectContentType(content: any): 'MedicalWebPage' | 'ScholarlyArticle' 
   return 'TechArticle';
 }
 
-// Publisher Schema completo com dados corporativos
+// Publisher Schema completo com dados corporativos (FONTE DA VERDADE — Smart Dent / MMTech)
 function buildPublisherSchema(baseUrl: string) {
   return {
-    "@type": "Organization",
+    "@type": ["Organization", "Corporation"],
     "@id": `${baseUrl}/#organization`,
     "name": "Smart Dent",
-    "legalName": "Smart Dent Comércio e Desenvolvimento de Produtos Odontológicos LTDA",
-    "alternateName": "Smart Dent Odontologia Digital",
+    "legalName": "MMTech Projetos Tecnológicos Importação e Exportação Ltda.",
+    "alternateName": ["Smart Dent Odontologia Digital", "MMTech"],
+    "taxID": "10.736.894/0001-36",
+    "vatID": "10.736.894/0001-36",
     "url": baseUrl,
     "logo": {
       "@type": "ImageObject",
@@ -492,39 +494,155 @@ function buildPublisherSchema(baseUrl: string) {
     "foundingDate": "2009",
     "numberOfEmployees": {
       "@type": "QuantitativeValue",
-      "value": 40
+      "value": 40,
+      "unitText": "employees"
     },
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": "Rua Alfredo Lopes, 1717 - Jardim Macarengo",
+      "streetAddress": "Rua Doutor Procópio de Toledo Malta, 62 — Morada dos Deuses",
       "addressLocality": "São Carlos",
       "addressRegion": "SP",
-      "postalCode": "13560-460",
+      "postalCode": "13562-291",
       "addressCountry": "BR"
     },
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+55-16-3419-4735",
-      "contactType": "customer service",
-      "availableLanguage": ["Portuguese", "English", "Spanish"]
-    },
-    "sameAs": [
-      "https://www.instagram.com/smartdent.br/",
-      "https://www.youtube.com/@smartdent",
-      "https://www.facebook.com/smartdent.br/",
-      "https://www.linkedin.com/company/smartdent-brasil/"
+    "contactPoint": [
+      {
+        "@type": "ContactPoint",
+        "telephone": "+55-16-3419-4735",
+        "contactType": "customer service",
+        "areaServed": "BR",
+        "availableLanguage": ["Portuguese", "English", "Spanish"]
+      },
+      {
+        "@type": "ContactPoint",
+        "telephone": "+1-704-755-6220",
+        "contactType": "customer service",
+        "areaServed": "US",
+        "availableLanguage": ["English", "Portuguese"]
+      }
     ],
-    "expertise": "Fabricação de resinas odontológicas para impressão 3D",
+    "sameAs": [
+      "https://www.instagram.com/smartdentbr/",
+      "https://www.youtube.com/@smartdentbr",
+      "https://www.facebook.com/smartdent.br/",
+      "https://www.linkedin.com/company/smartdent-brasil/",
+      "https://www.smartdent.com.br",
+      "https://smartdentusa.com",
+      "https://loja.smartdent.com.br",
+      "https://parametros.smartdent.com.br"
+    ],
+    "expertise": "Desenvolvimento e fabricação de resinas odontológicas para impressão 3D, equipamentos CAD/CAM e fluxos digitais completos para odontologia",
     "knowsAbout": [
       "Impressão 3D odontológica",
-      "Resinas fotopolimerizáveis",
+      "Resinas fotopolimerizáveis (DLP/LCD)",
       "Biocompatibilidade dental",
       "Prótese dentária digital",
-      "Ortodontia digital"
+      "Ortodontia digital",
+      "CAD/CAM odontológico",
+      "Escaneamento intraoral",
+      "Discos CoCr para próteses",
+      "Zircônia Y-TZP"
     ],
     "award": [
       "Certificação ISO 13485 - Dispositivos Médicos",
-      "Registro ANVISA para resinas odontológicas"
+      "Registro ANVISA para resinas odontológicas",
+      "FAPESP PIPE 2016/21568-3 — Resina Smart Print",
+      "FAPESP PIPE Fase 3 — Discos CoCr CAD-CAM",
+      "CNPq 300245/2013 — Zircônia Y-TZP odontológica"
+    ],
+    // Entidade controladora americana (parent organization)
+    "parentOrganization": {
+      "@type": "Organization",
+      "@id": `${baseUrl}/#organization-us`,
+      "name": "MMTech North America LLC",
+      "alternateName": "Smart Dent USA",
+      "url": "https://smartdentusa.com",
+      "foundingDate": "2022-06-29",
+      "identifier": [
+        { "@type": "PropertyValue", "propertyID": "NC-SOS-File-Number", "value": "2444464" }
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "10800 Sikes Place, Suite 230",
+        "addressLocality": "Charlotte",
+        "addressRegion": "NC",
+        "postalCode": "28277-8130",
+        "addressCountry": "US"
+      },
+      "telephone": "+1-704-755-6220",
+      "memberOf": {
+        "@type": "Organization",
+        "name": "UNC Charlotte University Business Partner",
+        "url": "https://www.charlotte.edu/"
+      }
+    },
+    // Fundadores como Person Schema completo (E-E-A-T máximo para Google e LLMs)
+    "founder": [
+      {
+        "@type": "Person",
+        "@id": `${baseUrl}/#founder-del-guerra`,
+        "name": "Marcelo Del Guerra",
+        "honorificPrefix": "Dr.",
+        "honorificSuffix": "PhD",
+        "jobTitle": "Sócio Diretor / Manager",
+        "identifier": [
+          { "@type": "PropertyValue", "propertyID": "ORCID", "value": "0000-0003-1537-3742" },
+          { "@type": "PropertyValue", "propertyID": "Lattes", "value": "8426583815730831" }
+        ],
+        "sameAs": [
+          "https://orcid.org/0000-0003-1537-3742",
+          "http://lattes.cnpq.br/8426583815730831",
+          "https://bv.fapesp.br/pt/pesquisador/1694/marcelo-del-guerra/"
+        ],
+        "alumniOf": [
+          { "@type": "CollegeOrUniversity", "name": "Escola de Engenharia de São Carlos - USP (EESC-USP)" }
+        ],
+        "hasCredential": [
+          { "@type": "EducationalOccupationalCredential", "credentialCategory": "degree", "educationalLevel": "PhD", "about": "Engenharia de Produção Mecânica" },
+          { "@type": "EducationalOccupationalCredential", "credentialCategory": "degree", "educationalLevel": "Master", "about": "Manufatura" },
+          { "@type": "EducationalOccupationalCredential", "credentialCategory": "degree", "educationalLevel": "Bachelor", "about": "Engenharia Mecatrônica" }
+        ],
+        "knowsAbout": ["CAD/CAM", "Impressão 3D Odontológica", "Manufatura Avançada", "Metrologia", "Resinas DLP"],
+        "memberOf": {
+          "@type": "Organization",
+          "name": "CNPq - Conselho Nacional de Desenvolvimento Científico e Tecnológico"
+        }
+      },
+      {
+        "@type": "Person",
+        "@id": `${baseUrl}/#founder-cestari`,
+        "name": "Marcelo Cestari",
+        "honorificSuffix": "MSc",
+        "jobTitle": "Diretor Químico / Manager",
+        "identifier": [
+          { "@type": "PropertyValue", "propertyID": "ORCID", "value": "0000-0002-1985-209X" },
+          { "@type": "PropertyValue", "propertyID": "Lattes", "value": "4312984371086446" }
+        ],
+        "sameAs": [
+          "https://orcid.org/0000-0002-1985-209X",
+          "http://lattes.cnpq.br/4312984371086446"
+        ],
+        "alumniOf": [
+          { "@type": "CollegeOrUniversity", "name": "Universidade Federal de São Carlos (UFSCar)" },
+          { "@type": "CollegeOrUniversity", "name": "Universidade de São Paulo (USP)" }
+        ],
+        "hasCredential": [
+          { "@type": "EducationalOccupationalCredential", "credentialCategory": "degree", "educationalLevel": "Master", "about": "Ciência e Engenharia de Materiais" },
+          { "@type": "EducationalOccupationalCredential", "credentialCategory": "degree", "educationalLevel": "Bachelor", "about": "Química" }
+        ],
+        "knowsAbout": ["Polímeros", "PVDF", "Resinas Odontológicas", "Próteses de Alta Performance", "Engenharia de Materiais"]
+      }
+    ],
+    // Responsável Técnico (CRO-SP — exigência ANVISA para dispositivos médicos)
+    "employee": [
+      {
+        "@type": "Person",
+        "name": "Ricardo Casale",
+        "jobTitle": "Responsável Técnico",
+        "identifier": [
+          { "@type": "PropertyValue", "propertyID": "CRO-SP", "value": "78005" }
+        ]
+      }
     ]
   };
 }
