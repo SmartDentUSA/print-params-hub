@@ -211,12 +211,16 @@ serve(async (req) => {
             .limit(2);
 
           detailedProducts.push({
-            type: 'resin',
             ...resin,
-            technicalDocs: docs?.map(d => ({
+            type: 'resin' as const,
+            manufacturer: (resin as any).manufacturer ?? null,
+            category: null as string | null,
+            system_a_product_url: (resin as any).system_a_product_url ?? null,
+            relatedArticles: [] as { title: string; slug: string }[],
+            technicalDocs: (docs?.map(d => ({
               name: d.document_name,
               text: d.extracted_text?.substring(0, 1500)
-            }))
+            })) ?? []) as { name: string; text: string | undefined }[]
           });
         }
       }
@@ -250,13 +254,16 @@ serve(async (req) => {
             .limit(3);
 
           detailedProducts.push({
-            type: 'product',
             ...product,
-            technicalDocs: docs?.map(d => ({
+            type: 'product' as const,
+            manufacturer: null as string | null,
+            category: (product as any).category ?? null,
+            system_a_product_url: null as string | null,
+            technicalDocs: (docs?.map(d => ({
               name: d.document_name,
               text: d.extracted_text?.substring(0, 1500)
-            })),
-            relatedArticles: relatedArticles?.map(a => ({ title: a.title, slug: a.slug }))
+            })) ?? []) as { name: string; text: string | undefined }[],
+            relatedArticles: (relatedArticles?.map(a => ({ title: a.title as string, slug: a.slug as string })) ?? []) as { title: string; slug: string }[]
           });
         }
       }
@@ -275,9 +282,9 @@ ${detailedProducts.map(item => `
 📋 DADOS TÉCNICOS:
 ${item.description || 'Sem descrição'}
 
-${item.technicalDocs?.length > 0 ? `
+${(item.technicalDocs?.length ?? 0) > 0 ? `
 📄 ESPECIFICAÇÕES COMPLETAS:
-${item.technicalDocs.map(doc => `
+${(item.technicalDocs ?? []).map(doc => `
   • ${doc.name}:
   ${doc.text || 'Documento sem texto extraído'}
 `).join('\n')}
@@ -286,9 +293,9 @@ ${item.technicalDocs.map(doc => `
 🔗 DADOS COMERCIAIS:
 - URL de compra: ${item.cta_1_url || item.system_a_product_url || 'Consultar'}
 
-${item.relatedArticles?.length > 0 ? `
+${(item.relatedArticles?.length ?? 0) > 0 ? `
 🔗 ARTIGOS RELACIONADOS:
-${item.relatedArticles.map(a => `- ${a.title} (/base-conhecimento/${a.slug})`).join('\n')}
+${(item.relatedArticles ?? []).map((a: { title: string; slug: string }) => `- ${a.title} (/base-conhecimento/${a.slug})`).join('\n')}
 ` : ''}
 
 `).join('\n')}
@@ -1148,7 +1155,7 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
 
       // 2. Build and inject citation block after first <h1>
       const articleTitle = title || productName || 'Artigo Técnico';
-      const articleExcerpt = excerpt || parsedResponse.metadata?.aiContext || '';
+      const articleExcerpt = excerpt || (parsedResponse as any).metadata?.aiContext || '';
       if (articleExcerpt) {
         const citationBlock = buildCitationBlock({
           title: articleTitle,
@@ -1204,7 +1211,7 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
       JSON.stringify({ 
         html: generatedHTML,
         faqs: generatedFAQs,
-        metadata: parsedResponse.metadata || {
+        metadata: (parsedResponse as any).metadata || {
           educationalLevel: 'professional',
           learningResourceType: 'how-to',
           timeRequired: 'PT10M',
