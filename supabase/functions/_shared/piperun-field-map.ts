@@ -1130,7 +1130,8 @@ export function buildRichDealSnapshot(
   }
   // 2nd fallback: deal.user or deal.owner object (webhook format)
   if (!ownerName) {
-    const ownerObj = ((deal as Record<string, unknown>).owner || (deal as Record<string, unknown>).user) as Record<string, unknown> | undefined;
+    const dealAny = deal as unknown as Record<string, unknown>;
+    const ownerObj = (dealAny.owner || dealAny.user) as Record<string, unknown> | undefined;
     if (ownerObj?.name) ownerName = String(ownerObj.name);
     if (ownerObj?.email && !ownerEmail) ownerEmail = String(ownerObj.email);
   }
@@ -1229,8 +1230,9 @@ export function upsertDealHistory(
 
 // ─── Normalize helper: syncs lia_attendances data to people/companies/deals ───
 
+// deno-lint-ignore no-explicit-any
 export async function callNormalizeFromLead(
-  supabase: ReturnType<typeof import("https://esm.sh/@supabase/supabase-js@2").createClient>,
+  supabase: any,
   leadId: string,
 ): Promise<void> {
   try {

@@ -72,18 +72,19 @@ Deno.serve(async (req) => {
       }
 
       updates.push(
-        supabase
-          .from("lia_attendances")
-          .update({
-            ltv_total: ltv,
-            total_deals: history.length,
-            anchor_product: anchor,
-          })
-          .eq("id", lead.id)
-          .then(({ error: e }) => {
-            if (e) totalErrors++;
-            else totalUpdated++;
-          })
+        Promise.resolve(
+          supabase
+            .from("lia_attendances")
+            .update({
+              ltv_total: ltv,
+              total_deals: history.length,
+              anchor_product: anchor,
+            })
+            .eq("id", lead.id)
+        ).then(({ error: e }) => {
+          if (e) totalErrors++;
+          else totalUpdated++;
+        })
       );
     }
 
