@@ -3,6 +3,7 @@ import { useProductReviews } from '@/hooks/useProductReviews';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyData } from '@/hooks/useCompanyData';
+import { safeCategoryLetter } from '@/utils/knowledgeUrls';
 
 interface KnowledgeSEOHeadProps {
   content?: any;
@@ -955,16 +956,25 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     : contentFAQs.length > 0 
       ? contentFAQs 
       : [];
-  
-  const faqSchema = allFAQs.length > 0 ? {
+
+  // Validação rigorosa: filtrar FAQs com question E answer não-vazios.
+  // Resolve 21 docs com `acceptedAnswer.text` ausente e 47 com FAQPage rejeitado pelo GSC.
+  const validFaqs = (allFAQs as any[]).filter(
+    (f) =>
+      f &&
+      typeof f.question === 'string' && f.question.trim().length > 0 &&
+      typeof f.answer === 'string' && f.answer.trim().length > 0
+  );
+
+  const faqSchema = validFaqs.length > 0 ? {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": allFAQs.map((faq: any) => ({
+    "mainEntity": validFaqs.map((faq: any) => ({
       "@type": "Question",
-      "name": faq.question,
+      "name": faq.question.trim(),
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": faq.answer
+        "text": faq.answer.trim()
       }
     }))
   } : null;
