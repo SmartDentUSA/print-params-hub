@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_category_f_20260427: {
+        Row: {
+          backed_up_at: string | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string | null
+          letter: string | null
+          name: string | null
+          order_index: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string | null
+          letter?: string | null
+          name?: string | null
+          order_index?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string | null
+          letter?: string | null
+          name?: string | null
+          order_index?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _backup_qid_migration_20260427: {
+        Row: {
+          answer_block: string | null
+          backed_up_at: string | null
+          content_html: string | null
+          content_html_en: string | null
+          content_html_es: string | null
+          excerpt: string | null
+          faqs: Json | null
+          id: string | null
+          meta_description: string | null
+          slug: string | null
+          technical_properties: Json | null
+        }
+        Insert: {
+          answer_block?: string | null
+          backed_up_at?: string | null
+          content_html?: string | null
+          content_html_en?: string | null
+          content_html_es?: string | null
+          excerpt?: string | null
+          faqs?: Json | null
+          id?: string | null
+          meta_description?: string | null
+          slug?: string | null
+          technical_properties?: Json | null
+        }
+        Update: {
+          answer_block?: string | null
+          backed_up_at?: string | null
+          content_html?: string | null
+          content_html_en?: string | null
+          content_html_es?: string | null
+          excerpt?: string | null
+          faqs?: Json | null
+          id?: string | null
+          meta_description?: string | null
+          slug?: string | null
+          technical_properties?: Json | null
+        }
+        Relationships: []
+      }
+      _backup_qid_migration_aux_20260427: {
+        Row: {
+          backed_up_at: string | null
+          col1: string | null
+          col2: string | null
+          col3: string | null
+          row_id: string | null
+          src_table: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          col1?: string | null
+          col2?: string | null
+          col3?: string | null
+          row_id?: string | null
+          src_table?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          col1?: string | null
+          col2?: string | null
+          col3?: string | null
+          row_id?: string | null
+          src_table?: string | null
+        }
+        Relationships: []
+      }
       agent_embeddings: {
         Row: {
           chunk_text: string
@@ -3206,6 +3308,13 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "knowledge_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_videos_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_sitemap_urls"
             referencedColumns: ["id"]
           },
           {
@@ -12536,6 +12645,23 @@ export type Database = {
           receita_total: number | null
           ticket_medio: number | null
           unidades_vendidas: number | null
+        }
+        Relationships: []
+      }
+      v_sitemap_urls: {
+        Row: {
+          changefreq: string | null
+          has_en: boolean | null
+          has_es: boolean | null
+          id: string | null
+          lastmod: string | null
+          letter: string | null
+          priority: number | null
+          slug: string | null
+          title: string | null
+          url_en: string | null
+          url_es: string | null
+          url_pt: string | null
         }
         Relationships: []
       }
