@@ -439,23 +439,23 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta name="description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
         <meta name="author" content="Smart Dent" />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
+        <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}/${safeCategoryLetter(category?.letter)}`} />
         
         {/* AI Meta Tags */}
         <meta name="ai-content-type" content="categorypage" />
         <meta name="ai-topic" content={`${category.name}, impressão 3D odontológica, artigos`} />
         
         {/* hreflang tags for multilingual SEO */}
-        <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category.letter?.toLowerCase()}`} />
-        <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category.letter?.toLowerCase()}`} />
-        <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category.letter?.toLowerCase()}`} />
-        <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category.letter?.toLowerCase()}`} />
+        <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${safeCategoryLetter(category?.letter)}`} />
+        <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${safeCategoryLetter(category?.letter)}`} />
+        <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${safeCategoryLetter(category?.letter)}`} />
+        <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${safeCategoryLetter(category?.letter)}`} />
         
         {/* Open Graph */}
         <meta property="og:type" content="website" />
         <meta property="og:title" content={`${category.name} - Base de Conhecimento`} />
         <meta property="og:description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
-        <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
+        <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}/${safeCategoryLetter(category?.letter)}`} />
         <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
         <meta property="og:locale" content="pt_BR" />
         
@@ -481,7 +481,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const hasTranslationEs = !!(content.title_es && content.content_html_es);
   const hasTranslation = currentLang === 'pt' || (currentLang === 'en' && hasTranslationEn) || (currentLang === 'es' && hasTranslationEs);
 
-  const canonicalUrl = `${baseUrl}${pathByLang[currentLang]}/${category?.letter?.toLowerCase()}/${content.slug}`;
+  const canonicalUrl = `${baseUrl}${pathByLang[currentLang]}/${safeCategoryLetter(category?.letter)}/${content.slug}`;
 
   // Check if this is a technical parameter page (Category F)
   const isTechnicalPage = category?.letter === 'F' || content.slug?.startsWith('parametros-');
@@ -938,7 +938,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "@type": "ListItem",
         "position": 3,
         "name": category?.name || "Categoria",
-        "item": `${baseUrl}/base-conhecimento/${category?.letter?.toLowerCase()}`
+        "item": `${baseUrl}/base-conhecimento/${safeCategoryLetter(category?.letter)}`
       },
       {
         "@type": "ListItem",
@@ -1083,10 +1083,10 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
       
       {/* hreflang tags - all languages (translations are auto-generated) */}
-      <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${safeCategoryLetter(category?.letter)}/${content.slug}`} />
+      <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${safeCategoryLetter(category?.letter)}/${content.slug}`} />
+      <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${safeCategoryLetter(category?.letter)}/${content.slug}`} />
+      <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${safeCategoryLetter(category?.letter)}/${content.slug}`} />
       
       {/* Preload OG Image */}
       {content.og_image_url && (
