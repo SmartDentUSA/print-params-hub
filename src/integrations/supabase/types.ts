@@ -3311,13 +3311,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "knowledge_videos_content_id_fkey"
-            columns: ["content_id"]
-            isOneToOne: false
-            referencedRelation: "v_sitemap_urls"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "knowledge_videos_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -12645,23 +12638,6 @@ export type Database = {
           receita_total: number | null
           ticket_medio: number | null
           unidades_vendidas: number | null
-        }
-        Relationships: []
-      }
-      v_sitemap_urls: {
-        Row: {
-          changefreq: string | null
-          has_en: boolean | null
-          has_es: boolean | null
-          id: string | null
-          lastmod: string | null
-          letter: string | null
-          priority: number | null
-          slug: string | null
-          title: string | null
-          url_en: string | null
-          url_es: string | null
-          url_pt: string | null
         }
         Relationships: []
       }

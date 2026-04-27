@@ -4,6 +4,23 @@
       "runtime": "nodejs20.x"
     }
   },
+  "redirects": [
+    {
+      "source": "/base-conhecimento/undefined/:slug*",
+      "destination": "/base-conhecimento/f/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/en/knowledge-base/undefined/:slug*",
+      "destination": "/en/knowledge-base/f/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/es/base-conocimiento/undefined/:slug*",
+      "destination": "/es/base-conocimiento/f/:slug*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/llms.txt",
