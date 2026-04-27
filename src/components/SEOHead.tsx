@@ -581,22 +581,9 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     }
   }
 
-  // FAQ Schema (if faqs provided)
-  let faqSchema = null;
-  if (faqs && faqs.length > 0) {
-    faqSchema = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": faqs.map(faq => ({
-        "@type": "Question",
-        "name": faq.question,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": faq.answer
-        }
-      }))
-    };
-  }
+  // FAQ Schema removido deste componente para evitar duplicação no GSC.
+  // O schema FAQPage canônico é emitido apenas em KnowledgeSEOHead.tsx (artigos da Base de Conhecimento).
+  // Páginas que precisarem de FAQ próprio devem usar KnowledgeSEOHead com content.faqs.
 
   // @graph unificado: Organization + WebSite
   const graphSchema = {
@@ -671,12 +658,6 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       {productSchema && (
         <script type="application/ld+json">
           {JSON.stringify(productSchema)}
-        </script>
-      )}
-
-      {faqSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(faqSchema)}
         </script>
       )}
 

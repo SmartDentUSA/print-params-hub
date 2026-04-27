@@ -167,19 +167,11 @@ const ProductPage = () => {
         <meta name="twitter:image" content={ogImage} />
         <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
         <script type="application/ld+json">{JSON.stringify(productSchema)}</script>
-        {faqs.length > 0 && (
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "FAQPage",
-              "mainEntity": faqs.map((faq: any) => ({
-                "@type": "Question",
-                "name": faq.question,
-                "acceptedAnswer": { "@type": "Answer", "text": faq.answer }
-              }))
-            })}
-          </script>
-        )}
+        {/*
+          FAQPage schema removido deste componente para evitar duplicação no GSC.
+          O schema FAQPage canônico é emitido apenas em KnowledgeSEOHead.tsx.
+          As FAQs continuam sendo renderizadas visualmente abaixo via <KnowledgeFAQ />.
+        */}
         {(product as any).documents && (product as any).documents.length > 0 && (
           <script type="application/ld+json">
             {JSON.stringify({
