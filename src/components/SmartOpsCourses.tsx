@@ -942,6 +942,27 @@ function InscricoesTab() {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setEditRow(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={certLoadingId === r.id}
+                                onClick={() => handleGenerateCertificate(r)}
+                              >
+                                {certLoadingId === r.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Award className={`w-3.5 h-3.5 ${r.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {r.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     </TableCell>
