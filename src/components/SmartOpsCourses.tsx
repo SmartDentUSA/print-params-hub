@@ -818,6 +818,47 @@ function InscricoesTab() {
     }
   };
 
+  const handleGenerateCertificate = async (enrollment: any) => {
+    if (!enrollment.turma_id) {
+      toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
+      return;
+    }
+    setCertLoadingId(enrollment.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-certificate', {
+        body: {
+          turma_id: enrollment.turma_id,
+          enrollment_ids: [enrollment.id],
+          include_companions: false,
+          regenerate: false,
+        },
+      });
+      if (error) throw error;
+
+      const cert = (data as any)?.certificates?.[0];
+      const failed = (data as any)?.errors?.[0];
+      if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
+      if (!cert?.signed_url) throw new Error('PDF não retornado pela função');
+
+      window.open(cert.signed_url, '_blank');
+
+      toast({
+        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado já existia',
+        description: cert.person_name,
+      });
+
+      qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao gerar certificado',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setCertLoadingId(null);
+    }
+  };
+
   const exportCSV = () => {
     if (!rows.length) return;
     const headers = ["Nome", "Curso", "Turma", "Deal", "Status", "Data Inscrição", "WA"];
