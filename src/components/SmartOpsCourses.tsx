@@ -757,6 +757,7 @@ function InscricoesTab() {
   const PAGE_SIZE = 50;
   const [editRow, setEditRow] = useState<any>(null);
   const [deleteRow, setDeleteRow] = useState<any>(null);
+  const [certLoadingId, setCertLoadingId] = useState<string | null>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["smartops_courses_list"],
@@ -778,6 +779,7 @@ function InscricoesTab() {
            empresa_cnpj, empresa_pais, empresa_estado, empresa_cidade, empresa_endereco, empresa_telefone,
            tipo_entrega, rastreamento, enrolled_at, lead_id, wa_sent_at, wa_error,
            turma_snapshot, equipment_data, proposal_items_snapshot, notes,
+           turma_id, certificate_pdf_path, certificate_generated_at,
            course:smartops_courses(title, modality, instructor_name),
            turma:smartops_course_turmas(label),
            companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao)`,
