@@ -25,19 +25,25 @@ const TEMPLATE_FILE = "template.pdf";
 const ITALIANNO_FILE = "Italianno-Regular.ttf";
 const ALEF_FILE = "Alef-Regular.ttf";
 
-const PAGE_W = 842.25;
-const PAGE_H = 595.5;
+// Dimensões do template novo (842.16 x 595.44 — A4 paisagem do Canva)
+const PAGE_W = 842.16;
+const PAGE_H = 595.44;
 
-const CONTENT_CENTER_X = 493;
-const MAX_NAME_WIDTH = 600;
+// Centro horizontal alinhado com "Certificado" e "Certificamos que" do template novo
+const CONTENT_CENTER_X = 487;
 
-const NAME_BASELINE_Y = PAGE_H - 237.7 - 55;
-const LINE1_BASELINE_Y = PAGE_H - 332.7;
-const LINE2_BASELINE_Y = PAGE_H - 353.7;
+// Largura máxima útil pro nome — lateral de ícones ocupa até x≈225, deixa respiro à direita
+const MAX_NAME_WIDTH = 520;
 
-const NAME_BASE_SIZE = 80;
-const NAME_MIN_SIZE = 44;
-const TEXT_SIZE = 15;
+// Baselines verticais (sistema pdf-lib: Y cresce do fundo pro topo)
+const NAME_BASELINE_Y = PAGE_H - 305;   // ~290 — nome em script grande
+const LINE1_BASELINE_Y = PAGE_H - 370;  // ~225 — "concluiu com êxito o treinamento de..."
+const LINE2_BASELINE_Y = PAGE_H - 391;  // ~204 — "em [local], realizado de [datas]."
+
+// Tamanhos de fonte
+const NAME_BASE_SIZE = 75;  // tamanho inicial do nome (auto-fit reduz se necessário)
+const NAME_MIN_SIZE = 38;   // mínimo antes de aplicar escala forçada
+const TEXT_SIZE = 15;       // texto secundário (Alef)
 
 let cachedTemplate: Uint8Array | null = null;
 let cachedItalianno: Uint8Array | null = null;
@@ -94,13 +100,23 @@ async function generateCertificatePdf(opts: {
   const page = pdfDoc.getPage(0);
   const black = rgb(0, 0, 0);
 
+  // Auto-fit do nome: reduz fonte de 2 em 2 pt até caber em MAX_NAME_WIDTH
   let nameSize = NAME_BASE_SIZE;
   while (nameSize > NAME_MIN_SIZE) {
     const w = italianno.widthOfTextAtSize(opts.studentName, nameSize);
     if (w <= MAX_NAME_WIDTH) break;
     nameSize -= 2;
   }
-  const nameWidth = italianno.widthOfTextAtSize(opts.studentName, nameSize);
+
+  // Garantia anti-estouro: se mesmo no NAME_MIN_SIZE o nome ainda excede MAX_NAME_WIDTH,
+  // aplica escala proporcional pra forçar caber EXATO no limite (nome muito longo
+  // vai ficar pequeno, mas legível e dentro das margens).
+  let nameWidth = italianno.widthOfTextAtSize(opts.studentName, nameSize);
+  if (nameWidth > MAX_NAME_WIDTH) {
+    nameSize = (MAX_NAME_WIDTH / nameWidth) * nameSize;
+    nameWidth = MAX_NAME_WIDTH;
+  }
+
   const nameX = CONTENT_CENTER_X - nameWidth / 2;
 
   page.drawText(opts.studentName, {
