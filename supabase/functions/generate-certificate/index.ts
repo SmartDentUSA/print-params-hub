@@ -20,7 +20,7 @@ import { PDFDocument, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
 
 const BUCKET = "training-certificates";
-const ASSETS_PATH = "_assets";
+const ASSETS_PATH = "";
 const TEMPLATE_FILE = "template.pdf";
 const ITALIANNO_FILE = "Italianno-Regular.ttf";
 const ALEF_FILE = "Alef-Regular.ttf";
@@ -71,7 +71,7 @@ function formatDateRange(dates: string[]): string {
 async function loadAsset(supabase: any, file: string): Promise<Uint8Array> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .download(`${ASSETS_PATH}/${file}`);
+    .download(ASSETS_PATH ? `${ASSETS_PATH}/${file}` : file);
   if (error) throw new Error(`Falha ao baixar ${file}: ${error.message}`);
   return new Uint8Array(await data.arrayBuffer());
 }
