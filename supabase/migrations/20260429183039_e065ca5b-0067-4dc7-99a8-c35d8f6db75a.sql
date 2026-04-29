@@ -1,0 +1,2 @@
+UPDATE smartops_course_enrollments SET certificate_pdf_path = NULL, certificate_generated_at = NULL;
+UPDATE smartops_enrollment_companions SET certificate_pdf_path = NULL, certificate_generated_at = NULL;
