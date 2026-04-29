@@ -1,39 +1,51 @@
-## Adicionar Google Tag Manager ao index.html
+# Geração de Certificados de Treinamento
 
-### Objetivo
-Inserir os snippets do Google Tag Manager (GTM) no arquivo `index.html` existente, mantendo todo o conteúdo atual.
+## Parte 1 — Edge Function `generate-certificate`
 
-### Alterações Necessárias
+**Criar:** `supabase/functions/generate-certificate/index.ts` com o conteúdo TypeScript fornecido (pdf-lib + fontkit, template + Italianno + Alef do bucket `training-certificates/_assets/`, escreve PDF em `generated/{turma_id}/{type}_{id}.pdf`, persiste `certificate_pdf_path` + `certificate_generated_at` em `smartops_course_enrollments` / `smartops_enrollment_companions`, retorna signed URLs com TTL 30 dias).
 
-#### 1. No `<head>` (antes do `</head>`)
-**Localização:** Após a linha 156 (após o link do Atom feed) e antes do `</head>` na linha 157.
+**Config (`supabase/config.toml`):** adicionar entrada `[functions.generate-certificate]` com `verify_jwt = false`.
 
-**Snippet a adicionar:**
-```html
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-NZ64Q899');</script>
-    <!-- End Google Tag Manager -->
-```
+Justificativa: o código entregue não chama `getClaims()` nem valida JWT. Com `verify_jwt = true` (default Lovable) o gateway barra a invocação antes do código rodar, mas o handler depende exclusivamente do `SERVICE_ROLE_KEY` interno (não usa o token do chamador). Ficar com `verify_jwt = false` mantém comportamento idêntico ao código fornecido. Como o `SmartOpsCourses` já exige sessão admin no frontend, o botão só é exposto para usuários autenticados — risco aceitável e consistente com o restante das funções administrativas do projeto (`smart-ops-*` usam `verify_jwt = false`).
 
-#### 2. No `<body>` (após a tag `<body>`)
-**Localização:** Após a linha 159 (`<body>`) e antes do skip link na linha 160.
+**Deploy:** automático ao salvar (Lovable). O comando `supabase functions deploy ...` da especificação não é executado — não é necessário.
 
-**Snippet a adicionar:**
-```html
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZ64Q899"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
-```
+**Pré-requisitos no bucket** (responsabilidade do usuário, já confirmado): `training-certificates/_assets/template.pdf`, `Italianno-Regular.ttf`, `Alef-Regular.ttf`.
 
-### Notas Importantes
-- O GTM ID `GTM-NZ64Q899` já está presente no arquivo (linhas 188-192 e 166-168), mas está posicionado no final do `<body>` (deferred loading)
-- Esta alteração move o script principal para o `<head>` (padrão recomendado do GTM) e adiciona o `<noscript>` fallback no início do `<body>`
-- Todo o conteúdo existente deve ser preservado
+## Parte 2 — Botão "Gerar certificado" na aba Inscrições
 
-### Arquivo Alvo
-- `index.html` (raiz do projeto)
+**Arquivo:** `src/components/SmartOpsCourses.tsx`, função `InscricoesTab` (linha 751).
+
+### Mudanças
+
+1. **Imports**: adicionar `Award`, `Loader2` em `lucide-react`; adicionar `Tooltip, TooltipContent, TooltipProvider, TooltipTrigger` de `@/components/ui/tooltip`.
+
+2. **SELECT** (linha ~774): adicionar campos `certificate_pdf_path, certificate_generated_at` à string de colunas.
+
+3. **Estado local** dentro de `InscricoesTab`: `const [certLoadingId, setCertLoadingId] = useState<string | null>(null);`
+
+4. **Handler `handleGenerateCertificate(enrollment)`**: chama `supabase.functions.invoke('generate-certificate', { body: { turma_id, enrollment_ids: [id], include_companions: false, regenerate: false } })`, abre `signed_url` em nova aba, toast de sucesso/erro, invalida `["smartops_enrollments"]` para refetch.
+
+5. **Coluna Ações** (linha ~898): inserir o botão Award **entre** Editar (Pencil) e Deletar (Trash2):
+   - Ícone verde se `r.certificate_pdf_path` existe, cinza caso contrário; `Loader2` animando enquanto `certLoadingId === r.id`.
+   - Tooltip: "Abrir/Gerar certificado".
+   - `Button variant="ghost" size="sm"` (mesmo padrão dos vizinhos).
+   - Disabled durante loading.
+
+### Comportamento
+
+- Sem certificado → EF gera, salva no Storage + DB, retorna signed URL, abre em nova aba, ícone vira verde após refetch.
+- Com certificado → EF retorna signed URL do PDF existente (sem regenerar, pois `regenerate: false`), abre em nova aba.
+- Erro → toast destructive com a mensagem da EF.
+
+## Restrições respeitadas
+
+- Não toca `LeadDetailPanel`, `lead_activity_log`, RLS, integrações PipeRun/SellFlux/Meta, Sistema A.
+- Não cria migration (colunas `certificate_pdf_path` e `certificate_generated_at` já existem).
+- Não modifica os botões Editar/Deletar nem o resto da tabela.
+- Apenas: 1 arquivo novo (EF), 1 entrada no `config.toml`, 1 botão + 1 handler + 2 campos no SELECT em `SmartOpsCourses.tsx`.
+
+## Validação pós-implementação
+
+- Confirmar log da EF na primeira invocação real (verifica que `template.pdf` + fontes carregam do bucket).
+- Confirmar que o ícone fica verde após refetch.

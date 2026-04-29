@@ -20,8 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
 import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/courses";
@@ -756,6 +757,7 @@ function InscricoesTab() {
   const PAGE_SIZE = 50;
   const [editRow, setEditRow] = useState<any>(null);
   const [deleteRow, setDeleteRow] = useState<any>(null);
+  const [certLoadingId, setCertLoadingId] = useState<string | null>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["smartops_courses_list"],
@@ -777,6 +779,7 @@ function InscricoesTab() {
            empresa_cnpj, empresa_pais, empresa_estado, empresa_cidade, empresa_endereco, empresa_telefone,
            tipo_entrega, rastreamento, enrolled_at, lead_id, wa_sent_at, wa_error,
            turma_snapshot, equipment_data, proposal_items_snapshot, notes,
+           turma_id, certificate_pdf_path, certificate_generated_at,
            course:smartops_courses(title, modality, instructor_name),
            turma:smartops_course_turmas(label),
            companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao)`,
@@ -812,6 +815,47 @@ function InscricoesTab() {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setDeleteRow(null);
+    }
+  };
+
+  const handleGenerateCertificate = async (enrollment: any) => {
+    if (!enrollment.turma_id) {
+      toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
+      return;
+    }
+    setCertLoadingId(enrollment.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-certificate', {
+        body: {
+          turma_id: enrollment.turma_id,
+          enrollment_ids: [enrollment.id],
+          include_companions: false,
+          regenerate: false,
+        },
+      });
+      if (error) throw error;
+
+      const cert = (data as any)?.certificates?.[0];
+      const failed = (data as any)?.errors?.[0];
+      if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
+      if (!cert?.signed_url) throw new Error('PDF não retornado pela função');
+
+      window.open(cert.signed_url, '_blank');
+
+      toast({
+        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado já existia',
+        description: cert.person_name,
+      });
+
+      qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao gerar certificado',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setCertLoadingId(null);
     }
   };
 
@@ -898,6 +942,27 @@ function InscricoesTab() {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setEditRow(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={certLoadingId === r.id}
+                                onClick={() => handleGenerateCertificate(r)}
+                              >
+                                {certLoadingId === r.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Award className={`w-3.5 h-3.5 ${r.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {r.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     </TableCell>

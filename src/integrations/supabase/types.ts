@@ -8421,6 +8421,7 @@ export type Database = {
           pessoa_genero: string | null
           pessoa_nascimento: string | null
           pessoa_piperun_id: number | null
+          staging_id: number
           telefone_normalized: string | null
           telefone_raw: string | null
           tem_impressora: string | null
@@ -8443,6 +8444,7 @@ export type Database = {
           pessoa_genero?: string | null
           pessoa_nascimento?: string | null
           pessoa_piperun_id?: number | null
+          staging_id?: number
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
@@ -8465,6 +8467,7 @@ export type Database = {
           pessoa_genero?: string | null
           pessoa_nascimento?: string | null
           pessoa_piperun_id?: number | null
+          staging_id?: number
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
@@ -9165,6 +9168,8 @@ export type Database = {
       smartops_course_enrollments: {
         Row: {
           area_atuacao: string | null
+          certificate_generated_at: string | null
+          certificate_pdf_path: string | null
           course_id: string
           created_at: string | null
           created_by: string | null
@@ -9204,6 +9209,8 @@ export type Database = {
         }
         Insert: {
           area_atuacao?: string | null
+          certificate_generated_at?: string | null
+          certificate_pdf_path?: string | null
           course_id: string
           created_at?: string | null
           created_by?: string | null
@@ -9243,6 +9250,8 @@ export type Database = {
         }
         Update: {
           area_atuacao?: string | null
+          certificate_generated_at?: string | null
+          certificate_pdf_path?: string | null
           course_id?: string
           created_at?: string | null
           created_by?: string | null
@@ -9584,6 +9593,8 @@ export type Database = {
       smartops_enrollment_companions: {
         Row: {
           area_atuacao: string | null
+          certificate_generated_at: string | null
+          certificate_pdf_path: string | null
           created_at: string | null
           email: string | null
           enrollment_id: string
@@ -9594,6 +9605,8 @@ export type Database = {
         }
         Insert: {
           area_atuacao?: string | null
+          certificate_generated_at?: string | null
+          certificate_pdf_path?: string | null
           created_at?: string | null
           email?: string | null
           enrollment_id: string
@@ -9604,6 +9617,8 @@ export type Database = {
         }
         Update: {
           area_atuacao?: string | null
+          certificate_generated_at?: string | null
+          certificate_pdf_path?: string | null
           created_at?: string | null
           email?: string | null
           enrollment_id?: string
