@@ -823,7 +823,6 @@ function InscricoesTab() {
       toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
       return;
     }
-    const certificateTab = window.open('', '_blank');
     setCertLoadingId(enrollment.id);
     try {
       const { data, error } = await supabase.functions.invoke('generate-certificate', {
@@ -841,20 +840,38 @@ function InscricoesTab() {
       if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
       if (!cert?.signed_url) throw new Error('PDF não retornado pela função');
 
-      if (certificateTab && !certificateTab.closed) {
-        certificateTab.location.href = cert.signed_url;
-      } else {
-        window.location.href = cert.signed_url;
+      // Abrir PDF de forma robusta (preview do Lovable roda em iframe → popups bloqueados).
+      // Estratégia: criar <a target="_blank"> e clicar. Se ainda assim bloquear, copia URL.
+      const url: string = cert.signed_url;
+      let opened = false;
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        opened = true;
+      } catch {
+        opened = false;
       }
+      if (!opened) {
+        const w = window.open(url, '_blank', 'noopener,noreferrer');
+        opened = !!w;
+      }
+      // Sempre copiar para o clipboard como fallback
+      try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
 
       toast({
-        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado já existia',
-        description: cert.person_name,
+        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado pronto',
+        description: opened
+          ? `${cert.person_name} — link copiado para a área de transferência.`
+          : `${cert.person_name} — popup bloqueado. Link copiado para a área de transferência, cole na barra de endereços.`,
       });
 
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
     } catch (e: any) {
-      if (certificateTab && !certificateTab.closed) certificateTab.close();
       toast({
         title: 'Erro ao gerar certificado',
         description: e?.message || String(e),
