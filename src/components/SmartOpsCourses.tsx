@@ -20,8 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
 import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/courses";
