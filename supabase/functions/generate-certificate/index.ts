@@ -71,7 +71,7 @@ function formatDateRange(dates: string[]): string {
 async function loadAsset(supabase: any, file: string): Promise<Uint8Array> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .download(`${ASSETS_PATH}/${file}`);
+    .download(ASSETS_PATH ? `${ASSETS_PATH}/${file}` : file);
   if (error) throw new Error(`Falha ao baixar ${file}: ${error.message}`);
   return new Uint8Array(await data.arrayBuffer());
 }
