@@ -823,6 +823,7 @@ function InscricoesTab() {
       toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
       return;
     }
+    const certificateTab = window.open('', '_blank');
     setCertLoadingId(enrollment.id);
     try {
       const { data, error } = await supabase.functions.invoke('generate-certificate', {
@@ -840,7 +841,11 @@ function InscricoesTab() {
       if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
       if (!cert?.signed_url) throw new Error('PDF não retornado pela função');
 
-      window.open(cert.signed_url, '_blank');
+      if (certificateTab && !certificateTab.closed) {
+        certificateTab.location.href = cert.signed_url;
+      } else {
+        window.location.href = cert.signed_url;
+      }
 
       toast({
         title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado já existia',
@@ -849,6 +854,7 @@ function InscricoesTab() {
 
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
     } catch (e: any) {
+      if (certificateTab && !certificateTab.closed) certificateTab.close();
       toast({
         title: 'Erro ao gerar certificado',
         description: e?.message || String(e),
