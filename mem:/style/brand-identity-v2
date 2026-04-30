@@ -1,0 +1,10 @@
+---
+name: Brand Identity v2
+description: Brand definitions and footer hardcode exception for Smart Dent | Fluxo Digital
+type: design
+---
+A identidade visual do projeto é 'Smart Dent | Fluxo Digital'. Todos os metadados de SEO, cabeçalhos HTML e rodapés de páginas públicas devem utilizar obrigatoriamente esta marca e a imagem Open Graph 'og-fluxo-digital.jpg'.
+
+EXCEÇÃO — Footer global (`src/components/Footer.tsx`): usa dados institucionais HARDCODED (CNPJ 10.736.894/0001-36, endereços São Carlos/SP e Charlotte/NC, telefones +55 16 3419-4735 e +1 704-755-6220, email contato@smartdent.com.br, ANVISA 81835969003, FDA K260152, links sociais e copyright "© 2026 Smart Dent — MMTech Projetos Tecnológicos"). Decisão explícita do usuário em 30/04/2026 para garantir disponibilidade imediata do footer sem dependência de fetch.
+
+Demais componentes institucionais (PublicFormPage, SEO heads, etc.) continuam carregando dinamicamente do 'company' object do System A catalog. Não introduzir hardcode em outros lugares.
