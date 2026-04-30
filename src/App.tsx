@@ -16,6 +16,7 @@ import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
 import SupportResources from "./pages/SupportResources";
 import DraLIA from "./components/DraLIA";
+import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
 
 function PageTracker() {
@@ -86,6 +87,9 @@ const App = () => (
 
     {/* Dra. L.I.A. floating widget — shown on all pages except admin and embed */}
     <DraLIAGlobal />
+
+    {/* Global footer — hidden on admin and embed routes */}
+    <FooterGlobal />
   </>
 );
 
@@ -94,6 +98,12 @@ function DraLIAGlobal() {
   const { pathname } = useLocation();
   if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
   return <DraLIA />;
+}
+
+function FooterGlobal() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
+  return <Footer />;
 }
 
 export default App;
