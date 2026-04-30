@@ -1,51 +1,86 @@
-# Geração de Certificados de Treinamento
+## Objetivo
+Substituir `src/components/Footer.tsx` por uma versão 100% estática com os dados fornecidos e renderizá-la globalmente em todas as rotas, exceto `/admin` e `/embed`.
 
-## Parte 1 — Edge Function `generate-certificate`
+## Mudanças
 
-**Criar:** `supabase/functions/generate-certificate/index.ts` com o conteúdo TypeScript fornecido (pdf-lib + fontkit, template + Italianno + Alef do bucket `training-certificates/_assets/`, escreve PDF em `generated/{turma_id}/{type}_{id}.pdf`, persiste `certificate_pdf_path` + `certificate_generated_at` em `smartops_course_enrollments` / `smartops_enrollment_companions`, retorna signed URLs com TTL 30 dias).
+### 1. Reescrever `src/components/Footer.tsx` (estático)
+Remover `useCompanyData`, `useLanguage` e qualquer fetch. Componente puro com dados hardcoded.
 
-**Config (`supabase/config.toml`):** adicionar entrada `[functions.generate-certificate]` com `verify_jwt = false`.
+Estrutura:
+- `<footer className="bg-slate-900 text-slate-300 mt-16">`
+- `<div className="container mx-auto px-4 py-12">`
+- Grid: `grid grid-cols-1 md:grid-cols-4 gap-8`
 
-Justificativa: o código entregue não chama `getClaims()` nem valida JWT. Com `verify_jwt = true` (default Lovable) o gateway barra a invocação antes do código rodar, mas o handler depende exclusivamente do `SERVICE_ROLE_KEY` interno (não usa o token do chamador). Ficar com `verify_jwt = false` mantém comportamento idêntico ao código fornecido. Como o `SmartOpsCourses` já exige sessão admin no frontend, o botão só é exposto para usuários autenticados — risco aceitável e consistente com o restante das funções administrativas do projeto (`smart-ops-*` usam `verify_jwt = false`).
+**Coluna 1 — Sobre**
+- Título "Smart Dent" (`text-white font-semibold text-lg`)
+- "CNPJ: 10.736.894/0001-36"
+- "São Carlos, SP · Brasil"
+- "Charlotte, NC · USA"
 
-**Deploy:** automático ao salvar (Lovable). O comando `supabase functions deploy ...` da especificação não é executado — não é necessário.
+**Coluna 2 — Redes Sociais**
+- Título "Redes Sociais"
+- Linha de ícones lucide (`Instagram`, `Youtube`, `Facebook`, `Linkedin`, `MessageCircle` para WhatsApp), cada um em `<a target="_blank" rel="noopener noreferrer" aria-label="...">` com `transition-colors` e hover por marca:
+  - Instagram → `hover:text-pink-500` → `https://www.instagram.com/smartdentbr/`
+  - YouTube → `hover:text-red-500` → `https://www.youtube.com/@smartdentbr`
+  - Facebook → `hover:text-blue-600` → `https://www.facebook.com/smartdent.br/`
+  - LinkedIn → `hover:text-sky-500` → `https://www.linkedin.com/company/smartdent-brasil/`
+  - WhatsApp → `hover:text-green-500` → `https://api.whatsapp.com/send?phone=5516993831794`
 
-**Pré-requisitos no bucket** (responsabilidade do usuário, já confirmado): `training-certificates/_assets/template.pdf`, `Italianno-Regular.ttf`, `Alef-Regular.ttf`.
+**Coluna 3 — Links**
+- Título "Links"
+- Lista vertical (`space-y-2 text-sm`):
+  - "Parâmetros 3D" → `<Link to="/">` (interno)
+  - "Base de Conhecimento" → `<Link to="/base-conhecimento">` (interno)
+  - "Loja Online" → `https://loja.smartdent.com.br` (externo)
+  - "smartdent.com.br" → `https://smartdent.com.br` (externo)
+  - "Smart Dent USA" → `https://smartdentusa.com` (externo)
+- Links externos com `target="_blank" rel="noopener noreferrer"` e `hover:text-white`
 
-## Parte 2 — Botão "Gerar certificado" na aba Inscrições
+**Coluna 4 — Contato**
+- Título "Contato"
+- Lista (`space-y-2 text-sm`):
+  - `<a href="tel:+551634194735">+55 16 3419-4735</a>`
+  - `<a href="tel:+17047556220">+1 704-755-6220</a>`
+  - `<a href="mailto:contato@smartdent.com.br">contato@smartdent.com.br</a>`
+  - "ANVISA: 81835969003" (texto)
+  - "FDA: K260152" (texto)
 
-**Arquivo:** `src/components/SmartOpsCourses.tsx`, função `InscricoesTab` (linha 751).
+**Barra inferior**
+- `<div className="border-t border-slate-700 mt-10 pt-6 text-center text-xs text-slate-400">`
+- "© 2026 Smart Dent — MMTech Projetos Tecnológicos"
 
-### Mudanças
+Sem dependências de hooks. Apenas: `import { Link } from "react-router-dom"` e ícones de `lucide-react`.
 
-1. **Imports**: adicionar `Award`, `Loader2` em `lucide-react`; adicionar `Tooltip, TooltipContent, TooltipProvider, TooltipTrigger` de `@/components/ui/tooltip`.
+### 2. Atualizar `src/App.tsx`
+- Importar `Footer` de `./components/Footer`
+- Adicionar componente `FooterGlobal` análogo ao `DraLIAGlobal` existente:
 
-2. **SELECT** (linha ~774): adicionar campos `certificate_pdf_path, certificate_generated_at` à string de colunas.
+```tsx
+function FooterGlobal() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
+  return <Footer />;
+}
+```
 
-3. **Estado local** dentro de `InscricoesTab`: `const [certLoadingId, setCertLoadingId] = useState<string | null>(null);`
+- Renderizar `<FooterGlobal />` dentro do fragment de `App`, logo após `<DraLIAGlobal />`.
 
-4. **Handler `handleGenerateCertificate(enrollment)`**: chama `supabase.functions.invoke('generate-certificate', { body: { turma_id, enrollment_ids: [id], include_companions: false, regenerate: false } })`, abre `signed_url` em nova aba, toast de sucesso/erro, invalida `["smartops_enrollments"]` para refetch.
+### 3. Atualizar memória do projeto
+A regra Core "Brand Identity: NO hardcoded company data" entra em conflito direto com este pedido. Vou:
+- Atualizar `mem://style/brand-identity-v2` para registrar a exceção: o Footer global usa dados estáticos hardcoded (CNPJ, endereços, contatos, certificações).
+- Atualizar `mem://index.md` ajustando a linha Core para: *"Brand: 'Smart Dent | Fluxo Digital'. Footer global usa dados est&aacute;ticos hardcoded; demais componentes carregam dinamicamente do System A catalog."*
 
-5. **Coluna Ações** (linha ~898): inserir o botão Award **entre** Editar (Pencil) e Deletar (Trash2):
-   - Ícone verde se `r.certificate_pdf_path` existe, cinza caso contrário; `Loader2` animando enquanto `certLoadingId === r.id`.
-   - Tooltip: "Abrir/Gerar certificado".
-   - `Button variant="ghost" size="sm"` (mesmo padrão dos vizinhos).
-   - Disabled durante loading.
+### 4. Verificações pós-implementação
+- Confirmar via build automático que não há import quebrado.
+- Mostrar diff resumido das alterações em `Footer.tsx` e `App.tsx` ao final.
 
-### Comportamento
+## Pontos técnicos
+- O `Index.tsx` já tem um pequeno footer interno de copyright. Fica como está; o novo Footer global aparece abaixo. Se quiser remover o interno depois, é uma etapa adicional.
+- O `Header` continua intocado.
+- Componentes que dependiam do antigo `Footer` dinâmico: nenhum (verificado — não está importado em lugar nenhum).
 
-- Sem certificado → EF gera, salva no Storage + DB, retorna signed URL, abre em nova aba, ícone vira verde após refetch.
-- Com certificado → EF retorna signed URL do PDF existente (sem regenerar, pois `regenerate: false`), abre em nova aba.
-- Erro → toast destructive com a mensagem da EF.
-
-## Restrições respeitadas
-
-- Não toca `LeadDetailPanel`, `lead_activity_log`, RLS, integrações PipeRun/SellFlux/Meta, Sistema A.
-- Não cria migration (colunas `certificate_pdf_path` e `certificate_generated_at` já existem).
-- Não modifica os botões Editar/Deletar nem o resto da tabela.
-- Apenas: 1 arquivo novo (EF), 1 entrada no `config.toml`, 1 botão + 1 handler + 2 campos no SELECT em `SmartOpsCourses.tsx`.
-
-## Validação pós-implementação
-
-- Confirmar log da EF na primeira invocação real (verifica que `template.pdf` + fontes carregam do bucket).
-- Confirmar que o ícone fica verde após refetch.
+## Arquivos afetados
+- `src/components/Footer.tsx` — reescrita completa
+- `src/App.tsx` — import + `FooterGlobal`
+- `mem://style/brand-identity-v2` — exceção do footer
+- `mem://index.md` — ajuste da regra Core

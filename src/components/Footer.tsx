@@ -1,121 +1,77 @@
-import { Instagram, Youtube, Facebook, Linkedin, Twitter, Mail, Phone, MapPin } from "lucide-react";
-import { useCompanyData } from "@/hooks/useCompanyData";
+import { Instagram, Youtube, Facebook, Linkedin, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { getKnowledgeBasePath } from "@/utils/i18nPaths";
+
+const socials = [
+  { icon: Instagram, label: "Instagram", url: "https://www.instagram.com/smartdentbr/", hover: "hover:text-pink-500" },
+  { icon: Youtube, label: "YouTube", url: "https://www.youtube.com/@smartdentbr", hover: "hover:text-red-500" },
+  { icon: Facebook, label: "Facebook", url: "https://www.facebook.com/smartdent.br/", hover: "hover:text-blue-600" },
+  { icon: Linkedin, label: "LinkedIn", url: "https://www.linkedin.com/company/smartdent-brasil/", hover: "hover:text-sky-500" },
+  { icon: MessageCircle, label: "WhatsApp", url: "https://api.whatsapp.com/send?phone=5516993831794", hover: "hover:text-green-500" },
+];
 
 export function Footer() {
-  const { data: company } = useCompanyData();
-  const { t, language } = useLanguage();
-
-  if (!company) return null;
-
-  const socialLinks = [
-    { icon: Instagram, url: company.social_media.instagram, label: "Instagram" },
-    { icon: Youtube, url: company.social_media.youtube, label: "YouTube" },
-    { icon: Facebook, url: company.social_media.facebook, label: "Facebook" },
-    { icon: Linkedin, url: company.social_media.linkedin, label: "LinkedIn" },
-    { icon: Twitter, url: company.social_media.twitter, label: "Twitter" },
-  ].filter(link => link.url);
-
-  const aboutPath = language === 'en' ? '/sobre' : language === 'es' ? '/sobre' : '/sobre';
-
   return (
-    <footer className="bg-gradient-surface border-t border-border mt-16">
+    <footer className="bg-slate-900 text-slate-300 mt-16">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company Info */}
-          <div className="space-y-4">
-            {company.logo_url && (
-              <img 
-                src={company.logo_url} 
-                alt={company.name}
-                className="h-12 w-auto object-contain"
-              />
-            )}
-            <h3 className="text-lg font-semibold text-foreground">{company.name}</h3>
-            <p className="text-sm text-muted-foreground">{company.description}</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* Coluna 1 — Sobre */}
+          <div className="space-y-3">
+            <h3 className="text-white font-semibold text-lg">Smart Dent</h3>
+            <p className="text-sm">CNPJ: 10.736.894/0001-36</p>
+            <p className="text-sm">São Carlos, SP · Brasil</p>
+            <p className="text-sm">Charlotte, NC · USA</p>
           </div>
 
-          {/* Contact */}
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-foreground">{t('footer.contact')}</h4>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              {company.contact.email && (
-                <a href={`mailto:${company.contact.email}`} className="flex items-center gap-2 hover:text-foreground transition-colors">
-                  <Mail className="w-4 h-4" />
-                  {company.contact.email}
-                </a>
-              )}
-              {company.contact.phone && (
-                <a href={`tel:${company.contact.phone}`} className="flex items-center gap-2 hover:text-foreground transition-colors">
-                  <Phone className="w-4 h-4" />
-                  {company.contact.phone}
-                </a>
-              )}
-              {company.contact.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {company.contact.address}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Links */}
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-foreground">{t('footer.links')}</h4>
-            <div className="space-y-2 text-sm">
-              <Link to={aboutPath} className="block text-muted-foreground hover:text-foreground transition-colors">
-                {t('footer.about_us')}
-              </Link>
-              <Link to={getKnowledgeBasePath(language)} className="block text-muted-foreground hover:text-foreground transition-colors">
-                {t('footer.knowledge_base')}
-              </Link>
-              {company.institutional_links?.slice(0, 3).map((link, index) => (
-                <a 
-                  key={index}
-                  href={link.url}
+          {/* Coluna 2 — Redes Sociais */}
+          <div className="space-y-3">
+            <h4 className="text-white font-semibold text-lg">Redes Sociais</h4>
+            <div className="flex gap-3">
+              {socials.map(({ icon: Icon, label, url, hover }) => (
+                <a
+                  key={label}
+                  href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={label}
+                  className={`w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center transition-colors ${hover}`}
                 >
-                  {link.label}
+                  <Icon className="w-5 h-5" />
                 </a>
               ))}
             </div>
           </div>
 
-          {/* Social Media */}
-          {socialLinks.length > 0 && (
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-foreground">{t('footer.social')}</h4>
-              <div className="flex gap-3">
-                {socialLinks.map((link, index) => {
-                  const Icon = link.icon;
-                  return (
-                    <a
-                      key={index}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={link.label}
-                      className="w-10 h-10 rounded-full bg-muted hover:bg-accent text-muted-foreground hover:text-accent-foreground transition-all flex items-center justify-center"
-                    >
-                      <Icon className="w-5 h-5" />
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Coluna 3 — Links */}
+          <div className="space-y-3">
+            <h4 className="text-white font-semibold text-lg">Links</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/" className="hover:text-white transition-colors">Parâmetros 3D</Link></li>
+              <li><Link to="/base-conhecimento" className="hover:text-white transition-colors">Base de Conhecimento</Link></li>
+              <li><a href="https://loja.smartdent.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Loja Online</a></li>
+              <li><a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">smartdent.com.br</a></li>
+              <li><a href="https://smartdentusa.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Smart Dent USA</a></li>
+            </ul>
+          </div>
+
+          {/* Coluna 4 — Contato */}
+          <div className="space-y-3">
+            <h4 className="text-white font-semibold text-lg">Contato</h4>
+            <ul className="space-y-2 text-sm">
+              <li><a href="tel:+551634194735" className="hover:text-white transition-colors">+55 16 3419-4735</a></li>
+              <li><a href="tel:+17047556220" className="hover:text-white transition-colors">+1 704-755-6220</a></li>
+              <li><a href="mailto:contato@smartdent.com.br" className="hover:text-white transition-colors">contato@smartdent.com.br</a></li>
+              <li className="pt-2">ANVISA: 81835969003</li>
+              <li>FDA: K260152</li>
+            </ul>
+          </div>
         </div>
 
-        {/* Copyright */}
-        <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} {company.name}. {t('common.all_rights_reserved')}.</p>
+        <div className="border-t border-slate-700 mt-10 pt-6 text-center text-xs text-slate-400">
+          © 2026 Smart Dent — MMTech Projetos Tecnológicos
         </div>
       </div>
     </footer>
   );
 }
+
+export default Footer;
