@@ -2861,6 +2861,102 @@ export type Database = {
           },
         ]
       }
+      kg_entities: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          description: string | null
+          entity_type: string
+          extra: Json | null
+          id: string
+          name: string
+          slug: string | null
+          source_id: string | null
+          source_table: string | null
+          updated_at: string | null
+          wikidata_qid: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          entity_type: string
+          extra?: Json | null
+          id?: string
+          name: string
+          slug?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string | null
+          wikidata_qid?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          entity_type?: string
+          extra?: Json | null
+          id?: string
+          name?: string
+          slug?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string | null
+          wikidata_qid?: string | null
+        }
+        Relationships: []
+      }
+      kg_relations: {
+        Row: {
+          active: boolean | null
+          confidence: number | null
+          created_at: string | null
+          from_entity_id: string
+          id: string
+          notes: string | null
+          relation_type: string
+          source: string | null
+          to_entity_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          confidence?: number | null
+          created_at?: string | null
+          from_entity_id: string
+          id?: string
+          notes?: string | null
+          relation_type: string
+          source?: string | null
+          to_entity_id: string
+        }
+        Update: {
+          active?: boolean | null
+          confidence?: number | null
+          created_at?: string | null
+          from_entity_id?: string
+          id?: string
+          notes?: string | null
+          relation_type?: string
+          source?: string | null
+          to_entity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kg_relations_from_entity_id_fkey"
+            columns: ["from_entity_id"]
+            isOneToOne: false
+            referencedRelation: "kg_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kg_relations_to_entity_id_fkey"
+            columns: ["to_entity_id"]
+            isOneToOne: false
+            referencedRelation: "kg_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_categories: {
         Row: {
           created_at: string | null
@@ -8602,12 +8698,16 @@ export type Database = {
       resin_documents: {
         Row: {
           active: boolean | null
+          comparison_material: string | null
           created_at: string | null
           document_category: string | null
           document_description: string | null
           document_name: string
           document_subcategory: string | null
           document_type: string | null
+          doi: string | null
+          evidence_level: string | null
+          external_url: string | null
           extracted_at: string | null
           extracted_text: string | null
           extraction_error: string | null
@@ -8619,19 +8719,34 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          lab_name: string | null
           language: string | null
+          meta_description: string | null
+          norm_code: string | null
           order_index: number | null
+          pubmed_id: string | null
           resin_id: string
+          result_unit: string | null
+          result_value: number | null
+          slug: string | null
+          study_conclusion: string | null
+          study_result: string | null
+          test_parameter: string | null
           updated_at: string | null
+          year_published: number | null
         }
         Insert: {
           active?: boolean | null
+          comparison_material?: string | null
           created_at?: string | null
           document_category?: string | null
           document_description?: string | null
           document_name: string
           document_subcategory?: string | null
           document_type?: string | null
+          doi?: string | null
+          evidence_level?: string | null
+          external_url?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -8643,19 +8758,34 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          lab_name?: string | null
           language?: string | null
+          meta_description?: string | null
+          norm_code?: string | null
           order_index?: number | null
+          pubmed_id?: string | null
           resin_id: string
+          result_unit?: string | null
+          result_value?: number | null
+          slug?: string | null
+          study_conclusion?: string | null
+          study_result?: string | null
+          test_parameter?: string | null
           updated_at?: string | null
+          year_published?: number | null
         }
         Update: {
           active?: boolean | null
+          comparison_material?: string | null
           created_at?: string | null
           document_category?: string | null
           document_description?: string | null
           document_name?: string
           document_subcategory?: string | null
           document_type?: string | null
+          doi?: string | null
+          evidence_level?: string | null
+          external_url?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -8667,10 +8797,21 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          lab_name?: string | null
           language?: string | null
+          meta_description?: string | null
+          norm_code?: string | null
           order_index?: number | null
+          pubmed_id?: string | null
           resin_id?: string
+          result_unit?: string | null
+          result_value?: number | null
+          slug?: string | null
+          study_conclusion?: string | null
+          study_result?: string | null
+          test_parameter?: string | null
           updated_at?: string | null
+          year_published?: number | null
         }
         Relationships: [
           {
@@ -8739,8 +8880,13 @@ export type Database = {
         Row: {
           active: boolean
           ai_context: string | null
+          anvisa_registration: string | null
           canonical_url: string | null
+          certifications: string[] | null
+          clinical_indications: string[] | null
           color: string | null
+          compatibility_list: string[] | null
+          contraindications: string[] | null
           created_at: string
           cta_1_description: string | null
           cta_1_enabled: boolean | null
@@ -8763,6 +8909,7 @@ export type Database = {
           cta_4_url: string | null
           description: string | null
           external_id: string | null
+          fda_510k: string | null
           id: string
           image_url: string | null
           keyword_ids: string[] | null
@@ -8777,14 +8924,21 @@ export type Database = {
           slug: string | null
           system_a_product_id: string | null
           system_a_product_url: string | null
+          technical_specs: Json | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
+          wikidata_qid: string | null
         }
         Insert: {
           active?: boolean
           ai_context?: string | null
+          anvisa_registration?: string | null
           canonical_url?: string | null
+          certifications?: string[] | null
+          clinical_indications?: string[] | null
           color?: string | null
+          compatibility_list?: string[] | null
+          contraindications?: string[] | null
           created_at?: string
           cta_1_description?: string | null
           cta_1_enabled?: boolean | null
@@ -8807,6 +8961,7 @@ export type Database = {
           cta_4_url?: string | null
           description?: string | null
           external_id?: string | null
+          fda_510k?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -8821,14 +8976,21 @@ export type Database = {
           slug?: string | null
           system_a_product_id?: string | null
           system_a_product_url?: string | null
+          technical_specs?: Json | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
+          wikidata_qid?: string | null
         }
         Update: {
           active?: boolean
           ai_context?: string | null
+          anvisa_registration?: string | null
           canonical_url?: string | null
+          certifications?: string[] | null
+          clinical_indications?: string[] | null
           color?: string | null
+          compatibility_list?: string[] | null
+          contraindications?: string[] | null
           created_at?: string
           cta_1_description?: string | null
           cta_1_enabled?: boolean | null
@@ -8851,6 +9013,7 @@ export type Database = {
           cta_4_url?: string | null
           description?: string | null
           external_id?: string | null
+          fda_510k?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -8865,8 +9028,10 @@ export type Database = {
           slug?: string | null
           system_a_product_id?: string | null
           system_a_product_url?: string | null
+          technical_specs?: Json | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
+          wikidata_qid?: string | null
         }
         Relationships: []
       }
@@ -10158,6 +10323,10 @@ export type Database = {
           approved: boolean | null
           canonical_url: string | null
           category: string
+          certifications: string[] | null
+          clinical_indications: string[] | null
+          compatibility_list: string[] | null
+          contraindications: string[] | null
           created_at: string | null
           cta_1_description: string | null
           cta_1_label: string | null
@@ -10190,14 +10359,20 @@ export type Database = {
           seo_title_override: string | null
           slug: string | null
           source: string
+          technical_specs: Json | null
           updated_at: string | null
           visible_in_ui: boolean | null
+          wikidata_qid: string | null
         }
         Insert: {
           active?: boolean | null
           approved?: boolean | null
           canonical_url?: string | null
           category: string
+          certifications?: string[] | null
+          clinical_indications?: string[] | null
+          compatibility_list?: string[] | null
+          contraindications?: string[] | null
           created_at?: string | null
           cta_1_description?: string | null
           cta_1_label?: string | null
@@ -10230,14 +10405,20 @@ export type Database = {
           seo_title_override?: string | null
           slug?: string | null
           source?: string
+          technical_specs?: Json | null
           updated_at?: string | null
           visible_in_ui?: boolean | null
+          wikidata_qid?: string | null
         }
         Update: {
           active?: boolean | null
           approved?: boolean | null
           canonical_url?: string | null
           category?: string
+          certifications?: string[] | null
+          clinical_indications?: string[] | null
+          compatibility_list?: string[] | null
+          contraindications?: string[] | null
           created_at?: string | null
           cta_1_description?: string | null
           cta_1_label?: string | null
@@ -10270,8 +10451,10 @@ export type Database = {
           seo_title_override?: string | null
           slug?: string | null
           source?: string
+          technical_specs?: Json | null
           updated_at?: string | null
           visible_in_ui?: boolean | null
+          wikidata_qid?: string | null
         }
         Relationships: []
       }

@@ -2,9 +2,9 @@ import { Instagram, Youtube, Facebook, Linkedin, MessageCircle } from "lucide-re
 import { Link } from "react-router-dom";
 
 const socials = [
-  { icon: Instagram, label: "Instagram", url: "https://www.instagram.com/smartdentbr/", hover: "hover:text-pink-500" },
-  { icon: Youtube, label: "YouTube", url: "https://www.youtube.com/@smartdentbr", hover: "hover:text-red-500" },
-  { icon: Facebook, label: "Facebook", url: "https://www.facebook.com/smartdent.br/", hover: "hover:text-blue-600" },
+  { icon: Instagram, label: "Instagram", url: "https://www.instagram.com/smartdentoficial/", hover: "hover:text-pink-500" },
+  { icon: Youtube, label: "YouTube", url: "https://www.youtube.com/@smartdentcadcam", hover: "hover:text-red-500" },
+  { icon: Facebook, label: "Facebook", url: "https://www.facebook.com/smartdentoficial", hover: "hover:text-blue-600" },
   { icon: Linkedin, label: "LinkedIn", url: "https://www.linkedin.com/company/smartdent-brasil/", hover: "hover:text-sky-500" },
   { icon: MessageCircle, label: "WhatsApp", url: "https://api.whatsapp.com/send?phone=5516993831794", hover: "hover:text-green-500" },
 ];
