@@ -97,12 +97,45 @@ Deno.serve(async (req) => {
     const produtoInteresse = formProduct || extractField(payload, "produto_interesse", "product");
     const produtoInteresseAuto = formProduct || payload.produto_interesse_auto || null;
 
-    // --- Step 1: Check if lead already exists ---
-    const { data: existingLead } = await supabase
-      .from("lia_attendances")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle();
+    // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
+    let existingLead: Record<string, any> | null = null;
+    let matchedVia: "email" | "phone" | null = null;
+    let incomingEmailDiffersFromCanonical = false;
+
+    {
+      const { data: byEmail } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (byEmail) { existingLead = byEmail; matchedVia = "email"; }
+    }
+    if (!existingLead && telefoneNormalized) {
+      const { data: byPhone } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("telefone_normalized", telefoneNormalized)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (byPhone) { existingLead = byPhone; matchedVia = "phone"; }
+    }
+    // Follow merged_into chain to canonical
+    let hops = 0;
+    while (existingLead?.merged_into && hops < 5) {
+      const { data: parent } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("id", existingLead.merged_into)
+        .maybeSingle();
+      if (!parent) break;
+      existingLead = parent;
+      hops++;
+    }
+    if (existingLead && existingLead.email && existingLead.email.toLowerCase() !== email) {
+      incomingEmailDiffersFromCanonical = true;
+      console.log(`[ingest-lead] Lead matched via ${matchedVia}; incoming email "${email}" differs from canonical "${existingLead.email}". Preserving canonical email.`);
+    }
 
     // --- Step 2: Detect PQL (existing customer re-entering) ---
     let detectedStage: string | null = null;
