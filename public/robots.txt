@@ -68,6 +68,7 @@ Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 # Instructions for AI crawlers
 # Available at: https://parametros.smartdent.com.br/llms.txt
 LLMs: /llms.txt
+LLMs-Full: /llms-full.txt
 
 # Agentes de IA
 User-agent: GPTBot

@@ -31,6 +31,14 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
     },
     {
+      "source": "/llms-full.txt",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-full-txt"
+    },
+    {
+      "source": "/llms-full-:lang.txt",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-full-txt?lang=:lang"
+    },
+    {
       "source": "/docs/:path*",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
@@ -117,6 +125,22 @@
           "key": "X-Robots-Tag",
           "value": "noindex"
         }
+      ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/llms-full.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
   ]
