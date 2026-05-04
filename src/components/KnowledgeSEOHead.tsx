@@ -1034,6 +1034,55 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       ? "summary_large_image" 
       : "summary";
 
+  // 🆕 GEO: Dataset Schema para páginas de Parâmetros Técnicos (Categoria F)
+  // Permite citação direta por Perplexity, ChatGPT Search e Google AI Overviews
+  // como dataset técnico verificável (resina × impressora × parâmetros).
+  const datasetSchema = isTechnicalPage ? (() => {
+    const tp = content.technical_properties || {};
+    const variableMeasured = Object.entries(tp)
+      .filter(([_, v]) => v != null && v !== '')
+      .slice(0, 12)
+      .map(([k, v]) => ({
+        "@type": "PropertyValue",
+        "name": k,
+        "value": String(v)
+      }));
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "Dataset",
+      "name": displayTitle,
+      "description": content.meta_description || content.excerpt ||
+        `Conjunto de parâmetros técnicos validados de impressão 3D odontológica para ${displayTitle}.`,
+      "url": canonicalUrl,
+      "identifier": canonicalUrl,
+      "keywords": content.keywords?.join(', ') || displayTitle,
+      "creator": {
+        "@type": "Organization",
+        "name": "Smart Dent",
+        "url": baseUrl,
+        "sameAs": "https://www.wikidata.org/wiki/Q138636902"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": companyData?.name || "Smart Dent"
+      },
+      "license": "https://parametros.smartdent.com.br/termos",
+      "isAccessibleForFree": true,
+      "datePublished": new Date(content.created_at).toISOString(),
+      "dateModified": new Date(content.updated_at).toISOString(),
+      "inLanguage": htmlLang,
+      "measurementTechnique": "Validação técnica em laboratório Smart Dent (parâmetros de impressão 3D odontológica)",
+      ...(productMentions.length > 0 && { "about": productMentions }),
+      ...(variableMeasured.length > 0 && { "variableMeasured": variableMeasured }),
+      "distribution": [{
+        "@type": "DataDownload",
+        "encodingFormat": "text/html",
+        "contentUrl": canonicalUrl
+      }]
+    };
+  })() : null;
+
   return (
     <Helmet htmlAttributes={{ lang: htmlLang }}>
       <title>{displayTitle} | Smart Dent</title>
@@ -1149,6 +1198,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             learningResourceSchema,
             // 🆕 FASE 4: Product Review Schemas (E-E-A-T)
             ...productReviewSchemas,
+            // 🆕 GEO: Dataset Schema para parâmetros técnicos
+            ...(datasetSchema ? [datasetSchema] : []),
             // 🆕 AUDITORIA: SpeakableSpecification para Voice Search e AI Assistants
             {
               "@type": "WebPage",
