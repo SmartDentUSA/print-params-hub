@@ -17,18 +17,17 @@ interface CitationBlockData {
  */
 export function buildCitationBlock(data: CitationBlockData): string {
   const techFactHtml = data.technicalFact
-    ? `\n        <span class="citation-signal" data-source="Smart Dent Official Content">\n          Fato técnico: ${escapeHtml(data.technicalFact)}\n        </span>`
+    ? `\n        <p class="citation-signal" data-source="Smart Dent Official Content"><strong>Fato técnico:</strong> ${escapeHtml(data.technicalFact)}</p>`
     : '';
 
+  // Visible TL;DR — preferred by Perplexity/ChatGPT Search/Google AI Overviews.
+  // Hidden content is increasingly de-prioritized by extractive engines.
   return `
-    <section class="llm-knowledge-layer" aria-label="Resumo para Extração de IA" data-section="summary" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
-      <div class="ai-citation-box" itemProp="abstract">
-        <h2 class="sr-only">Resumo Técnico para Citação</h2>
-        <p class="article-summary">
-          <strong>${escapeHtml(data.title)}:</strong> ${escapeHtml(data.summary)}${techFactHtml}
-        </p>
-      </div>
-    </section>`;
+    <aside class="llm-tldr" data-section="tldr" data-llm-summary="true" aria-label="Resumo para citação por IA" itemprop="abstract">
+      <div class="llm-tldr-label">TL;DR — Resposta direta</div>
+      <p class="llm-tldr-summary"><strong>${escapeHtml(data.title)}:</strong> ${escapeHtml(data.summary)}</p>${techFactHtml}
+      <p class="llm-tldr-attribution">Fonte: <cite>Smart Dent — Conhecimento Oficial</cite></p>
+    </aside>`;
 }
 
 /**
