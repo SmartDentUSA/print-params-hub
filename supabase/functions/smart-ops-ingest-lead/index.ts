@@ -354,6 +354,27 @@ Deno.serve(async (req) => {
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
 
+      // If canonical already has a PipeRun deal, post a note documenting this new submission
+      if (existingLead.piperun_id && (formName || source === "form")) {
+        fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            lead_id: leadId,
+            deal_id: existingLead.piperun_id,
+            form_name: formName,
+            source,
+            submitted_via_email: incomingEmailDiffersFromCanonical ? email : null,
+            fields_updated: fieldsUpdated,
+            form_responses: payload.form_responses || [],
+            payload,
+          }),
+        }).catch(e => console.warn("[ingest-lead] deal-form-note fire-and-forget error:", e));
+      }
+
       // Recalculate intelligence score after merge
       supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
         .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
