@@ -48,9 +48,9 @@ Deno.serve(async (req) => {
       return json({ error: "lead_id and responses are required" }, 400);
     }
 
-    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_TOKEN");
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
     if (!PIPERUN_API_KEY) {
-      return json({ error: "PIPERUN_API_TOKEN not configured" }, 500);
+      return json({ error: "PIPERUN_API_KEY not configured" }, 500);
     }
 
     const supabase = createClient(

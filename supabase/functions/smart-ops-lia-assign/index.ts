@@ -1230,17 +1230,32 @@ Deno.serve(async (req) => {
       query = query.eq("email", email.trim().toLowerCase());
     }
 
-    const { data: lead, error: leadErr } = await query
+    const { data: leadRaw, error: leadErr } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (leadErr || !lead) {
+    if (leadErr || !leadRaw) {
       console.warn("[lia-assign] Lead not found:", email, leadErr);
       return new Response(JSON.stringify({ error: "Lead not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Canonical guard: follow merged_into chain so we never operate on an orphan lead ──
+    let lead: Record<string, any> = leadRaw as Record<string, any>;
+    let canonicalHops = 0;
+    while (lead.merged_into && canonicalHops < 5) {
+      const { data: parent } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("id", lead.merged_into)
+        .maybeSingle();
+      if (!parent) break;
+      console.log(`[lia-assign] Following merged_into: ${lead.id} → ${parent.id}`);
+      lead = parent as Record<string, any>;
+      canonicalHops++;
     }
 
     // ── Idempotency: skip if assigned in last 5 min (unless force=true or sdr_captacao_reativacao) ──

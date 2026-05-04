@@ -97,12 +97,45 @@ Deno.serve(async (req) => {
     const produtoInteresse = formProduct || extractField(payload, "produto_interesse", "product");
     const produtoInteresseAuto = formProduct || payload.produto_interesse_auto || null;
 
-    // --- Step 1: Check if lead already exists ---
-    const { data: existingLead } = await supabase
-      .from("lia_attendances")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle();
+    // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
+    let existingLead: Record<string, any> | null = null;
+    let matchedVia: "email" | "phone" | null = null;
+    let incomingEmailDiffersFromCanonical = false;
+
+    {
+      const { data: byEmail } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (byEmail) { existingLead = byEmail; matchedVia = "email"; }
+    }
+    if (!existingLead && telefoneNormalized) {
+      const { data: byPhone } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("telefone_normalized", telefoneNormalized)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (byPhone) { existingLead = byPhone; matchedVia = "phone"; }
+    }
+    // Follow merged_into chain to canonical
+    let hops = 0;
+    while (existingLead?.merged_into && hops < 5) {
+      const { data: parent } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("id", existingLead.merged_into)
+        .maybeSingle();
+      if (!parent) break;
+      existingLead = parent;
+      hops++;
+    }
+    if (existingLead && existingLead.email && existingLead.email.toLowerCase() !== email) {
+      incomingEmailDiffersFromCanonical = true;
+      console.log(`[ingest-lead] Lead matched via ${matchedVia}; incoming email "${email}" differs from canonical "${existingLead.email}". Preserving canonical email.`);
+    }
 
     // --- Step 2: Detect PQL (existing customer re-entering) ---
     let detectedStage: string | null = null;
@@ -241,6 +274,11 @@ Deno.serve(async (req) => {
       const { merged, fieldsUpdated: updated, fieldsSkipped } = mergeSmartLead(existingLead, incomingData, source);
       fieldsUpdated = updated;
 
+      // Never overwrite canonical email when matched via phone
+      if (incomingEmailDiffersFromCanonical) {
+        delete (merged as Record<string, unknown>).email;
+      }
+
       if (fieldsSkipped.length > 0) {
         console.log("[ingest-lead] Fields skipped (already filled):", fieldsSkipped.slice(0, 15));
       }
@@ -264,6 +302,19 @@ Deno.serve(async (req) => {
         form_submissions: [...existingHistory, submissionEntry],
         latest_payload: payload,
       };
+
+      // Track alternate email used in this submission (kept on canonical without overwriting)
+      if (incomingEmailDiffersFromCanonical) {
+        const altEmails = new Set<string>([
+          ...((existingLead.raw_payload?.alternate_emails as string[] | undefined) || []),
+          email,
+        ]);
+        merged.raw_payload = {
+          ...(merged.raw_payload || {}),
+          alternate_emails: Array.from(altEmails),
+        };
+        (submissionEntry as Record<string, unknown>).submitted_via_email = email;
+      }
 
       if (Object.keys(merged).length > 0) {
         // Capture previous values for audit
@@ -302,6 +353,40 @@ Deno.serve(async (req) => {
 
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
+
+      // If canonical already has a PipeRun deal, post a note documenting this new submission
+      if (existingLead.piperun_id && (formName || source === "form")) {
+        const responses: Array<{ label: string; value: string }> = Array.isArray(payload.form_responses)
+          ? payload.form_responses.map((r: any) => ({
+              label: String(r.label ?? r.name ?? r.field ?? ""),
+              value: String(r.value ?? r.answer ?? ""),
+            })).filter((r: any) => r.label && r.value)
+          : [];
+        if (incomingEmailDiffersFromCanonical) {
+          responses.unshift({ label: "Email usado neste envio", value: email });
+        }
+        if (responses.length === 0) {
+          // Fallback: serialize updated fields
+          for (const k of fieldsUpdated.slice(0, 20)) {
+            const v = (incomingData as Record<string, unknown>)[k];
+            if (v != null && typeof v !== "object") responses.push({ label: k, value: String(v) });
+          }
+        }
+        if (responses.length > 0) {
+          fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              lead_id: leadId,
+              form_name: formName || `Reentrada via ${source}`,
+              responses,
+            }),
+          }).catch(e => console.warn("[ingest-lead] deal-form-note fire-and-forget error:", e));
+        }
+      }
 
       // Recalculate intelligence score after merge
       supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
