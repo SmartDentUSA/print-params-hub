@@ -356,23 +356,36 @@ Deno.serve(async (req) => {
 
       // If canonical already has a PipeRun deal, post a note documenting this new submission
       if (existingLead.piperun_id && (formName || source === "form")) {
-        fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({
-            lead_id: leadId,
-            deal_id: existingLead.piperun_id,
-            form_name: formName,
-            source,
-            submitted_via_email: incomingEmailDiffersFromCanonical ? email : null,
-            fields_updated: fieldsUpdated,
-            form_responses: payload.form_responses || [],
-            payload,
-          }),
-        }).catch(e => console.warn("[ingest-lead] deal-form-note fire-and-forget error:", e));
+        const responses: Array<{ label: string; value: string }> = Array.isArray(payload.form_responses)
+          ? payload.form_responses.map((r: any) => ({
+              label: String(r.label ?? r.name ?? r.field ?? ""),
+              value: String(r.value ?? r.answer ?? ""),
+            })).filter((r: any) => r.label && r.value)
+          : [];
+        if (incomingEmailDiffersFromCanonical) {
+          responses.unshift({ label: "Email usado neste envio", value: email });
+        }
+        if (responses.length === 0) {
+          // Fallback: serialize updated fields
+          for (const k of fieldsUpdated.slice(0, 20)) {
+            const v = (incomingData as Record<string, unknown>)[k];
+            if (v != null && typeof v !== "object") responses.push({ label: k, value: String(v) });
+          }
+        }
+        if (responses.length > 0) {
+          fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              lead_id: leadId,
+              form_name: formName || `Reentrada via ${source}`,
+              responses,
+            }),
+          }).catch(e => console.warn("[ingest-lead] deal-form-note fire-and-forget error:", e));
+        }
       }
 
       // Recalculate intelligence score after merge
