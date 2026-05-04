@@ -274,6 +274,11 @@ Deno.serve(async (req) => {
       const { merged, fieldsUpdated: updated, fieldsSkipped } = mergeSmartLead(existingLead, incomingData, source);
       fieldsUpdated = updated;
 
+      // Never overwrite canonical email when matched via phone
+      if (incomingEmailDiffersFromCanonical) {
+        delete (merged as Record<string, unknown>).email;
+      }
+
       if (fieldsSkipped.length > 0) {
         console.log("[ingest-lead] Fields skipped (already filled):", fieldsSkipped.slice(0, 15));
       }
@@ -297,6 +302,19 @@ Deno.serve(async (req) => {
         form_submissions: [...existingHistory, submissionEntry],
         latest_payload: payload,
       };
+
+      // Track alternate email used in this submission (kept on canonical without overwriting)
+      if (incomingEmailDiffersFromCanonical) {
+        const altEmails = new Set<string>([
+          ...((existingLead.raw_payload?.alternate_emails as string[] | undefined) || []),
+          email,
+        ]);
+        merged.raw_payload = {
+          ...(merged.raw_payload || {}),
+          alternate_emails: Array.from(altEmails),
+        };
+        (submissionEntry as Record<string, unknown>).submitted_via_email = email;
+      }
 
       if (Object.keys(merged).length > 0) {
         // Capture previous values for audit
