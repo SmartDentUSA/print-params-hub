@@ -442,6 +442,10 @@ serve(async (req) => {
     const url = new URL(req.url);
     const mode = url.searchParams.get("mode") || "full"; // 'full' | 'incremental'
     const stage = url.searchParams.get("stage") || "all"; // 'all' | 'articles' | 'videos' | 'resins' | 'parameters' | 'company_kb' | 'catalog_products'
+    const limitParam = parseInt(url.searchParams.get("limit") || "0", 10);
+    const offsetParam = parseInt(url.searchParams.get("offset") || "0", 10);
+    const windowLimit = limitParam > 0 ? limitParam : 80;
+    const windowOffset = offsetParam > 0 ? offsetParam : 0;
 
     const stageToSourceType: Record<string, string> = {
       articles: "article",
@@ -456,7 +460,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // ── DELETE logic based on mode + stage ──────────────────────
-    if (mode === "full") {
+    if (mode === "full" && windowOffset === 0) {
       if (stage !== "all") {
         const sourceType = stageToSourceType[stage];
         if (sourceType) {
@@ -925,23 +929,28 @@ serve(async (req) => {
       const stageSourceType = stage !== "all" ? stageToSourceType[stage] : undefined;
       const existingTexts = await fetchExistingTexts(supabase, stageSourceType);
       chunksToIndex = chunks.filter((c) => !existingTexts.has(c.chunk_text));
-    } else if (mode === "full" && stage === "all") {
-      // Full mode + all stages: clear everything first
+    } else if (mode === "full" && stage === "all" && windowOffset === 0) {
+      // Full mode + all stages: clear everything first (only on first window)
       await supabase.from("agent_embeddings").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     }
     // Note: full mode + specific stage already deleted selectively above
 
     const externalChunksCount = chunks.filter(c => c.source_type === "company_kb").length;
     const catalogProductChunksCount = chunks.filter(c => c.source_type === "catalog_product").length;
-    console.log(`Mode: ${mode} | Stage: ${stage} | Total: ${chunks.length} | To index: ${chunksToIndex.length} | company_kb: ${externalChunksCount} | catalog_products: ${catalogProductChunksCount}`);
+    const totalToIndex = chunksToIndex.length;
+    const windowEnd = Math.min(windowOffset + windowLimit, totalToIndex);
+    const windowSlice = chunksToIndex.slice(windowOffset, windowEnd);
+    const hasMore = windowEnd < totalToIndex;
+    const nextOffset = hasMore ? windowEnd : null;
+    console.log(`Mode: ${mode} | Stage: ${stage} | Total: ${chunks.length} | To index: ${totalToIndex} | Window: ${windowOffset}-${windowEnd} (${windowSlice.length}) | hasMore: ${hasMore}`);
 
     // ── PROCESS in batches ───────────────────────────────────────
     let indexed = 0;
     let errors = 0;
     let totalEmbeddingCalls = 0;
 
-    for (let i = 0; i < chunksToIndex.length; i += BATCH_SIZE) {
-      const batch = chunksToIndex.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < windowSlice.length; i += BATCH_SIZE) {
+      const batch = windowSlice.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
         batch.map(async (chunk) => {
@@ -968,7 +977,7 @@ serve(async (req) => {
 
       console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${indexed} indexed, ${errors} errors`);
 
-      if (i + BATCH_SIZE < chunksToIndex.length) {
+      if (i + BATCH_SIZE < windowSlice.length) {
         await sleep(DELAY_MS);
       }
     }
@@ -996,6 +1005,11 @@ serve(async (req) => {
         indexed,
         errors,
         skipped: chunks.length - chunksToIndex.length,
+        window_offset: windowOffset,
+        window_size: windowSlice.length,
+        next_offset: nextOffset,
+        has_more: hasMore,
+        total_to_index: totalToIndex,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
