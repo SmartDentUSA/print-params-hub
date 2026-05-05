@@ -267,6 +267,13 @@ Deno.serve(async (req) => {
           }
           smartPayload.piperun_deals_history = upsertDealHistory(currentLead.piperun_deals_history, dealSnapshot);
 
+          try {
+            const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
+            applyPrimarySnapshot(smartPayload, smartPayload.piperun_deals_history as unknown[]);
+          } catch (e) {
+            console.warn("[piperun-full-sync] applyPrimarySnapshot failed:", e);
+          }
+
           if (deal.stage_id) {
             const mappedStatus = STAGE_TO_ETAPA[deal.stage_id] || "sem_contato";
             const { tags: updatedTags } = computeTagsFromStage(mappedStatus, currentLead.tags_crm);
