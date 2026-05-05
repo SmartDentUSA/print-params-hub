@@ -332,20 +332,58 @@ export function AdminDraLIAStats() {
       if (!session) throw new Error("Não autenticado");
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const start = Date.now();
-      const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=${mode}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      });
-      const json = await response.json();
-      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
-      if (!response.ok) {
-        setIndexingResult({ success: false, indexed: 0, errors: 0, skipped: 0, total_chunks: 0, mode, error: json.error || `HTTP ${response.status}` });
-        toast({ title: `Erro na indexação: ${json.error}`, variant: "destructive" });
-      } else {
-        setIndexingResult({ ...json, success: true });
-        toast({ title: `✓ Indexação concluída em ${elapsed}s — ${json.indexed} chunks indexados` });
+      if (mode === "incremental") {
+        // Run stage-by-stage to avoid 504 gateway timeouts
+        const stages = ["articles", "videos", "resins", "parameters", "company_kb", "catalog_products", "authors"];
+        const totals = { indexed: 0, errors: 0, skipped: 0, total_chunks: 0 };
+        const stageErrors: string[] = [];
+        for (let i = 0; i < stages.length; i++) {
+          const s = stages[i];
+          toast({ title: `Indexando ${s}… (${i + 1}/${stages.length})` });
+          try {
+            const r = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=incremental&stage=${s}`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+            });
+            const j = await r.json();
+            if (!r.ok) {
+              stageErrors.push(`${s}: ${j.error || `HTTP ${r.status}`}`);
+            } else {
+              totals.indexed += j.indexed || 0;
+              totals.errors += j.errors || 0;
+              totals.skipped += j.skipped || 0;
+              totals.total_chunks += j.total_chunks || 0;
+            }
+          } catch (e) {
+            stageErrors.push(`${s}: ${e instanceof Error ? e.message : "erro"}`);
+          }
+        }
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        const success = stageErrors.length === 0;
+        setIndexingResult({ ...totals, mode, success, error: stageErrors.join(" | ") || undefined });
+        toast({
+          title: success
+            ? `✓ Indexação incremental concluída em ${elapsed}s — ${totals.indexed} novos chunks`
+            : `Indexação concluída com erros: ${stageErrors.join(" | ")}`,
+          variant: success ? "default" : "destructive",
+        });
         fetchRAGStats();
+      } else {
+        const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=${mode}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        });
+        const json = await response.json();
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        if (!response.ok) {
+          setIndexingResult({ success: false, indexed: 0, errors: 0, skipped: 0, total_chunks: 0, mode, error: json.error || `HTTP ${response.status}` });
+          toast({ title: `Erro na indexação: ${json.error}`, variant: "destructive" });
+        } else {
+          setIndexingResult({ ...json, success: true });
+          toast({ title: `✓ Indexação concluída em ${elapsed}s — ${json.indexed} chunks indexados` });
+          fetchRAGStats();
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
