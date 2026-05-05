@@ -338,26 +338,41 @@ export function AdminDraLIAStats() {
         const stages = ["articles", "videos", "resins", "parameters", "company_kb", "catalog_products", "authors"];
         const totals = { indexed: 0, errors: 0, skipped: 0, total_chunks: 0 };
         const stageErrors: string[] = [];
+        const WINDOW = 60;
         for (let i = 0; i < stages.length; i++) {
           const s = stages[i];
-          toast({ title: `Indexando ${s}… (${i + 1}/${stages.length})` });
-          try {
-            const r = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=incremental&stage=${s}`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-            });
-            const j = await r.json();
-            if (!r.ok) {
-              stageErrors.push(`${s}: ${j.error || `HTTP ${r.status}`}`);
-            } else {
+          let offset = 0;
+          let windowIdx = 0;
+          let stageFailed = false;
+          while (true) {
+            windowIdx++;
+            toast({ title: `Indexando ${s}… (${i + 1}/${stages.length}) — janela ${windowIdx}` });
+            try {
+              const r = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=incremental&stage=${s}&limit=${WINDOW}&offset=${offset}`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+              });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) {
+                stageErrors.push(`${s}@${offset}: ${j.error || `HTTP ${r.status}`}`);
+                stageFailed = true;
+                break;
+              }
               totals.indexed += j.indexed || 0;
               totals.errors += j.errors || 0;
-              totals.skipped += j.skipped || 0;
-              totals.total_chunks += j.total_chunks || 0;
+              if (windowIdx === 1) {
+                totals.skipped += j.skipped || 0;
+                totals.total_chunks += j.total_chunks || 0;
+              }
+              if (!j.has_more || j.next_offset == null) break;
+              offset = j.next_offset;
+            } catch (e) {
+              stageErrors.push(`${s}@${offset}: ${e instanceof Error ? e.message : "erro"}`);
+              stageFailed = true;
+              break;
             }
-          } catch (e) {
-            stageErrors.push(`${s}: ${e instanceof Error ? e.message : "erro"}`);
           }
+          if (stageFailed) continue;
         }
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
         const success = stageErrors.length === 0;
@@ -403,16 +418,31 @@ export function AdminDraLIAStats() {
       if (!session) throw new Error("Não autenticado");
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const start = Date.now();
-      const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=full&stage=${stage}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      });
-      const json = await response.json();
+      const WINDOW = 60;
+      let offset = 0;
+      let totalIndexed = 0;
+      let totalErrors = 0;
+      let windowIdx = 0;
+      let failed: string | null = null;
+      while (true) {
+        windowIdx++;
+        toast({ title: `Reindexando ${stage}… janela ${windowIdx}` });
+        const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=full&stage=${stage}&limit=${WINDOW}&offset=${offset}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) { failed = json.error || `HTTP ${response.status}`; break; }
+        totalIndexed += json.indexed || 0;
+        totalErrors += json.errors || 0;
+        if (!json.has_more || json.next_offset == null) break;
+        offset = json.next_offset;
+      }
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      if (!response.ok) {
-        toast({ title: `Erro na reindexação: ${json.error}`, variant: "destructive" });
+      if (failed) {
+        toast({ title: `Erro na reindexação: ${failed}`, variant: "destructive" });
       } else {
-        toast({ title: `✓ ${stage} reindexado em ${elapsed}s — ${json.indexed} chunks` });
+        toast({ title: `✓ ${stage} reindexado em ${elapsed}s — ${totalIndexed} chunks (${totalErrors} erros)` });
         fetchRAGStats();
       }
     } catch (err) {
