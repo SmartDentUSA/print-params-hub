@@ -18,7 +18,7 @@ import {
   type RichProposalItem,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
-import { logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
+// logEnrichmentAudit no longer used here — primary snapshot is applied inline.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -426,6 +426,14 @@ async function processDeal(
     smartPayload.piperun_id = dealId;
     smartPayload.piperun_deals_history = upsertDealHistory(currentLead.piperun_deals_history, dealSnapshot);
 
+    // Recompute row-level CRM snapshot from the merged history (open > newest closed).
+    try {
+      const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
+      applyPrimarySnapshot(smartPayload, smartPayload.piperun_deals_history as unknown[]);
+    } catch (e) {
+      console.warn("[sync-piperun] applyPrimarySnapshot failed:", e);
+    }
+
     if (deal.stage_id) {
       const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
       const wasStagnant = isInStagnantStatus(currentLead.lead_status);
@@ -483,29 +491,7 @@ async function processDeal(
       counters.updated++;
       callNormalizeFromLead(supabase, currentLead.id).catch(() => {});
 
-      const fullHistory = smartPayload.piperun_deals_history as DealSnapshot[] | undefined;
-      if (fullHistory && fullHistory.length > 1) {
-        const relevantDeal = getMostRelevantDeal(fullHistory);
-        if (relevantDeal && String(relevantDeal.deal_id) !== dealId) {
-          const consolidatedValue = relevantDeal.value != null ? Number(relevantDeal.value) : null;
-          const consolidationPayload: Record<string, unknown> = {
-            valor_oportunidade: consolidatedValue,
-            piperun_id: String(relevantDeal.deal_id),
-            piperun_stage_name: relevantDeal.stage_name || null,
-            updated_at: new Date().toISOString(),
-          };
-          await supabase
-            .from("lia_attendances")
-            .update(consolidationPayload)
-            .eq("id", currentLead.id);
-
-          logEnrichmentAudit(
-            currentLead.id,
-            "piperun_consolidation",
-            ["valor_oportunidade", "piperun_id", "piperun_stage_name"],
-          ).catch(() => {});
-        }
-      }
+      // Row-level snapshot already aligned via applyPrimarySnapshot above.
     } else if (error.code === "23505" && email) {
       const resolved = await resolveDuplicateEmailConflict(supabase, email, smartPayload, currentLead, dealId);
       if (resolved) {

@@ -299,3 +299,6 @@ verify_jwt = false
 
 [functions.fix-category-e-cleanup]
 verify_jwt = false
+
+[functions.backfill-primary-deal]
+verify_jwt = false

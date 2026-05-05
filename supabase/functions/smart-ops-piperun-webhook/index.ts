@@ -812,6 +812,18 @@ Deno.serve(async (req) => {
 
     updateData.piperun_deals_history = upsertDealHistory(currentDealsHistory, dealSnapshot);
 
+    // ─── Primary deal snapshot (overrides row-level CRM fields with the
+    // currently-relevant deal: open > newest closed > newest created). ───
+    try {
+      const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
+      applyPrimarySnapshot(
+        updateData,
+        updateData.piperun_deals_history as unknown[] | null,
+      );
+    } catch (e) {
+      console.warn("[piperun-webhook] applyPrimarySnapshot failed:", e);
+    }
+
     // ─── Journey TAG logic ───
     let journeyTagsAdded: string[] = [];
     let newStatus: string | null = null;

@@ -38,6 +38,12 @@ const ALWAYS_UPDATE: Set<string> = new Set([
   "form_name", "nome",
   // Product/interest fields — latest submission wins
   "produto_interesse", "area_atuacao", "especialidade",
+  // Primary-deal snapshot fields (deterministic via pickPrimaryDeal)
+  "status_atual_lead_crm", "funil_entrada_crm",
+  "piperun_pipeline_id", "piperun_pipeline_name",
+  "piperun_stage_id", "piperun_stage_name",
+  "piperun_owner_id",
+  "data_fechamento_crm",
 ]);
 
 /** Fields that are PROTECTED — never overwrite if they have a value */
