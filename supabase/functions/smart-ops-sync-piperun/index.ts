@@ -491,29 +491,7 @@ async function processDeal(
       counters.updated++;
       callNormalizeFromLead(supabase, currentLead.id).catch(() => {});
 
-      const fullHistory = smartPayload.piperun_deals_history as DealSnapshot[] | undefined;
-      if (fullHistory && fullHistory.length > 1) {
-        const relevantDeal = getMostRelevantDeal(fullHistory);
-        if (relevantDeal && String(relevantDeal.deal_id) !== dealId) {
-          const consolidatedValue = relevantDeal.value != null ? Number(relevantDeal.value) : null;
-          const consolidationPayload: Record<string, unknown> = {
-            valor_oportunidade: consolidatedValue,
-            piperun_id: String(relevantDeal.deal_id),
-            piperun_stage_name: relevantDeal.stage_name || null,
-            updated_at: new Date().toISOString(),
-          };
-          await supabase
-            .from("lia_attendances")
-            .update(consolidationPayload)
-            .eq("id", currentLead.id);
-
-          logEnrichmentAudit(
-            currentLead.id,
-            "piperun_consolidation",
-            ["valor_oportunidade", "piperun_id", "piperun_stage_name"],
-          ).catch(() => {});
-        }
-      }
+      // Row-level snapshot already aligned via applyPrimarySnapshot above.
     } else if (error.code === "23505" && email) {
       const resolved = await resolveDuplicateEmailConflict(supabase, email, smartPayload, currentLead, dealId);
       if (resolved) {
