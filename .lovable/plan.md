@@ -1,96 +1,81 @@
-## Diagnóstico — `wilimar.melo@hotmail.com`
+## Diagnóstico — HTTP 504 na Indexação Incremental
 
-Reconstrução cronológica do que aconteceu:
+A função `index-embeddings` em modo `incremental` (sem `stage`) executa tudo em uma única requisição HTTP:
 
-```text
-10:33  Lead canônico já existia: wilimar.melo@gmail.com (id 02a0…, piperun_id 59451613, fone +5582999539063)
-10:35  Submit form exocad I.A. com email wilimar.melo@hotmail.com + mesmo fone
-       └─ ingest-lead procurou existente APENAS por email (.eq email)
-       └─ Não achou → INSERIU novo lead 3279f3f7… (sem piperun_id)
-       └─ Disparou lia-assign para lead_id=3279f3f7…
-       depois  merge-system uniu por fone → 3279… ficou com merged_into=02a0…
-11:00  Canonical 02a0… recebeu crm_deal_updated (deal 59451613)
-```
+1. Coleta chunks de **6 fontes** (articles, videos, resins, parameters, company_kb, catalog_products) — incluindo um `fetch` ao endpoint `knowledge-base?format=ai_training`.
+2. Faz `select chunk_text from agent_embeddings` **sem filtro nem paginação** (linha 899-901) — limitado a 1000 linhas pelo Supabase, então a dedup fica errada e ainda é cara.
+3. Insere em lotes de 5 com `sleep(2000)` entre lotes.
 
-**Problema real:** o `ingest-lead` só faz lookup por `email` (linha 104 de `smart-ops-ingest-lead/index.ts`). Quando o mesmo lead chega com email diferente mas mesmo telefone, ele **insere um novo registro** e dispara `lia-assign` para esse novo registro órfão. O merge corrige depois, mas:
+Com ~800 artigos + vídeos + catálogo, o tempo total ultrapassa o limite de gateway (~60s no Supabase Edge), retornando **504**. Mesmo quando termina, dedup por `chunk_text` falha porque só lê os primeiros 1000 registros.
 
-1. O `lia-assign` recebe `lead_id` do não-canônico — ele **não checa `merged_into`** e tentaria criar/operar deal nesse lead órfão (no caso do Wilimar, o merge ocorreu antes do lia-assign tocar PipeRun, por isso o deal canônico foi atualizado — mas isso é coincidência de timing).
-2. O `form_data` rico (respostas do exocad I.A.) entrou no lead órfão — quando o merge copia para o canônico depende de `lead-merge-system-v2` rodar a tempo.
-3. Não há nota explícita no deal 59451613 marcando "Nova submissão exocad I.A. recebida via hotmail".
+A indexação **Completa por stage** (botões individuais) já funciona porque processa apenas uma fonte por chamada.
 
 ## Plano de correção
 
-### 1. `smart-ops-ingest-lead/index.ts` — lookup multi-identidade + canonização
+### 1. Refatorar dedup do incremental (`supabase/functions/index-embeddings/index.ts`)
 
-Substituir o lookup único por email pela cascata de identidade do CDP (alinhado a `mem://identity & merging`):
+Substituir o `select chunk_text` global por dedup **dentro de cada stage**, paginando 1000 em 1000:
 
 ```ts
-// 1) Por email
-let existingLead = await fetchByEmail(email);
-// 2) Por telefone normalizado, se não achou
-if (!existingLead && telefoneNormalized) {
-  existingLead = await fetchByPhone(telefoneNormalized);
-}
-// 3) Se o achado tem merged_into, seguir cadeia até o canônico
-while (existingLead?.merged_into) {
-  existingLead = await fetchById(existingLead.merged_into);
+async function fetchExistingTexts(supabase, sourceType: string): Promise<Set<string>> {
+  const set = new Set<string>();
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data } = await supabase
+      .from("agent_embeddings")
+      .select("chunk_text")
+      .eq("source_type", sourceType)
+      .range(from, from + PAGE - 1);
+    if (!data || data.length === 0) break;
+    data.forEach(r => set.add(r.chunk_text));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return set;
 }
 ```
 
-Comportamento depois disso:
-- Se `existingLead` existe → roda `mergeSmartLead` no **canônico** (não cria órfão).
-- Se o email recebido é diferente do canônico → adiciona ao `raw_payload.alternate_emails` (sem sobrescrever `email` canônico) e mantém `form_data[formName]` com `submitted_via_email: <hotmail>`.
-- `lia-assign` é disparado com `lead_id` = canônico.
+Filtrar por `source_type` evita varrer toda a tabela.
 
-### 2. `smart-ops-lia-assign/index.ts` — guard de canonização
+### 2. Forçar `incremental` a rodar por stage no client
 
-No início (após buscar o lead, ~linha 1233), adicionar:
+Em `src/components/AdminDraLIAStats.tsx` (`handleIndexing`), quando `mode === "incremental"`, **iterar pelas stages** sequencialmente e somar resultados, em vez de uma única chamada `mode=incremental&stage=all`:
 
 ```ts
-// Follow merged_into chain to canonical
-let canonical = lead;
-while (canonical.merged_into) {
-  const { data } = await supabase.from("lia_attendances")
-    .select("*").eq("id", canonical.merged_into).maybeSingle();
-  if (!data) break;
-  canonical = data;
+const stages = ["articles","videos","resins","parameters","company_kb","catalog_products","authors"];
+let totals = { indexed: 0, errors: 0, skipped: 0, total_chunks: 0 };
+for (const s of stages) {
+  const r = await fetch(`${url}/functions/v1/index-embeddings?mode=incremental&stage=${s}`, …);
+  const j = await r.json();
+  // acumula
 }
-const lead = canonical; // operar sempre no canônico
 ```
 
-Isso protege contra qualquer caller que ainda passe um `lead_id` órfão.
+Cada chamada fica < 60s. O usuário continua vendo um único botão "Indexação Incremental" com progresso ("Indexando articles… 3/7").
 
-### 3. Nota no deal documentando a nova submissão
+### 3. Suportar `mode=incremental&stage=<x>` na edge function
 
-Quando o `ingest-lead` faz merge em canônico que já tem `piperun_id`, disparar `smart-ops-deal-form-note` (já existe) com:
-- nome do formulário (`# - Formulário exocad I.A.`)
-- email alternativo usado (`wilimar.melo@hotmail.com`)
-- campos novos preenchidos
-- timestamp
+Hoje o filtro incremental (linha 896-907) só roda no final, mas a coleta de chunks já é segmentada por `stage`. Basta garantir que o `chunksToIndex` use `fetchExistingTexts(supabase, stageToSourceType[stage])` quando `stage !== "all"`. Quando `stage === "all"` + `incremental`, manter o comportamento atual mas paginando (fallback para uso programático).
 
-Assim o vendedor enxerga no PipeRun que houve uma nova interação, mesmo sem mover o deal.
+### 4. Aumentar resiliência
 
-### 4. Reprocessar o caso Wilimar manualmente
+- Reduzir `DELAY_MS` de 2000 → 500ms (cache de embeddings já evita rate-limit nos hits) ou removê-lo quando o batch tem hit-rate alto.
+- Adicionar `EdgeRuntime.waitUntil` não é necessário porque agora cada stage cabe na janela de execução.
 
-Após deploy:
-- Disparar `smart-ops-lia-assign` com `lead_id = 02a0ea74…` e `force=true` para garantir que o deal 59451613 está enriquecido com os dados do form exocad I.A.
-- Postar nota retroativa no deal com a submissão de 10:35.
+### 5. UI — feedback de progresso
 
-### 5. Memória
-
-Atualizar `mem://smart-ops/lead-merge-system-v2` adicionando regra: "ingest-lead deve resolver canônico ANTES de inserir, usando cascata email → telefone → merged_into".
+No `AdminDraLIAStats`, exibir o stage atual durante o loop (`setIndexingResult({ stage: s, … })`) e um toast final consolidado.
 
 ## Arquivos afetados
 
-- `supabase/functions/smart-ops-ingest-lead/index.ts` (lookup + post-merge note trigger)
-- `supabase/functions/smart-ops-lia-assign/index.ts` (canonical guard)
-- `mem://smart-ops/lead-merge-system-v2` (nova regra)
-- Script one-shot para reprocessar `02a0ea74…`
+- `supabase/functions/index-embeddings/index.ts` — dedup paginada por `source_type`; aceitar `incremental` em qualquer `stage`.
+- `src/components/AdminDraLIAStats.tsx` — `handleIndexing("incremental")` itera pelas stages e agrega resultados; UI mostra stage corrente.
 
 ## Não muda
 
-- Lógica de `mergeSmartLead`, `lead-merge-system-v2`, `piperun-hierarchy.ts`, `crm-sync-concurrency-lock`.
-- Estrutura do schema (sem migrations).
-- Webhooks Sellflux / cognitive-analysis.
+- Lógica de geração de chunks por fonte.
+- Formato do retorno (mantém `{indexed, errors, skipped, total_chunks}`).
+- Comportamento da "Indexação Completa" (botão único permanece, mas internamente também pode ser quebrado depois se necessário).
 
 Posso prosseguir?

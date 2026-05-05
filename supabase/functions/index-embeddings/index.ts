@@ -12,7 +12,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
 const BATCH_SIZE = 5;
-const DELAY_MS = 2000; // 2s between batches to avoid rate limits
+const DELAY_MS = 500; // ms between batches; cache hits keep us under rate limits
 
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
@@ -24,6 +24,30 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Paginated fetch of existing chunk_text for a given source_type (avoids 1000-row cap)
+async function fetchExistingTexts(
+  supabase: ReturnType<typeof createClient>,
+  sourceType?: string,
+): Promise<Set<string>> {
+  const set = new Set<string>();
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    let q = supabase.from("agent_embeddings").select("chunk_text").range(from, from + PAGE - 1);
+    if (sourceType) q = q.eq("source_type", sourceType);
+    const { data, error } = await q;
+    if (error) {
+      console.warn("[fetchExistingTexts]", error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    for (const r of data) set.add((r as { chunk_text: string }).chunk_text);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return set;
 }
 
 interface Chunk {
@@ -896,10 +920,10 @@ serve(async (req) => {
     // ── FILTER incremental: skip already indexed ─────────────────
     let chunksToIndex = chunks;
     if (mode === "incremental") {
-      const { data: existing } = await supabase
-        .from("agent_embeddings")
-        .select("chunk_text");
-      const existingTexts = new Set((existing || []).map((e: { chunk_text: string }) => e.chunk_text));
+      // Filter scoped to current stage's source_type when possible — avoids
+      // scanning the entire embeddings table and the 1000-row select cap.
+      const stageSourceType = stage !== "all" ? stageToSourceType[stage] : undefined;
+      const existingTexts = await fetchExistingTexts(supabase, stageSourceType);
       chunksToIndex = chunks.filter((c) => !existingTexts.has(c.chunk_text));
     } else if (mode === "full" && stage === "all") {
       // Full mode + all stages: clear everything first
