@@ -1,81 +1,92 @@
-## Diagnóstico — HTTP 504 na Indexação Incremental
+## Diagnóstico — `jolukower@hotmail.com`
 
-A função `index-embeddings` em modo `incremental` (sem `stage`) executa tudo em uma única requisição HTTP:
+O lead **existe** e está **canônico** (`merged_into = null`), id `7004f9a4-…`. O `piperun_deals_history` contém **2 deals** corretamente sincronizados com o Piperun:
 
-1. Coleta chunks de **6 fontes** (articles, videos, resins, parameters, company_kb, catalog_products) — incluindo um `fetch` ao endpoint `knowledge-base?format=ai_training`.
-2. Faz `select chunk_text from agent_embeddings` **sem filtro nem paginação** (linha 899-901) — limitado a 1000 linhas pelo Supabase, então a dedup fica errada e ainda é cara.
-3. Insere em lotes de 5 com `sleep(2000)` entre lotes.
+| Deal | Criado em | Status | Pipeline | Stage | Owner |
+|---|---|---|---|---|---|
+| `53550374` "Joyce Lukower" | 2025-11-03 | **ganha** | (Lista Clientes Internos → CS) | Novos clientes | Patricia Gastaldi |
+| `54298853` "Joyce Lukower - ioConnect" | **2025-11-26** | **aberta** | Funil de vendas | Contato Feito | **Janaina Santos** |
 
-Com ~800 artigos + vídeos + catálogo, o tempo total ultrapassa o limite de gateway (~60s no Supabase Edge), retornando **504**. Mesmo quando termina, dedup por `chunk_text` falha porque só lê os primeiros 1000 registros.
+No CRM hoje o deal “vivo” é o **54298853 (Janaina / Funil de vendas / Contato Feito)**. Mas as colunas row-level do `lia_attendances` mostram o deal antigo:
 
-A indexação **Completa por stage** (botões individuais) já funciona porque processa apenas uma fonte por chamada.
-
-## Plano de correção
-
-### 1. Refatorar dedup do incremental (`supabase/functions/index-embeddings/index.ts`)
-
-Substituir o `select chunk_text` global por dedup **dentro de cada stage**, paginando 1000 em 1000:
-
-```ts
-async function fetchExistingTexts(supabase, sourceType: string): Promise<Set<string>> {
-  const set = new Set<string>();
-  let from = 0;
-  const PAGE = 1000;
-  while (true) {
-    const { data } = await supabase
-      .from("agent_embeddings")
-      .select("chunk_text")
-      .eq("source_type", sourceType)
-      .range(from, from + PAGE - 1);
-    if (!data || data.length === 0) break;
-    data.forEach(r => set.add(r.chunk_text));
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  return set;
-}
+```
+piperun_id              = 53550374          (deveria ser 54298853)
+proprietario_lead_crm   = Patricia Gastaldi (deveria ser Janaina Santos)
+status_atual_lead_crm   = Novos clientes    (deveria ser Contato Feito)
+funil_entrada_crm       = CS Onboarding     (deveria ser Funil de vendas)
+status_oportunidade     = ganha             (deveria ser aberta — tem deal aberta mais nova)
 ```
 
-Filtrar por `source_type` evita varrer toda a tabela.
+### Causa raiz
 
-### 2. Forçar `incremental` a rodar por stage no client
+1. `smart-ops-piperun-webhook` (linhas 597–622) **sobrescreve** `piperun_id`, owner, stage, pipeline com o último evento recebido — ou seja, “quem chegar por último vence”.
+2. `_shared/lead-enrichment.ts` (`ALWAYS_UPDATE`) inclui `proprietario_lead_crm` e `status_oportunidade`, mas **NÃO** inclui `status_atual_lead_crm`, `funil_entrada_crm`, `piperun_id`, `piperun_pipeline_*`, `piperun_stage_*`. Por serem `ENRICHMENT_ONLY`, uma vez preenchidos pelo deal antigo nunca mais são reescritos no fluxo de sync.
+3. `smart-ops-sync-piperun` re-sincroniza o `piperun_id` corrente do lead (53550374, ganho) — então fica num loop reforçando a foto antiga, mesmo quando o histórico JSONB já recebeu o deal novo via `piperun-full-sync`.
 
-Em `src/components/AdminDraLIAStats.tsx` (`handleIndexing`), quando `mode === "incremental"`, **iterar pelas stages** sequencialmente e somar resultados, em vez de uma única chamada `mode=incremental&stage=all`:
+Resultado: o JSONB está certo, mas o snapshot achatado da linha está errado.
 
-```ts
-const stages = ["articles","videos","resins","parameters","company_kb","catalog_products","authors"];
-let totals = { indexed: 0, errors: 0, skipped: 0, total_chunks: 0 };
-for (const s of stages) {
-  const r = await fetch(`${url}/functions/v1/index-embeddings?mode=incremental&stage=${s}`, …);
-  const j = await r.json();
-  // acumula
-}
+## Plano
+
+### 1. Helper compartilhado `pickPrimaryDeal()`
+Novo arquivo `supabase/functions/_shared/piperun-primary-deal.ts`:
+
+- Input: `piperun_deals_history: PiperunDeal[]`.
+- Regra de seleção (em ordem):
+  1. Deal **aberto** (`status='aberta'` ou `status_oportunidade='aberta'`) com **maior `created_at`**.
+  2. Senão, deal mais recente por `closed_at`.
+  3. Senão, deal mais recente por `created_at`.
+  4. Empate → maior `deal_id`.
+- Output: deal escolhido + payload achatado (`piperun_id`, `proprietario_lead_crm`, `status_atual_lead_crm`, `funil_entrada_crm`, `piperun_pipeline_id/name`, `piperun_stage_id/name`, `piperun_owner_id/email`, `status_oportunidade`, `valor_oportunidade`, `data_fechamento_crm`).
+
+### 2. Aplicar o helper em 3 pontos de escrita
+
+a. **`smart-ops-piperun-webhook/index.ts`** — após montar `updateData` e atualizar/inserir o JSONB, recomputar campos row-level com `pickPrimaryDeal(historyAfterMerge)` e sobrescrever `updateData` com o resultado. Garante que webhooks de deals antigos (won, lost, reactivation) não “rebaixem” o snapshot.
+
+b. **`smart-ops-sync-piperun/index.ts`** — idem, antes do `update`. Também passar a sincronizar com o `piperun_id` do **deal primário**, não com o `piperun_id` salvo (que pode estar travado no deal antigo).
+
+c. **`piperun-full-sync/index.ts`** — após escrever cada deal no histórico, recomputar snapshot via helper.
+
+### 3. Atualizar `_shared/lead-enrichment.ts`
+Mover para `ALWAYS_UPDATE` os campos de snapshot do CRM (eles passam a ser determinísticos via `pickPrimaryDeal`, então faz sentido sempre refletirem a verdade):
+- `status_atual_lead_crm`, `funil_entrada_crm`
+- `piperun_pipeline_id`, `piperun_pipeline_name`, `piperun_stage_id`, `piperun_stage_name`
+- `piperun_owner_id`, `piperun_owner_email`
+- `data_fechamento_crm`
+
+Manter `piperun_id` como **PROTECTED contra null** mas permitir overwrite quando `pickPrimaryDeal` indicar outro id.
+
+### 4. Backfill 1x
+Edge function efêmera `backfill-primary-deal` (ou bloco em `piperun-full-sync` rodado uma vez) que:
+- Itera `lia_attendances WHERE merged_into IS NULL AND jsonb_array_length(piperun_deals_history) > 1` em páginas de 200.
+- Para cada lead, roda `pickPrimaryDeal` e faz `update` apenas dos campos snapshot.
+- Loga before/after no `lead_enrichment_audit` com `source='backfill_primary_deal'`.
+
+Para o caso da Joyce, o backfill resultará em:
+```
+piperun_id            = 54298853
+proprietario_lead_crm = Janaina Santos
+status_atual_lead_crm = Contato Feito
+funil_entrada_crm     = Funil de vendas
+status_oportunidade   = aberta
+data_fechamento_crm   = NULL
 ```
 
-Cada chamada fica < 60s. O usuário continua vendo um único botão "Indexação Incremental" com progresso ("Indexando articles… 3/7").
+### 5. UI — `KanbanLeadDetail` / Hero card
+Sem mudanças funcionais. Adicionar um pequeno tooltip “Deal primário: #{piperun_id} — selecionado entre N deals” para transparência.
 
-### 3. Suportar `mode=incremental&stage=<x>` na edge function
+### 6. Memória
+Atualizar `mem://smart-ops/lead-card-business-intelligence-tables-v4` (ou criar `mem://smart-ops/primary-deal-selection-v1`) com a regra: **Snapshot row-level do CRM = deal aberto mais recente; ganhos/perdidos antigos não rebaixam o snapshot.**
 
-Hoje o filtro incremental (linha 896-907) só roda no final, mas a coleta de chunks já é segmentada por `stage`. Basta garantir que o `chunksToIndex` use `fetchExistingTexts(supabase, stageToSourceType[stage])` quando `stage !== "all"`. Quando `stage === "all"` + `incremental`, manter o comportamento atual mas paginando (fallback para uso programático).
+## Arquivos a alterar
 
-### 4. Aumentar resiliência
+- `supabase/functions/_shared/piperun-primary-deal.ts` (novo)
+- `supabase/functions/_shared/lead-enrichment.ts`
+- `supabase/functions/smart-ops-piperun-webhook/index.ts`
+- `supabase/functions/smart-ops-sync-piperun/index.ts`
+- `supabase/functions/piperun-full-sync/index.ts`
+- `supabase/functions/backfill-primary-deal/index.ts` (novo, efêmero)
+- `mem://smart-ops/primary-deal-selection-v1` (novo)
 
-- Reduzir `DELAY_MS` de 2000 → 500ms (cache de embeddings já evita rate-limit nos hits) ou removê-lo quando o batch tem hit-rate alto.
-- Adicionar `EdgeRuntime.waitUntil` não é necessário porque agora cada stage cabe na janela de execução.
+Sem migrations de schema. Sem mudanças em RLS. Sem novos secrets.
 
-### 5. UI — feedback de progresso
-
-No `AdminDraLIAStats`, exibir o stage atual durante o loop (`setIndexingResult({ stage: s, … })`) e um toast final consolidado.
-
-## Arquivos afetados
-
-- `supabase/functions/index-embeddings/index.ts` — dedup paginada por `source_type`; aceitar `incremental` em qualquer `stage`.
-- `src/components/AdminDraLIAStats.tsx` — `handleIndexing("incremental")` itera pelas stages e agrega resultados; UI mostra stage corrente.
-
-## Não muda
-
-- Lógica de geração de chunks por fonte.
-- Formato do retorno (mantém `{indexed, errors, skipped, total_chunks}`).
-- Comportamento da "Indexação Completa" (botão único permanece, mas internamente também pode ser quebrado depois se necessário).
-
-Posso prosseguir?
+Aprova para eu implementar?
