@@ -920,10 +920,10 @@ serve(async (req) => {
     // ── FILTER incremental: skip already indexed ─────────────────
     let chunksToIndex = chunks;
     if (mode === "incremental") {
-      const { data: existing } = await supabase
-        .from("agent_embeddings")
-        .select("chunk_text");
-      const existingTexts = new Set((existing || []).map((e: { chunk_text: string }) => e.chunk_text));
+      // Filter scoped to current stage's source_type when possible — avoids
+      // scanning the entire embeddings table and the 1000-row select cap.
+      const stageSourceType = stage !== "all" ? stageToSourceType[stage] : undefined;
+      const existingTexts = await fetchExistingTexts(supabase, stageSourceType);
       chunksToIndex = chunks.filter((c) => !existingTexts.has(c.chunk_text));
     } else if (mode === "full" && stage === "all") {
       // Full mode + all stages: clear everything first
