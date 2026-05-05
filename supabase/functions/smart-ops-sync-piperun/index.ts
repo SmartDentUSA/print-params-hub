@@ -18,7 +18,7 @@ import {
   type RichProposalItem,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
-import { logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
+// logEnrichmentAudit no longer used here — primary snapshot is applied inline.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
