@@ -426,6 +426,14 @@ async function processDeal(
     smartPayload.piperun_id = dealId;
     smartPayload.piperun_deals_history = upsertDealHistory(currentLead.piperun_deals_history, dealSnapshot);
 
+    // Recompute row-level CRM snapshot from the merged history (open > newest closed).
+    try {
+      const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
+      applyPrimarySnapshot(smartPayload, smartPayload.piperun_deals_history as unknown[]);
+    } catch (e) {
+      console.warn("[sync-piperun] applyPrimarySnapshot failed:", e);
+    }
+
     if (deal.stage_id) {
       const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
       const wasStagnant = isInStagnantStatus(currentLead.lead_status);
