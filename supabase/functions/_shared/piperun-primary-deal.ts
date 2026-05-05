@@ -47,7 +47,10 @@ function isOpen(d: any): boolean {
 
 export function pickPrimaryDeal(history: any[] | null | undefined): any | null {
   if (!Array.isArray(history) || history.length === 0) return null;
-  const sorted = [...history].sort((a, b) => {
+  // Only consider deals with numeric Piperun deal_id (hash entries are legacy/garbage).
+  const valid = history.filter((d) => /^\d+$/.test(String(d?.deal_id ?? "")));
+  if (valid.length === 0) return null;
+  const sorted = [...valid].sort((a, b) => {
     const aOpen = isOpen(a) ? 1 : 0;
     const bOpen = isOpen(b) ? 1 : 0;
     if (aOpen !== bOpen) return bOpen - aOpen; // open first
