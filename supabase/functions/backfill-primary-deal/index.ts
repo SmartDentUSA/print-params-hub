@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   const { data: leads, error } = await supabase
     .from("lia_attendances")
     .select(
-      "id,piperun_id,proprietario_lead_crm,status_atual_lead_crm,funil_entrada_crm,status_oportunidade,valor_oportunidade,data_fechamento_crm,piperun_pipeline_id,piperun_pipeline_name,piperun_stage_id,piperun_stage_name,piperun_owner_id,piperun_owner_email,piperun_deals_history",
+      "id,piperun_id,proprietario_lead_crm,status_atual_lead_crm,funil_entrada_crm,status_oportunidade,valor_oportunidade,data_fechamento_crm,piperun_pipeline_id,piperun_pipeline_name,piperun_stage_id,piperun_stage_name,piperun_owner_id,piperun_deals_history",
     )
     .is("merged_into", null)
     .not("piperun_deals_history", "is", null)
