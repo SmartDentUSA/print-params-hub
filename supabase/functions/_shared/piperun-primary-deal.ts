@@ -29,7 +29,6 @@ export interface PrimaryDealSnapshot {
   piperun_stage_id: number | null;
   piperun_stage_name: string | null;
   piperun_owner_id: number | null;
-  piperun_owner_email: string | null;
   status_oportunidade: string | null;
   valor_oportunidade: number | null;
   data_fechamento_crm: string | null;
@@ -79,7 +78,6 @@ export function buildPrimarySnapshot(history: any[] | null | undefined): Primary
     piperun_stage_id: d.stage_id ?? null,
     piperun_stage_name: d.stage_name ?? null,
     piperun_owner_id: d.owner_id ?? null,
-    piperun_owner_email: d.owner_email ?? null,
     status_oportunidade: d.status ?? null,
     valor_oportunidade: d.value != null ? Number(d.value) : null,
     data_fechamento_crm: d.closed_at ?? null,
