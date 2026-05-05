@@ -42,7 +42,7 @@ const ALWAYS_UPDATE: Set<string> = new Set([
   "status_atual_lead_crm", "funil_entrada_crm",
   "piperun_pipeline_id", "piperun_pipeline_name",
   "piperun_stage_id", "piperun_stage_name",
-  "piperun_owner_id", "piperun_owner_email",
+  "piperun_owner_id",
   "data_fechamento_crm",
 ]);
 
