@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import { zipSync, strToU8 } from "https://esm.sh/fflate@0.8.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,14 +43,20 @@ function flattenValue(v: any): any {
   return v;
 }
 
-function rowsToSheet(rows: any[]): XLSX.WorkSheet {
-  if (!rows.length) return XLSX.utils.aoa_to_sheet([["(no data)"]]);
+function csvEscape(v: any): string {
+  const s = String(flattenValue(v) ?? "");
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function rowsToCsv(rows: any[]): string {
+  if (!rows.length) return "(no data)\n";
   const keys = new Set<string>();
   for (const r of rows) for (const k of Object.keys(r ?? {})) keys.add(k);
   const cols = [...keys];
-  const aoa: any[][] = [cols];
-  for (const r of rows) aoa.push(cols.map((k) => flattenValue(r?.[k])));
-  return XLSX.utils.aoa_to_sheet(aoa);
+  const lines: string[] = [cols.join(",")];
+  for (const r of rows) lines.push(cols.map((k) => csvEscape(r?.[k])).join(","));
+  return lines.join("\n");
 }
 
 function expandDeals(leads: any[]) {
@@ -216,10 +222,10 @@ Deno.serve(async (req) => {
       safeFetch("v_lead_academy"),
     ]);
 
-    // ── Build workbook ──
-    const wb = XLSX.utils.book_new();
+    // ── Build CSV ZIP (memory-efficient vs XLSX) ──
+    const files: Record<string, Uint8Array> = {};
     const append = (name: string, rows: any[]) => {
-      XLSX.utils.book_append_sheet(wb, rowsToSheet(rows), name.slice(0, 31));
+      files[`${name}.csv`] = strToU8(rowsToCsv(rows));
     };
 
     append("Leads", leads);
@@ -244,17 +250,17 @@ Deno.serve(async (req) => {
     append("Financeiro_View", vFinanceiro);
     append("Academy_View", vAcademy);
 
-    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const zipped = zipSync(files, { level: 6 });
     const date = new Date().toISOString().slice(0, 10);
-    const filename = `smartdent-leads-export-${date}.xlsx`;
+    const filename = `smartdent-leads-export-${date}.zip`;
 
-    console.log(`[export-leads-full] Done leads=${leads.length} deals=${deals.length} bytes=${buf.byteLength}`);
+    console.log(`[export-leads-full] Done leads=${leads.length} deals=${deals.length} bytes=${zipped.byteLength}`);
 
-    return new Response(buf, {
+    return new Response(zipped, {
       status: 200,
       headers: {
         ...corsHeaders,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "X-Lead-Count": String(leads.length),
         "X-Deal-Count": String(deals.length),
