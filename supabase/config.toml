@@ -48,6 +48,9 @@ verify_jwt = false
 [functions.data-export]
 verify_jwt = false
 
+[functions.export-leads-full]
+verify_jwt = false
+
 [functions.test-api-viewer]
 verify_jwt = false
 
