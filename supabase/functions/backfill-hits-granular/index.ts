@@ -43,7 +43,9 @@ const PRODUCT_PATTERNS: Array<{ pattern: RegExp; col: string }> = [
 
   // E7 — Fresagem
   { pattern: /fresa|fresadora|arum|milling/i,                            col: "hits_e7_equipamentos"       },
-  { pattern: /bloco.*fres|disco.*zircônia|smartzr/i,                     col: "hits_e7_pecas_partes"       },
+  { pattern: /spindle|eixo.*fresadora|peças?.*fresadora/i,               col: "hits_e7_pecas_partes"       },
+  { pattern: /bloco|disco.*(zirc[oô]nia|pmma|wax|fresagem)|smart.?zr|zirkonzahn|amann|dissilicato|evolith|pmma|wax\s*disc|berç?o.*sinteriza|spray.*revelador|pigmenta(?:ç|c)[aã]o.*zirc[oô]nia|frese.*smart.?dlc|fresa.*dissilicato/i,
+                                                                          col: "hits_e7_insumos"            },
 ];
 
 // All hits_e* columns (used for zero-reset before recalculation — idempotency)
@@ -57,7 +59,7 @@ const ALL_HITS_E_COLS = [
   "hits_e5_caracterizacao", "hits_e5_dentistica_orto", "hits_e5_instalacao",
   "hits_e6_presencial", "hits_e6_online",
   "hits_e7_equipamentos", "hits_e7_software", "hits_e7_servico",
-  "hits_e7_acessorios", "hits_e7_pecas_partes",
+  "hits_e7_acessorios", "hits_e7_pecas_partes", "hits_e7_insumos",
 ];
 
 // ─── Classify a product name → set of column names to increment ──────────────

@@ -59,6 +59,7 @@ const STAGES = [
   { key: 'etapa_7_fresagem', label: '7 · Fresagem', cols: [
     { field: 'equipamentos', label: 'Equipa-\nmentos' },
     { field: 'software',     label: 'Software'        },
+    { field: 'insumos',      label: 'Insumos'         },
     { field: 'servico',      label: 'Serviço'          },
     { field: 'acessorios',   label: 'Acessórios'       },
     { field: 'pecas_partes', label: 'Peças/\nPartes'   },
