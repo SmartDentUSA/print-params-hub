@@ -1,56 +1,27 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { zipSync, strToU8 } from "https://esm.sh/fflate@0.8.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Expose-Headers": "content-disposition",
 };
 
 const PAGE = 1000;
-
-async function fetchAll(
-  supabase: ReturnType<typeof createClient>,
-  table: string,
-  select = "*",
-  applyFilter?: (q: any) => any,
-): Promise<any[]> {
-  const out: any[] = [];
-  let from = 0;
-  while (true) {
-    let q = supabase.from(table).select(select).range(from, from + PAGE - 1);
-    if (applyFilter) q = applyFilter(q);
-    const { data, error } = await q;
-    if (error) {
-      console.error(`[export-leads-full] ${table} error:`, error.message);
-      break;
-    }
-    if (!data || data.length === 0) break;
-    out.push(...data);
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  return out;
-}
+const BUCKET = "admin-exports";
 
 function flattenValue(v: any): any {
   if (v === null || v === undefined) return "";
   if (v instanceof Date) return v.toISOString();
-  if (typeof v === "object") {
-    try { return JSON.stringify(v); } catch { return String(v); }
-  }
+  if (typeof v === "object") { try { return JSON.stringify(v); } catch { return String(v); } }
   return v;
 }
-
 function csvEscape(v: any): string {
   const s = String(flattenValue(v) ?? "");
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
-
 function rowsToCsv(rows: any[]): string {
-  if (!rows.length) return "(no data)\n";
+  if (!rows.length) return "";
   const keys = new Set<string>();
   for (const r of rows) for (const k of Object.keys(r ?? {})) keys.add(k);
   const cols = [...keys];
@@ -59,212 +30,164 @@ function rowsToCsv(rows: any[]): string {
   return lines.join("\n");
 }
 
-function expandDeals(leads: any[]) {
-  const deals: any[] = [];
-  const proposals: any[] = [];
-  const items: any[] = [];
-  for (const lead of leads) {
-    const hist = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history : [];
-    for (const d of hist) {
-      if (!d || typeof d !== "object") continue;
-      deals.push({
-        lead_id: lead.id,
-        email: lead.email,
-        nome: lead.nome,
-        deal_id: d.deal_id,
-        deal_hash: d.deal_hash,
-        deal_title: d.deal_title,
-        pipeline_id: d.pipeline_id,
-        pipeline_name: d.pipeline_name,
-        stage_id: d.stage_id,
-        stage_name: d.stage_name,
-        owner_id: d.owner_id,
-        owner_name: d.owner_name,
-        owner_email: d.owner_email,
-        origem: d.origem,
-        status: d.status,
-        value: d.value,
-        value_mrr: d.value_mrr,
-        value_freight: d.value_freight,
-        value_products: d.value_products,
-        product: d.product,
-        person_id: d.person_id,
-        company_id: d.company_id,
-        created_at: d.created_at,
-        closed_at: d.closed_at,
-        synced_at: d.synced_at,
-      });
-      const props = Array.isArray(d.proposals) ? d.proposals : [];
-      for (const p of props) {
-        proposals.push({
-          lead_id: lead.id,
-          email: lead.email,
-          deal_id: d.deal_id,
-          proposal_id: p.id,
-          sigla: p.sigla,
-          status: p.status,
-          parcelas: p.parcelas,
-          valor_ps: p.valor_ps,
-          valor_mrr: p.valor_mrr,
-          valor_frete: p.valor_frete,
-          tipo_frete: p.tipo_frete,
-          vendedor: p.vendedor,
-        });
-        const its = Array.isArray(p.items) ? p.items : [];
-        for (const it of its) {
-          items.push({
-            lead_id: lead.id,
-            email: lead.email,
-            deal_id: d.deal_id,
-            proposal_id: p.id,
-            sku: it.sku,
-            item_id: it.item_id,
-            nome: it.nome,
-            tipo: it.tipo,
-            categoria: it.categoria,
-            qtd: it.qtd,
-            unit: it.unit,
-            total: it.total,
-          });
+async function uploadCsv(supabase: any, jobId: string, name: string, rows: any[]) {
+  const csv = rowsToCsv(rows) || "(no data)\n";
+  const path = `${jobId}/${name}.csv`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, new Blob([csv], { type: "text/csv" }), {
+    upsert: true, contentType: "text/csv",
+  });
+  if (error) console.error(`[export] upload ${name} failed:`, error.message);
+  return path;
+}
+
+async function fetchAll(supabase: any, table: string, applyFilter?: (q: any) => any): Promise<any[]> {
+  const out: any[] = [];
+  let from = 0;
+  while (true) {
+    let q = supabase.from(table).select("*").range(from, from + PAGE - 1);
+    if (applyFilter) q = applyFilter(q);
+    const { data, error } = await q;
+    if (error) { console.error(`[export] ${table}:`, error.message); break; }
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
+async function processJob(supabase: any, jobId: string) {
+  const files: { name: string; path: string; rows: number }[] = [];
+  const updateJob = (patch: any) =>
+    supabase.from("export_jobs").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", jobId);
+
+  try {
+    await updateJob({ current_step: "Carregando leads canônicos…", progress: 5 });
+    const leads = await fetchAll(supabase, "lia_attendances", (q) => q.is("merged_into", null));
+    const leadIds = leads.map((l: any) => l.id);
+    files.push({ name: "Leads", path: await uploadCsv(supabase, jobId, "Leads", leads), rows: leads.length });
+
+    // Expand deals/proposals/items from leads (in-memory but limited scope)
+    const deals: any[] = [], proposals: any[] = [], items: any[] = [];
+    for (const lead of leads) {
+      const hist = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history : [];
+      for (const d of hist) {
+        if (!d || typeof d !== "object") continue;
+        deals.push({ lead_id: lead.id, email: lead.email, nome: lead.nome, ...d, proposals: undefined });
+        for (const p of (Array.isArray(d.proposals) ? d.proposals : [])) {
+          proposals.push({ lead_id: lead.id, deal_id: d.deal_id, ...p, items: undefined });
+          for (const it of (Array.isArray(p.items) ? p.items : [])) {
+            items.push({ lead_id: lead.id, deal_id: d.deal_id, proposal_id: p.id, ...it });
+          }
         }
       }
     }
+    files.push({ name: "Deals", path: await uploadCsv(supabase, jobId, "Deals", deals), rows: deals.length });
+    files.push({ name: "Proposals", path: await uploadCsv(supabase, jobId, "Proposals", proposals), rows: proposals.length });
+    files.push({ name: "Proposal_Items", path: await uploadCsv(supabase, jobId, "Proposal_Items", items), rows: items.length });
+    await updateJob({ progress: 25, lead_count: leads.length, deal_count: deals.length, files });
+
+    // Free large in-memory structures before next phase
+    (leads as any).length = 0;
+    (deals as any).length = 0; (proposals as any).length = 0; (items as any).length = 0;
+
+    const related: { table: string; sheet: string }[] = [
+      { table: "v_lead_timeline", sheet: "Timeline" },
+      { table: "lead_state_events", sheet: "State_Events" },
+      { table: "lead_page_views", sheet: "Page_Views" },
+      { table: "lead_conversion_history", sheet: "Conversions" },
+      { table: "lead_opportunities", sheet: "Opportunities" },
+      { table: "lead_form_submissions", sheet: "Form_Submissions" },
+      { table: "lead_cart_history", sheet: "Cart_History" },
+      { table: "lead_product_history", sheet: "Product_History" },
+      { table: "lead_course_progress", sheet: "Course_Progress" },
+      { table: "lead_sdr_interactions", sheet: "SDR_Interactions" },
+      { table: "lead_activity_log", sheet: "Activity_Log" },
+      { table: "lead_enrichment_audit", sheet: "Enrichment_Audit" },
+      { table: "v_lead_cognitive", sheet: "Cognitive_View" },
+      { table: "v_lead_commercial", sheet: "Commercial_View" },
+      { table: "v_lead_ecommerce", sheet: "Ecommerce_View" },
+      { table: "v_lead_financeiro", sheet: "Financeiro_View" },
+      { table: "v_lead_academy", sheet: "Academy_View" },
+    ];
+
+    let i = 0;
+    for (const { table, sheet } of related) {
+      i++;
+      try {
+        await updateJob({ current_step: `Exportando ${sheet}…`, progress: 25 + Math.floor((i / related.length) * 70) });
+        const rows = await fetchAll(supabase, table);
+        files.push({ name: sheet, path: await uploadCsv(supabase, jobId, sheet, rows), rows: rows.length });
+        await updateJob({ files });
+      } catch (e) {
+        console.warn(`[export] ${table} skipped:`, (e as Error).message);
+      }
+    }
+
+    await updateJob({ status: "completed", progress: 100, current_step: "Concluído", files });
+    console.log(`[export] job ${jobId} completed (${files.length} files)`);
+  } catch (err) {
+    console.error(`[export] job ${jobId} failed:`, err);
+    await updateJob({ status: "failed", error: String(err) });
   }
-  return { deals, proposals, items };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // ── Auth: require admin ──
-    const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Missing Authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (userErr || !userData?.user) return new Response(JSON.stringify({ error: "Invalid token" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const { data: isAdminData, error: adminErr } = await supabase.rpc("is_admin", { user_id: userData.user.id });
-    if (adminErr || !isAdminData) {
-      return new Response(JSON.stringify({ error: "Admin required" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const { data: isAdminData } = await supabase.rpc("is_admin", { user_id: userData.user.id });
+    if (!isAdminData) return new Response(JSON.stringify({ error: "Admin required" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+    // Check status of existing job
+    const url = new URL(req.url);
+    const jobId = url.searchParams.get("job_id");
+    if (jobId) {
+      const { data: job } = await supabase.from("export_jobs").select("*").eq("id", jobId).maybeSingle();
+      if (!job) return new Response(JSON.stringify({ error: "Job not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      // sign URLs for completed files
+      let signed: any[] = [];
+      if (job.status === "completed" && Array.isArray(job.files)) {
+        signed = await Promise.all(
+          job.files.map(async (f: any) => {
+            const { data } = await supabase.storage.from(BUCKET).createSignedUrl(f.path, 3600);
+            return { ...f, url: data?.signedUrl };
+          })
+        );
+      }
+      return new Response(JSON.stringify({ ...job, signed }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("[export-leads-full] Starting full export…");
+    // Create new job
+    const { data: job, error: jobErr } = await supabase.from("export_jobs").insert({
+      user_id: userData.user.id, status: "processing", progress: 0, current_step: "Iniciando…",
+    }).select().single();
+    if (jobErr) throw jobErr;
 
-    // ── Fetch canonical leads (CDP integrity) ──
-    const leads = await fetchAll(supabase, "lia_attendances", "*", (q) => q.is("merged_into", null));
-    console.log(`[export-leads-full] leads=${leads.length}`);
-    const leadIds = leads.map((l) => l.id);
+    // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+    EdgeRuntime.waitUntil(processJob(supabase, job.id));
 
-    // Helper: chunked filter on lead_id
-    async function fetchByLeadIds(table: string, idCol = "lead_id"): Promise<any[]> {
-      if (!leadIds.length) return [];
-      const all: any[] = [];
-      for (let i = 0; i < leadIds.length; i += 200) {
-        const chunk = leadIds.slice(i, i + 200);
-        const rows = await fetchAll(supabase, table, "*", (q) => q.in(idCol, chunk));
-        all.push(...rows);
-      }
-      return all;
-    }
-
-    const { deals, proposals, items } = expandDeals(leads);
-
-    // Parallel fetches for related tables (best-effort: ignore tables that error)
-    const safeFetch = async (table: string, idCol = "lead_id") => {
-      try { return await fetchByLeadIds(table, idCol); }
-      catch (e) { console.warn(`[export-leads-full] ${table} skipped:`, (e as Error).message); return []; }
-    };
-    const safeAll = async (table: string, filter?: (q: any) => any) => {
-      try { return await fetchAll(supabase, table, "*", filter); }
-      catch (e) { console.warn(`[export-leads-full] ${table} skipped:`, (e as Error).message); return []; }
-    };
-
-    const [
-      timeline, stateEvents, pageViews, conversions, opportunities,
-      formSubs, cartHist, productHist, courseProg, sdrInter,
-      activityLog, enrichAudit,
-      vCognitive, vCommercial, vEcommerce, vFinanceiro, vAcademy,
-    ] = await Promise.all([
-      safeFetch("v_lead_timeline"),
-      safeFetch("lead_state_events"),
-      safeFetch("lead_page_views"),
-      safeFetch("lead_conversion_history"),
-      safeFetch("lead_opportunities"),
-      safeFetch("lead_form_submissions"),
-      safeFetch("lead_cart_history"),
-      safeFetch("lead_product_history"),
-      safeFetch("lead_course_progress"),
-      safeFetch("lead_sdr_interactions"),
-      safeFetch("lead_activity_log"),
-      safeFetch("lead_enrichment_audit"),
-      safeFetch("v_lead_cognitive"),
-      safeFetch("v_lead_commercial"),
-      safeFetch("v_lead_ecommerce"),
-      safeFetch("v_lead_financeiro"),
-      safeFetch("v_lead_academy"),
-    ]);
-
-    // ── Build CSV ZIP (memory-efficient vs XLSX) ──
-    const files: Record<string, Uint8Array> = {};
-    const append = (name: string, rows: any[]) => {
-      files[`${name}.csv`] = strToU8(rowsToCsv(rows));
-    };
-
-    append("Leads", leads);
-    append("Deals", deals);
-    append("Proposals", proposals);
-    append("Proposal_Items", items);
-    append("Timeline", timeline);
-    append("State_Events", stateEvents);
-    append("Page_Views", pageViews);
-    append("Conversions", conversions);
-    append("Opportunities", opportunities);
-    append("Form_Submissions", formSubs);
-    append("Cart_History", cartHist);
-    append("Product_History", productHist);
-    append("Course_Progress", courseProg);
-    append("SDR_Interactions", sdrInter);
-    append("Activity_Log", activityLog);
-    append("Enrichment_Audit", enrichAudit);
-    append("Cognitive_View", vCognitive);
-    append("Commercial_View", vCommercial);
-    append("Ecommerce_View", vEcommerce);
-    append("Financeiro_View", vFinanceiro);
-    append("Academy_View", vAcademy);
-
-    const zipped = zipSync(files, { level: 6 });
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = `smartdent-leads-export-${date}.zip`;
-
-    console.log(`[export-leads-full] Done leads=${leads.length} deals=${deals.length} bytes=${zipped.byteLength}`);
-
-    return new Response(zipped, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "X-Lead-Count": String(leads.length),
-        "X-Deal-Count": String(deals.length),
-      },
+    return new Response(JSON.stringify({ job_id: job.id, status: "processing" }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[export-leads-full] Fatal:", err);
