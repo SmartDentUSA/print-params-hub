@@ -113,7 +113,7 @@ export default function AdminViewSecure() {
       const href = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = href;
-      a.download = `smartdent-leads-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `smartdent-leads-export-${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
