@@ -1,92 +1,57 @@
-## Diagnóstico — `jolukower@hotmail.com`
+## Plano: Corrigir vulnerabilidades críticas do scan de segurança
 
-O lead **existe** e está **canônico** (`merged_into = null`), id `7004f9a4-…`. O `piperun_deals_history` contém **2 deals** corretamente sincronizados com o Piperun:
+Dois grupos de findings críticos detectados pelo scanner Supabase:
 
-| Deal | Criado em | Status | Pipeline | Stage | Owner |
-|---|---|---|---|---|---|
-| `53550374` "Joyce Lukower" | 2025-11-03 | **ganha** | (Lista Clientes Internos → CS) | Novos clientes | Patricia Gastaldi |
-| `54298853` "Joyce Lukower - ioConnect" | **2025-11-26** | **aberta** | Funil de vendas | Contato Feito | **Janaina Santos** |
+1. **RLS Disabled in Public** — 9 tabelas
+2. **Security Definer View** — 60 views
 
-No CRM hoje o deal “vivo” é o **54298853 (Janaina / Funil de vendas / Contato Feito)**. Mas as colunas row-level do `lia_attendances` mostram o deal antigo:
+Tudo será resolvido em **uma única migration SQL** (sem alterações de código no frontend/edge functions), pois nenhuma dessas tabelas/views é consumida pelo cliente anônimo — todas servem dashboards admin (que já passam por `is_admin()`) ou pipelines internos rodando com `service_role`.
 
-```
-piperun_id              = 53550374          (deveria ser 54298853)
-proprietario_lead_crm   = Patricia Gastaldi (deveria ser Janaina Santos)
-status_atual_lead_crm   = Novos clientes    (deveria ser Contato Feito)
-funil_entrada_crm       = CS Onboarding     (deveria ser Funil de vendas)
-status_oportunidade     = ganha             (deveria ser aberta — tem deal aberta mais nova)
-```
+---
 
-### Causa raiz
+### Parte 1 — RLS Disabled (9 tabelas)
 
-1. `smart-ops-piperun-webhook` (linhas 597–622) **sobrescreve** `piperun_id`, owner, stage, pipeline com o último evento recebido — ou seja, “quem chegar por último vence”.
-2. `_shared/lead-enrichment.ts` (`ALWAYS_UPDATE`) inclui `proprietario_lead_crm` e `status_oportunidade`, mas **NÃO** inclui `status_atual_lead_crm`, `funil_entrada_crm`, `piperun_id`, `piperun_pipeline_*`, `piperun_stage_*`. Por serem `ENRICHMENT_ONLY`, uma vez preenchidos pelo deal antigo nunca mais são reescritos no fluxo de sync.
-3. `smart-ops-sync-piperun` re-sincroniza o `piperun_id` corrente do lead (53550374, ganho) — então fica num loop reforçando a foto antiga, mesmo quando o histórico JSONB já recebeu o deal novo via `piperun-full-sync`.
+| Tabela | Tratamento |
+|---|---|
+| `_backup_qid_migration_20260427` | **DROP TABLE** (backup obsoleto de migração já aplicada) |
+| `_backup_qid_migration_aux_20260427` | **DROP TABLE** |
+| `_backup_category_f_20260427` | **DROP TABLE** |
+| `vitality_gen_control` | ENABLE RLS + policy `service_role only` (controle interno de geração de conteúdo) |
+| `produto_aliases` | ENABLE RLS + policy `service_role` para escrita, `is_admin()` para leitura |
+| `system_a_content_library` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
+| `google_indexing_log` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
+| `kg_entities` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) — knowledge graph interno |
+| `kg_relations` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
 
-Resultado: o JSONB está certo, mas o snapshot achatado da linha está errado.
+Antes de DROPar os 3 backups, faço um `SELECT count(*)` de validação na migration (comentado) e confirmo que não há FK apontando para eles.
 
-## Plano
+### Parte 2 — Security Definer Views (60 views)
 
-### 1. Helper compartilhado `pickPrimaryDeal()`
-Novo arquivo `supabase/functions/_shared/piperun-primary-deal.ts`:
+Todas as 60 views listadas serão **recriadas com `WITH (security_invoker = true)`**. Isso faz com que a view passe a respeitar as permissões e RLS do **usuário que consulta**, em vez de rodar com privilégios do owner (postgres). Comportamento idêntico do ponto de vista funcional, pois:
 
-- Input: `piperun_deals_history: PiperunDeal[]`.
-- Regra de seleção (em ordem):
-  1. Deal **aberto** (`status='aberta'` ou `status_oportunidade='aberta'`) com **maior `created_at`**.
-  2. Senão, deal mais recente por `closed_at`.
-  3. Senão, deal mais recente por `created_at`.
-  4. Empate → maior `deal_id`.
-- Output: deal escolhido + payload achatado (`piperun_id`, `proprietario_lead_crm`, `status_atual_lead_crm`, `funil_entrada_crm`, `piperun_pipeline_id/name`, `piperun_stage_id/name`, `piperun_owner_id/email`, `status_oportunidade`, `valor_oportunidade`, `data_fechamento_crm`).
+- Views consumidas pelo painel admin → o admin lê via JWT autenticado e passa nas RLS das tabelas-base (`lia_attendances`, `piperun_deals_history` etc., que já têm policies `is_admin()` ou `authenticated_full_access`).
+- Views consumidas por edge functions → rodam com `service_role`, que ignora RLS de qualquer forma.
 
-### 2. Aplicar o helper em 3 pontos de escrita
+Estratégia técnica: para cada view, executo `ALTER VIEW public.<nome> SET (security_invoker = true);` (Postgres 15+, suportado no Supabase). Isso evita ter que reescrever 60 definições — mantém o SQL da view intacto e só inverte o modo de execução.
 
-a. **`smart-ops-piperun-webhook/index.ts`** — após montar `updateData` e atualizar/inserir o JSONB, recomputar campos row-level com `pickPrimaryDeal(historyAfterMerge)` e sobrescrever `updateData` com o resultado. Garante que webhooks de deals antigos (won, lost, reactivation) não “rebaixem” o snapshot.
+Lista completa das 60 views (do scan): `v_equipment_field_map`, `v_produtos_vendidos`, `vw_alertas_faturamento`, `v_h2_as_questions`, `v_content_library_by_product`, `vw_vendas_ganhas`, `v_receita_por_categoria`, `vw_saude_leads`, `v_phone_duplicates`, `vw_leads_qualidade_ruim`, `v_workflow_portfolio`, `v_customer_graph`, `v_lead_commercial`, `v_open_opportunities`, `v_pipeline_atual`, `v_portfolio_mensal_comparativo`, `v_lead_cognitive`, `v_form_health`, `v_person_company_graph`, `v_portfolio_em_aberto_por_vendedor`, `vw_vendas_por_produto`, `v_portfolio_ganhos_vs_pipeline`, `vw_reconciliacao_financeira`, `v_parameter_ranking`, `v_lead_financeiro`, `v_lead_ecommerce`, `vw_deal_items_dedup`, `v_omie_nfs_sem_deal`, `v_leads_pendentes_atribuicao`, `lead_model_routing`, `v_opportunity_engine`, `vw_faturamento_consolidado`, `v_turmas_com_vagas`, `v_form_responses_enriched`, `v_portfolio_historico`, `v_lead_timeline`, `vw_dashboard_financeiro`, `company_ltv`, `v_receita_mensal`, `v_deal_items_normalized`, `v_leads_correto`, `v_behavioral_health`, `vw_produtos_faturados`, `vw_leads_orfaos_recentes`, `v_portfolio_mensal_com_abertos`, `v_portfolio_mensal`, `vw_omie_vendas_mes`, `v_workflow_timeline`, `v_portfolio_em_aberto`, `v_timing_alerts`, `v_lead_academy`, `v_receita_mensal_total`, `person_ltv`, etc.
 
-b. **`smart-ops-sync-piperun/index.ts`** — idem, antes do `update`. Também passar a sincronizar com o `piperun_id` do **deal primário**, não com o `piperun_id` salvo (que pode estar travado no deal antigo).
+Caso alguma view específica precise mesmo do owner-bypass (ex: agregações sobre `auth.users`), eu abro uma exceção pontual e documento na security memory — mas a expectativa é que **todas** funcionem com `security_invoker=true`.
 
-c. **`piperun-full-sync/index.ts`** — após escrever cada deal no histórico, recomputar snapshot via helper.
+### Parte 3 — Marcar findings como Fixed + atualizar Security Memory
 
-### 3. Atualizar `_shared/lead-enrichment.ts`
-Mover para `ALWAYS_UPDATE` os campos de snapshot do CRM (eles passam a ser determinísticos via `pickPrimaryDeal`, então faz sentido sempre refletirem a verdade):
-- `status_atual_lead_crm`, `funil_entrada_crm`
-- `piperun_pipeline_id`, `piperun_pipeline_name`, `piperun_stage_id`, `piperun_stage_name`
-- `piperun_owner_id`, `piperun_owner_email`
-- `data_fechamento_crm`
+Após a migration:
+- Chamar `manage_security_finding` para marcar `SUPA_rls_disabled_in_public` e `SUPA_security_definer_view` como `mark_as_fixed`.
+- Atualizar `@security-memory` com:
+  - Padrão para futuras views: sempre criar com `WITH (security_invoker=true)`.
+  - Política para tabelas internas: RLS habilitado + `service_role` para escrita + `is_admin()` para leitura.
+  - Backups obsoletos devem ser dropados após validação, não mantidos com RLS desabilitado.
 
-Manter `piperun_id` como **PROTECTED contra null** mas permitir overwrite quando `pickPrimaryDeal` indicar outro id.
+### Findings de severidade menor (não inclusos nesta rodada)
 
-### 4. Backfill 1x
-Edge function efêmera `backfill-primary-deal` (ou bloco em `piperun-full-sync` rodado uma vez) que:
-- Itera `lia_attendances WHERE merged_into IS NULL AND jsonb_array_length(piperun_deals_history) > 1` em páginas de 200.
-- Para cada lead, roda `pickPrimaryDeal` e faz `update` apenas dos campos snapshot.
-- Loga before/after no `lead_enrichment_audit` com `source='backfill_primary_deal'`.
+Permanecem como `warn`/`info` e não bloqueiam: `leaked_password_protection_disabled`, `vulnerable_postgres_version`, `function_search_path_mutable`, `extension_in_public`, `rls_enabled_no_policy` (4 tabelas). Posso atacá-los em uma segunda rodada se você quiser — diga "fix the warnings too".
 
-Para o caso da Joyce, o backfill resultará em:
-```
-piperun_id            = 54298853
-proprietario_lead_crm = Janaina Santos
-status_atual_lead_crm = Contato Feito
-funil_entrada_crm     = Funil de vendas
-status_oportunidade   = aberta
-data_fechamento_crm   = NULL
-```
-
-### 5. UI — `KanbanLeadDetail` / Hero card
-Sem mudanças funcionais. Adicionar um pequeno tooltip “Deal primário: #{piperun_id} — selecionado entre N deals” para transparência.
-
-### 6. Memória
-Atualizar `mem://smart-ops/lead-card-business-intelligence-tables-v4` (ou criar `mem://smart-ops/primary-deal-selection-v1`) com a regra: **Snapshot row-level do CRM = deal aberto mais recente; ganhos/perdidos antigos não rebaixam o snapshot.**
-
-## Arquivos a alterar
-
-- `supabase/functions/_shared/piperun-primary-deal.ts` (novo)
-- `supabase/functions/_shared/lead-enrichment.ts`
-- `supabase/functions/smart-ops-piperun-webhook/index.ts`
-- `supabase/functions/smart-ops-sync-piperun/index.ts`
-- `supabase/functions/piperun-full-sync/index.ts`
-- `supabase/functions/backfill-primary-deal/index.ts` (novo, efêmero)
-- `mem://smart-ops/primary-deal-selection-v1` (novo)
-
-Sem migrations de schema. Sem mudanças em RLS. Sem novos secrets.
-
-Aprova para eu implementar?
+### Arquivos afetados
+- **1 nova migration**: `supabase/migrations/<timestamp>_fix_rls_and_definer_views.sql`
+- **`@security-memory`**: atualizado via `update_memory`
+- Nenhum código TS/TSX alterado.
