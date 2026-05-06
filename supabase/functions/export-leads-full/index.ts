@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
       activityLog, enrichAudit,
       vCognitive, vCommercial, vEcommerce, vFinanceiro, vAcademy,
     ] = await Promise.all([
-      safeAll("v_lead_timeline", (q) => q.in("lead_id", leadIds.slice(0, 500))).then(() => fetchByLeadIds("v_lead_timeline")).catch(() => []),
+      safeFetch("v_lead_timeline"),
       safeFetch("lead_state_events"),
       safeFetch("lead_page_views"),
       safeFetch("lead_conversion_history"),
