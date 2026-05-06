@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
       });
     }
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const { data: isAdminData, error: adminErr } = await supabase.rpc("is_admin", { _user_id: userData.user.id });
+    const { data: isAdminData, error: adminErr } = await supabase.rpc("is_admin", { user_id: userData.user.id });
     if (adminErr || !isAdminData) {
       return new Response(JSON.stringify({ error: "Admin required" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
