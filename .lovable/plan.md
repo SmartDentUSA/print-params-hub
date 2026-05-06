@@ -1,57 +1,80 @@
-## Plano: Corrigir vulnerabilidades críticas do scan de segurança
+## Objetivo
 
-Dois grupos de findings críticos detectados pelo scanner Supabase:
+Adicionar um botão **"Exportar Tudo"** ao lado de "Sync Incremental" / "Full Sync" no header do Smart Ops (página `/admin`), que gera um arquivo **XLSX consolidado** com todos os dados estruturados de cada lead canônico (`merged_into IS NULL`): campos do CDP, deals, propostas/itens, timeline, eventos de estágio, page views, conversões, oportunidades, e-commerce, financeiro, academy, análise cognitiva, SDR, Astron e tags.
 
-1. **RLS Disabled in Public** — 9 tabelas
-2. **Security Definer View** — 60 views
+## UX
 
-Tudo será resolvido em **uma única migration SQL** (sem alterações de código no frontend/edge functions), pois nenhuma dessas tabelas/views é consumida pelo cliente anônimo — todas servem dashboards admin (que já passam por `is_admin()`) ou pipelines internos rodando com `service_role`.
+No header de Smart Ops em `src/pages/AdminViewSecure.tsx`, adicionar um terceiro botão à direita de "Full Sync":
 
----
+```text
+[ Sync Incremental ] [ Full Sync ] [ ⬇ Exportar Tudo ] [ Atualizar ]
+```
 
-### Parte 1 — RLS Disabled (9 tabelas)
+- Ícone `Download` do lucide-react.
+- Estado `exporting` com spinner.
+- Ao clicar: chama `supabase.functions.invoke('export-leads-full')` esperando blob; dispara download do arquivo `smartdent-leads-export-YYYY-MM-DD.xlsx`.
+- Toast de sucesso com contagem de leads e abas geradas; toast de erro em vermelho.
 
-| Tabela | Tratamento |
-|---|---|
-| `_backup_qid_migration_20260427` | **DROP TABLE** (backup obsoleto de migração já aplicada) |
-| `_backup_qid_migration_aux_20260427` | **DROP TABLE** |
-| `_backup_category_f_20260427` | **DROP TABLE** |
-| `vitality_gen_control` | ENABLE RLS + policy `service_role only` (controle interno de geração de conteúdo) |
-| `produto_aliases` | ENABLE RLS + policy `service_role` para escrita, `is_admin()` para leitura |
-| `system_a_content_library` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
-| `google_indexing_log` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
-| `kg_entities` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) — knowledge graph interno |
-| `kg_relations` | ENABLE RLS + `service_role` (full) + `is_admin()` (select) |
+## Edge Function: `export-leads-full`
 
-Antes de DROPar os 3 backups, faço um `SELECT count(*)` de validação na migration (comentado) e confirmo que não há FK apontando para eles.
+Nova função em `supabase/functions/export-leads-full/index.ts`.
 
-### Parte 2 — Security Definer Views (60 views)
+**Stack**: `xlsx` (`https://esm.sh/xlsx@0.18.5`) para gerar workbook multi-sheet em memória e devolver como `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
 
-Todas as 60 views listadas serão **recriadas com `WITH (security_invoker = true)`**. Isso faz com que a view passe a respeitar as permissões e RLS do **usuário que consulta**, em vez de rodar com privilégios do owner (postgres). Comportamento idêntico do ponto de vista funcional, pois:
+**Auth**: valida JWT do chamador e exige `is_admin(auth.uid())`. Usa Service Role internamente.
 
-- Views consumidas pelo painel admin → o admin lê via JWT autenticado e passa nas RLS das tabelas-base (`lia_attendances`, `piperun_deals_history` etc., que já têm policies `is_admin()` ou `authenticated_full_access`).
-- Views consumidas por edge functions → rodam com `service_role`, que ignora RLS de qualquer forma.
+**Filtro global**: todas as queries respeitam a Core Rule — apenas leads canônicos (`merged_into IS NULL`).
 
-Estratégia técnica: para cada view, executo `ALTER VIEW public.<nome> SET (security_invoker = true);` (Postgres 15+, suportado no Supabase). Isso evita ter que reescrever 60 definições — mantém o SQL da view intacto e só inverte o modo de execução.
+**Abas geradas (cada lead = 1 linha por aba, exceto as de detalhe que expandem):**
 
-Lista completa das 60 views (do scan): `v_equipment_field_map`, `v_produtos_vendidos`, `vw_alertas_faturamento`, `v_h2_as_questions`, `v_content_library_by_product`, `vw_vendas_ganhas`, `v_receita_por_categoria`, `vw_saude_leads`, `v_phone_duplicates`, `vw_leads_qualidade_ruim`, `v_workflow_portfolio`, `v_customer_graph`, `v_lead_commercial`, `v_open_opportunities`, `v_pipeline_atual`, `v_portfolio_mensal_comparativo`, `v_lead_cognitive`, `v_form_health`, `v_person_company_graph`, `v_portfolio_em_aberto_por_vendedor`, `vw_vendas_por_produto`, `v_portfolio_ganhos_vs_pipeline`, `vw_reconciliacao_financeira`, `v_parameter_ranking`, `v_lead_financeiro`, `v_lead_ecommerce`, `vw_deal_items_dedup`, `v_omie_nfs_sem_deal`, `v_leads_pendentes_atribuicao`, `lead_model_routing`, `v_opportunity_engine`, `vw_faturamento_consolidado`, `v_turmas_com_vagas`, `v_form_responses_enriched`, `v_portfolio_historico`, `v_lead_timeline`, `vw_dashboard_financeiro`, `company_ltv`, `v_receita_mensal`, `v_deal_items_normalized`, `v_leads_correto`, `v_behavioral_health`, `vw_produtos_faturados`, `vw_leads_orfaos_recentes`, `v_portfolio_mensal_com_abertos`, `v_portfolio_mensal`, `vw_omie_vendas_mes`, `v_workflow_timeline`, `v_portfolio_em_aberto`, `v_timing_alerts`, `v_lead_academy`, `v_receita_mensal_total`, `person_ltv`, etc.
+| Aba | Fonte | Conteúdo |
+|---|---|---|
+| `Leads` | `lia_attendances` | Todas as colunas escalares + flatten de `cognitive_analysis`, `astron_plans_data`, `piperun_custom_fields`, `sellflux_custom_fields` em colunas auxiliares principais. JSONBs grandes serializados como string JSON. |
+| `Deals` | `piperun_deals_history` (jsonb_array_elements) | 1 linha por deal: lead_id, email, deal_id, pipeline, stage, status, value, created_at, closed_at, owner_name, origem. |
+| `Proposals` | deals.proposals | 1 linha por proposta: deal_id, proposal_id, vendedor, valor totals, parcelas, frete. |
+| `Proposal_Items` | proposals.items | 1 linha por item: deal_id, proposal_id, sku, nome, qtd, unit, total, categoria. |
+| `Timeline` | `v_lead_timeline` | Eventos cronológicos por lead. |
+| `State_Events` | `lead_state_events` | Mudanças de estágio/status. |
+| `Page_Views` | `lead_page_views` | Tracking omnichannel. |
+| `Conversions` | `lead_conversion_history` | Conversões/eventos. |
+| `Opportunities` | `lead_opportunities` | Oportunidades cognitivas. |
+| `Form_Submissions` | `lead_form_submissions` | Submissões com `form_data` JSON serializado. |
+| `Cart_History` | `lead_cart_history` | Carrinhos e-commerce. |
+| `Product_History` | `lead_product_history` | Pedidos/itens e-commerce. |
+| `Course_Progress` | `lead_course_progress` | Academy. |
+| `SDR_Interactions` | `lead_sdr_interactions` | Interações SDR. |
+| `Activity_Log` | `lead_activity_log` | Log bruto. |
+| `Enrichment_Audit` | `lead_enrichment_audit` | Histórico de enrichment. |
+| `Cognitive_View` | `v_lead_cognitive` | Snapshot cognitivo agregado. |
+| `Commercial_View` | `v_lead_commercial` | Snapshot comercial. |
+| `Ecommerce_View` | `v_lead_ecommerce` | LTV ecommerce. |
+| `Financeiro_View` | `v_lead_financeiro` | Financeiro consolidado. |
+| `Academy_View` | `v_lead_academy` | Academy consolidado. |
 
-Caso alguma view específica precise mesmo do owner-bypass (ex: agregações sobre `auth.users`), eu abro uma exceção pontual e documento na security memory — mas a expectativa é que **todas** funcionem com `security_invoker=true`.
+**Regras de qualidade:**
+- Cada aba começa com colunas `lead_id` e `email` para joins externos.
+- Datas em ISO 8601.
+- JSONBs aninhados que não couberam em colunas próprias serializados com `JSON.stringify`.
+- Paginação por `range(0, 999)` em loop até esgotar (Supabase 1000 default).
+- Limite duro: ignora apenas leads com `merged_into NOT NULL` para honrar CDP Integrity.
+- Headers gerados dinamicamente a partir das chaves do primeiro registro mais a união das chaves vistas (garante completude).
 
-### Parte 3 — Marcar findings como Fixed + atualizar Security Memory
+**Resposta**: binário XLSX (`Uint8Array` de `XLSX.write({type:'array'})`) com `Content-Disposition: attachment; filename="smartdent-leads-export-<date>.xlsx"`.
 
-Após a migration:
-- Chamar `manage_security_finding` para marcar `SUPA_rls_disabled_in_public` e `SUPA_security_definer_view` como `mark_as_fixed`.
-- Atualizar `@security-memory` com:
-  - Padrão para futuras views: sempre criar com `WITH (security_invoker=true)`.
-  - Política para tabelas internas: RLS habilitado + `service_role` para escrita + `is_admin()` para leitura.
-  - Backups obsoletos devem ser dropados após validação, não mantidos com RLS desabilitado.
+## Frontend wiring
 
-### Findings de severidade menor (não inclusos nesta rodada)
+Em `src/pages/AdminViewSecure.tsx`:
+- Importar `Download` do lucide-react.
+- Adicionar estado `exporting` e handler `handleExportAll` que faz `fetch` direto à URL da função (não `invoke`, para receber binário) com `Authorization: Bearer ${session.access_token}`, lê `await res.blob()`, cria URL e dispara `<a download>`.
+- Botão `disabled` durante syncs e export.
 
-Permanecem como `warn`/`info` e não bloqueiam: `leaked_password_protection_disabled`, `vulnerable_postgres_version`, `function_search_path_mutable`, `extension_in_public`, `rls_enabled_no_policy` (4 tabelas). Posso atacá-los em uma segunda rodada se você quiser — diga "fix the warnings too".
+## Arquivos
 
-### Arquivos afetados
-- **1 nova migration**: `supabase/migrations/<timestamp>_fix_rls_and_definer_views.sql`
-- **`@security-memory`**: atualizado via `update_memory`
-- Nenhum código TS/TSX alterado.
+- **Novo**: `supabase/functions/export-leads-full/index.ts`
+- **Novo**: `supabase/config.toml` — adicionar registro da função (verify_jwt false; auth feita em código).
+- **Editado**: `src/pages/AdminViewSecure.tsx` — botão + handler.
+
+## Notas
+
+- A função pode demorar; usar streaming não é necessário para volumes atuais (alguns milhares de leads). Se ultrapassar o limite de memória, paginar e gerar abas grandes (Deals/Page_Views) com escrita incremental via `XLSX.utils.sheet_add_aoa`.
+- Os JSONBs grandes (`raw_payload`, `historico_resumos`, `interest_timeline`) ficam serializados — isso preserva *tudo* sem explodir colunas.
