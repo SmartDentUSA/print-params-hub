@@ -1302,6 +1302,48 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_product_sales: {
+        Row: {
+          category: string
+          created_at: string | null
+          data_fechamento: string | null
+          id: string
+          mes: string | null
+          oportunidade_id: string | null
+          product_name: string | null
+          qty: number | null
+          source: string | null
+          subcategory: string | null
+          vendedor: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          data_fechamento?: string | null
+          id?: string
+          mes?: string | null
+          oportunidade_id?: string | null
+          product_name?: string | null
+          qty?: number | null
+          source?: string | null
+          subcategory?: string | null
+          vendedor?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          data_fechamento?: string | null
+          id?: string
+          mes?: string | null
+          oportunidade_id?: string | null
+          product_name?: string | null
+          qty?: number | null
+          source?: string | null
+          subcategory?: string | null
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
       cron_state: {
         Row: {
           key: string
@@ -8822,6 +8864,7 @@ export type Database = {
           lead_status_in: string[] | null
           max_days_inactive: number | null
           max_per_run: number | null
+          message_format: string
           min_days_inactive: number | null
           min_ltv: number | null
           min_total_deals: number | null
@@ -8852,6 +8895,7 @@ export type Database = {
           lead_status_in?: string[] | null
           max_days_inactive?: number | null
           max_per_run?: number | null
+          message_format?: string
           min_days_inactive?: number | null
           min_ltv?: number | null
           min_total_deals?: number | null
@@ -8882,6 +8926,7 @@ export type Database = {
           lead_status_in?: string[] | null
           max_days_inactive?: number | null
           max_per_run?: number | null
+          message_format?: string
           min_days_inactive?: number | null
           min_ltv?: number | null
           min_total_deals?: number | null
@@ -11009,6 +11054,7 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          elevenlabs_voice_id: string | null
           email: string
           id: string
           manychat_api_key: string | null
@@ -11016,6 +11062,10 @@ export type Database = {
           piperun_owner_id: string | null
           role: string
           updated_at: string
+          voice_enabled: boolean | null
+          voice_sample_url: string | null
+          voice_similarity_boost: number | null
+          voice_stability: number | null
           waleads_api_key: string | null
           waleads_instance_name: string | null
           waleads_phone_number: string | null
@@ -11024,6 +11074,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          elevenlabs_voice_id?: string | null
           email: string
           id?: string
           manychat_api_key?: string | null
@@ -11031,6 +11082,10 @@ export type Database = {
           piperun_owner_id?: string | null
           role: string
           updated_at?: string
+          voice_enabled?: boolean | null
+          voice_sample_url?: string | null
+          voice_similarity_boost?: number | null
+          voice_stability?: number | null
           waleads_api_key?: string | null
           waleads_instance_name?: string | null
           waleads_phone_number?: string | null
@@ -11039,6 +11094,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          elevenlabs_voice_id?: string | null
           email?: string
           id?: string
           manychat_api_key?: string | null
@@ -11046,6 +11102,10 @@ export type Database = {
           piperun_owner_id?: string | null
           role?: string
           updated_at?: string
+          voice_enabled?: boolean | null
+          voice_sample_url?: string | null
+          voice_similarity_boost?: number | null
+          voice_stability?: number | null
           waleads_api_key?: string | null
           waleads_instance_name?: string | null
           waleads_phone_number?: string | null
@@ -11491,6 +11551,47 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      voice_message_cache: {
+        Row: {
+          audio_url: string
+          chars_used: number | null
+          created_at: string | null
+          duration_s: number | null
+          expires_at: string | null
+          id: string
+          seller_tm_id: string | null
+          text_hash: string
+        }
+        Insert: {
+          audio_url: string
+          chars_used?: number | null
+          created_at?: string | null
+          duration_s?: number | null
+          expires_at?: string | null
+          id?: string
+          seller_tm_id?: string | null
+          text_hash: string
+        }
+        Update: {
+          audio_url?: string
+          chars_used?: number | null
+          created_at?: string | null
+          duration_s?: number | null
+          expires_at?: string | null
+          id?: string
+          seller_tm_id?: string | null
+          text_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_message_cache_seller_tm_id_fkey"
+            columns: ["seller_tm_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_inbox: {
         Row: {
@@ -14248,6 +14349,10 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_close_reactivation_on_deal_won: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       fn_deduplicate_proposal_csv: {
         Args: { p_csv_rows: Json }
         Returns: {
@@ -14357,6 +14462,19 @@ export type Database = {
         }[]
       }
       fn_map_omie_titulo_status: { Args: { s: string }; Returns: string }
+      fn_mark_reactivation_response: {
+        Args: {
+          p_lead_id: string
+          p_response_class: string
+          p_response_text?: string
+        }
+        Returns: {
+          intent: string
+          seller_tm_id: string
+          sequence_id: string
+          was_active: boolean
+        }[]
+      }
       fn_mix_produtos: {
         Args: { p_fim?: string; p_inicio?: string }
         Returns: {
@@ -14382,6 +14500,10 @@ export type Database = {
         }[]
       }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
+      fn_pause_reactivation_manual: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       fn_record_lead_event: {
         Args: {
           p_entity_id?: string
