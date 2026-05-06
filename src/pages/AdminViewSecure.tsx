@@ -26,7 +26,7 @@ import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { Wrench, RefreshCw, Database, Zap } from "lucide-react";
+import { Wrench, RefreshCw, Database, Zap, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // Smart Ops components (flattened from SmartOpsTab)
@@ -59,6 +59,7 @@ export default function AdminViewSecure() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [syncingIncremental, setSyncingIncremental] = useState(false);
   const [syncingFull, setSyncingFull] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
   const handleSyncIncremental = async () => {
@@ -86,6 +87,45 @@ export default function AdminViewSecure() {
       toast({ title: "Erro no full sync", description: e.message, variant: "destructive" });
     } finally {
       setSyncingFull(false);
+    }
+  };
+
+  const handleExportAll = async () => {
+    setExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-leads-full`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      }
+      const leadCount = res.headers.get("X-Lead-Count") || "?";
+      const dealCount = res.headers.get("X-Deal-Count") || "?";
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `smartdent-leads-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+      toast({
+        title: "Export gerado",
+        description: `${leadCount} leads · ${dealCount} deals · 21 abas`,
+      });
+    } catch (e: any) {
+      toast({ title: "Erro no export", description: e.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -320,6 +360,15 @@ export default function AdminViewSecure() {
                   >
                     {syncingFull ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Database className="w-4 h-4 mr-1" />}
                     Full Sync
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExportAll}
+                    disabled={syncingIncremental || syncingFull || exporting}
+                  >
+                    {exporting ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}
+                    Exportar Tudo
                   </Button>
                   <Button
                     size="sm"
