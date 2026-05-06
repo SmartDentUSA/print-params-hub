@@ -38,6 +38,7 @@ export const WORKFLOW_CELLS: { value: string; label: string }[] = [
   { value: "6_cursos__online",                     label: "6 · Cursos / Online" },
   { value: "7_fresagem__equipamentos",             label: "7 · Fresagem / Equipamentos" },
   { value: "7_fresagem__softwares",                label: "7 · Fresagem / Softwares" },
+  { value: "7_fresagem__insumos",                  label: "7 · Fresagem / Insumos" },
   { value: "7_fresagem__servicos",                 label: "7 · Fresagem / Serviços" },
   { value: "7_fresagem__acessorios",               label: "7 · Fresagem / Acessórios" },
   { value: "7_fresagem__pecas_e_partes",           label: "7 · Fresagem / Peças e Partes" },

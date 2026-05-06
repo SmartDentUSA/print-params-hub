@@ -5673,6 +5673,7 @@ export type Database = {
           hits_e6_presencial: number | null
           hits_e7_acessorios: number | null
           hits_e7_equipamentos: number | null
+          hits_e7_insumos: number
           hits_e7_pecas_partes: number | null
           hits_e7_servico: number | null
           hits_e7_software: number | null
@@ -6172,6 +6173,7 @@ export type Database = {
           hits_e6_presencial?: number | null
           hits_e7_acessorios?: number | null
           hits_e7_equipamentos?: number | null
+          hits_e7_insumos?: number
           hits_e7_pecas_partes?: number | null
           hits_e7_servico?: number | null
           hits_e7_software?: number | null
@@ -6671,6 +6673,7 @@ export type Database = {
           hits_e6_presencial?: number | null
           hits_e7_acessorios?: number | null
           hits_e7_equipamentos?: number | null
+          hits_e7_insumos?: number
           hits_e7_pecas_partes?: number | null
           hits_e7_servico?: number | null
           hits_e7_software?: number | null
@@ -14882,6 +14885,7 @@ export type Database = {
           hits_e6_presencial: number | null
           hits_e7_acessorios: number | null
           hits_e7_equipamentos: number | null
+          hits_e7_insumos: number
           hits_e7_pecas_partes: number | null
           hits_e7_servico: number | null
           hits_e7_software: number | null

@@ -232,7 +232,7 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_4_pos_impressao: ['equipamentos', 'limpeza_acabamento'],
   etapa_5_finalizacao:   ['caracterizacao', 'instalacao', 'dentistica_orto'],
   etapa_6_cursos:        ['presencial', 'online'],
-  etapa_7_fresagem:      ['equipamentos', 'software', 'servico', 'acessorios', 'pecas_partes'],
+  etapa_7_fresagem:      ['equipamentos', 'software', 'insumos', 'servico', 'acessorios', 'pecas_partes'],
 };
 
 // ─── Layer priority: higher number wins ───
@@ -282,6 +282,7 @@ const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: stri
   { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'ativo', col: 'hits_fresagem',  label_col: 'equip_fresadora' },
   { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'conc',  col: 'equip_fresadora' },
   { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'sdr',   col: 'sdr_fresagem_interesse' },
+  { stage: 'etapa_7_fresagem', subcat: 'insumos',      layer: 'ativo', col: 'hits_e7_insumos' },
 ];
 
 function transformPortfolioFromLead(lead: any, taxonomyMap?: Map<string, { stage: string; subcategory: string }>): any {

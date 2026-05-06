@@ -1439,7 +1439,7 @@ Você executa 6 tipos de trabalho:
 **Scoring e inteligência:** intelligence_score_total, workflow_score, opportunity_score, next_upsell_stage, next_upsell_product, next_upsell_date_est, next_upsell_score, churn_risk_score, recompra_alert, recompra_days_overdue
 **Análise cognitiva (IA):** lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach
 **LTV e financeiro:** ltv_total, avg_ticket, total_deals, last_deal_date, last_deal_value, ltv_projected_12m, ltv_projected_24m, omie_faturamento_total, omie_valor_em_aberto, omie_inadimplente, omie_valor_vencido, omie_dias_sem_comprar
-**Hits por categoria:** hits_scanner, hits_cad, hits_impressao3d, hits_pos_impressao, hits_insumos_cursos, hits_fresagem
+**Hits por categoria:** hits_scanner, hits_cad, hits_impressao3d, hits_pos_impressao, hits_insumos_cursos, hits_fresagem, hits_e7_insumos
 **Academy:** academy_progresso_pct, academy_ultimo_modulo_acessado, academy_curso_concluido, astron_courses_total, astron_courses_completed
 **Mídia e origem:** utm_source, utm_medium, utm_campaign, utm_term, platform, platform_cpl, origem_campanha, wa_group_origem
 **Prospecção:** proactive_sent_at, proactive_count, automation_cooldown_until, last_automated_action_at, ultima_sessao_at, total_sessions, total_messages
