@@ -96,31 +96,42 @@ export default function AdminViewSecure() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada. Faça login novamente.");
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-leads-full`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      const headers = {
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      };
+      const startRes = await fetch(url, { method: "POST", headers });
+      if (!startRes.ok) throw new Error(`HTTP ${startRes.status}: ${(await startRes.text()).slice(0, 200)}`);
+      const { job_id } = await startRes.json();
+      toast({ title: "Export iniciado", description: "Processando em segundo plano…" });
+
+      // Poll job status
+      let job: any = null;
+      for (let i = 0; i < 240; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const r = await fetch(`${url}?job_id=${job_id}`, { headers });
+        if (!r.ok) continue;
+        job = await r.json();
+        if (job.status === "completed" || job.status === "failed") break;
       }
-      const leadCount = res.headers.get("X-Lead-Count") || "?";
-      const dealCount = res.headers.get("X-Deal-Count") || "?";
-      const blob = await res.blob();
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = `smartdent-leads-export-${new Date().toISOString().slice(0, 10)}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(href);
+      if (!job) throw new Error("Timeout aguardando o export");
+      if (job.status === "failed") throw new Error(job.error || "Export falhou");
+
+      // Download each signed CSV
+      for (const f of job.signed || []) {
+        if (!f.url) continue;
+        const a = document.createElement("a");
+        a.href = f.url;
+        a.download = `${f.name}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        await new Promise((r) => setTimeout(r, 250));
+      }
       toast({
-        title: "Export gerado",
-        description: `${leadCount} leads · ${dealCount} deals · 21 abas`,
+        title: "Export concluído",
+        description: `${job.lead_count} leads · ${job.deal_count} deals · ${(job.signed || []).length} arquivos`,
       });
     } catch (e: any) {
       toast({ title: "Erro no export", description: e.message, variant: "destructive" });

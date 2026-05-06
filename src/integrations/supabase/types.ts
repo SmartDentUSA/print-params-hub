@@ -2227,6 +2227,48 @@ export type Database = {
           },
         ]
       }
+      export_jobs: {
+        Row: {
+          created_at: string
+          current_step: string | null
+          deal_count: number | null
+          error: string | null
+          files: Json
+          id: string
+          lead_count: number | null
+          progress: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_step?: string | null
+          deal_count?: number | null
+          error?: string | null
+          files?: Json
+          id?: string
+          lead_count?: number | null
+          progress?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_step?: string | null
+          deal_count?: number | null
+          error?: string | null
+          files?: Json
+          id?: string
+          lead_count?: number | null
+          progress?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       external_links: {
         Row: {
           ai_generated: boolean | null
