@@ -1,0 +1,1 @@
+DELETE FROM agent_internal_lookups WHERE query_normalized ~* '(ifu|resina|manual|instruc|bula|msds|ficha|certificado)';
