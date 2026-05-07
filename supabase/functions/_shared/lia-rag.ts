@@ -196,6 +196,51 @@ export async function searchContentDirect(
     }
   } catch (e) { console.warn("[searchContentDirect] Resins search failed:", e); }
 
+  // Resin Documents (IFUs, MSDS, manuais técnicos, estudos) — ILIKE em nome/descrição/extracted_text
+  try {
+    const isIfuIntent = /\b(ifu|instru[cç][õo]es de uso|instructions for use|bula|manual|msds|fispq|ficha t[ée]cnica|certificado)\b/i.test(queryNormalized);
+    const docOrFilter = [
+      `document_name.ilike.${searchPattern}`,
+      `document_description.ilike.${searchPattern}`,
+      `extracted_text.ilike.${searchPattern}`,
+      `document_type.ilike.${searchPattern}`,
+    ].join(",");
+
+    const { data: resinDocs } = await supabaseClient
+      .from("resin_documents")
+      .select("id, document_name, document_description, file_url, document_type, document_category, language, extracted_text, resin_id, resins(name, slug)")
+      .eq("active", true)
+      .or(docOrFilter)
+      .limit(8);
+
+    if (resinDocs) {
+      for (const d of resinDocs as any[]) {
+        const isIfu = (d.document_type || "").toLowerCase().includes("ifu") ||
+                      (d.document_name || "").toLowerCase().includes("ifu");
+        const baseSim = isIfuIntent && isIfu ? 0.88 : (isIfu ? 0.78 : 0.72);
+        const resinName = d.resins?.name || "";
+        const resinSlug = d.resins?.slug || "";
+        const tag = isIfu ? "[IFU]" : "[DOC RESINA]";
+        const snippet = (d.extracted_text || d.document_description || "").slice(0, 350);
+        results.push({
+          source_type: "resin_document",
+          similarity: baseSim,
+          chunk_text: `${tag} ${d.document_name}${resinName ? ` (Resina ${resinName})` : ""} — ${snippet}`,
+          metadata: {
+            title: d.document_name,
+            url_publica: d.file_url,
+            document_type: d.document_type,
+            document_category: d.document_category,
+            language: d.language,
+            resin_name: resinName,
+            resin_slug: resinSlug,
+            resin_url: resinSlug ? `${siteBaseUrl}/resinas/${resinSlug}` : null,
+          },
+        });
+      }
+    }
+  } catch (e) { console.warn("[searchContentDirect] Resin documents search failed:", e); }
+
   // Testimonials (depoimentos de clientes)
   try {
     const { data: testimonials } = await supabaseClient
