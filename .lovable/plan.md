@@ -1,55 +1,67 @@
-## Objetivo
+## Diagnóstico
 
-Adicionar a célula **"Insumos"** na Etapa 7 (Fresagem) do Workflow 7×3, para mapear blocos/discos de zircônia, dissilicato, PMMA, ceras de fresagem etc. — produtos que hoje são identificados nos deals do CRM mas que caem em células erradas (ou ficam fora do mapeamento).
+Encontrei dois bugs concretos:
 
-A célula nova fica entre `Software` e `Serviço`:
+### Bug 1 — Idioma ignorado pela LIA
+- Em `supabase/functions/dra-lia/index.ts:3469`, a variável `langInstruction` é montada a partir de `LANG_INSTRUCTIONS` mas **nunca é injetada no `systemPrompt`** (linhas 3636–3843). O front passa `lang` corretamente (`DraLIA.tsx` mapeia `pt/en/es` → `pt-BR/en-US/es-ES` e envia no body), mas o LLM nunca recebe a instrução de idioma. Resultado: responde sempre em PT-BR independente da bandeira escolhida.
+- Mensagens de interceptor (saudações, coleta de nome/telefone, escalonamento) já respeitam `lang` via `[lang] || ["pt-BR"]`. O problema é exclusivo da resposta principal do LLM.
 
-```text
-7 · Fresagem | Equipamentos | Software | Insumos | Serviço | Acessórios | Peças/Partes
+### Bug 2 — IFUs/documentos de resinas invisíveis ao RAG
+- A tabela `resin_documents` tem **47 docs (14 IFUs)** com `extracted_text`, `document_type`, `language`, etc.
+- Em `supabase/functions/_shared/lia-rag.ts` (`searchContentDirect`), a LIA busca `catalog_documents`, `knowledge_videos`, `knowledge_contents`, `resins` (só metadados básicos: nome, indicação, biocompat) e `system_a_catalog`. **Nunca consulta `resin_documents`**. Por isso, quando o usuário pergunta "IFU da resina X", ela não encontra nem retorna o link do PDF.
+- A tabela `resins` consultada também não traz documentos relacionados — só campos clínicos resumidos.
+
+## O que vou alterar
+
+### Correção 1 — Injetar `langInstruction` no prompt
+Em `dra-lia/index.ts`, mover `langInstruction` para o cabeçalho do `systemPrompt` (logo após `leadNameContext`/`topicInstruction`) com peso máximo:
+
+```ts
+const systemPrompt = `${langInstruction}
+
+Você é a Dra. L.I.A. ...`;
 ```
 
-## O que vai mudar
+Aplicar a mesma injeção no caminho do `dra-lia-whatsapp` se ele construir prompt próprio (vou verificar e replicar se for o caso).
 
-### 1. Banco (migration)
-- `ALTER TABLE lia_attendances ADD COLUMN hits_e7_insumos integer DEFAULT 0` (granular hit counter, idempotente).
-- `UPDATE product_taxonomy SET subcategory='insumos' WHERE workflow_stage='etapa_7_fresagem' AND subcategory='insumos_fres'` (alinhar nome com as outras etapas).
-- Inserir/expandir `match_patterns` da linha "Insumos de Fresagem" para cobrir o que já vimos no CRM:
-  - Blocos de Zircônia Smart Zr (HT, ST, TT White, TT ML, TT GT, Zirkonzahn, Amann)
-  - Blocos de Dissilicato de Lítio Evolith CAD 14mm
-  - Frese Smart-DLC para Zircônia
-  - Berço para Sinterização de Zircônia
-  - Spray Revelador para Escaneamento (uso EXTERNO)
-  - Base para Pigmentação de Zircônia 50ml/100ml
-  - Efeitos para Pigmentação de Zircônia 20ml
-  - Fresa para Dissilicato de Lítio
-  - PMMA, wax disc, disco fresagem genéricos
+### Correção 2 — Adicionar `resin_documents` ao RAG
+Em `_shared/lia-rag.ts`, dentro de `searchContentDirect`, adicionar bloco análogo ao de `catalog_documents` que:
 
-### 2. Edge function `backfill-hits-granular`
-- Adicionar `hits_e7_insumos` em `ALL_HITS_E_COLS`.
-- Adicionar padrões em `PRODUCT_PATTERNS` (regex cobrindo: `bloco|disco|smart\s*zr|smartzr|zircônia|zirconia|dissilicato|evolith|pmma|wax\s*disc|berço.*sinteriza|spray.*revelador|pigmenta(ç|c)ão.*zircônia|frese.*smart.*dlc|fresa.*dissilicato`) → `hits_e7_insumos`.
-- Tirar `bloco.*fres|disco.*zircônia|smartzr` do mapeamento atual de `hits_e7_pecas_partes` (estavam classificando insumos como peças).
-- Após deploy: chamar a função uma vez para reclassificar os leads existentes (idempotente — zera e recalcula).
+1. Busca em `resin_documents` por `document_name`, `document_description`, `extracted_text`, `document_type` (ILIKE) e join com `resins(name, slug)`.
+2. Detecta intenção "IFU" no `queryNormalized` (regex `/\b(ifu|instru[cç][õo]es de uso|instructions for use|bula)\b/i`) e, quando presente, dá boost de similarity para 0.85 e prioriza `document_type ILIKE 'ifu'`.
+3. Inclui no resultado:
+   - `chunk_text`: `[IFU] {document_name} — {trecho de extracted_text}` para o LLM citar conteúdo real.
+   - `metadata.url_publica`: `file_url` direto (PDF), além de `resin_name` e `resin_slug` para o LLM linkar a página da resina como contexto.
+   - Limit 5 docs por busca.
+4. Respeitar coluna `active=true` (se existir) e `language` (filtrar por idioma do `lang` quando disponível, com fallback para qualquer idioma).
 
-### 3. Edge function `smart-ops-leads-api`
-- `STAGE_SUBCATEGORIES.etapa_7_fresagem`: incluir `'insumos'`.
-- `LEAD_COLUMN_MAP`: adicionar entrada `{ stage: 'etapa_7_fresagem', subcat: 'insumos', layer: 'ativo', col: 'hits_e7_insumos' }`.
+### Correção 3 — Reforçar prompt para entregar links de IFU
+Adicionar regra explícita ao `systemPrompt` (junto às Regras de Ouro):
 
-### 4. Frontend
-- `src/components/smartops/WorkflowPortfolio.tsx` (STAGES → etapa_7_fresagem.cols): inserir `{ field: 'insumos', label: 'Insumos' }` entre `software` e `servico`.
-- `src/components/smartops/SmartOpsWorkflowMapper.tsx` (STAGES → etapa_7_fresagem.cols): mesma inclusão.
-- `src/components/SmartOpsMappingFieldsEditor.tsx` (`WORKFLOW_CELLS`): adicionar `7_fresagem__insumos` → "7 · Fresagem / Insumos".
+> "Quando o usuário pedir IFU, manual, instruções de uso ou documento técnico de uma resina, SEMPRE retorne o link direto do PDF (`url_publica` do source_type=`resin_document`) junto com 1–2 linhas resumindo o conteúdo encontrado em `extracted_text`."
 
-### 5. Copilot (referência textual)
-- `supabase/functions/smart-ops-copilot/index.ts` linha 1442: incluir `hits_e7_insumos` na lista de hits granulares (nota: o índice agregado `hits_fresagem` continua existindo).
+### Correção 4 — Cache busting
+A `agent_internal_lookups` cacheia resultados por 30 dias. Vou invalidar entradas relacionadas a resinas/IFUs:
+```sql
+DELETE FROM agent_internal_lookups WHERE query_normalized ~* '(ifu|resina|manual|instruc)';
+```
+(via tool `read_query` não dá; será migration de DELETE controlado.)
+
+## Arquivos a tocar
+
+- `supabase/functions/dra-lia/index.ts` — injetar `langInstruction` no `systemPrompt` + regra de IFU
+- `supabase/functions/_shared/lia-rag.ts` — novo bloco `resin_documents` em `searchContentDirect` + boost para intenção IFU
+- `supabase/functions/dra-lia-whatsapp/index.ts` — verificar e replicar fix de idioma se necessário
+- Migration: limpar cache de `agent_internal_lookups` para queries de resinas/IFU
+
+## Validação após o fix
+
+1. `curl_edge_functions` em `/dra-lia` com `lang="es-ES"` perguntando sobre Vitality Classic → resposta deve vir em espanhol.
+2. `curl_edge_functions` com `"qual o IFU da Vitality HT?"` → deve retornar link `file_url` real do `resin_documents`.
+3. Conferir logs do `searchContentDirect` mostrando hits de `resin_documents`.
 
 ## Fora do escopo
-- Não alteramos `hits_fresagem` agregado nem `equip_fresadora` (camadas conc/sdr).
-- Não criamos coluna SDR-interesse para "insumos" (não há sinal de captação separado hoje).
-- Não mexemos em CRM PipeRun stage mapping (`piperun-field-map.ts`) — é só taxonomia interna.
 
-## Validação
-1. Rodar migration.
-2. Deploy edge functions (`backfill-hits-granular`, `smart-ops-leads-api`).
-3. Invocar `backfill-hits-granular` uma vez.
-4. Abrir um lead com deal de "Bloco de Zircônia Smart Zr" no Kanban → verificar célula `7 · Fresagem / Insumos` acesa em verde (ativo).
-5. Conferir SmartOpsWorkflowMapper renderizando 6 colunas em Fresagem.
+- Reescrever a UI de upload de IFUs.
+- Vetorizar `extracted_text` via embeddings (já existe pipeline; só amarrar à busca da LIA fica para iteração futura se ILIKE não bastar).
+- Tradução automática do conteúdo dos IFUs (eles ficam no idioma original; LIA traduz a explicação ao redor via `langInstruction`).

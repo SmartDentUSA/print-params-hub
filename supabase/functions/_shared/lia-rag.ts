@@ -9,10 +9,10 @@ type SupabaseClient = ReturnType<typeof createClient>;
 
 // ── Topic context re-ranking weights ──
 export const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
-  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9, video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
-  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3, video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6, faq_autoheal: 1.1 },
-  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2, video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0, faq_autoheal: 1.0 },
-  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3, video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5, faq_autoheal: 1.2 },
+  parameters: { parameter_set: 1.5, resin: 1.3, resin_document: 1.3, processing_protocol: 1.4, article: 0.9, video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
+  products:   { parameter_set: 0.4, resin: 1.4, resin_document: 1.5, processing_protocol: 1.2, article: 1.3, video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6, faq_autoheal: 1.1 },
+  commercial: { parameter_set: 0.2, resin: 0.8, resin_document: 1.0, processing_protocol: 0.3, article: 1.2, video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0, faq_autoheal: 1.0 },
+  support:    { parameter_set: 0.6, resin: 0.7, resin_document: 1.4, processing_protocol: 0.8, article: 1.3, video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5, faq_autoheal: 1.2 },
 };
 
 export function applyTopicWeights<T extends { source_type: string; similarity: number }>(
@@ -195,6 +195,51 @@ export async function searchContentDirect(
       }
     }
   } catch (e) { console.warn("[searchContentDirect] Resins search failed:", e); }
+
+  // Resin Documents (IFUs, MSDS, manuais técnicos, estudos) — ILIKE em nome/descrição/extracted_text
+  try {
+    const isIfuIntent = /\b(ifu|instru[cç][õo]es de uso|instructions for use|bula|manual|msds|fispq|ficha t[ée]cnica|certificado)\b/i.test(queryNormalized);
+    const docOrFilter = [
+      `document_name.ilike.${searchPattern}`,
+      `document_description.ilike.${searchPattern}`,
+      `extracted_text.ilike.${searchPattern}`,
+      `document_type.ilike.${searchPattern}`,
+    ].join(",");
+
+    const { data: resinDocs } = await supabaseClient
+      .from("resin_documents")
+      .select("id, document_name, document_description, file_url, document_type, document_category, language, extracted_text, resin_id, resins(name, slug)")
+      .eq("active", true)
+      .or(docOrFilter)
+      .limit(8);
+
+    if (resinDocs) {
+      for (const d of resinDocs as any[]) {
+        const isIfu = (d.document_type || "").toLowerCase().includes("ifu") ||
+                      (d.document_name || "").toLowerCase().includes("ifu");
+        const baseSim = isIfuIntent && isIfu ? 0.88 : (isIfu ? 0.78 : 0.72);
+        const resinName = d.resins?.name || "";
+        const resinSlug = d.resins?.slug || "";
+        const tag = isIfu ? "[IFU]" : "[DOC RESINA]";
+        const snippet = (d.extracted_text || d.document_description || "").slice(0, 350);
+        results.push({
+          source_type: "resin_document",
+          similarity: baseSim,
+          chunk_text: `${tag} ${d.document_name}${resinName ? ` (Resina ${resinName})` : ""} — ${snippet}`,
+          metadata: {
+            title: d.document_name,
+            url_publica: d.file_url,
+            document_type: d.document_type,
+            document_category: d.document_category,
+            language: d.language,
+            resin_name: resinName,
+            resin_slug: resinSlug,
+            resin_url: resinSlug ? `${siteBaseUrl}/resinas/${resinSlug}` : null,
+          },
+        });
+      }
+    }
+  } catch (e) { console.warn("[searchContentDirect] Resin documents search failed:", e); }
 
   // Testimonials (depoimentos de clientes)
   try {
