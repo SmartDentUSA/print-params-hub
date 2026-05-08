@@ -1,67 +1,65 @@
-## Diagnóstico
 
-Encontrei dois bugs concretos:
+## Diagnóstico do lead "Marcia Veraldi"
 
-### Bug 1 — Idioma ignorado pela LIA
-- Em `supabase/functions/dra-lia/index.ts:3469`, a variável `langInstruction` é montada a partir de `LANG_INSTRUCTIONS` mas **nunca é injetada no `systemPrompt`** (linhas 3636–3843). O front passa `lang` corretamente (`DraLIA.tsx` mapeia `pt/en/es` → `pt-BR/en-US/es-ES` e envia no body), mas o LLM nunca recebe a instrução de idioma. Resultado: responde sempre em PT-BR independente da bandeira escolhida.
-- Mensagens de interceptor (saudações, coleta de nome/telefone, escalonamento) já respeitam `lang` via `[lang] || ["pt-BR"]`. O problema é exclusivo da resposta principal do LLM.
+ID: `2b3d6f4c-40e4-4c6e-a848-3c121e9564e4`  ·  CNPJ `45.780.540/0001-73`  ·  Cuiabá/MT  ·  piperun_id `59560182`
 
-### Bug 2 — IFUs/documentos de resinas invisíveis ao RAG
-- A tabela `resin_documents` tem **47 docs (14 IFUs)** com `extracted_text`, `document_type`, `language`, etc.
-- Em `supabase/functions/_shared/lia-rag.ts` (`searchContentDirect`), a LIA busca `catalog_documents`, `knowledge_videos`, `knowledge_contents`, `resins` (só metadados básicos: nome, indicação, biocompat) e `system_a_catalog`. **Nunca consulta `resin_documents`**. Por isso, quando o usuário pergunta "IFU da resina X", ela não encontra nem retorna o link do PDF.
-- A tabela `resins` consultada também não traz documentos relacionados — só campos clínicos resumidos.
+O lead **existe e os números do CRM são reais** (1175 deals distintos no Piperun desde 2021, pipelines `Exportação` + `Funil Estagnados` — é uma **distribuidora**, não duplicação). O problema está em 4 campos derivados que ficaram inconsistentes entre si.
 
-## O que vou alterar
+### O que o card mostra vs. o que o banco diz
 
-### Correção 1 — Injetar `langInstruction` no prompt
-Em `dra-lia/index.ts`, mover `langInstruction` para o cabeçalho do `systemPrompt` (logo após `leadNameContext`/`topicInstruction`) com peso máximo:
+| Campo do card | Valor exibido | Origem real no banco | Diagnóstico |
+|---|---|---|---|
+| Nome / cidade / 1175 deals / R$ 2.549.565 | OK | `nome`, `cidade='Cuiabá'`, `total_deals=1175`, `ltv_total=2549565.01` | **Correto** |
+| 👤 B2C | B2C | `buyer_type='B2B'` no banco | UI exibindo errado OU classificador rebaixou |
+| 22-Sócio (mensagem anterior) | Sócio | `area_atuacao='49-Sócio-Administrador'` | Prefixo numérico do Piperun não foi removido |
+| e-mail | "e-mail não informado" | `email='e-mail não informado'` (string literal!) | Placeholder gravado como dado, deveria ser `NULL` |
+| Score ERP 10 / RISCO / REATIVACAO | RISCO | `omie_score=10`, `omie_classificacao='REATIVACAO'`, `omie_faturamento_total=0`, `omie_total_pedidos=0` | **Bug raiz** — Omie não casou o CNPJ |
+| Status WF 0/10 / "Contato Feito" / `real_status=RISCO_OPERACIONAL` | RISCO | derivado de Omie zerado + deals antigos abertos | Consequência do bug acima |
 
-```ts
-const systemPrompt = `${langInstruction}
+### Causa raiz
 
-Você é a Dra. L.I.A. ...`;
-```
+**O sync Omie não está encontrando o CNPJ `45.780.540/0001-73`** (último sync `2026-04-19`, mas `omie_total_pedidos=0` e `omie_faturamento_total=0`). Com Omie zerado:
 
-Aplicar a mesma injeção no caminho do `dra-lia-whatsapp` se ele construir prompt próprio (vou verificar e replicar se for o caso).
+1. `omie_score` cai para 10 → label `RISCO`
+2. `omie_classificacao` vira `REATIVACAO` (último Omie purchase = nunca)
+3. Trigger de `real_status` (mem: unified-real-status-logic-v2) marca `RISCO_OPERACIONAL` apesar dos R$ 2,5M de LTV CRM
+4. RFM ignora o histórico (mem: rfm-scoring-rules-v1 usa só deal history → deveria ser VIP 280, não RISCO)
 
-### Correção 2 — Adicionar `resin_documents` ao RAG
-Em `_shared/lia-rag.ts`, dentro de `searchContentDirect`, adicionar bloco análogo ao de `catalog_documents` que:
+Ou seja: **um único campo quebrado (Omie billing) está contaminando 4 indicadores do card**.
 
-1. Busca em `resin_documents` por `document_name`, `document_description`, `extracted_text`, `document_type` (ILIKE) e join com `resins(name, slug)`.
-2. Detecta intenção "IFU" no `queryNormalized` (regex `/\b(ifu|instru[cç][õo]es de uso|instructions for use|bula)\b/i`) e, quando presente, dá boost de similarity para 0.85 e prioriza `document_type ILIKE 'ifu'`.
-3. Inclui no resultado:
-   - `chunk_text`: `[IFU] {document_name} — {trecho de extracted_text}` para o LLM citar conteúdo real.
-   - `metadata.url_publica`: `file_url` direto (PDF), além de `resin_name` e `resin_slug` para o LLM linkar a página da resina como contexto.
-   - Limit 5 docs por busca.
-4. Respeitar coluna `active=true` (se existir) e `language` (filtrar por idioma do `lang` quando disponível, com fallback para qualquer idioma).
+### Achados secundários
 
-### Correção 3 — Reforçar prompt para entregar links de IFU
-Adicionar regra explícita ao `systemPrompt` (junto às Regras de Ouro):
+- **1175 deals sem `proposal_id`** (todos): viola a política `incremental-lead-data-policy-v3` (dedup por proposal_id). Hoje a deduplicação só funciona porque `deal_id` é distinto, mas qualquer reprocessamento pode duplicar.
+- **`email='e-mail não informado'`**: provavelmente vindo do parser Piperun. Quebra qualquer matching futuro por email e regras `is null`.
+- **`area_atuacao` com prefixo `49-`**: idem — o normalizador do Piperun não está strip-ando o código.
+- **`buyer_type=B2B` no banco mas UI mostra B2C**: precisa confirmar se é bug do `KanbanLeadCard` ou se o classificador automático está sobrescrevendo na renderização.
 
-> "Quando o usuário pedir IFU, manual, instruções de uso ou documento técnico de uma resina, SEMPRE retorne o link direto do PDF (`url_publica` do source_type=`resin_document`) junto com 1–2 linhas resumindo o conteúdo encontrado em `extracted_text`."
+### Plano de ação proposto (apenas investigação adicional + correções pontuais — nenhum refactor)
 
-### Correção 4 — Cache busting
-A `agent_internal_lookups` cacheia resultados por 30 dias. Vou invalidar entradas relacionadas a resinas/IFUs:
-```sql
-DELETE FROM agent_internal_lookups WHERE query_normalized ~* '(ifu|resina|manual|instruc)';
-```
-(via tool `read_query` não dá; será migration de DELETE controlado.)
+#### 1. Re-sync Omie focado neste lead
+Disparar manualmente o edge function de sync Omie passando o CNPJ `45.780.540/0001-73` para descobrir **por que não casa**. Hipóteses: (a) cliente cadastrado no Omie com CNPJ formatado diferente; (b) cadastrado só com CPF `026.754.549-58`; (c) `uf` divergente. Inspecionar logs.
 
-## Arquivos a tocar
+#### 2. Limpar placeholders sujos do lead (1 lead, migração pontual)
+- `email = NULL` quando valor for literal `'e-mail não informado'` (varrer toda a tabela — provavelmente há centenas)
+- `area_atuacao` strip do prefixo `^\d+-\s*` (ex.: `49-Sócio-Administrador` → `Sócio-Administrador`)
 
-- `supabase/functions/dra-lia/index.ts` — injetar `langInstruction` no `systemPrompt` + regra de IFU
-- `supabase/functions/_shared/lia-rag.ts` — novo bloco `resin_documents` em `searchContentDirect` + boost para intenção IFU
-- `supabase/functions/dra-lia-whatsapp/index.ts` — verificar e replicar fix de idioma se necessário
-- Migration: limpar cache de `agent_internal_lookups` para queries de resinas/IFU
+#### 3. Corrigir incoerência B2C/B2B no card
+Verificar `KanbanLeadCard.tsx` — se o badge é derivado de `buyer_type` da DB ou recalculado no cliente. Se recalculado, alinhar com a coluna.
 
-## Validação após o fix
+#### 4. Guard de coerência no `real_status`
+Adicionar regra na trigger `unified-real-status-logic`: **se `ltv_total > 100000` e `omie_faturamento_total = 0`, NÃO marcar `RISCO_OPERACIONAL`** — emitir flag `OMIE_SYNC_GAP` em vez disso. Evita que toda distribuidora B2B cuja sync Omie falhe vire "risco".
 
-1. `curl_edge_functions` em `/dra-lia` com `lang="es-ES"` perguntando sobre Vitality Classic → resposta deve vir em espanhol.
-2. `curl_edge_functions` com `"qual o IFU da Vitality HT?"` → deve retornar link `file_url` real do `resin_documents`.
-3. Conferir logs do `searchContentDirect` mostrando hits de `resin_documents`.
+#### 5. Backfill `proposal_id` nos deals históricos (opcional, médio porte)
+Reprocessar `piperun_deals_history` deste e de outros leads grandes para popular `proposal_id` a partir da API Piperun, alinhando com `incremental-lead-data-policy-v3`.
 
-## Fora do escopo
+### Itens fora deste plano (apenas reportar, sem mexer)
+- Distribuir 1175 deals entre múltiplas pessoas da mesma empresa: NÃO fazer (mem `Identity & Merging`: nunca separar pessoas reais; e aqui só existe 1 pessoa registrada com este CNPJ).
+- Refatorar todo o pipeline Omie identity-resolution-v5: fora do escopo desta investigação.
 
-- Reescrever a UI de upload de IFUs.
-- Vetorizar `extracted_text` via embeddings (já existe pipeline; só amarrar à busca da LIA fica para iteração futura se ILIKE não bastar).
-- Tradução automática do conteúdo dos IFUs (eles ficam no idioma original; LIA traduz a explicação ao redor via `langInstruction`).
+### Ordem de execução sugerida
+1. Itens 1 e 3 (investigação rápida, leitura de logs + 1 arquivo)
+2. Item 2 (migração de limpeza, ~50 linhas SQL)
+3. Item 4 (alteração na trigger, ~10 linhas)
+4. Item 5 (somente se você priorizar — é maior)
+
+Quer que eu execute a partir do passo 1, ou prefere atacar diretamente uma dessas correções?
