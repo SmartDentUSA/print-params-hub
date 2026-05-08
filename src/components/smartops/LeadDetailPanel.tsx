@@ -326,9 +326,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const heatCls = lis >= 70 ? "heat-hot" : lis >= 40 ? "heat-warm" : "heat-cold";
   const heatTxt = lis >= 70 ? "🔴 HOT" : lis >= 40 ? "🟡 MORNO" : "⚪ FRIO";
 
-  // Buyer type
-  const tipoCls = ld.buyer_type === "company" ? "buyer-pj" : "buyer-pf";
-  const tipoTxt = ld.buyer_type === "company" ? "🏢 B2B — CNPJ" : "👤 B2C";
+  // Buyer type — DB stores 'B2B' / 'B2C' / 'unknown' (legacy code também aceita 'company')
+  const isB2B = ld.buyer_type === "B2B" || ld.buyer_type === "company" || !!ld.empresa_cnpj;
+  const tipoCls = isB2B ? "buyer-pj" : "buyer-pf";
+  const tipoTxt = isB2B ? "🏢 B2B — CNPJ" : "👤 B2C";
 
   // Meta row
   const meta = [
