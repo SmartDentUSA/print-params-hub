@@ -365,14 +365,14 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
         <span className={`intel-lr-tag ${bt === "company" ? "intel-tag-pj" : bt === "person" ? "intel-tag-pf" : "intel-tag-unk"}`}>
           {bt === "company" ? "🏢 Empresa" : bt === "person" ? "👤 Pessoa" : "❓"}
         </span>
-        {lead.status_scanner === "tem_smartdent" && (
-          <span className="intel-lr-tag intel-tag-scanner">🔬 {lead.equip_scanner || "Scanner SD"}</span>
+        {lead.equip_scanner && !/^n[ãa]o\b/i.test(lead.equip_scanner) && (
+          <span className="intel-lr-tag intel-tag-scanner">🔬 {lead.equip_scanner.split(" ").slice(0, 2).join(" ")}</span>
         )}
-        {lead.impressora_modelo && (
+        {lead.impressora_modelo && !/^n[ãa]o\b/i.test(lead.impressora_modelo) && (
           <span className="intel-lr-tag intel-tag-imp">🖨️ {lead.impressora_modelo.split(" ").slice(0, 2).join(" ")}</span>
         )}
-        {lead.status_cad === "tem_exocad" && (
-          <span className="intel-lr-tag intel-tag-cad">💻 Exocad</span>
+        {(lead.software_cad || lead.status_cad === "tem_exocad") && (
+          <span className="intel-lr-tag intel-tag-cad">💻 {lead.software_cad || "Exocad"}</span>
         )}
       </div>
       <div className="intel-lr-bottom">
