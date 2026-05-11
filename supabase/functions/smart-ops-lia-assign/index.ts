@@ -32,6 +32,45 @@ const corsHeaders = {
 
 const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
 
+// Build human-friendly origin lines for the seller notification.
+// Separates Channel / Form / Campaign so the seller sees real provenance
+// instead of three duplicated copies of the same form_name.
+function buildOriginLines(lead: Record<string, unknown>, mode: "wa" | "html"): string[] {
+  const br = mode === "html" ? "<br>" : "";
+  const b = (s: string) => mode === "html" ? `<b>${s}</b>` : `*${s}*`;
+  const join = (label: string, value: string) =>
+    mode === "html" ? `${b(label)} ${value}${br}` : `${label} ${value}`;
+
+  const sourceMap: Record<string, string> = {
+    meta_lead_ads: "Meta Lead Ads",
+    meta_ads: "Meta Lead Ads",
+    facebook: "Meta Lead Ads",
+    sellflux: "Sellflux",
+    waleads: "WhatsApp",
+    whatsapp: "WhatsApp",
+    site: "Site",
+    formulario: "Formulário Site",
+    piperun_webhook: "PipeRun (manual)",
+    csv_import: "Importação CSV",
+  };
+  const rawSource = String(lead.source || lead.origem_primeiro_contato || "").trim();
+  const channel = sourceMap[rawSource.toLowerCase()] || rawSource || "N/A";
+
+  const formName = String(lead.form_name || "").trim();
+  const campaign = String(lead.origem_campanha || "").trim();
+  const adset = String((lead as Record<string, unknown>).meta_adset_name || (lead as Record<string, unknown>).utm_term || "").trim();
+
+  const lines: string[] = [];
+  lines.push(join("📡 Canal:", channel));
+  if (formName) lines.push(join("📋 Formulário:", formName));
+  // Only show campaign if it's distinct from the form (avoid duplicate noise).
+  if (campaign && campaign.toLowerCase() !== formName.toLowerCase()) {
+    const campaignLine = adset ? `${campaign} › ${adset}` : campaign;
+    lines.push(join("🎯 Campanha:", campaignLine));
+  }
+  return lines;
+}
+
 // ─── PipeRun Hierarchy Helpers ───
 
 /**
@@ -50,17 +89,32 @@ async function findPersonByEmail(
     const lowerEmail = email.toLowerCase();
     const phoneDigits = (phoneNormalized || "").replace(/\D/g, "");
 
-    const pickStrict = (data: unknown): { id: number; company_id: number | null } | null => {
+    const pickStrictByEmail = (data: unknown): { id: number; company_id: number | null } | null => {
       const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
       if (!items?.length) return null;
       const match = items.find((p) => {
         const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
-        if (emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail)) return true;
-        if (phoneDigits) {
-          const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
-          if (phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(phoneDigits.slice(-10)))) return true;
-        }
-        return false;
+        return emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail);
+      });
+      if (match?.id) {
+        return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
+      }
+      return null;
+    };
+
+    // Phone-only fallback is ONLY used when no email is informed by the lead.
+    // Matching by phone-suffix when an email exists is unsafe (multiple persons
+    // share trailing 10 digits in PipeRun) and was the root cause of the
+    // Andreia/AMANDA contamination incident.
+    const pickStrictByPhone = (data: unknown): { id: number; company_id: number | null } | null => {
+      if (!phoneDigits) return null;
+      const last10 = phoneDigits.slice(-10);
+      if (last10.length < 10) return null;
+      const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+      if (!items?.length) return null;
+      const match = items.find((p) => {
+        const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
+        return phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(last10));
       });
       if (match?.id) {
         return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
@@ -70,21 +124,17 @@ async function findPersonByEmail(
 
     const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
     if (res.success && res.data) {
-      const found = pickStrict(res.data);
+      const found = pickStrictByEmail(res.data);
       if (found) return found;
     }
     const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
     if (sres.success && sres.data) {
-      const found = pickStrict(sres.data);
+      const found = pickStrictByEmail(sres.data);
       if (found) return found;
     }
-    if (phoneDigits) {
-      const pres = await piperunGet(apiToken, "persons", { search: phoneDigits, show: 50 });
-      if (pres.success && pres.data) {
-        const found = pickStrict(pres.data);
-        if (found) return found;
-      }
-    }
+    // No email match → DO NOT fall back to phone search when the lead has an
+    // email. Returning null forces createPerson, which is the safe path.
+    console.log(`[lia-assign] findPersonByEmail: no strict-email match for ${email} (phone fallback disabled to prevent contamination)`);
   } catch (e) {
     console.warn("[lia-assign] Person search error:", e);
   }
@@ -727,7 +777,7 @@ async function buildSellerNotification(
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
-    `📋 Formulário: ${lead.form_name || "N/A"}`,
+    ...buildOriginLines(lead, "wa"),
     `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
     `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
     `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
@@ -894,7 +944,7 @@ async function buildDealNoteHTML(
     `<b>👤 Lead:</b> ${lead.nome || "N/A"}<br>`,
     `<b>📧 Email:</b> ${lead.email || "N/A"}<br>`,
     `<b>📱 Tel:</b> ${phone || "N/A"}<br>`,
-    `<b>📋 Formulário:</b> ${lead.form_name || "N/A"}<br>`,
+    ...buildOriginLines(lead, "html"),
     `<b>🦷 Área de atuação:</b> ${lead.area_atuacao || "N/A"}<br>`,
     `<b>🦷 Especialidade:</b> ${lead.especialidade || "N/A"}<br>`,
     `<b>🎯 Interesse:</b> ${lead.produto_interesse || "N/A"}<br>`,
@@ -1731,10 +1781,72 @@ Deno.serve(async (req) => {
       }
     }
 
-    await supabase
+    // ── PRE-CHECK: piperun_id UNIQUE conflict guard ──
+    // The DB has UNIQUE(piperun_id). If we are about to write a piperun_id that
+    // already belongs to a DIFFERENT canonical lead, the UPDATE silently fails
+    // and leaves this lead orphaned (succeeded_at marked, piperun_id NULL).
+    // Detect and abort BEFORE the update so the retry cron can re-run later
+    // (after the contaminating Person is fixed in PipeRun).
+    if (piperunId) {
+      const { data: conflict } = await supabase
+        .from("lia_attendances")
+        .select("id, email")
+        .eq("piperun_id", String(piperunId))
+        .neq("id", lead.id as string)
+        .is("merged_into", null)
+        .maybeSingle();
+      if (conflict) {
+        console.error(`[lia-assign] piperun_id_conflict: deal ${piperunId} already on lead ${conflict.id} (${conflict.email}); aborting update for ${lead.id}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "error",
+            error_type: "piperun_id_conflict",
+            lead_email: lead.email,
+            details: {
+              lead_id: lead.id,
+              attempted_piperun_id: piperunId,
+              attempted_pessoa_id: personId,
+              conflicting_lead_id: conflict.id,
+              conflicting_lead_email: conflict.email,
+              flow: flowType,
+            },
+          });
+        } catch {}
+        return new Response(JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: "piperun_id_conflict",
+          conflicting_lead_id: conflict.id,
+          attempted_piperun_id: piperunId,
+          lead_id: lead.id,
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    const { error: updateError } = await supabase
       .from("lia_attendances")
       .update(updateFields)
       .eq("id", lead.id);
+
+    if (updateError) {
+      console.error(`[lia-assign] DB update FAILED for ${lead.id}:`, updateError);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "error",
+          error_type: "lead_update_failed",
+          lead_email: lead.email,
+          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: updateError.message, code: updateError.code },
+        });
+      } catch {}
+      return new Response(JSON.stringify({
+        success: false,
+        error: "lead_update_failed",
+        details: updateError.message,
+        lead_id: lead.id,
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
