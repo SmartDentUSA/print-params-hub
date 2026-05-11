@@ -216,6 +216,9 @@ verify_jwt = false
 [functions.smart-ops-lia-assign]
 verify_jwt = false
 
+[functions.smart-ops-piperun-retry-failed-leads]
+verify_jwt = false
+
 [functions.smart-ops-meta-lead-webhook]
 verify_jwt = false
 
