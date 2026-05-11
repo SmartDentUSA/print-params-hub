@@ -28,12 +28,15 @@ export async function findPersonByEmail(
   try {
     const pickFromList = (data: unknown) => {
       const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
-      if (!items) return null;
+      if (!items || items.length === 0) return null;
       const lower = email.toLowerCase();
+      // STRICT match only — Piperun's /persons endpoint ignores unknown filters
+      // and returns a generic list, so falling back to items[0] would attach the
+      // lead to a totally unrelated person/deal. Never do that.
       const match = items.find((p) => {
         const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
         return emails.some((e) => String(e.email || "").toLowerCase() === lower);
-      }) || items[0];
+      });
       if (match?.id) {
         return {
           id: Number(match.id),
