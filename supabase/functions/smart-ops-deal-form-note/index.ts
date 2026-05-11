@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,13 +67,37 @@ Deno.serve(async (req) => {
       return json({ ok: false, reason: "no_deal_id" });
     }
 
-    // Format note as HTML for PipeRun
-    const lines = responses.map(
-      (r: { label: string; value: string }) => `• <b>${r.label}:</b> ${r.value}<br>`,
-    );
-    const noteText = `<b>📝 Respostas do Formulário: ${form_name || "Formulário"}</b><br><br>${lines.join("")}`;
+    // Build full seller summary with the just-submitted form highlighted
+    const { data: fullLead } = await supabase
+      .from("lia_attendances")
+      .select("*")
+      .eq("id", lead_id)
+      .single();
+
+    let noteText: string;
+    let hash: string | null = null;
+    if (fullLead) {
+      const built = await buildSellerDealSummaryHTML(
+        supabase,
+        fullLead as Record<string, unknown>,
+        { highlightFormName: form_name, highlightFormResponses: responses },
+      );
+      noteText = built.html;
+      hash = built.hash;
+    } else {
+      const lines = responses.map(
+        (r: { label: string; value: string }) => `• <b>${r.label}:</b> ${r.value}<br>`,
+      );
+      noteText = `<b>📝 Respostas do Formulário: ${form_name || "Formulário"}</b><br><br>${lines.join("")}`;
+    }
 
     const result = await addDealNote(PIPERUN_API_KEY, dealId, noteText);
+    if (result.success && hash) {
+      await supabase.from("lia_attendances").update({
+        last_seller_note_hash: hash,
+        last_seller_note_at: new Date().toISOString(),
+      }).eq("id", lead_id);
+    }
 
     console.log(`[deal-form-note] Note added to deal ${dealId} for lead ${lead_id}:`, result.success);
 
