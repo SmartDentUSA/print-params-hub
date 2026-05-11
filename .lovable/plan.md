@@ -1,76 +1,117 @@
 ## Objetivo
 
-Antes de reprocessar os 61 leads (retry) e ingerir os 324 do CSV (backfill), garantir que **nenhum Deal duplicado** seja criado no Piperun. Adicionar uma camada de verificação prévia (dry-run) que inspeciona o Piperun por e-mail e relata o que será feito, antes de qualquer escrita.
+Hoje, quando um lead **nasce no nosso sistema** e vai para o Piperun via `smart-ops-lia-assign`, geramos uma nota rica para o vendedor (`buildDealNoteHTML` / `buildSellerNotification` com HISTÓRICO, OPORTUNIDADE, 7x3, e-commerce, cursos, análise cognitiva). Quando o lead **nasce no Piperun** e cai em `smart-ops-piperun-webhook` (upsert em `lia_attendances`), atualizamos o CDP mas **não devolvemos nenhuma nota de resumo** para o Deal. O vendedor abre o Deal sem ver o histórico consolidado que o nosso sistema já tem.
 
-## Por que isso é seguro hoje (e onde pode falhar)
+Vamos fechar essa lacuna.
 
-A `smart-ops-lia-assign` já tem dedupe robusto (Golden Rule) em `_shared/piperun-hierarchy.ts`:
+## O que vamos construir
 
-```text
-findPersonByEmail (agora com emails[email]=) →
-  findPersonDeals →
-    deal aberto em Vendas?  → updateExistingDeal (NÃO cria)
-    deal aberto em Estagnados? → moveDealToVendas (NÃO cria)
-    deal Ganho?              → preservar, NÃO tocar
-    nenhum dos acima         → createNewDeal
-```
+Um builder único de "Resumo do Lead para Vendedor" (chamemos `buildSellerDealSummaryHTML`) e disparo automático da nota no Piperun toda vez que um Deal é **criado ou atualizado** via webhook do Piperun, com deduplicação para não floodar o Deal.
 
-Risco real de duplicação só existe se:
-1. `findPersonByEmail` falhar em achar a pessoa (e cair em `createPerson` + `createNewDeal`).
-2. O lead local já tiver um `piperun_id` antigo, mas o orquestrador também criar um novo Deal por não checar o ID local.
-3. A pessoa no Piperun estiver cadastrada apenas por **telefone**, sem o e-mail do lead.
-
-## Plano
-
-### 1. Pré-auditoria (dry-run obrigatório, sem escrever no Piperun)
-
-Criar `supabase/functions/smart-ops-piperun-preflight/index.ts`. Recebe `{ emails: string[] }` e, para cada e-mail, retorna:
+## Conteúdo da nota (completo, na ordem que o vendedor lê)
 
 ```text
-email | local_piperun_id | piperun_person_id | open_vendas_deal | open_estagn_deal | won_deals | action
+🧾 Resumo do Lead — atualizado por Smart Dent
+1. Identidade        nome, e-mail, telefone, cidade/UF, especialidade, área
+2. Origem            primeiro contato (data + canal), última conversão, campanha
+3. CRM histórico     todos os deals (id, pipeline, stage, valor, status, data)
+                     deals ganhos / perdidos / abertos — contagens
+4. Compras e-commerce (Loja Integrada + Astron)
+                     pedidos com data, número, valor, itens (top 10)
+                     LTV total, ticket médio, último pedido
+5. Cursos / Treinamentos
+                     cursos concluídos / em andamento, certificados, turma
+6. 7x3 — preenchimentos de formulário
+                     todos os form_responses (label: value), agrupados por form_name
+                     equipamentos declarados (impressora, scanner, software CAD)
+7. Interações Dra. L.I.A.
+                     últimas N perguntas, urgência, perfil psicológico, motivação
+8. Inteligência       confidence_score, lead_stage_detected, recommended_approach,
+                     risco de objeção, próxima melhor ação
+9. Links rápidos     PipeRun, ficha do lead no admin, WhatsApp click-to-chat
 ```
 
-Onde `action` ∈:
-- `skip_local_id_present` — lead já tem `piperun_id` no banco
-- `skip_open_deal_exists` — pessoa tem deal aberto (Vendas ou Estagnados) → será **enriquecido**, não duplicado
-- `skip_won_only` — só tem deal ganho → não tocar
-- `safe_create` — pessoa não existe ou existe sem deal aberto → criar novo Deal
+Tudo formatado em HTML compatível com o editor de notas do Piperun (mesma sintaxe que `addDealNote` já usa em `_shared/piperun-field-map.ts`).
 
-Saída em JSON + CSV salvo em `/mnt/documents/piperun-preflight-{ts}.csv` para auditoria.
+## Arquitetura
 
-### 2. Reforço de guard-rails no fluxo principal
+### 1. Novo módulo compartilhado: `supabase/functions/_shared/seller-summary.ts`
 
-Em `smart-ops-lia-assign/index.ts`, antes de `createNewDeal` no caminho `new_deal`:
+Função pura `buildSellerDealSummaryHTML(supabase, lead)` que:
 
-- Se `lead.piperun_id` já existir no banco, **não criar novo**: validar via `GET deals/{id}`. Se vivo e não-deletado, apenas atualizar; se morto, então criar.
-- Se a pessoa foi achada por telefone mas não por e-mail, logar `[dedupe] person matched by phone only` para investigação.
+- recebe a row canônica de `lia_attendances` (`merged_into IS NULL`) e o supabase client com service role
+- consulta em paralelo: `piperun_deals_history` (já no row), `lojaintegrada_orders`, `astron_enrollments`, `form_responses`, `agent_interactions` (últimas 5), `lead_activity_log` (últimas 10)
+- monta o HTML acima
+- retorna `{ html, hash }` onde `hash = sha256(html)` para dedupe idempotente
 
-### 3. Modos seguros nas funções de retry/backfill
+Deve substituir/consolidar a lógica duplicada hoje em `buildSellerNotification` e `buildDealNoteHTML` dentro de `smart-ops-lia-assign`. Essas duas continuam funcionando — passam a delegar para o builder compartilhado.
 
-- `smart-ops-piperun-retry-failed-leads`: aceitar `dry_run: true`. Em dry-run, chamar `smart-ops-piperun-preflight` para os e-mails do lote e retornar o relatório, sem invocar `lia-assign`.
-- `smart-ops-meta-csv-backfill`: aceitar `dry_run: true` (já filtra por e-mails ausentes no banco). Em dry-run, também chamar o preflight para os 324 e-mails — mesmo que não estejam no banco local, podem já existir no Piperun via outro canal.
+### 2. Disparo automático no webhook
 
-### 4. Execução faseada
+Em `supabase/functions/smart-ops-piperun-webhook/index.ts`, após a etapa "Deals History (upsert current deal snapshot)" e o `update` em `lia_attendances` (~linha 813+), adicionar bloco:
 
 ```text
-Fase A — preflight dos 61 leads (retry)         → revisar CSV
-Fase B — preflight dos 324 leads (CSV backfill) → revisar CSV
-Fase C — executar retry com force=true apenas nos `safe_create` + `skip_open_deal_exists`
-Fase D — executar backfill apenas nos e-mails marcados `safe_create`
+if (dealId && (isNewLead || significantChange)) {
+  const { html, hash } = await buildSellerDealSummaryHTML(supabase, mergedLead);
+  const last = mergedLead.last_seller_note_hash;
+  if (hash !== last) {
+    await addDealNote(PIPERUN_API_KEY, Number(dealId), html);
+    await supabase.from("lia_attendances")
+      .update({
+        last_seller_note_hash: hash,
+        last_seller_note_at: new Date().toISOString(),
+      }).eq("id", leadId);
+  }
+}
 ```
 
-Nunca rodar Fase C/D antes da minha confirmação após revisar A/B.
+`significantChange` = mudou stage, mudou owner, novo deal entrou no histórico, ou novo `form_responses` desde o último envio.
+
+### 3. Migração de schema (mínima)
+
+Duas colunas em `lia_attendances` (nullable, sem default que mexa em dados existentes):
+
+- `last_seller_note_hash text`
+- `last_seller_note_at timestamptz`
+
+Sem trigger; controle de idempotência feito no edge function.
+
+### 4. Reuso para o caminho oposto
+
+`smart-ops-lia-assign` (criação/atualização vinda do nosso sistema) e `smart-ops-deal-form-note` (notas de formulário 7x3 isoladas) passam a usar **o mesmo builder**. Hoje a nota do `deal-form-note` mostra só as respostas — vai mostrar respostas + resumo completo, evitando que o vendedor tenha duas fontes diferentes.
+
+### 5. Backfill manual (opcional, sob aprovação)
+
+Edge function `smart-ops-seller-note-backfill` com `dry_run` que:
+
+- lista N leads canônicos com `piperun_id` não nulo e `last_seller_note_at IS NULL`
+- gera o HTML e exporta CSV em `/mnt/documents/seller-note-backfill-{ts}.csv` para revisão
+- modo `apply: true` posta a nota no Piperun em lote pequeno (ex.: 50/run) com rate-limit
+
+Não roda sem sua aprovação explícita por fase, igual ao plano de preflight.
 
 ## Arquivos afetados
 
-- `supabase/functions/smart-ops-piperun-preflight/index.ts` (novo)
-- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` (adicionar `dry_run`)
-- `supabase/functions/smart-ops-meta-csv-backfill/index.ts` (adicionar `dry_run` + chamada ao preflight)
-- `supabase/functions/smart-ops-lia-assign/index.ts` (guard `lead.piperun_id` antes de `createNewDeal`)
-- `supabase/config.toml` (registrar nova function)
+```text
+supabase/functions/_shared/seller-summary.ts            (novo)
+supabase/functions/smart-ops-piperun-webhook/index.ts   (dispara nota + dedupe)
+supabase/functions/smart-ops-lia-assign/index.ts        (delega para o shared)
+supabase/functions/smart-ops-deal-form-note/index.ts    (delega + anexa resumo)
+supabase/functions/smart-ops-seller-note-backfill/index.ts (novo, opcional)
+supabase/config.toml                                     (registra a função nova)
++ migration: ALTER TABLE lia_attendances ADD last_seller_note_hash, last_seller_note_at
+```
 
 ## Validação
 
-1. Rodar preflight nos 2 lotes, baixar CSV, conferir contagens de cada `action`.
-2. Rodar Fase C/D apenas após aprovação.
-3. Após execução: query em `lia_attendances` agrupando por `piperun_id` para confirmar zero duplicatas.
+1. Disparar webhook simulado para um deal novo → conferir que a nota aparece no Piperun com todas as 9 seções.
+2. Re-disparar o mesmo webhook sem mudança → nenhuma nota nova (dedupe por hash).
+3. Mudar stage no Piperun → nova nota com seção "CRM histórico" atualizada.
+4. Lead com pedidos no e-commerce + 2 forms 7x3 + 1 curso → nota mostra tudo.
+5. Query: `SELECT count(*) FROM lia_attendances WHERE piperun_id IS NOT NULL AND last_seller_note_at IS NULL` deve cair monotonicamente após backfill.
+
+## Não faz parte deste plano
+
+- Nada de prices/valores comerciais em conteúdo gerado por IA (memória `content-generation-policy-no-prices-v2` continua valendo — aqui são valores REAIS de pedidos, não geração de conteúdo).
+- Não altera o fluxo Golden Rule de criação de Deal (esse continua no `lia-assign` + preflight já planejado).
+- Não mexe em `merged_into` nem em consolidação de leads.
