@@ -1,66 +1,90 @@
-## Objetivo
+## Diagnóstico confirmado
 
-Remover **Patricia Gastaldi (piperun_owner_id `47675`)** do pool de vendedores. Seu WhatsApp (`5516981158403`) continua ativo, mas será usado apenas para:
-- Comunicação interna da Dra. L.I.A. com a equipe
-- Reativações orquestradas pelo Copilot
+O problema atual tem duas causas independentes no fluxo `smart-ops-lia-assign`:
 
-Sempre que um lead chegar com `proprietario_lead_crm = "Patricia Gastaldi"` (ou owner_id `47675` no PipeRun), ele deve ser **redirecionado para o funil "Distribuidor de Leads" → etapa "Distribuidor de leads"**, sem owner_id de vendedor.
+1. **Patrica Silva ainda está ativa como `role='vendedor'` no banco**
+   - `team_members.piperun_owner_id = 47675`
+   - `nome_completo = 'Patrica Silva'`
+   - `role = 'vendedor'`
+   - Resultado: o round-robin ainda sorteia Patricia/Patrica e cria Deal com `owner_id=47675`.
 
----
+2. **O Deal foi criado com `person_id`, mas o update do CDP falhou depois**
+   - Logs mostram:
+     - `Creating person: Jonathan Vicente de melo`
+     - `Creating company for person 46863216`
+     - `Created new deal: 59698741`
+     - depois falha no banco: `column "value" does not exist`.
+   - Isso impede `lia_attendances` de salvar `piperun_id`, `pessoa_piperun_id`, `empresa_piperun_id`, funil e proprietário corretos.
+   - Por isso o sistema fica parecendo que criou Deal “sem vincular pessoa”, e em retentativas pode criar ou apontar para outro Deal.
 
-## Mudanças
+## Plano de correção
 
-### 1. Banco — `team_members`
-Migration única atualizando o registro existente (`Patrica Silva`, id `a49ade61-3671-4bab-982e-443f026422f7`, `piperun_owner_id=47675`):
+### 1. Corrigir o cadastro da Patricia/Patrica no banco
+Atualizar o registro existente em `team_members`:
 
-- `role` → `lia_comms` (novo papel, fora de qualquer query `role='vendedor'`)
-- `nome_completo` → `Patricia Gastaldi` (corrige o typo)
-- `ativo` → permanece `true` (WhatsApp segue disponível para LIA/Copilot)
-- `whatsapp_number` preservado (`5516981158403`)
+- `nome_completo`: `Patricia Gastaldi`
+- `role`: `lia_comms`
+- manter `ativo = true`
+- manter `whatsapp_number = 5516981158403`
+- manter `waleads_api_key`, pois o número será usado para LIA/Copilot, não para venda.
 
-Resultado: `pickRandomActiveVendedor` (que filtra `role='vendedor'`) deixa de sortear Patricia automaticamente, sem outras alterações nessa função.
+Efeito: ela sai imediatamente de qualquer seleção por `role='vendedor'`.
 
-### 2. Edge function — `supabase/functions/smart-ops-lia-assign/index.ts`
+### 2. Blindar o código contra owner bloqueado, mesmo se o banco voltar errado
+Em `supabase/functions/smart-ops-lia-assign/index.ts`:
 
-Adicionar uma constante e uma guarda de roteamento:
+- Adicionar lista fixa de bloqueio:
+  - `owner_id 47675`
+  - nomes normalizados contendo Patricia/Patrica Gastaldi/Silva.
+- Antes de preservar proprietário atual ou aceitar round-robin, validar:
+  - se `piperun_owner_id === 47675`, rotear para `FALLBACK_OWNER_ID`.
+  - se `proprietario_lead_crm` bater com Patricia/Patrica, rotear para `FALLBACK_OWNER_ID`.
+- Não sortear outro vendedor nesse caso.
+- Como o código já transforma `FALLBACK_OWNER_ID` em `Distribuidor de Leads`, o lead cairá no funil correto.
 
-```ts
-const BLOCKED_SELLER_OWNER_IDS = new Set<number>([47675]); // Patricia Gastaldi → LIA/Copilot only
-```
+### 3. Corrigir o bug do update pós-criação do Deal
+O erro `column "value" does not exist` indica que algum valor não-primitivo ainda chega ao `.update(lia_attendances)`, provavelmente vindo de dados de empresa/deal do PipeRun.
 
-Onde hoje resolvemos `assignedOwnerId` (linhas ~1581-1608):
+Ajuste proposto:
 
-- Se `currentOwner.piperun_owner_id ∈ BLOCKED_SELLER_OWNER_IDS` **ou** `proprietario_lead_crm` casar com "Patricia Gastaldi", **ignorar** o owner atual e ir direto para `FALLBACK_OWNER_ID` (Distribuidor) — não chamar `pickRandomActiveVendedor` (evita sortear outro vendedor "no lugar dela", já que o objetivo é triagem manual no Distribuidor).
-- Logar `[lia-assign] Owner Patricia Gastaldi bloqueado → roteando para Distribuidor de Leads`.
+- Fortalecer o sanitizador de `updateFields` para aceitar apenas:
+  - string
+  - number
+  - boolean
+  - null
+- Converter campos textuais vindos do PipeRun com uma função segura:
+  - se vier `{ value: '...' }`, usar somente `'...'`
+  - se vier array/objeto sem valor escalar claro, descartar e registrar log.
+- Aplicar essa normalização especialmente em:
+  - `empresa_nome`
+  - `empresa_razao_social`
+  - campos enriquecidos via `mapDealToAttendance`
+  - campos vindos de `companyData`.
 
-Como `isDistribuidor = assignedOwnerId === FALLBACK_OWNER_ID` já existe (linha 1611), o pipeline/stage automaticamente vira `PIPELINES.DISTRIBUIDOR_LEADS` + `STAGES_DISTRIBUIDOR.DISTRIBUIDOR_DE_LEADS`, e a label `piperun_funil` vira `"Distribuidor de Leads"` / `piperun_etapa` vira `"distribuidor_leads"` (linhas 1865-1866). Nenhuma mudança extra precisa ser feita no payload de PipeRun — `owner_id` passa a ser o do distribuidor (Thiago Nicoletti) e o deal é criado/movido no funil correto.
+Efeito: o Deal criado passa a ser salvo corretamente no CDP com `piperun_id`, `pessoa_piperun_id` e `empresa_piperun_id`.
 
-### 3. Edge function — `supabase/functions/_shared/piperun-field-map.ts`
+### 4. Corrigir o lead Jonathan recém-impactado
+Depois da correção de código:
 
-Não remover Patricia de `PIPERUN_USERS` (precisamos manter o nome para histórico/lookup de deals antigos), mas adicionar comentário inline:
+- Rodar uma atualização de dados no lead `07abbbb7-d740-4812-b0c9-2c3e218bbb51` para refletir o que já foi criado no PipeRun:
+  - `piperun_id = 59698741`
+  - `pessoa_piperun_id = 46863216`
+  - `empresa_piperun_id = 22833574`
+  - `proprietario_lead_crm = Distribuidor de Leads` ou o nome do owner fallback definido no mapeamento
+  - `funil_entrada_crm = Distribuidor de Leads`
+  - `ultima_etapa_comercial = distribuidor_leads`
+- Se necessário, acionar novamente `smart-ops-lia-assign` com `force=true` para mover/corrigir o Deal no PipeRun para o owner/funil correto.
 
-```ts
-47675: { name: "Patricia Gastaldi", email: "...", role: "lia_comms", cellphone: "5516981158403" }, // NÃO sortear como vendedora — uso interno LIA/Copilot
-```
+### 5. Atualizar mapeamento e memória operacional
+- Em `_shared/piperun-field-map.ts`, manter `47675` no mapa apenas para histórico, mas marcar como `lia_comms`/não-vendedora.
+- Registrar regra operacional: Patricia Gastaldi/owner `47675` nunca é vendedora; leads associados a ela vão para Distribuidor.
 
-### 4. Memória de projeto
+## Validação
 
-Atualizar `mem://index.md` com a regra Core:
+Após implementar:
 
-> **Patricia Gastaldi (owner 47675)** não é vendedora. Leads com este owner são redirecionados para Distribuidor de Leads. WhatsApp `5516981158403` reservado para LIA inbound/team comms e reativações do Copilot.
-
-E criar `mem://smart-ops/patricia-gastaldi-lia-comms.md` documentando a guarda.
-
----
-
-## O que NÃO muda
-
-- `pickRandomActiveVendedor` — continua filtrando `role='vendedor'`, e como Patricia agora é `role='lia_comms'`, sai naturalmente do round-robin.
-- Componentes da equipe no frontend (`SmartOpsTeam`) seguem mostrando Patricia, apenas com badge/role diferente — nenhuma alteração de UI necessária para essa request.
-- Deals históricos de Patricia no PipeRun não são reatribuídos retroativamente. A guarda só atua em **novos roteamentos** via lia-assign. Se quiser reatribuição em massa dos deals legados dela no funil de Vendas, é um passo separado.
-
----
-
-## Aprovação
-
-Posso seguir com a migration + edits acima?
+- Confirmar no banco que Patricia não aparece mais como `role='vendedor'`.
+- Confirmar nos logs que round-robin não seleciona `47675`.
+- Confirmar que o lead Jonathan fica com os IDs salvos no CDP.
+- Confirmar que novos leads com Patricia/Patrica caem em `Distribuidor de Leads`.
+- Confirmar que não há novo erro `column "value" does not exist` no `smart-ops-lia-assign`.
