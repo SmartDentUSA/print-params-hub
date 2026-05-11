@@ -5822,6 +5822,7 @@ export type Database = {
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
+          origem_primeiro_contato: string | null
           original_date: string | null
           original_id: string | null
           original_source: string | null
@@ -6327,6 +6328,7 @@ export type Database = {
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
+          origem_primeiro_contato?: string | null
           original_date?: string | null
           original_id?: string | null
           original_source?: string | null
@@ -6832,6 +6834,7 @@ export type Database = {
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
+          origem_primeiro_contato?: string | null
           original_date?: string | null
           original_id?: string | null
           original_source?: string | null
@@ -15049,6 +15052,7 @@ export type Database = {
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
+          origem_primeiro_contato: string | null
           original_date: string | null
           original_id: string | null
           original_source: string | null
