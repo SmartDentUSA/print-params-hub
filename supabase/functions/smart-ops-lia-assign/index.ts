@@ -1662,7 +1662,9 @@ Deno.serve(async (req) => {
 
     if (personId) {
       // Step 5b: Update person fields (custom_fields, job_title, phones)
-      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>, resolvedPersonOriginId);
+      // NOTE: do NOT pass originId on update — Person.origin is frozen at
+      // first contact (see memory: Person vs Deal Origin Separation).
+      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
 
       // Step 5c: Ensure company exists
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
