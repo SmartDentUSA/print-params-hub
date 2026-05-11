@@ -111,8 +111,32 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ lead_id: lead.id, force: true, trigger: "auto_retry_failed_piperun" }),
       });
       const json = await res.json().catch(() => ({}));
-      const ok = !!json.piperun_id;
-      const errMsg = ok ? null : (json.error || json.reason || `lia-assign returned no piperun_id (status ${res.status})`);
+      const reportedPiperunId = json.piperun_id ? String(json.piperun_id) : null;
+
+      // ── POST-UPDATE VERIFICATION ──
+      // lia-assign may report a piperun_id while the DB UPDATE silently failed
+      // (UNIQUE constraint conflict, RLS, etc). Confirm the lead row actually
+      // carries that piperun_id before declaring success — otherwise the lead
+      // would be marked succeeded_at and never retried again.
+      let persistedPiperunId: string | null = null;
+      if (reportedPiperunId) {
+        const { data: verify } = await supabase
+          .from("lia_attendances")
+          .select("piperun_id")
+          .eq("id", lead.id)
+          .maybeSingle();
+        persistedPiperunId = verify?.piperun_id ? String(verify.piperun_id) : null;
+      }
+
+      const ok = !!reportedPiperunId && persistedPiperunId === reportedPiperunId;
+      let errMsg: string | null;
+      if (ok) {
+        errMsg = null;
+      } else if (reportedPiperunId && persistedPiperunId !== reportedPiperunId) {
+        errMsg = `piperun_id_persistence_mismatch: lia-assign reported ${reportedPiperunId} but DB has ${persistedPiperunId || "null"}`;
+      } else {
+        errMsg = json.error || json.reason || `lia-assign returned no piperun_id (status ${res.status})`;
+      }
 
       // Update retry state with backoff-aware fields. Never set the legacy
       // `piperun_retry_attempted_at` flag (would burn the lead forever).
@@ -148,21 +172,24 @@ Deno.serve(async (req) => {
         }).catch((e) => console.warn("[retry-failed] deal-form-note error:", e));
       } else {
         // Per-lead failure log so the cause is auditable.
+        const isMismatch = !!reportedPiperunId && persistedPiperunId !== reportedPiperunId;
         try {
           await supabase.from("system_health_logs").insert({
             function_name: "smart-ops-piperun-retry-failed-leads",
-            severity: newAttempts >= MAX_ATTEMPTS ? "error" : "warning",
-            error_type: newAttempts >= MAX_ATTEMPTS ? "piperun_assign_exhausted" : "piperun_retry_failed",
+            severity: isMismatch || newAttempts >= MAX_ATTEMPTS ? "error" : "warning",
+            error_type: isMismatch
+              ? "piperun_id_persistence_mismatch"
+              : (newAttempts >= MAX_ATTEMPTS ? "piperun_assign_exhausted" : "piperun_retry_failed"),
             lead_email: lead.email,
-            details: { lead_id: lead.id, attempts: newAttempts, max_attempts: MAX_ATTEMPTS, error: errMsg, lia_assign_response: json },
+            details: { lead_id: lead.id, attempts: newAttempts, max_attempts: MAX_ATTEMPTS, error: errMsg, reported_piperun_id: reportedPiperunId, persisted_piperun_id: persistedPiperunId, lia_assign_response: json },
           });
         } catch (logErr) {
           console.warn("[retry-failed] health log insert failed:", logErr);
         }
       }
 
-      console.log(`[retry-failed] ← lead=${lead.id} ok=${ok} piperun_id=${json.piperun_id || "-"} attempts=${ok ? 0 : newAttempts}`);
-      results.push({ lead_id: lead.id, email: lead.email, ok, attempts: ok ? 0 : newAttempts, piperun_id: json.piperun_id || null, error: errMsg || undefined });
+      console.log(`[retry-failed] ← lead=${lead.id} ok=${ok} reported=${reportedPiperunId || "-"} persisted=${persistedPiperunId || "-"} attempts=${ok ? 0 : newAttempts}`);
+      results.push({ lead_id: lead.id, email: lead.email, ok, attempts: ok ? 0 : newAttempts, piperun_id: persistedPiperunId, error: errMsg || undefined });
     } catch (e) {
       const errMsg = String(e);
       console.error(`[retry-failed] ✖ lead=${lead.id} threw:`, errMsg);
