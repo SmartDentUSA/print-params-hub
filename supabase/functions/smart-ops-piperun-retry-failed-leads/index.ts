@@ -92,8 +92,30 @@ Deno.serve(async (req) => {
       const json = await res.json().catch(() => ({}));
 
       // Mark attempt timestamp regardless of outcome (avoid hot loop)
-      const newPayload = { ...(lead.raw_payload || {}), piperun_retry_attempted_at: new Date().toISOString() };
+      const newPayload: Record<string, unknown> = {
+        ...(lead.raw_payload || {}),
+        piperun_retry_attempted_at: new Date().toISOString(),
+      };
+      if (json.piperun_id) {
+        newPayload.piperun_retry_succeeded_at = new Date().toISOString();
+      }
       await supabase.from("lia_attendances").update({ raw_payload: newPayload }).eq("id", lead.id);
+
+      // On success, fire seller summary note (fire-and-forget)
+      if (json.piperun_id) {
+        fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            form_name: "Recuperação automática (retry Piperun)",
+            responses: [],
+          }),
+        }).catch((e) => console.warn("[retry-failed] deal-form-note error:", e));
+      }
 
       results.push({ lead_id: lead.id, ok: !!json.piperun_id, piperun_id: json.piperun_id || null });
     } catch (e) {
