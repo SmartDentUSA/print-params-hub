@@ -1639,6 +1639,16 @@ Deno.serve(async (req) => {
       } catch (logErr) {
         console.error("[lia-assign] Failed to log health event", logErr);
       }
+      // HARDENING: when person creation failed, do NOT corrupt the lead with
+      // owner/funnel placeholders. Leaving these fields untouched lets the
+      // retry cron pick the lead up later and assign it for real.
+      // Bail out early — only side-effect is the health log above.
+      return new Response(JSON.stringify({
+        success: false,
+        skipped: true,
+        reason: "crm_person_creation_failed",
+        lead_id: lead.id,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Set pipeline/stage based on flow
