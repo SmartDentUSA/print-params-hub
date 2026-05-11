@@ -1,111 +1,87 @@
-## Auditoria 2 — 3 bugs críticos descobertos
+## O que aconteceu (root cause confirmada)
 
-A primeira rodada de correção ajudou (78 leads recuperados), mas a investigação mais a fundo revela **bugs ainda mais sérios** que estão CORROMPENDO identidades. É preciso parar o backfill e corrigir antes de continuar.
+Verifiquei a Bruna no banco:
 
----
+- `email = bruna.mascarenhas001@gmail.com`
+- `source = astron_postback` · `form_name = NULL` · `form_data = {}` · `origem_campanha = NULL`
+- `created_at = 2026-04-28` (entrou só pelo postback do Astron Academy)
+- `raw_payload.piperun_retry_last_attempt_at = 2026-05-11T20:35:00Z` ← horário exato em que o Deal `59696402` apareceu no PipeRun
+- `raw_payload.piperun_retry_attempts = 0` + `piperun_retry_succeeded_at = 2026-05-11T20:35:00Z`
 
-### Bug A — Contaminação cruzada de leads (CRÍTICO, perda de dados)
+**Quem criou o Deal:** o cron `smart-ops-piperun-retry-failed-leads`. Ele varre TODA lead com `piperun_id IS NULL` criada nos últimos `lookback_days` e chama `smart-ops-lia-assign` com `force: true`. Não há filtro por `source`. Resultado: leads que entraram apenas via Astron Academy (alunos de curso), apenas via e-commerce, ou apenas via WhatsApp inbound viram "candidatos" a virar Deal comercial — exatamente a regra que quebrou.
 
-`piperun_id` tem `UNIQUE constraint`. Quando o `lia-assign` chama `findPersonByEmail` para o lead Andreia (`andreiaknip@gmail.com`), o PipeRun retorna a Person `46856754` — que NÃO é da Andreia, é do `dr.fredericorezende@hotmail.com` (que tem `nome="AMANDA MOURA"` no DB local). O `lia-assign` então:
+**Por que o lia-assign não barrou:** `smart-ops-lia-assign` também não tem nenhuma checagem de `source`/`form_name`/intenção comercial antes de criar Person+Deal no PipeRun. Ele assume que quem o chamou já decidiu que vira Deal.
 
-1. Atribui à Andreia o deal `59694622` da pessoa errada.
-2. Tenta `UPDATE lia_attendances SET piperun_id=59694622 WHERE id=andreia` → **falha silenciosa por unique violation** (Frederico já tem esse piperun_id).
-3. Lead Andreia fica `succeeded_at=now` mas `piperun_id=NULL`.
-4. O cron retry vê success e nunca mais tenta.
-5. **Andreia permanece órfã**, o deal fica vinculado em outro lead.
+**Por que a notificação veio toda N/A:** `form_data = {}`, então os campos formulário (área, especialidade, interesse, telefone, formulário) ficam vazios. O template imprime "N/A".
 
-Casos confirmados no DB neste momento (post-backfill): **Andreia Knipp**, **Daniele/clinicaabascal_laboratorio**, **AMANDA MOURA/dentistaamandamoura**. Todos com `succeeded_at` mas `piperun_id=NULL`.
-
-Pior ainda: vários leads antigos têm o `nome` reescrito por sync reversa do PipeRun com nomes de OUTRAS pessoas:
-- `condominiomyflower67@gmail.com` ingestou "Néliton Ribeiro" → `nome="llello Poeta"`.
-- `dr.fredericorezende@hotmail.com` → `nome="AMANDA MOURA"`.
-- `felipepimpo78@gmail.com` ingestou "Felipe Pipo" → `nome="Felipe Garcia do Amaral"`.
-
-E os leads que aparecem no painel sem email ("Ana Paula Benedito", "Lucas", "fabio", "Flavio Gomes Lima", "Ruani Schuster", etc) são DEALS criados no PipeRun que estão amarrados a Persons sem email — provavelmente Persons criadas pelo `createPerson` quando o email já estava em outra Person diferente, ou sync reversa de deals antigos do PipeRun.
-
-### Bug B — Notificação WhatsApp ao vendedor com origem errada
-
-No caso Adelmo, a notificação mostra:
-
-```
-📋 Formulário: # - Impressoras - Smart Dent
-Origem: # - Impressoras - Smart Dent
-```
-
-No DB:
-- `form_name = "# - Impressoras - Smart Dent"` (correto — esse é o nome do formulário Meta)
-- `origem_campanha = "# - Impressoras - Smart Dent"` (ERRADO — deveria ser `# Leads INO100 Plus`)
-- `origem_primeiro_contato = "# - Impressoras - Smart Dent"` (ERRADO — deveria ser `meta_lead_ads` ou a campanha real)
-- Os IDs reais do Meta estão no payload bruto: `c:120242917040680470 # Leads INO100 Plus` (campanha), `as:120242917040670470 # INO100Plus_com_notebook` (adset), `ag:120242917040660470 #INO100_Plus_Com_notebook` (ad).
-
-O webhook Meta está usando `form_name` como fallback para `origem_campanha` e `origem_primeiro_contato` em vez de extrair os campos reais (`campaign_name`, `adset_name`, `ad_name`) do payload Meta.
-
-### Bug C — `piperun-retry` mascara unique-violation como sucesso
-
-O cron classifica como sucesso qualquer resposta com `piperun_id` na resposta JSON, sem verificar se aquele ID foi de fato gravado no lead correto. Resultado: 3 leads marcados como `succeeded_at` mas com `piperun_id=NULL` no DB.
-
----
+**Por que a análise cognitiva alucinou ("nunca fez login" com 11 cursos concluídos):** o prompt da `cognitive-lead-analysis` recebeu `astron_last_login_at = NULL` (o sync do Astron nunca preencheu essa coluna pra ela) e o LLM inferiu "nunca logou", contradizendo `astron_courses_completed = 11`. Bug de prompt: hoje passamos um campo que não existe e deixamos o modelo inventar.
 
 ## Plano de correção
 
-### Parte A — Travar contaminação no `lia-assign`
+### 1. Whitelist de fontes que podem virar Deal (camada de defesa em profundidade)
 
-Em `supabase/functions/smart-ops-lia-assign/index.ts`:
+Definir uma única função utilitária `isCommercialSource(lead)` em `supabase/functions/_shared/lead-enrichment.ts` (ou novo `_shared/commercial-intent.ts`):
 
-1. **Antes de aceitar uma Person retornada pelo PipeRun**, validar duas vezes:
-   - O Person retornado deve ter pelo menos 1 email cujo lowercase BATA EXATAMENTE com o `lead.email` solicitado (sem fallback por telefone se o email do lead foi informado).
-   - Se nenhum email bate, **descarta o match e força createPerson**.
-2. **Antes de gravar `piperun_id` no lead**, fazer SELECT de pré-checagem: se `piperun_id` já está em uso por outro lead canônico, NÃO atualizar — gravar `system_health_logs` com `error_type='piperun_id_conflict'` e `details: { conflicting_lead_id }`. O cron retry não pode marcar success neste caso.
-3. **Tratar erro de update silencioso**: capturar `error` do Supabase update e retornar 500 quando ele existir, com `system_health_logs` específico.
-4. **Nunca sobrescrever `nome` local com nome do PipeRun** quando o nome local foi informado em formulário. Adicionar guarda: se `lead.nome` não está vazio E não veio do próprio PipeRun (`origem_primeiro_contato='piperun_webhook'`), preservar.
+```text
+Deal-elegível somente se QUALQUER um:
+  - lead.form_name não-vazio (formulário comercial real)
+  - lead.source ∈ {meta_lead_ad, manual_form, smart_dent_form,
+                    sellflux_webhook, piperun_webhook, dra_lia_chat_qualified,
+                    csv_import_commercial, wa_inbound_qualified}
+  - lead.piperun_id já existe (já é Deal)
+  - lead.crm_won = true ou lead.empresa_cnpj presente vindo de Omie/CRM
+Bloqueado:
+  - source ∈ {astron_postback, ecommerce_order, sync_astron_members,
+              wa_inbound (sem qualificação), unknown}
+    E sem form_name E sem piperun_id existente
+```
 
-### Parte B — Fix da extração Meta (origem real)
+### 2. Guardar o cron `smart-ops-piperun-retry-failed-leads`
 
-Em `supabase/functions/smart-ops-meta-lead-webhook/index.ts` (ou onde o lead Meta é construído):
+- Adicionar o filtro de `source` na query (`.in("source", COMMERCIAL_SOURCES)` + OR `not("form_name", "is", null)`).
+- Antes do POST a `lia-assign`, chamar `isCommercialSource(lead)` e, se falso, marcar `raw_payload.piperun_retry_skipped_reason = "non_commercial_source"` + `piperun_retry_succeeded_at = null` para nunca mais ser tentado, sem criar Deal.
+- Logar em `system_health_logs` (`error_type = "retry_skipped_non_commercial"`).
 
-1. Extrair do payload: `campaign_name` → `origem_campanha`, `adset_name` → `origem_adset`, `ad_name` → `origem_ad`.
-2. Setar `origem_primeiro_contato = "meta_lead_ads"` para leads novos vindos via Meta (não duplicar com `form_name`).
-3. Setar `form_name` = nome do form Meta (atual já correto).
-4. Na notificação WA (`lia-assign` linha 730 e 897), trocar `📋 Formulário: ${form_name}` para mostrar:
-   ```
-   📋 Canal: ${source} (Meta Lead Ads / WhatsApp / Site)
-   📝 Formulário: ${form_name}
-   🎯 Campanha: ${origem_campanha} > ${origem_adset || "—"}
-   ```
+### 3. Guardar o `smart-ops-lia-assign` (último portão)
 
-### Parte C — `piperun-retry` valida que `piperun_id` foi de fato persistido
+No início do handler, depois de carregar a lead e antes de qualquer chamada PipeRun:
 
-Em `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts`:
+- Se `isCommercialSource(lead)` for falso E o caller não passar `commercial_override: true` (reservado para chat Dra. LIA quando o lead pediu orçamento explícito), abortar com `409 non_commercial_lead`, logar `system_health_logs.error_type = "lia_assign_blocked_non_commercial"` e atualizar `crm_creation_blocked = true` + `crm_creation_blocked_reason = "non_commercial_source"`.
+- Isso protege contra qualquer caller futuro (manual, retry, dra-lia mal-configurado).
 
-1. Após chamar `lia-assign` e receber `piperun_id`, fazer um SELECT extra: `SELECT piperun_id FROM lia_attendances WHERE id=$lead_id`. Só marcar `succeeded_at` se o ID gravado bate com o ID retornado.
-2. Se `lia-assign` retornou `piperun_id` mas o DB não persistiu → tratar como `piperun_id_conflict`, gravar `system_health_logs` com severity error e NÃO incrementar attempts (a falha não é do lead, é do código).
+### 4. Reparo retroativo da Bruna e dos similares
 
-### Parte D — Reparo retroativo mais cauteloso
+- Migration de dados (via tool de inserts): para a Bruna especificamente, marcar `crm_creation_blocked = true`, limpar `piperun_retry_succeeded_at`, e registrar nota no `piperun_deals_history` indicando que o Deal `59696402` foi criado por engano pelo retry-cron.
+- **Não** apagar o Deal no PipeRun automaticamente — apresentar lista para você decidir manualmente (pode ter outros casos similares dos últimos 7 dias).
+- Query de auditoria a rodar e mostrar antes de qualquer DELETE: leads com `source IN ('astron_postback','ecommerce_order')` que receberam `piperun_id` via cron entre `2026-05-04` e hoje.
 
-1. **Reverter contaminações conhecidas**: para os 3 leads (Andreia, Daniele, Amanda) que ficaram `succeeded_at` mas sem `piperun_id`, limpar `succeeded_at` e zerar `attempts`. Após a Parte A estar deployada, deixar o cron reprocessar — agora vai criar Person nova em vez de pegar a errada.
-2. **Detectar todos os leads com nome contaminado** (nome local diferente do nome ingerido no `raw_payload.latest_payload.nome`): mostrar lista para revisão manual antes de qualquer ação automática. Não é seguro reescrever em massa.
-3. **Detectar deals "órfãos"** no painel local (lista que o usuário viu: "Ana Paula Benedito", "Lucas", "fabio" sem email): rodar query para identificar leads com `pessoa_piperun_id` mas sem `email` localmente, e cruzar com PipeRun para ver se a pessoa lá tem email.
+### 5. Corrigir a alucinação da análise cognitiva
 
-### Parte E — Monitoramento
+Em `supabase/functions/cognitive-lead-analysis/index.ts`:
 
-Adicionar no `system-watchdog-deepseek`:
-- Alerta quando `system_health_logs` registrar `piperun_id_conflict` ou `crm_person_creation_failed` mais de 3x em 1h.
-- Query semanal: leads canônicos com `nome` divergente de `raw_payload.latest_payload.nome` → relatório de auditoria.
+- Quando `astron_last_login_at IS NULL` mas `astron_courses_completed > 0`, **não** dizer "nunca logou". Trocar a frase por "Sem timestamp de último login disponível, mas concluiu N/M cursos — engajamento ativo na Academy".
+- Adicionar guard rail no system prompt: "Se houver contradição entre sinais (ex.: cursos concluídos > 0 mas sem último login), confiar nos cursos concluídos e ignorar o NULL."
 
----
+### 6. Notificação WhatsApp para leads não-comerciais
 
-### Arquivos a alterar
-1. `supabase/functions/smart-ops-lia-assign/index.ts` — guarda strict-email + pré-checagem unique + erro de update + preservar nome local.
-2. `supabase/functions/smart-ops-meta-lead-webhook/index.ts` — extrair campaign/adset/ad reais, separar `form_name` de `origem_campanha`.
-3. `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` — validação pós-update, novo error_type.
-4. 1 migration: limpar `succeeded_at` dos 3 leads contaminados; opcional: backfill de `origem_campanha` para leads Meta recentes a partir do `raw_payload.latest_payload`.
+Quando um lead Astron-only entra no sistema (postback), não disparar a notificação "🤖 Novo Lead atribuído - Dra. L.I.A." — esse template é exclusivo de leads comerciais. Hoje ele está vazando porque o retry cron acionou `lia-assign`, que dispara a notificação. Com a guarda do passo 3 isso para automaticamente.
 
-### Validação
-- Recriar lead `andreiaknip@gmail.com` via retry → deve criar Person nova com email correto, deal novo, piperun_id no lead correto.
-- Conferir notificação WA do próximo lead Meta: deve mostrar Canal = "Meta Lead Ads", Formulário = nome real, Campanha = `# Leads INO100 Plus`.
-- `system_health_logs` deve registrar 0 eventos de `piperun_id_conflict` após 24h.
+## Detalhes técnicos
 
-### Perguntas
-1. **Sobre a Parte A.4 (preservação de nome)**: posso sobrescrever o nome local APENAS quando o PipeRun retornar nome com `>= 2 tokens` E o nome local for `null/vazio/email`? Isso é o mais conservador — se quiser permitir reescrita também quando o local tem 1 token (ex.: "Tiago" → "Tiago Reis CRO SP 94604"), me diga.
-2. **Sobre os deals órfãos no painel** ("Ana Paula Benedito", "Lucas", "fabio" sem email): essas são pessoas/deals reais no PipeRun que vieram via outra fonte (manual? CSV antigo?), ou são contaminações? Quer que eu liste todos os 100+ deals afetados para você decidir caso a caso, ou prefere que eu deixe como está e foque só nos novos leads do Meta?
-3. **Sobre o backfill remanescente** (3 leads ainda stuck): paro tudo até deployar a Parte A, ou quer que eu faça o reparo limpo só desses 3 manualmente agora?
+Arquivos a editar:
+
+- `supabase/functions/_shared/commercial-intent.ts` (novo) — função `isCommercialSource(lead)` + lista canônica de sources.
+- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` — filtro na query + skip + log.
+- `supabase/functions/smart-ops-lia-assign/index.ts` — guard inicial + log + atualização de `crm_creation_blocked`.
+- `supabase/functions/cognitive-lead-analysis/index.ts` — fix de prompt/heurística para Astron sem `last_login_at`.
+- Migration de dados: reset da Bruna + auditoria dos últimos 7 dias.
+
+Arquivos NÃO alterados:
+
+- `astron-postback`, `sync-astron-members`, `poll-loja-integrada-orders` — eles já estão corretos: nunca chamam `lia-assign` diretamente. O bug está no cron + na ausência de guard no `lia-assign`.
+
+## Antes de implementar — confirme:
+
+1. **Lista de sources comerciais** acima está correta? Falta alguma (ex.: `manychat_webhook`, `tally_form`, alguma origem própria)?
+2. **Reparo da Bruna no PipeRun:** quer que eu (a) só bloqueie no Supabase e te liste o Deal pra você apagar à mão, ou (b) chame a API do PipeRun pra marcar o Deal como `lost` com motivo "criado por engano - lead Astron"?
+3. **Auditoria retroativa:** rodo a query dos últimos 7 dias e te mostro a lista antes de qualquer ação, certo?
