@@ -64,18 +64,32 @@ Deno.serve(async (req) => {
 
   for (const lead of candidates) {
     try {
-      const res = await piperunGet(PIPERUN_TOKEN, `persons/${lead.piperun_id}`, {});
-      const personData = (res.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+      // `piperun_id` in lia_attendances is the DEAL id, not the person id.
+      // Resolve person via the deal, then fetch the person to read origin.name.
+      let personData: Record<string, unknown> | undefined;
+      let lookupStatus = 0;
+      let resolvedPersonId: number | null = null;
+
+      const dealRes = await piperunGet(PIPERUN_TOKEN, `deals/${lead.piperun_id}`, {});
+      lookupStatus = dealRes.status;
+      const dealData = (dealRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+      const personId = dealData?.person_id as number | string | undefined;
+      if (personId) {
+        resolvedPersonId = Number(personId);
+        const personRes = await piperunGet(PIPERUN_TOKEN, `persons/${resolvedPersonId}`, {});
+        lookupStatus = personRes.status;
+        personData = (personRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+      }
       const origin = personData?.origin as Record<string, unknown> | undefined;
       const originName = (origin?.name as string | null)?.trim() || null;
 
       if (debug && samples.length < 5) {
         samples.push({
-          id: lead.id, piperun_id: lead.piperun_id,
+          id: lead.id, deal_id: lead.piperun_id, person_id: resolvedPersonId,
           origin_raw: origin || null,
           origin_id: personData?.origin_id ?? null,
           originName,
-          status: res.status,
+          status: lookupStatus,
         });
       }
 
