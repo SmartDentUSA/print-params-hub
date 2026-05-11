@@ -90,12 +90,43 @@ async function createPerson(
   if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
-  const createRes = await piperunPost(apiToken, "persons", personPayload);
+  let createRes = await piperunPost(apiToken, "persons", personPayload);
   if (createRes.success && createRes.data) {
     const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (personData?.id) return Number(personData.id);
   }
-  console.warn(`[lia-assign] Failed to create person (${createRes.status})`);
+  // Retry without custom_fields if Piperun rejected them (422 "campos customizados")
+  const errBody = JSON.stringify(createRes.data || {});
+  if (createRes.status === 422 && /campos customizados|custom_fields/i.test(errBody) && personPayload.custom_fields) {
+    console.warn("[lia-assign] Retrying createPerson without custom_fields (Piperun rejected IDs)");
+    delete personPayload.custom_fields;
+    createRes = await piperunPost(apiToken, "persons", personPayload);
+    if (createRes.success && createRes.data) {
+      const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (personData?.id) return Number(personData.id);
+    }
+  }
+  // Detailed failure capture: persist full diagnostic to system_health_logs so we can debug
+  console.warn(`[lia-assign] Failed to create person (${createRes.status})`, JSON.stringify(createRes.data || {}).slice(0, 500));
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    await supa.from("system_health_logs").insert({
+      function_name: "smart-ops-lia-assign",
+      severity: "error",
+      error_type: "piperun_create_person_api_error",
+      lead_email: email,
+      details: {
+        status: createRes.status,
+        response: createRes.data,
+        payload_sent: personPayload,
+        lead_id: lead.id,
+      },
+    });
+  } catch (logErr) {
+    console.error("[lia-assign] Failed to persist piperun error:", logErr);
+  }
   return null;
 }
 

@@ -115,6 +115,102 @@ function b(lead: Lead, key: string): boolean | null {
   return Boolean(v);
 }
 
+/**
+ * "Última Conversão" — surfaces the most recent touchpoint (Meta Ads campaign / form),
+ * the produto de interesse and the Piperun sync status. Includes a manual reprocess button
+ * that re-runs smart-ops-lia-assign with force=true (e.g. when Piperun person creation failed).
+ */
+function LastConversionSection({ lead }: { lead: Lead }) {
+  const l = lead as unknown as Record<string, any>;
+  const raw = (l.raw_payload || {}) as Record<string, any>;
+  const latest = (raw.latest_payload || {}) as Record<string, any>;
+  const submissions = Array.isArray(raw.form_submissions) ? raw.form_submissions : [];
+  const lastSubmission = submissions[submissions.length - 1] || null;
+
+  const platform: string | null =
+    l.platform || latest.meta_platform || (l.utm_source === "facebook" ? "facebook" : null);
+
+  const campaignName: string | null =
+    latest.meta_campaign_name || l.utm_campaign || latest.utm_campaign ||
+    (l.origem_campanha && !/^\d+$/.test(l.origem_campanha) ? l.origem_campanha : null);
+
+  const adsetName: string | null = latest.meta_adset_name || latest.utm_term || l.utm_term || null;
+  const adName: string | null = latest.meta_ad_name || latest.utm_content || null;
+  const formName: string | null = lastSubmission?.form_name || l.form_name || latest.form_name || null;
+  const produto: string | null = l.produto_interesse || l.produto_interesse_auto || latest.produto_interesse || null;
+  const lastConversionAt: string | null = lastSubmission?.submitted_at || l.created_at || null;
+
+  const piperunOk = !!l.piperun_id;
+  const [reprocessing, setReprocessing] = useState(false);
+
+  const handleReprocess = useCallback(async () => {
+    if (reprocessing) return;
+    setReprocessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-lia-assign", {
+        body: { lead_id: l.id, force: true, trigger: "manual_reprocess" },
+      });
+      if (error) throw error;
+      if ((data as any)?.piperun_id) {
+        toast.success(`Piperun OK · Deal ${(data as any).piperun_id}`);
+      } else if ((data as any)?.flow === "error_no_person") {
+        toast.error("Piperun ainda falhou — verifique system_health_logs");
+      } else {
+        toast.success("Reprocessamento disparado");
+      }
+    } catch (e: any) {
+      toast.error(`Falha ao reprocessar: ${e?.message || e}`);
+    } finally {
+      setReprocessing(false);
+    }
+  }, [l.id, reprocessing]);
+
+  const platformLabel =
+    platform === "ig" || platform === "instagram" ? "📸 Instagram"
+      : platform === "facebook" ? "📘 Facebook"
+        : platform ? `📡 ${platform}` : null;
+
+  return (
+    <Section title="Última Conversão" emoji="🎯" defaultOpen>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex flex-wrap gap-1">
+            {platformLabel && (
+              <Badge variant="secondary" className="text-[10px]">{platformLabel}</Badge>
+            )}
+            {piperunOk ? (
+              <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600">✓ Piperun #{l.piperun_id}</Badge>
+            ) : (
+              <Badge variant="destructive" className="text-[10px]">⚠ Piperun não sincronizado</Badge>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant={piperunOk ? "ghost" : "default"}
+            className="h-6 text-[10px] px-2"
+            disabled={reprocessing}
+            onClick={handleReprocess}
+          >
+            <RefreshCw className={`h-3 w-3 mr-1 ${reprocessing ? "animate-spin" : ""}`} />
+            {piperunOk ? "Reprocessar" : "Tentar novamente"}
+          </Button>
+        </div>
+        <DetailRow label="Campanha" value={campaignName} emoji="📣" />
+        <DetailRow label="Conjunto (adset)" value={adsetName} />
+        <DetailRow label="Anúncio" value={adName} />
+        <DetailRow label="Formulário" value={formName} emoji="📝" />
+        <DetailRow label="Produto interesse" value={produto} emoji="🎯" />
+        <DetailRow label="Data da conversão" value={fmtDateTime(lastConversionAt)} emoji="📅" />
+        {!piperunOk && (
+          <p className="text-[10px] text-muted-foreground italic mt-1">
+            Lead ingerido mas a Pessoa/Deal não foi criada no Piperun. Causa registrada em system_health_logs.
+          </p>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 // Check if at least one field in a group has a value
 function hasAny(lead: Lead, keys: string[]): boolean {
   return keys.some((k) => {
@@ -845,6 +941,10 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             <TrackingRow label="Reunião Agendada" value={b(lead, "reuniao_agendada")} emoji="📅" />
             <TrackingRow label="1º Contato" value={fmtDateTime(s(lead, "data_primeiro_contato"))} emoji="🤝" />
           </Section>
+          <Separator />
+
+          {/* ===== ÚLTIMA CONVERSÃO (Meta Ads / Form) ===== */}
+          <LastConversionSection lead={lead} />
           <Separator />
 
           {/* ===== ORIGEM & META ===== */}
