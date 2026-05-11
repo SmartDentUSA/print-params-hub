@@ -1,184 +1,81 @@
-## Objetivo expandido
+## Diagnóstico (4 bugs distintos, todos comprovados no banco)
 
-Capturar **100% do que o PipeRun expõe** por deal e transformar isso em três saídas:
-1. **Card do Lead** (UI Smart Ops) — trajetória completa, esforço por vendedor, gaps.
-2. **Notas no PipeRun** — resumo executivo + alerta de gap para o vendedor agir.
-3. **Copilot** — base estruturada para relatórios de produtividade, gargalos de funil e ranking de vendedores.
+### Bug 1 — Lista NÃO filtra leads mergeados
+`src/components/SmartOpsLeadsList.tsx` linha 494: `from("lia_attendances").select("*")` sem `merged_into IS NULL`.
 
-## O que vamos extrair do PipeRun
+**Impacto**: **702 leads mergeados poluem a lista** (consulta confirmou). Heitor Rabeti aparece como "0 deals" porque foi mergeado em `f65fd9a6-757d-4168-b1ce-f50f4bfd014a` (Heitor Rabetti canonical, que tem 3 deals e `piperun_id 59687015`). Quem clica vê o lead órfão sem dados.
 
-Por deal, com paginação e `with[]` agressivo:
+Viola a regra Core: "ALL queries to `lia_attendances` MUST include `WHERE merged_into IS NULL`".
 
-| Endpoint | O que captura |
-|---|---|
-| `GET /deals/{id}` (`with[]=person,company,proposals,activities,files,forms,tags,origin,stage,custom_fields`) | Estado atual completo (já parcial hoje). |
-| `GET /activities?deal_id=…` | Calls, meetings, e-mails, propostas, notas, tasks (com user, type, duration, scheduled/completed). |
-| `GET /deals/{id}/stage-history` (fallback: derivar de `activities` tipo `stage_change`) | Cada transição com `from_stage`, `to_stage`, `entered_at`, `user`. |
-| `GET /tasks?deal_id=…` | Tarefas pendentes/atrasadas (próximo follow-up agendado). |
-| `GET /notes?deal_id=…` | Notas do vendedor (já parcial). |
-| `GET /files?deal_id=…` | Anexos enviados (proposta PDF, contrato). |
-| `GET /emails?deal_id=…` (se disponível na conta) | E-mails enviados/recebidos. |
-
-## Persistência
-
-### `lead_activity_log` — uma linha por toque
-`event_type` padronizado (`piperun_call`, `piperun_meeting`, `piperun_email`, `piperun_proposal_sent`, `piperun_note`, `piperun_task_done`, `piperun_task_pending`, `piperun_stage_change`, `piperun_file_uploaded`).
-`event_data` guarda `{user_name, user_id, type, raw, from_stage, to_stage, scheduled_at, completed_at}`.
-`duration_seconds` para calls/meetings, `value_numeric` para propostas.
-Upsert idempotente via índice único `(lead_id, source_channel, entity_id, event_type, event_timestamp)`.
-
-### `deal_status_history` — uma linha por transição
-Colunas adicionadas: `deal_id`, `pipeline_id`, `from_stage`, `to_stage`, `days_in_stage`, `owner_name`, `owner_id`.
-Permite computar tempo médio por etapa por vendedor / por pipeline.
-
-### `RichDealSnapshot` (em `piperun_deals_history[]`) — agregados prontos para UI
-
+### Bug 2 — Contador "X deals" só conta GANHAS
+`supabase/functions/smart-ops-leads-api/index.ts` linhas 117-121:
 ```ts
-activities_summary: {
-  total: number,
-  by_type: { calls, meetings, emails, notes, proposals_sent, tasks_done, tasks_pending, files },
-  first_activity_at, last_activity_at,
-  days_since_last_activity,
-  avg_days_between_activities,
-}
-stage_journey: Array<{
-  stage_name, from_stage, entered_at, exited_at,
-  days_in_stage,
-  is_current: boolean,
-  activities_in_stage: number,
-  owner_at_entry: string,
-}>
-seller_effort: Array<{
-  user_id, user_name,
-  calls, meetings, emails, notes, proposals, tasks_done, tasks_pending,
-  total_activities,
-  first_touch_at, last_touch_at,
-  stages_owned: string[],   // etapas que esse vendedor segurou
-  days_owned: number,        // dias com o deal sob a sua responsabilidade
-}>
-current_stage_metrics: {
-  stage_name, days_in_stage, last_activity_at, days_since_last_activity,
-  next_task: { type, scheduled_at, user_name } | null,
-}
-followup_gaps: Array<{ rule, severity, message, last_event_at, days_overdue }>
+const wonDeals = allDealsList.filter((d) => WON_STATUSES.includes(d.status));
+lead.total_deals = wonDeals.length;
 ```
+E `SmartOpsLeadsList.tsx` linha 361 imprime `lead.total_deals`.
 
-Tudo pré-computado no sync → UI e Copilot consomem sem reler `lead_activity_log`.
+**Resultado**: lead com 1 oportunidade aberta em "Negociação" → "0 deals". Lead com 3 propostas perdidas → "0 deals". Só leads com venda concretizada exibem número >0.
 
-## Notas automáticas no PipeRun
+Viola memória `[Total Deals Count]`: "`total_deals_all` counts all deals across history, not just won". A lista USA a coluna `total_deals` (recalculada no detail) e nunca lê `total_deals_all`.
 
-Helper `_shared/followup-gap-analyzer.ts` gera duas notas (debounce por hash em `lia_attendances.last_followup_note_hash`):
+Confirmado nos dados: Vitor (`piperun_status:0` "Sem contato") tem 2 ganhas no JSONB → exibe 2. Leandro tem 1 deal aberto em "Negociação" → exibe 1 porque o contador da lista vem da coluna `total_deals` desatualizada (`piperun_status:0`, não ganha). Já leads recém-criados com 1 deal aberto que nunca tiveram recompute exibem 0.
 
-1. **🧭 Resumo do Deal — Smart Ops** (atualizada quando o snapshot muda materialmente):
-   - Etapa atual + dias parado + última atividade.
-   - Esforço total (X calls / Y meetings / Z propostas) por vendedor.
-   - Trajetória resumida: `Qualificação (3d) → Negociação (8d, atual)`.
-   - Próxima tarefa agendada (ou alerta "sem follow-up").
+### Bug 3 — Lead WhatsApp sem identidade ainda existe
+`019ebe53-f0b3-4a98-8ac9-4ed65ccd388b` (`217071992459498@lid` / `wa_*@whatsapp.lead`): foi criado **antes** do `lead-identity-guard` que você implementou na sessão anterior. O guard bloqueia novos, mas não limpa os 174 phantoms já existentes.
 
-2. **🚨 Follow-up Gap** (só posta se há gap aberto):
-   - Regras default (configuráveis via tabela `followup_gap_rules`):
-     - SQL/Negociação sem `call` >7d
-     - Proposta enviada sem `call`/`meeting` >5d
-     - Qualquer etapa sem nenhuma atividade >10d
-     - Tarefa atrasada >2d
-   - Severidade: `info`/`warning`/`critical`.
+### Bug 4 — 1.139 leads canonical sem `piperun_id`
+Ruani, Bernadete, Hugo, Otávio, Paulo, Caio, Juliana, Marco, Lucas, Gideon, Felipe, Ana Paula, Flavia, Fabiano, Marcos, Andrea, Mitiko, Johnny, Felippe, Tamára, Paulo Eduardo etc. — todos têm `piperun_id IS NULL`, `pessoa_piperun_id IS NULL`, `piperun_updated_at IS NULL`. Nunca foram criados no PipeRun (ou criação falhou silenciosamente). Por isso 0 deals, e seguirão 0 enquanto não forem ressincronizados.
 
-## Card do Lead (UI)
+Diferente do Bug 3, esses **têm nome+email reais** então passam no `lead-identity-guard` e devem ser retentados via `smart-ops-piperun-retry-failed-leads`.
 
-Em `src/components/smartops/KanbanLeadDetail.tsx`, nova aba **"📞 Atividade & Funil"** alimentada por `piperun_deals_history`:
+### Bonus — 9 leads com `total_deals > 0` e `piperun_deals_history` vazio
+Divergência clássica de contador. Será corrigido pelo mesmo recompute do Bug 2.
 
-- **Header**: etapa atual, dias parado, última atividade, próxima tarefa.
-- **Timeline vertical**: stage_journey com barras proporcionais ao tempo, ícones por tipo de atividade dentro de cada etapa.
-- **Tabela "Esforço por Vendedor"**: nome, calls, meetings, propostas, dias com o deal — ordenada por total.
-- **Bloco "Gaps abertos"**: lista colorida das regras violadas.
-- **Lista cronológica** de atividades (lazy-load de `lead_activity_log` filtrado por `entity_id=deal_id` para detalhe completo, com filtro por tipo/vendedor).
+## Plano de correção
 
-Hook novo `useLeadPiperunActivity(leadId)` agrega de `piperun_deals_history` (rápido) + opcionalmente `lead_activity_log` (detalhado).
+### Parte A — Lista (frontend, deploy imediato)
+Em `src/components/SmartOpsLeadsList.tsx`:
 
-## Copilot — relatórios
+1. Adicionar `.is("merged_into", null)` em `fetchLeads` (linha ~497) e em **todos** os `select` de filtros agregados (linhas 454-458).
+2. Trocar `lead.total_deals || 0` (linha 361) por uma contagem feita no próprio cliente a partir de `piperun_deals_history` (length total, não só ganhas), com fallback para `total_deals_all || total_deals || 0`.
+3. Adicionar `total_deals_all` ao tipo `LeadFull` (linha ~143).
 
-Novas RPCs SQL consumidas pelo Copilot:
+### Parte B — Endpoint detail (`smart-ops-leads-api`)
+Em `handleDetail`:
+1. Computar `total_deals_all = allDealsList.length` (todas as oportunidades).
+2. Manter `total_deals = wonDeals.length` (semântica de "vendas fechadas") mas RENOMEAR no payload para `total_won_deals` para clareza.
+3. Persistir ambos via `update` no banco (assim a lista que lê coluna fica correta sem precisar de recompute).
 
-- `query_seller_activity_summary(p_owner_name, p_from, p_to)` → totais por tipo, deals tocados, conversão.
-- `query_funnel_stage_residency(p_pipeline_id, p_from, p_to)` → tempo médio por etapa, gargalos, % deals que passaram.
-- `query_followup_gaps(p_owner_name?, p_severity?)` → lista de deals com gap aberto.
-- `query_deal_activity_timeline(p_deal_id)` → trajetória + atividades.
+### Parte C — Migration de limpeza (idempotente)
+1. **Recompute global** dos contadores em `lia_attendances`:
+   - `total_deals_all = jsonb_array_length(piperun_deals_history)` para leads canonical.
+   - `total_deals = (count de status IN ('ganha','won','Ganha'))`.
+2. **Soft-archive dos 174 leads phantom WhatsApp** (`email LIKE 'wa_%@whatsapp.lead'` AND `nome ~ '^[0-9]+@lid$'` AND `piperun_id IS NULL`): marcar `merged_into = id` (auto-merge para não aparecer) + flag em coluna nova `archived_reason='missing_identity'` (já que `merged_into` aceita o próprio id como tombstone) — ou criar coluna `archived_at`. Decisão de implementação no momento.
+3. Adicionar índice parcial `lia_attendances_canonical_idx ON (created_at DESC) WHERE merged_into IS NULL` para acelerar a lista.
 
-Adicionar essas tools ao registro do Copilot (`smart-ops-copilot/tools.ts` ou similar) com descrições e exemplos. Memória `[Copilot Intelligence]` é atualizada para incluir essas RPCs.
+### Parte D — Retry dos 1.139 sem `piperun_id`
+1. Criar/ajustar endpoint `smart-ops-piperun-create-missing` (ou estender `smart-ops-piperun-retry-failed-leads`) que:
+   - Lista canonical leads sem `piperun_id` que passam no `validateLeadIdentity` (têm nome+email+telefone).
+   - Cria pessoa+deal no PipeRun e grava `piperun_id`/`pessoa_piperun_id`.
+   - Pacing 300ms, lote configurável (`limit`, `dry_run`).
+2. Disparar uma execução inicial com `dry_run` para o usuário ver quantos serão criados antes do real.
 
-## Wiring nos syncs
-
-- `piperun-full-sync` e `piperun-incremental-sync` — após `buildRichDealSnapshot`, chamar `fetchDealActivities` + `fetchDealStageHistory` + `fetchDealTasks` + `fetchDealFiles`, persistir em `lead_activity_log` / `deal_status_history`, anexar agregados ao snapshot, rodar gap analyzer.
-- `smart-ops-piperun-webhook` — eventos `activity.created/updated`, `deal.stage_changed`, `task.created/completed` gravam em tempo real e re-rodam analyzer.
-- Endpoint novo `smart-ops-piperun-activities-backfill` (one-shot, com `dry_run`, `pipeline_id`, `lookback_days`, `lead_ids?`) para popular o histórico existente. Pacing 250ms.
-
-## Migration
-
-```sql
-ALTER TABLE deal_status_history
-  ADD COLUMN IF NOT EXISTS deal_id text,
-  ADD COLUMN IF NOT EXISTS pipeline_id integer,
-  ADD COLUMN IF NOT EXISTS from_stage text,
-  ADD COLUMN IF NOT EXISTS to_stage text,
-  ADD COLUMN IF NOT EXISTS days_in_stage integer,
-  ADD COLUMN IF NOT EXISTS owner_id integer,
-  ADD COLUMN IF NOT EXISTS owner_name text;
-
-CREATE UNIQUE INDEX IF NOT EXISTS deal_status_history_unique_transition
-  ON deal_status_history (lead_id, deal_id, to_stage, created_at);
-
-CREATE UNIQUE INDEX IF NOT EXISTS lead_activity_log_unique_piperun
-  ON lead_activity_log (lead_id, source_channel, entity_id, event_type, event_timestamp)
-  WHERE source_channel = 'piperun';
-
-CREATE INDEX IF NOT EXISTS lead_activity_log_piperun_owner_idx
-  ON lead_activity_log ((event_data->>'user_name'))
-  WHERE source_channel = 'piperun';
-
-ALTER TABLE lia_attendances
-  ADD COLUMN IF NOT EXISTS last_followup_note_hash text,
-  ADD COLUMN IF NOT EXISTS last_followup_note_at timestamptz,
-  ADD COLUMN IF NOT EXISTS last_deal_summary_note_hash text,
-  ADD COLUMN IF NOT EXISTS followup_gap_count integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS days_in_current_stage integer,
-  ADD COLUMN IF NOT EXISTS days_since_last_activity integer;
-
-CREATE TABLE IF NOT EXISTS followup_gap_rules (
-  id uuid primary key default gen_random_uuid(),
-  rule_key text unique not null,
-  description text,
-  stage_match text,           -- regex/glob (null = qualquer etapa)
-  trigger_type text,          -- 'no_activity' | 'no_call_after_proposal' | 'task_overdue'
-  threshold_days integer,
-  severity text,              -- 'info' | 'warning' | 'critical'
-  active boolean default true
-);
--- Seeds com 4 regras default.
-```
-
-## Validação pós-deploy
-
-1. Backfill no Otavio (deal `59685821`) → `lead_activity_log` com toques, `deal_status_history` com transições, `piperun_deals_history[]` com `stage_journey`, `seller_effort`, `activities_summary`, `current_stage_metrics`.
-2. Card do Lead exibe a aba "Atividade & Funil" com timeline + tabela de vendedores + gaps.
-3. Nota "🧭 Resumo do Deal" e "🚨 Follow-up Gap" aparecem no PipeRun (verificar via `fetchDealNotes`).
-4. Copilot responde "qual o tempo médio na etapa Negociação?" usando `query_funnel_stage_residency`.
+### Parte E — Validação pós-deploy
+1. `SELECT count(*) FROM lia_attendances WHERE merged_into IS NULL` — número esperado: `total - 702 - 174` ≈ baseline.
+2. Conferir Heitor Rabeti: o lead órfão não aparece mais; o canonical mostra "3 deals".
+3. Conferir Leandro Arruda: card mostra "1 deal" (1 aberto em Negociação) com `total_deals_all=1`.
+4. Vitor Spada: mantém "2 deals" (ganhas) ou passa a refletir total real do JSONB (a definir na Pergunta 1 abaixo).
 
 ## Arquivos alterados
 
-- `supabase/functions/_shared/piperun-field-map.ts` — `fetchDealActivities`, `fetchDealStageHistory`, `fetchDealTasks`, `fetchDealFiles`; `RichDealSnapshot` com `activities_summary`, `stage_journey`, `seller_effort`, `current_stage_metrics`, `followup_gaps`.
-- `supabase/functions/_shared/piperun-activities-persist.ts` — novo, upsert em `lead_activity_log` + `deal_status_history`.
-- `supabase/functions/_shared/followup-gap-analyzer.ts` — novo, regras + builder de notas.
-- `supabase/functions/piperun-full-sync/index.ts` e `piperun-incremental-sync/index.ts` — wiring.
-- `supabase/functions/smart-ops-piperun-webhook/index.ts` — handlers de `activity.*`, `task.*`, `deal.stage_changed`.
-- `supabase/functions/smart-ops-piperun-activities-backfill/index.ts` — novo, one-shot.
-- `supabase/functions/_shared/seller-summary.ts` — seção "Follow-up & Esforço".
-- `supabase/functions/smart-ops-copilot/*` — novas tools + descrições.
-- `src/components/smartops/KanbanLeadDetail.tsx` — aba "📞 Atividade & Funil".
-- `src/hooks/useLeadPiperunActivity.ts` — novo hook.
-- Migration nova com ALTERs + tabela `followup_gap_rules` + seeds.
+- `src/components/SmartOpsLeadsList.tsx` — filtro `merged_into IS NULL` + contador correto.
+- `supabase/functions/smart-ops-leads-api/index.ts` — `total_deals_all` + persistência dos contadores.
+- `supabase/functions/smart-ops-piperun-create-missing/index.ts` (novo, ou extensão de `retry-failed-leads`).
+- Migration: recompute + soft-archive phantoms + índice parcial.
 
-## Perguntas antes de implementar
+## Perguntas
 
-1. **Regras de gap default** ok com (a) SQL sem call >7d, (b) proposta sem follow-up >5d, (c) etapa sem atividade >10d, (d) task atrasada >2d? Ou ajustar números?
-2. **Frequência das notas no PipeRun**: posto a nota "🧭 Resumo do Deal" a cada sync que detecta mudança material (recomendado), ou só 1×/dia por deal?
-3. **Backfill inicial**: rodar para todos os pipelines (Vendas + CS + Suporte) ou começar só por Vendas para validar?
+1. **Semântica do "X deals" no card**: você quer que mostre **(a) total de oportunidades** (abertas+ganhas+perdidas, casa com a coluna `total_deals_all`) ou **(b) só vendas fechadas**? Eu recomendo (a) com badge separado para ganhas, porque hoje "0 deals" engana o vendedor.
+2. **Phantoms WhatsApp (174 leads)**: posso soft-archive automaticamente (some da lista, fica auditável)? Ou você quer hard-delete?
+3. **Retry dos 1.139 sem piperun_id**: rodo já com `dry_run=true` para você revisar o relatório antes de criar de verdade no PipeRun?
