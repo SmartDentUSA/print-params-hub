@@ -59,13 +59,27 @@ Deno.serve(async (req) => {
     return !l.raw_payload?.piperun_retry_attempted_at;
   }).slice(0, limit);
 
+  // Dry-run: delegate to preflight to avoid any Piperun writes
+  if (dryRun) {
+    const candEmails = candidates.map((c: any) => String(c.email || "").toLowerCase()).filter(Boolean);
+    const pre = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-piperun-preflight`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ emails: candEmails }),
+    });
+    const preJson = await pre.json().catch(() => ({}));
+    return new Response(
+      JSON.stringify({ dry_run: true, checked: candidates.length, preflight: preJson }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   const results: Array<{ lead_id: string; ok: boolean; piperun_id?: string | null; error?: string }> = [];
 
   for (const lead of candidates) {
-    if (dryRun) {
-      results.push({ lead_id: lead.id, ok: true, piperun_id: null });
-      continue;
-    }
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
         method: "POST",

@@ -1494,6 +1494,26 @@ Deno.serve(async (req) => {
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
         flowType = "new_deal";
+        // ── Dedupe guard: if lead already carries a piperun_id, validate it before creating a new deal ──
+        const cachedDealId = (lead.piperun_id as string | null) || null;
+        if (cachedDealId) {
+          try {
+            const check = await piperunGet(PIPERUN_API_KEY, `deals/${cachedDealId}`, {});
+            const dealData = (check?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+            const isAlive = dealData && dealData.deleted !== 1 && dealData.deleted !== true;
+            if (isAlive) {
+              piperunId = cachedDealId;
+              flowType = "preserve_cached_deal";
+              await updateExistingDeal(PIPERUN_API_KEY, Number(cachedDealId), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
+              console.log(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} alive, updated instead of creating new`);
+            } else {
+              console.warn(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} dead/deleted, will create new`);
+            }
+          } catch (e) {
+            console.warn(`[lia-assign] DEDUPE GUARD: failed to validate cached deal ${cachedDealId}:`, e);
+          }
+        }
+        if (!piperunId) {
         piperunId = await createNewDeal(
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
@@ -1501,6 +1521,7 @@ Deno.serve(async (req) => {
           customFields, leadEmail, supabase, inputFormResponses
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
+        }
       }
 
       // ── Step 5f: Enrich lia_attendances with primary deal data ──

@@ -156,10 +156,24 @@ Deno.serve(async (req) => {
   console.log(`[meta-csv-backfill] ${allEmails.length} unique, ${missingEmails.length} missing, processing ${targets.length}`);
 
   if (dryRun) {
+    // Also check Piperun for these missing emails to detect duplicates that exist
+    // in the CRM but not in our local DB.
+    let preflight: unknown = null;
+    try {
+      const pre = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-piperun-preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ emails: targets }),
+      });
+      preflight = await pre.json().catch(() => null);
+    } catch (e) {
+      preflight = { error: String(e) };
+    }
     return new Response(JSON.stringify({
       total_rows: rows.length, unique_emails: allEmails.length,
       missing: missingEmails.length, would_process: targets.length,
       sample: targets.slice(0, 5),
+      preflight,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
