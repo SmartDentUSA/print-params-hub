@@ -85,7 +85,8 @@ async function createPerson(
   lead: Record<string, unknown>
 ): Promise<number | null> {
   const email = lead.email as string | null;
-  const nome = (lead.nome || email || "Lead Sem Nome") as string;
+  const rawNome = (lead.nome || "") as string;
+  const nome = sanitizePersonNameForPiperun(rawNome, email);
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
@@ -109,42 +110,94 @@ async function createPerson(
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
-  let createRes = await piperunPost(apiToken, "persons", personPayload);
-  if (createRes.success && createRes.data) {
-    const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
-    if (personData?.id) return Number(personData.id);
-  }
-  // Retry without custom_fields if Piperun rejected them (422 "campos customizados")
-  const errBody = JSON.stringify(createRes.data || {});
-  if (createRes.status === 422 && /campos customizados|custom_fields/i.test(errBody) && personPayload.custom_fields) {
-    console.warn("[lia-assign] Retrying createPerson without custom_fields (Piperun rejected IDs)");
-    delete personPayload.custom_fields;
-    createRes = await piperunPost(apiToken, "persons", personPayload);
-    if (createRes.success && createRes.data) {
-      const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  const attempts: Array<{ attempt: number; name_used: string; status: number; body: unknown }> = [];
+
+  const tryCreate = async (payload: Record<string, unknown>, attemptNum: number): Promise<number | null> => {
+    const res = await piperunPost(apiToken, "persons", payload);
+    attempts.push({ attempt: attemptNum, name_used: String(payload.name || ""), status: res.status, body: res.data });
+    if (res.success && res.data) {
+      const personData = (res.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
       if (personData?.id) return Number(personData.id);
     }
+    // Retry without custom_fields if 422 about custom fields
+    const body = JSON.stringify(res.data || {});
+    if (res.status === 422 && /campos customizados|custom_fields/i.test(body) && payload.custom_fields) {
+      console.warn("[lia-assign] Stripping custom_fields and retrying same name");
+      const { custom_fields: _, ...without } = payload;
+      const retryRes = await piperunPost(apiToken, "persons", without);
+      attempts.push({ attempt: attemptNum + 0.1, name_used: String(without.name || ""), status: retryRes.status, body: retryRes.data });
+      if (retryRes.success && retryRes.data) {
+        const personData = (retryRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+        if (personData?.id) return Number(personData.id);
+      }
+    }
+    return null;
+  };
+
+  // Attempt 1: full sanitized name
+  let id = await tryCreate(personPayload, 1);
+  if (id) return id;
+
+  // Attempt 2: fallback to first+last token of original (or email-derived)
+  const fallbackName = sanitizePersonNameForPiperun(
+    (rawNome.split(/\s+/).filter(Boolean).slice(0, 2).join(" ")) || "",
+    email
+  );
+  if (fallbackName && fallbackName !== nome) {
+    console.warn(`[lia-assign] Retrying createPerson with shortened name: "${fallbackName}"`);
+    const retryPayload = { ...personPayload, name: fallbackName };
+    id = await tryCreate(retryPayload, 2);
+    if (id) return id;
   }
-  // Detailed failure capture: persist full diagnostic to system_health_logs so we can debug
-  console.warn(`[lia-assign] Failed to create person (${createRes.status})`, JSON.stringify(createRes.data || {}).slice(0, 500));
+
+  // Attempt 3: bare minimum payload (name + email only)
+  if (email) {
+    const minimalName = fallbackName || sanitizePersonNameForPiperun("", email);
+    console.warn(`[lia-assign] Retrying createPerson with minimal payload, name="${minimalName}"`);
+    const minimalPayload: Record<string, unknown> = { name: minimalName, emails: [{ email }] };
+    id = await tryCreate(minimalPayload, 3);
+    if (id) return id;
+  }
+
+  // Persist diagnostic — sequential awaits so it always runs
+  const lastAttempt = attempts[attempts.length - 1];
+  console.warn(`[lia-assign] Failed to create person after ${attempts.length} attempts (last status ${lastAttempt?.status})`);
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     await supa.from("system_health_logs").insert({
       function_name: "smart-ops-lia-assign",
       severity: "error",
       error_type: "piperun_create_person_api_error",
       lead_email: email,
       details: {
-        status: createRes.status,
-        response: createRes.data,
-        payload_sent: personPayload,
         lead_id: lead.id,
+        attempts,
+        original_name: rawNome,
+        sanitized_name: nome,
       },
     });
   } catch (logErr) {
     console.error("[lia-assign] Failed to persist piperun error:", logErr);
+  }
+  // Stamp the lead's raw_payload for per-lead auditability
+  if (lead.id) {
+    try {
+      const { data: cur } = await supa.from("lia_attendances").select("raw_payload").eq("id", lead.id as string).maybeSingle();
+      const rp = (cur?.raw_payload as Record<string, unknown>) || {};
+      rp.piperun_last_error = {
+        at: new Date().toISOString(),
+        attempts,
+        original_name: rawNome,
+        sanitized_name: nome,
+      };
+      await supa.from("lia_attendances").update({ raw_payload: rp }).eq("id", lead.id as string);
+    } catch (e) {
+      console.warn("[lia-assign] Failed to stamp piperun_last_error:", e);
+    }
   }
   return null;
 }
