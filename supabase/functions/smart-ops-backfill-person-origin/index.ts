@@ -31,15 +31,19 @@ Deno.serve(async (req) => {
   const dryRun = body.dry_run === true;
   const onlyLeadId = (body.lead_id as string) || null;
   const debug = body.debug === true;
+  const background = body.background === true;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Fetch candidates: canonical leads with piperun_id and junk/null origem_primeiro_contato
+  // Filter junk/null origem in DB so `limit` returns true candidates only
+  const junkList = Array.from(JUNK_ORIGINS);
+  const junkInList = junkList.map((s) => `"${s}"`).join(",");
   let query = supabase
     .from("lia_attendances")
     .select("id, piperun_id, origem_primeiro_contato, nome, email")
     .is("merged_into", null)
     .not("piperun_id", "is", null)
+    .or(`origem_primeiro_contato.is.null,origem_primeiro_contato.in.(${junkInList})`)
     .limit(limit);
 
   if (onlyLeadId) query = query.eq("id", onlyLeadId);
@@ -51,13 +55,26 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Filter in JS so we cover NULL + JUNK in one pass
-  const candidates = (leads || []).filter((l) => {
-    const v = (l.origem_primeiro_contato as string | null)?.toLowerCase().trim() || "";
-    return v === "" || JUNK_ORIGINS.has(v);
-  });
+  const candidates = leads || [];
 
-  console.log(`[backfill-person-origin] ${candidates.length}/${leads?.length || 0} candidates (dry=${dryRun})`);
+  console.log(`[backfill-person-origin] ${candidates.length} candidates (dry=${dryRun}, bg=${background})`);
+
+  // Background mode: kick off processing and respond immediately
+  if (background && !dryRun) {
+    // @ts-ignore EdgeRuntime is available in Supabase functions
+    EdgeRuntime.waitUntil((async () => {
+      let u = 0, s = 0, e = 0;
+      for (const lead of candidates) {
+        const r = await processLead(lead, PIPERUN_TOKEN, supabase);
+        if (r === "updated") u++; else if (r === "skipped") s++; else e++;
+        await sleep(120);
+      }
+      console.log(`[backfill-person-origin] BG done: updated=${u} skipped=${s} errors=${e}`);
+    })());
+    return new Response(JSON.stringify({
+      mode: "background", queued: candidates.length,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   let updated = 0, skipped = 0, errors = 0;
   const samples: Array<Record<string, unknown>> = [];
