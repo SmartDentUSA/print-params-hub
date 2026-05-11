@@ -1629,6 +1629,11 @@ Deno.serve(async (req) => {
     let vendaDeal: Record<string, unknown> | undefined;
 
     // Step 5a: Find or create Person (with stale-cache recovery)
+    // Resolve origin once for both Person and Deal so Person.origin reflects
+    // the first conversion (regra Person vs Deal Origin Separation).
+    const personOriginName = (lead.origem_primeiro_contato as string | null)
+      || (lead.form_name as string | null);
+    const resolvedPersonOriginId = await resolveOriginId(PIPERUN_API_KEY, personOriginName);
     if (personId) {
       // Validate cached person still exists in PipeRun
       const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
@@ -1639,7 +1644,7 @@ Deno.serve(async (req) => {
           companyId = personCheck.company_id || companyId;
           console.log(`[lia-assign] Resolved to existing person: ${personId}`);
         } else {
-          personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+          personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
           console.log(`[lia-assign] Created new person (stale recovery): ${personId}`);
         }
       }
@@ -1650,14 +1655,14 @@ Deno.serve(async (req) => {
         companyId = existingPerson.company_id || companyId;
         console.log(`[lia-assign] Found existing person: ${personId}, company: ${companyId}`);
       } else {
-        personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+        personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
         console.log(`[lia-assign] Created new person: ${personId}`);
       }
     }
 
     if (personId) {
       // Step 5b: Update person fields (custom_fields, job_title, phones)
-      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
+      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>, resolvedPersonOriginId);
 
       // Step 5c: Ensure company exists
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
