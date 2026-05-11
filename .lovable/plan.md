@@ -1,60 +1,69 @@
-## Diagnóstico
-A resposta do Copilot está **errada** — os dados existem. Consulta direta ao banco (canônicos, `merged_into IS NULL`):
+## Diagnóstico do CSV "07_05_2026 RayShape+Cure" (846 leads únicos do Meta Lead Ads)
 
-| Campo | Leads preenchidos |
-|---|---|
-| `equip_scanner` | **613** |
-| `equip_impressora` | 316 |
-| `impressora_modelo` | 551 |
-| `software_cad` | 48 |
+Cruzamento dos 846 emails do CSV com `lia_attendances` (canônicos):
 
-**Top scanners (raw, top 15):**
+| Status | Qtd | % |
+|---|---:|---:|
+| ✅ No DB **com** `piperun_id` | **461** | 54,5% |
+| ⚠️ No DB **sem** `piperun_id` (lia-assign falhou) | **61** | 7,2% |
+| ❌ Nem chegou ao DB (Meta webhook nunca disparou ingest-lead) | **324** | 38,3% |
 
-| Marca / Modelo | Qtd |
-|---|---|
-| Medit i600 (`i600` + `medit i600` + `Scanner Intraoral i600`) | **266** |
-| Medit i700 (`i700` + `medit i700 w`) | **38** |
-| 3Shape Trios | 33 |
-| Dentsply Sirona Cerec | 28 |
-| BLZ INO 200 (SmartDent) | 28 |
-| Straumann Virtuo Vivo | 17 |
-| Align iTero | 16 |
-| Medit (genérico) | 12 |
-| Carestream CS 3600/3700 | 18 |
-| Scanner Intraoral i500 (Medit) | 10 |
-| Straumann Sirius/genérico | 10 |
-| Dexis | 4 |
+Ou seja: **385 dos 846 leads (45,5%) NÃO foram ao Piperun.**
 
-**Lixo capturado pelo backfill** (precisa filtrar): descrições de cursos ("Imersão 3 dias…"), HTML colado de páginas (`<span class="wdyuqq…>`), acessórios (`cabo medit i600`, `jogo de pontas`, `helios 500 scanner` que é insumo), e descrições de produtos químicos. ~80 linhas afetadas.
+### Causa #1 — 61 leads no DB sem `piperun_id` (falha CRM sync)
+Mesma raiz já identificada no plano anterior:
+- `findPersonByEmail` chama `GET /persons?email=...` — Piperun ignora esse parâmetro → todo lead existente é tratado como novo.
+- `createPerson` envia custom field `674001` (PESSOA AREA_ATUACAO) inválido → 422 `"Não foi possível encontrar os campos customizados: ."`.
+- Retry sem custom_fields não está recuperando.
+- Resultado: lia-assign aborta com `crm_person_creation_failed`. Logs em `system_health_logs` confirmam (243 falhas / 51 leads em 7 dias).
 
-## Plano (3 passos enxutos)
+### Causa #2 — 324 leads NUNCA entraram no DB (Meta Lead Ads webhook não processou)
+Esses leads existem no painel do Meta (CSV exportado do Facebook), mas não têm registro em `lia_attendances`. Possíveis causas:
+1. **Webhook subscription incompleta no Meta**: o app/page do Meta não está inscrito no campo `leadgen` para a Page que serviu o ad `# 07_05_2026_RayShape+Cure`, ou o token da Page expirou.
+2. **`META_VERIFY_TOKEN` / `META_APP_SECRET` inválido**: webhooks chegam mas falham validação HMAC silenciosamente (404/401).
+3. **Form `# - Impresoras - Smart Dent` (id 4309081142703799)** não está mapeado no fluxo do meta-lead-webhook, ou está caindo em early-return.
+4. **Latência/falha no `fetch leadgen_id` do Graph API**: token da Page expirado faz `GET /{leadgen_id}` retornar 400/403 → o webhook descarta o lead.
+5. Webhooks recebidos antes do deploy atual existir (leads de 07/05; integração ativa só depois).
 
-### 1. RPC `query_scanner_brand_distribution` (fonte de verdade limpa)
-Cria uma função SQL que:
-- Filtra `merged_into IS NULL` (Core rule).
-- Aplica regex de **rejeição** para HTML (`<span|<p|wdyuqq|text-decoration`), cursos (`imersão|curso|treinamento`), acessórios (`cabo|kit|jogo|ponta|insumo|resina|fresa|teflon|fep`), e descrições químicas (`ponto de fulgor|densidade|corrosão`).
-- Aplica **normalização de marca** com `CASE` agrupando variações:
-  - Medit (i500/i600/i700/i900/T310) → "Medit {modelo}"
-  - 3Shape Trios → "3Shape Trios"
-  - SmartDent BLZ INO100/INO200/LS100 → "SmartDent BLZ {modelo}"
-  - iTero → "Align iTero"
-  - Carestream CS 3600/3700 → "Carestream CS{modelo}"
-  - Sirona/Cerec → "Dentsply Sirona Cerec"
-  - Straumann Virtuo Vivo / Sirius → "Straumann {modelo}"
-  - Demais → coluna `outros` agregada
-- Retorna `(brand text, model text, lead_count int)` ordenado.
-- Análoga para impressora 3D.
+Os 461 que chegaram ao Piperun correspondem em sua maioria a leads que:
+- Foram importados via CSV manual / Sellflux / outro caminho que não o webhook em tempo real.
+- Ou entraram pelo webhook após a integração estar saudável.
 
-### 2. Atualizar Copilot
-- Adicionar à toolset do Copilot duas funções: `query_scanner_brand_distribution()` e `query_printer_brand_distribution()`.
-- Atualizar prompt do Copilot para: **antes de dizer "dados não disponíveis", consultar SEMPRE essas RPCs** quando a pergunta envolver "marca/modelo de scanner/impressora".
-- Adicionar regra de memória: "equip_scanner/equip_impressora/impressora_modelo ESTÃO populados via backfill Piperun deal_items — nunca responder que estão vazios; usar `query_*_brand_distribution`."
+---
 
-### 3. Limpeza pontual dos 80 registros com lixo
-Migration que zera `equip_scanner` quando o valor casa com regex de rejeição (HTML, curso, acessório, descrição química). Mantém o histórico em `raw_payload` se necessário.
+## Plano de correção (estendendo o plano anterior)
 
-## Fora de escopo
-- Não vou alterar formulários nem fluxo da Dra. LIA agora (sugestões do Copilot eram boas, mas resolvem outro problema; a base atual já tem 613 scanners mapeados).
-- Não vou criar campos novos (`scanner_marca`, `scanner_modelo`) — `equip_scanner` + normalização SQL bastam, evita duplicidade.
+### Passo 1 — Corrigir `findPersonByEmail` + remover custom field 674001
+(Mesmas 2 correções já planejadas — bloqueiam os 61 leads sem `piperun_id` E também todos os novos que entrarem.)
 
-Posso seguir com os 3 passos?
+### Passo 2 — Reprocessar os 61 leads "no DB sem piperun_id"
+Rodar `smart-ops-piperun-retry-failed-leads` com filtro pela lista de 846 emails do CSV (limit 100, em loop). Tornar a função aceitar um array `emails[]` opcional no body para targeting:
+```ts
+body: { emails: [...846 emails do CSV...], force: true, limit: 100 }
+```
+
+### Passo 3 — Auditoria do Meta Lead Ads webhook (recuperar os 324 perdidos)
+3.1. **Diagnóstico de subscription**: criar pequena edge function `smart-ops-meta-leads-audit` que chama `GET /{page_id}/subscribed_apps` e `GET /{page_id}/leadgen_forms?fields=id,name,leads{created_time,id,field_data}&limit=200&since=2026-05-06` para o form `4309081142703799`. Compara com `lia_attendances.raw_payload->>'meta_leadgen_id'` e identifica exatamente quais `leadgen_id` foram perdidos.
+
+3.2. **Backfill batch**: para cada `leadgen_id` perdido, chamar `smart-ops-meta-lead-webhook` com payload sintético `{ object: 'page', entry: [{ changes: [{ value: { leadgen_id, form_id, page_id, created_time, ad_id } }] }] }` para reusar o pipeline existente. Idempotência já existe via `meta_leadgen_id` no DB.
+
+3.3. **Importador CSV de fallback (one-shot)**: como o CSV já está em mãos com todos os campos preenchidos, criar script `import-meta-csv` (admin-only) que aceita upload do CSV exportado do Meta e converte cada linha em payload normalizado para `smart-ops-ingest-lead` (mesmo schema do meta-lead-webhook). Isso garante recuperação dos 324 leads imediatamente, sem depender da Graph API. Marca `raw_payload.import_source = 'meta_csv_backfill'` para auditoria.
+
+### Passo 4 — Validação
+- Re-rodar a query de cruzamento e confirmar que ≥99% dos 846 emails têm `piperun_id`.
+- Verificar `system_health_logs` zerar `crm_person_creation_failed` em 24h.
+- Conferir 5 leads aleatórios da lista no Piperun: Person criada/encontrada, Deal no funil correto (Vendas ou Distribuidor), nota Piperun com origem `Meta Ads — # Leads RayShape+Cure`.
+
+### Passo 5 — Hardening (preventivo)
+- Healthcheck diário: cron compara `count(meta_leadgen_id)` últimos 24h vs estimativa do Meta API → alerta se gap > 10%.
+- Alarm em `system_health_logs.severity = 'error'` AND `function_name LIKE '%lia-assign%'`.
+
+---
+
+## O que NÃO mexer
+- Pipeline Vendas / Distribuidor / Round-Robin: funcionam, o gargalo é upstream.
+- Schema `lia_attendances`.
+- Forms públicos / Sellflux / Loja Integrada — fora do escopo do CSV em questão.
+
+## Resumo executivo
+**385 de 846 leads (45,5%) ficaram fora do Piperun.** 61 falharam por bug em `findPersonByEmail` + custom field inválido (Passo 1). 324 nunca chegaram ao sistema porque o webhook Meta não processou — o CSV em mãos permite backfill imediato (Passo 3.3). Após Passo 1+2+3 espera-se cobertura ≥99%.

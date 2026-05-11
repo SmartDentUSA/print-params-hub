@@ -26,15 +26,31 @@ export async function findPersonByEmail(
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
   try {
-    const res = await piperunGet(apiToken, "persons", { email, show: 1 });
-    if (res.success && res.data) {
-      const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
-      if (items && items.length > 0 && items[0].id) {
+    const pickFromList = (data: unknown) => {
+      const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+      if (!items) return null;
+      const lower = email.toLowerCase();
+      const match = items.find((p) => {
+        const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
+        return emails.some((e) => String(e.email || "").toLowerCase() === lower);
+      }) || items[0];
+      if (match?.id) {
         return {
-          id: Number(items[0].id),
-          company_id: items[0].company_id ? Number(items[0].company_id) : null,
+          id: Number(match.id),
+          company_id: match.company_id ? Number(match.company_id) : null,
         };
       }
+      return null;
+    };
+    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
+    if (res.success && res.data) {
+      const found = pickFromList(res.data);
+      if (found) return found;
+    }
+    const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
+    if (sres.success && sres.data) {
+      const found = pickFromList(sres.data);
+      if (found) return found;
     }
   } catch (e) {
     console.warn("[piperun-hierarchy] Person search error:", e);
@@ -58,9 +74,8 @@ export async function createPerson(
   if (especialidade) personPayload.job_title = especialidade;
 
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
-  if (areaAtuacao) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.AREA_ATUACAO, value: areaAtuacao });
-  if (especialidade) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
-  if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
+  // Pessoa custom field IDs 674001/674002 rejected by Piperun (422). Disabled.
+  void areaAtuacao; void especialidade; void personCustomFields;
 
   console.log(`[piperun-hierarchy] Creating person: ${nome}`);
   const createRes = await piperunPost(apiToken, "persons", personPayload);
@@ -86,8 +101,8 @@ export async function updatePersonFields(
   if (nome) updatePayload.name = nome;
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
-  if (areaAtuacao) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.AREA_ATUACAO]] = areaAtuacao;
-  if (especialidade) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.ESPECIALIDADE]] = especialidade;
+  // Pessoa custom field IDs rejected by Piperun. Persisted at Deal level only.
+  void areaAtuacao;
 
   if (Object.keys(updatePayload).length === 0) return;
 

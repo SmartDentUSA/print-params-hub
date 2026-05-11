@@ -219,6 +219,9 @@ verify_jwt = false
 [functions.smart-ops-piperun-retry-failed-leads]
 verify_jwt = false
 
+[functions.smart-ops-meta-csv-backfill]
+verify_jwt = false
+
 [functions.smart-ops-meta-lead-webhook]
 verify_jwt = false
 
