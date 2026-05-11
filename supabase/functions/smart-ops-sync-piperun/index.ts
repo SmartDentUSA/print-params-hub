@@ -103,7 +103,7 @@ interface LeadRecord {
   merged_into: string | null;
 }
 
-const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into";
+const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into, pessoa_hash, pessoa_piperun_id, telefone_normalized";
 
 async function findLeadByCascade(
   supabase: ReturnType<typeof createClient>,
@@ -383,7 +383,26 @@ async function processDeal(
   const deal = deepParseStringifiedFields(rawDeal as unknown as Record<string, unknown>) as unknown as PipeRunDealData;
 
   const dealId = String(deal.id);
-  const updatePayload = mapDealToAttendance(deal);
+
+  // Extract identity keys for cascade BEFORE mapping (so we can pass currentLead
+  // to mapDealToAttendance and trigger the person-mismatch guard).
+  const person = deal.person;
+  const pessoaHash = person?.hash ? String(person.hash) : null;
+  const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
+  const remoteEmailRaw = (
+    person?.contact_emails?.[0]?.address ||
+    person?.emails?.[0]?.email ||
+    person?.email ||
+    deal.reference ||
+    deal.rdstation_reference ||
+    null
+  );
+  const remoteEmail = remoteEmailRaw ? String(remoteEmailRaw).trim().toLowerCase() : null;
+  const initialEmail = remoteEmail?.includes(",") ? remoteEmail.split(",")[0].trim() : remoteEmail;
+
+  const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, initialEmail);
+
+  const updatePayload = mapDealToAttendance(deal, currentLead as any);
 
   if (deal.stage_id) {
     const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
@@ -393,19 +412,11 @@ async function processDeal(
     updatePayload.updated_at = new Date().toISOString();
   }
 
-  // Extract identity keys for cascade
-  const person = deal.person;
-  const pessoaHash = person?.hash ? String(person.hash) : null;
-  const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
-  // Normalize email: take first if comma-separated, lowercase, trim
   const rawEmail = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
   const email = rawEmail?.includes(",") ? rawEmail.split(",")[0].trim() : rawEmail;
   if (email && email !== rawEmail) {
     updatePayload.email = email;
   }
-
-  // GAP 2 FIX: 4-level identity cascade (matching webhook)
-  const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
 
   // Build deal snapshot using shared builder
   const dealSnapshot = buildRichDealSnapshot(deal, {
