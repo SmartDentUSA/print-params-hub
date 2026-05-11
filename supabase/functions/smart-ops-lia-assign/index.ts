@@ -1927,9 +1927,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── HARDENING: drop any non-scalar value from updateFields ──
+    // PostgREST treats nested objects as "embedded resource updates" and tries
+    // to UPDATE child tables, surfacing as `column "value" does not exist`
+    // (42703) when a Piperun custom_field shaped `{value: ...}` leaks in.
+    // Allow primitives + null. Drop arrays/objects with a warn so we can
+    // audit the source later without aborting the whole UPDATE.
+    const sanitizedUpdateFields: Record<string, unknown> = {};
+    const droppedKeys: string[] = [];
+    for (const [k, v] of Object.entries(updateFields)) {
+      if (v === null || v === undefined) {
+        sanitizedUpdateFields[k] = v;
+      } else {
+        const t = typeof v;
+        if (t === "string" || t === "number" || t === "boolean") {
+          sanitizedUpdateFields[k] = v;
+        } else {
+          droppedKeys.push(k);
+          console.warn(
+            `[lia-assign] DROP non-scalar updateField "${k}":`,
+            JSON.stringify(v).slice(0, 200),
+          );
+        }
+      }
+    }
+    if (droppedKeys.length > 0) {
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "non_scalar_update_fields_dropped",
+          lead_email: lead.email,
+          details: { lead_id: lead.id, dropped_keys: droppedKeys },
+        });
+      } catch {}
+    }
+    console.log(`[lia-assign] updateFields keys (${Object.keys(sanitizedUpdateFields).length}): ${Object.keys(sanitizedUpdateFields).join(",")}`);
+
     const { error: updateError } = await supabase
       .from("lia_attendances")
-      .update(updateFields)
+      .update(sanitizedUpdateFields)
       .eq("id", lead.id);
 
     if (updateError) {
