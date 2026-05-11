@@ -141,6 +141,7 @@ interface LeadFull {
   lead_status: string;
   ltv_total: number | null;
   total_deals: number | null;
+  total_deals_all: number | null;
   workflow_score: number | null;
   intelligence_score: Record<string, unknown> | null;
   intelligence_score_total: number | null;
@@ -358,7 +359,11 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
         <div>
           <div className={`intel-lr-ltv ${!lead.ltv_total ? "zero" : ""}`}>{brl(lead.ltv_total)}</div>
           <div style={{ fontSize: 10, color: "var(--id-muted)", textAlign: "right" }}>
-            {lead.total_deals || 0} deal{(lead.total_deals || 0) !== 1 ? "s" : ""}
+            {(() => {
+              const total = (lead.total_deals_all ?? lead.total_deals) || 0;
+              const won = lead.total_deals || 0;
+              return `${total} deal${total !== 1 ? "s" : ""}${won > 0 ? ` · ${won} ✓` : ""}`;
+            })()}
           </div>
         </div>
       </div>
@@ -451,11 +456,11 @@ export function SmartOpsLeadsList() {
   // Load dynamic filter options once
   useEffect(() => {
     Promise.all([
-      supabase.from("lia_attendances").select("source").limit(1000),
-      supabase.from("lia_attendances").select("uf").limit(1000),
-      supabase.from("lia_attendances").select("proprietario_lead_crm").limit(1000),
-      supabase.from("lia_attendances").select("produto_interesse").limit(1000),
-      supabase.from("lia_attendances").select("status_atual_lead_crm").limit(1000),
+      supabase.from("lia_attendances").select("source").is("merged_into", null).limit(1000),
+      supabase.from("lia_attendances").select("uf").is("merged_into", null).limit(1000),
+      supabase.from("lia_attendances").select("proprietario_lead_crm").is("merged_into", null).limit(1000),
+      supabase.from("lia_attendances").select("produto_interesse").is("merged_into", null).limit(1000),
+      supabase.from("lia_attendances").select("status_atual_lead_crm").is("merged_into", null).limit(1000),
     ]).then(([sources, ufs, owners, products, statusCRMs]) => {
       const unique = (data: { [k: string]: string | null }[] | null, key: string) =>
         [...new Set((data || []).map((d) => d[key]).filter(Boolean))].sort() as string[];
@@ -494,6 +499,7 @@ export function SmartOpsLeadsList() {
     let query = supabase
       .from("lia_attendances")
       .select("*", { count: "exact" })
+      .is("merged_into", null)
       .order("created_at", { ascending: false }) as any;
 
     // Buyer type filter
