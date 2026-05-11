@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findPersonByEmail, findPersonDeals } from "../_shared/piperun-hierarchy.ts";
+import { piperunGet } from "../_shared/piperun-field-map.ts";
 import { PIPELINES } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -39,6 +40,9 @@ Deno.serve(async (req) => {
     });
   }
   emails = [...new Set(emails)].slice(0, 500);
+
+  // Debug mode: return raw Piperun response for first email
+  let debug: unknown = null;
 
   // Local lookup (chunked)
   const localByEmail = new Map<string, { id: string; piperun_id: string | null; pessoa_piperun_id: number | null }>();
