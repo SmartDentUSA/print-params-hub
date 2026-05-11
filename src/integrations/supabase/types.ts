@@ -14577,6 +14577,20 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_normalize_printer_brand: {
+        Args: { p_raw: string }
+        Returns: {
+          brand: string
+          model: string
+        }[]
+      }
+      fn_normalize_scanner_brand: {
+        Args: { p_raw: string }
+        Returns: {
+          brand: string
+          model: string
+        }[]
+      }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
       fn_pause_reactivation_manual: {
         Args: { p_lead_id: string }
@@ -15352,6 +15366,22 @@ export type Database = {
       }
       normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
+      query_printer_brand_distribution: {
+        Args: never
+        Returns: {
+          brand: string
+          lead_count: number
+          model: string
+        }[]
+      }
+      query_scanner_brand_distribution: {
+        Args: never
+        Returns: {
+          brand: string
+          lead_count: number
+          model: string
+        }[]
+      }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
         Returns: {
