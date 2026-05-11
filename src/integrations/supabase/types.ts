@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _csv_leads_check: {
+        Row: {
+          email: string | null
+          form_name: string | null
+        }
+        Insert: {
+          email?: string | null
+          form_name?: string | null
+        }
+        Update: {
+          email?: string | null
+          form_name?: string | null
+        }
+        Relationships: []
+      }
       agent_embeddings: {
         Row: {
           chunk_text: string
