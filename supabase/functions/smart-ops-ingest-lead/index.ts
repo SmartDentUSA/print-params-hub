@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
           }
         }
         if (responses.length > 0) {
-          fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
+          const noteFetch = fetch(`${SUPABASE_URL}/functions/v1/smart-ops-deal-form-note`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -397,6 +397,8 @@ Deno.serve(async (req) => {
               responses,
             }),
           }).catch(e => console.warn("[ingest-lead] deal-form-note fire-and-forget error:", e));
+          // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
+          if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(noteFetch);
         }
       }
 
@@ -483,33 +485,69 @@ Deno.serve(async (req) => {
         .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
     }
 
-    // --- Step 4: Fire-and-forget orchestration (non-blocking) ---
-    // Trigger lia-assign (CRM sync + seller routing)
-    fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        lead_id: leadId,
-        source,
-        trigger: (formPurpose === "sdr_captacao" && !!existingLead)
-          ? "sdr_captacao_reativacao"
-          : "ingest-lead",
-        form_responses: payload.form_responses || [],
-      }),
-    }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
+    // --- Step 4: Fire-and-forget orchestration (non-blocking but kept alive) ---
+    // CRITICAL: use EdgeRuntime.waitUntil so the request survives the handler
+    // returning. Without it the runtime may kill the in-flight fetch before it
+    // reaches the target function (root cause of stuck-without-piperun_id leads).
+    const dispatchAsync = async (
+      fnName: string,
+      body: Record<string, unknown>,
+    ) => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          console.warn(`[ingest-lead] ${fnName} returned ${r.status}: ${text.slice(0, 200)}`);
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "warning",
+              error_type: "downstream_dispatch_non_ok",
+              lead_email: email,
+              details: { lead_id: leadId, target: fnName, status: r.status, body: text.slice(0, 500) },
+            });
+          } catch {}
+        }
+      } catch (e) {
+        console.error(`[ingest-lead] ${fnName} dispatch error:`, e);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-ingest-lead",
+            severity: "error",
+            error_type: "downstream_dispatch_failed",
+            lead_email: email,
+            details: { lead_id: leadId, target: fnName, error: String(e) },
+          });
+        } catch {}
+      }
+    };
 
-    // Trigger cognitive-lead-analysis
-    fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({ lead_id: leadId, trigger: "ingest-lead" }),
-    }).catch(e => console.warn("[ingest-lead] cognitive-analysis fire-and-forget error:", e));
+    const liaAssignPromise = dispatchAsync("smart-ops-lia-assign", {
+      lead_id: leadId,
+      source,
+      trigger: (formPurpose === "sdr_captacao" && !!existingLead)
+        ? "sdr_captacao_reativacao"
+        : "ingest-lead",
+      form_responses: payload.form_responses || [],
+    });
+    const cognitivePromise = dispatchAsync("cognitive-lead-analysis", {
+      lead_id: leadId,
+      trigger: "ingest-lead",
+    });
+    // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(liaAssignPromise);
+      // @ts-ignore
+      EdgeRuntime.waitUntil(cognitivePromise);
+    }
 
     // ─── Sync lead to SellFlux ───
     const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");

@@ -883,11 +883,15 @@ Deno.serve(async (req) => {
           updateData.lead_status = mappedStatus;
           newStatus = mappedStatus;
 
-          fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ leadId }),
-          }).catch(e => console.warn("[piperun-webhook] cognitive re-analysis error:", e));
+          {
+            const p = fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ leadId }),
+            }).catch(e => console.warn("[piperun-webhook] cognitive re-analysis error:", e));
+            // @ts-ignore
+            if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+          }
         }
         const { tags: updatedTags, add } = computeTagsFromStage(mappedStatus, currentTagsCrm);
         updateData.tags_crm = updatedTags;
@@ -940,11 +944,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId, trigger: "opp_closed", closedType, produtoEncerrado }),
-      }).catch(e => console.warn("[piperun-webhook] cross-sell cognitive error:", e));
+      {
+        const p = fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId, trigger: "opp_closed", closedType, produtoEncerrado }),
+        }).catch(e => console.warn("[piperun-webhook] cross-sell cognitive error:", e));
+        // @ts-ignore
+        if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+      }
 
       if (isWon) {
         try {
