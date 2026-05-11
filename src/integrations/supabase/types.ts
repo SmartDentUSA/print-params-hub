@@ -5935,6 +5935,7 @@ export type Database = {
           resumo_historico_ia: string | null
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
+          scanner_marca: string | null
           score: number | null
           sdr_blz_ino200_data_resposta: string | null
           sdr_blz_ino200_duracao_seg: number | null
@@ -6014,6 +6015,7 @@ export type Database = {
           timeline_impressao: Json | null
           timeline_pos_impressao: Json | null
           timeline_scanner: Json | null
+          tipo_local: string | null
           total_deals: number | null
           total_messages: number | null
           total_sessions: number | null
@@ -6443,6 +6445,7 @@ export type Database = {
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
+          scanner_marca?: string | null
           score?: number | null
           sdr_blz_ino200_data_resposta?: string | null
           sdr_blz_ino200_duracao_seg?: number | null
@@ -6522,6 +6525,7 @@ export type Database = {
           timeline_impressao?: Json | null
           timeline_pos_impressao?: Json | null
           timeline_scanner?: Json | null
+          tipo_local?: string | null
           total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
@@ -6951,6 +6955,7 @@ export type Database = {
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
+          scanner_marca?: string | null
           score?: number | null
           sdr_blz_ino200_data_resposta?: string | null
           sdr_blz_ino200_duracao_seg?: number | null
@@ -7030,6 +7035,7 @@ export type Database = {
           timeline_impressao?: Json | null
           timeline_pos_impressao?: Json | null
           timeline_scanner?: Json | null
+          tipo_local?: string | null
           total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
@@ -15212,6 +15218,7 @@ export type Database = {
           resumo_historico_ia: string | null
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
+          scanner_marca: string | null
           score: number | null
           sdr_blz_ino200_data_resposta: string | null
           sdr_blz_ino200_duracao_seg: number | null
@@ -15291,6 +15298,7 @@ export type Database = {
           timeline_impressao: Json | null
           timeline_pos_impressao: Json | null
           timeline_scanner: Json | null
+          tipo_local: string | null
           total_deals: number | null
           total_messages: number | null
           total_sessions: number | null
