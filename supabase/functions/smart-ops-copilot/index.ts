@@ -542,6 +542,22 @@ const tools = [
         required: ["busca"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_scanner_brand_distribution",
+      description: "Distribuição de leads canônicos por MARCA e MODELO de scanner intraoral, normalizada (Medit i500/i600/i700, 3Shape Trios, SmartDent BLZ INO100/200, iTero, Carestream, Sirona/Cerec, Straumann, etc). Filtra automaticamente HTML, cursos e acessórios. USE SEMPRE que o usuário perguntar 'qual scanner os leads usam', 'top marcas', 'distribuição por equipamento'. NUNCA responda que `equip_scanner` está vazio — está populado via backfill Piperun.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_printer_brand_distribution",
+      description: "Distribuição de leads canônicos por MARCA e MODELO de impressora 3D (RayShape Edge Mini, Creality Halot One Pro, Elegoo Mars/Saturn, Phrozen, Anycubic, Formlabs, etc). USE para perguntas sobre impressoras dos leads. Os campos `equip_impressora` e `impressora_modelo` ESTÃO populados via backfill Piperun — nunca responda que estão vazios.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
   }
 ];
 
@@ -1371,6 +1387,26 @@ async function executeQueryProductSales(args: any) {
   }
 }
 
+async function executeQueryScannerBrandDistribution(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("query_scanner_brand_distribution");
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { aviso: "Nenhum lead com scanner mapeado", marcas: [] };
+    const total = data.reduce((s: number, r: any) => s + Number(r.lead_count || 0), 0);
+    return { total_leads_com_scanner: total, total_marcas_modelos: data.length, marcas: data };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+async function executeQueryPrinterBrandDistribution(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("query_printer_brand_distribution");
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { aviso: "Nenhum lead com impressora mapeada", marcas: [] };
+    const total = data.reduce((s: number, r: any) => s + Number(r.lead_count || 0), 0);
+    return { total_leads_com_impressora: total, total_marcas_modelos: data.length, marcas: data };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1402,6 +1438,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_sales_summary: executeQuerySalesSummary,
   query_product_mix: executeQueryProductMix,
   query_product_sales: executeQueryProductSales,
+  query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
+  query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -1458,6 +1496,13 @@ Você executa 6 tipos de trabalho:
 - **PROIBIDO**: consultar API do PipeRun para calcular receita
 - **PROIBIDO**: somar valores direto da tabela deal_items sem usar view de dedup
 - **PROIBIDO**: usar query_leads ou query_leads_advanced para responder perguntas de vendas/faturamento
+
+🚨 **REGRA ABSOLUTA — EQUIPAMENTOS DOS LEADS (anti-alucinação):**
+- "Quantos leads usam scanner X", "marcas de scanner", "distribuição por scanner" → SEMPRE use \`query_scanner_brand_distribution\`
+- "Marcas de impressora 3D", "qual impressora os leads têm" → SEMPRE use \`query_printer_brand_distribution\`
+- Os campos \`equip_scanner\`, \`equip_impressora\` e \`impressora_modelo\` ESTÃO populados (backfill via Piperun deal_items, ~613 scanners e ~316 impressoras mapeados em leads canônicos).
+- **PROIBIDO** responder "dados não disponíveis", "campo vazio" ou "0% preenchido" para equipamentos sem antes chamar essas RPCs.
+- **PROIBIDO** sugerir ALTER TABLE para criar \`scanner_marca\`/\`scanner_modelo\` — a normalização já existe via \`fn_normalize_scanner_brand\`.
 
 🚨 **REGRA CRÍTICA — PRODUTOS (ANTI-ALUCINAÇÃO):**
 - **NUNCA invente nomes de produtos.** Sempre consulte \`query_product_mix\` ou \`query_product_sales\` antes de listar produtos vendidos.
