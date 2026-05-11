@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
   const limit = Math.min(Number(body.limit) || 100, 500);
   const dryRun = body.dry_run === true;
   const onlyLeadId = (body.lead_id as string) || null;
+  const debug = body.debug === true;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -67,6 +68,16 @@ Deno.serve(async (req) => {
       const personData = (res.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
       const origin = personData?.origin as Record<string, unknown> | undefined;
       const originName = (origin?.name as string | null)?.trim() || null;
+
+      if (debug && samples.length < 5) {
+        samples.push({
+          id: lead.id, piperun_id: lead.piperun_id,
+          origin_raw: origin || null,
+          origin_id: personData?.origin_id ?? null,
+          originName,
+          status: res.status,
+        });
+      }
 
       if (!originName || JUNK_ORIGINS.has(originName.toLowerCase())) {
         skipped++;
