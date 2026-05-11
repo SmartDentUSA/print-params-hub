@@ -17,6 +17,7 @@ import {
   mapDealToAttendance,
   customFieldsToHashMap,
   cleanPersonName,
+  sanitizePersonNameForPiperun,
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
