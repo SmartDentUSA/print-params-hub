@@ -151,6 +151,7 @@ interface LeadFull {
   status_impressora: string | null;
   status_cad: string | null;
   impressora_modelo: string | null;
+  software_cad: string | null;
   area_atuacao: string | null;
   empresa_nome: string | null;
   pessoa_piperun_id: number | null;
