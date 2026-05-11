@@ -97,6 +97,12 @@ function buildLongitudinalContext(
   }
   if (leadData.astron_last_login_at) {
     astronParts.push(`Último login: ${new Date(leadData.astron_last_login_at as string).toLocaleDateString("pt-BR")}`);
+  } else if (Number(leadData.astron_courses_completed || 0) > 0) {
+    // Anti-hallucination guard: if the student completed courses but the sync
+    // never captured a last_login timestamp, the LLM previously inferred
+    // "nunca logou" — contradicting the completion data. Make the absence
+    // explicit so the model treats it as a missing field, not as inactivity.
+    astronParts.push(`Último login: timestamp não capturado pelo sync (NÃO INFERIR INATIVIDADE — cursos foram concluídos, logo houve login)`);
   }
   if (leadData.astron_plans_active && Array.isArray(leadData.astron_plans_active) && (leadData.astron_plans_active as string[]).length > 0) {
     astronParts.push(`Planos: ${(leadData.astron_plans_active as string[]).join(", ")}`);

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
 
   let query = supabase
     .from("lia_attendances")
-    .select("id, email, raw_payload, created_at")
+    .select("id, email, raw_payload, created_at, source, form_name, piperun_id")
     .is("merged_into", null)
     .is("piperun_id", null)
     .not("email", "is", null);
@@ -68,13 +69,64 @@ Deno.serve(async (req) => {
     });
   }
 
-  const candidates = (leads || []).filter((l: any) => {
+  const allLeads = (leads || []) as any[];
+  const skippedNonCommercial: Array<{ id: string; email: string; reason: string }> = [];
+
+  // First pass: drop non-commercial leads (Astron-only, e-commerce-only, raw WA)
+  // and burn them to prevent eternal retries. Force=true bypass is intentional —
+  // a human operator may force-create a Deal for a known qualified lead.
+  const commercialLeads: any[] = [];
+  for (const l of allLeads) {
+    const intent = evaluateCommercialIntent(
+      {
+        source: l.source,
+        form_name: l.form_name,
+        piperun_id: l.piperun_id,
+        email: l.email,
+      },
+      force,
+    );
+    if (!intent.eligible) {
+      skippedNonCommercial.push({ id: l.id, email: l.email, reason: intent.reason });
+      continue;
+    }
+    commercialLeads.push(l);
+  }
+
+  // Burn-down skipped leads: mark as terminally non-retryable so the cron
+  // never picks them up again, and log to system_health_logs for audit.
+  if (skippedNonCommercial.length > 0 && !dryRun) {
+    for (const skip of skippedNonCommercial) {
+      const lead = allLeads.find((l) => l.id === skip.id);
+      const rp = (lead?.raw_payload as Record<string, unknown> | null) || {};
+      const newPayload: Record<string, unknown> = {
+        ...rp,
+        piperun_retry_skipped_at: new Date().toISOString(),
+        piperun_retry_skipped_reason: skip.reason,
+        piperun_retry_attempts: 999, // sentinel: exhausted
+      };
+      delete (newPayload as Record<string, unknown>)["piperun_retry_succeeded_at"];
+      await supabase
+        .from("lia_attendances")
+        .update({ raw_payload: newPayload })
+        .eq("id", skip.id);
+    }
+    await supabase.from("system_health_logs").insert({
+      function_name: "smart-ops-piperun-retry-failed-leads",
+      severity: "info",
+      error_type: "retry_skipped_non_commercial",
+      details: { count: skippedNonCommercial.length, skipped: skippedNonCommercial.slice(0, 50) },
+    });
+    console.log(`[retry-failed] Skipped ${skippedNonCommercial.length} non-commercial leads (Astron/eCommerce/raw WA)`);
+  }
+
+  const candidates = commercialLeads.filter((l: any) => {
     const email = (l.email || "").toLowerCase();
     if (!email || /test|teste|example/.test(email)) return false;
     return isCandidate(l.raw_payload as Record<string, unknown> | null, force);
   }).slice(0, limit);
 
-  console.log(`[retry-failed] Sweep: ${leads?.length ?? 0} stuck leads, ${candidates.length} eligible (force=${force}, lookback=${lookbackDays}d)`);
+  console.log(`[retry-failed] Sweep: ${allLeads.length} stuck, ${skippedNonCommercial.length} non-commercial skipped, ${candidates.length} eligible (force=${force}, lookback=${lookbackDays}d)`);
 
   // Dry-run: delegate to preflight to avoid any Piperun writes
   if (dryRun) {

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -1385,7 +1386,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force, trigger, form_responses: inputFormResponses } = body;
+    const { email, lead_id, force, trigger, form_responses: inputFormResponses, commercial_override } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
@@ -1429,6 +1430,51 @@ Deno.serve(async (req) => {
       console.log(`[lia-assign] Following merged_into: ${lead.id} → ${parent.id}`);
       lead = parent as Record<string, any>;
       canonicalHops++;
+    }
+
+    // ── Commercial intent guard (defense-in-depth) ──
+    // Block PipeRun Deal creation for non-commercial sources (Astron Academy
+    // postbacks, e-commerce sync, raw WhatsApp pings, internal emails, etc.).
+    // The retry cron also filters these, but we keep this last-mile guard so
+    // any future caller (manual invoke, misconfigured webhook, etc.) cannot
+    // pollute the CRM. `commercial_override=true` is reserved for explicit
+    // qualification flows that have collected real intent.
+    {
+      const intent = evaluateCommercialIntent(
+        {
+          source: lead.source,
+          form_name: lead.form_name,
+          piperun_id: lead.piperun_id,
+          email: lead.email,
+        },
+        commercial_override === true,
+      );
+      if (!intent.eligible) {
+        console.warn(`[lia-assign] BLOCKED non-commercial lead ${lead.id} (${lead.email}) reason=${intent.reason}`);
+        try {
+          await supabase
+            .from("lia_attendances")
+            .update({
+              crm_creation_blocked: true,
+              crm_creation_blocked_reason: `non_commercial:${intent.reason}`,
+            })
+            .eq("id", lead.id);
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "lia_assign_blocked_non_commercial",
+            lead_id: lead.id,
+            lead_email: lead.email,
+            details: { reason: intent.reason, source: lead.source, trigger, form_name: lead.form_name },
+          });
+        } catch (logErr) {
+          console.error("[lia-assign] Failed to log non-commercial block:", logErr);
+        }
+        return new Response(
+          JSON.stringify({ blocked: true, reason: "non_commercial_lead", detail: intent.reason }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     // ── Idempotency: skip if assigned in last 5 min (unless force=true or sdr_captacao_reativacao) ──
