@@ -218,11 +218,15 @@ Deno.serve(async (req) => {
           const imgBuffer = await imgResp.arrayBuffer();
           const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
           const mimeType = imgResp.headers.get("content-type") || "image/jpeg";
-          fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-            body: JSON.stringify({ message: messageText || "Analise esta imagem", image_data: { base64, mime_type: mimeType }, session_id: `wa-${phoneDigits}`, lang: "pt-BR", topic_context: "support" }),
-          }).catch(e => console.warn("[wa-inbox] LIA image routing error:", e));
+          {
+            const p = fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+              body: JSON.stringify({ message: messageText || "Analise esta imagem", image_data: { base64, mime_type: mimeType }, session_id: `wa-${phoneDigits}`, lang: "pt-BR", topic_context: "support" }),
+            }).catch(e => console.warn("[wa-inbox] LIA image routing error:", e));
+            // @ts-ignore
+            if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+          }
           console.log(`[wa-inbox] Image routed to Dra. LIA for lead ${leadId}`);
         }
       } catch (e) {
@@ -294,7 +298,7 @@ Deno.serve(async (req) => {
       // Fire cognitive analysis if 5+ total messages
       const totalMsgs = ((leadData.total_messages as number) || 0) + 1;
       if (totalMsgs >= 5 && leadData.email) {
-        fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+        const p = fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -302,6 +306,8 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ email: leadData.email }),
         }).catch(e => console.warn("[wa-inbox] Cognitive fire-and-forget error:", e));
+        // @ts-ignore
+        if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
       }
     }
 
