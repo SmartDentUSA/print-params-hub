@@ -1,65 +1,112 @@
+## Objetivo
 
-## Diagnóstico do lead "Marcia Veraldi"
+Normalizar dados de leads vindos do Meta Ads e gravar no Piperun com origem correta — separando dois conceitos:
 
-ID: `2b3d6f4c-40e4-4c6e-a848-3c121e9564e4`  ·  CNPJ `45.780.540/0001-73`  ·  Cuiabá/MT  ·  piperun_id `59560182`
+1. **Origem da Pessoa** = primeiro contato dela com a Smart Dent (imutável depois de criada).
+2. **Origem do Deal** = campanha/formulário específico que gerou aquela oportunidade (uma pessoa pode gerar N deals com origens diferentes).
 
-O lead **existe e os números do CRM são reais** (1175 deals distintos no Piperun desde 2021, pipelines `Exportação` + `Funil Estagnados` — é uma **distribuidora**, não duplicação). O problema está em 4 campos derivados que ficaram inconsistentes entre si.
+## Conceitos
 
-### O que o card mostra vs. o que o banco diz
-
-| Campo do card | Valor exibido | Origem real no banco | Diagnóstico |
+| Conceito | Quando é definido | Pode mudar? | Exemplo |
 |---|---|---|---|
-| Nome / cidade / 1175 deals / R$ 2.549.565 | OK | `nome`, `cidade='Cuiabá'`, `total_deals=1175`, `ltv_total=2549565.01` | **Correto** |
-| 👤 B2C | B2C | `buyer_type='B2B'` no banco | UI exibindo errado OU classificador rebaixou |
-| 22-Sócio (mensagem anterior) | Sócio | `area_atuacao='49-Sócio-Administrador'` | Prefixo numérico do Piperun não foi removido |
-| e-mail | "e-mail não informado" | `email='e-mail não informado'` (string literal!) | Placeholder gravado como dado, deveria ser `NULL` |
-| Score ERP 10 / RISCO / REATIVACAO | RISCO | `omie_score=10`, `omie_classificacao='REATIVACAO'`, `omie_faturamento_total=0`, `omie_total_pedidos=0` | **Bug raiz** — Omie não casou o CNPJ |
-| Status WF 0/10 / "Contato Feito" / `real_status=RISCO_OPERACIONAL` | RISCO | derivado de Omie zerado + deals antigos abertos | Consequência do bug acima |
+| **Pessoa.origem** | Primeira vez que entra (qualquer canal) | Não — congelada após criação | "Meta Ads — Campanha Anycubic Frio (Mar/26)" |
+| **Deal.origem** | A cada novo deal criado | Sim — cada deal tem a sua | Deal 1: "Meta — Anycubic Frio"; Deal 2: "Form Site — Trial Resina"; Deal 3: "Meta — Black Friday Scanner" |
 
-### Causa raiz
+Hoje o código não trata isso: `lia-assign` usa `resolveOriginId(form_name)` apenas no `origin_id` do **deal**, e o **pessoa** é criada sem origin (depois herda automaticamente do primeiro deal no Piperun, sem controle nosso).
 
-**O sync Omie não está encontrando o CNPJ `45.780.540/0001-73`** (último sync `2026-04-19`, mas `omie_total_pedidos=0` e `omie_faturamento_total=0`). Com Omie zerado:
+## Mudanças no Webhook Meta (`smart-ops-meta-lead-webhook`)
 
-1. `omie_score` cai para 10 → label `RISCO`
-2. `omie_classificacao` vira `REATIVACAO` (último Omie purchase = nunca)
-3. Trigger de `real_status` (mem: unified-real-status-logic-v2) marca `RISCO_OPERACIONAL` apesar dos R$ 2,5M de LTV CRM
-4. RFM ignora o histórico (mem: rfm-scoring-rules-v1 usa só deal history → deveria ser VIP 280, não RISCO)
+Enriquecer payload com chamadas Graph API:
+```
+GET /{leadgen_id}?fields=field_data,form_name,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,created_time,platform
+```
 
-Ou seja: **um único campo quebrado (Omie billing) está contaminando 4 indicadores do card**.
+Campos adicionados ao payload normalizado enviado para `ingest-lead`:
+- `form_name` = `campaign_name` (vira a origem do deal)
+- `origem_campanha` = `campaign_name`
+- `utm_campaign` / `utm_content` / `utm_term` = campaign / ad / adset names
+- `meta_campaign_id`, `meta_campaign_name`, `meta_adset_id`, `meta_adset_name`, `meta_ad_id`, `meta_ad_name`
+- `produto_interesse` = mapeado a partir de respostas do form ou nome da campanha (cascata: resposta direta > inferência por keywords > nome da campanha)
 
-### Achados secundários
+## Mudanças no Banco (`lia_attendances`)
 
-- **1175 deals sem `proposal_id`** (todos): viola a política `incremental-lead-data-policy-v3` (dedup por proposal_id). Hoje a deduplicação só funciona porque `deal_id` é distinto, mas qualquer reprocessamento pode duplicar.
-- **`email='e-mail não informado'`**: provavelmente vindo do parser Piperun. Quebra qualquer matching futuro por email e regras `is null`.
-- **`area_atuacao` com prefixo `49-`**: idem — o normalizador do Piperun não está strip-ando o código.
-- **`buyer_type=B2B` no banco mas UI mostra B2C**: precisa confirmar se é bug do `KanbanLeadCard` ou se o classificador automático está sobrescrevendo na renderização.
+Adicionar coluna **`origem_primeiro_contato`** (text) — congelada na primeira inserção. Lógica:
+- INSERT de novo lead: grava `origem_primeiro_contato = origem_campanha` (ou source padrão).
+- UPDATE em lead existente (reativação): **nunca** sobrescreve `origem_primeiro_contato`. Só atualiza `origem_campanha` (que reflete a campanha mais recente).
 
-### Plano de ação proposto (apenas investigação adicional + correções pontuais — nenhum refactor)
+Trigger: `BEFORE UPDATE` em `lia_attendances` que protege `origem_primeiro_contato` de qualquer overwrite após o primeiro INSERT.
 
-#### 1. Re-sync Omie focado neste lead
-Disparar manualmente o edge function de sync Omie passando o CNPJ `45.780.540/0001-73` para descobrir **por que não casa**. Hipóteses: (a) cliente cadastrado no Omie com CNPJ formatado diferente; (b) cadastrado só com CPF `026.754.549-58`; (c) `uf` divergente. Inspecionar logs.
+## Mudanças no Piperun (`smart-ops-lia-assign` + `piperun-hierarchy`)
 
-#### 2. Limpar placeholders sujos do lead (1 lead, migração pontual)
-- `email = NULL` quando valor for literal `'e-mail não informado'` (varrer toda a tabela — provavelmente há centenas)
-- `area_atuacao` strip do prefixo `^\d+-\s*` (ex.: `49-Sócio-Administrador` → `Sócio-Administrador`)
+### Cache de origens
+Manter `originCache: Map<name, origin_id>` em `_shared/piperun-origins.ts` (extrair da `lia-assign`) com função `resolveOriginId(apiToken, originName)` — cria/reusa origem por nome. Reusada por:
+- Person create (passa `origem_primeiro_contato`)
+- Deal create (passa `origem_campanha` — campanha desse deal específico)
 
-#### 3. Corrigir incoerência B2C/B2B no card
-Verificar `KanbanLeadCard.tsx` — se o badge é derivado de `buyer_type` da DB ou recalculado no cliente. Se recalculado, alinhar com a coluna.
+### Person Create (`piperun-hierarchy.createPerson`)
+```ts
+const personOriginId = await resolveOriginId(apiToken, lead.origem_primeiro_contato);
+personPayload.origin_id = personOriginId; // congela origem da pessoa
+```
 
-#### 4. Guard de coerência no `real_status`
-Adicionar regra na trigger `unified-real-status-logic`: **se `ltv_total > 100000` e `omie_faturamento_total = 0`, NÃO marcar `RISCO_OPERACIONAL`** — emitir flag `OMIE_SYNC_GAP` em vez disso. Evita que toda distribuidora B2B cuja sync Omie falhe vire "risco".
+### Person Update (`updatePersonFields`)
+**NUNCA** envia `origin_id` no PUT — preserva a origem original da pessoa no Piperun.
 
-#### 5. Backfill `proposal_id` nos deals históricos (opcional, médio porte)
-Reprocessar `piperun_deals_history` deste e de outros leads grandes para popular `proposal_id` a partir da API Piperun, alinhando com `incremental-lead-data-policy-v3`.
+### Deal Create (`createNewDeal`)
+```ts
+const dealOriginId = await resolveOriginId(apiToken, lead.origem_campanha || lead.form_name);
+dealPayload.origin_id = dealOriginId; // origem específica deste deal
+```
+Hoje hardcoded para `ORIGINS.DRA_LIA.id` em `piperun-hierarchy.ts` linhas 188/216/247 — substituir pelo `dealOriginId` resolvido por campanha. Manter `DRA_LIA` apenas como fallback se `origem_campanha` for nulo.
 
-### Itens fora deste plano (apenas reportar, sem mexer)
-- Distribuir 1175 deals entre múltiplas pessoas da mesma empresa: NÃO fazer (mem `Identity & Merging`: nunca separar pessoas reais; e aqui só existe 1 pessoa registrada com este CNPJ).
-- Refatorar todo o pipeline Omie identity-resolution-v5: fora do escopo desta investigação.
+### Deal Reativado (`moveDealToVendas` / `updateExistingDeal`)
+Quando reativa, atualiza o `origin_id` do deal para a campanha que disparou a reativação (afinal, é uma nova oportunidade triggada por nova campanha). O deal antigo "Estagnados" já tinha sua origem original; a reativação representa novo touchpoint.
 
-### Ordem de execução sugerida
-1. Itens 1 e 3 (investigação rápida, leitura de logs + 1 arquivo)
-2. Item 2 (migração de limpeza, ~50 linhas SQL)
-3. Item 4 (alteração na trigger, ~10 linhas)
-4. Item 5 (somente se você priorizar — é maior)
+## Fluxo final
 
-Quer que eu execute a partir do passo 1, ou prefere atacar diretamente uma dessas correções?
+```text
+Meta → meta-lead-webhook
+  └─ Graph API: campaign_name, ad_name, adset_name, form fields
+       │
+       ▼
+ingest-lead
+  ├─ Lead novo → INSERT lia_attendances
+  │   ├─ origem_primeiro_contato = "Meta — {campaign_name}"
+  │   ├─ origem_campanha          = "Meta — {campaign_name}"
+  │   └─ trigger lia-assign(novo)
+  │         └─ Piperun:
+  │             - Person create: origin = origem_primeiro_contato
+  │             - Deal   create: origin = origem_campanha
+  │
+  └─ Lead existente → UPDATE lia_attendances
+      ├─ origem_primeiro_contato = (preservado pelo trigger)
+      ├─ origem_campanha          = "Meta — {campaign_name nova}"
+      └─ trigger lia-assign(sdr_captacao_reativacao)
+            └─ Piperun:
+                - Person update: SEM origin_id
+                - Deal reativado: origin = origem_campanha (nova)
+                - OU Deal novo: origin = origem_campanha (nova)
+```
+
+## Detalhes técnicos
+
+- Migration:
+  - `ALTER TABLE lia_attendances ADD COLUMN origem_primeiro_contato text;`
+  - Backfill: `UPDATE lia_attendances SET origem_primeiro_contato = origem_campanha WHERE origem_primeiro_contato IS NULL;`
+  - Trigger `protect_origem_primeiro_contato` BEFORE UPDATE: se `OLD.origem_primeiro_contato IS NOT NULL`, força `NEW.origem_primeiro_contato = OLD.origem_primeiro_contato`.
+
+- Cache de campanhas Meta (opcional fase 2): tabela `meta_campaign_cache` para evitar chamadas Graph repetidas e permitir admin sobrescrever `produto_interesse_default` por campanha.
+
+- Note do deal recém-criado (já gerada por `buildNotification`): adicionar bloco "📣 Meta Ads — Campanha: {nome} | Ad: {nome} | Adset: {nome}".
+
+## Validação após deploy
+
+1. Webhook teste com `leadgen_id` real → conferir nos logs `campaign_name` capturado e gravado em `origem_campanha` + `origem_primeiro_contato`.
+2. Piperun: pessoa nova criada com origem = nome da campanha.
+3. Mesma pessoa preenche outro form (site, ex.) → criar segundo deal com origem diferente, **sem** mudar origem da pessoa.
+4. Lead Meta repetido → deal reativado com `origin_id` atualizado para nova campanha; pessoa permanece com origem original.
+
+## Fora de escopo
+
+- Backfill retroativo de `person.origin_id` no Piperun (apenas leads novos a partir do deploy).
+- Painel admin para editar mapeamento campanha → produto (fase 2).
