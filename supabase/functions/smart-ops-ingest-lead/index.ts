@@ -234,6 +234,13 @@ Deno.serve(async (req) => {
       id_cliente_smart: payload.id_cliente_smart || null,
       // SellFlux custom fields
       sellflux_custom_fields: payload.sellflux_custom_fields || null,
+      // Meta Ads → platform_* dedicated columns
+      platform: payload.platform || payload.meta_platform || null,
+      platform_lead_id: payload.platform_lead_id || payload.meta_leadgen_id || null,
+      platform_form_id: payload.platform_form_id || payload.meta_form_id || null,
+      platform_campaign_id: payload.platform_campaign_id || payload.meta_campaign_id || null,
+      platform_ad_id: payload.platform_ad_id || payload.meta_ad_id || null,
+      platform_adgroup_id: payload.platform_adgroup_id || payload.meta_adset_id || null,
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
