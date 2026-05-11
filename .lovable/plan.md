@@ -1,117 +1,59 @@
-## Objetivo
+## Diagnóstico
 
-Hoje, quando um lead **nasce no nosso sistema** e vai para o Piperun via `smart-ops-lia-assign`, geramos uma nota rica para o vendedor (`buildDealNoteHTML` / `buildSellerNotification` com HISTÓRICO, OPORTUNIDADE, 7x3, e-commerce, cursos, análise cognitiva). Quando o lead **nasce no Piperun** e cai em `smart-ops-piperun-webhook` (upsert em `lia_attendances`), atualizamos o CDP mas **não devolvemos nenhuma nota de resumo** para o Deal. O vendedor abre o Deal sem ver o histórico consolidado que o nosso sistema já tem.
+**Lead em questão:** Dr. Otávio de Orlandis Carvalho — `otavio.orlandis1@gmail.com`
+- Criado às 14:22 UTC via Meta Ads (formulário Impressoras / campanha "07_05_2026 RayShape+Cure").
+- `piperun_id = null`, `pessoa_piperun_id = null`, sem deal, sem nota de vendedor.
+- `system_health_logs` registrou `crm_person_creation_failed` com `flow=error_no_person`, mas **não há o log detalhado** `piperun_create_person_api_error` que deveria conter a resposta da API. Indica que `createPerson` retornou `null` sem completar o bloco de log detalhado (provável exceção silenciosa entre chamadas, ou retorno antecipado).
 
-Vamos fechar essa lacuna.
+**Escala do problema:** 59 leads dos últimos 14 dias com `source` em (meta_lead_ads, form, sdr_captacao) estão sem `piperun_id` — todos deveriam estar no Piperun.
 
-## O que vamos construir
+**Causas prováveis no `createPerson`:**
+1. Nome `"Dr. Otávio de Orlandis Carvalho | Dentista em Divinópolis-MG"` é enviado bruto (sem `cleanPersonName`). Piperun pode rejeitar nomes com pipe `|` ou comprimento excessivo.
+2. `cleanPersonName` atual não remove sufixos descritivos do tipo ` | <descrição SEO>`, ` - <cidade>`, `(...)`.
+3. O detailed-log dentro de `createPerson` depende de uma segunda chamada Supabase com `service_role_key` — se algo falha silenciosamente, perdemos o motivo real do 4xx/5xx do Piperun.
 
-Um builder único de "Resumo do Lead para Vendedor" (chamemos `buildSellerDealSummaryHTML`) e disparo automático da nota no Piperun toda vez que um Deal é **criado ou atualizado** via webhook do Piperun, com deduplicação para não floodar o Deal.
+## Mudanças propostas
 
-## Conteúdo da nota (completo, na ordem que o vendedor lê)
+### 1. `_shared/piperun-field-map.ts` — endurecer `cleanPersonName`
+Adicionar regras determinísticas para gerar um nome aceito pelo Piperun:
+- Truncar no primeiro de `|`, ` — `, ` - ` quando seguido de descritor (cidade, profissão, palavras como "Dentista", "Clínica", "Dr.", etc. devem ser preservadas se for prefixo).
+- Remover parênteses e seu conteúdo.
+- Limitar a ~80 caracteres.
+- Manter rejeição de Zapier/Plug & Play/datas.
+- Exportar nova função `sanitizePersonNameForPiperun(name)` reutilizando regras + retorno garantido (fallback para "Lead <primeiroNome>" ou para o e-mail).
 
-```text
-🧾 Resumo do Lead — atualizado por Smart Dent
-1. Identidade        nome, e-mail, telefone, cidade/UF, especialidade, área
-2. Origem            primeiro contato (data + canal), última conversão, campanha
-3. CRM histórico     todos os deals (id, pipeline, stage, valor, status, data)
-                     deals ganhos / perdidos / abertos — contagens
-4. Compras e-commerce (Loja Integrada + Astron)
-                     pedidos com data, número, valor, itens (top 10)
-                     LTV total, ticket médio, último pedido
-5. Cursos / Treinamentos
-                     cursos concluídos / em andamento, certificados, turma
-6. 7x3 — preenchimentos de formulário
-                     todos os form_responses (label: value), agrupados por form_name
-                     equipamentos declarados (impressora, scanner, software CAD)
-7. Interações Dra. L.I.A.
-                     últimas N perguntas, urgência, perfil psicológico, motivação
-8. Inteligência       confidence_score, lead_stage_detected, recommended_approach,
-                     risco de objeção, próxima melhor ação
-9. Links rápidos     PipeRun, ficha do lead no admin, WhatsApp click-to-chat
-```
+### 2. `smart-ops-lia-assign/index.ts` — `createPerson` robusto
+- Trocar `lead.nome` cru por `sanitizePersonNameForPiperun(lead.nome)` antes de montar `personPayload`.
+- Em qualquer 4xx do Piperun ao criar Pessoa, fazer **retry automático** com nome reduzido a `firstName + lastName` derivado de `lead.nome` ou do e-mail; persistir no payload o nome usado.
+- Garantir que o log `piperun_create_person_api_error` seja gravado **antes** de qualquer outra chamada que possa lançar (envolvê-lo em bloco próprio com `await` direto, sem depender do `createClient` interno que já existe lá; passar a instância `supabase` por parâmetro).
+- Quando `createPerson` retornar `null`, gravar também `raw_payload.piperun_last_error = { status, body, name_used, attempt }` no `lia_attendances` para auditoria por lead.
 
-Tudo formatado em HTML compatível com o editor de notas do Piperun (mesma sintaxe que `addDealNote` já usa em `_shared/piperun-field-map.ts`).
+### 3. `smart-ops-piperun-retry-failed-leads` — agendar via cron
+- Adicionar entrada no `supabase/config.toml` para rodar a função a cada 15 min com `limit=25`, `lookback_days=7`, `force=false`.
+- Garantir que ao retentar com sucesso, o fluxo dispare **`smart-ops-deal-form-note`** (que já usa `buildSellerDealSummaryHTML`) para postar a nota de vendedor no novo deal.
+- Após sucesso, marcar `raw_payload.piperun_retry_attempted_at` (já existe) e `raw_payload.piperun_retry_succeeded_at` (novo) para visibilidade.
 
-## Arquitetura
+### 4. Backfill imediato dos 59 leads pendentes
+- Após o deploy, chamar manualmente `smart-ops-piperun-retry-failed-leads` com `lookback_days=14` e `limit=100` para drenar a fila.
+- Listar resultados (sucesso/erro) para o usuário aprovar.
 
-### 1. Novo módulo compartilhado: `supabase/functions/_shared/seller-summary.ts`
-
-Função pura `buildSellerDealSummaryHTML(supabase, lead)` que:
-
-- recebe a row canônica de `lia_attendances` (`merged_into IS NULL`) e o supabase client com service role
-- consulta em paralelo: `piperun_deals_history` (já no row), `lojaintegrada_orders`, `astron_enrollments`, `form_responses`, `agent_interactions` (últimas 5), `lead_activity_log` (últimas 10)
-- monta o HTML acima
-- retorna `{ html, hash }` onde `hash = sha256(html)` para dedupe idempotente
-
-Deve substituir/consolidar a lógica duplicada hoje em `buildSellerNotification` e `buildDealNoteHTML` dentro de `smart-ops-lia-assign`. Essas duas continuam funcionando — passam a delegar para o builder compartilhado.
-
-### 2. Disparo automático no webhook
-
-Em `supabase/functions/smart-ops-piperun-webhook/index.ts`, após a etapa "Deals History (upsert current deal snapshot)" e o `update` em `lia_attendances` (~linha 813+), adicionar bloco:
-
-```text
-if (dealId && (isNewLead || significantChange)) {
-  const { html, hash } = await buildSellerDealSummaryHTML(supabase, mergedLead);
-  const last = mergedLead.last_seller_note_hash;
-  if (hash !== last) {
-    await addDealNote(PIPERUN_API_KEY, Number(dealId), html);
-    await supabase.from("lia_attendances")
-      .update({
-        last_seller_note_hash: hash,
-        last_seller_note_at: new Date().toISOString(),
-      }).eq("id", leadId);
-  }
-}
-```
-
-`significantChange` = mudou stage, mudou owner, novo deal entrou no histórico, ou novo `form_responses` desde o último envio.
-
-### 3. Migração de schema (mínima)
-
-Duas colunas em `lia_attendances` (nullable, sem default que mexa em dados existentes):
-
-- `last_seller_note_hash text`
-- `last_seller_note_at timestamptz`
-
-Sem trigger; controle de idempotência feito no edge function.
-
-### 4. Reuso para o caminho oposto
-
-`smart-ops-lia-assign` (criação/atualização vinda do nosso sistema) e `smart-ops-deal-form-note` (notas de formulário 7x3 isoladas) passam a usar **o mesmo builder**. Hoje a nota do `deal-form-note` mostra só as respostas — vai mostrar respostas + resumo completo, evitando que o vendedor tenha duas fontes diferentes.
-
-### 5. Backfill manual (opcional, sob aprovação)
-
-Edge function `smart-ops-seller-note-backfill` com `dry_run` que:
-
-- lista N leads canônicos com `piperun_id` não nulo e `last_seller_note_at IS NULL`
-- gera o HTML e exporta CSV em `/mnt/documents/seller-note-backfill-{ts}.csv` para revisão
-- modo `apply: true` posta a nota no Piperun em lote pequeno (ex.: 50/run) com rate-limit
-
-Não roda sem sua aprovação explícita por fase, igual ao plano de preflight.
-
-## Arquivos afetados
-
-```text
-supabase/functions/_shared/seller-summary.ts            (novo)
-supabase/functions/smart-ops-piperun-webhook/index.ts   (dispara nota + dedupe)
-supabase/functions/smart-ops-lia-assign/index.ts        (delega para o shared)
-supabase/functions/smart-ops-deal-form-note/index.ts    (delega + anexa resumo)
-supabase/functions/smart-ops-seller-note-backfill/index.ts (novo, opcional)
-supabase/config.toml                                     (registra a função nova)
-+ migration: ALTER TABLE lia_attendances ADD last_seller_note_hash, last_seller_note_at
-```
+### 5. Painel de visibilidade (opcional, sob aprovação)
+- Adicionar um pequeno card em `SmartOpsSystemHealth.tsx` mostrando "Leads pendentes de Piperun" (count) e botão "Drenar agora" que chama a função de retry. Sem mexer em outras seções.
 
 ## Validação
 
-1. Disparar webhook simulado para um deal novo → conferir que a nota aparece no Piperun com todas as 9 seções.
-2. Re-disparar o mesmo webhook sem mudança → nenhuma nota nova (dedupe por hash).
-3. Mudar stage no Piperun → nova nota com seção "CRM histórico" atualizada.
-4. Lead com pedidos no e-commerce + 2 forms 7x3 + 1 curso → nota mostra tudo.
-5. Query: `SELECT count(*) FROM lia_attendances WHERE piperun_id IS NOT NULL AND last_seller_note_at IS NULL` deve cair monotonicamente após backfill.
+1. Reenviar o lead `otavio.orlandis1@gmail.com` pela função de retry → deve criar Pessoa+Deal no Piperun, popular `piperun_id` e disparar nota de vendedor.
+2. Conferir `system_health_logs`: novo registro `piperun_create_person_api_error` deve conter `payload_sent.name` sanitizado quando aplicável.
+3. Rodar query: `SELECT count(*) FROM lia_attendances WHERE merged_into IS NULL AND piperun_id IS NULL AND source IN ('meta_lead_ads','form','sdr_captacao') AND created_at >= now() - interval '14 days'` — deve cair de 59 para próximo de 0.
+4. Forçar caso sintético com nome contendo ` | descrição` para confirmar que o sanitizador entrega nome válido em primeira tentativa.
 
-## Não faz parte deste plano
+## Arquivos a alterar
+- `supabase/functions/_shared/piperun-field-map.ts` (endurecer cleanPersonName + nova `sanitizePersonNameForPiperun`).
+- `supabase/functions/smart-ops-lia-assign/index.ts` (`createPerson` robusto, retry, logging garantido, gravação de `piperun_last_error`).
+- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` (acionar deal-form-note pós-sucesso, marcar `piperun_retry_succeeded_at`).
+- `supabase/config.toml` (cron 15min).
+- (opcional) `src/components/SmartOpsSystemHealth.tsx` (card + botão drenar).
 
-- Nada de prices/valores comerciais em conteúdo gerado por IA (memória `content-generation-policy-no-prices-v2` continua valendo — aqui são valores REAIS de pedidos, não geração de conteúdo).
-- Não altera o fluxo Golden Rule de criação de Deal (esse continua no `lia-assign` + preflight já planejado).
-- Não mexe em `merged_into` nem em consolidação de leads.
+## Fora de escopo
+- Não alterar a lógica existente do `seller-summary` nem do `piperun-webhook`.
+- Não tocar em integrações de e-commerce/Astron/Sellflux.

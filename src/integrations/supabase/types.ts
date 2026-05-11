@@ -15442,6 +15442,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      vault_update_secret: {
+        Args: { p_name: string; p_secret: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "author"
