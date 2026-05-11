@@ -149,10 +149,6 @@ Deno.serve(async (req) => {
           if (isEmpty(lead.equip_scanner)) update.equip_scanner = info.canonical;
           if (isEmpty(lead.tem_scanner)) update.tem_scanner = "sim";
           if (isEmpty(lead.status_scanner)) update.status_scanner = "tem_smartdent";
-          if (info.date && !lead.equip_scanner_idade_meses) {
-            const months = Math.max(0, Math.floor((Date.now() - Date.parse(info.date)) / (1000 * 60 * 60 * 24 * 30)));
-            update.equip_scanner_idade_meses = months;
-          }
           break;
         case "scanner_bancada":
           if (isEmpty(lead.equip_scanner_bancada)) update.equip_scanner_bancada = info.canonical;
@@ -162,10 +158,6 @@ Deno.serve(async (req) => {
           if (isEmpty(lead.impressora_modelo)) update.impressora_modelo = info.canonical;
           if (isEmpty(lead.tem_impressora)) update.tem_impressora = "sim";
           if (isEmpty(lead.status_impressora)) update.status_impressora = "tem_smartdent";
-          if (info.date) {
-            const months = Math.max(0, Math.floor((Date.now() - Date.parse(info.date)) / (1000 * 60 * 60 * 24 * 30)));
-            update.equip_impressora_idade_meses = months;
-          }
           break;
         case "pos_impressao":
           if (isEmpty(lead.equip_pos_impressao)) update.equip_pos_impressao = info.canonical;
