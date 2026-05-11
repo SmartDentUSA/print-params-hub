@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -1385,7 +1386,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force, trigger, form_responses: inputFormResponses } = body;
+    const { email, lead_id, force, trigger, form_responses: inputFormResponses, commercial_override } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
