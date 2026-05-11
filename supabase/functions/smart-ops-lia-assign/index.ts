@@ -169,9 +169,8 @@ async function updatePersonFields(
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
 
-  // Custom fields use hash keys in PUT (same pattern as deals)
-  if (areaAtuacao) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.AREA_ATUACAO]] = areaAtuacao;
-  if (especialidade) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.ESPECIALIDADE]] = especialidade;
+  // Pessoa custom field IDs 674001/674002 are rejected by Piperun. Persisted at Deal level only.
+  void areaAtuacao;
 
   if (Object.keys(updatePayload).length === 0) return;
 
