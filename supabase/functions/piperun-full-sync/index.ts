@@ -24,7 +24,7 @@ const corsHeaders = {
 
 // ─── Identity Resolution (4-level cascade) ───
 
-const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into";
+const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into, pessoa_hash, pessoa_piperun_id, telefone_normalized";
 
 type FullSyncLeadRecord = {
   id: string;
