@@ -15363,6 +15363,7 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_vault_secret: { Args: { p_name: string }; Returns: string }
       has_panel_access: { Args: { user_id: string }; Returns: boolean }
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
