@@ -67,7 +67,8 @@ export async function findPersonByEmail(
 
 export async function createPerson(
   apiToken: string,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  originId?: number | null,
 ): Promise<number | null> {
   const email = lead.email as string | null;
   const nome = (lead.nome || email || "Lead Sem Nome") as string;
@@ -79,6 +80,7 @@ export async function createPerson(
   if (email) personPayload.emails = [{ email }];
   if (phone) personPayload.phones = [{ phone }];
   if (especialidade) personPayload.job_title = especialidade;
+  if (originId && Number.isFinite(originId)) personPayload.origin_id = originId;
 
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
   // Pessoa custom field IDs 674001/674002 rejected by Piperun (422). Disabled.
@@ -97,7 +99,8 @@ export async function createPerson(
 export async function updatePersonFields(
   apiToken: string,
   personId: number,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  originId?: number | null,
 ): Promise<void> {
   const nome = (lead.nome || lead.email || "") as string;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
@@ -108,6 +111,7 @@ export async function updatePersonFields(
   if (nome) updatePayload.name = nome;
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
+  if (originId && Number.isFinite(originId)) updatePayload.origin_id = originId;
   // Pessoa custom field IDs rejected by Piperun. Persisted at Deal level only.
   void areaAtuacao;
 

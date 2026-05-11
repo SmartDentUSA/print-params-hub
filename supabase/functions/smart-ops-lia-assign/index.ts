@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
+import { isCompanyLikeName } from "../_shared/identity-utils.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -1629,6 +1630,44 @@ Deno.serve(async (req) => {
     let vendaDeal: Record<string, unknown> | undefined;
 
     // Step 5a: Find or create Person (with stale-cache recovery)
+    // Resolve origin once for both Person and Deal so Person.origin reflects
+    // the first conversion (regra Person vs Deal Origin Separation).
+    const personOriginName = (lead.origem_primeiro_contato as string | null)
+      || (lead.form_name as string | null);
+    const resolvedPersonOriginId = await resolveOriginId(PIPERUN_API_KEY, personOriginName);
+
+    // ── Company-like name detection ──
+    // When the Meta lead form 'full_name' is actually a razão social (e.g.
+    // "ESTÉTICA AVANÇADA"), the Person card ends up with a meaningless contact
+    // name. We still create Person/Company so the deal isn't blocked, but flag
+    // the lead for SDR review and add a note to the Deal.
+    const personNameLooksLikeCompany = isCompanyLikeName(
+      lead.nome as string | null,
+      {
+        empresa_razao_social: lead.empresa_razao_social as string | null,
+        empresa_nome: lead.empresa_nome as string | null,
+      },
+    );
+    if (personNameLooksLikeCompany) {
+      console.warn(`[lia-assign] Person name looks like a company: "${lead.nome}" (lead ${lead.id}) — flagging for SDR review`);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "person_name_is_company",
+          lead_email: lead.email,
+          details: {
+            lead_id: lead.id,
+            person_name: lead.nome,
+            empresa_razao_social: lead.empresa_razao_social,
+            empresa_nome: lead.empresa_nome,
+            source: lead.source,
+            form_name: lead.form_name,
+          },
+        });
+      } catch {}
+    }
+
     if (personId) {
       // Validate cached person still exists in PipeRun
       const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
@@ -1639,7 +1678,7 @@ Deno.serve(async (req) => {
           companyId = personCheck.company_id || companyId;
           console.log(`[lia-assign] Resolved to existing person: ${personId}`);
         } else {
-          personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+          personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
           console.log(`[lia-assign] Created new person (stale recovery): ${personId}`);
         }
       }
@@ -1650,13 +1689,15 @@ Deno.serve(async (req) => {
         companyId = existingPerson.company_id || companyId;
         console.log(`[lia-assign] Found existing person: ${personId}, company: ${companyId}`);
       } else {
-        personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+        personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
         console.log(`[lia-assign] Created new person: ${personId}`);
       }
     }
 
     if (personId) {
       // Step 5b: Update person fields (custom_fields, job_title, phones)
+      // NOTE: do NOT pass originId on update — Person.origin is frozen at
+      // first contact (see memory: Person vs Deal Origin Separation).
       await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
 
       // Step 5c: Ensure company exists
@@ -1742,6 +1783,17 @@ Deno.serve(async (req) => {
           customFields, leadEmail, supabase, inputFormResponses
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
+        if (piperunId && personNameLooksLikeCompany) {
+          try {
+            await addDealNote(
+              PIPERUN_API_KEY,
+              Number(piperunId),
+              `⚠️ [Dra. L.I.A.] Nome do contato veio do formulário como razão social ("${lead.nome}"). Confirmar nome real da pessoa no primeiro atendimento.`,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] Failed to add company-like-name review note:", e);
+          }
+        }
         }
       }
 
@@ -1927,9 +1979,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── HARDENING: drop any non-scalar value from updateFields ──
+    // PostgREST treats nested objects as "embedded resource updates" and tries
+    // to UPDATE child tables, surfacing as `column "value" does not exist`
+    // (42703) when a Piperun custom_field shaped `{value: ...}` leaks in.
+    // Allow primitives + null. Drop arrays/objects with a warn so we can
+    // audit the source later without aborting the whole UPDATE.
+    const sanitizedUpdateFields: Record<string, unknown> = {};
+    const droppedKeys: string[] = [];
+    for (const [k, v] of Object.entries(updateFields)) {
+      if (v === null || v === undefined) {
+        sanitizedUpdateFields[k] = v;
+      } else {
+        const t = typeof v;
+        if (t === "string" || t === "number" || t === "boolean") {
+          sanitizedUpdateFields[k] = v;
+        } else {
+          droppedKeys.push(k);
+          console.warn(
+            `[lia-assign] DROP non-scalar updateField "${k}":`,
+            JSON.stringify(v).slice(0, 200),
+          );
+        }
+      }
+    }
+    if (droppedKeys.length > 0) {
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "non_scalar_update_fields_dropped",
+          lead_email: lead.email,
+          details: { lead_id: lead.id, dropped_keys: droppedKeys },
+        });
+      } catch {}
+    }
+    console.log(`[lia-assign] updateFields keys (${Object.keys(sanitizedUpdateFields).length}): ${Object.keys(sanitizedUpdateFields).join(",")}`);
+
     const { error: updateError } = await supabase
       .from("lia_attendances")
-      .update(updateFields)
+      .update(sanitizedUpdateFields)
       .eq("id", lead.id);
 
     if (updateError) {
