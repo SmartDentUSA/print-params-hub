@@ -16,6 +16,8 @@ import {
   callNormalizeFromLead,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
+import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1048,6 +1050,38 @@ Deno.serve(async (req) => {
     }).then(({ error }) => {
       if (error) console.warn("[piperun-webhook] timeline insert error:", error.message);
     });
+
+    // ─── Seller Summary Note → PipeRun (idempotent via hash) ───
+    try {
+      const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
+      if (PIPERUN_API_KEY && dealId) {
+        const { data: fullLead } = await supabase
+          .from("lia_attendances")
+          .select("*")
+          .eq("id", leadId)
+          .single();
+        if (fullLead) {
+          const { html, hash } = await buildSellerDealSummaryHTML(supabase, fullLead as Record<string, unknown>);
+          const lastHash = (fullLead as Record<string, unknown>).last_seller_note_hash as string | null;
+          if (hash !== lastHash) {
+            const noteRes = await addDealNote(PIPERUN_API_KEY, Number(dealId), html);
+            if (noteRes.success) {
+              await supabase.from("lia_attendances").update({
+                last_seller_note_hash: hash,
+                last_seller_note_at: new Date().toISOString(),
+              }).eq("id", leadId);
+              console.log(`[piperun-webhook] Seller summary posted to deal ${dealId}`);
+            } else {
+              console.warn(`[piperun-webhook] addDealNote failed (${noteRes.status})`);
+            }
+          } else {
+            console.log(`[piperun-webhook] Seller summary unchanged (hash match) — skip`);
+          }
+        }
+      }
+    } catch (sumErr) {
+      console.warn("[piperun-webhook] seller summary error:", sumErr);
+    }
 
     // ─── Post-update Consolidation Verification (inline, no AI cost) ───
     try {
