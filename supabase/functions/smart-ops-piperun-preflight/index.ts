@@ -151,5 +151,6 @@ Deno.serve(async (req) => {
     summary,
     rows,
     csv,
+    debug,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
