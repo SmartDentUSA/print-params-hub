@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       let originSource: string | null = null;
       let originId: number | null = null;
 
-      const dealRes = await piperunGet(PIPERUN_TOKEN, `deals/${lead.piperun_id}`, {});
+      const dealRes = await piperunGet(PIPERUN_TOKEN, `deals/${lead.piperun_id}`, {}, { "with[]": ["origin"] });
       lookupStatus = dealRes.status;
       const dealData = (dealRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
       const personId = dealData?.person_id as number | string | undefined;
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
           order_by: "created_at",
           order_type: "asc",
           show: 1,
-        });
+        }, { "with[]": ["origin"] });
         lookupStatus = firstDealRes.status;
         const firstDeals = ((firstDealRes.data as Record<string, unknown> | undefined)?.data) as Array<Record<string, unknown>> | undefined;
         const firstDeal = firstDeals && firstDeals[0];
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
 
         // 2) Fallback: person.origin.name
         if (!originName) {
-          const personRes = await piperunGet(PIPERUN_TOKEN, `persons/${resolvedPersonId}`, {});
+          const personRes = await piperunGet(PIPERUN_TOKEN, `persons/${resolvedPersonId}`, {}, { "with[]": ["origin"] });
           lookupStatus = personRes.status;
           const personData = ((personRes.data as Record<string, unknown> | undefined)?.data) as Record<string, unknown> | undefined;
           const personOrigin = personData?.origin as Record<string, unknown> | undefined;
