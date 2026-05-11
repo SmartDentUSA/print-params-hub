@@ -24,7 +24,7 @@ const corsHeaders = {
 
 // ─── Identity Resolution (4-level cascade) ───
 
-const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into";
+const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into, pessoa_hash, pessoa_piperun_id, telefone_normalized";
 
 type FullSyncLeadRecord = {
   id: string;
@@ -237,7 +237,22 @@ Deno.serve(async (req) => {
         const deal = deepParseStringifiedFields(rawDeal as unknown as Record<string, unknown>) as unknown as PipeRunDealData;
 
         const dealId = String(deal.id);
-        const updatePayload = mapDealToAttendance(deal);
+        const person = deal.person;
+        const pessoaHash = person?.hash ? String(person.hash) : null;
+        const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
+        const remoteEmailRaw = (
+          person?.contact_emails?.[0]?.address ||
+          person?.emails?.[0]?.email ||
+          person?.email ||
+          (deal as any).reference ||
+          (deal as any).rdstation_reference ||
+          null
+        );
+        const initialEmail = remoteEmailRaw ? String(remoteEmailRaw).trim().toLowerCase().split(",")[0].trim() : null;
+
+        const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, initialEmail);
+
+        const updatePayload = mapDealToAttendance(deal, currentLead as any);
 
         if (deal.stage_id) {
           const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
@@ -245,9 +260,6 @@ Deno.serve(async (req) => {
           updatePayload.updated_at = new Date().toISOString();
         }
 
-        const person = deal.person;
-        const pessoaHash = person?.hash ? String(person.hash) : null;
-        const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
 
         const dealSnapshot = buildRichDealSnapshot(deal, {
@@ -255,8 +267,6 @@ Deno.serve(async (req) => {
           product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
           ownerName: updatePayload.proprietario_lead_crm ? String(updatePayload.proprietario_lead_crm) : null,
         });
-
-        const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
 
         if (currentLead) {
           const smartPayload: Record<string, unknown> = { piperun_id: dealId };

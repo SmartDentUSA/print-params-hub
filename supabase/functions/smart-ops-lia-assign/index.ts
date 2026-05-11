@@ -39,37 +39,51 @@ const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
  */
 async function findPersonByEmail(
   apiToken: string,
-  email: string
+  email: string,
+  phoneNormalized?: string | null
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
   try {
-    // Piperun ignores ?email=... — must use emails[email]=... filter, then fall back to ?search=
-    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
-    const pickFromList = (data: unknown) => {
+    // PipeRun's /persons endpoint IGNORES unknown filters and returns a generic
+    // list. NEVER fall back to items[0] — that attaches the deal to a totally
+    // unrelated person (already caused a Heitor-Rabeti contamination incident).
+    const lowerEmail = email.toLowerCase();
+    const phoneDigits = (phoneNormalized || "").replace(/\D/g, "");
+
+    const pickStrict = (data: unknown): { id: number; company_id: number | null } | null => {
       const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
-      if (!items) return null;
-      const lower = email.toLowerCase();
+      if (!items?.length) return null;
       const match = items.find((p) => {
         const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
-        return emails.some((e) => String(e.email || "").toLowerCase() === lower);
-      }) || items[0];
+        if (emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail)) return true;
+        if (phoneDigits) {
+          const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
+          if (phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(phoneDigits.slice(-10)))) return true;
+        }
+        return false;
+      });
       if (match?.id) {
-        return {
-          id: Number(match.id),
-          company_id: match.company_id ? Number(match.company_id) : null,
-        };
+        return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
       }
       return null;
     };
+
+    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
     if (res.success && res.data) {
-      const found = pickFromList(res.data);
+      const found = pickStrict(res.data);
       if (found) return found;
     }
-    // Fallback: search endpoint
     const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
     if (sres.success && sres.data) {
-      const found = pickFromList(sres.data);
+      const found = pickStrict(sres.data);
       if (found) return found;
+    }
+    if (phoneDigits) {
+      const pres = await piperunGet(apiToken, "persons", { search: phoneDigits, show: 50 });
+      if (pres.success && pres.data) {
+        const found = pickStrict(pres.data);
+        if (found) return found;
+      }
     }
   } catch (e) {
     console.warn("[lia-assign] Person search error:", e);
@@ -1204,7 +1218,7 @@ async function executarReativacaoSdrCaptacao(
   // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
   let personId = lead.pessoa_piperun_id as number | null;
   if (!personId) {
-    const person = await findPersonByEmail(apiToken, leadEmail);
+    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
     personId = person?.id ?? null;
   }
   if (!personId) {
@@ -1464,7 +1478,7 @@ Deno.serve(async (req) => {
     // Step 5a: Find or create Person (with stale-cache recovery)
     if (personId) {
       // Validate cached person still exists in PipeRun
-      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
+      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
       if (!personCheck || personCheck.id !== personId) {
         console.log(`[lia-assign] Cached person ${personId} is stale (not found or mismatched). Re-resolving...`);
         if (personCheck) {
@@ -1477,7 +1491,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
+      const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
       if (existingPerson) {
         personId = existingPerson.id;
         companyId = existingPerson.company_id || companyId;
