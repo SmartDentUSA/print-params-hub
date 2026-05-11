@@ -847,6 +847,10 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           </Section>
           <Separator />
 
+          {/* ===== ÚLTIMA CONVERSÃO (Meta Ads / Form) ===== */}
+          <LastConversionSection lead={lead} />
+          <Separator />
+
           {/* ===== ORIGEM & META ===== */}
           <Section title="Origem & Meta" emoji="🔗">
             <DetailRow label="Origem" value={lead.source === "piperun_sync" ? "PipeRun" : lead.source} emoji="📡" />
