@@ -5737,6 +5737,8 @@ export type Database = {
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
           last_form_scanner: string | null
+          last_seller_note_at: string | null
+          last_seller_note_hash: string | null
           last_sync_at: string | null
           last_sync_source: string | null
           last_waleads_instance: string | null
@@ -6243,6 +6245,8 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_seller_note_at?: string | null
+          last_seller_note_hash?: string | null
           last_sync_at?: string | null
           last_sync_source?: string | null
           last_waleads_instance?: string | null
@@ -6749,6 +6753,8 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_seller_note_at?: string | null
+          last_seller_note_hash?: string | null
           last_sync_at?: string | null
           last_sync_source?: string | null
           last_waleads_instance?: string | null
@@ -15008,6 +15014,8 @@ export type Database = {
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
           last_form_scanner: string | null
+          last_seller_note_at: string | null
+          last_seller_note_hash: string | null
           last_sync_at: string | null
           last_sync_source: string | null
           last_waleads_instance: string | null
