@@ -8729,6 +8729,33 @@ export type Database = {
         }
         Relationships: []
       }
+      piperun_stage_map_overrides: {
+        Row: {
+          active: boolean | null
+          lead_status: string
+          pipeline_id: number
+          pipeline_name: string | null
+          stage_id: number
+          stage_name: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          lead_status: string
+          pipeline_id: number
+          pipeline_name?: string | null
+          stage_id: number
+          stage_name?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          lead_status?: string
+          pipeline_id?: number
+          pipeline_name?: string | null
+          stage_id?: number
+          stage_name?: string | null
+        }
+        Relationships: []
+      }
       piperun_staging: {
         Row: {
           area_atuacao: string | null
