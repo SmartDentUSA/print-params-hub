@@ -74,6 +74,17 @@ Deno.serve(async (req) => {
 
   for (const email of emails) {
     const local = localByEmail.get(email) || null;
+    if (debug === null && emails.length === 1) {
+      const r1 = await piperunGet(PIPERUN_API_KEY, "persons", { show: 50 }, { "emails[email]": [email] });
+      const r2 = await piperunGet(PIPERUN_API_KEY, "persons", { search: email, show: 50 });
+      const items1 = ((r1.data as any)?.data as any[]) || [];
+      const items2 = ((r2.data as any)?.data as any[]) || [];
+      debug = {
+        email,
+        emails_email_filter: { count: items1.length, first: items1.slice(0, 3).map((p) => ({ id: p.id, name: p.name, emails: p.emails })) },
+        search_filter: { count: items2.length, first: items2.slice(0, 3).map((p) => ({ id: p.id, name: p.name, emails: p.emails })) },
+      };
+    }
     const row: Row = {
       email,
       local_lead_id: local?.id ?? null,
