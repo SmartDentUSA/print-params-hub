@@ -18,6 +18,7 @@ import {
 } from "../_shared/piperun-field-map.ts";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
+import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -408,6 +409,35 @@ Deno.serve(async (req) => {
         if (digits.startsWith("0")) digits = digits.slice(1);
         if (!digits.startsWith("55")) digits = "55" + digits;
         if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
+      }
+
+      // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
+      const identity = validateLeadIdentity({
+        nome: personName,
+        email: personEmail,
+        phoneNormalized,
+        rawPhone: ids.personPhone,
+      });
+      if (!identity.ok) {
+        await logRejectedLead(supabase, {
+          functionName: "smart-ops-piperun-webhook",
+          source: "piperun_webhook",
+          check: identity,
+          email: personEmail,
+          raw: { dealId, personName, personPhone: ids.personPhone },
+        });
+        console.log(
+          `[piperun-webhook] Lead criação BLOQUEADA (deal ${dealId}) — identity incompleta: ${identity.missing.join(",")}`,
+        );
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "missing_identity",
+            missing: identity.missing,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
