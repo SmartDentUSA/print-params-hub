@@ -1,91 +1,111 @@
-## Auditoria do fluxo de leads — diagnóstico completo
+## Auditoria 2 — 3 bugs críticos descobertos
 
-Inspeção do banco e dos logs (últimas 24h, `system_health_logs` + `lia_attendances`) revela **3 bugs encadeados** que estão fazendo perder leads em escala. Não é só o caso da Ruani.
+A primeira rodada de correção ajudou (78 leads recuperados), mas a investigação mais a fundo revela **bugs ainda mais sérios** que estão CORROMPENDO identidades. É preciso parar o backfill e corrigir antes de continuar.
 
-### Números atuais
-- **82 leads** dos últimos 14 dias estão sem `piperun_id` (`merged_into IS NULL`, email válido, fora de teste).
-- **74 desses 82** já têm o flag `piperun_retry_attempted_at` queimado — ou seja, o cron de retry **não vai mais tentar**.
-- **`system_health_logs` de hoje** mostram dezenas de `crm_person_creation_failed` e o erro real do PipeRun: `"Não foi possível encontrar os campos customizados: ."` (HTTP 422).
+---
 
-### Bug #1 — RAIZ: `smart-ops-lia-assign` envia custom_fields inválidos ao criar Pessoa no PipeRun
-O arquivo `_shared/piperun-hierarchy.ts` (versão consolidada) já documenta na linha 87:
+### Bug A — Contaminação cruzada de leads (CRÍTICO, perda de dados)
 
-> *"Pessoa custom field IDs 674001/674002 rejected by Piperun (422). Disabled."*
+`piperun_id` tem `UNIQUE constraint`. Quando o `lia-assign` chama `findPersonByEmail` para o lead Andreia (`andreiaknip@gmail.com`), o PipeRun retorna a Person `46856754` — que NÃO é da Andreia, é do `dr.fredericorezende@hotmail.com` (que tem `nome="AMANDA MOURA"` no DB local). O `lia-assign` então:
 
-Mas a **versão duplicada** dentro de `supabase/functions/smart-ops-lia-assign/index.ts` (mesma função `findPersonByEmail` / `createPerson` que o plan.md antigo já mandou consolidar) continua enviando esses custom_fields no `POST /persons`. Resultado: PipeRun devolve 422, `personId=null`, `flowType=error_no_person`, **nenhum deal é criado**.
+1. Atribui à Andreia o deal `59694622` da pessoa errada.
+2. Tenta `UPDATE lia_attendances SET piperun_id=59694622 WHERE id=andreia` → **falha silenciosa por unique violation** (Frederico já tem esse piperun_id).
+3. Lead Andreia fica `succeeded_at=now` mas `piperun_id=NULL`.
+4. O cron retry vê success e nunca mais tenta.
+5. **Andreia permanece órfã**, o deal fica vinculado em outro lead.
 
-Ex: lead `2cc2f2f2…` (estampasdorei@gmail.com) — payload registrado em `system_health_logs`:
-```json
-{ "name": "Pedro Henrique",
-  "emails": [{...}], "phones": [{...}],
-  "custom_fields": [{"custom_field_id": 674001, "value": "Clínica ou Consultório"}],
-  "origin_id": 801242 }
+Casos confirmados no DB neste momento (post-backfill): **Andreia Knipp**, **Daniele/clinicaabascal_laboratorio**, **AMANDA MOURA/dentistaamandamoura**. Todos com `succeeded_at` mas `piperun_id=NULL`.
+
+Pior ainda: vários leads antigos têm o `nome` reescrito por sync reversa do PipeRun com nomes de OUTRAS pessoas:
+- `condominiomyflower67@gmail.com` ingestou "Néliton Ribeiro" → `nome="llello Poeta"`.
+- `dr.fredericorezende@hotmail.com` → `nome="AMANDA MOURA"`.
+- `felipepimpo78@gmail.com` ingestou "Felipe Pipo" → `nome="Felipe Garcia do Amaral"`.
+
+E os leads que aparecem no painel sem email ("Ana Paula Benedito", "Lucas", "fabio", "Flavio Gomes Lima", "Ruani Schuster", etc) são DEALS criados no PipeRun que estão amarrados a Persons sem email — provavelmente Persons criadas pelo `createPerson` quando o email já estava em outra Person diferente, ou sync reversa de deals antigos do PipeRun.
+
+### Bug B — Notificação WhatsApp ao vendedor com origem errada
+
+No caso Adelmo, a notificação mostra:
+
 ```
-→ `422 Unprocessable Content` → lead sem PipeRun.
+📋 Formulário: # - Impressoras - Smart Dent
+Origem: # - Impressoras - Smart Dent
+```
 
-### Bug #2 — Cron `retry-failed-leads-15min` enterra leads em falha
-`smart-ops-piperun-retry-failed-leads/index.ts` linha 94-97 carimba `piperun_retry_attempted_at` **independente do resultado** ("Mark attempt timestamp regardless of outcome — avoid hot loop"). Linha 59 do filtro descarta para sempre quem tem o flag. Então **uma única falha = lead enterrado**. Foi o que aconteceu com Ruani, Bernadete, Hugo, Otávio, Marcos e outros 69 leads.
+No DB:
+- `form_name = "# - Impressoras - Smart Dent"` (correto — esse é o nome do formulário Meta)
+- `origem_campanha = "# - Impressoras - Smart Dent"` (ERRADO — deveria ser `# Leads INO100 Plus`)
+- `origem_primeiro_contato = "# - Impressoras - Smart Dent"` (ERRADO — deveria ser `meta_lead_ads` ou a campanha real)
+- Os IDs reais do Meta estão no payload bruto: `c:120242917040680470 # Leads INO100 Plus` (campanha), `as:120242917040670470 # INO100Plus_com_notebook` (adset), `ag:120242917040660470 #INO100_Plus_Com_notebook` (ad).
 
-### Bug #3 — `smart-ops-ingest-lead` dispara `lia-assign` em fire-and-forget sem `EdgeRuntime.waitUntil`
-Linhas 488-502 e 505: `fetch(...).catch(console.warn)` sem `await` nem `waitUntil`. O Supabase Edge Runtime mata o request em-vôo quando o handler termina. Em ambiente carregado, a chamada nunca chega. Cobertura "salva-vidas" hoje seria o cron de retry — mas ele está quebrado pelo Bug #2.
+O webhook Meta está usando `form_name` como fallback para `origem_campanha` e `origem_primeiro_contato` em vez de extrair os campos reais (`campaign_name`, `adset_name`, `ad_name`) do payload Meta.
 
-### Bug #4 — Risco de mistura de leads (já documentado no `.lovable/plan.md` antigo)
-A função local `findPersonByEmail` em `smart-ops-lia-assign/index.ts` linha 55 tem `|| items[0]` que pega "primeira pessoa qualquer" do PipeRun (caso "Heitor Rabeti" da Camila Rolim). A versão correta em `_shared/piperun-hierarchy.ts` já removeu isso, mas a duplicada continua viva.
+### Bug C — `piperun-retry` mascara unique-violation como sucesso
 
-### Bug #5 — Cron de retry não loga nada por lead
-`smart-ops-piperun-retry-failed-leads` só imprime boot/shutdown. Sem `console.log` por candidato e sem `system_health_logs` em falha — fica invisível qual lead falhou e por quê.
+O cron classifica como sucesso qualquer resposta com `piperun_id` na resposta JSON, sem verificar se aquele ID foi de fato gravado no lead correto. Resultado: 3 leads marcados como `succeeded_at` mas com `piperun_id=NULL` no DB.
 
 ---
 
 ## Plano de correção
 
-### Parte 1 — Matar a duplicação em `lia-assign` (resolve Bugs #1 e #4)
-- Em `supabase/functions/smart-ops-lia-assign/index.ts`: remover as funções locais `findPersonByEmail` e `createPerson`/`updatePersonFields` e importar de `_shared/piperun-hierarchy.ts` (que já está limpo dos `custom_fields` proibidos e do fallback `items[0]`).
-- Conferir em `findOrCreateCompany` se ainda há custom_fields rejeitados pela Pessoa sendo enviados via `personPayload` em qualquer outro caminho.
+### Parte A — Travar contaminação no `lia-assign`
 
-### Parte 2 — Reformar o cron de retry (resolve Bugs #2 e #5)
+Em `supabase/functions/smart-ops-lia-assign/index.ts`:
+
+1. **Antes de aceitar uma Person retornada pelo PipeRun**, validar duas vezes:
+   - O Person retornado deve ter pelo menos 1 email cujo lowercase BATA EXATAMENTE com o `lead.email` solicitado (sem fallback por telefone se o email do lead foi informado).
+   - Se nenhum email bate, **descarta o match e força createPerson**.
+2. **Antes de gravar `piperun_id` no lead**, fazer SELECT de pré-checagem: se `piperun_id` já está em uso por outro lead canônico, NÃO atualizar — gravar `system_health_logs` com `error_type='piperun_id_conflict'` e `details: { conflicting_lead_id }`. O cron retry não pode marcar success neste caso.
+3. **Tratar erro de update silencioso**: capturar `error` do Supabase update e retornar 500 quando ele existir, com `system_health_logs` específico.
+4. **Nunca sobrescrever `nome` local com nome do PipeRun** quando o nome local foi informado em formulário. Adicionar guarda: se `lead.nome` não está vazio E não veio do próprio PipeRun (`origem_primeiro_contato='piperun_webhook'`), preservar.
+
+### Parte B — Fix da extração Meta (origem real)
+
+Em `supabase/functions/smart-ops-meta-lead-webhook/index.ts` (ou onde o lead Meta é construído):
+
+1. Extrair do payload: `campaign_name` → `origem_campanha`, `adset_name` → `origem_adset`, `ad_name` → `origem_ad`.
+2. Setar `origem_primeiro_contato = "meta_lead_ads"` para leads novos vindos via Meta (não duplicar com `form_name`).
+3. Setar `form_name` = nome do form Meta (atual já correto).
+4. Na notificação WA (`lia-assign` linha 730 e 897), trocar `📋 Formulário: ${form_name}` para mostrar:
+   ```
+   📋 Canal: ${source} (Meta Lead Ads / WhatsApp / Site)
+   📝 Formulário: ${form_name}
+   🎯 Campanha: ${origem_campanha} > ${origem_adset || "—"}
+   ```
+
+### Parte C — `piperun-retry` valida que `piperun_id` foi de fato persistido
+
 Em `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts`:
-- Trocar `piperun_retry_attempted_at` por contador `piperun_retry_attempts` + `piperun_retry_last_attempt_at` + `piperun_retry_last_error` (gravados **só após** chamar o assign).
-- Em sucesso: continuar gravando `piperun_retry_succeeded_at` e zerar o contador.
-- Filtro de candidatos: `attempts IS NULL OR (attempts < 6 AND now() - last_attempt_at >= base_backoff(attempts))` com backoff 15min/30min/1h/2h/4h/8h.
-- Ao esgotar 6 tentativas: gravar `system_health_logs` com `error_type='piperun_assign_exhausted'` para o Copilot escalar.
-- Logar cada candidato + outcome (`console.log` + `system_health_logs` em falha).
-- Migration leve: índice parcial `(raw_payload->>'piperun_retry_attempts') WHERE merged_into IS NULL AND piperun_id IS NULL` para o cron escalar.
 
-### Parte 3 — Tornar o dispatch confiável (resolve Bug #3)
-Em `supabase/functions/smart-ops-ingest-lead/index.ts` linhas 488 e 505:
-- Trocar `fetch(...).catch(...)` por `EdgeRuntime.waitUntil(fetch(...).catch(...))`. O runtime mantém o handler vivo até o fetch resolver.
-- Aplicar idem nas linhas 388 (`smart-ops-deal-form-note`) e em `smart-ops-piperun-webhook/index.ts` 886 e 943 (`cognitive-lead-analysis`) e `smart-ops-wa-inbox-webhook/index.ts` 221, 297.
-- Se falhar, gravar `system_health_logs` com `error_type='lia_assign_dispatch_failed'`.
+1. Após chamar `lia-assign` e receber `piperun_id`, fazer um SELECT extra: `SELECT piperun_id FROM lia_attendances WHERE id=$lead_id`. Só marcar `succeeded_at` se o ID gravado bate com o ID retornado.
+2. Se `lia-assign` retornou `piperun_id` mas o DB não persistiu → tratar como `piperun_id_conflict`, gravar `system_health_logs` com severity error e NÃO incrementar attempts (a falha não é do lead, é do código).
 
-### Parte 4 — Hardening do `lia-assign` para nunca corromper lead
-No bloco "update lead in lia_attendances" (linhas 1623+):
-- Quando `flowType === "error_no_person"`: **não** sobrescrever `proprietario_lead_crm`, `funil_entrada_crm`, `ultima_etapa_comercial` no banco. Apenas logar e sair, deixando o cron retry assumir.
-- Hoje o código grava `funil_entrada_crm = "Funil de vendas"` mesmo quando a criação falhou, o que polui status downstream.
+### Parte D — Reparo retroativo mais cauteloso
 
-### Parte 5 — Reparo retroativo (one-shot)
-Após Partes 1-3 estarem em produção:
-1. SQL migration limpa: `UPDATE lia_attendances SET raw_payload = raw_payload - 'piperun_retry_attempted_at' WHERE merged_into IS NULL AND piperun_id IS NULL AND raw_payload ? 'piperun_retry_attempted_at';` (afeta os 74 leads enterrados).
-2. Disparar `POST smart-ops-piperun-retry-failed-leads` com `{"limit":100,"lookback_days":14,"force":true}`. Os 82 leads (incluindo Ruani, Bernadete, Hugo, Otávio, Marcos, Ana Paula, Tamára…) são recriados no PipeRun com pessoa + deal.
-3. Validar com `SELECT count(*) FROM lia_attendances WHERE merged_into IS NULL AND piperun_id IS NULL AND created_at > now() - interval '14 days' AND email IS NOT NULL AND email NOT ILIKE '%test%';` — deve cair para perto de zero (apenas leads dos últimos 5 minutos).
+1. **Reverter contaminações conhecidas**: para os 3 leads (Andreia, Daniele, Amanda) que ficaram `succeeded_at` mas sem `piperun_id`, limpar `succeeded_at` e zerar `attempts`. Após a Parte A estar deployada, deixar o cron reprocessar — agora vai criar Person nova em vez de pegar a errada.
+2. **Detectar todos os leads com nome contaminado** (nome local diferente do nome ingerido no `raw_payload.latest_payload.nome`): mostrar lista para revisão manual antes de qualquer ação automática. Não é seguro reescrever em massa.
+3. **Detectar deals "órfãos"** no painel local (lista que o usuário viu: "Ana Paula Benedito", "Lucas", "fabio" sem email): rodar query para identificar leads com `pessoa_piperun_id` mas sem `email` localmente, e cruzar com PipeRun para ver se a pessoa lá tem email.
 
-### Parte 6 — Monitoramento contínuo (preventivo)
-- Adicionar query de health no dashboard Copilot: "Leads sem PipeRun > 30min" e "Leads com 3+ retries falhados". Alertar quando > 5 simultâneos.
-- Cron `system-health-watchdog` (já existe) pode chamar essa query e notificar via WhatsApp.
+### Parte E — Monitoramento
 
-### Arquivos alterados
-1. `supabase/functions/smart-ops-lia-assign/index.ts` — remover duplicatas, importar de `_shared/piperun-hierarchy.ts`, parar de poluir lead em erro.
-2. `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` — schema novo de flags + backoff + logs.
-3. `supabase/functions/smart-ops-ingest-lead/index.ts` — `EdgeRuntime.waitUntil` em 3 fetches.
-4. `supabase/functions/smart-ops-piperun-webhook/index.ts` — `waitUntil` em 2 fetches.
-5. `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` — `waitUntil` em 2 fetches.
-6. 1 migration: índice parcial + limpeza dos 74 flags queimados.
+Adicionar no `system-watchdog-deepseek`:
+- Alerta quando `system_health_logs` registrar `piperun_id_conflict` ou `crm_person_creation_failed` mais de 3x em 1h.
+- Query semanal: leads canônicos com `nome` divergente de `raw_payload.latest_payload.nome` → relatório de auditoria.
 
-### Validação final
-- Criar 1 lead de teste via `meta_lead_ads` simulado → `piperun_id` aparece em ≤30s, com Pessoa correta vinculada (não "Heitor Rabeti").
-- Forçar 1 falha proposital (PipeRun com token inválido temporariamente) → cron retenta 6x com backoff e grava `piperun_assign_exhausted`, sem enterrar.
-- Verificar que `funil_entrada_crm` permanece `null` enquanto não houver `piperun_id`.
+---
+
+### Arquivos a alterar
+1. `supabase/functions/smart-ops-lia-assign/index.ts` — guarda strict-email + pré-checagem unique + erro de update + preservar nome local.
+2. `supabase/functions/smart-ops-meta-lead-webhook/index.ts` — extrair campaign/adset/ad reais, separar `form_name` de `origem_campanha`.
+3. `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` — validação pós-update, novo error_type.
+4. 1 migration: limpar `succeeded_at` dos 3 leads contaminados; opcional: backfill de `origem_campanha` para leads Meta recentes a partir do `raw_payload.latest_payload`.
+
+### Validação
+- Recriar lead `andreiaknip@gmail.com` via retry → deve criar Person nova com email correto, deal novo, piperun_id no lead correto.
+- Conferir notificação WA do próximo lead Meta: deve mostrar Canal = "Meta Lead Ads", Formulário = nome real, Campanha = `# Leads INO100 Plus`.
+- `system_health_logs` deve registrar 0 eventos de `piperun_id_conflict` após 24h.
 
 ### Perguntas
-1. Posso já implementar **as 6 partes em sequência** (consolidação → cron → dispatch → hardening → reparo → monitoramento)? Ou prefere quebrar em 2 PRs (1: Partes 1-3 que são código + 2: Partes 4-6 incluindo backfill)?
-2. Para a Parte 5 (backfill dos 82 leads), prefere `dry_run` primeiro com a lista para revisão, ou já libero direto (todos têm dados próprios — e-mail/telefone — não há risco de mistura porque o Bug #4 será corrigido antes)?
+1. **Sobre a Parte A.4 (preservação de nome)**: posso sobrescrever o nome local APENAS quando o PipeRun retornar nome com `>= 2 tokens` E o nome local for `null/vazio/email`? Isso é o mais conservador — se quiser permitir reescrita também quando o local tem 1 token (ex.: "Tiago" → "Tiago Reis CRO SP 94604"), me diga.
+2. **Sobre os deals órfãos no painel** ("Ana Paula Benedito", "Lucas", "fabio" sem email): essas são pessoas/deals reais no PipeRun que vieram via outra fonte (manual? CSV antigo?), ou são contaminações? Quer que eu liste todos os 100+ deals afetados para você decidir caso a caso, ou prefere que eu deixe como está e foque só nos novos leads do Meta?
+3. **Sobre o backfill remanescente** (3 leads ainda stuck): paro tudo até deployar a Parte A, ou quer que eu faça o reparo limpo só desses 3 manualmente agora?
