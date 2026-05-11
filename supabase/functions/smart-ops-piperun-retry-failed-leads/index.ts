@@ -14,25 +14,36 @@ Deno.serve(async (req) => {
 
   let limit = 25;
   let dryRun = false;
+  let emailsFilter: string[] | null = null;
+  let force = false;
+  let lookbackDays = 7;
   try {
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
       if (typeof body.limit === "number") limit = Math.min(100, body.limit);
       if (body.dry_run === true) dryRun = true;
+      if (Array.isArray(body.emails) && body.emails.length > 0) {
+        emailsFilter = body.emails.map((e: string) => String(e).toLowerCase().trim()).filter(Boolean);
+      }
+      if (body.force === true) force = true;
+      if (typeof body.lookback_days === "number") lookbackDays = body.lookback_days;
     }
   } catch {}
 
-  // Find canonical leads created in the last 7 days, with email but no piperun_id,
-  // and that have not been retried yet (raw_payload.piperun_retry_attempted_at NULL).
-  const { data: leads, error } = await supabase
+  let query = supabase
     .from("lia_attendances")
     .select("id, email, raw_payload, created_at")
     .is("merged_into", null)
     .is("piperun_id", null)
-    .not("email", "is", null)
-    .gte("created_at", new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
+    .not("email", "is", null);
+  if (emailsFilter) {
+    query = query.in("email", emailsFilter);
+  } else {
+    query = query.gte("created_at", new Date(Date.now() - lookbackDays * 24 * 3600 * 1000).toISOString());
+  }
+  const { data: leads, error } = await query
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(Math.max(200, limit * 2));
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
@@ -44,6 +55,7 @@ Deno.serve(async (req) => {
   const candidates = (leads || []).filter((l: any) => {
     const email = (l.email || "").toLowerCase();
     if (!email || /test|teste|example/.test(email)) return false;
+    if (force) return true;
     return !l.raw_payload?.piperun_retry_attempted_at;
   }).slice(0, limit);
 
