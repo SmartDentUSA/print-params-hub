@@ -1742,10 +1742,72 @@ Deno.serve(async (req) => {
       }
     }
 
-    await supabase
+    // ── PRE-CHECK: piperun_id UNIQUE conflict guard ──
+    // The DB has UNIQUE(piperun_id). If we are about to write a piperun_id that
+    // already belongs to a DIFFERENT canonical lead, the UPDATE silently fails
+    // and leaves this lead orphaned (succeeded_at marked, piperun_id NULL).
+    // Detect and abort BEFORE the update so the retry cron can re-run later
+    // (after the contaminating Person is fixed in PipeRun).
+    if (piperunId) {
+      const { data: conflict } = await supabase
+        .from("lia_attendances")
+        .select("id, email")
+        .eq("piperun_id", String(piperunId))
+        .neq("id", lead.id as string)
+        .is("merged_into", null)
+        .maybeSingle();
+      if (conflict) {
+        console.error(`[lia-assign] piperun_id_conflict: deal ${piperunId} already on lead ${conflict.id} (${conflict.email}); aborting update for ${lead.id}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "error",
+            error_type: "piperun_id_conflict",
+            lead_email: lead.email,
+            details: {
+              lead_id: lead.id,
+              attempted_piperun_id: piperunId,
+              attempted_pessoa_id: personId,
+              conflicting_lead_id: conflict.id,
+              conflicting_lead_email: conflict.email,
+              flow: flowType,
+            },
+          });
+        } catch {}
+        return new Response(JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: "piperun_id_conflict",
+          conflicting_lead_id: conflict.id,
+          attempted_piperun_id: piperunId,
+          lead_id: lead.id,
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    const { error: updateError } = await supabase
       .from("lia_attendances")
       .update(updateFields)
       .eq("id", lead.id);
+
+    if (updateError) {
+      console.error(`[lia-assign] DB update FAILED for ${lead.id}:`, updateError);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "error",
+          error_type: "lead_update_failed",
+          lead_email: lead.email,
+          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: updateError.message, code: updateError.code },
+        });
+      } catch {}
+      return new Response(JSON.stringify({
+        success: false,
+        error: "lead_update_failed",
+        details: updateError.message,
+        lead_id: lead.id,
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
