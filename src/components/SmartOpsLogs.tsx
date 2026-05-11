@@ -75,6 +75,9 @@ function formatEventLabel(eventType: string): string {
     cart_abandoned: "Carrinho abandonado",
     meta_lead_created: "Lead Meta criado",
     sdr_contact: "Contato SDR",
+    meta_ads_lead_entry: "Lead Meta criado",
+    meta_ads_lead_reactivated: "Lead Meta reativado",
+    form_submission_detected: "Formulário detectado",
   };
   return map[eventType] || eventType.replace(/_/g, " ");
 }
