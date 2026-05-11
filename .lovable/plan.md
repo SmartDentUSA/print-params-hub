@@ -1,69 +1,76 @@
-## Diagnóstico do CSV "07_05_2026 RayShape+Cure" (846 leads únicos do Meta Lead Ads)
+## Objetivo
 
-Cruzamento dos 846 emails do CSV com `lia_attendances` (canônicos):
+Antes de reprocessar os 61 leads (retry) e ingerir os 324 do CSV (backfill), garantir que **nenhum Deal duplicado** seja criado no Piperun. Adicionar uma camada de verificação prévia (dry-run) que inspeciona o Piperun por e-mail e relata o que será feito, antes de qualquer escrita.
 
-| Status | Qtd | % |
-|---|---:|---:|
-| ✅ No DB **com** `piperun_id` | **461** | 54,5% |
-| ⚠️ No DB **sem** `piperun_id` (lia-assign falhou) | **61** | 7,2% |
-| ❌ Nem chegou ao DB (Meta webhook nunca disparou ingest-lead) | **324** | 38,3% |
+## Por que isso é seguro hoje (e onde pode falhar)
 
-Ou seja: **385 dos 846 leads (45,5%) NÃO foram ao Piperun.**
+A `smart-ops-lia-assign` já tem dedupe robusto (Golden Rule) em `_shared/piperun-hierarchy.ts`:
 
-### Causa #1 — 61 leads no DB sem `piperun_id` (falha CRM sync)
-Mesma raiz já identificada no plano anterior:
-- `findPersonByEmail` chama `GET /persons?email=...` — Piperun ignora esse parâmetro → todo lead existente é tratado como novo.
-- `createPerson` envia custom field `674001` (PESSOA AREA_ATUACAO) inválido → 422 `"Não foi possível encontrar os campos customizados: ."`.
-- Retry sem custom_fields não está recuperando.
-- Resultado: lia-assign aborta com `crm_person_creation_failed`. Logs em `system_health_logs` confirmam (243 falhas / 51 leads em 7 dias).
-
-### Causa #2 — 324 leads NUNCA entraram no DB (Meta Lead Ads webhook não processou)
-Esses leads existem no painel do Meta (CSV exportado do Facebook), mas não têm registro em `lia_attendances`. Possíveis causas:
-1. **Webhook subscription incompleta no Meta**: o app/page do Meta não está inscrito no campo `leadgen` para a Page que serviu o ad `# 07_05_2026_RayShape+Cure`, ou o token da Page expirou.
-2. **`META_VERIFY_TOKEN` / `META_APP_SECRET` inválido**: webhooks chegam mas falham validação HMAC silenciosamente (404/401).
-3. **Form `# - Impresoras - Smart Dent` (id 4309081142703799)** não está mapeado no fluxo do meta-lead-webhook, ou está caindo em early-return.
-4. **Latência/falha no `fetch leadgen_id` do Graph API**: token da Page expirado faz `GET /{leadgen_id}` retornar 400/403 → o webhook descarta o lead.
-5. Webhooks recebidos antes do deploy atual existir (leads de 07/05; integração ativa só depois).
-
-Os 461 que chegaram ao Piperun correspondem em sua maioria a leads que:
-- Foram importados via CSV manual / Sellflux / outro caminho que não o webhook em tempo real.
-- Ou entraram pelo webhook após a integração estar saudável.
-
----
-
-## Plano de correção (estendendo o plano anterior)
-
-### Passo 1 — Corrigir `findPersonByEmail` + remover custom field 674001
-(Mesmas 2 correções já planejadas — bloqueiam os 61 leads sem `piperun_id` E também todos os novos que entrarem.)
-
-### Passo 2 — Reprocessar os 61 leads "no DB sem piperun_id"
-Rodar `smart-ops-piperun-retry-failed-leads` com filtro pela lista de 846 emails do CSV (limit 100, em loop). Tornar a função aceitar um array `emails[]` opcional no body para targeting:
-```ts
-body: { emails: [...846 emails do CSV...], force: true, limit: 100 }
+```text
+findPersonByEmail (agora com emails[email]=) →
+  findPersonDeals →
+    deal aberto em Vendas?  → updateExistingDeal (NÃO cria)
+    deal aberto em Estagnados? → moveDealToVendas (NÃO cria)
+    deal Ganho?              → preservar, NÃO tocar
+    nenhum dos acima         → createNewDeal
 ```
 
-### Passo 3 — Auditoria do Meta Lead Ads webhook (recuperar os 324 perdidos)
-3.1. **Diagnóstico de subscription**: criar pequena edge function `smart-ops-meta-leads-audit` que chama `GET /{page_id}/subscribed_apps` e `GET /{page_id}/leadgen_forms?fields=id,name,leads{created_time,id,field_data}&limit=200&since=2026-05-06` para o form `4309081142703799`. Compara com `lia_attendances.raw_payload->>'meta_leadgen_id'` e identifica exatamente quais `leadgen_id` foram perdidos.
+Risco real de duplicação só existe se:
+1. `findPersonByEmail` falhar em achar a pessoa (e cair em `createPerson` + `createNewDeal`).
+2. O lead local já tiver um `piperun_id` antigo, mas o orquestrador também criar um novo Deal por não checar o ID local.
+3. A pessoa no Piperun estiver cadastrada apenas por **telefone**, sem o e-mail do lead.
 
-3.2. **Backfill batch**: para cada `leadgen_id` perdido, chamar `smart-ops-meta-lead-webhook` com payload sintético `{ object: 'page', entry: [{ changes: [{ value: { leadgen_id, form_id, page_id, created_time, ad_id } }] }] }` para reusar o pipeline existente. Idempotência já existe via `meta_leadgen_id` no DB.
+## Plano
 
-3.3. **Importador CSV de fallback (one-shot)**: como o CSV já está em mãos com todos os campos preenchidos, criar script `import-meta-csv` (admin-only) que aceita upload do CSV exportado do Meta e converte cada linha em payload normalizado para `smart-ops-ingest-lead` (mesmo schema do meta-lead-webhook). Isso garante recuperação dos 324 leads imediatamente, sem depender da Graph API. Marca `raw_payload.import_source = 'meta_csv_backfill'` para auditoria.
+### 1. Pré-auditoria (dry-run obrigatório, sem escrever no Piperun)
 
-### Passo 4 — Validação
-- Re-rodar a query de cruzamento e confirmar que ≥99% dos 846 emails têm `piperun_id`.
-- Verificar `system_health_logs` zerar `crm_person_creation_failed` em 24h.
-- Conferir 5 leads aleatórios da lista no Piperun: Person criada/encontrada, Deal no funil correto (Vendas ou Distribuidor), nota Piperun com origem `Meta Ads — # Leads RayShape+Cure`.
+Criar `supabase/functions/smart-ops-piperun-preflight/index.ts`. Recebe `{ emails: string[] }` e, para cada e-mail, retorna:
 
-### Passo 5 — Hardening (preventivo)
-- Healthcheck diário: cron compara `count(meta_leadgen_id)` últimos 24h vs estimativa do Meta API → alerta se gap > 10%.
-- Alarm em `system_health_logs.severity = 'error'` AND `function_name LIKE '%lia-assign%'`.
+```text
+email | local_piperun_id | piperun_person_id | open_vendas_deal | open_estagn_deal | won_deals | action
+```
 
----
+Onde `action` ∈:
+- `skip_local_id_present` — lead já tem `piperun_id` no banco
+- `skip_open_deal_exists` — pessoa tem deal aberto (Vendas ou Estagnados) → será **enriquecido**, não duplicado
+- `skip_won_only` — só tem deal ganho → não tocar
+- `safe_create` — pessoa não existe ou existe sem deal aberto → criar novo Deal
 
-## O que NÃO mexer
-- Pipeline Vendas / Distribuidor / Round-Robin: funcionam, o gargalo é upstream.
-- Schema `lia_attendances`.
-- Forms públicos / Sellflux / Loja Integrada — fora do escopo do CSV em questão.
+Saída em JSON + CSV salvo em `/mnt/documents/piperun-preflight-{ts}.csv` para auditoria.
 
-## Resumo executivo
-**385 de 846 leads (45,5%) ficaram fora do Piperun.** 61 falharam por bug em `findPersonByEmail` + custom field inválido (Passo 1). 324 nunca chegaram ao sistema porque o webhook Meta não processou — o CSV em mãos permite backfill imediato (Passo 3.3). Após Passo 1+2+3 espera-se cobertura ≥99%.
+### 2. Reforço de guard-rails no fluxo principal
+
+Em `smart-ops-lia-assign/index.ts`, antes de `createNewDeal` no caminho `new_deal`:
+
+- Se `lead.piperun_id` já existir no banco, **não criar novo**: validar via `GET deals/{id}`. Se vivo e não-deletado, apenas atualizar; se morto, então criar.
+- Se a pessoa foi achada por telefone mas não por e-mail, logar `[dedupe] person matched by phone only` para investigação.
+
+### 3. Modos seguros nas funções de retry/backfill
+
+- `smart-ops-piperun-retry-failed-leads`: aceitar `dry_run: true`. Em dry-run, chamar `smart-ops-piperun-preflight` para os e-mails do lote e retornar o relatório, sem invocar `lia-assign`.
+- `smart-ops-meta-csv-backfill`: aceitar `dry_run: true` (já filtra por e-mails ausentes no banco). Em dry-run, também chamar o preflight para os 324 e-mails — mesmo que não estejam no banco local, podem já existir no Piperun via outro canal.
+
+### 4. Execução faseada
+
+```text
+Fase A — preflight dos 61 leads (retry)         → revisar CSV
+Fase B — preflight dos 324 leads (CSV backfill) → revisar CSV
+Fase C — executar retry com force=true apenas nos `safe_create` + `skip_open_deal_exists`
+Fase D — executar backfill apenas nos e-mails marcados `safe_create`
+```
+
+Nunca rodar Fase C/D antes da minha confirmação após revisar A/B.
+
+## Arquivos afetados
+
+- `supabase/functions/smart-ops-piperun-preflight/index.ts` (novo)
+- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` (adicionar `dry_run`)
+- `supabase/functions/smart-ops-meta-csv-backfill/index.ts` (adicionar `dry_run` + chamada ao preflight)
+- `supabase/functions/smart-ops-lia-assign/index.ts` (guard `lead.piperun_id` antes de `createNewDeal`)
+- `supabase/config.toml` (registrar nova function)
+
+## Validação
+
+1. Rodar preflight nos 2 lotes, baixar CSV, conferir contagens de cada `action`.
+2. Rodar Fase C/D apenas após aprovação.
+3. Após execução: query em `lia_attendances` agrupando por `piperun_id` para confirmar zero duplicatas.
