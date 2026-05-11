@@ -90,10 +90,21 @@ async function createPerson(
   if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
-  const createRes = await piperunPost(apiToken, "persons", personPayload);
+  let createRes = await piperunPost(apiToken, "persons", personPayload);
   if (createRes.success && createRes.data) {
     const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (personData?.id) return Number(personData.id);
+  }
+  // Retry without custom_fields if Piperun rejected them (422 "campos customizados")
+  const errBody = JSON.stringify(createRes.data || {});
+  if (createRes.status === 422 && /campos customizados|custom_fields/i.test(errBody) && personPayload.custom_fields) {
+    console.warn("[lia-assign] Retrying createPerson without custom_fields (Piperun rejected IDs)");
+    delete personPayload.custom_fields;
+    createRes = await piperunPost(apiToken, "persons", personPayload);
+    if (createRes.success && createRes.data) {
+      const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (personData?.id) return Number(personData.id);
+    }
   }
   // Detailed failure capture: persist full diagnostic to system_health_logs so we can debug
   console.warn(`[lia-assign] Failed to create person (${createRes.status})`, JSON.stringify(createRes.data || {}).slice(0, 500));
