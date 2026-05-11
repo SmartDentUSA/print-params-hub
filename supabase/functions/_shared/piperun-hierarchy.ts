@@ -47,11 +47,15 @@ export async function findPersonByEmail(
     };
     const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
     if (res.success && res.data) {
+      const items = (res.data as any)?.data as Array<Record<string, unknown>> | undefined;
+      console.log(`[findPersonByEmail] emails[email] q=${email} returned=${items?.length ?? 0} firstId=${items?.[0]?.id ?? "-"}`);
       const found = pickFromList(res.data);
       if (found) return found;
     }
     const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
     if (sres.success && sres.data) {
+      const items = (sres.data as any)?.data as Array<Record<string, unknown>> | undefined;
+      console.log(`[findPersonByEmail] search q=${email} returned=${items?.length ?? 0} firstId=${items?.[0]?.id ?? "-"}`);
       const found = pickFromList(sres.data);
       if (found) return found;
     }
