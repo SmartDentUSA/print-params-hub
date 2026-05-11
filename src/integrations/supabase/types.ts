@@ -1385,8 +1385,10 @@ export type Database = {
           ativo: boolean
           created_at: string
           delay_days: number | null
+          evolution_ativo: boolean | null
           id: string
           manychat_ativo: boolean | null
+          mensagem_evolution: string | null
           mensagem_waleads: string | null
           produto_interesse: string | null
           team_member_id: string | null
@@ -1402,8 +1404,10 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
+          evolution_ativo?: boolean | null
           id?: string
           manychat_ativo?: boolean | null
+          mensagem_evolution?: string | null
           mensagem_waleads?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
@@ -1419,8 +1423,10 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
+          evolution_ativo?: boolean | null
           id?: string
           manychat_ativo?: boolean | null
+          mensagem_evolution?: string | null
           mensagem_waleads?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
