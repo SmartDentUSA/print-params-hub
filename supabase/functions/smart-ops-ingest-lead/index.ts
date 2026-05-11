@@ -154,6 +154,10 @@ Deno.serve(async (req) => {
       resina_interesse: resinaInteresse, produto_interesse: produtoInteresse,
       source, form_name: formName,
       origem_campanha: payload.campaign || payload.origem_campanha || null,
+      // origem_primeiro_contato is set on every payload, but a BEFORE UPDATE trigger
+      // on lia_attendances preserves the original value once the lead exists.
+      origem_primeiro_contato:
+        payload.origem_campanha || payload.campaign || formName || source || null,
       utm_source: payload.utm_source || null, utm_medium: payload.utm_medium || null,
       utm_campaign: payload.utm_campaign || null, utm_term: payload.utm_term || null,
       ip_origem: payload.ip || req.headers.get("x-forwarded-for") || null,
