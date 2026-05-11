@@ -1218,7 +1218,7 @@ async function executarReativacaoSdrCaptacao(
   // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
   let personId = lead.pessoa_piperun_id as number | null;
   if (!personId) {
-    const person = await findPersonByEmail(apiToken, leadEmail);
+    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
     personId = person?.id ?? null;
   }
   if (!personId) {
@@ -1478,7 +1478,7 @@ Deno.serve(async (req) => {
     // Step 5a: Find or create Person (with stale-cache recovery)
     if (personId) {
       // Validate cached person still exists in PipeRun
-      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
+      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
       if (!personCheck || personCheck.id !== personId) {
         console.log(`[lia-assign] Cached person ${personId} is stale (not found or mismatched). Re-resolving...`);
         if (personCheck) {
@@ -1491,7 +1491,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
+      const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
       if (existingPerson) {
         personId = existingPerson.id;
         companyId = existingPerson.company_id || companyId;
