@@ -11176,8 +11176,13 @@ export type Database = {
           created_at: string
           elevenlabs_voice_id: string | null
           email: string
+          evolution_instance_name: string | null
+          evolution_phone: string | null
           id: string
           manychat_api_key: string | null
+          manychat_page_id: string | null
+          manychat_subscriber_key: string | null
+          messaging_provider: string
           nome_completo: string
           piperun_owner_id: string | null
           role: string
@@ -11196,8 +11201,13 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email: string
+          evolution_instance_name?: string | null
+          evolution_phone?: string | null
           id?: string
           manychat_api_key?: string | null
+          manychat_page_id?: string | null
+          manychat_subscriber_key?: string | null
+          messaging_provider?: string
           nome_completo: string
           piperun_owner_id?: string | null
           role: string
@@ -11216,8 +11226,13 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email?: string
+          evolution_instance_name?: string | null
+          evolution_phone?: string | null
           id?: string
           manychat_api_key?: string | null
+          manychat_page_id?: string | null
+          manychat_subscriber_key?: string | null
+          messaging_provider?: string
           nome_completo?: string
           piperun_owner_id?: string | null
           role?: string
