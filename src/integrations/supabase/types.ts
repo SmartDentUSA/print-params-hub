@@ -5777,6 +5777,11 @@ export type Database = {
           merge_history: Json | null
           merged_at: string | null
           merged_into: string | null
+          meta_created_time: string | null
+          meta_form_id: string | null
+          meta_leadgen_id: string | null
+          meta_page_id: string | null
+          meta_platform: string | null
           motivo_perda: string | null
           next_purchase_probability: number | null
           next_purchase_product: string | null
@@ -6277,6 +6282,11 @@ export type Database = {
           merge_history?: Json | null
           merged_at?: string | null
           merged_into?: string | null
+          meta_created_time?: string | null
+          meta_form_id?: string | null
+          meta_leadgen_id?: string | null
+          meta_page_id?: string | null
+          meta_platform?: string | null
           motivo_perda?: string | null
           next_purchase_probability?: number | null
           next_purchase_product?: string | null
@@ -6777,6 +6787,11 @@ export type Database = {
           merge_history?: Json | null
           merged_at?: string | null
           merged_into?: string | null
+          meta_created_time?: string | null
+          meta_form_id?: string | null
+          meta_leadgen_id?: string | null
+          meta_page_id?: string | null
+          meta_platform?: string | null
           motivo_perda?: string | null
           next_purchase_probability?: number | null
           next_purchase_product?: string | null
@@ -14989,6 +15004,11 @@ export type Database = {
           merge_history: Json | null
           merged_at: string | null
           merged_into: string | null
+          meta_created_time: string | null
+          meta_form_id: string | null
+          meta_leadgen_id: string | null
+          meta_page_id: string | null
+          meta_platform: string | null
           motivo_perda: string | null
           next_purchase_probability: number | null
           next_purchase_product: string | null
