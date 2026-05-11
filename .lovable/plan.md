@@ -1,70 +1,64 @@
-## Diagnóstico do caso Michelle Ohana
-
-| Campo | Valor atual no Supabase | Esperado |
-|---|---|---|
-| `piperun_id` | 35313685 | ✓ |
-| `origem_primeiro_contato` | `"piperun"` (lixo do backfill) | `"Involve - [Ebook - Vitality]"` (1ª conversão real, 05/abr/2024) |
-| `form_name` / `origem_campanha` | `null` | `"[LEADS] - RayShape Edge Mini - [Smart Dent]"` (nova conversão Meta) |
-| Eventos Meta em `lead_activity_log` | nenhum | 1 entrada `meta_ads_lead_entry` |
-
-**Causa raiz:**
-1. O backfill inicial gravou o **canal de origem** (`piperun`/`sellflux`) no campo `origem_primeiro_contato`, em vez do **nome real da campanha de primeira conversão** (que vive como `origin.name` da Pessoa no Piperun). Hoje 22.495 leads canônicos estão nessa situação.
-2. A nova conversão Meta da Michelle ainda não chegou ao webhook (`smart-ops-meta-lead-webhook`) — o payload tab-separado que você colou parece vir de uma automação externa (Sellflux/Involve), não do webhook nativo do Meta. Logs da Michelle em `lead_activity_log` não mostram nenhum evento Meta.
-
-A lógica de origem **já está correta no código** (implementada na rodada anterior):
-- `createPerson` envia `origin_id` = primeira conversão (frozen) ✓
-- `updatePersonFields` **nunca** envia `origin_id` → Piperun preserva a origem original ✓
-- `createNewDeal` / `updateExistingDeal` / `moveDealToVendas` usam `form_name` da conversão atual → Deal recebe origem da campanha correta ✓
-
-Falta apenas (a) corrigir os dados históricos e (b) garantir que a nova conversão Meta dispara o pipeline.
-
----
-
 ## Plano
 
-### 1. Backfill `origem_primeiro_contato` a partir do Piperun
+### Parte 1 — Backfill `equip_*` a partir de Piperun deal_items (fonte primária)
 
-Edge function nova `smart-ops-backfill-person-origin`:
-- Busca leads canônicos onde `piperun_id IS NOT NULL` e `origem_primeiro_contato IN ('piperun','sellflux','sync','crm','manual_capture', null)`.
-- Para cada um, faz `GET /persons/{piperun_id}` e lê `data.origin.name`.
-- Atualiza `lia_attendances.origem_primeiro_contato = origin.name`.
-- Processa em lotes de 100, com paginação por `updated_at`, idempotente.
-- Pode ser disparada manualmente pela aba Smart Ops > Sync.
+Edge function nova `smart-ops-backfill-equipment-from-deals`:
 
-Trigger `protect_origem_primeiro_contato` continua bloqueando overwrite após preenchimento real (pular bloqueio quando valor anterior estiver na lista de "lixo conhecido"). Migração ajustando o trigger:
+**Input:** todos os leads canônicos (`merged_into IS NULL`) que tenham `deal_items` com `source='piperun'` (1.792 leads).
 
+**Lógica de classificação (regex sobre `product_name`, case-insensitive):**
+
+| Categoria | Padrão | Campos preenchidos |
+|---|---|---|
+| **Scanner intraoral** | `medit\s*i\d|i600|i700|aoralscan|trios|itero|primescan|scanner intraoral` | `equip_scanner` = nome canônico, `tem_scanner=true`, `status_scanner='tem_smartdent'` se vendido por nós |
+| **Impressora 3D** | `halot|elegoo|mars|saturn|miicraft|phrozen|sonic|anycubic|rayshape|edgemini|impressora` | `equip_impressora` = modelo, `impressora_modelo` = modelo, `tem_impressora=true`, `status_impressora='tem_smartdent'` |
+| **Cura/Wash** | `wash.?cure|mercury|nanoclean pod|cure m\d` | `equip_pos_cura` (se existir o campo), senão badge auxiliar |
+| **CAD/CAM Software** | `exocad|exoplan|dentalcad|meshmixer|3shape design` | `software_cad` = nome, `equip_cad`, `status_cad='tem_exocad'` quando exocad |
+| **Notebook/Workstation** | `notebook|avell|workstation|ryzen|rtx` | `equip_workstation` (auxiliar) |
+
+Resinas, kits, treinamentos e cursos são **ignorados** (não são equipamentos).
+
+**Estratégia de aplicação (incremental + auditável):**
+1. Para cada lead, agregar todos os itens ganhos.
+2. Para cada categoria detectada, **só preencher se o campo está vazio ou contém "Não"** (respeitando dado já enriquecido pelo SDR/form 7×3).
+3. `equip_*_idade_meses` = meses desde `closed_at` do deal de origem.
+4. Inserir registro em `lead_enrichment_audit` com `source='backfill_equipment_from_deals'`.
+5. Lotes de 200, idempotente (rerun não duplica).
+
+**Trigger:** disparado manualmente pela aba Smart Ops > Sync (botão "Backfill Equipamentos via Deals Ganhos") ou via curl.
+
+### Parte 2 — Parte do Omie (apenas verificação cruzada)
+
+**Não usar Omie para backfill enquanto os campos `omie_total_pedidos / omie_ultima_compra` estiverem zerados** — provavelmente o sync atual só atualiza timestamp sem hidratar contas. 
+
+Criar script de auditoria separado (`smart-ops-audit-omie-vs-piperun`) que apenas reporta divergências:
+- Leads com `omie_last_sync` recente mas `omie_total_pedidos=0`
+- Leads com `deal_items piperun ganho` sem espelho em Omie
+- Saída: tabela `lead_enrichment_audit` com `source='omie_audit'` e `note='omie_empty_despite_sync'`
+
+Esse relatório não corrige nada — só diagnostica para uma rodada futura de fix do `omie-sync`.
+
+### Parte 3 — Refresh dos contadores Copilot
+
+Após backfill, rodar query de validação:
 ```sql
--- Permitir backfill apenas quando o valor antigo é "lixo de canal"
-CREATE OR REPLACE FUNCTION protect_origem_primeiro_contato()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  IF OLD.origem_primeiro_contato IS NOT NULL
-     AND OLD.origem_primeiro_contato NOT IN ('piperun','sellflux','sync','crm','manual_capture')
-  THEN
-    NEW.origem_primeiro_contato := OLD.origem_primeiro_contato;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+SELECT 
+  COUNT(*) FILTER (WHERE equip_scanner IS NOT NULL AND equip_scanner !~* '^n[ãa]o') AS com_scanner,
+  COUNT(*) FILTER (WHERE equip_impressora IS NOT NULL OR impressora_modelo IS NOT NULL) AS com_impressora,
+  COUNT(*) FILTER (WHERE software_cad IS NOT NULL) AS com_cad
+FROM lia_attendances WHERE merged_into IS NULL;
 ```
 
-### 2. Reprocessar a nova conversão Meta da Michelle
-
-Verificar onde o payload tab-separado chega:
-- Se vier do Sellflux com tag `meta_lead_ads`, garantir que `smart-ops-sellflux-webhook` mapeia `campaign_name` → `form_name` antes de chamar `smart-ops-lia-assign`.
-- Se Meta dispara direto, conferir se `META_VERIFY_TOKEN`/page subscription estão ativos para a página do anúncio.
-
-Disparar manualmente o reprocesso desse lead (rerun `smart-ops-lia-assign` com `form_name="[LEADS] - RayShape Edge Mini - [Smart Dent]"`) → criará novo Deal com origem correta sem alterar a origem da Pessoa.
-
-### 3. Validação
-
-- Após backfill: `SELECT origem_primeiro_contato, COUNT(*) FROM lia_attendances WHERE merged_into IS NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 30` — deve mostrar nomes de campanhas, não canais.
-- Para Michelle: `origem_primeiro_contato="Involve - [Ebook - Vitality]"` e novo Deal "[LEADS] - RayShape Edge Mini - [Smart Dent]" com `origin.name` correto no Piperun.
-- Origem da Pessoa no Piperun **não muda** (continua "Involve - [Ebook - Vitality]").
+Esperado: subir de **455 → ~1.500+ scanners**, **500 → ~1.700+ impressoras**, **5 → ~50+ CAD**.
 
 ---
 
-## Fora de escopo (não tocar)
+### Fora de escopo
+- **Não tocar** no `omie-sync` agora (precisa investigação separada — provavelmente bug de mapeamento campo).
+- **Não sobrescrever** valores que vieram do form 7×3/SDR (são mais recentes/precisos).
+- **Não criar** nova categoria taxonômica — usar campos que já existem em `lia_attendances`.
 
-- Lógica de `createPerson`/`updatePersonFields`/`createNewDeal` — já está correta.
-- Trigger de proteção continua ativo, apenas refinado para permitir o backfill.
+### Validação final
+- Conferir 5 leads-amostra com Halot, Medit i600 e Exocad — devem aparecer com badges corretos no Lead Card.
+- Conferir 3 leads que tinham equipamento via SDR (não-deal) — não podem ter sido sobrescritos.
+- Copilot deve responder "quantos clientes têm Halot One Pro" com número >100.
