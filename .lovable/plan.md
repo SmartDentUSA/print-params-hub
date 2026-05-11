@@ -1,59 +1,69 @@
-## Diagnóstico
+## Objetivo
 
-**Lead em questão:** Dr. Otávio de Orlandis Carvalho — `otavio.orlandis1@gmail.com`
-- Criado às 14:22 UTC via Meta Ads (formulário Impressoras / campanha "07_05_2026 RayShape+Cure").
-- `piperun_id = null`, `pessoa_piperun_id = null`, sem deal, sem nota de vendedor.
-- `system_health_logs` registrou `crm_person_creation_failed` com `flow=error_no_person`, mas **não há o log detalhado** `piperun_create_person_api_error` que deveria conter a resposta da API. Indica que `createPerson` retornou `null` sem completar o bloco de log detalhado (provável exceção silenciosa entre chamadas, ou retorno antecipado).
+Não criar lead em `lia_attendances` quando faltar **nome real**, **email real** ou **telefone real**. O caso reportado (`wa_217071992459498_..._@whatsapp.lead`, 0 deals, ❓) é um lead-fantasma criado pelo `dra-lia-whatsapp` quando o WhatsApp envia apenas um LID interno sem número resolvível.
 
-**Escala do problema:** 59 leads dos últimos 14 dias com `source` em (meta_lead_ads, form, sdr_captacao) estão sem `piperun_id` — todos deveriam estar no Piperun.
+## Regra de validação (aplicada em todos os pontos de criação)
 
-**Causas prováveis no `createPerson`:**
-1. Nome `"Dr. Otávio de Orlandis Carvalho | Dentista em Divinópolis-MG"` é enviado bruto (sem `cleanPersonName`). Piperun pode rejeitar nomes com pipe `|` ou comprimento excessivo.
-2. `cleanPersonName` atual não remove sufixos descritivos do tipo ` | <descrição SEO>`, ` - <cidade>`, `(...)`.
-3. O detailed-log dentro de `createPerson` depende de uma segunda chamada Supabase com `service_role_key` — se algo falha silenciosamente, perdemos o motivo real do 4xx/5xx do Piperun.
+Um lead só é criado se TODOS forem verdadeiros:
+- `nome`: não vazio, não é "Sem nome", não é placeholder tipo `WhatsApp 1234`, com pelo menos 2 caracteres alfabéticos.
+- `email`: não vazio, regex válida, **não termina em `@whatsapp.lead`, `@lid`, `@n`** e não é domínio de teste (lista atual).
+- `telefone_normalized`: dígitos entre 10 e 15, e o número original **não veio de um LID/JID interno** (não tem `@lid`, não tem mais de 13 dígitos sem resolução).
 
-## Mudanças propostas
+Quando a validação falhar: NÃO inserir, logar em `system_health_logs` (`severity=info`, `error_type=lead_rejected_missing_identity`, com `details: { missing: [...], source, raw }`) e responder `200 { skipped: true, reason: "missing_identity" }`.
 
-### 1. `_shared/piperun-field-map.ts` — endurecer `cleanPersonName`
-Adicionar regras determinísticas para gerar um nome aceito pelo Piperun:
-- Truncar no primeiro de `|`, ` — `, ` - ` quando seguido de descritor (cidade, profissão, palavras como "Dentista", "Clínica", "Dr.", etc. devem ser preservadas se for prefixo).
-- Remover parênteses e seu conteúdo.
-- Limitar a ~80 caracteres.
-- Manter rejeição de Zapier/Plug & Play/datas.
-- Exportar nova função `sanitizePersonNameForPiperun(name)` reutilizando regras + retorno garantido (fallback para "Lead <primeiroNome>" ou para o e-mail).
+Isso é centralizado em um helper novo `_shared/lead-identity-guard.ts` exportando `validateLeadIdentity({ nome, email, phone, phoneNormalized, rawPhone })`.
 
-### 2. `smart-ops-lia-assign/index.ts` — `createPerson` robusto
-- Trocar `lead.nome` cru por `sanitizePersonNameForPiperun(lead.nome)` antes de montar `personPayload`.
-- Em qualquer 4xx do Piperun ao criar Pessoa, fazer **retry automático** com nome reduzido a `firstName + lastName` derivado de `lead.nome` ou do e-mail; persistir no payload o nome usado.
-- Garantir que o log `piperun_create_person_api_error` seja gravado **antes** de qualquer outra chamada que possa lançar (envolvê-lo em bloco próprio com `await` direto, sem depender do `createClient` interno que já existe lá; passar a instância `supabase` por parâmetro).
-- Quando `createPerson` retornar `null`, gravar também `raw_payload.piperun_last_error = { status, body, name_used, attempt }` no `lia_attendances` para auditoria por lead.
+## Pontos de criação a corrigir
 
-### 3. `smart-ops-piperun-retry-failed-leads` — agendar via cron
-- Adicionar entrada no `supabase/config.toml` para rodar a função a cada 15 min com `limit=25`, `lookback_days=7`, `force=false`.
-- Garantir que ao retentar com sucesso, o fluxo dispare **`smart-ops-deal-form-note`** (que já usa `buildSellerDealSummaryHTML`) para postar a nota de vendedor no novo deal.
-- Após sucesso, marcar `raw_payload.piperun_retry_attempted_at` (já existe) e `raw_payload.piperun_retry_succeeded_at` (novo) para visibilidade.
+1. **`supabase/functions/dra-lia-whatsapp/index.ts`** (linhas 282–330)
+   - Antes do `insert` placeholder: rodar `validateLeadIdentity`. Se falhar, **não criar** lead nem `whatsapp_inbox` ligado a lead, apenas registrar a mensagem com `lead_id=null` e seguir o fluxo de resposta da Dra. LIA (sessão por `phoneDigits`, sem persistência de identidade).
+   - Remove o pattern `wa_{lid}_{ts}@whatsapp.lead` como criação de lead. Esse formato deixa de existir no banco daqui pra frente.
 
-### 4. Backfill imediato dos 59 leads pendentes
-- Após o deploy, chamar manualmente `smart-ops-piperun-retry-failed-leads` com `lookback_days=14` e `limit=100` para drenar a fila.
-- Listar resultados (sucesso/erro) para o usuário aprovar.
+2. **`supabase/functions/smart-ops-wa-inbox-webhook/index.ts`** (linhas 134–157)
+   - Quando o LID não for resolvido para telefone real (ramo do `console.warn` "@lid detected but no real phone"): NÃO usar LID como fallback para matching/inserts em `lia_attendances`. Inserir em `whatsapp_inbox` com `lead_id=null` e `matched_by='unresolved_lid'`. Não criar lead novo aqui (já não cria, só confirmar).
 
-### 5. Painel de visibilidade (opcional, sob aprovação)
-- Adicionar um pequeno card em `SmartOpsSystemHealth.tsx` mostrando "Leads pendentes de Piperun" (count) e botão "Drenar agora" que chama a função de retry. Sem mexer em outras seções.
+3. **`supabase/functions/smart-ops-ingest-lead/index.ts`** (linhas 65–90 e bloco "NEW LEAD" linha 406+)
+   - Adicionar validação de **nome real** (rejeitar `Sem nome`, vazios, só números/símbolos) e **telefone presente** ANTES do bloco de match e ANTES do insert.
+   - Para leads **existentes** (merge), manter comportamento atual — só bloqueamos a CRIAÇÃO, não o enrichment.
 
-## Validação
+4. **`supabase/functions/smart-ops-sellflux-webhook/index.ts`**
+   - Mesma regra antes de qualquer `insert` em `lia_attendances`. Apenas bloquear criação; updates de leads existentes seguem.
 
-1. Reenviar o lead `otavio.orlandis1@gmail.com` pela função de retry → deve criar Pessoa+Deal no Piperun, popular `piperun_id` e disparar nota de vendedor.
-2. Conferir `system_health_logs`: novo registro `piperun_create_person_api_error` deve conter `payload_sent.name` sanitizado quando aplicável.
-3. Rodar query: `SELECT count(*) FROM lia_attendances WHERE merged_into IS NULL AND piperun_id IS NULL AND source IN ('meta_lead_ads','form','sdr_captacao') AND created_at >= now() - interval '14 days'` — deve cair de 59 para próximo de 0.
-4. Forçar caso sintético com nome contendo ` | descrição` para confirmar que o sanitizador entrega nome válido em primeira tentativa.
+5. **`supabase/functions/smart-ops-piperun-webhook/index.ts`** (criação por sync Piperun)
+   - Mesma regra: se Piperun mandar um person sem email real ou sem telefone, não criar lead local; logar e seguir.
 
-## Arquivos a alterar
-- `supabase/functions/_shared/piperun-field-map.ts` (endurecer cleanPersonName + nova `sanitizePersonNameForPiperun`).
-- `supabase/functions/smart-ops-lia-assign/index.ts` (`createPerson` robusto, retry, logging garantido, gravação de `piperun_last_error`).
-- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts` (acionar deal-form-note pós-sucesso, marcar `piperun_retry_succeeded_at`).
-- `supabase/config.toml` (cron 15min).
-- (opcional) `src/components/SmartOpsSystemHealth.tsx` (card + botão drenar).
+## Limpeza (opcional, recomendado)
 
-## Fora de escopo
-- Não alterar a lógica existente do `seller-summary` nem do `piperun-webhook`.
-- Não tocar em integrações de e-commerce/Astron/Sellflux.
+Migration de **soft-cleanup** marcando os leads-fantasmas existentes como `merged_into = NULL` + `lead_status = 'descartado_sem_identidade'` para sair das queries canônicas, sem apagar:
+
+```sql
+UPDATE lia_attendances
+SET lead_status = 'descartado_sem_identidade'
+WHERE merged_into IS NULL
+  AND (
+    email LIKE 'wa_%@whatsapp.lead'
+    OR email LIKE '%@lid'
+    OR nome ILIKE 'WhatsApp ____'
+    OR nome = 'Sem nome'
+  )
+  AND total_deals_all = 0
+  AND total_messages <= 1;
+```
+
+Antes de rodar, faço um `SELECT count(*)` pra mostrar o impacto e confirmar com você.
+
+## Validação pós-deploy
+
+1. Reenviar payload do LID `217071992459498` para `dra-lia-whatsapp` → resposta `200 skipped`, **nenhum** novo registro em `lia_attendances`, mensagem registrada em `whatsapp_inbox` com `lead_id=null`.
+2. `SELECT count(*) FROM lia_attendances WHERE email LIKE '%@whatsapp.lead' AND created_at > now() - interval '5 min'` → 0.
+3. Conferir `system_health_logs` mostra entradas `lead_rejected_missing_identity` com motivos.
+
+## Arquivos alterados
+
+- `supabase/functions/_shared/lead-identity-guard.ts` (novo)
+- `supabase/functions/dra-lia-whatsapp/index.ts`
+- `supabase/functions/smart-ops-wa-inbox-webhook/index.ts`
+- `supabase/functions/smart-ops-ingest-lead/index.ts`
+- `supabase/functions/smart-ops-sellflux-webhook/index.ts`
+- `supabase/functions/smart-ops-piperun-webhook/index.ts`
+- (opcional) migration de cleanup
