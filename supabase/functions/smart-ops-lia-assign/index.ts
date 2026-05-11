@@ -76,13 +76,20 @@ async function createPerson(
   if (phone) personPayload.phones = [{ phone }];
   if (especialidade) personPayload.job_title = especialidade;
 
+  // Person origin = FIRST-TOUCH only (frozen). Falls back to current campaign for brand-new leads.
+  const firstTouchOrigin = (lead.origem_primeiro_contato || lead.origem_campanha || lead.form_name) as string | null;
+  if (firstTouchOrigin) {
+    const personOriginId = await resolveOriginId(apiToken, firstTouchOrigin);
+    if (personOriginId) personPayload.origin_id = personOriginId;
+  }
+
   // Include Pessoa custom fields
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
   if (areaAtuacao) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.AREA_ATUACAO, value: areaAtuacao });
   if (especialidade) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
   if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
 
-  console.log(`[lia-assign] Creating person: ${nome} with ${personCustomFields.length} custom fields`);
+  console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
   const createRes = await piperunPost(apiToken, "persons", personPayload);
   if (createRes.success && createRes.data) {
     const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
