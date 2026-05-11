@@ -32,6 +32,45 @@ const corsHeaders = {
 
 const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
 
+// Build human-friendly origin lines for the seller notification.
+// Separates Channel / Form / Campaign so the seller sees real provenance
+// instead of three duplicated copies of the same form_name.
+function buildOriginLines(lead: Record<string, unknown>, mode: "wa" | "html"): string[] {
+  const br = mode === "html" ? "<br>" : "";
+  const b = (s: string) => mode === "html" ? `<b>${s}</b>` : `*${s}*`;
+  const join = (label: string, value: string) =>
+    mode === "html" ? `${b(label)} ${value}${br}` : `${label} ${value}`;
+
+  const sourceMap: Record<string, string> = {
+    meta_lead_ads: "Meta Lead Ads",
+    meta_ads: "Meta Lead Ads",
+    facebook: "Meta Lead Ads",
+    sellflux: "Sellflux",
+    waleads: "WhatsApp",
+    whatsapp: "WhatsApp",
+    site: "Site",
+    formulario: "Formulário Site",
+    piperun_webhook: "PipeRun (manual)",
+    csv_import: "Importação CSV",
+  };
+  const rawSource = String(lead.source || lead.origem_primeiro_contato || "").trim();
+  const channel = sourceMap[rawSource.toLowerCase()] || rawSource || "N/A";
+
+  const formName = String(lead.form_name || "").trim();
+  const campaign = String(lead.origem_campanha || "").trim();
+  const adset = String((lead as Record<string, unknown>).meta_adset_name || (lead as Record<string, unknown>).utm_term || "").trim();
+
+  const lines: string[] = [];
+  lines.push(join("📡 Canal:", channel));
+  if (formName) lines.push(join("📋 Formulário:", formName));
+  // Only show campaign if it's distinct from the form (avoid duplicate noise).
+  if (campaign && campaign.toLowerCase() !== formName.toLowerCase()) {
+    const campaignLine = adset ? `${campaign} › ${adset}` : campaign;
+    lines.push(join("🎯 Campanha:", campaignLine));
+  }
+  return lines;
+}
+
 // ─── PipeRun Hierarchy Helpers ───
 
 /**
