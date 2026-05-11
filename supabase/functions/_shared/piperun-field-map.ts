@@ -538,7 +538,10 @@ export function sanitizePersonNameForPiperun(
 /**
  * Map PipeRun deal data to lia_attendances fields
  */
-export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unknown> {
+export function mapDealToAttendance(
+  deal: PipeRunDealData,
+  currentLead?: { email?: string | null; pessoa_hash?: string | null; pessoa_piperun_id?: number | null; telefone_normalized?: string | null } | null,
+): Record<string, unknown> {
   const cf = deal.custom_fields;
   const person = deal.person;
   const company = deal.company;
@@ -626,18 +629,59 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     company?.emails?.[0]?.email ||
     company?.email ||
     null;
-  if (email) fields.email = String(email).trim().toLowerCase();
+  const remoteEmailLower = email ? String(email).trim().toLowerCase() : null;
+
+  // ─── Identity guard: detect contaminated person attachment ───
+  // If we already have a local lead with email/pessoa_hash, and the PipeRun
+  // person attached to this deal disagrees (different hash AND different email),
+  // the deal is wired to the WRONG person. Don't propagate person-derived
+  // identity fields (nome/email/telefone/pessoa_*) — only deal-level metadata.
+  let personMismatch = false;
+  if (currentLead && person) {
+    const localEmail = currentLead.email ? String(currentLead.email).toLowerCase() : null;
+    const localHash = currentLead.pessoa_hash ? String(currentLead.pessoa_hash) : null;
+    const remoteHash = person.hash ? String(person.hash) : null;
+    const personEmails = ((person.emails as Array<Record<string, unknown>> | undefined) || [])
+      .map((e) => String(e.email || "").toLowerCase())
+      .filter(Boolean);
+    const emailMatches = localEmail
+      ? (remoteEmailLower === localEmail || personEmails.includes(localEmail))
+      : false;
+    const hashMatches = localHash && remoteHash ? localHash === remoteHash : false;
+    if (localEmail && !emailMatches && !hashMatches) {
+      personMismatch = true;
+      fields.piperun_person_mismatch = {
+        local_email: localEmail,
+        local_hash: localHash,
+        remote_person_id: deal.person_id ?? null,
+        remote_person_name: person?.name ?? null,
+        remote_person_hash: remoteHash,
+        remote_person_emails: personEmails,
+        deal_id: deal.id,
+        detected_at: new Date().toISOString(),
+      };
+      console.warn(`[mapDealToAttendance] PERSON MISMATCH deal=${deal.id} local_email=${localEmail} remote_person=${deal.person_id}/${person?.name}. Skipping identity overwrite.`);
+    }
+  }
+
+  if (!personMismatch && remoteEmailLower) fields.email = remoteEmailLower;
 
   // ─── Name extraction cascade ───
   const nome = cleanPersonName(person?.name) || cleanDealName(deal.title) || null;
-  if (nome) fields.nome = nome;
+  if (!personMismatch && nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
   const whatsappPhone = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
   const personPhone = person?.contact_phones?.[0]?.number || person?.phones?.[0]?.phone || person?.phone || person?.mobile || null;
   const companyPhone = company?.contact_phones?.[0]?.number || company?.phones?.[0]?.phone || company?.phone || null;
   const phone = whatsappPhone || personPhone || companyPhone || null;
-  if (phone) fields.telefone_raw = phone;
+  if (!personMismatch && phone) fields.telefone_raw = phone;
+
+  if (personMismatch) {
+    // Strip person-derived identity fields so we don't poison local data
+    delete fields.pessoa_piperun_id;
+    delete fields.pessoa_hash;
+  }
 
   // ─── Person deep fields ───
   if (person) {
