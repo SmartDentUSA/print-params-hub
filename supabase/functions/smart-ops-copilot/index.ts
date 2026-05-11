@@ -542,6 +542,22 @@ const tools = [
         required: ["busca"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_scanner_brand_distribution",
+      description: "Distribuição de leads canônicos por MARCA e MODELO de scanner intraoral, normalizada (Medit i500/i600/i700, 3Shape Trios, SmartDent BLZ INO100/200, iTero, Carestream, Sirona/Cerec, Straumann, etc). Filtra automaticamente HTML, cursos e acessórios. USE SEMPRE que o usuário perguntar 'qual scanner os leads usam', 'top marcas', 'distribuição por equipamento'. NUNCA responda que `equip_scanner` está vazio — está populado via backfill Piperun.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_printer_brand_distribution",
+      description: "Distribuição de leads canônicos por MARCA e MODELO de impressora 3D (RayShape Edge Mini, Creality Halot One Pro, Elegoo Mars/Saturn, Phrozen, Anycubic, Formlabs, etc). USE para perguntas sobre impressoras dos leads. Os campos `equip_impressora` e `impressora_modelo` ESTÃO populados via backfill Piperun — nunca responda que estão vazios.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
   }
 ];
 
@@ -1371,6 +1387,26 @@ async function executeQueryProductSales(args: any) {
   }
 }
 
+async function executeQueryScannerBrandDistribution(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("query_scanner_brand_distribution");
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { aviso: "Nenhum lead com scanner mapeado", marcas: [] };
+    const total = data.reduce((s: number, r: any) => s + Number(r.lead_count || 0), 0);
+    return { total_leads_com_scanner: total, total_marcas_modelos: data.length, marcas: data };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+async function executeQueryPrinterBrandDistribution(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("query_printer_brand_distribution");
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { aviso: "Nenhum lead com impressora mapeada", marcas: [] };
+    const total = data.reduce((s: number, r: any) => s + Number(r.lead_count || 0), 0);
+    return { total_leads_com_impressora: total, total_marcas_modelos: data.length, marcas: data };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1402,6 +1438,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_sales_summary: executeQuerySalesSummary,
   query_product_mix: executeQueryProductMix,
   query_product_sales: executeQueryProductSales,
+  query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
+  query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
