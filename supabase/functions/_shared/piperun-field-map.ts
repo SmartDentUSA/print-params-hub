@@ -681,6 +681,7 @@ export function mapDealToAttendance(
     // Strip person-derived identity fields so we don't poison local data
     delete fields.pessoa_piperun_id;
     delete fields.pessoa_hash;
+    delete fields.empresa_piperun_id;
   }
 
   // ─── Person deep fields ───
@@ -713,7 +714,7 @@ export function mapDealToAttendance(
   }
 
   // ─── Company deep fields ───
-  if (company) {
+  if (company && !personMismatch) {
     // Identity
     if (company.hash) fields.empresa_hash = company.hash;
     // Segment: object.name or string
