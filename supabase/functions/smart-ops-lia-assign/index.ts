@@ -50,17 +50,32 @@ async function findPersonByEmail(
     const lowerEmail = email.toLowerCase();
     const phoneDigits = (phoneNormalized || "").replace(/\D/g, "");
 
-    const pickStrict = (data: unknown): { id: number; company_id: number | null } | null => {
+    const pickStrictByEmail = (data: unknown): { id: number; company_id: number | null } | null => {
       const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
       if (!items?.length) return null;
       const match = items.find((p) => {
         const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
-        if (emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail)) return true;
-        if (phoneDigits) {
-          const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
-          if (phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(phoneDigits.slice(-10)))) return true;
-        }
-        return false;
+        return emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail);
+      });
+      if (match?.id) {
+        return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
+      }
+      return null;
+    };
+
+    // Phone-only fallback is ONLY used when no email is informed by the lead.
+    // Matching by phone-suffix when an email exists is unsafe (multiple persons
+    // share trailing 10 digits in PipeRun) and was the root cause of the
+    // Andreia/AMANDA contamination incident.
+    const pickStrictByPhone = (data: unknown): { id: number; company_id: number | null } | null => {
+      if (!phoneDigits) return null;
+      const last10 = phoneDigits.slice(-10);
+      if (last10.length < 10) return null;
+      const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+      if (!items?.length) return null;
+      const match = items.find((p) => {
+        const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
+        return phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(last10));
       });
       if (match?.id) {
         return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
@@ -70,21 +85,17 @@ async function findPersonByEmail(
 
     const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
     if (res.success && res.data) {
-      const found = pickStrict(res.data);
+      const found = pickStrictByEmail(res.data);
       if (found) return found;
     }
     const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
     if (sres.success && sres.data) {
-      const found = pickStrict(sres.data);
+      const found = pickStrictByEmail(sres.data);
       if (found) return found;
     }
-    if (phoneDigits) {
-      const pres = await piperunGet(apiToken, "persons", { search: phoneDigits, show: 50 });
-      if (pres.success && pres.data) {
-        const found = pickStrict(pres.data);
-        if (found) return found;
-      }
-    }
+    // No email match → DO NOT fall back to phone search when the lead has an
+    // email. Returning null forces createPerson, which is the safe path.
+    console.log(`[lia-assign] findPersonByEmail: no strict-email match for ${email} (phone fallback disabled to prevent contamination)`);
   } catch (e) {
     console.warn("[lia-assign] Person search error:", e);
   }
