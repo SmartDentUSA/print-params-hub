@@ -16,6 +16,8 @@ import {
   callNormalizeFromLead,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
+import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
