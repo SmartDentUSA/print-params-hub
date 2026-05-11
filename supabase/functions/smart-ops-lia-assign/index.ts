@@ -1783,6 +1783,17 @@ Deno.serve(async (req) => {
           customFields, leadEmail, supabase, inputFormResponses
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
+        if (piperunId && personNameLooksLikeCompany) {
+          try {
+            await addDealNote(
+              PIPERUN_API_KEY,
+              Number(piperunId),
+              `⚠️ [Dra. L.I.A.] Nome do contato veio do formulário como razão social ("${lead.nome}"). Confirmar nome real da pessoa no primeiro atendimento.`,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] Failed to add company-like-name review note:", e);
+          }
+        }
         }
       }
 
