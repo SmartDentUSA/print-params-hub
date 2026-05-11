@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -305,6 +306,26 @@ Deno.serve(async (req) => {
     if (!leadId) {
       const placeholderEmail = `wa_${phoneDigits}_${Date.now()}@whatsapp.lead`;
       const nome = senderName || `WhatsApp ${phoneDigits.slice(-4)}`;
+      // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
+      const identity = validateLeadIdentity({
+        nome,
+        email: placeholderEmail,
+        phoneNormalized: phoneSuffix,
+        rawPhone: phone,
+      });
+      if (!identity.ok) {
+        await logRejectedLead(supabase, {
+          functionName: "dra-lia-whatsapp",
+          source: "whatsapp_lia",
+          check: identity,
+          email: placeholderEmail,
+          raw: { phone, phoneDigits, senderName },
+        });
+        console.log(
+          `[dra-lia-wa] Lead criação BLOQUEADA (identity incompleta: ${identity.missing.join(",")}). Seguindo só com sessão.`,
+        );
+        // segue sem leadId — sessão por phoneDigits ainda funciona
+      } else {
       const { data: newLead, error: createErr } = await supabase
         .from("lia_attendances")
         .insert({
@@ -326,6 +347,7 @@ Deno.serve(async (req) => {
         leadNome = newLead.nome;
         isPlaceholderLead = true;
         console.log(`[dra-lia-wa] Created new PLACEHOLDER lead: ${leadNome} (${leadId}) — will NOT pre-seed session`);
+      }
       }
     }
 

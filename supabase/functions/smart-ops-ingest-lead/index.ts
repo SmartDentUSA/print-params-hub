@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
 import { mergeSmartLead, logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
+import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -404,6 +405,35 @@ Deno.serve(async (req) => {
         .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
     } else {
       // --- NEW LEAD: insert ---
+      // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
+      const identity = validateLeadIdentity({
+        nome,
+        email,
+        phoneNormalized: telefoneNormalized,
+        rawPhone: telefoneRaw,
+      });
+      if (!identity.ok) {
+        await logRejectedLead(supabase, {
+          functionName: "smart-ops-ingest-lead",
+          source,
+          check: identity,
+          email,
+          raw: { nome, telefoneRaw, telefoneNormalized, formName },
+        });
+        console.log(
+          `[ingest-lead] Lead criação BLOQUEADA — identity incompleta: ${identity.missing.join(",")}`,
+        );
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "missing_identity",
+            missing: identity.missing,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const newLeadData = {
         ...incomingData,
         lead_status: "novo",
