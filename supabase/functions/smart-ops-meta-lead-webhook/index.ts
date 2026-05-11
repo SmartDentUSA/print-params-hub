@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
         // --- Fetch lead data from Graph API ---
         try {
           const graphRes = await fetch(
-            `https://graph.facebook.com/v21.0/${leadgenId}?access_token=${META_TOKEN}`
+            `https://graph.facebook.com/v21.0/${leadgenId}?fields=field_data,form_name,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,created_time,platform&access_token=${META_TOKEN}`
           );
 
           if (!graphRes.ok) {
@@ -105,13 +105,71 @@ Deno.serve(async (req) => {
           // Determine platform (facebook or instagram)
           const platform = body.object === "instagram" ? "instagram" : "facebook";
 
+          // --- Campaign / Ad / Adset enrichment (fallback if Graph didn't return them) ---
+          const adId = leadData.ad_id || change.value?.ad_id || null;
+          let campaignName: string | null = leadData.campaign_name || null;
+          let campaignId: string | null = leadData.campaign_id || null;
+          let adsetName: string | null = leadData.adset_name || null;
+          let adsetId: string | null = leadData.adset_id || null;
+          let adName: string | null = leadData.ad_name || null;
+
+          if ((!campaignName || !adsetName) && adId) {
+            try {
+              const adRes = await fetch(
+                `https://graph.facebook.com/v21.0/${adId}?fields=name,campaign{id,name},adset{id,name}&access_token=${META_TOKEN}`
+              );
+              if (adRes.ok) {
+                const adData = await adRes.json();
+                adName = adName || adData.name || null;
+                campaignName = campaignName || adData.campaign?.name || null;
+                campaignId = campaignId || adData.campaign?.id || null;
+                adsetName = adsetName || adData.adset?.name || null;
+                adsetId = adsetId || adData.adset?.id || null;
+                console.log("[meta-webhook] Ad metadata:", { campaignName, adsetName, adName });
+              } else {
+                console.warn("[meta-webhook] Ad fetch failed:", adRes.status);
+              }
+            } catch (e) {
+              console.warn("[meta-webhook] Ad metadata fetch error:", e);
+            }
+          }
+
+          // Origin label = real campaign name (fallback chain)
+          const originLabel = campaignName
+            ? `Meta Ads — ${campaignName}`
+            : (leadData.form_name ? `Meta Ads — ${leadData.form_name}` : `Meta Ads — Form ${formId || ""}`);
+
+          // Product of interest (cascade: form answer → keyword inference → campaign name)
+          const KEYWORDS_RE_LOCAL = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
+          const directProduct = fields.produto || fields.produto_de_interesse || fields.produto_interesse
+            || fields.equipamento || fields.interesse || fields.solucao || null;
+          const allFieldValuesPre = Object.values(fields).join(' ');
+          const inferredMatches = allFieldValuesPre.match(KEYWORDS_RE_LOCAL);
+          const inferredProduct = inferredMatches?.length
+            ? [...new Set(inferredMatches.map(m => m.toLowerCase()))].join(', ')
+            : null;
+          const campaignProduct = campaignName?.match(KEYWORDS_RE_LOCAL)?.[0]?.toLowerCase() || null;
+          const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
+
           // --- Build normalized payload for ingest-lead ---
           const normalizedPayload: Record<string, unknown> = {
             source: "meta_lead_ads",
             utm_source: platform,
             utm_medium: "paid",
-            utm_campaign: formId ? `form_${formId}` : null,
-            form_name: leadData.form_name || `Meta Lead Form ${formId || ""}`,
+            utm_campaign: campaignName || (formId ? `form_${formId}` : null),
+            utm_content: adName || null,
+            utm_term: adsetName || null,
+            // form_name = origin label used by lia-assign to create/reuse a Piperun origin per campaign
+            form_name: originLabel,
+            origem_campanha: originLabel,
+            produto_interesse: produtoInteresse,
+            // Meta-specific metadata (auto-forwarded if columns exist; preserved in raw_payload otherwise)
+            meta_campaign_id: campaignId,
+            meta_campaign_name: campaignName,
+            meta_adset_id: adsetId,
+            meta_adset_name: adsetName,
+            meta_ad_id: adId,
+            meta_ad_name: adName,
             meta_leadgen_id: leadgenId,
             meta_page_id: pageId,
             meta_form_id: formId,
