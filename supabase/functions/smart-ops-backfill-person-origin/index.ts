@@ -16,11 +16,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const PIPERUN_TOKEN = Deno.env.get("PIPERUN_API_TOKEN");
+  const PIPERUN_TOKEN = Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   if (!PIPERUN_TOKEN) {
-    return new Response(JSON.stringify({ error: "PIPERUN_API_TOKEN missing" }), {
+    return new Response(JSON.stringify({ error: "PIPERUN_API_KEY missing" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
