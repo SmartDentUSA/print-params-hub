@@ -39,37 +39,51 @@ const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
  */
 async function findPersonByEmail(
   apiToken: string,
-  email: string
+  email: string,
+  phoneNormalized?: string | null
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
   try {
-    // Piperun ignores ?email=... — must use emails[email]=... filter, then fall back to ?search=
-    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
-    const pickFromList = (data: unknown) => {
+    // PipeRun's /persons endpoint IGNORES unknown filters and returns a generic
+    // list. NEVER fall back to items[0] — that attaches the deal to a totally
+    // unrelated person (already caused a Heitor-Rabeti contamination incident).
+    const lowerEmail = email.toLowerCase();
+    const phoneDigits = (phoneNormalized || "").replace(/\D/g, "");
+
+    const pickStrict = (data: unknown): { id: number; company_id: number | null } | null => {
       const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
-      if (!items) return null;
-      const lower = email.toLowerCase();
+      if (!items?.length) return null;
       const match = items.find((p) => {
         const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
-        return emails.some((e) => String(e.email || "").toLowerCase() === lower);
-      }) || items[0];
+        if (emails.some((e) => String(e.email || "").toLowerCase() === lowerEmail)) return true;
+        if (phoneDigits) {
+          const phones = (p.phones as Array<Record<string, unknown>> | undefined) || [];
+          if (phones.some((ph) => String(ph.phone || "").replace(/\D/g, "").endsWith(phoneDigits.slice(-10)))) return true;
+        }
+        return false;
+      });
       if (match?.id) {
-        return {
-          id: Number(match.id),
-          company_id: match.company_id ? Number(match.company_id) : null,
-        };
+        return { id: Number(match.id), company_id: match.company_id ? Number(match.company_id) : null };
       }
       return null;
     };
+
+    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
     if (res.success && res.data) {
-      const found = pickFromList(res.data);
+      const found = pickStrict(res.data);
       if (found) return found;
     }
-    // Fallback: search endpoint
     const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
     if (sres.success && sres.data) {
-      const found = pickFromList(sres.data);
+      const found = pickStrict(sres.data);
       if (found) return found;
+    }
+    if (phoneDigits) {
+      const pres = await piperunGet(apiToken, "persons", { search: phoneDigits, show: 50 });
+      if (pres.success && pres.data) {
+        const found = pickStrict(pres.data);
+        if (found) return found;
+      }
     }
   } catch (e) {
     console.warn("[lia-assign] Person search error:", e);
