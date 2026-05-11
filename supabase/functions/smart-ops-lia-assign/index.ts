@@ -42,15 +42,33 @@ async function findPersonByEmail(
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
   try {
-    const res = await piperunGet(apiToken, "persons", { email, show: 1 });
-    if (res.success && res.data) {
-      const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
-      if (items && items.length > 0 && items[0].id) {
+    // Piperun ignores ?email=... — must use emails[email]=... filter, then fall back to ?search=
+    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
+    const pickFromList = (data: unknown) => {
+      const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+      if (!items) return null;
+      const lower = email.toLowerCase();
+      const match = items.find((p) => {
+        const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
+        return emails.some((e) => String(e.email || "").toLowerCase() === lower);
+      }) || items[0];
+      if (match?.id) {
         return {
-          id: Number(items[0].id),
-          company_id: items[0].company_id ? Number(items[0].company_id) : null,
+          id: Number(match.id),
+          company_id: match.company_id ? Number(match.company_id) : null,
         };
       }
+      return null;
+    };
+    if (res.success && res.data) {
+      const found = pickFromList(res.data);
+      if (found) return found;
+    }
+    // Fallback: search endpoint
+    const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
+    if (sres.success && sres.data) {
+      const found = pickFromList(sres.data);
+      if (found) return found;
     }
   } catch (e) {
     console.warn("[lia-assign] Person search error:", e);
@@ -84,10 +102,10 @@ async function createPerson(
   }
 
   // Include Pessoa custom fields
+  // NOTE: Pessoa custom field IDs 674001/674002 are rejected by Piperun (422). Disabled.
+  // Area/Especialidade are persisted at the Deal level via mapAttendanceToDealCustomFields.
+  void areaAtuacao; void especialidade;
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
-  if (areaAtuacao) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.AREA_ATUACAO, value: areaAtuacao });
-  if (especialidade) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
-  if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
   let createRes = await piperunPost(apiToken, "persons", personPayload);
