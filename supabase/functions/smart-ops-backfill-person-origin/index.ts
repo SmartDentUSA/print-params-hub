@@ -65,31 +65,59 @@ Deno.serve(async (req) => {
   for (const lead of candidates) {
     try {
       // `piperun_id` in lia_attendances is the DEAL id, not the person id.
-      // Resolve person via the deal, then fetch the person to read origin.name.
-      let personData: Record<string, unknown> | undefined;
+      // Strategy v2: resolve person from the deal, then list ALL deals of that
+      // person ordered by created_at ASC and read `origin.name` of the FIRST
+      // deal (true first conversion). Falls back to person.origin.name if
+      // deals don't carry origin info.
       let lookupStatus = 0;
       let resolvedPersonId: number | null = null;
+      let originName: string | null = null;
+      let originSource: string | null = null;
+      let originId: number | null = null;
 
       const dealRes = await piperunGet(PIPERUN_TOKEN, `deals/${lead.piperun_id}`, {});
       lookupStatus = dealRes.status;
       const dealData = (dealRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
       const personId = dealData?.person_id as number | string | undefined;
+
       if (personId) {
         resolvedPersonId = Number(personId);
-        const personRes = await piperunGet(PIPERUN_TOKEN, `persons/${resolvedPersonId}`, {});
-        lookupStatus = personRes.status;
-        personData = (personRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+
+        // 1) First deal by created_at asc
+        const firstDealRes = await piperunGet(PIPERUN_TOKEN, "deals", {
+          person_id: resolvedPersonId,
+          order_by: "created_at",
+          order_type: "asc",
+          show: 1,
+        });
+        lookupStatus = firstDealRes.status;
+        const firstDeals = ((firstDealRes.data as Record<string, unknown> | undefined)?.data) as Array<Record<string, unknown>> | undefined;
+        const firstDeal = firstDeals && firstDeals[0];
+        const firstDealOrigin = firstDeal?.origin as Record<string, unknown> | undefined;
+        if (firstDealOrigin?.name) {
+          originName = String(firstDealOrigin.name).trim() || null;
+          originId = (firstDealOrigin.id as number | undefined) ?? null;
+          originSource = "first_deal";
+        }
+
+        // 2) Fallback: person.origin.name
+        if (!originName) {
+          const personRes = await piperunGet(PIPERUN_TOKEN, `persons/${resolvedPersonId}`, {});
+          lookupStatus = personRes.status;
+          const personData = ((personRes.data as Record<string, unknown> | undefined)?.data) as Record<string, unknown> | undefined;
+          const personOrigin = personData?.origin as Record<string, unknown> | undefined;
+          if (personOrigin?.name) {
+            originName = String(personOrigin.name).trim() || null;
+            originId = (personOrigin.id as number | undefined) ?? null;
+            originSource = "person";
+          }
+        }
       }
-      const origin = personData?.origin as Record<string, unknown> | undefined;
-      const originName = (origin?.name as string | null)?.trim() || null;
 
       if (debug && samples.length < 5) {
         samples.push({
           id: lead.id, deal_id: lead.piperun_id, person_id: resolvedPersonId,
-          origin_raw: origin || null,
-          origin_id: personData?.origin_id ?? null,
-          originName,
-          status: lookupStatus,
+          originName, originId, originSource, status: lookupStatus,
         });
       }
 
