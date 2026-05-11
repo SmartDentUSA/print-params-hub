@@ -482,6 +482,16 @@ export function cleanPersonName(name: string | undefined): string | null {
   // Remove trailing timestamp pattern: " - YYYY-MM-DD HH:MM:SS..." 
   let cleaned = name.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}.*$/, "").trim();
   if (!cleaned) return null;
+  // Strip parenthetical descriptors: "Joao (Clinica X)" -> "Joao"
+  cleaned = cleaned.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+  // Truncate at SEO/profession descriptors separated by | or em-dash or " - "
+  // Examples: "Dr. X | Dentista em Y", "Joao — Clinica Z", "Maria - CEO"
+  const SPLIT_RE = /\s*(?:\||—|\s-\s)\s*/;
+  const parts = cleaned.split(SPLIT_RE);
+  if (parts.length > 1) cleaned = parts[0].trim();
+  // Cap length (Piperun has practical limits)
+  if (cleaned.length > 80) cleaned = cleaned.slice(0, 80).trim();
+  if (!cleaned) return null;
   // Reject names that start with a date pattern (e.g. "22/8/2023 6:52 Zapier...")
   if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(cleaned)) return null;
   // Reject names containing "Zapier" or "Plug & Play" (automated garbage)
@@ -491,6 +501,38 @@ export function cleanPersonName(name: string | undefined): string | null {
   // Reject names shorter than 2 chars
   if (cleaned.length < 2) return null;
   return cleaned;
+}
+
+/**
+ * Sanitize a person name for Piperun, with guaranteed non-null return.
+ * Falls back to first/last from raw, then to email local-part, then to "Lead".
+ */
+export function sanitizePersonNameForPiperun(
+  name: string | undefined,
+  email?: string | null
+): string {
+  const cleaned = cleanPersonName(name);
+  if (cleaned) return cleaned;
+  // Fallback 1: first two tokens from raw name (strip non-letter junk)
+  if (name) {
+    const tokens = String(name)
+      .replace(/[^\p{L}\s'-]/gu, " ")
+      .split(/\s+/)
+      .filter(t => t.length >= 2);
+    if (tokens.length > 0) {
+      const candidate = tokens.slice(0, 2).join(" ").slice(0, 80);
+      if (candidate.length >= 2) return candidate;
+    }
+  }
+  // Fallback 2: email local-part humanized
+  if (email) {
+    const local = email.split("@")[0] || "";
+    const humanized = local.replace(/[._-]+/g, " ").replace(/\d+/g, "").trim();
+    if (humanized.length >= 2) {
+      return humanized.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ").slice(0, 80);
+    }
+  }
+  return "Lead Sem Nome";
 }
 
 /**
