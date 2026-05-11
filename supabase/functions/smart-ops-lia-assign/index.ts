@@ -1635,6 +1635,39 @@ Deno.serve(async (req) => {
     const personOriginName = (lead.origem_primeiro_contato as string | null)
       || (lead.form_name as string | null);
     const resolvedPersonOriginId = await resolveOriginId(PIPERUN_API_KEY, personOriginName);
+
+    // ── Company-like name detection ──
+    // When the Meta lead form 'full_name' is actually a razão social (e.g.
+    // "ESTÉTICA AVANÇADA"), the Person card ends up with a meaningless contact
+    // name. We still create Person/Company so the deal isn't blocked, but flag
+    // the lead for SDR review and add a note to the Deal.
+    const personNameLooksLikeCompany = isCompanyLikeName(
+      lead.nome as string | null,
+      {
+        empresa_razao_social: lead.empresa_razao_social as string | null,
+        empresa_nome: lead.empresa_nome as string | null,
+      },
+    );
+    if (personNameLooksLikeCompany) {
+      console.warn(`[lia-assign] Person name looks like a company: "${lead.nome}" (lead ${lead.id}) — flagging for SDR review`);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "person_name_is_company",
+          lead_email: lead.email,
+          details: {
+            lead_id: lead.id,
+            person_name: lead.nome,
+            empresa_razao_social: lead.empresa_razao_social,
+            empresa_nome: lead.empresa_nome,
+            source: lead.source,
+            form_name: lead.form_name,
+          },
+        });
+      } catch {}
+    }
+
     if (personId) {
       // Validate cached person still exists in PipeRun
       const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
