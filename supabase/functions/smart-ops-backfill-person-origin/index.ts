@@ -13,6 +13,50 @@ const JUNK_ORIGINS = new Set([
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+async function processLead(
+  lead: Record<string, unknown>,
+  token: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<"updated" | "skipped" | "error"> {
+  try {
+    let originName: string | null = null;
+    let resolvedPersonId: number | null = null;
+
+    const dealRes = await piperunGet(token, `deals/${lead.piperun_id}`, {}, { "with[]": ["origin"] });
+    const dealData = (dealRes.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+    const personId = dealData?.person_id as number | string | undefined;
+
+    if (personId) {
+      resolvedPersonId = Number(personId);
+      const firstDealRes = await piperunGet(token, "deals", {
+        person_id: resolvedPersonId, order_by: "created_at", order_type: "asc", show: 1,
+      }, { "with[]": ["origin"] });
+      const firstDeals = ((firstDealRes.data as Record<string, unknown> | undefined)?.data) as Array<Record<string, unknown>> | undefined;
+      const firstDealOrigin = firstDeals?.[0]?.origin as Record<string, unknown> | undefined;
+      if (firstDealOrigin?.name) originName = String(firstDealOrigin.name).trim() || null;
+
+      if (!originName) {
+        const personRes = await piperunGet(token, `persons/${resolvedPersonId}`, {}, { "with[]": ["origin"] });
+        const personData = ((personRes.data as Record<string, unknown> | undefined)?.data) as Record<string, unknown> | undefined;
+        const personOrigin = personData?.origin as Record<string, unknown> | undefined;
+        if (personOrigin?.name) originName = String(personOrigin.name).trim() || null;
+      }
+    }
+
+    if (!originName || JUNK_ORIGINS.has(originName.toLowerCase())) return "skipped";
+
+    const { error: upErr } = await supabase
+      .from("lia_attendances")
+      .update({ origem_primeiro_contato: originName })
+      .eq("id", lead.id as string);
+    if (upErr) { console.warn(`[backfill] update fail ${lead.id}:`, upErr.message); return "error"; }
+    return "updated";
+  } catch (e) {
+    console.warn(`[backfill] error lead=${lead.id}:`, e);
+    return "error";
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
