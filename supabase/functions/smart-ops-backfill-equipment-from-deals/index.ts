@@ -17,26 +17,30 @@ type Cat = "scanner" | "scanner_bancada" | "impressora" | "pos_impressao" | "cad
 
 interface Detection { cat: Cat; canonical: string; raw: string; }
 
+// Acessórios/peças que NÃO são equipamentos, mesmo se contiverem nome de equipamento.
+const ACCESSORY_RE = /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme|filtro|fonte|placa\s+m[ãa]e|cabo|adesivo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o|limpeza)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|spare\s*part|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|elastico|elástico|bombinha|seringa|ponta|broca|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
+
 const RULES: Array<{ cat: Cat; re: RegExp; canon?: (m: string) => string }> = [
-  // Scanner intraoral
-  { cat: "scanner", re: /\b(medit\s*i[57]00|i600|i700|aoralscan|trios\s*\d?|itero|primescan|panda\s*p\d|launca|runyes|shining|scanner\s+intraoral)\b/i,
+  // Scanner intraoral — exige modelo específico (não aceita "scanner intraoral" genérico)
+  { cat: "scanner", re: /\b(medit\s*i[567]00|i600|i700|aoralscan\s*\d?|trios\s*\d|itero|primescan|panda\s*p\d|launca\s*\w*|runyes|shining\s*\w*|emerald)\b/i,
     canon: (m) => m.replace(/\s+/g, " ").trim() },
   // Scanner de bancada
   { cat: "scanner_bancada", re: /\b(scanner\s+de?\s*bancada|e\d\s*scanner|3shape\s*e\d|t710|aoralscan\s*lab)\b/i },
-  // Impressora 3D
-  { cat: "impressora", re: /\b(halot[\w\s\-]*|elegoo\s+(?:mars|saturn|jupiter)[\w\s\-]*|mars\s*\d?\s*(?:ultra|pro)?|saturn\s*\d?|phrozen[\w\s\-]*|sonic[\w\s\-]*|anycubic[\w\s\-]*|miicraft[\w\s\-]*|rayshape[\w\s\-]*|edge\s*mini|edgemini|nextdent|asiga|formlabs|impressora\s+3d)\b/i },
+  // Impressora 3D — modelos específicos, sem aceitar "anycubic" ou "elegoo" sozinhos
+  { cat: "impressora", re: /\b(halot\s*(?:one|mage|max|sky|ray)[\w\s\-]*|elegoo\s+(?:mars|saturn|jupiter)\s*\d?\s*(?:ultra|pro|plus|s|m|max)?|mars\s*\d\s*(?:ultra|pro)?|saturn\s*\d\s*(?:ultra|pro|s)?|phrozen\s+(?:sonic|mighty|shuffle)[\w\s\-]*|sonic\s+(?:mini|mighty|xl)[\w\s\-]*|anycubic\s+(?:photon|mono)[\w\s\-]*|miicraft[\w\s\-]*|rayshape\s+(?:edge|shape)[\w\s\-]*|edge\s*mini|edgemini|nextdent\s*\w*|asiga\s+\w+|formlabs\s+form\s*\d)\b/i },
   // Pós-impressão (cura/wash)
-  { cat: "pos_impressao", re: /\b(wash[\s\-&]*cure|mercury\s*(?:plus|x|wash)?|nanoclean\s*pod|cure\s*m\d|uw\s*0?\d|smart\s*cure|formcure)\b/i },
-  // CAD/CAM
+  { cat: "pos_impressao", re: /\b(wash[\s\-&]*cure|mercury\s*(?:plus|x|wash)\s*[\w.]*|nanoclean\s*pod|cure\s*m\d|uw\s*0?\d|smart\s*cure|formcure)\b/i },
+  // CAD/CAM software
   { cat: "cad", re: /\b(exocad|exoplan|dentalcad|meshmixer|3shape\s*design|inlab|chairside\s*cad|blueskybio)\b/i },
   // Notebook / workstation
-  { cat: "notebook", re: /\b(notebook|avell|workstation|ryzen|rtx\s*\d|nvidia)\b/i },
+  { cat: "notebook", re: /\b(notebook|avell|workstation\s+\w+)\b/i },
   // Fresadora
   { cat: "fresadora", re: /\b(fresadora|cori\s?tec|vhf|roland\s*drm|imes|amann)\b/i },
 ];
 
 function classify(name: string): Detection | null {
   const n = name.toLowerCase();
+  if (ACCESSORY_RE.test(n)) return null;
   for (const r of RULES) {
     const m = n.match(r.re);
     if (m) return { cat: r.cat, canonical: r.canon ? r.canon(m[0]) : name.trim(), raw: name };
