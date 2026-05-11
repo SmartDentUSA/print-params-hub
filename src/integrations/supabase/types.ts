@@ -6017,6 +6017,7 @@ export type Database = {
           timeline_scanner: Json | null
           tipo_local: string | null
           total_deals: number | null
+          total_deals_all: number
           total_messages: number | null
           total_sessions: number | null
           uf: string | null
@@ -6527,6 +6528,7 @@ export type Database = {
           timeline_scanner?: Json | null
           tipo_local?: string | null
           total_deals?: number | null
+          total_deals_all?: number
           total_messages?: number | null
           total_sessions?: number | null
           uf?: string | null
@@ -7037,6 +7039,7 @@ export type Database = {
           timeline_scanner?: Json | null
           tipo_local?: string | null
           total_deals?: number | null
+          total_deals_all?: number
           total_messages?: number | null
           total_sessions?: number | null
           uf?: string | null
@@ -15300,6 +15303,7 @@ export type Database = {
           timeline_scanner: Json | null
           tipo_local: string | null
           total_deals: number | null
+          total_deals_all: number
           total_messages: number | null
           total_sessions: number | null
           uf: string | null

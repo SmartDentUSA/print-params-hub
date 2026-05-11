@@ -119,6 +119,21 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
   const wonDeals = allDealsList.filter((d: any) => WON_STATUSES.includes(d.status || ""));
   lead.ltv_total = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0);
   lead.total_deals = wonDeals.length;
+  lead.total_deals_all = allDealsList.length;
+
+  // Persist counters so the leads list (which reads columns directly) stays in sync.
+  try {
+    await supabase
+      .from("lia_attendances")
+      .update({
+        total_deals: lead.total_deals,
+        total_deals_all: lead.total_deals_all,
+        ltv_total: lead.ltv_total,
+      })
+      .eq("id", id);
+  } catch (e) {
+    console.warn("[leads-api] persist counters failed:", e);
+  }
 
   // 5. Opportunities
   const { data: opportunities } = await supabase
