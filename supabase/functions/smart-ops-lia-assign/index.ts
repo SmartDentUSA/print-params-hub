@@ -156,6 +156,67 @@ async function createPerson(
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // ── Hard-gate: NEVER create a Person without email AND without phone ──
+  // A Person with no email/phone in PipeRun cannot be deduplicated by future
+  // syncs, leading to ghost Persons that contaminate the CRM permanently.
+  // Mark the lead as blocked and abort. The retry-cron will burn it down.
+  if (!email && !phone) {
+    const leadId = lead.id as string | undefined;
+    console.warn(`[lia-assign] BLOCKED createPerson: lead ${leadId} has no email AND no phone (nome="${nome}")`);
+    if (leadId) {
+      try {
+        await supa
+          .from("lia_attendances")
+          .update({
+            crm_creation_blocked: true,
+            crm_creation_blocked_reason: "missing_identifiers",
+          })
+          .eq("id", leadId);
+        await supa.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "person_create_blocked_missing_identifiers",
+          lead_id: leadId,
+          details: { nome, source: lead.source, form_name: lead.form_name },
+        });
+      } catch (logErr) {
+        console.error("[lia-assign] Failed to log missing-identifiers block:", logErr);
+      }
+    }
+    return null;
+  }
+
+  // ── Debounce: refuse to create a duplicate Person for the same normalized
+  // name + same source within 60 seconds. Prevents the Watillas T. Santos
+  // class of bug where two parallel invocations create two PipeRun Persons
+  // for the same human within the same minute.
+  try {
+    const normName = String(nome || "").trim().toLowerCase();
+    if (normName) {
+      const sinceIso = new Date(Date.now() - 60_000).toISOString();
+      const { data: recent } = await supa
+        .from("lia_attendances")
+        .select("id, pessoa_piperun_id, created_at")
+        .ilike("nome", normName)
+        .eq("source", String(lead.source || ""))
+        .not("pessoa_piperun_id", "is", null)
+        .gte("created_at", sinceIso)
+        .neq("id", (lead.id as string) || "00000000-0000-0000-0000-000000000000")
+        .limit(1)
+        .maybeSingle();
+      if (recent?.pessoa_piperun_id) {
+        console.warn(`[lia-assign] DEBOUNCE: reusing pessoa ${recent.pessoa_piperun_id} for "${nome}" (created ${recent.created_at})`);
+        return Number(recent.pessoa_piperun_id);
+      }
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Debounce check failed (non-fatal):", e);
+  }
+
   const personPayload: Record<string, unknown> = { name: nome };
   if (email) personPayload.emails = [{ email }];
   if (phone) personPayload.phones = [{ phone }];
@@ -175,10 +236,6 @@ async function createPerson(
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
-
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   const attempts: Array<{ attempt: number; name_used: string; status: number; body: unknown }> = [];
 
