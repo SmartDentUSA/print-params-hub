@@ -5945,6 +5945,7 @@ export type Database = {
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
+          lia_briefing_sent_at: string | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
@@ -6457,6 +6458,7 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lia_briefing_sent_at?: string | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
@@ -6969,6 +6971,7 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lia_briefing_sent_at?: string | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
@@ -11623,6 +11626,7 @@ export type Database = {
           manychat_subscriber_key: string | null
           messaging_provider: string
           nome_completo: string
+          notification_phone: string | null
           piperun_owner_id: string | null
           role: string
           updated_at: string
@@ -11648,6 +11652,7 @@ export type Database = {
           manychat_subscriber_key?: string | null
           messaging_provider?: string
           nome_completo: string
+          notification_phone?: string | null
           piperun_owner_id?: string | null
           role: string
           updated_at?: string
@@ -11673,6 +11678,7 @@ export type Database = {
           manychat_subscriber_key?: string | null
           messaging_provider?: string
           nome_completo?: string
+          notification_phone?: string | null
           piperun_owner_id?: string | null
           role?: string
           updated_at?: string
@@ -16568,6 +16574,7 @@ export type Database = {
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
+          lia_briefing_sent_at: string | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
