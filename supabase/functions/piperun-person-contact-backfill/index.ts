@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isFakeEmail } from "../_shared/lead-identity-guard.ts";
-import { piperunPut } from "../_shared/piperun-field-map.ts";
+import { piperunPut, buildPersonFormCustomFields } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
   let q = supa
     .from("lia_attendances")
-    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf")
+    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf,scanner_modelo,impressora_modelo,tem_scanner,tem_impressora,form_data")
     .is("merged_into", null)
     .not("pessoa_piperun_id", "is", null);
 
@@ -62,11 +62,20 @@ Deno.serve(async (req) => {
     if (lead.pessoa_facebook) personPayload.facebook = lead.pessoa_facebook;
     if (lead.pessoa_observation) personPayload.observation = lead.pessoa_observation;
 
+    // Form custom fields: Scanner (772727), Impressora (772728), Área (673900), Especialidade (445631)
+    const personCF = buildPersonFormCustomFields(lead as Record<string, unknown>);
+    if (personCF.length > 0) personPayload.custom_fields = personCF;
+
     if (Object.keys(personPayload).length === 0) {
       results.push({ id: lead.id, person_id: personId, skipped: "no_contact_data" });
       continue;
     }
     let res = await piperunPut(PIPERUN_API_KEY, `persons/${personId}`, personPayload);
+    // Retry without custom_fields first (most likely 422 cause)
+    if (!res.success && personPayload.custom_fields) {
+      const { custom_fields: _cf, ...withoutCF } = personPayload as Record<string, unknown>;
+      res = await piperunPut(PIPERUN_API_KEY, `persons/${personId}`, withoutCF);
+    }
     if (!res.success && (personPayload.emails || personPayload.phones)) {
       const minimal: Record<string, unknown> = {};
       if (personPayload.emails) minimal.emails = personPayload.emails;

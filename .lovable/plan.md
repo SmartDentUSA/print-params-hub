@@ -1,135 +1,87 @@
-## Problema real
+## Objetivo
 
-O problema não é distribuição/owner. É regressão de dados no PipeRun: os Deals estão sendo criados, mas o vínculo Pessoa/Empresa aparece sem e-mail e telefone visíveis, mesmo o CDP (`lia_attendances`) e a nota do Deal contendo esses dados.
+Após criar/atualizar a Pessoa no PipeRun (`updatePersonFields` em `_shared/piperun-hierarchy.ts`), enviar 4 custom fields adicionais com a resposta dos formulários:
 
-Pelo código atual, o `smart-ops-lia-assign` até tenta publicar `emails[]` e `phones[]` na Pessoa, mas não existe uma verificação forte pós-criação do Deal para garantir que o PipeRun aceitou e manteve esses campos no card de Pessoa/Empresa. Também faltam campos de Pessoa que você listou (`cpf`, `birth_date`, `gender`, `cellphone`, `linkedin`, `facebook`) e a cascata correta de `job_title`.
+| Campo PipeRun | ID | Tipo | Fonte CDP |
+|---|---|---|---|
+| Mapeamento Scanner formulário | `772727` | Texto | `scanner_modelo` → fallback resposta crua de `form_data` (chaves: `tem_scanner`, `scanner`, `marca_scanner`, `modelo_scanner`) |
+| Mapeamento Impressora formulário | `772728` | Texto | `impressora_modelo` → fallback resposta crua de `form_data` (chaves: `tem_impressora`, `impressora`, `marca_impressora`, `modelo_impressora`) |
+| ÁREA DE ATUAÇÃO | `673900` | Única escolha | `area_atuacao` (normalizado UPPER) — valor precisa bater com enum |
+| Especialidade principal | `445631` | Múltipla escolha | `especialidade` (UPPER, array) — valor precisa bater com enum |
 
-## O que será corrigido
-
-### 1. Reenvio completo de Pessoa no PipeRun
-
-No fluxo `smart-ops-lia-assign`, após resolver/criar a Pessoa e após criar/atualizar o Deal, reenviar a Pessoa com payload completo baseado no CDP:
-
-```text
-Person:
-- name              <- nome
-- emails[]          <- email
-- phones[]          <- telefone_normalized ou telefone_raw
-- job_title         <- especialidade -> area_atuacao -> pessoa_cargo
-- cpf               <- pessoa_cpf
-- birth_date        <- pessoa_nascimento
-- gender            <- pessoa_genero
-- cellphone         <- telefone_normalized ou telefone_raw
-- linkedin          <- pessoa_linkedin
-- facebook          <- pessoa_facebook
-```
-
-Regras:
-- Nunca criar Pessoa sem e-mail ou telefone.
-- Nunca sobrescrever `origin_id` da Pessoa.
-- Não depender da nota do Deal; a nota continua existindo, mas o card Pessoa precisa receber os campos estruturados.
-- Se o PipeRun rejeitar algum campo isolado, registrar log e continuar tentando os campos críticos `emails[]` e `phones[]`.
-
-### 2. Reenvio completo de Empresa no PipeRun
-
-Após garantir `empresa_piperun_id`, reenviar Empresa com:
+Os 2 primeiros são texto livre → enviam exatamente a resposta crua do formulário (com fallback `tem_X = "Sim/Não" + modelo`).
+Os 2 últimos são enums no PipeRun — precisam ser normalizados para os valores aceitos:
 
 ```text
-Company:
-- name       <- empresa_nome -> empresa_razao_social -> nome
-- cnpj       <- empresa_cnpj
-- segment    <- empresa_segmento
-- website    <- empresa_website
-- emails[]   <- email
-- phones[]   <- telefone_normalized ou telefone_raw
-- city/state <- cidade / uf quando disponíveis
+ÁREA DE ATUAÇÃO (673900):
+  RADIOLOGIA ODONTOLÓGICA | CLÍNICA OU CONSULTÓRIO | LABORATÓRIO DE PRÓTESE |
+  PLANNING CENTER | EMPRESA DE ALINHADORES | GESTOR DE REDE DE CLÍNICAS |
+  GESTOR DE FRANQUIAS | CENTRAL DE IMPRESSÕES | EDUCAÇÃO | SEM INFOMAÇÃO
+
+Especialidade principal (445631):
+  CLÍNICO GERAL | DENTÍSTICA | IMPLANTODONTISTA | PROTESISTA | ODONTOPEDIATRIA |
+  ORTODONTISTA | PERIODONTISTA | RADIOLOGISTA | ESTOMATOLOGISTA |
+  CIRURGIA BUCO MAXILO FACIAL | TÉCNICO EM RADIOLOGIA |
+  TÉCNICO EM PRÓTESE ODONTOLÓGICA | OUTRA
 ```
 
-Regras:
-- Empresa deve ter contato quando não houver contato corporativo separado: usar e-mail/telefone do lead como fallback.
-- Não criar empresa vazia quando não houver identificador mínimo; mas se já existe vínculo, enriquecer com os dados disponíveis.
+Se o valor do CDP não bater com o enum (após normalização tira-acento+UPPER+match fuzzy), envia o texto cru no observation e loga `piperun_person_enum_unmatched` em `system_health_logs` em vez de quebrar o PUT.
 
-### 3. Verificação pós-Deal para impedir card sem vínculo útil
+## Implementação
 
-Adicionar uma etapa pós-Deal:
+### 1. `supabase/functions/_shared/piperun-field-map.ts`
+Adicionar constantes:
+```ts
+export const PESSOA_CUSTOM_FIELD_IDS = {
+  SCANNER_FORM: 772727,
+  IMPRESSORA_FORM: 772728,
+  AREA_ATUACAO: 673900,
+  ESPECIALIDADE: 445631,
+} as const;
 
-```text
-create/update Deal
-  -> PUT Person com e-mail/telefone/campos completos
-  -> PUT Company com e-mail/telefone/campos completos
-  -> GET Person e Company
-  -> logar se ainda estiver sem emails[] ou phones[]
+export const PIPERUN_AREA_ATUACAO_ENUM = [...];
+export const PIPERUN_ESPECIALIDADE_ENUM = [...];
 ```
++ helper `matchEnum(value, enumList)` (normaliza acento/caixa, retorna canônico ou null).
 
-Logs em `system_health_logs`:
-- `piperun_person_resync_ok`
-- `piperun_person_resync_failed`
-- `piperun_company_resync_ok`
-- `piperun_company_resync_failed`
-- `piperun_contact_still_missing_after_resync`
+### 2. `supabase/functions/_shared/piperun-hierarchy.ts → updatePersonFields`
+Construir `personCustomFields` a partir do `lead`:
 
-### 4. Backfill/recuperação dos Deals já afetados
+- **Scanner (772727)**: prioridade `scanner_modelo` → `tem_scanner + " — " + scanner_modelo` → varredura recursiva em `form_data` por chaves sinônimas (mesma lógica do `mapAttendanceToDealCustomFields`).
+- **Impressora (772728)**: idem com `impressora_modelo` / `tem_impressora`.
+- **Área (673900)**: `matchEnum(lead.area_atuacao, PIPERUN_AREA_ATUACAO_ENUM)`.
+- **Especialidade (445631)**: `matchEnum(lead.especialidade, PIPERUN_ESPECIALIDADE_ENUM)`. Como é múltipla escolha, enviar como array `[valor]`.
 
-Ajustar `smart-ops-piperun-retry-failed-leads` para também reprocessar leads que já têm `piperun_id` e `pessoa_piperun_id`, mas precisam re-publicar Pessoa/Empresa.
-
-Critério:
-```text
-merged_into IS NULL
-piperun_id IS NOT NULL
-pessoa_piperun_id IS NOT NULL
-email OR telefone presente
+Se houver custom fields montados, anexar ao payload do PUT como hash:
+```ts
+updatePayload.custom_fields = { "772727": "...", "772728": "...", "673900": "...", "445631": ["..."] }
 ```
+(Formato hash já é o aceito pelo PipeRun — mesmo padrão usado em `customFieldsToHashMap` para Deals.)
 
-Permitir chamada manual por e-mail, por exemplo:
-```json
-{ "force": true, "emails": ["l.franca11@gmail.com"], "mode": "contact_resync" }
-```
+Retry minimal (`{name, emails, phones}`) já existente preservado: se o PUT completo falhar 422, loga `piperun_person_customfield_rejected` com a chave problemática e reenvia sem custom_fields.
 
-Isso permite recuperar Luis Marcondes França e todos os cards recentes sem criar Deal duplicado.
+### 3. Backfill
+Estender `piperun-person-contact-backfill/index.ts` para também publicar esses 4 custom fields na pessoa (mesmo helper). Permite reprocessar leads recentes (incluindo `l.franca11@gmail.com`) sem recriar Deal.
 
-### 5. Expor IDs PipeRun no Smart Ops
+### 4. Memória
+Atualizar `mem/integration/piperun-person-contact-enrichment.md` com os 4 IDs de Pessoa e a regra de matching de enum.
 
-No card Kanban (`KanbanLeadCard.tsx`), mostrar links clicáveis:
+## Arquivos alterados
 
-```text
-PR#59724041 · Pessoa#46892007 · Empresa#22835895
-```
-
-- Deal: `https://app.pipe.run/#/deals/{piperun_id}`
-- Pessoa: `https://app.pipe.run/#/persons/{pessoa_piperun_id}`
-- Empresa: `https://app.pipe.run/#/companies/{empresa_piperun_id}`
-
-No detalhe do lead (`KanbanLeadDetail.tsx`), transformar `pessoa_piperun_id` e `empresa_piperun_id` em links clicáveis também.
-
-## Arquivos a alterar
-
-- `supabase/functions/smart-ops-lia-assign/index.ts`
-  - fortalecer `updatePersonFields`
-  - fortalecer `findOrCreateCompany`
-  - adicionar verificação/reenvio pós-Deal
-
-- `supabase/functions/smart-ops-piperun-retry-failed-leads/index.ts`
-  - adicionar modo `contact_resync` para recuperar Deals existentes sem recriar oportunidades
-
-- `src/components/smartops/KanbanLeadCard.tsx`
-  - exibir links para Deal/Pessoa/Empresa
-
-- `src/components/smartops/KanbanLeadDetail.tsx`
-  - IDs PipeRun clicáveis em Pessoa/Empresa
-
-- `mem/integration/piperun-person-contact-enrichment.md`
-  - atualizar regra para incluir reenvio completo de Pessoa/Empresa pós-Deal
+- `supabase/functions/_shared/piperun-field-map.ts` — IDs + enums + matcher
+- `supabase/functions/_shared/piperun-hierarchy.ts` — `updatePersonFields` injeta custom_fields
+- `supabase/functions/piperun-person-contact-backfill/index.ts` — replica no backfill
+- `mem/integration/piperun-person-contact-enrichment.md` — documentar IDs
 
 ## Validação
 
-1. Rodar o re-sync manual para `l.franca11@gmail.com`.
-2. Conferir logs `piperun_person_resync_ok` e `piperun_company_resync_ok`.
-3. Confirmar no PipeRun que o card da Pessoa não fica mais com “E-mail não informado” e “Telefone não informado”.
-4. Confirmar no Smart Ops que os IDs Deal/Pessoa/Empresa aparecem clicáveis no card.
+1. Reprocessar `l.franca11@gmail.com` via backfill.
+2. Conferir card da Pessoa no PipeRun: 4 campos preenchidos.
+3. Validar logs `piperun_person_resync_ok`; sem `piperun_person_customfield_rejected`.
+4. Testar lead novo de formulário → confirmar populado no primeiro PUT.
 
 ## Fora de escopo
 
-- Não mexer em round-robin.
-- Não mexer em distribuição de leads.
-- Não alterar integração nativa Meta -> PipeRun.
-- Não recriar Deals existentes.
+- Custom fields 546566/546567 (Tem impressora/Tem scanner — Única escolha SIM/NÃO): podem entrar num passo 2 se necessário.
+- Sincronização reversa (PipeRun → CDP).
+- Mexer em custom fields de Deal/Empresa.

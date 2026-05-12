@@ -254,6 +254,165 @@ export const PESSOA_CUSTOM_FIELD_HASHES: Record<number, string> = {
   [PESSOA_CUSTOM_FIELDS.ESPECIALIDADE]: "7a5764a42970b6cb0868dc203251936f",
 };
 
+// ─── Pessoa custom fields — form responses (Scanner / Impressora / Área / Especialidade)
+// Validated IDs from PipeRun custom_fields registry (belongs=Pessoas):
+//   772727 — Mapeamento Scanner formulário (Texto livre)
+//   772728 — Mapeamento Impressora formulário (Texto livre)
+//   673900 — ÁREA DE ATUAÇÃO (Única escolha)
+//   445631 — Especialidade principal (Múltipla escolha)
+export const PESSOA_FORM_CUSTOM_FIELDS = {
+  SCANNER_FORM: 772727,
+  IMPRESSORA_FORM: 772728,
+  AREA_ATUACAO: 673900,
+  ESPECIALIDADE: 445631,
+} as const;
+
+export const PIPERUN_AREA_ATUACAO_ENUM = [
+  "RADIOLOGIA ODONTOLÓGICA",
+  "CLÍNICA OU CONSULTÓRIO",
+  "LABORATÓRIO DE PRÓTESE",
+  "PLANNING CENTER",
+  "EMPRESA DE ALINHADORES",
+  "GESTOR DE REDE DE CLÍNICAS",
+  "GESTOR DE FRANQUIAS",
+  "CENTRAL DE IMPRESSÕES",
+  "EDUCAÇÃO",
+  "SEM INFOMAÇÃO",
+] as const;
+
+export const PIPERUN_ESPECIALIDADE_ENUM = [
+  "CLÍNICO GERAL",
+  "DENTÍSTICA",
+  "IMPLANTODONTISTA",
+  "PROTESISTA",
+  "ODONTOPEDIATRIA",
+  "ORTODONTISTA",
+  "PERIODONTISTA",
+  "RADIOLOGISTA",
+  "ESTOMATOLOGISTA",
+  "CIRURGIA BUCO MAXILO FACIAL",
+  "TÉCNICO EM RADIOLOGIA",
+  "TÉCNICO EM PRÓTESE ODONTOLÓGICA",
+  "OUTRA",
+] as const;
+
+function stripDiacritics(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Match a free-form CDP value to the PipeRun enum (case/accent-insensitive). */
+export function matchPiperunEnum(value: string | null | undefined, enumList: readonly string[]): string | null {
+  if (!value) return null;
+  const norm = stripDiacritics(String(value).trim().toUpperCase());
+  if (!norm) return null;
+  for (const opt of enumList) {
+    if (stripDiacritics(opt.toUpperCase()) === norm) return opt;
+  }
+  // Fuzzy contains (e.g. "ORTODONTIA" → "ORTODONTISTA")
+  for (const opt of enumList) {
+    const optNorm = stripDiacritics(opt.toUpperCase());
+    if (optNorm.includes(norm) || norm.includes(optNorm)) return opt;
+  }
+  // Common synonyms
+  const SYN: Record<string, string> = {
+    "ORTODONTIA": "ORTODONTISTA",
+    "IMPLANTODONTIA": "IMPLANTODONTISTA",
+    "PROTESE": "PROTESISTA",
+    "PERIODONTIA": "PERIODONTISTA",
+    "RADIOLOGIA": "RADIOLOGISTA",
+    "ESTOMATOLOGIA": "ESTOMATOLOGISTA",
+  };
+  const synHit = SYN[norm];
+  if (synHit) {
+    const found = enumList.find((o) => stripDiacritics(o.toUpperCase()) === synHit);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Recursively scan form_data JSONB for any of the given synonym keys.
+ * Returns the first non-empty primitive value (string).
+ */
+function scanFormData(formData: unknown, synonyms: string[]): string | null {
+  if (!formData || typeof formData !== "object") return null;
+  const want = new Set(synonyms.map((s) => s.toLowerCase().trim()));
+  let hit: string | null = null;
+  const visit = (obj: unknown): void => {
+    if (hit !== null || !obj || typeof obj !== "object") return;
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (hit !== null) return;
+      if (v == null) continue;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+        if (want.has(k.toLowerCase().trim())) {
+          const s = String(v).trim();
+          if (s) { hit = s; return; }
+        }
+      } else if (Array.isArray(v)) {
+        for (const item of v) visit(item);
+      } else if (typeof v === "object") {
+        visit(v);
+      }
+    }
+  };
+  visit(formData);
+  return hit;
+}
+
+/**
+ * Build the 4 Person form custom fields from a CDP attendance record.
+ * Returns hash payload usable directly under PUT /persons body's `custom_fields`.
+ * Uses the verified `[{id, value}]` shape (same as Deal custom_fields).
+ */
+export function buildPersonFormCustomFields(
+  lead: Record<string, unknown>,
+): Array<{ id: number; value: string | string[] }> {
+  const out: Array<{ id: number; value: string | string[] }> = [];
+  const fd = lead.form_data;
+
+  // ── Scanner (text) ──
+  const scannerModelo = (lead.scanner_modelo as string | null) || scanFormData(fd, ["scanner_modelo", "modelo_scanner", "marca_scanner"]);
+  const temScanner = (lead.tem_scanner as string | null) || scanFormData(fd, ["tem_scanner", "scanner", "possui_scanner"]);
+  let scannerVal: string | null = null;
+  if (scannerModelo && temScanner && /^sim$/i.test(String(temScanner).trim())) {
+    scannerVal = `${String(temScanner).trim()} — ${String(scannerModelo).trim()}`;
+  } else {
+    scannerVal = scannerModelo || temScanner || null;
+  }
+  if (scannerVal) {
+    out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.SCANNER_FORM, value: scannerVal });
+  }
+
+  // ── Impressora (text) ──
+  const impressoraModelo = (lead.impressora_modelo as string | null) || scanFormData(fd, ["impressora_modelo", "modelo_impressora", "marca_impressora", "printer_model"]);
+  const temImpressora = (lead.tem_impressora as string | null) || scanFormData(fd, ["tem_impressora", "impressora", "possui_impressora"]);
+  let impressoraVal: string | null = null;
+  if (impressoraModelo && temImpressora && /^sim$/i.test(String(temImpressora).trim())) {
+    impressoraVal = `${String(temImpressora).trim()} — ${String(impressoraModelo).trim()}`;
+  } else {
+    impressoraVal = impressoraModelo || temImpressora || null;
+  }
+  if (impressoraVal) {
+    out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.IMPRESSORA_FORM, value: impressoraVal });
+  }
+
+  // ── Área de atuação (Única escolha) ──
+  const areaRaw = (lead.area_atuacao as string | null) || scanFormData(fd, ["area_atuacao", "area_de_atuacao", "area"]);
+  const areaMatch = matchPiperunEnum(areaRaw, PIPERUN_AREA_ATUACAO_ENUM);
+  if (areaMatch) {
+    out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.AREA_ATUACAO, value: areaMatch });
+  }
+
+  // ── Especialidade (Múltipla escolha) ──
+  const espRaw = (lead.especialidade as string | null) || scanFormData(fd, ["especialidade", "specialty"]);
+  const espMatch = matchPiperunEnum(espRaw, PIPERUN_ESPECIALIDADE_ENUM);
+  if (espMatch) {
+    out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.ESPECIALIDADE, value: [espMatch] });
+  }
+
+  return out;
+}
+
 // ─── Users (Vendedores) ───
 
 export const PIPERUN_USERS: Record<number, { name: string; email: string; role: string; cellphone?: string }> = {
