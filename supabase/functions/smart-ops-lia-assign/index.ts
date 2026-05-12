@@ -18,7 +18,7 @@ import {
   addDealNote,
   mapAttendanceToDealCustomFields,
   mapDealToAttendance,
-  customFieldsToHashMap,
+  customFieldsToDealPayload,
   cleanPersonName,
   sanitizePersonNameForPiperun,
   DEAL_CUSTOM_FIELDS,
