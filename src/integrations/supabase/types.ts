@@ -1385,10 +1385,18 @@ export type Database = {
           ativo: boolean
           created_at: string
           delay_days: number | null
+          dias_semana: number[] | null
+          enviar_fora_horario: boolean | null
           evolution_ativo: boolean | null
+          horario_fim: string | null
+          horario_inicio: string | null
           id: string
           manychat_ativo: boolean | null
+          media_caption: string | null
+          media_filename: string | null
+          media_url: string | null
           mensagem_evolution: string | null
+          mensagem_fora_horario: string | null
           mensagem_waleads: string | null
           produto_interesse: string | null
           team_member_id: string | null
@@ -1404,10 +1412,18 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
+          dias_semana?: number[] | null
+          enviar_fora_horario?: boolean | null
           evolution_ativo?: boolean | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
           id?: string
           manychat_ativo?: boolean | null
+          media_caption?: string | null
+          media_filename?: string | null
+          media_url?: string | null
           mensagem_evolution?: string | null
+          mensagem_fora_horario?: string | null
           mensagem_waleads?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
@@ -1423,10 +1439,18 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
+          dias_semana?: number[] | null
+          enviar_fora_horario?: boolean | null
           evolution_ativo?: boolean | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
           id?: string
           manychat_ativo?: boolean | null
+          media_caption?: string | null
+          media_filename?: string | null
+          media_url?: string | null
           mensagem_evolution?: string | null
+          mensagem_fora_horario?: string | null
           mensagem_waleads?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
@@ -11901,6 +11925,89 @@ export type Database = {
           },
         ]
       }
+      whatsapp_send_queue: {
+        Row: {
+          automation_rule_id: string | null
+          created_at: string
+          delay_ms: number
+          evolution_instance: string | null
+          id: string
+          last_error: string | null
+          lead_id: string | null
+          max_retries: number
+          media_caption: string | null
+          media_filename: string | null
+          media_url: string | null
+          message_text: string | null
+          message_type: string
+          priority: number
+          provider: string
+          retry_count: number
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          team_member_id: string | null
+          to_phone: string
+          trigger_source: string | null
+        }
+        Insert: {
+          automation_rule_id?: string | null
+          created_at?: string
+          delay_ms?: number
+          evolution_instance?: string | null
+          id?: string
+          last_error?: string | null
+          lead_id?: string | null
+          max_retries?: number
+          media_caption?: string | null
+          media_filename?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          message_type?: string
+          priority?: number
+          provider?: string
+          retry_count?: number
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          team_member_id?: string | null
+          to_phone: string
+          trigger_source?: string | null
+        }
+        Update: {
+          automation_rule_id?: string | null
+          created_at?: string
+          delay_ms?: number
+          evolution_instance?: string | null
+          id?: string
+          last_error?: string | null
+          lead_id?: string | null
+          max_retries?: number
+          media_caption?: string | null
+          media_filename?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          message_type?: string
+          priority?: number
+          provider?: string
+          retry_count?: number
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          team_member_id?: string | null
+          to_phone?: string
+          trigger_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_send_queue_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_templates: {
         Row: {
           approved_at: string | null
@@ -14507,6 +14614,25 @@ export type Database = {
           valor_total: number
           valor_unitario: number
         }[]
+      }
+      fn_enqueue_whatsapp: {
+        Args: {
+          p_automation_id?: string
+          p_evolution_inst?: string
+          p_lead_id?: string
+          p_media_caption?: string
+          p_media_filename?: string
+          p_media_url?: string
+          p_message_text: string
+          p_message_type?: string
+          p_priority?: number
+          p_provider?: string
+          p_scheduled_at?: string
+          p_team_member_id?: string
+          p_to_phone: string
+          p_trigger_source?: string
+        }
+        Returns: string
       }
       fn_enrich_lead_from_omie: {
         Args: { p_lead_id: string }
