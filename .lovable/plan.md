@@ -1,44 +1,81 @@
-## Resgate de leads `empty_person_unresolvable`
+## Objetivo
 
-Hoje o sweeper marca como `unresolvable` quando `findPersonExpanded` não acha um Person "dono" dos contatos. Mas em casos como Vilmar (Person 46912647 já cacheado, vazio), nunca tentamos:
-- reabrir o Person cacheado via `GET /persons/{id}` para confirmar se segue vazio,
-- forçar um PUT atômico de `emails`+`phones` e validar via novo GET,
-- ou, em último caso, abandonar o Person vazio e criar um novo limpo.
+Criar uma nova seção **"Automações LIA"** em `SmartOps → Automações` (componente `SmartOpsCSRules.tsx`), abaixo da listagem de automações por vendedor, com cards configuráveis para automações disparadas pela LIA (Boas-vindas ao Lead e Briefing ao Vendedor), reusando o design system existente (shadcn/ui, Tailwind, tokens semânticos).
 
-### Mudanças
+## O que será construído
 
-**1. `_shared/piperun-person-resolver.ts`**
-- Adicionar `forcePopulateCachedPerson(apiToken, personId, { email, phone, name })`:
-  1. `GET /persons/{id}` → se já tem email OU phone, retorna `{ ok: true, alreadyHasContact: true }`.
-  2. PUT atômico com `emails:[{email,type:'work'}]` + `phones:[{number, type:'work'}]` em payload mínimo (sem `name`/`custom_fields`).
-  3. `GET /persons/{id}` de novo → se persistiu, `{ ok: true, populated: true }`. Se não, `{ ok: false, reason: 'piperun_silent_reject' }`.
+### 1. Nova tabela `lia_automations` (Supabase)
 
-**2. `piperun-person-empty-sweeper/index.ts`**
-- Antes de `findPersonExpanded`, ler `lead.pessoa_piperun_id`. Se existir:
-  - Tentar `forcePopulateCachedPerson`. Se popular → limpar `crm_creation_blocked` + reenfileirar `lia-assign` e logar `piperun_person_force_populated`.
-- Se ainda falhar e o email tiver TLD inválido (`.TYPO`, regex de TLD válido), pular sem marcar `unresolvable` e logar `piperun_person_invalid_email_tld` (lead precisa correção humana — typo no formulário).
-- Se email/telefone forem válidos mas PipeRun rejeitar silenciosamente, criar **novo Person** (`createPerson` com payload limpo), validar contato no novo ID, e atualizar `pessoa_piperun_id` para o novo + abandonar o antigo (log `piperun_person_replaced_silent_reject` com `old_id`/`new_id`).
-- Só marca `unresolvable` quando: nem o force-populate, nem a busca expandida, nem o create-new conseguiram um Person com contato.
+Armazena a configuração de cada automação. Migration cria a tabela + seed das 2 automações iniciais.
 
-**3. `smart-ops-lia-assign/index.ts`**
-- Quando `validateCachedPerson` retorna `hasContact=false`, antes de cair no `findPersonExpanded`, tentar `forcePopulateCachedPerson` primeiro (mesma cascata). Evita criar ghost no fluxo síncrono.
-- Adicionar guarda de TLD: se `email` tem TLD inválido (ex.: `.TYPO`, ou não casa com `/^[a-z]{2,24}$/i` no último segmento), **não** enviar email para o PipeRun no PUT — só telefone. Stamp `raw_payload.email_invalid_tld=true` e log `lead_email_invalid_tld_skipped`.
+Colunas:
+- `id uuid pk`, `slug text unique` (`boas_vindas_lead`, `briefing_vendedor`)
+- `nome text`, `subtitulo text`, `icone text`, `cor text` (tokens: `blue`, `green`)
+- `trigger_event text` (ex: `lead_assigned_to_seller`)
+- `trigger_tags text[]` (chips exibidas no card)
+- `canal text` (`whatsapp`), `horario_inicio time`, `horario_fim time`
+- `mensagem_horario_comercial text`, `mensagem_fora_horario text`
+- `ativo boolean default true`
+- `function_name text` (referência ao `system_health_logs.function_name` para contar disparos — ex: `lia-welcome`, `lia-briefing`)
+- `short_link_tag text` (filtro em `short_links` para contar cliques)
 
-**4. Endpoint manual de re-trigger**
-- Aceitar `POST /piperun-person-empty-sweeper` com `{ lead_ids: [...] }` para reprocessar leads específicos (Vilmar e os outros 2 marcados hoje) sem precisar limpar o `unresolvable` flag manualmente. Quando `lead_ids` é passado, ignorar `empty_person_unresolvable=true`.
+RLS: leitura/escrita restrita a admins (mesmo padrão de `cs_automation_rules`).
 
-**5. Documentação `mem://architecture/empty-person-piperun-guard.md`**
-- Adicionar a 4ª camada (`forcePopulateCachedPerson`) e a 5ª (`replace_silent_reject`).
-- Documentar que email com TLD inválido (`.TYPO`, typos não corrigidos) entra em `email_invalid_tld` — sweeper não tenta corrigir, espera intervenção.
+### 2. Edge function `automacoes-lia`
 
-### Validação
+Endpoints (mesma function, roteados por método):
+- `GET /functions/v1/automacoes-lia` → retorna lista com:
+  - dados da automação
+  - `enviadas_hoje`, `enviadas_total` (count em `system_health_logs` filtrando por `function_name` e `severity='info'`)
+  - `cliques` (sum de `click_count` em `short_links` por `produto`/tag ou janela de tempo) e `taxa = cliques/enviadas`
+- `PUT /functions/v1/automacoes-lia` body `{ id, ativo }` → toggle
+- `PATCH /functions/v1/automacoes-lia` body `{ id, ...campos }` → editar mensagens/horários
 
-1. Após deploy, chamar `POST /piperun-person-empty-sweeper` com `{ "lead_ids": ["185dbf9c-8b02-4eb1-9028-e5d6fec0f003","97814f87-...","422d5fe6-..."] }`.
-2. Para Vilmar: como o email tem `.TYPO` (inválido), esperado: `piperun_person_invalid_email_tld` — lead permanece bloqueado mas com motivo claro. Se removermos manualmente o `.TYPO` antes (devolvendo `manicaodontologia@gmil.com`), ainda assim o domínio é inválido — mesma branch.
-3. Para os outros 2: esperar `piperun_person_force_populated` ou `piperun_person_replaced_silent_reject`.
-4. Conferir em `system_health_logs` os novos `error_type` e em `lia_attendances` que `pessoa_piperun_id` final tem contato (via curl `GET /persons/{id}`).
+### 3. Frontend — `SmartOpsLiaAutomations.tsx` (novo componente)
 
-### Não faz parte
+Renderizado dentro de `SmartOpsCSRules.tsx`, abaixo da listagem de regras por vendedor.
 
-- Validador de domínio MX (ex.: detectar `gmil.com` como typo de `gmail.com` e auto-corrigir). Pode entrar depois como melhoria, mas exige cuidado para não corromper leads legítimos.
-- Mudanças em `meta_webhook` ou `ingest-lead` — o problema é exclusivo do PipeRun PUT silencioso.
+**Header da seção:**
+- Ícone `Bot` (lucide) + título "Automações LIA" + `Badge` "N ativas"
+- Botão `+ Nova automação` à direita (abre `Dialog` — inicialmente desabilitado/coming soon, ou cria entrada vazia)
+
+**Card de automação (um por item):**
+- Header do card:
+  - Ícone colorido (`MessageSquareDot` para boas-vindas, `FileText` para briefing) com fundo `bg-blue-50/bg-green-50`
+  - Nome + subtítulo
+  - `Switch` ativo/inativo (PUT)
+- Linha de métricas (grid 4 colunas, mesmo padrão do `SmartOpsSellerAutomations`):
+  - Enviadas hoje | Total | Cliques | Taxa (%)
+- Body:
+  - Linha "Gatilho:" com `Badge`s das `trigger_tags`
+  - `Tabs` com `Horário comercial` / `Fora do horário` mostrando preview da `mensagem_*` via `<HighlightVariables />` (já existe em `WaLeadsVariableBar.tsx`)
+- Footer:
+  - Texto pequeno: `08:00–18:00 · WhatsApp`
+  - Botão `Editar` (abre `Dialog` com `Textarea` por variante + `WaLeadsVariableBar` para inserir variáveis)
+
+**Integração:**
+- Em `SmartOpsCSRules.tsx`, importar e renderizar `<SmartOpsLiaAutomations />` no final do JSX principal, separado por `<Separator />`.
+
+### 4. Disparo real (fora do escopo do card visual, observação)
+
+Os disparos efetivos de `lia-welcome` / `lia-briefing` já podem ser registrados em `system_health_logs` pelas functions existentes (ex: `smart-ops-lia-assign`). Se a flag `ativo=false`, a function consultora deve respeitar antes de enviar. Esta parte de execução não está no escopo deste plano — apenas a UI + leitura de métricas + toggle. Confirmar se devemos também ligar o respeito ao toggle nas functions de disparo.
+
+## Detalhes técnicos
+
+- Estilo: tokens semânticos (`bg-card`, `text-foreground`, `text-muted-foreground`); cores primárias por automação via classes utilitárias condicionais (`blue`/`green`) compatíveis com light/dark.
+- Estado: `useState` + `useEffect` consumindo a edge function via `supabase.functions.invoke('automacoes-lia')`.
+- Toggle otimista com rollback em erro + `toast` (`sonner`).
+- Ícones: `Bot`, `MessageSquareDot`, `FileText`, `Pencil`, `Plus` (lucide-react).
+- Reusar `HighlightVariables` para preview com `{nome}`, `{produto}` etc.
+
+## Arquivos afetados
+
+- `supabase/migrations/<timestamp>_lia_automations.sql` (novo)
+- `supabase/functions/automacoes-lia/index.ts` (novo)
+- `src/components/smartops/SmartOpsLiaAutomations.tsx` (novo)
+- `src/components/SmartOpsCSRules.tsx` (renderiza o novo componente ao final)
+
+## Perguntas em aberto
+
+1. O botão **"+ Nova automação"** deve estar funcional já agora (criar entrada custom) ou apenas placeholder, dado que as 2 automações iniciais são fixas e ligadas a functions específicas?
+2. Devo já modificar `smart-ops-lia-assign` (e outras) para respeitar o toggle `ativo=false` (suprimindo o envio), ou apenas entregar UI + métricas + persistência da flag nesta etapa?
