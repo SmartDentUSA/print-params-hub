@@ -335,7 +335,8 @@ export function SmartOpsTeam() {
                 <TableCell className="space-x-1">
                   {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
                   {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
-                  {!m.manychat_api_key && !m.waleads_api_key && <span className="text-muted-foreground text-xs">—</span>}
+                  {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
+                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell className="space-x-1">
