@@ -511,6 +511,45 @@ export type Database = {
         }
         Relationships: []
       }
+      backfill_jobs: {
+        Row: {
+          completed_at: string | null
+          config: Json | null
+          created_at: string | null
+          id: number
+          job_name: string
+          last_run_at: string | null
+          status: string | null
+          total_errors: number | null
+          total_processed: number | null
+          total_updated: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: number
+          job_name: string
+          last_run_at?: string | null
+          status?: string | null
+          total_errors?: number | null
+          total_processed?: number | null
+          total_updated?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: number
+          job_name?: string
+          last_run_at?: string | null
+          status?: string | null
+          total_errors?: number | null
+          total_processed?: number | null
+          total_updated?: number | null
+        }
+        Relationships: []
+      }
       backfill_log: {
         Row: {
           batch_number: number
@@ -11876,6 +11915,512 @@ export type Database = {
         }
         Relationships: []
       }
+      tldv_meeting_intelligence: {
+        Row: {
+          ai_model: string | null
+          analysis_version: number | null
+          analyzed_at: string | null
+          area_atuacao_confirmada: string | null
+          concorrentes_mencionados: string[] | null
+          created_at: string | null
+          demo_solicitada: boolean | null
+          equipamento_atual_imp: string | null
+          equipamento_atual_scan: string | null
+          especialidade_confirmada: string | null
+          faturamento_mencionado: string | null
+          follow_up_data: string | null
+          id: string
+          lead_id: string | null
+          meeting_id: string | null
+          meeting_quality_score: number | null
+          momento_compra: string | null
+          nivel_interesse: string | null
+          objecoes: Json | null
+          objecoes_tags: string[] | null
+          orcamento_mencionado: string | null
+          pontos_chave: string[] | null
+          produtos_mencionados: string[] | null
+          proposta_solicitada: boolean | null
+          proximos_passos: string[] | null
+          resumo_executivo: string | null
+          score_breakdown: Json | null
+          sentiment: string | null
+          sinais_compra: string[] | null
+          volume_pecas_mencionado: number | null
+        }
+        Insert: {
+          ai_model?: string | null
+          analysis_version?: number | null
+          analyzed_at?: string | null
+          area_atuacao_confirmada?: string | null
+          concorrentes_mencionados?: string[] | null
+          created_at?: string | null
+          demo_solicitada?: boolean | null
+          equipamento_atual_imp?: string | null
+          equipamento_atual_scan?: string | null
+          especialidade_confirmada?: string | null
+          faturamento_mencionado?: string | null
+          follow_up_data?: string | null
+          id?: string
+          lead_id?: string | null
+          meeting_id?: string | null
+          meeting_quality_score?: number | null
+          momento_compra?: string | null
+          nivel_interesse?: string | null
+          objecoes?: Json | null
+          objecoes_tags?: string[] | null
+          orcamento_mencionado?: string | null
+          pontos_chave?: string[] | null
+          produtos_mencionados?: string[] | null
+          proposta_solicitada?: boolean | null
+          proximos_passos?: string[] | null
+          resumo_executivo?: string | null
+          score_breakdown?: Json | null
+          sentiment?: string | null
+          sinais_compra?: string[] | null
+          volume_pecas_mencionado?: number | null
+        }
+        Update: {
+          ai_model?: string | null
+          analysis_version?: number | null
+          analyzed_at?: string | null
+          area_atuacao_confirmada?: string | null
+          concorrentes_mencionados?: string[] | null
+          created_at?: string | null
+          demo_solicitada?: boolean | null
+          equipamento_atual_imp?: string | null
+          equipamento_atual_scan?: string | null
+          especialidade_confirmada?: string | null
+          faturamento_mencionado?: string | null
+          follow_up_data?: string | null
+          id?: string
+          lead_id?: string | null
+          meeting_id?: string | null
+          meeting_quality_score?: number | null
+          momento_compra?: string | null
+          nivel_interesse?: string | null
+          objecoes?: Json | null
+          objecoes_tags?: string[] | null
+          orcamento_mencionado?: string | null
+          pontos_chave?: string[] | null
+          produtos_mencionados?: string[] | null
+          proposta_solicitada?: boolean | null
+          proximos_passos?: string[] | null
+          resumo_executivo?: string | null
+          score_breakdown?: Json | null
+          sentiment?: string | null
+          sinais_compra?: string[] | null
+          volume_pecas_mencionado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: true
+            referencedRelation: "tldv_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: true
+            referencedRelation: "v_tldv_meeting_repository"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tldv_meeting_participants: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          is_lead: boolean | null
+          is_seller: boolean | null
+          lead_id: string | null
+          meeting_id: string | null
+          name: string | null
+          role: string | null
+          speaker_time_pct: number | null
+          team_member_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_lead?: boolean | null
+          is_seller?: boolean | null
+          lead_id?: string | null
+          meeting_id?: string | null
+          name?: string | null
+          role?: string | null
+          speaker_time_pct?: number | null
+          team_member_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_lead?: boolean | null
+          is_seller?: boolean | null
+          lead_id?: string | null
+          meeting_id?: string | null
+          name?: string | null
+          role?: string | null
+          speaker_time_pct?: number | null
+          team_member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "tldv_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "v_tldv_meeting_repository"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tldv_meetings: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          happened_at: string | null
+          id: string
+          invitees: Json | null
+          language: string | null
+          name: string | null
+          organizer_email: string | null
+          organizer_name: string | null
+          platform: string | null
+          raw_highlights: Json | null
+          raw_transcript: Json | null
+          status: string | null
+          tldv_id: string
+          transcript_text: string | null
+          updated_at: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          happened_at?: string | null
+          id?: string
+          invitees?: Json | null
+          language?: string | null
+          name?: string | null
+          organizer_email?: string | null
+          organizer_name?: string | null
+          platform?: string | null
+          raw_highlights?: Json | null
+          raw_transcript?: Json | null
+          status?: string | null
+          tldv_id: string
+          transcript_text?: string | null
+          updated_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          happened_at?: string | null
+          id?: string
+          invitees?: Json | null
+          language?: string | null
+          name?: string | null
+          organizer_email?: string | null
+          organizer_name?: string | null
+          platform?: string | null
+          raw_highlights?: Json | null
+          raw_transcript?: Json | null
+          status?: string | null
+          tldv_id?: string
+          transcript_text?: string | null
+          updated_at?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      tldv_webhook_log: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          processed: boolean | null
+          tldv_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          tldv_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          tldv_id?: string | null
+        }
+        Relationships: []
+      }
       upsell_predictions: {
         Row: {
           generated_at: string | null
@@ -12793,6 +13338,21 @@ export type Database = {
           qtd_leads: number | null
           temperatura: string | null
           valor_pipeline: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_tldv_summary: {
+        Row: {
+          alto_interesse: number | null
+          fechamento_imediato: number | null
+          medio_interesse: number | null
+          objecoes_semana: string[] | null
+          propostas_solicitadas: number | null
+          reunioes: number | null
+          reunioes_positivas: number | null
+          score_medio: number | null
+          semana: string | null
           vendedor: string | null
         }
         Relationships: []
@@ -14509,6 +15069,197 @@ export type Database = {
         }
         Relationships: []
       }
+      v_tldv_meeting_repository: {
+        Row: {
+          clientes: string | null
+          concorrentes_mencionados: string[] | null
+          duracao_minutos: number | null
+          equipamento_atual_imp: string | null
+          equipamento_atual_scan: string | null
+          follow_up_data: string | null
+          happened_at: string | null
+          id: string | null
+          lead_nome: string | null
+          meeting_quality_score: number | null
+          momento_compra: string | null
+          nivel_interesse: string | null
+          objecoes_tags: string[] | null
+          organizador: string | null
+          organizer_email: string | null
+          platform: string | null
+          produto_interesse: string | null
+          produtos_mencionados: string[] | null
+          proposta_solicitada: boolean | null
+          proximos_passos: string[] | null
+          resumo_executivo: string | null
+          reuniao: string | null
+          sentiment: string | null
+          status: string | null
+          status_oportunidade: string | null
+          tldv_id: string | null
+          url: string | null
+          vendedor_crm: string | null
+          vendedores: string | null
+        }
+        Relationships: []
+      }
+      v_tldv_objecoes_analise: {
+        Row: {
+          area_atuacao: string | null
+          contexto: string | null
+          data: string | null
+          lead_id: string | null
+          objecao: string | null
+          platform: string | null
+          produto: string | null
+          vendedor: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_tldv_produto_intel: {
+        Row: {
+          mencoes_interesse_alto: number | null
+          produto_mencionado: string | null
+          score_medio_reuniao: number | null
+          tipo: string | null
+          vezes_mencionado: number | null
+        }
+        Relationships: []
+      }
+      v_tldv_seller_performance: {
+        Row: {
+          fechamentos_iminentes: number | null
+          leads_alto_interesse: number | null
+          pct_positivo: number | null
+          propostas_solicitadas: number | null
+          reunioes_positivas: number | null
+          score_medio: number | null
+          top_objecoes_recebidas: string[] | null
+          total_reunioes: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
       v_turmas_com_vagas: {
         Row: {
           active: boolean | null
@@ -15308,6 +16059,15 @@ export type Database = {
         }
         Returns: number
       }
+      fn_get_deals_for_activity_backfill: {
+        Args: { p_limit?: number; p_since?: string; p_status?: string }
+        Returns: {
+          id: string
+          piperun_id: string
+          priority: number
+          status_oportunidade: string
+        }[]
+      }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
       fn_import_dh_leads: {
         Args: { p_leads: Json }
@@ -15397,6 +16157,16 @@ export type Database = {
       fn_pause_reactivation_manual: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      fn_query_bi_view: {
+        Args: {
+          p_descending?: boolean
+          p_filters?: Json
+          p_limit?: number
+          p_order_by?: string
+          p_view: string
+        }
+        Returns: Json
       }
       fn_record_lead_event: {
         Args: {
@@ -15532,6 +16302,7 @@ export type Database = {
           total_deals: number
         }[]
       }
+      fn_trigger_activities_backfill: { Args: never; Returns: undefined }
       fn_upsert_omie_snapshot: {
         Args: {
           p_ano: number
