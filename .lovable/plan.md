@@ -1,95 +1,87 @@
-## Goal
+## Problema
 
-Resolver duas frentes em paralelo:
+A nota "Novo Lead atribuído" gerada por `smart-ops-lia-assign` contradiz o "Resumo do Lead" (em `cs_automation`):
 
-A) **Bug do card Piperun (deal #59699176 — George Felipe)**: campos `Whatsapp`, `Área de Atuação`, `Especialidade` ficaram vazios mesmo com os dados chegando no formulário Meta Lead Ads.
+- HISTÓRICO afirma "primeiro contato em 24/04/2026" (resumo correto: 19/04/2026, deal mais antigo) e cita "exceto a vendedora Janaina Santos" mesmo quando o owner atual nos 3 deals é Evandro Silva.
+- O LLM (DeepSeek) recebe um prompt empobrecido e alucina ao preencher lacunas.
 
-B) **Adicionar seção "CONFIGURAÇÕES EVOLUTION"** no modal Editar Membro (`SmartOpsTeam.tsx`), com instância, provedor, badge de status e botão Conectar WhatsApp (QR + polling).
+## Causa raiz
 
----
+`generateHistoricoOportunidade` em `supabase/functions/_shared/waleads-messaging.ts` envia ao DeepSeek:
 
-## Parte A — Bug Piperun custom fields
+- `Vendedor anterior: ${lead.proprietario_lead_crm}` — campo único, frequentemente desatualizado (ex.: Janaina, antiga owner) sem nenhuma indicação de owner atual ou histórico.
+- `Primeiro contato: ${lead.data_primeiro_contato || lead.created_at}` — para esse lead retornou 11/05 (deal mais novo), enquanto existem deals desde 19/04.
+- **Nenhuma informação sobre os deals existentes** (quantidade, funis, etapas, status, datas, owners). Sem esse contexto o modelo inventa "Janaina o atendeu previamente" e usa a data do meio (24/04).
+- Não passa `tem_scanner` e `tem_impressora` quando vazios, mas o LLM cita "não possui impressora, scanner nem software CAD" mesmo sem confirmação.
 
-### Diagnóstico
+Adicionalmente, `data_primeiro_contato` no lead canônico não reflete o `MIN(deals.piperun_created_at)`.
 
-- `supabase/functions/_shared/piperun-field-map.ts` → `mapAttendanceToDealCustomFields` (linha ~954) NÃO inclui `DEAL_CUSTOM_FIELDS.WHATSAPP` (549150). Por isso o campo "Whatsapp" do deal nunca é preenchido, mesmo com `lia_attendances.telefone` válido.
-- `area_atuacao` / `especialidade` / `produto_interesse_auto` só são mandados se já estiverem persistidos na linha de `lia_attendances` no momento em que `smart-ops-lia-assign` chama o mapper. Para o lead Meta Lead Ads "# - Impresoras - Smart Dent" o ingest gravou `area_atuacao="Laboratório de Prótese"` mas o webhook Meta provavelmente não preencheu a coluna até depois da criação do deal — confirmar via SELECT na linha desse `piperun_id`.
+## Solução escolhida
 
-### Edits planejados
+1. Enriquecer o prompt do DeepSeek com histórico real de deals.
+2. Recalcular `data_primeiro_contato` a partir do mínimo entre lead/deals **na hora de montar a nota** (sem alterar o campo persistido).
 
-1. **`supabase/functions/_shared/piperun-field-map.ts`**
-   - Em `mapAttendanceToDealCustomFields`, adicionar bloco:
-     ```ts
-     const phoneVal = attendance.telefone_normalized || attendance.telefone;
-     if (phoneVal) fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: String(phoneVal) });
-     ```
-   - Sem mudanças em `DEAL_CUSTOM_FIELD_HASHES` (hash já existe na linha 224).
+## Mudanças técnicas
 
-2. **`supabase/functions/smart-ops-lia-assign/index.ts`**
-   - Antes de chamar `n(lead)`, garantir que o objeto `lead` lido inclui as colunas `telefone`, `telefone_normalized`, `area_atuacao`, `especialidade`, `tem_scanner`, `tem_impressora`, `produto_interesse_auto`. Se o `select` atual estiver enxuto, expandir.
-   - Após criar o deal com sucesso, chamar `customFieldsToHashMap` + PUT `/deals/{id}` para reenviar o custom_fields, garantindo que campos populados pós-ingest também cheguem ao Piperun (cobertura para race condition).
+### A) `supabase/functions/_shared/waleads-messaging.ts`
 
-3. **Hot-fix do deal #59699176** (somente este lead, via insert/update direto em `lia_attendances` ou chamada manual ao retry endpoint após deploy). Não criar migração para isso — usar a tool de insert/update após o fix.
+Alterar a assinatura de `generateHistoricoOportunidade` para receber também um `dealsContext` (ou aceitar um segundo parâmetro opcional `extraContext: { deals, firstContactAt, currentOwner }`).
 
-### Critério de aceite
+- Substituir a linha `Vendedor anterior: ...` por bloco multi-linha:
+  ```
+  Vendedor atual: <owner do deal mais recente>
+  Owners distintos no histórico: <lista única, ordenada por data>
+  Total de deals: N (X ganhos · Y perdidos · Z abertos)
+  Deals (mais recente primeiro):
+    - #ID — pipeline / etapa — status — owner — DD/MM/AAAA
+    ... (até 5)
+  ```
+- Recalcular `Primeiro contato: ${MIN(deals.piperun_created_at, lead.data_primeiro_contato, lead.created_at)}`.
+- Acrescentar regra explícita ao prompt:
+  > "Use APENAS os fatos listados em DADOS. Não invente nomes de vendedores nem datas. Se 'Owners distintos' tiver mais de um, mencione cada um. Se 'Vendedor atual' diferir do mais antigo, deixe claro que houve troca de owner."
+- Reduzir `temperature` de 0.5 para 0.2.
 
-- Novo lead com phone + área + especialidade preenchidos → custom fields "Whatsapp", "Área de Atuação", "Especialidade" aparecem no card Piperun na primeira sincronização.
+### B) `supabase/functions/smart-ops-lia-assign/index.ts`
 
----
+Antes de chamar `generateHistoricoOportunidade` (linhas 818 e 920), buscar deals do lead canônico:
 
-## Parte B — Seção "CONFIGURAÇÕES EVOLUTION" em SmartOpsTeam.tsx
+```ts
+const { data: deals } = await supabase
+  .from("deals")
+  .select("piperun_deal_id, pipeline_name, stage_name, status, owner_name, piperun_created_at")
+  .eq("lead_id", lead.id)
+  .eq("is_deleted", false)
+  .order("piperun_created_at", { ascending: false })
+  .limit(20);
+```
 
-### Confirmações da exploração
+Montar `dealsContext`:
+- `total`, `ganhos`, `perdidos`, `abertos` (contagens por `status`).
+- `currentOwner = deals[0]?.owner_name`.
+- `distinctOwners` = lista única preservando ordem cronológica.
+- `firstContactAt = min(MIN(deals.piperun_created_at), lead.data_primeiro_contato, lead.created_at)`.
+- `recent` = primeiras 5 entradas formatadas.
 
-- Componente correto: `src/components/SmartOpsTeam.tsx` (não existe `SmartOpsTeamMembers.tsx`).
-- Colunas `team_members.evolution_instance_name` e `team_members.messaging_provider` JÁ existem (vistas em `types.ts`). **Sem migração**.
-- Edge function `smart-ops-evolution-manager` **NÃO existe** no projeto. ⚠️ O usuário respondeu "Já existe, só consumir" mas o `ls supabase/functions/` não confirma. Vou implementar **somente o front consumindo o endpoint** (fetch via `supabase.functions.invoke("smart-ops-evolution-manager", { body })`) — se a função não estiver deployada, o badge mostra "Desconectado" e os toasts informam o erro. Caberá ao usuário criá-la (ou pedir explicitamente no próximo turno).
+Passar esse contexto para `generateHistoricoOportunidade`. O fallback estático (linhas 826–836 e similar no buildDealNoteHTML) também passa a usar `firstContactAt` recalculado e `currentOwner` em vez de `proprietario_lead_crm`.
 
-### Edits em `src/components/SmartOpsTeam.tsx`
+### C) Reuso em `buildDealNoteHTML`
 
-1. **Estado/form** — estender `useState`:
-   - `evolution_instance_name: string`
-   - `messaging_provider: "waleads" | "evolution" | "manychat" | "none"` (default `"waleads"`)
-   - `evolutionStatus: "open" | "connecting" | "close" | "unknown"`
-   - `qrModalOpen: boolean`, `qrCodeBase64: string | null`
+Aplicar exatamente o mesmo enriquecimento na função HTML (linhas 886–1034), já que ela chama o mesmo `generateHistoricoOportunidade`. Extrair a busca de deals para uma helper local (`fetchDealsContext(supabase, lead)`) chamada por ambas.
 
-2. **Auto-suggest da instância** ao digitar Nome Completo, se `evolution_instance_name` estiver vazio → slugify (lowercase, remove acentos via `normalize("NFD").replace(/[\u0300-\u036f]/g,"")`, replace `\s+` por `_`).
+### D) Guard contra alucinação
 
-3. **Modal Editar Membro** — após o bloco "Configurações WaLeads" (linha 144), adicionar:
-   ```tsx
-   <Separator className="my-2" />
-   <div className="flex items-center justify-between">
-     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution</p>
-     <EvolutionStatusBadge status={evolutionStatus} />
-   </div>
-   <div><Label>Nome da Instância</Label>
-     <Input value={form.evolution_instance_name} onChange={...} placeholder="janaina_santos" />
-   </div>
-   <div><Label>Provedor de mensagens</Label>
-     <Select value={form.messaging_provider} onValueChange={...}>
-       <SelectItem value="waleads">WaLeads</SelectItem>
-       <SelectItem value="evolution">Evolution API</SelectItem>
-       <SelectItem value="manychat">ManyChat</SelectItem>
-       <SelectItem value="none">Manual</SelectItem>
-     </Select>
-   </div>
-   <Button variant="outline" onClick={connectWhatsApp}>📱 Conectar WhatsApp</Button>
-   ```
+No pós-processamento de `generateHistoricoOportunidade` (já existe um regex que troca o nome do lead por "o profissional"), adicionar:
+- Se o texto retornado citar um nome próprio de vendedor que **não** está em `distinctOwners`, substituir por "vendedor anterior" (regex sobre lista de tokens capitalizados isolados que casem com `\bSrtaa? [A-Z]\w+`/`\bvendedor[a]? [A-Z]\w+`). Implementação simples: split por espaço, manter apenas se token maiúsculo estiver em allowlist.
+- Limitar a 500 chars já existe — manter.
 
-4. **Badge de status** — componente local que renderiza:
-   - 🟢 Conectado (`open`) — verde
-   - 🟡 Aguardando QR (`connecting`) — amarelo
-   - 🔴 Desconectado (`close` / `unknown` / erro) — vermelho
+### Fora de escopo
 
-5. **Hooks**:
-   - `useEffect` ao abrir o modal em modo edição → `supabase.functions.invoke("smart-ops-evolution-manager", { body: { action: "get_status", instance_name, member_id } })` → popula `evolutionStatus`.
-   - `connectWhatsApp()` → invoca `{ action: "connect_instance", instance_name, member_id }`. Resposta esperada `{ qrcode: string (base64) }`. Abre `qrModalOpen=true` exibindo `<img src={qrcode} />` + texto "Escaneie com o WhatsApp do número {whatsapp_number}". Inicia polling (`setInterval` 3s) chamando `get_status`. Quando `state==="open"` → fecha modal, atualiza badge, toast de sucesso. Timeout de 90s → toast de erro.
+- Não recalcular nem persistir `lia_attendances.data_primeiro_contato` (display-only por enquanto).
+- Não tocar no enriquecimento cognitivo (cognitive_analysis vazio continua vazio).
+- Não alterar `smart-ops-evolution-manager` nem o front Evolution já entregue.
 
-6. **handleSave** — incluir `evolution_instance_name` e `messaging_provider` no payload do upsert em `team_members`.
+## Validação
 
-7. **Tabela (linha 159+)** — opcional: adicionar mini-badge na coluna "Integrações" mostrando `EV` quando `messaging_provider === "evolution"` (mesmo padrão do `WL`/`MC`).
-
-### Out of scope
-
-- Não criar/alterar a edge function `smart-ops-evolution-manager` (front consome contrato presumido).
-- Não tocar lógica de envio de mensagens (qual provedor é escolhido na hora do disparo).
+1. Rodar `supabase--curl_edge_functions` chamando `/smart-ops-lia-assign` em modo dry-run para o lead canônico de Marlo Vinicios (id derivado do `piperun_id` do deal #59699356) e conferir a nota gerada.
+2. Inspecionar `supabase--edge_function_logs smart-ops-lia-assign` filtrando por `generate-briefing-deepseek` para confirmar que o prompt agora contém o bloco "Deals (mais recente primeiro)".
+3. Confirmar que o texto não cita nome de vendedor fora de `distinctOwners`.
