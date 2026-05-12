@@ -44,6 +44,15 @@ export async function createPerson(
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
+  // ── Hard-gate: NEVER create a Person without email AND without phone ──
+  // Mirrors the guard in smart-ops-lia-assign:createPerson. Without at least
+  // one identifier the resulting Person card cannot be deduplicated and ends
+  // up as a permanent ghost in the CRM.
+  if (!email && !phone) {
+    console.warn(`[piperun-hierarchy] BLOCKED createPerson: no email AND no phone (nome="${nome}")`);
+    return null;
+  }
+
   const personPayload: Record<string, unknown> = { name: nome };
   if (email) personPayload.emails = [{ email }];
   if (phone) personPayload.phones = [{ phone }];
