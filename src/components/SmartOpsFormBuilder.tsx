@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +173,7 @@ export function SmartOpsFormBuilder() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [editingMeta, setEditingMeta] = useState<SmartOpsForm | null>(null);
   const [metaName, setMetaName] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
@@ -465,7 +467,10 @@ export function SmartOpsFormBuilder() {
                 {/* Tipo: SDR — Captação (habilitado) */}
                 <button
                   className="w-full text-left rounded-lg border-2 border-sky-300 bg-sky-50 p-3 hover:bg-sky-100 transition-colors"
-                  onClick={() => { setNewPurpose("sdr_captacao"); }}
+                  onClick={() => {
+                    setNewPurpose("sdr_captacao");
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -502,7 +507,13 @@ export function SmartOpsFormBuilder() {
 
                 <hr className="my-1" />
                 <div className="space-y-2">
+                  <p className="text-xs text-slate-600">
+                    {newPurpose === "sdr_captacao"
+                      ? "Digite um nome interno e clique em Criar."
+                      : "Selecione um tipo acima para continuar."}
+                  </p>
                   <Input
+                    ref={nameInputRef}
                     placeholder="Nome do formulário (interno)"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
