@@ -28,16 +28,28 @@ async function tldvFetch(path: string): Promise<any> {
   return res.json();
 }
 
-async function tldvDebugFetch(path: string): Promise<{ path: string; status: number; ok: boolean; body_preview: string }> {
+async function tldvDebugFetch(
+  path: string,
+  authMode: "x-api-key" | "bearer" | "api-key" | "authorization-raw",
+): Promise<{ path: string; authMode: string; status: number; ok: boolean; body_preview: string }> {
+  const authHeaders =
+    authMode === "bearer"
+      ? { Authorization: `Bearer ${TLDV_API_KEY}` }
+      : authMode === "api-key"
+        ? { "api-key": TLDV_API_KEY }
+        : authMode === "authorization-raw"
+          ? { Authorization: TLDV_API_KEY }
+          : { "x-api-key": TLDV_API_KEY };
   const res = await fetch(`${TLDV_BASE}${path}`, {
     headers: {
-      "x-api-key": TLDV_API_KEY,
+      ...authHeaders,
       "Content-Type": "application/json",
     },
   });
   const body = await res.text();
   return {
     path,
+    authMode,
     status: res.status,
     ok: res.ok,
     body_preview: body.slice(0, 600),
@@ -78,7 +90,10 @@ serve(async (req) => {
     if (url.searchParams.get("debug") === "meetings") {
       const attempts = [];
       for (const path of ["/meetings", "/meetings?page=1&pageSize=10", "/meetings?page=1"]) {
-        attempts.push(await tldvDebugFetch(path));
+        attempts.push(await tldvDebugFetch(path, "x-api-key"));
+      }
+      for (const authMode of ["bearer", "api-key", "authorization-raw"] as const) {
+        attempts.push(await tldvDebugFetch("/meetings", authMode));
       }
       return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_trimmed: TLDV_API_KEY.length, attempts }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
