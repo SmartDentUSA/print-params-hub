@@ -355,6 +355,9 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
           <div className="intel-lr-email">
             {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
           </div>
+          {lead.telefone_normalized && (
+            <div className="intel-lr-email">📱 {lead.telefone_normalized}</div>
+          )}
         </div>
         <div>
           <div className={`intel-lr-ltv ${!lead.ltv_total ? "zero" : ""}`}>{brl(lead.ltv_total)}</div>
