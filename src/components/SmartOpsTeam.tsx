@@ -24,7 +24,37 @@ interface TeamMember {
   piperun_owner_id: string | null;
   manychat_api_key: string | null;
   waleads_api_key: string | null;
+  evolution_instance_name: string | null;
+  messaging_provider: string | null;
   ativo: boolean;
+}
+
+const slugifyName = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const EMPTY_FORM = {
+  nome_completo: "",
+  email: "",
+  whatsapp_number: "",
+  role: "vendedor",
+  piperun_owner_id: "",
+  manychat_api_key: "",
+  waleads_api_key: "",
+  evolution_instance_name: "",
+  messaging_provider: "waleads",
+};
+
+type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
+
+function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
+  if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
+  if (status === "connecting") return <Badge className="bg-yellow-500 text-white text-[10px]">🟡 Aguardando QR</Badge>;
+  return <Badge className="bg-red-600 text-white text-[10px]">🔴 Desconectado</Badge>;
 }
 
 export function SmartOpsTeam() {
@@ -32,8 +62,14 @@ export function SmartOpsTeam() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
   const { toast } = useToast();
+
+  // Evolution state
+  const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [evoConnecting, setEvoConnecting] = useState(false);
 
   // WaLeads test state
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -50,8 +86,107 @@ export function SmartOpsTeam() {
 
   useEffect(() => { fetchMembers(); }, []);
 
-  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" }); setDialogOpen(true); };
-  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role, piperun_owner_id: m.piperun_owner_id || "", manychat_api_key: m.manychat_api_key || "", waleads_api_key: m.waleads_api_key || "" }); setDialogOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM });
+    setEvolutionStatus("unknown");
+    setDialogOpen(true);
+  };
+  const openEdit = (m: TeamMember) => {
+    setEditing(m);
+    setForm({
+      nome_completo: m.nome_completo,
+      email: m.email,
+      whatsapp_number: m.whatsapp_number,
+      role: m.role,
+      piperun_owner_id: m.piperun_owner_id || "",
+      manychat_api_key: m.manychat_api_key || "",
+      waleads_api_key: m.waleads_api_key || "",
+      evolution_instance_name: m.evolution_instance_name || "",
+      messaging_provider: m.messaging_provider || "waleads",
+    });
+    setEvolutionStatus("unknown");
+    setDialogOpen(true);
+    // Fetch Evolution status
+    if (m.evolution_instance_name) {
+      fetchEvolutionStatus(m.id, m.evolution_instance_name);
+    }
+  };
+
+  const fetchEvolutionStatus = async (memberId: string, instanceName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+        body: { action: "get_status", instance_name: instanceName, member_id: memberId },
+      });
+      if (error) throw error;
+      const state = (data?.state || data?.status || "close") as string;
+      if (state === "open" || state === "connecting" || state === "close") {
+        setEvolutionStatus(state);
+      } else {
+        setEvolutionStatus("unknown");
+      }
+    } catch {
+      setEvolutionStatus("close");
+    }
+  };
+
+  const handleNameChange = (value: string) => {
+    setForm((f) => ({
+      ...f,
+      nome_completo: value,
+      evolution_instance_name: f.evolution_instance_name || slugifyName(value),
+    }));
+  };
+
+  const connectWhatsApp = async () => {
+    const instance = form.evolution_instance_name?.trim();
+    if (!instance) {
+      toast({ title: "Defina o nome da instância antes", variant: "destructive" });
+      return;
+    }
+    setEvoConnecting(true);
+    setQrCodeBase64(null);
+    setQrModalOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+        body: { action: "connect_instance", instance_name: instance, member_id: editing?.id || null },
+      });
+      if (error) throw error;
+      const qr = (data?.qrcode || data?.base64 || data?.qr) as string | null;
+      if (qr) {
+        setQrCodeBase64(qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`);
+        setEvolutionStatus("connecting");
+      } else {
+        toast({ title: "QR não retornado", description: "Resposta sem qrcode", variant: "destructive" });
+      }
+      // Polling
+      const startedAt = Date.now();
+      const interval = setInterval(async () => {
+        if (Date.now() - startedAt > 90_000) {
+          clearInterval(interval);
+          setEvoConnecting(false);
+          toast({ title: "Tempo esgotado", description: "Conexão não confirmada em 90s", variant: "destructive" });
+          return;
+        }
+        try {
+          const { data: stData } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+            body: { action: "get_status", instance_name: instance, member_id: editing?.id || null },
+          });
+          const st = (stData?.state || stData?.status) as string | undefined;
+          if (st === "open") {
+            clearInterval(interval);
+            setEvolutionStatus("open");
+            setQrModalOpen(false);
+            setEvoConnecting(false);
+            toast({ title: "✅ WhatsApp conectado!" });
+          }
+        } catch {/* keep polling */}
+      }, 3000);
+    } catch (err) {
+      setEvoConnecting(false);
+      toast({ title: "Erro ao conectar", description: String(err), variant: "destructive" });
+    }
+  };
 
   const handleSave = async () => {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
