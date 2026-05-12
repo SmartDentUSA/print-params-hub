@@ -87,11 +87,11 @@ serve(async (req) => {
     if (url.searchParams.get("debug") === "health") {
       try {
         const h = await tldvFetch("/health");
-        return new Response(JSON.stringify({ health: h, key_len_raw: TLDV_API_KEY_RAW.length, key_len_trimmed: TLDV_API_KEY.length }), {
+        return new Response(JSON.stringify({ health: h, key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim() }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e) {
-        return new Response(JSON.stringify({ error: (e as Error).message, key_len_raw: TLDV_API_KEY_RAW.length, key_len_trimmed: TLDV_API_KEY.length }), {
+        return new Response(JSON.stringify({ error: (e as Error).message, key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim() }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -103,7 +103,7 @@ serve(async (req) => {
         attempts.push(await tldvDebugFetch(path, "x-api-key"));
       }
       attempts.push(await tldvDebugFetch("/meetings/", "x-api-key"));
-      for (const authMode of ["X-API-Key", "X-Api-Key", "bearer", "api-key", "authorization-raw", "query-api-key"] as const) {
+      for (const authMode of ["X-API-Key", "X-Api-Key", "bearer", "api-key", "authorization-raw"] as const) {
         attempts.push(await tldvDebugFetch("/meetings", authMode));
       }
       return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim(), attempts }), {
