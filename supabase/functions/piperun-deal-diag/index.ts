@@ -14,6 +14,20 @@ Deno.serve(async (req) => {
   const out: Record<string, unknown> = {};
 
   if (action === "test_put") {
+    // Optionally list all custom fields
+    if (url.searchParams.get("list") === "1") {
+      const all: Array<Record<string, unknown>> = [];
+      for (let page = 1; page <= 5; page++) {
+        const r = await piperunGet(KEY, "customFields", { show: 200, page });
+        const items = ((r.data as any)?.data as Array<Record<string, unknown>>) || [];
+        all.push(...items);
+        if (items.length < 200) break;
+      }
+      return new Response(JSON.stringify({
+        total: all.length,
+        deal_fields: all.filter((f) => f.belongs === 1).map((f) => ({ id: f.id, name: f.name, hash: f.hash, type: f.type })),
+      }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     // Test 4 different payload shapes to find what PipeRun actually persists
     const shapes: Array<{ name: string; body: Record<string, unknown> }> = [
       {
