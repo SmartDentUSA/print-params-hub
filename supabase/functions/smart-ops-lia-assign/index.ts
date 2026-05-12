@@ -1895,17 +1895,23 @@ Deno.serve(async (req) => {
     }
 
     if (personId) {
-      // Validate cached person still exists in PipeRun
-      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
-      if (!personCheck || personCheck.id !== personId) {
-        console.log(`[lia-assign] Cached person ${personId} is stale (not found or mismatched). Re-resolving...`);
-        if (personCheck) {
-          personId = personCheck.id;
-          companyId = personCheck.company_id || companyId;
-          console.log(`[lia-assign] Resolved to existing person: ${personId}`);
+      // Validate cached Person by GET /persons/{id} — NOT by email/phone search.
+      // Searching by contact would miss Persons with empty emails[]/phones[]
+      // (PipeRun's native Meta integration creates them this way), and the
+      // caller would then create a brand-new duplicate Person each run.
+      const { validateCachedPerson } = await import("../_shared/piperun-person-resolver.ts");
+      const cachedCheck = await validateCachedPerson(PIPERUN_API_KEY, personId);
+      if (cachedCheck.exists) {
+        if (cachedCheck.company_id) companyId = cachedCheck.company_id;
+        console.log(`[lia-assign] Cached person ${personId} validated via GET (hasContact=${cachedCheck.hasContact})`);
+      } else {
+        console.warn(`[lia-assign] Cached person ${personId} truly missing in PipeRun, re-resolving`);
+        const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
+        if (fallback) {
+          personId = fallback.id;
+          companyId = fallback.company_id || companyId;
         } else {
           personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
-          console.log(`[lia-assign] Created new person (stale recovery): ${personId}`);
         }
       }
     } else {
