@@ -17,7 +17,6 @@ async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
     headers: {
       "x-api-key": TLDV_API_KEY,
-      Authorization: `Bearer ${TLDV_API_KEY}`,
       "Content-Type": "application/json",
     },
   });
@@ -39,6 +38,20 @@ serve(async (req) => {
       });
     }
 
+    const url = new URL(req.url);
+    if (url.searchParams.get("debug") === "health") {
+      try {
+        const h = await tldvFetch("/health");
+        return new Response(JSON.stringify({ health: h, key_prefix: TLDV_API_KEY.slice(0, 6), key_len: TLDV_API_KEY.length }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: (e as Error).message, key_prefix: TLDV_API_KEY.slice(0, 6), key_len: TLDV_API_KEY.length }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const body = await req.json().catch(() => ({}));
     const since: string = body.since || "2025-01-01";
     const limit: number = Math.min(Number(body.limit ?? 10), 200);
@@ -51,7 +64,7 @@ serve(async (req) => {
     while (collected.length < limit && page <= 20) {
       let payload: any;
       try {
-        payload = await tldvFetch(`/meetings?from=${encodeURIComponent(since)}&page=${page}&limit=50`);
+        payload = await tldvFetch(`/meetings?page=${page}&pageSize=50`);
       } catch (e) {
         return new Response(
           JSON.stringify({ error: (e as Error).message, hint: "Check TLDV_API_KEY and endpoint." }),

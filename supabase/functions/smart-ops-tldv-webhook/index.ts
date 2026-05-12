@@ -21,7 +21,6 @@ async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
     headers: {
       "x-api-key": TLDV_API_KEY,
-      Authorization: `Bearer ${TLDV_API_KEY}`,
       "Content-Type": "application/json",
     },
   });
