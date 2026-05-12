@@ -434,28 +434,34 @@ async function findOrCreateCompany(
   const razaoSocial = lead.empresa_razao_social as string | null;
   const segmento = lead.empresa_segmento as string | null;
   const website = lead.empresa_website as string | null;
+  const empresaEmail = (lead.empresa_email as string | null) || (email && !isFakeEmail(email) ? email : null);
+  const empresaPhone = (lead.empresa_telefone as string | null) || phone;
+  const empresaCidade = (lead.empresa_cidade as string | null) || (lead.cidade as string | null);
+  const empresaUf = (lead.empresa_uf as string | null) || (lead.uf as string | null);
+
+  const buildCompanyPayload = (overrides: Record<string, unknown> = {}): Record<string, unknown> => {
+    const p: Record<string, unknown> = { name: razaoSocial || (lead.empresa_nome as string | null) || nome };
+    if (empresaEmail) p.emails = [{ email: empresaEmail }];
+    if (empresaPhone) p.phones = [{ phone: empresaPhone }];
+    if (cnpj) p.cnpj = cnpj;
+    if (segmento) p.segment = segmento;
+    if (website) p.website = website;
+    if (empresaCidade) p.city = empresaCidade;
+    if (empresaUf) p.state = empresaUf;
+    return { ...p, ...overrides };
+  };
 
   // Already has company → update it with complete data
   if (existingCompanyId) {
     console.log(`[lia-assign] Person ${personId} already has company ${existingCompanyId}, enriching data`);
-    const enrichPayload: Record<string, unknown> = { name: razaoSocial || nome };
-    if (email) enrichPayload.emails = [{ email }];
-    if (phone) enrichPayload.phones = [{ phone }];
-    if (cnpj) enrichPayload.cnpj = cnpj;
-    if (segmento) enrichPayload.segment = segmento;
-    if (website) enrichPayload.website = website;
+    const enrichPayload = buildCompanyPayload();
     const enrichRes = await piperunPut(apiToken, `companies/${existingCompanyId}`, enrichPayload);
     console.log(`[lia-assign] Company ${existingCompanyId} enriched: ${enrichRes.success} (${enrichRes.status})`);
     return existingCompanyId;
   }
 
   // Create company with complete data
-  const companyPayload: Record<string, unknown> = { name: razaoSocial || nome };
-  if (email) companyPayload.emails = [{ email }];
-  if (phone) companyPayload.phones = [{ phone }];
-  if (cnpj) companyPayload.cnpj = cnpj;
-  if (segmento) companyPayload.segment = segmento;
-  if (website) companyPayload.website = website;
+  const companyPayload = buildCompanyPayload();
 
   console.log(`[lia-assign] Creating company for person ${personId}: ${nome}`);
   const createRes = await piperunPost(apiToken, "companies", companyPayload);
