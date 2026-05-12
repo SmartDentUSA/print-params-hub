@@ -1771,22 +1771,48 @@ Deno.serve(async (req) => {
         const dealOwnerInfo = PIPERUN_USERS[dealOwnerId];
         const dealOwnerName = dealOwnerInfo?.name || String(dealOwnerId);
 
-        // Override round-robin with deal's actual owner
-        assignedOwnerId = dealOwnerId;
-        assignedOwnerName = dealOwnerName;
+        if (isBlockedSeller({ ownerId: dealOwnerId, ownerName: dealOwnerName })) {
+          // Lead estava com vendedor bloqueado (ex.: Patricia Gastaldi) → mover deal para Distribuidor
+          const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+          assignedOwnerId = FALLBACK_OWNER_ID;
+          assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+          assignedTeamMemberId = null;
+          flowType = "rerouted_blocked_seller_vendas";
 
-        // Find team member for this owner
-        const { data: dealTeamMember } = await supabase
-          .from("team_members")
-          .select("id")
-          .eq("piperun_owner_id", dealOwnerId)
-          .eq("ativo", true)
-          .maybeSingle();
-        if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
+          await piperunPut(PIPERUN_API_KEY, `deals/${vendaDeal.id}`, {
+            pipeline_id: PIPELINES.DISTRIBUIDOR_LEADS,
+            stage_id: STAGES_DISTRIBUIDOR.DISTRIBUIDOR_DE_LEADS,
+            owner_id: assignedOwnerId,
+          });
+          await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
+          try {
+            await addDealNote(
+              PIPERUN_API_KEY,
+              Number(vendaDeal.id),
+              `🔁 [Dra. L.I.A.] Deal removido do owner bloqueado "${dealOwnerName}" e movido para Distribuidor de Leads.`,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] Failed to add re-route note:", e);
+          }
+          console.warn(`[lia-assign] BLOCKED SELLER on Vendas deal ${piperunId}: moved to Distribuidor (was ${dealOwnerName})`);
+        } else {
+          // Override round-robin with deal's actual owner
+          assignedOwnerId = dealOwnerId;
+          assignedOwnerName = dealOwnerName;
 
-        // Update ONLY custom fields + note (owner_id = null → preserved)
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
-        console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
+          // Find team member for this owner
+          const { data: dealTeamMember } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("piperun_owner_id", dealOwnerId)
+            .eq("ativo", true)
+            .maybeSingle();
+          if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
+
+          // Update ONLY custom fields + note (owner_id = null → preserved)
+          await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
+          console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
+        }
       } else if (estagnDeal) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
