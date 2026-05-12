@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Send } from "lucide-react";
+import { Plus, Send, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
@@ -68,8 +68,19 @@ export function SmartOpsTeam() {
   // Evolution state
   const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
   const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [qrSrc, setQrSrc] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
   const [evoConnecting, setEvoConnecting] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopPolling(), []);
 
   // WaLeads test state
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -139,52 +150,91 @@ export function SmartOpsTeam() {
   };
 
   const connectWhatsApp = async () => {
-    const instance = form.evolution_instance_name?.trim();
-    if (!instance) {
-      toast({ title: "Defina o nome da instância antes", variant: "destructive" });
-      return;
-    }
-    setEvoConnecting(true);
-    setQrCodeBase64(null);
-    setQrModalOpen(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
-        body: { action: "connect_instance", instance_name: instance, member_id: editing?.id || null },
-      });
-      if (error) throw error;
-      const qr = (data?.qrcode || data?.base64 || data?.qr) as string | null;
-      if (qr) {
-        setQrCodeBase64(qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`);
-        setEvolutionStatus("connecting");
-      } else {
-        toast({ title: "QR não retornado", description: "Resposta sem qrcode", variant: "destructive" });
+  const connectWhatsApp = async () => {
+    // 1. Garantir instance_name (auto-slug do nome)
+    let instanceName = form.evolution_instance_name?.trim() || "";
+    if (!instanceName) {
+      if (!form.nome_completo?.trim()) {
+        toast({ title: "Preencha o nome do membro antes", variant: "destructive" });
+        return;
       }
-      // Polling
-      const startedAt = Date.now();
-      const interval = setInterval(async () => {
-        if (Date.now() - startedAt > 90_000) {
-          clearInterval(interval);
-          setEvoConnecting(false);
-          toast({ title: "Tempo esgotado", description: "Conexão não confirmada em 90s", variant: "destructive" });
-          return;
-        }
-        try {
-          const { data: stData } = await supabase.functions.invoke("smart-ops-evolution-manager", {
-            body: { action: "get_status", instance_name: instance, member_id: editing?.id || null },
-          });
-          const st = (stData?.state || stData?.status) as string | undefined;
-          if (st === "open") {
-            clearInterval(interval);
-            setEvolutionStatus("open");
-            setQrModalOpen(false);
+      instanceName = slugifyName(form.nome_completo);
+      setForm((f) => ({ ...f, evolution_instance_name: instanceName }));
+      // Persiste imediatamente se já existe membro
+      if (editing?.id) {
+        await supabase
+          .from("team_members")
+          .update({ evolution_instance_name: instanceName })
+          .eq("id", editing.id);
+      }
+    }
+
+    const memberId = editing?.id || null;
+    stopPolling();
+    setQrSrc(null);
+    setQrError(null);
+    setEvoConnecting(true);
+    setQrModalOpen(true);
+
+    try {
+      // 2. Chamada com action: get_qr
+      const { data, error } = await supabase.functions.invoke(
+        "smart-ops-evolution-manager",
+        { body: { action: "get_qr", instance_name: instanceName, member_id: memberId } },
+      );
+      if (error) throw error;
+
+      // 3. Tratamento da resposta
+      const state = data?.state as string | undefined;
+      const qrcode = data?.qrcode as string | undefined;
+
+      if (state === "open") {
+        setEvolutionStatus("open");
+        setEvoConnecting(false);
+        setQrModalOpen(false);
+        toast({ title: "✅ WhatsApp já conectado!" });
+        return;
+      }
+
+      if (qrcode) {
+        const src = qrcode.startsWith("data:") ? qrcode : `data:image/png;base64,${qrcode}`;
+        setQrSrc(src);
+        setEvolutionStatus("connecting");
+
+        // 5. Polling get_status (3s, máx 5min)
+        const startedAt = Date.now();
+        pollingRef.current = setInterval(async () => {
+          if (Date.now() - startedAt > 5 * 60 * 1000) {
+            stopPolling();
             setEvoConnecting(false);
-            toast({ title: "✅ WhatsApp conectado!" });
+            toast({
+              title: "Tempo esgotado",
+              description: "QR expirou. Gere um novo.",
+              variant: "destructive",
+            });
+            return;
           }
-        } catch {/* keep polling */}
-      }, 3000);
+          try {
+            const { data: stData } = await supabase.functions.invoke(
+              "smart-ops-evolution-manager",
+              { body: { action: "get_status", instance_name: instanceName, member_id: memberId } },
+            );
+            if (stData?.state === "open") {
+              stopPolling();
+              setEvolutionStatus("open");
+              setEvoConnecting(false);
+              setQrModalOpen(false);
+              toast({ title: "✅ WhatsApp conectado!" });
+            }
+          } catch {/* keep polling */}
+        }, 3000);
+      } else {
+        setQrError(`QR não retornado. Debug: ${JSON.stringify(data)}`);
+        setEvoConnecting(false);
+      }
     } catch (err) {
       setEvoConnecting(false);
-      toast({ title: "Erro ao conectar", description: String(err), variant: "destructive" });
+      setQrError(`Erro ao conectar: ${String(err)}`);
     }
   };
 
@@ -379,22 +429,36 @@ export function SmartOpsTeam() {
     </Dialog>
 
     {/* Evolution QR Dialog */}
-    <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+    <Dialog
+      open={qrModalOpen}
+      onOpenChange={(open) => {
+        setQrModalOpen(open);
+        if (!open) {
+          stopPolling();
+          setEvoConnecting(false);
+        }
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Conectar WhatsApp Evolution</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-center">
-          {qrCodeBase64 ? (
+          {qrSrc ? (
             <>
-              <img src={qrCodeBase64} alt="QR Code Evolution" className="mx-auto w-64 h-64" />
+              <img src={qrSrc} width={256} height={256} alt="QR WhatsApp" className="mx-auto" />
               <p className="text-sm text-muted-foreground">
                 Escaneie com o WhatsApp do número <span className="font-mono">{form.whatsapp_number}</span>
               </p>
-              <p className="text-xs text-muted-foreground">Aguardando confirmação… (até 90s)</p>
+              <p className="text-xs text-muted-foreground">Aguardando confirmação… (até 5min)</p>
             </>
+          ) : qrError ? (
+            <p className="text-destructive text-sm break-all py-6">{qrError}</p>
           ) : (
-            <p className="text-sm text-muted-foreground py-12">Gerando QR code…</p>
+            <div className="flex items-center justify-center gap-2 py-12">
+              <Loader2 className="animate-spin h-4 w-4" />
+              <span className="text-sm text-muted-foreground">Gerando QR code...</span>
+            </div>
           )}
         </div>
       </DialogContent>
