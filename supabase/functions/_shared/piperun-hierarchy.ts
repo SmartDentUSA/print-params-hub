@@ -15,6 +15,7 @@ import {
   customFieldsToDealPayload,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
+  buildPersonFormCustomFields,
 } from "./piperun-field-map.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -117,13 +118,25 @@ export async function updatePersonFields(
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
   if (originId && Number.isFinite(originId)) updatePayload.origin_id = originId;
-  // Pessoa custom field IDs rejected by Piperun. Persisted at Deal level only.
   void areaAtuacao;
+
+  // Person form custom fields: 772727 (Scanner), 772728 (Impressora),
+  // 673900 (Área), 445631 (Especialidade). Verified IDs from PipeRun registry.
+  const personCF = buildPersonFormCustomFields(lead);
+  if (personCF.length > 0) updatePayload.custom_fields = personCF;
 
   if (Object.keys(updatePayload).length === 0) return;
 
-  const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
-  console.log(`[piperun-hierarchy] Person ${personId} update: ${res.success} (${res.status})`);
+  let res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
+  console.log(`[piperun-hierarchy] Person ${personId} update: ${res.success} (${res.status}) cf=${personCF.length}`);
+
+  // If full PUT failed and we sent custom_fields, retry without them so contact
+  // data still lands on the Person card.
+  if (!res.success && updatePayload.custom_fields) {
+    const { custom_fields: _cf, ...withoutCF } = updatePayload;
+    res = await piperunPut(apiToken, `persons/${personId}`, withoutCF);
+    console.log(`[piperun-hierarchy] Person ${personId} retry without custom_fields: ${res.success} (${res.status})`);
+  }
 }
 
 // ── Company Operations ──
