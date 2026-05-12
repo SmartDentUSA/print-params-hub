@@ -3,6 +3,7 @@
  * Extracted from smart-ops-lia-assign for reuse.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isFakeEmail } from "./lead-identity-guard.ts";
 import {
   PIPELINES,
   STAGES_VENDAS,
@@ -103,12 +104,16 @@ export async function updatePersonFields(
   originId?: number | null,
 ): Promise<void> {
   const nome = (lead.nome || lead.email || "") as string;
+  const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
   const updatePayload: Record<string, unknown> = {};
   if (nome) updatePayload.name = nome;
+  // Re-publish canonical email — Piperun's native Meta integration leaves
+  // emails[] empty on the Person card; without this PUT the card stays blank.
+  if (email && !isFakeEmail(email)) updatePayload.emails = [{ email }];
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
   if (originId && Number.isFinite(originId)) updatePayload.origin_id = originId;
