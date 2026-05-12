@@ -1,48 +1,54 @@
-## Diagnóstico — Pessoas Piperun sem e-mail/telefone
+# Diagnóstico — "Não consigo criar um novo formulário"
 
-### O que está acontecendo
+## Causa raiz
+A tabela `smartops_forms` tem **só duas RLS policies**:
+- `admin_all_smartops_forms` → `ALL` para `is_admin(auth.uid())`
+- `anon_read_active_forms` → `SELECT` para qualquer um quando `active=true`
 
-Os leads do dia 11–12/05 (Heitor Rabeti, Viviane Costa, Gustavo Egami, Vitor Maldonado, etc.) **chegam com e-mail + telefone corretos no nosso CDP** (`lia_attendances`), mas a Pessoa correspondente no Piperun aparece **sem e-mail e sem telefone**.
+Resultado: **somente usuários com `user_roles.role='admin'` conseguem inserir**. Hoje, na `user_roles`:
+- `admin`: `danilohen@gmail.com`, `pesquisa@smartdent.com.br`
+- `author`: `thiago.nicoletti@smartdent.com.br`, `mdguerra@smartdent.com.br`
 
-### Causa raiz
+Quem está logado como `author` clica em "Criar formulário SDR — Captação", o INSERT é bloqueado pelo RLS e o `handleCreate` em `SmartOpsFormBuilder.tsx` mostra `toast.error("Erro: new row violates row-level security policy ...")` (provavelmente passou despercebido).
 
-Existem dois caminhos pelos quais a Pessoa Piperun é tocada por nós em `smart-ops-lia-assign`:
+Confirmado: o último form criado foi em **06/abr/2026** — desde então ninguém conseguiu criar (consistente com a tese: virou tarefa só de admin).
 
-1. **`createPerson`** (Pessoa nova, criada por nós) → envia `emails: [{email}]` e `phones: [{phone}]`. **OK.**
-2. **`updatePersonFields`** (Pessoa já existia no Piperun — encontrada por `findPersonByEmail`) → **só envia `name`, `phones`, `job_title` e, em algumas chamadas, `origin_id`. NUNCA envia `emails`.**
+Não há erro de schema (constraint `form_purpose` aceita `sdr_captacao`), nem bug no front. É **autorização**.
 
-O caso problemático é o caminho 2:
-- Source `piperun_webhook` (Heitor Rabeti, Viviane Costa) e leads que o Meta Lead Ads nativo do Piperun cria do lado de lá criam a Pessoa com e-mail/telefone gravados em campos customizados / payload bruto, **não nos campos canônicos `emails[]`/`phones[]`** do Piperun.
-- Quando nosso `lia-assign` roda em seguida, `findPersonByEmail` casa a Pessoa pelo e-mail (que está no payload, mas talvez não no array `emails`) ou por outro mecanismo, e cai no `updatePersonFields`. Esse PUT **nunca empurra de volta o e-mail nem o telefone canônicos que temos no CDP**, então a Pessoa no Piperun fica eternamente sem esses campos visíveis no card.
-- Em `piperun-hierarchy.ts → updatePersonFields`: o `if (phone) updatePayload.phones = [...]` existe, mas falta `emails`. Resultado: e-mail nunca é re-publicado.
+## Plano (somente RLS, sem mexer em UI)
 
-Confirmação adicional: o log `system_health_logs` mostra `error_type=person_name_is_company` repetido para Heitor Rabeti (lead `f65fd9a6…`), comprovando que o `lia-assign` rodou várias vezes nesses leads sem corrigir os campos de contato.
+### 1. Migration: liberar gestão de formulários para `author`
+Adicionar policies em `smartops_forms` permitindo `INSERT/UPDATE/DELETE` para usuários com role `admin` OU `author` (mantém `anon_read_active_forms` intacto). Usar `has_role(auth.uid(), 'author')` + `is_admin(auth.uid())`.
 
-### O que vou alterar
-
-Edição cirúrgica em **`supabase/functions/_shared/piperun-hierarchy.ts → updatePersonFields`** (e equivalente em `smart-ops-lia-assign/index.ts` se houver cópia local) para enriquecer a Pessoa existente com **e-mail e telefone canônicos do CDP**, sempre que tivermos esses dados:
-
-```ts
-if (email) updatePayload.emails = [{ email }];
-if (phone) updatePayload.phones = [{ phone }];
+```sql
+create policy "authors_manage_smartops_forms"
+on public.smartops_forms
+for all
+to authenticated
+using (public.is_admin(auth.uid()) or public.has_role(auth.uid(), 'author'))
+with check (public.is_admin(auth.uid()) or public.has_role(auth.uid(), 'author'));
 ```
 
-Regras:
-- Só envia `emails` se `lead.email` for válido (passa por `isFakeEmail`).
-- Só envia `phones` se `telefone_normalized` ou `telefone_raw` válido (passa por `isFakePhone`).
-- Mantém o nome existente; **não** sobrescreve `origin_id` (origem da Pessoa é congelada — memória já existente).
-- Loga em `system_health_logs` quando enriquece (`error_type='piperun_person_contact_backfilled'`).
+(A policy antiga `admin_all_smartops_forms` continua, sem conflito — RLS é OR entre policies.)
 
-### Backfill pontual
+### 2. Replicar nas tabelas dependentes
+Mesmo padrão para que o autor consiga editar o formulário recém-criado:
+- `smartops_form_fields` (campos do form)
+- `smartops_form_submissions` (já tem INSERT público; só garantir SELECT/DELETE para author)
+- `smartops_form_field_responses` (workflow 7×3)
 
-Após o fix, rodar uma vez `smart-ops-lia-assign` (ou um pequeno script `piperun-person-contact-backfill`) para os ~15 leads dos últimos 2 dias com `piperun_id IS NOT NULL` e `pessoa_piperun_id IS NOT NULL`, forçando o PUT de `emails`/`phones`. Isso corrige os cards já criados (Heitor, Viviane, Gustavo, Vitor, Tatiana, Aluísio, Sinval, Lucas Ricco, Júnior Ibiapina, Ruani, Luciana Biazan etc.).
+Verificar antes via `pg_policies` e só adicionar se faltar a permissão equivalente.
 
-### O que NÃO vou mexer
+### 3. Validação
+- Logar como `mdguerra@smartdent.com.br`, abrir `/admin → SmartOps → Formulários`, clicar **Novo Formulário**, escolher **SDR — Captação**, digitar nome e criar.
+- Conferir que o form aparece na lista e abre o editor `SmartOpsSdrCaptacaoEditor`.
+- Conferir que `anon` ainda consegue ler o form público em `/f/:slug`.
 
-- `createPerson` (já está correto).
-- Lógica de matching/dedup, Smart Merge, Commercial Intent Guard, custom fields da Pessoa (continuam desativados — Piperun retorna 422).
-- Origem da Pessoa (congelada no first-touch).
+## O que NÃO será alterado
+- UI do `SmartOpsFormBuilder` (já está correta).
+- Lógica de `handleCreate` / `handleCreateBaseForm`.
+- Função `is_admin()` nem hierarquia de roles.
+- Policy de leitura pública (`anon_read_active_forms`).
 
-### Memória a atualizar
-
-Adendo em `mem://integration/piperun-sync-spec-v6` (ou nova memória `piperun-person-contact-enrichment`): "updatePersonFields DEVE re-empurrar `emails` e `phones` canônicos do CDP em todo PUT — Piperun não preenche esses arrays automaticamente quando a Pessoa é criada via integração Meta nativa."
+## Alternativa (mais rápida, menos sustentável)
+Promover `thiago.nicoletti` e `mdguerra` para `admin` em `user_roles`. Resolve hoje, mas qualquer novo author terá o mesmo problema — por isso o plano principal é via RLS.
