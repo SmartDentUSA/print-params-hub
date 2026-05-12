@@ -380,7 +380,27 @@ async function updatePersonFields(
   // stays empty until we backfill from the CDP.
   const updatePayload: Record<string, unknown> = {};
   if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
-  if (email && !isFakeEmail(email)) updatePayload.emails = [{ email }];
+  // TLD guard: strip emails with invalid TLDs (".TYPO", ".local", typos like
+  // ".gmil"). PipeRun silently rejects them, leaving the Person card empty.
+  const { isValidEmailTld: _isValidTld } = await import("../_shared/piperun-person-resolver.ts");
+  if (email && !isFakeEmail(email) && _isValidTld(email)) {
+    updatePayload.emails = [{ email }];
+  } else if (email && !isFakeEmail(email)) {
+    console.warn(`[lia-assign] SKIP email PUT — invalid TLD: ${email}`);
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "lead_email_invalid_tld_skipped",
+        lead_id: lead.id,
+        lead_email: email,
+        details: { person_id: personId, stage: "updatePersonFields" },
+      });
+    } catch {}
+  }
   if (phone) {
     updatePayload.phones = [{ phone }];
     updatePayload.cellphone = phone;
@@ -1909,7 +1929,29 @@ Deno.serve(async (req) => {
         // swap avoids both ghost proliferation and PipeRun's silent reject.
         if (!cachedCheck.hasContact) {
           try {
-            const { findPersonExpanded } = await import("../_shared/piperun-person-resolver.ts");
+            // Step A: try to force-populate the cached Person directly. If it
+            // accepts the contact, we keep the same ID and avoid hunting for
+            // an "owner" Person (which often doesn't exist).
+            const { findPersonExpanded, forcePopulateCachedPerson } = await import("../_shared/piperun-person-resolver.ts");
+            try {
+              const fp = await forcePopulateCachedPerson(PIPERUN_API_KEY, personId, {
+                email: leadEmail || null,
+                phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
+              });
+              if (fp.ok) {
+                try {
+                  await supabase.from("system_health_logs").insert({
+                    function_name: "smart-ops-lia-assign",
+                    severity: "info",
+                    error_type: "piperun_person_force_populated",
+                    lead_id: lead.id,
+                    lead_email: leadEmail,
+                    details: { person_id: personId, ...fp, stage: "cached_check" },
+                  });
+                } catch {}
+                // populated → no need to swap; cached id stays.
+              }
+            } catch (e) { console.warn("[lia-assign] forcePopulate (cached) error:", e); }
             const owner = await findPersonExpanded(PIPERUN_API_KEY, {
               email: leadEmail || null,
               phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
