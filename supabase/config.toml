@@ -288,6 +288,12 @@ verify_jwt = false
 [functions.smart-ops-ingest-asset-from-a]
 verify_jwt = false
 
+[functions.smart-ops-tldv-webhook]
+verify_jwt = false
+
+[functions.smart-ops-tldv-sync]
+verify_jwt = false
+
 [functions.generate-certificate]
 verify_jwt = false
 
