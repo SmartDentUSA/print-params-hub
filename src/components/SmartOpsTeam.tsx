@@ -150,7 +150,6 @@ export function SmartOpsTeam() {
   };
 
   const connectWhatsApp = async () => {
-  const connectWhatsApp = async () => {
     // 1. Garantir instance_name (auto-slug do nome)
     let instanceName = form.evolution_instance_name?.trim() || "";
     if (!instanceName) {
