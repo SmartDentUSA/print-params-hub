@@ -956,27 +956,87 @@ export function mapAttendanceToDealCustomFields(
 ): Array<{ custom_field_id: number; value: string }> {
   const fields: Array<{ custom_field_id: number; value: string }> = [];
 
-  if (attendance.especialidade) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.ESPECIALIDADE, value: String(attendance.especialidade) });
+  // ── Fallback resolver: top-level column → form_data scan ──
+  // Race condition: lia-assign may run before form_data values are promoted to
+  // top-level columns by dynamic-lead-ingestion. Always check form_data as backup.
+  const SYNONYMS: Record<string, string[]> = {
+    especialidade: ["especialidade", "specialty"],
+    produto_interesse: ["produto_interesse", "produto", "produto_de_interesse", "equipamento", "interesse", "solucao"],
+    area_atuacao: ["area_atuacao", "area_de_atuacao", "area"],
+    tem_scanner: ["tem_scanner", "scanner", "possui_scanner"],
+    tem_impressora: ["tem_impressora", "impressora", "possui_impressora"],
+    pais_origem: ["pais_origem", "pais", "country"],
+  };
+  const formDataKeys = (() => {
+    const out: Record<string, string> = {};
+    const fd = attendance.form_data as Record<string, unknown> | null | undefined;
+    if (!fd || typeof fd !== "object") return out;
+    const collect = (obj: unknown) => {
+      if (!obj || typeof obj !== "object") return;
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (v == null) continue;
+        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+          const key = k.toLowerCase().trim();
+          if (!(key in out)) out[key] = String(v);
+        } else if (Array.isArray(v)) {
+          for (const item of v) collect(item);
+        } else if (typeof v === "object") {
+          collect(v);
+        }
+      }
+    };
+    collect(fd);
+    return out;
+  })();
+  const resolve = (canonical: string): string | null => {
+    const direct = attendance[canonical];
+    if (direct != null && String(direct).trim() !== "") return String(direct);
+    const syns = SYNONYMS[canonical] || [canonical];
+    for (const syn of syns) {
+      const v = formDataKeys[syn.toLowerCase()];
+      if (v != null && String(v).trim() !== "") {
+        console.log(`[mapAttendanceToDealCustomFields] fallback form_data → ${canonical}=${v}`);
+        return v;
+      }
+    }
+    return null;
+  };
+  const normalizeArea = (v: string) => {
+    const t = v.trim();
+    // "CLÍNICA OU CONSULTÓRIO" → "Clínica ou Consultório"
+    if (t === t.toUpperCase()) {
+      return t.toLowerCase().replace(/(^|\s)(\S)/g, (_m, s, c) => s + c.toUpperCase());
+    }
+    return t;
+  };
+
+  const especialidade = resolve("especialidade");
+  if (especialidade) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
   }
   const phoneVal = (attendance.telefone_normalized as string | null) || (attendance.telefone as string | null);
   if (phoneVal) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: String(phoneVal) });
   }
-  if (attendance.produto_interesse) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE, value: String(attendance.produto_interesse) });
+  const produto = resolve("produto_interesse");
+  if (produto) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE, value: produto.trim() });
   }
-  if (attendance.area_atuacao) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: String(attendance.area_atuacao) });
+  const area = resolve("area_atuacao");
+  if (area) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: normalizeArea(area) });
   }
-  if (attendance.tem_scanner) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: String(attendance.tem_scanner) });
+  const scanner = resolve("tem_scanner");
+  if (scanner) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: scanner });
   }
-  if (attendance.tem_impressora) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: String(attendance.tem_impressora) });
+  const impressora = resolve("tem_impressora");
+  if (impressora) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: impressora });
   }
-  if (attendance.pais_origem) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PAIS_ORIGEM, value: String(attendance.pais_origem) });
+  const pais = resolve("pais_origem");
+  if (pais) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PAIS_ORIGEM, value: pais });
   }
   if (attendance.id_cliente_smart) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID, value: String(attendance.id_cliente_smart) });
