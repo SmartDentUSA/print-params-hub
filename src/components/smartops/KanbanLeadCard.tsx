@@ -128,6 +128,11 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
           </div>
         </div>
         <div className="text-[10px] text-muted-foreground truncate">{lead.email}</div>
+        {lead.telefone_normalized && (
+          <div className="text-[10px] text-muted-foreground truncate">
+            📱 {lead.telefone_normalized}
+          </div>
+        )}
         {(lead.cidade || lead.uf) && (
           <div className="text-[10px] text-muted-foreground truncate">
             📍 {[lead.cidade, lead.uf].filter(Boolean).join("-")}
