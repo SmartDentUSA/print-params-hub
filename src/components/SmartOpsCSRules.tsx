@@ -39,6 +39,8 @@ interface Rule {
   mensagem_waleads: string | null;
   waleads_media_url: string | null;
   waleads_media_caption: string | null;
+  evolution_ativo: boolean;
+  mensagem_evolution: string | null;
   ativo: boolean;
 }
 
@@ -75,6 +77,8 @@ const defaultForm = {
   mensagem_waleads: "",
   waleads_media_url: "",
   waleads_media_caption: "",
+  evolution_ativo: false,
+  mensagem_evolution: "",
 };
 
 export function SmartOpsCSRules() {
@@ -122,6 +126,8 @@ export function SmartOpsCSRules() {
       mensagem_waleads: r.mensagem_waleads || "",
       waleads_media_url: r.waleads_media_url || "",
       waleads_media_caption: r.waleads_media_caption || "",
+      evolution_ativo: r.evolution_ativo ?? false,
+      mensagem_evolution: r.mensagem_evolution || "",
     });
     setDialogOpen(true);
   };
@@ -163,6 +169,8 @@ export function SmartOpsCSRules() {
       mensagem_waleads: form.mensagem_waleads || null,
       waleads_media_url: form.waleads_media_url || null,
       waleads_media_caption: form.waleads_media_caption || null,
+      evolution_ativo: form.evolution_ativo,
+      mensagem_evolution: form.mensagem_evolution || null,
     };
     if (editing) {
       const { error } = await supabase.from("cs_automation_rules").update(payload).eq("id", editing.id);
@@ -239,7 +247,10 @@ export function SmartOpsCSRules() {
               </div>
             </div>
           )}
-          {!r.manychat_ativo && !r.waleads_ativo && (
+          {r.evolution_ativo && (
+            <span className="text-primary">✓ Evolution</span>
+          )}
+          {!r.manychat_ativo && !r.waleads_ativo && !r.evolution_ativo && (
             <span className="text-muted-foreground">Nenhum canal ativo</span>
           )}
         </div>
@@ -453,6 +464,27 @@ export function SmartOpsCSRules() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Evolution API */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="font-semibold">Evolution API</Label>
+                <Switch checked={form.evolution_ativo} onCheckedChange={(v) => setForm({ ...form, evolution_ativo: v })} />
+              </div>
+              {form.evolution_ativo && (
+                <div>
+                  <Label className="text-xs">Mensagem Evolution</Label>
+                  <Textarea
+                    value={form.mensagem_evolution}
+                    onChange={(e) => setForm({ ...form, mensagem_evolution: e.target.value })}
+                    placeholder="Deixe vazio para usar a mesma mensagem do WaLeads"
+                    rows={4}
+                  />
                 </div>
               )}
             </div>
