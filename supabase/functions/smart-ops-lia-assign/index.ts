@@ -1595,14 +1595,21 @@ Deno.serve(async (req) => {
     let assignedOwnerName: string;
 
     // Check if current owner exists and is active in team_members
-    if (lead.proprietario_lead_crm) {
+    if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
       const { data: currentOwner } = await supabase
         .from("team_members")
         .select("id, nome_completo, piperun_owner_id, ativo, waleads_api_key")
         .ilike("nome_completo", lead.proprietario_lead_crm)
         .maybeSingle();
 
-      if (currentOwner && currentOwner.ativo) {
+      if (
+        currentOwner &&
+        currentOwner.ativo &&
+        !isBlockedSeller({
+          ownerId: currentOwner.piperun_owner_id as number,
+          ownerName: currentOwner.nome_completo as string,
+        })
+      ) {
         assignedOwnerId = currentOwner.piperun_owner_id;
         assignedTeamMemberId = currentOwner.id;
         assignedOwnerName = currentOwner.nome_completo;
@@ -1615,12 +1622,27 @@ Deno.serve(async (req) => {
         assignedOwnerName = newOwner.nome_completo;
         console.log(`[lia-assign] Re-assigned (owner not in team or inactive) → ${assignedOwnerName}`);
       }
+    } else if (lead.proprietario_lead_crm && isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
+      // Patricia Gastaldi etc → Distribuidor de Leads (não sortear outro vendedor)
+      console.warn(`[lia-assign] Blocked seller "${lead.proprietario_lead_crm}" → routing to Distribuidor de Leads`);
+      const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+      assignedOwnerId = FALLBACK_OWNER_ID;
+      assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+      assignedTeamMemberId = null;
     } else {
       const newOwner = await pickRandomActiveVendedor(supabase);
-      assignedOwnerId = newOwner.piperun_owner_id;
-      assignedTeamMemberId = newOwner.id;
-      assignedOwnerName = newOwner.nome_completo;
-      console.log(`[lia-assign] Round Robin assigned: ${assignedOwnerName} (${assignedOwnerId})`);
+      if (isBlockedSeller({ ownerId: newOwner.piperun_owner_id, ownerName: newOwner.nome_completo })) {
+        console.warn(`[lia-assign] Round Robin landed on blocked seller "${newOwner.nome_completo}" → Distribuidor de Leads`);
+        const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+        assignedOwnerId = FALLBACK_OWNER_ID;
+        assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+        assignedTeamMemberId = null;
+      } else {
+        assignedOwnerId = newOwner.piperun_owner_id;
+        assignedTeamMemberId = newOwner.id;
+        assignedOwnerName = newOwner.nome_completo;
+        console.log(`[lia-assign] Round Robin assigned: ${assignedOwnerName} (${assignedOwnerId})`);
+      }
     }
 
     // ── 3. Determine pipeline & stage ──
