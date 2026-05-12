@@ -2034,6 +2034,14 @@ Deno.serve(async (req) => {
       } catch (logErr) {
         console.error("[lia-assign] Failed to log health event", logErr);
       }
+      // Stamp the failed owner so metrics don't inflate round-robin assignments
+      // for a vendor who never actually saw the lead.
+      try {
+        await supabase
+          .from("lia_attendances")
+          .update({ last_failed_assignment_owner: assignedOwnerName })
+          .eq("id", lead.id);
+      } catch {}
       // HARDENING: when person creation failed, do NOT corrupt the lead with
       // owner/funnel placeholders. Leaving these fields untouched lets the
       // retry cron pick the lead up later and assign it for real.
