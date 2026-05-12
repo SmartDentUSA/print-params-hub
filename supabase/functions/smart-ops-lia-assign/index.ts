@@ -340,27 +340,57 @@ async function updatePersonFields(
   const nome = cleanPersonName(rawNome) || (lead.email as string) || "";
   const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  const especialidade = lead.especialidade as string | null;
-  const areaAtuacao = lead.area_atuacao as string | null;
+  const especialidade = (lead.especialidade as string | null) || null;
+  const areaAtuacao = (lead.area_atuacao as string | null) || null;
+  const pessoaCargo = (lead.pessoa_cargo as string | null) || null;
 
-  // Build payload with standard fields + custom fields via hash keys
+  // job_title cascade: especialidade > area_atuacao > pessoa_cargo
+  const jobTitle = especialidade || areaAtuacao || pessoaCargo || null;
+
+  // Build payload with standard fields + extended Person fields.
+  // Always re-publish emails[]/phones[] — Piperun does NOT auto-fill them when
+  // a Person is created via the native Meta Lead Ads integration, so the card
+  // stays empty until we backfill from the CDP.
   const updatePayload: Record<string, unknown> = {};
   if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
-  // Re-publish canonical email/phone every PUT — Piperun does NOT auto-fill
-  // emails[]/phones[] when a Person is created via the native Meta Lead Ads
-  // integration, so the card stays empty until we backfill from the CDP.
   if (email && !isFakeEmail(email)) updatePayload.emails = [{ email }];
-  if (phone) updatePayload.phones = [{ phone }];
-  if (especialidade) updatePayload.job_title = especialidade;
+  if (phone) {
+    updatePayload.phones = [{ phone }];
+    updatePayload.cellphone = phone;
+  }
+  if (jobTitle) updatePayload.job_title = jobTitle;
+
+  const cpf = lead.pessoa_cpf as string | null;
+  if (cpf) updatePayload.cpf = cpf;
+  const birth = lead.pessoa_nascimento as string | null;
+  if (birth) updatePayload.birth_date = birth;
+  const gender = lead.pessoa_genero as string | null;
+  if (gender) updatePayload.gender = gender;
+  const linkedin = lead.pessoa_linkedin as string | null;
+  if (linkedin) updatePayload.linkedin = linkedin;
+  const facebook = lead.pessoa_facebook as string | null;
+  if (facebook) updatePayload.facebook = facebook;
+  const observation = lead.pessoa_observation as string | null;
+  if (observation) updatePayload.observation = observation;
 
   // Pessoa custom field IDs 674001/674002 are rejected by Piperun. Persisted at Deal level only.
-  void areaAtuacao;
 
   if (Object.keys(updatePayload).length === 0) return;
 
   console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
   const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
   console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  // Fallback: if PUT failed (often due to ONE problematic field rejected by
+  // Piperun), retry with the bare-minimum identity payload so the card at
+  // least keeps email + phone visible.
+  if (!res.success && (updatePayload.emails || updatePayload.phones)) {
+    const minimal: Record<string, unknown> = {};
+    if (updatePayload.emails) minimal.emails = updatePayload.emails;
+    if (updatePayload.phones) minimal.phones = updatePayload.phones;
+    if (updatePayload.name) minimal.name = updatePayload.name;
+    const retryRes = await piperunPut(apiToken, `persons/${personId}`, minimal);
+    console.log(`[lia-assign] Person ${personId} minimal retry: ${retryRes.success} (${retryRes.status})`);
+  }
   // Audit log: contact published. Lets retry-cron safety-net detect leads
   // whose Person card was never refreshed with emails[]/phones[].
   if (res.success && (updatePayload.emails || updatePayload.phones)) {
