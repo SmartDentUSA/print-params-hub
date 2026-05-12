@@ -1815,6 +1815,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Person resolution trace (always log, even on success) ──
+    // Fixes the Gabrielly-class blind spot: 6× error_no_person without any
+    // diagnostic for what the resolution path actually did.
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: personId ? "info" : "warning",
+        error_type: "person_resolution_trace",
+        lead_id: lead.id,
+        lead_email: leadEmail,
+        details: {
+          resolved_person_id: personId,
+          had_cached_pessoa_piperun_id: Boolean((lead as Record<string, unknown>).pessoa_piperun_id),
+          email_present: Boolean(leadEmail),
+          phone_present: Boolean(lead.telefone_normalized || lead.telefone_raw),
+          source: lead.source,
+          form_name: lead.form_name,
+        },
+      });
+    } catch {}
+
     if (personId) {
       // Step 5b: Update person fields (custom_fields, job_title, phones)
       // NOTE: do NOT pass originId on update — Person.origin is frozen at
