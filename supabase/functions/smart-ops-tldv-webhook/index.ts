@@ -9,12 +9,18 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TLDV_API_KEY = (Deno.env.get("TLDV_API_KEY") || "").trim();
+const TLDV_API_KEY = sanitizeTldvApiKey(Deno.env.get("TLDV_API_KEY") || "");
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") || "";
 
 const TLDV_BASE = "https://pasta.tldv.io/v1alpha1";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+function sanitizeTldvApiKey(raw: string): string {
+  const trimmed = raw.trim();
+  const uuid = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+  return uuid || trimmed;
+}
 
 // ---------- tl;dv API helpers ----------
 async function tldvFetch(path: string): Promise<any> {
