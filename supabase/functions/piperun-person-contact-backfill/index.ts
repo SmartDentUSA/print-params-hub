@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
   let q = supa
     .from("lia_attendances")
-    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf,scanner_modelo,impressora_modelo,tem_scanner,tem_impressora,form_data")
+    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf,scanner_marca,impressora_modelo,tem_scanner,tem_impressora,form_data")
     .is("merged_into", null)
     .not("pessoa_piperun_id", "is", null);
 
