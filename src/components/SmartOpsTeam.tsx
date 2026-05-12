@@ -256,7 +256,7 @@ export function SmartOpsTeam() {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Editar Membro" : "Novo Membro"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => setForm({ ...form, nome_completo: e.target.value })} /></div>
+              <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
               <div><Label>ID Vendedor Piperun</Label><Input value={form.piperun_owner_id} onChange={(e) => setForm({ ...form, piperun_owner_id: e.target.value })} placeholder="Ex: 12345" /></div>
@@ -277,6 +277,34 @@ export function SmartOpsTeam() {
               <Separator className="my-2" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
               <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
+              <Separator className="my-2" />
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution</p>
+                <EvolutionStatusBadge status={evolutionStatus} />
+              </div>
+              <div>
+                <Label>Nome da Instância</Label>
+                <Input
+                  value={form.evolution_instance_name}
+                  onChange={(e) => setForm({ ...form, evolution_instance_name: e.target.value })}
+                  placeholder="janaina_santos"
+                />
+              </div>
+              <div>
+                <Label>Provedor de mensagens</Label>
+                <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="waleads">WaLeads</SelectItem>
+                    <SelectItem value="evolution">Evolution API</SelectItem>
+                    <SelectItem value="manychat">ManyChat</SelectItem>
+                    <SelectItem value="none">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
+                📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
+              </Button>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
