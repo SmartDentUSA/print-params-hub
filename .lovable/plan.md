@@ -1,52 +1,51 @@
-Diagnóstico confirmado: o PipeRun está criando Deal/Pessoa, mas a gravação de volta em `lia_attendances` falha depois, então o lead fica sem `piperun_id` local e o retry tenta de novo, gerando duplicações e cards inconsistentes.
+## Problema
 
-Causa raiz encontrada:
-- A falha registrada é `column "value" does not exist` durante o update crítico do `smart-ops-lia-assign`.
-- Isso vem do trigger de banco `trg_sdr_voice_on_seller_assign`, função `fn_trigger_sdr_voice_on_assign()`.
-- A função tenta ler `SELECT value FROM vault.secrets`, mas a tabela `vault.secrets` não tem coluna `value`; tem `secret`.
-- Como esse trigger roda quando `proprietario_lead_crm` é preenchido, ele aborta o update inteiro que deveria salvar `piperun_id`, `pessoa_piperun_id`, funil, etapa e owner.
-- Resultado: o Deal já foi criado no PipeRun, mas o CDP fica como se nada tivesse sido criado; o cron `smart-ops-piperun-retry-failed-leads` reprocessa e pode criar outro Deal.
+O lead `Zenobio Lopes Mendonça Junior` (`odontozen@outlook.com`) foi criado no `lia_attendances` em 07/05/2026 pela função `astron-postback`, mesmo já existindo o cliente real `odontozen@outlook.com.br` (Deal ganho #59499056). Como os e-mails diferem (.com vs .com.br), o postback não casou e fez `INSERT`. Em seguida, downstream criou o Deal #59696317 no PipeRun, gerando duplicidade e quebrando a regra: **eventos da Astron NUNCA podem criar lead nem Deal.**
 
-Plano de correção:
+## Causa raiz
 
-1. Estancar a origem do erro
-- Corrigir `fn_trigger_sdr_voice_on_assign()` para nunca abortar updates de CRM.
-- Substituir a leitura inválida de `vault.secrets.value` por fonte segura existente ou remover esse fallback.
-- Envolver o envio HTTP do SDR voice em `BEGIN ... EXCEPTION ... END`, para qualquer erro virar log e não rollback do lead.
-- Manter a regra principal: nenhuma automação de voz pode bloquear criação/atualização de Deal.
+`supabase/functions/astron-postback/index.ts` faz `INSERT` em `lia_attendances` quando não encontra match por e-mail (linhas 215-243). Isso vale para qualquer evento Astron — inclusive `usercourseprogresschange`, `userlogin`, `userlessonwatch`, etc., que são puramente comportamentais e não comerciais.
 
-2. Proteger o retry para não criar duplicata
-- Ajustar `smart-ops-piperun-retry-failed-leads` para, antes de chamar `smart-ops-lia-assign`, fazer preflight por e-mail e telefone.
-- Se já existir Deal aberto no PipeRun para a pessoa, não criar novo: apenas vincular/atualizar o lead local e completar custom fields.
-- Se o lead local já teve erro `lead_update_failed` com `attempted_piperun_id`, reutilizar esse Deal em vez de criar outro.
+## Correção
 
-3. Fortalecer identidade antes de Deal
-- No `smart-ops-lia-assign`, bloquear Deal se não houver e-mail nem telefone no lead local.
-- Validar que `createPerson` recebeu e enviou e-mail/telefone reais.
-- Antes de criar Deal novo, buscar pessoa por e-mail e por telefone com match estrito; se encontrar, reaproveitar a Pessoa e seus Deals.
-- Se existir Deal aberto no Funil de Vendas: preservar owner/stage e só atualizar campos/nota.
-- Se existir Deal aberto em Estagnados: marcar perdido com motivo `entrou_em_outro_formulario` ou reativar conforme a regra SDR já definida.
-- Se não existir Deal: criar um único Deal novo.
+### 1. `astron-postback`: política "update-only"
 
-4. Completar dados no PipeRun
-- Garantir que update de Pessoa envie telefone e e-mail quando faltantes.
-- Garantir que Deal receba custom fields via hash: WhatsApp, produto interesse, área, especialidade, tem scanner, tem impressora, país e Banco de Dados ID.
-- Adicionar fallback de `form_data` para campos que chegaram em notas/formulário mas ainda não subiram para coluna top-level.
+- Buscar lead existente com cascata de identidade:
+  1. `email` exato
+  2. `email` normalizado (lowercase, trim, remover `.` antes do `@` para Gmail)
+  3. fallback por telefone normalizado se houver
+  4. variação de domínio (`@outlook.com` ↔ `@outlook.com.br`, `@hotmail.com` ↔ `@hotmail.com.br`) **somente** se o restante do local-part bater 100%
+- Se encontrou → `UPDATE` apenas campos `astron_*`, `astron_courses_access`, `astron_courses_completed`, `astron_last_*`, `raw_payload` e timeline.
+- Se NÃO encontrou → **NÃO inserir.** Registrar em nova tabela `astron_unmatched_events` (email, event_type, payload, created_at) para auditoria/recovery manual e retornar `200 {status:"skipped", reason:"no_matching_lead"}`.
+- Bloquear *qualquer* INSERT mesmo no fallback `23505`.
 
-5. Recuperar os leads quebrados de hoje
-- Rodar uma recuperação controlada para leads recentes com `piperun_id IS NULL` e erro `column "value" does not exist`.
-- Para cada caso, reaproveitar o `attempted_piperun_id` registrado em `system_health_logs` quando existir.
-- Atualizar `lia_attendances` com `piperun_id`, `pessoa_piperun_id`, owner, funil e etapa sem recriar Deal.
-- Depois, rodar backfill de custom fields para esses Deals.
+### 2. Reforçar guardrail de criação de Person/Deal
 
-6. Corrigir/registrar B2B/B2C
-- Reativar a classificação no CDP usando `buyer_type`:
-  - `PJ/B2B` quando houver CNPJ, razão social, empresa ou origem/compra corporativa.
-  - `PF/B2C` quando não houver CNPJ/empresa e o contato for pessoa física.
-- Propagar esse valor para PipeRun se já houver campo custom correspondente mapeado; se não houver, deixar no CDP e logar ausência de campo PipeRun.
+- Em `lia-assign` e `piperun-retry-failed-leads`, adicionar exclusão dura: se `source IN ('astron_postback','sync_astron_members')` **e** `piperun_id IS NULL` **e** sem `form_name` → abortar antes de qualquer chamada à API PipeRun, mesmo que `commercial_override` venha setado por engano.
+- Garantir que o `commercial-intent` já cobre isto (cobre), mas adicionar log explícito `astron_no_create_policy` para visibilidade.
 
-7. Validação
-- Testar com os casos citados: Marcia, Marcos, Eduardo, Talitha, Jonathan e Dr. Valente.
-- Confirmar no banco que todos ficam com `piperun_id`, `pessoa_piperun_id`, owner, funil e etapa.
-- Confirmar que o retry não cria novos Deals duplicados.
-- Confirmar que o card do PipeRun exibe e-mail/telefone na Pessoa e WhatsApp/custom fields no Deal.
+### 3. Limpeza dos órfãos atuais
+
+- Migration de dados (via `insert tool`):
+  - Mesclar `88c5d9c3-...` (`odontozen@outlook.com`) em `cabee805-...` (`odontozen@outlook.com.br`) usando o motor de merge existente (`merged_into` + cópia de campos `astron_*`).
+  - Marcar Deal PipeRun #59696317 para revisão (status `perdida` motivo `duplicado_astron`) via job manual — listar no relatório, **não** deletar automaticamente.
+- Varrer todos os `lia_attendances` com `source='astron_postback' AND piperun_id IS NOT NULL AND created_at >= '2026-04-01'` e gerar relatório CSV em `/mnt/documents/astron_orphan_deals.csv` para o time comercial revisar.
+
+### 4. Memória
+
+- Atualizar `mem://architecture/commercial-intent-guard` (ou criar `mem://integration/astron/no-create-policy`) com a regra: **Astron events são update-only; nunca criam `lia_attendances` nem Deals.**
+
+## Arquivos afetados
+
+- `supabase/functions/astron-postback/index.ts` (refator do upsert)
+- `supabase/functions/_shared/commercial-intent.ts` (guard reforçado)
+- `supabase/functions/smart-ops-lia-assign/index.ts` (log explícito)
+- Nova migration: tabela `astron_unmatched_events` + RLS service-role
+- Script one-shot de merge para o registro do Zenobio
+- Memória do projeto
+
+## Não-objetivos
+
+- Não mexer em `sync-astron-members` agora (já é "enriquece se existir"); apenas validar.
+- Não tocar no fluxo de cursos/Academy do frontend.
+- Não criar UI nova.
