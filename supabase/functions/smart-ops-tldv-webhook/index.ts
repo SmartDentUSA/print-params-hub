@@ -331,12 +331,16 @@ serve(async (req) => {
       body.meetingId || body.meeting_id || body.id || body.data?.meetingId || body.data?.id;
 
     // Always log raw webhook
-    await supabase.from("tldv_webhook_log").insert({
-      event_type: eventType,
-      tldv_id: tldvId ? String(tldvId) : null,
-      payload: body,
-      processed: false,
-    });
+    const { data: logRow } = await supabase
+      .from("tldv_webhook_log")
+      .insert({
+        event_type: eventType,
+        tldv_id: tldvId ? String(tldvId) : null,
+        payload: body,
+        processed: false,
+      })
+      .select("id")
+      .single();
 
     if (!tldvId) {
       return new Response(JSON.stringify({ error: "no tldv meeting id in payload" }), {
@@ -347,12 +351,12 @@ serve(async (req) => {
 
     const result = await processMeeting(String(tldvId), eventType);
 
-    await supabase
-      .from("tldv_webhook_log")
-      .update({ processed: result.ok, error: result.ok ? null : result.error || null })
-      .eq("tldv_id", String(tldvId))
-      .order("created_at", { ascending: false })
-      .limit(1);
+    if (logRow?.id) {
+      await supabase
+        .from("tldv_webhook_log")
+        .update({ processed: result.ok, error: result.ok ? null : result.error || null })
+        .eq("id", logRow.id);
+    }
 
     console.log(`[tldv-webhook] ${tldvId} → ${result.ok ? "ok" : "err"} ${result.error || ""}`);
 
