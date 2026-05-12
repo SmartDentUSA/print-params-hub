@@ -2080,28 +2080,69 @@ Deno.serve(async (req) => {
     }
     console.log(`[lia-assign] updateFields keys (${Object.keys(sanitizedUpdateFields).length}): ${Object.keys(sanitizedUpdateFields).join(",")}`);
 
-    const { error: updateError } = await supabase
+    // ── PHASED UPDATE ──
+    // Some opaque trigger / postgrest quirks cause `column "value" does not
+    // exist` (42703) when enrichment fields are mixed with the critical CRM
+    // binding fields. To never lose the deal binding, write CRITICAL fields
+    // first; if successful, write enrichment in a second best-effort call.
+    const CRITICAL_KEYS = new Set([
+      "proprietario_lead_crm",
+      "funil_entrada_crm",
+      "ultima_etapa_comercial",
+      "piperun_id",
+      "piperun_link",
+      "pessoa_piperun_id",
+      "empresa_piperun_id",
+      "status_oportunidade",
+    ]);
+    const criticalUpdate: Record<string, unknown> = {};
+    const enrichmentUpdate: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(sanitizedUpdateFields)) {
+      if (CRITICAL_KEYS.has(k)) criticalUpdate[k] = v;
+      else enrichmentUpdate[k] = v;
+    }
+
+    const { error: criticalError } = await supabase
       .from("lia_attendances")
-      .update(sanitizedUpdateFields)
+      .update(criticalUpdate)
       .eq("id", lead.id);
 
-    if (updateError) {
-      console.error(`[lia-assign] DB update FAILED for ${lead.id}:`, updateError);
+    if (criticalError) {
+      console.error(`[lia-assign] CRITICAL DB update FAILED for ${lead.id}:`, criticalError);
       try {
         await supabase.from("system_health_logs").insert({
           function_name: "smart-ops-lia-assign",
           severity: "error",
           error_type: "lead_update_failed",
           lead_email: lead.email,
-          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: updateError.message, code: updateError.code },
+          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: criticalError.message, code: criticalError.code, phase: "critical" },
         });
       } catch {}
       return new Response(JSON.stringify({
         success: false,
         error: "lead_update_failed",
-        details: updateError.message,
+        details: criticalError.message,
         lead_id: lead.id,
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (Object.keys(enrichmentUpdate).length > 0) {
+      const { error: enrichmentError } = await supabase
+        .from("lia_attendances")
+        .update(enrichmentUpdate)
+        .eq("id", lead.id);
+      if (enrichmentError) {
+        console.warn(`[lia-assign] Enrichment update failed for ${lead.id} (non-fatal): ${enrichmentError.message}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "lead_enrichment_update_failed",
+            lead_email: lead.email,
+            details: { lead_id: lead.id, error: enrichmentError.message, code: enrichmentError.code, phase: "enrichment", keys: Object.keys(enrichmentUpdate) },
+          });
+        } catch {}
+      }
     }
 
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
