@@ -173,6 +173,7 @@ export function SmartOpsFormBuilder() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [editingMeta, setEditingMeta] = useState<SmartOpsForm | null>(null);
   const [metaName, setMetaName] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
