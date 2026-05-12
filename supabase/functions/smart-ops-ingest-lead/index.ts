@@ -91,12 +91,18 @@ Deno.serve(async (req) => {
     const areaAtuacao = extractField(payload, "area de atuacao", "area_atuacao", "specialty");
     const especialidade = extractField(payload, "especialidade", "specialty");
     const comoDigitaliza = extractField(payload, "como digitaliza", "como_digitaliza", "moldagens");
-    const temImpressora = extractField(payload, "impressoes 3d", "tem_impressora", "utiliza impressoes");
-    const impressoraModelo = extractField(payload, "impressora_modelo", "modelo impressora", "printer_model");
+    const temImpressora = payload.tem_impressora
+      ? String(payload.tem_impressora).trim()
+      : extractField(payload, "tem_impressora", "impressoes 3d", "utiliza impressoes", "possui_impressora");
+    const impressoraModelo = payload.impressora_modelo
+      ? String(payload.impressora_modelo).trim()
+      : extractField(payload, "impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora");
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const formProduct = detectProductFromFormName(formName);
-    const produtoInteresse = formProduct || extractField(payload, "produto_interesse", "product");
-    const produtoInteresseAuto = formProduct || payload.produto_interesse_auto || null;
+    const produtoInteresse = payload.produto_interesse
+      ? String(payload.produto_interesse).trim()
+      : (extractField(payload, "produto_interesse", "product") || formProduct);
+    const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
 
     // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
     let existingLead: Record<string, any> | null = null;
