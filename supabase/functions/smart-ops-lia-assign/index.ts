@@ -2046,6 +2046,51 @@ Deno.serve(async (req) => {
           (lead as Record<string, unknown>)._companyData = companyData;
         }
       }
+
+      // ── Step 5h: POST-DEAL VERIFY & RESYNC ──
+      // After the Deal is created/updated, re-publish Person + Company contact
+      // so the CRM card never appears without email/phone. Best-effort; logs
+      // any persistent gap for the safety-net cron to retry later.
+      if (piperunId && personId) {
+        try {
+          await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
+        } catch (e) {
+          console.warn("[lia-assign] Post-deal Person resync error:", e);
+        }
+        if (companyId) {
+          try {
+            await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
+          } catch (e) {
+            console.warn("[lia-assign] Post-deal Company resync error:", e);
+          }
+        }
+        // Verify Person card is no longer blank
+        try {
+          const verify = await piperunGet(PIPERUN_API_KEY, `persons/${personId}`, {});
+          const personData = (verify?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+          const emails = (personData?.emails as Array<Record<string, unknown>> | undefined) || [];
+          const phones = (personData?.phones as Array<Record<string, unknown>> | undefined) || [];
+          const stillMissing = emails.length === 0 && phones.length === 0;
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: stillMissing ? "warning" : "info",
+            error_type: stillMissing
+              ? "piperun_contact_still_missing_after_resync"
+              : "piperun_person_resync_ok",
+            lead_id: lead.id,
+            lead_email: leadEmail,
+            details: {
+              person_id: personId,
+              company_id: companyId,
+              piperun_id: piperunId,
+              emails_count: emails.length,
+              phones_count: phones.length,
+            },
+          });
+        } catch (e) {
+          console.warn("[lia-assign] Post-deal verify error:", e);
+        }
+      }
     } else {
       console.error("[lia-assign] Could not find or create person in PipeRun");
       flowType = "error_no_person";
