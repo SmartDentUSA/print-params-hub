@@ -182,8 +182,17 @@ Deno.serve(async (req) => {
             last_name: fields.last_name || fields.sobrenome || null,
             phone_number: fields.phone_number || fields.telefone || fields.celular || null,
             // Custom fields commonly used in dental/3D printing forms
-            especialidade: fields.especialidade || fields.specialty || null,
-            area_atuacao: fields.area_de_atuacao || fields.area_atuacao || null,
+            especialidade: fields.especialidade || fields.specialty || fields.especialidade_odontologica || null,
+            area_atuacao: fields.area_de_atuacao || fields.area_atuacao || fields.area || fields.atuacao || null,
+            tem_scanner: fields.tem_scanner || fields.possui_scanner || fields.scanner || fields.scanner_intraoral || null,
+            tem_impressora: fields.tem_impressora || fields.possui_impressora || fields.impressora || fields.impressoes_3d || fields["impressoes 3d"] || null,
+            impressora_modelo: fields.impressora_modelo || fields.modelo_impressora || fields.printer_model || null,
+            // Behavioral Ingestion: keep both explicit and inferred product
+            produto_interesse_auto: inferredProduct || campaignProduct || null,
+            empresa_nome: fields.empresa || fields.empresa_nome || fields.clinica || fields.consultorio || null,
+            empresa_razao_social: fields.razao_social || fields.empresa_razao_social || null,
+            cidade: fields.city || fields.cidade || null,
+            uf: fields.state || fields.estado || fields.uf || null,
             city: fields.city || fields.cidade || null,
             state: fields.state || fields.estado || fields.uf || null,
           };
