@@ -751,7 +751,14 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                   <a href={s(lead, "pessoa_facebook")!} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block">🔗 Facebook</a>
                 )}
                 <DetailRow label="Observação" value={s(lead, "pessoa_observation")} />
-                <DetailRow label="PipeRun ID" value={s(lead, "pessoa_piperun_id")} />
+                {s(lead, "pessoa_piperun_id") ? (
+                  <a
+                    href={`https://app.pipe.run/#/persons/${s(lead, "pessoa_piperun_id")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline block"
+                  >🔗 PipeRun Pessoa #{s(lead, "pessoa_piperun_id")}</a>
+                ) : null}
               </Section>
               <Separator />
             </>
@@ -772,7 +779,14 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                 {s(lead, "empresa_website") && (
                   <a href={s(lead, "empresa_website")!} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block">🌐 {s(lead, "empresa_website")}</a>
                 )}
-                <DetailRow label="PipeRun ID" value={s(lead, "empresa_piperun_id")} />
+                {s(lead, "empresa_piperun_id") ? (
+                  <a
+                    href={`https://app.pipe.run/#/companies/${s(lead, "empresa_piperun_id")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline block"
+                  >🔗 PipeRun Empresa #{s(lead, "empresa_piperun_id")}</a>
+                ) : null}
               </Section>
               <Separator />
             </>

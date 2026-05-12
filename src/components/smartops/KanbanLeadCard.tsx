@@ -53,6 +53,8 @@ export interface Lead extends Record<string, unknown> {
   origem_campanha: string | null;
   utm_source: string | null;
   piperun_id: string | null;
+  pessoa_piperun_id: number | string | null;
+  empresa_piperun_id: number | string | null;
   total_messages: number | null;
   total_sessions: number | null;
   confidence_score_analysis: number | null;
@@ -178,8 +180,49 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             )}
           </div>
         )}
-        <div className="text-[9px] text-muted-foreground truncate">
-          {lead.source}{lead.piperun_id ? ` · PR#${lead.piperun_id}` : ""} · {new Date(lead.piperun_created_at || lead.entrada_sistema || lead.created_at).toLocaleDateString("pt-BR")}
+        <div className="text-[9px] text-muted-foreground truncate flex flex-wrap items-center gap-x-1">
+          <span>{lead.source}</span>
+          {lead.piperun_id && (
+            <>
+              <span>·</span>
+              <a
+                href={`https://app.pipe.run/#/deals/${lead.piperun_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-primary hover:underline"
+                title="Abrir Deal no PipeRun"
+              >PR#{lead.piperun_id}</a>
+            </>
+          )}
+          {lead.pessoa_piperun_id && (
+            <>
+              <span>·</span>
+              <a
+                href={`https://app.pipe.run/#/persons/${lead.pessoa_piperun_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-primary hover:underline"
+                title="Abrir Pessoa no PipeRun"
+              >👤#{lead.pessoa_piperun_id}</a>
+            </>
+          )}
+          {lead.empresa_piperun_id && (
+            <>
+              <span>·</span>
+              <a
+                href={`https://app.pipe.run/#/companies/${lead.empresa_piperun_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-primary hover:underline"
+                title="Abrir Empresa no PipeRun"
+              >🏢#{lead.empresa_piperun_id}</a>
+            </>
+          )}
+          <span>·</span>
+          <span>{new Date(lead.piperun_created_at || lead.entrada_sistema || lead.created_at).toLocaleDateString("pt-BR")}</span>
         </div>
       </CardContent>
     </Card>
