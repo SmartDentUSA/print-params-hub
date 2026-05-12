@@ -909,11 +909,14 @@ async function buildDealNoteHTML(
     console.warn("[lia-assign] Failed to fetch last question:", e);
   }
 
+  // Enrich with real deal history (current owner, distinct owners, first contact date)
+  const dealsCtx = await fetchDealsContext(supabase, lead);
+
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead);
+    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -922,15 +925,7 @@ async function buildDealNoteHTML(
 
   // Fallback static texts
   if (!historico) {
-    const parts: string[] = [];
-    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
-    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
-    else parts.push("Sem compras anteriores no e-commerce");
-    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
-    else parts.push("Sem cadastro na plataforma de cursos");
-    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
-    else parts.push("Nunca teve contato com vendedor");
-    historico = parts.join(". ") + ".";
+    historico = buildHistoricoFallback(lead, dealsCtx);
   }
   if (!oportunidade) {
     const parts: string[] = [];
