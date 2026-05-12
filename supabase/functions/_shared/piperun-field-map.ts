@@ -961,10 +961,11 @@ export function mapAttendanceToDealCustomFields(
   // top-level columns by dynamic-lead-ingestion. Always check form_data as backup.
   const SYNONYMS: Record<string, string[]> = {
     especialidade: ["especialidade", "specialty"],
-    produto_interesse: ["produto_interesse", "produto", "produto_de_interesse", "equipamento", "interesse", "solucao"],
-    area_atuacao: ["area_atuacao", "area_de_atuacao", "area"],
-    tem_scanner: ["tem_scanner", "scanner", "possui_scanner"],
-    tem_impressora: ["tem_impressora", "impressora", "possui_impressora"],
+    produto_interesse: ["produto_interesse", "produto", "produto_de_interesse", "equipamento", "interesse", "solucao", "product"],
+    area_atuacao: ["area_atuacao", "area_de_atuacao", "area", "area de atuacao", "área de atuação"],
+    tem_scanner: ["tem_scanner", "scanner", "possui_scanner", "possui scanner"],
+    tem_impressora: ["tem_impressora", "impressora", "possui_impressora", "possui impressora", "impressoes 3d", "impressões 3d"],
+    impressora_modelo: ["impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora"],
     pais_origem: ["pais_origem", "pais", "country"],
   };
   const formDataKeys = (() => {
@@ -1001,8 +1002,9 @@ export function mapAttendanceToDealCustomFields(
     }
     return null;
   };
-  const normalizeArea = (v: string) => {
-    const t = v.trim();
+  const humanizeValue = (v: string) => {
+    const t = v.trim().replace(/_/g, " ");
+    if (!t) return t;
     // "CLÍNICA OU CONSULTÓRIO" → "Clínica ou Consultório"
     if (t === t.toUpperCase()) {
       return t.toLowerCase().replace(/(^|\s)(\S)/g, (_m, s, c) => s + c.toUpperCase());
@@ -1014,7 +1016,7 @@ export function mapAttendanceToDealCustomFields(
   if (especialidade) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
   }
-  const phoneVal = (attendance.telefone_normalized as string | null) || (attendance.telefone as string | null);
+  const phoneVal = (attendance.telefone_normalized as string | null) || (attendance.telefone_raw as string | null) || (attendance.telefone as string | null);
   if (phoneVal) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: String(phoneVal) });
   }
@@ -1024,15 +1026,19 @@ export function mapAttendanceToDealCustomFields(
   }
   const area = resolve("area_atuacao");
   if (area) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: normalizeArea(area) });
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: humanizeValue(area) });
   }
   const scanner = resolve("tem_scanner");
   if (scanner) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: scanner });
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: humanizeValue(scanner) });
   }
   const impressora = resolve("tem_impressora");
   if (impressora) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: impressora });
+    const modelo = resolve("impressora_modelo");
+    const impressoraValue = modelo && /^sim$/i.test(impressora.trim())
+      ? `${humanizeValue(impressora)} - ${humanizeValue(modelo)}`
+      : humanizeValue(impressora);
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: impressoraValue });
   }
   const pais = resolve("pais_origem");
   if (pais) {
