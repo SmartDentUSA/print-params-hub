@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TLDV_API_KEY = Deno.env.get("TLDV_API_KEY") || "";
+const TLDV_API_KEY = (Deno.env.get("TLDV_API_KEY") || "").trim();
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") || "";
 
 const TLDV_BASE = "https://pasta.tldv.io/v1alpha1";
