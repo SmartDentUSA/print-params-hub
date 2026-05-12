@@ -2,20 +2,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
 import { mergeSmartLead, logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
+import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function normalizePhone(raw: string | undefined | null): string | null {
-  if (!raw) return null;
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("0")) digits = digits.slice(1);
-  if (!digits.startsWith("55")) digits = "55" + digits;
-  if (digits.length < 12 || digits.length > 13) return null;
-  return "+" + digits;
-}
+const normalizePhone = normalizeBrazilianPhone;
 
 function extractField(payload: Record<string, unknown>, ...keys: string[]): string | null {
   for (const key of keys) {

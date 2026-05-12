@@ -19,6 +19,7 @@ import {
 import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
+import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -403,13 +404,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      let phoneNormalized: string | null = null;
-      if (ids.personPhone) {
-        let digits = ids.personPhone.replace(/\D/g, "");
-        if (digits.startsWith("0")) digits = digits.slice(1);
-        if (!digits.startsWith("55")) digits = "55" + digits;
-        if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
-      }
+      const phoneNormalized: string | null = normalizeBrazilianPhone(ids.personPhone);
 
       // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
       const identity = validateLeadIdentity({
@@ -634,10 +629,8 @@ Deno.serve(async (req) => {
     if (ids.personName && cleanPersonName(ids.personName)) updateData.nome = cleanPersonName(ids.personName)!;
     if (ids.personPhone) {
       updateData.telefone_raw = ids.personPhone;
-      let digits = ids.personPhone.replace(/\D/g, "");
-      if (digits.startsWith("0")) digits = digits.slice(1);
-      if (!digits.startsWith("55")) digits = "55" + digits;
-      if (digits.length >= 12 && digits.length <= 13) updateData.telefone_normalized = "+" + digits;
+      const norm = normalizeBrazilianPhone(ids.personPhone);
+      if (norm) updateData.telefone_normalized = norm;
     }
 
     // Identity keys (always persist, never overwrite with null)
