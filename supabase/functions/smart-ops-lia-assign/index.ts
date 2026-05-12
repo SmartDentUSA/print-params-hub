@@ -2134,6 +2134,7 @@ Deno.serve(async (req) => {
               await supabase
                 .from("lia_attendances")
                 .update({
+                  pessoa_piperun_id: personId,
                   crm_creation_blocked: true,
                   crm_creation_blocked_reason: "empty_person_in_piperun",
                 })
