@@ -1381,8 +1381,13 @@ async function executarReativacaoSdrCaptacao(
 
   // 5. Cria novo deal no Funil de Vendas
   const customFields = mapAttendanceToDealCustomFields(lead);
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+  // WHATSAPP custom field is now added inside mapAttendanceToDealCustomFields
+  // (uses telefone_normalized || telefone). Keeping a fallback on telefone_raw
+  // for legacy rows that only have telefone_raw populated.
+  if (!customFields.some((f) => f.custom_field_id === DEAL_CUSTOM_FIELDS.WHATSAPP)) {
+    const phone = (lead.telefone_raw) as string | null;
+    if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+  }
 
   const newDealId = await createNewDeal(
     apiToken,
@@ -1654,9 +1659,11 @@ Deno.serve(async (req) => {
 
     // ── 4. Build PipeRun custom fields ──
     const customFields = mapAttendanceToDealCustomFields(lead as Record<string, unknown>);
-    const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-    if (phone) {
-      customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+    if (!customFields.some((f) => f.custom_field_id === DEAL_CUSTOM_FIELDS.WHATSAPP)) {
+      const phone = (lead.telefone_raw) as string | null;
+      if (phone) {
+        customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+      }
     }
 
     // ── 5. Smart PipeRun Sync: Pessoa → Empresa → Deal ──

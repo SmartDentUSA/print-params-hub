@@ -24,7 +24,37 @@ interface TeamMember {
   piperun_owner_id: string | null;
   manychat_api_key: string | null;
   waleads_api_key: string | null;
+  evolution_instance_name: string | null;
+  messaging_provider: string | null;
   ativo: boolean;
+}
+
+const slugifyName = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const EMPTY_FORM = {
+  nome_completo: "",
+  email: "",
+  whatsapp_number: "",
+  role: "vendedor",
+  piperun_owner_id: "",
+  manychat_api_key: "",
+  waleads_api_key: "",
+  evolution_instance_name: "",
+  messaging_provider: "waleads",
+};
+
+type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
+
+function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
+  if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
+  if (status === "connecting") return <Badge className="bg-yellow-500 text-white text-[10px]">🟡 Aguardando QR</Badge>;
+  return <Badge className="bg-red-600 text-white text-[10px]">🔴 Desconectado</Badge>;
 }
 
 export function SmartOpsTeam() {
@@ -32,8 +62,14 @@ export function SmartOpsTeam() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
   const { toast } = useToast();
+
+  // Evolution state
+  const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [evoConnecting, setEvoConnecting] = useState(false);
 
   // WaLeads test state
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -50,8 +86,107 @@ export function SmartOpsTeam() {
 
   useEffect(() => { fetchMembers(); }, []);
 
-  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" }); setDialogOpen(true); };
-  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role, piperun_owner_id: m.piperun_owner_id || "", manychat_api_key: m.manychat_api_key || "", waleads_api_key: m.waleads_api_key || "" }); setDialogOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM });
+    setEvolutionStatus("unknown");
+    setDialogOpen(true);
+  };
+  const openEdit = (m: TeamMember) => {
+    setEditing(m);
+    setForm({
+      nome_completo: m.nome_completo,
+      email: m.email,
+      whatsapp_number: m.whatsapp_number,
+      role: m.role,
+      piperun_owner_id: m.piperun_owner_id || "",
+      manychat_api_key: m.manychat_api_key || "",
+      waleads_api_key: m.waleads_api_key || "",
+      evolution_instance_name: m.evolution_instance_name || "",
+      messaging_provider: m.messaging_provider || "waleads",
+    });
+    setEvolutionStatus("unknown");
+    setDialogOpen(true);
+    // Fetch Evolution status
+    if (m.evolution_instance_name) {
+      fetchEvolutionStatus(m.id, m.evolution_instance_name);
+    }
+  };
+
+  const fetchEvolutionStatus = async (memberId: string, instanceName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+        body: { action: "get_status", instance_name: instanceName, member_id: memberId },
+      });
+      if (error) throw error;
+      const state = (data?.state || data?.status || "close") as string;
+      if (state === "open" || state === "connecting" || state === "close") {
+        setEvolutionStatus(state);
+      } else {
+        setEvolutionStatus("unknown");
+      }
+    } catch {
+      setEvolutionStatus("close");
+    }
+  };
+
+  const handleNameChange = (value: string) => {
+    setForm((f) => ({
+      ...f,
+      nome_completo: value,
+      evolution_instance_name: f.evolution_instance_name || slugifyName(value),
+    }));
+  };
+
+  const connectWhatsApp = async () => {
+    const instance = form.evolution_instance_name?.trim();
+    if (!instance) {
+      toast({ title: "Defina o nome da instância antes", variant: "destructive" });
+      return;
+    }
+    setEvoConnecting(true);
+    setQrCodeBase64(null);
+    setQrModalOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+        body: { action: "connect_instance", instance_name: instance, member_id: editing?.id || null },
+      });
+      if (error) throw error;
+      const qr = (data?.qrcode || data?.base64 || data?.qr) as string | null;
+      if (qr) {
+        setQrCodeBase64(qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`);
+        setEvolutionStatus("connecting");
+      } else {
+        toast({ title: "QR não retornado", description: "Resposta sem qrcode", variant: "destructive" });
+      }
+      // Polling
+      const startedAt = Date.now();
+      const interval = setInterval(async () => {
+        if (Date.now() - startedAt > 90_000) {
+          clearInterval(interval);
+          setEvoConnecting(false);
+          toast({ title: "Tempo esgotado", description: "Conexão não confirmada em 90s", variant: "destructive" });
+          return;
+        }
+        try {
+          const { data: stData } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+            body: { action: "get_status", instance_name: instance, member_id: editing?.id || null },
+          });
+          const st = (stData?.state || stData?.status) as string | undefined;
+          if (st === "open") {
+            clearInterval(interval);
+            setEvolutionStatus("open");
+            setQrModalOpen(false);
+            setEvoConnecting(false);
+            toast({ title: "✅ WhatsApp conectado!" });
+          }
+        } catch {/* keep polling */}
+      }, 3000);
+    } catch (err) {
+      setEvoConnecting(false);
+      toast({ title: "Erro ao conectar", description: String(err), variant: "destructive" });
+    }
+  };
 
   const handleSave = async () => {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
@@ -121,7 +256,7 @@ export function SmartOpsTeam() {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Editar Membro" : "Novo Membro"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => setForm({ ...form, nome_completo: e.target.value })} /></div>
+              <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
               <div><Label>ID Vendedor Piperun</Label><Input value={form.piperun_owner_id} onChange={(e) => setForm({ ...form, piperun_owner_id: e.target.value })} placeholder="Ex: 12345" /></div>
@@ -142,6 +277,34 @@ export function SmartOpsTeam() {
               <Separator className="my-2" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
               <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
+              <Separator className="my-2" />
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution</p>
+                <EvolutionStatusBadge status={evolutionStatus} />
+              </div>
+              <div>
+                <Label>Nome da Instância</Label>
+                <Input
+                  value={form.evolution_instance_name}
+                  onChange={(e) => setForm({ ...form, evolution_instance_name: e.target.value })}
+                  placeholder="janaina_santos"
+                />
+              </div>
+              <div>
+                <Label>Provedor de mensagens</Label>
+                <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="waleads">WaLeads</SelectItem>
+                    <SelectItem value="evolution">Evolution API</SelectItem>
+                    <SelectItem value="manychat">ManyChat</SelectItem>
+                    <SelectItem value="none">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
+                📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
+              </Button>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
@@ -172,7 +335,8 @@ export function SmartOpsTeam() {
                 <TableCell className="space-x-1">
                   {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
                   {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
-                  {!m.manychat_api_key && !m.waleads_api_key && <span className="text-muted-foreground text-xs">—</span>}
+                  {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
+                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell className="space-x-1">
@@ -210,6 +374,28 @@ export function SmartOpsTeam() {
             {testSending ? "Enviando..." : "Enviar teste"}
           </Button>
           <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada e registrada nos logs com sufixo _test.</p>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Evolution QR Dialog */}
+    <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Conectar WhatsApp Evolution</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-center">
+          {qrCodeBase64 ? (
+            <>
+              <img src={qrCodeBase64} alt="QR Code Evolution" className="mx-auto w-64 h-64" />
+              <p className="text-sm text-muted-foreground">
+                Escaneie com o WhatsApp do número <span className="font-mono">{form.whatsapp_number}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Aguardando confirmação… (até 90s)</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground py-12">Gerando QR code…</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

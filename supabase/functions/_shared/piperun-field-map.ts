@@ -959,6 +959,10 @@ export function mapAttendanceToDealCustomFields(
   if (attendance.especialidade) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.ESPECIALIDADE, value: String(attendance.especialidade) });
   }
+  const phoneVal = (attendance.telefone_normalized as string | null) || (attendance.telefone as string | null);
+  if (phoneVal) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: String(phoneVal) });
+  }
   if (attendance.produto_interesse) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE, value: String(attendance.produto_interesse) });
   }
