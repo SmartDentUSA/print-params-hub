@@ -17,6 +17,7 @@ import {
   PESSOA_CUSTOM_FIELD_HASHES,
   buildPersonFormCustomFields,
 } from "./piperun-field-map.ts";
+import { findPersonByContact, verifyAndRecoverPersonContact } from "./piperun-person-resolver.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -27,44 +28,9 @@ export async function findPersonByEmail(
   email: string
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
-  try {
-    const pickFromList = (data: unknown) => {
-      const items = (data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
-      if (!items || items.length === 0) return null;
-      const lower = email.toLowerCase();
-      // STRICT match only — Piperun's /persons endpoint ignores unknown filters
-      // and returns a generic list, so falling back to items[0] would attach the
-      // lead to a totally unrelated person/deal. Never do that.
-      const match = items.find((p) => {
-        const emails = (p.emails as Array<Record<string, unknown>> | undefined) || [];
-        return emails.some((e) => String(e.email || "").toLowerCase() === lower);
-      });
-      if (match?.id) {
-        return {
-          id: Number(match.id),
-          company_id: match.company_id ? Number(match.company_id) : null,
-        };
-      }
-      return null;
-    };
-    const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
-    if (res.success && res.data) {
-      const items = (res.data as any)?.data as Array<Record<string, unknown>> | undefined;
-      console.log(`[findPersonByEmail] emails[email] q=${email} returned=${items?.length ?? 0} firstId=${items?.[0]?.id ?? "-"}`);
-      const found = pickFromList(res.data);
-      if (found) return found;
-    }
-    const sres = await piperunGet(apiToken, "persons", { search: email, show: 50 });
-    if (sres.success && sres.data) {
-      const items = (sres.data as any)?.data as Array<Record<string, unknown>> | undefined;
-      console.log(`[findPersonByEmail] search q=${email} returned=${items?.length ?? 0} firstId=${items?.[0]?.id ?? "-"}`);
-      const found = pickFromList(sres.data);
-      if (found) return found;
-    }
-  } catch (e) {
-    console.warn("[piperun-hierarchy] Person search error:", e);
-  }
-  return null;
+  const hit = await findPersonByContact(apiToken, email, null);
+  if (!hit) return null;
+  return { id: hit.id, company_id: hit.company_id };
 }
 
 export async function createPerson(
