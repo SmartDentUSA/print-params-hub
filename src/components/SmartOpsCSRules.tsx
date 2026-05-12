@@ -691,11 +691,38 @@ export function SmartOpsCSRules() {
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs">URL da mídia ({WALEADS_TIPOS.find(t => t.value === form.waleads_tipo)?.label})</Label>
-                        <Input
-                          value={form.waleads_media_url}
-                          onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
-                          placeholder="https://..."
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            value={form.waleads_media_url}
+                            onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
+                            placeholder="https://..."
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingField === "waleads"}
+                            onClick={() => document.getElementById("waleads-upload-input")?.click()}
+                          >
+                            {uploadingField === "waleads" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <><Upload className="h-4 w-4 mr-1" />Upload</>
+                            )}
+                          </Button>
+                          <input
+                            id="waleads-upload-input"
+                            type="file"
+                            hidden
+                            accept={ACCEPT_BY_TIPO[form.waleads_tipo] || "*/*"}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleMediaUpload(f, "waleads", form.waleads_tipo);
+                              e.target.value = "";
+                            }}
+                          />
+                        </div>
                       </div>
 
                       {form.waleads_media_url && (
