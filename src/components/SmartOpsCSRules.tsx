@@ -12,9 +12,23 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
 import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
 import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
+
+const ACCEPT_BY_TIPO: Record<string, string> = {
+  image: "image/*",
+  audio: "audio/*",
+  video: "video/*",
+  document: "application/pdf,.doc,.docx,.xls,.xlsx",
+};
+
+function sanitizeFilename(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9.\-_]/g, "_");
+}
 
 interface TeamMember {
   id: string;
