@@ -12,9 +12,23 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
 import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
 import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
+
+const ACCEPT_BY_TIPO: Record<string, string> = {
+  image: "image/*",
+  audio: "audio/*",
+  video: "video/*",
+  document: "application/pdf,.doc,.docx,.xls,.xlsx",
+};
+
+function sanitizeFilename(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9.\-_]/g, "_");
+}
 
 interface TeamMember {
   id: string;
@@ -205,6 +219,46 @@ export function SmartOpsCSRules() {
 
   const insertCaptionVariable = (varKey: string) => {
     setForm(f => ({ ...f, waleads_media_caption: f.waleads_media_caption + `{{${varKey}}}` }));
+  };
+
+  const [uploadingField, setUploadingField] = useState<null | "media" | "waleads">(null);
+
+  const handleMediaUpload = async (
+    file: File,
+    target: "media" | "waleads",
+    tipo: string,
+  ) => {
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Limite de 16 MB (WhatsApp).", variant: "destructive" });
+      return;
+    }
+    setUploadingField(target);
+    try {
+      const safe = sanitizeFilename(file.name);
+      const path = `automations/${Date.now()}-${safe}`;
+      const { error: upErr } = await supabase.storage
+        .from("whatsapp-media")
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("whatsapp-media").getPublicUrl(path);
+      const url = pub.publicUrl;
+      if (target === "media") {
+        setForm(f => ({
+          ...f,
+          media_url: url,
+          ...(tipo === "document" ? { media_filename: file.name } : {}),
+        }));
+      } else {
+        setForm(f => ({ ...f, waleads_media_url: url }));
+      }
+      toast({ title: "Upload concluído" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast({ title: "Erro no upload", description: msg, variant: "destructive" });
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   const handleSave = async () => {
@@ -449,7 +503,38 @@ export function SmartOpsCSRules() {
                 <Label className="text-xs font-semibold">Mídia ({WALEADS_TIPOS.find(t => t.value === form.tipo)?.label})</Label>
                 <div>
                   <Label className="text-xs">URL da mídia</Label>
-                  <Input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="https://..." />
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.media_url}
+                      onChange={(e) => setForm({ ...form, media_url: e.target.value })}
+                      placeholder="https://..."
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingField === "media"}
+                      onClick={() => document.getElementById("media-upload-input")?.click()}
+                    >
+                      {uploadingField === "media" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><Upload className="h-4 w-4 mr-1" />Upload</>
+                      )}
+                    </Button>
+                    <input
+                      id="media-upload-input"
+                      type="file"
+                      hidden
+                      accept={ACCEPT_BY_TIPO[form.tipo] || "*/*"}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleMediaUpload(f, "media", form.tipo);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Legenda (opcional)</Label>
@@ -606,11 +691,38 @@ export function SmartOpsCSRules() {
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs">URL da mídia ({WALEADS_TIPOS.find(t => t.value === form.waleads_tipo)?.label})</Label>
-                        <Input
-                          value={form.waleads_media_url}
-                          onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
-                          placeholder="https://..."
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            value={form.waleads_media_url}
+                            onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
+                            placeholder="https://..."
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingField === "waleads"}
+                            onClick={() => document.getElementById("waleads-upload-input")?.click()}
+                          >
+                            {uploadingField === "waleads" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <><Upload className="h-4 w-4 mr-1" />Upload</>
+                            )}
+                          </Button>
+                          <input
+                            id="waleads-upload-input"
+                            type="file"
+                            hidden
+                            accept={ACCEPT_BY_TIPO[form.waleads_tipo] || "*/*"}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleMediaUpload(f, "waleads", form.waleads_tipo);
+                              e.target.value = "";
+                            }}
+                          />
+                        </div>
                       </div>
 
                       {form.waleads_media_url && (
