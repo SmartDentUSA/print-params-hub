@@ -560,12 +560,6 @@ async function createNewDeal(
 
   if (companyId) dealPayload.company_id = companyId;
 
-  // Use hash format for custom fields (PipeRun POST with array is unreliable)
-  if (customFields.length > 0) {
-    const hashFields = customFieldsToHashMap(customFields);
-    Object.assign(dealPayload, hashFields);
-  }
-
   console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}`);
   const createRes = await piperunPost(apiToken, "deals", dealPayload);
   console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})${!createRes.success ? " body=" + JSON.stringify(createRes.data).slice(0, 500) : ""}`);
@@ -574,6 +568,14 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
+      const hashFields = customFieldsToHashMap(customFields);
+      if (Object.keys(hashFields).length > 0 || companyId) {
+        const enrichPayload: Record<string, unknown> = { origin_id: formOriginId, ...hashFields };
+        if (companyId) enrichPayload.company_id = companyId;
+        console.log(`[lia-assign] Enriching new deal ${dealId} with custom fields: ${Object.keys(hashFields).join(",")}`);
+        const enrichRes = await piperunPut(apiToken, `deals/${dealId}`, enrichPayload);
+        console.log(`[lia-assign] New deal custom-field PUT: ${enrichRes.success} (${enrichRes.status})${!enrichRes.success ? " body=" + JSON.stringify(enrichRes.data).slice(0, 500) : ""}`);
+      }
       // Add structured HTML note for PipeRun
       const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
       await addDealNote(apiToken, Number(dealId), noteText);
