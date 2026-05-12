@@ -9,10 +9,16 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TLDV_API_KEY_RAW = Deno.env.get("TLDV_API_KEY") || "";
-const TLDV_API_KEY = TLDV_API_KEY_RAW.trim();
+const TLDV_API_KEY = sanitizeTldvApiKey(TLDV_API_KEY_RAW);
 const TLDV_BASE = "https://pasta.tldv.io/v1alpha1";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+function sanitizeTldvApiKey(raw: string): string {
+  const trimmed = raw.trim();
+  const uuid = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+  return uuid || trimmed;
+}
 
 async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
@@ -30,7 +36,7 @@ async function tldvFetch(path: string): Promise<any> {
 
 async function tldvDebugFetch(
   path: string,
-  authMode: "x-api-key" | "X-API-Key" | "X-Api-Key" | "bearer" | "api-key" | "authorization-raw" | "query-api-key",
+  authMode: "x-api-key" | "X-API-Key" | "X-Api-Key" | "bearer" | "api-key" | "authorization-raw",
 ): Promise<{ path: string; authMode: string; status: number; ok: boolean; body_preview: string }> {
   const authHeaders =
     authMode === "bearer"
@@ -44,9 +50,7 @@ async function tldvDebugFetch(
         : authMode === "authorization-raw"
           ? { Authorization: TLDV_API_KEY }
           : { "x-api-key": TLDV_API_KEY };
-  const sep = path.includes("?") ? "&" : "?";
-  const requestPath = authMode === "query-api-key" ? `${path}${sep}apiKey=${encodeURIComponent(TLDV_API_KEY)}` : path;
-  const res = await fetch(`${TLDV_BASE}${requestPath}`, {
+  const res = await fetch(`${TLDV_BASE}${path}`, {
     headers: {
       ...authHeaders,
       "Content-Type": "application/json",
@@ -102,7 +106,7 @@ serve(async (req) => {
       for (const authMode of ["X-API-Key", "X-Api-Key", "bearer", "api-key", "authorization-raw", "query-api-key"] as const) {
         attempts.push(await tldvDebugFetch("/meetings", authMode));
       }
-      return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_trimmed: TLDV_API_KEY.length, attempts }), {
+      return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim(), attempts }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
