@@ -7457,6 +7457,69 @@ export type Database = {
         }
         Relationships: []
       }
+      lia_automations: {
+        Row: {
+          ativo: boolean
+          canal: string
+          cor: string
+          created_at: string
+          function_name: string | null
+          horario_fim: string | null
+          horario_inicio: string | null
+          icone: string
+          id: string
+          mensagem_fora_horario: string | null
+          mensagem_horario_comercial: string | null
+          nome: string
+          short_link_tag: string | null
+          slug: string
+          subtitulo: string | null
+          trigger_event: string | null
+          trigger_tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          canal?: string
+          cor?: string
+          created_at?: string
+          function_name?: string | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          icone?: string
+          id?: string
+          mensagem_fora_horario?: string | null
+          mensagem_horario_comercial?: string | null
+          nome: string
+          short_link_tag?: string | null
+          slug: string
+          subtitulo?: string | null
+          trigger_event?: string | null
+          trigger_tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          canal?: string
+          cor?: string
+          created_at?: string
+          function_name?: string | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          icone?: string
+          id?: string
+          mensagem_fora_horario?: string | null
+          mensagem_horario_comercial?: string | null
+          nome?: string
+          short_link_tag?: string | null
+          slug?: string
+          subtitulo?: string | null
+          trigger_event?: string | null
+          trigger_tags?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marketing_assets: {
         Row: {
           archived_at: string | null
