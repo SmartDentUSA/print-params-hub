@@ -476,17 +476,28 @@ async function updateExistingDeal(
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
-  const hashFields = customFieldsToHashMap(customFields);
+  const cfPayload = customFieldsToDealPayload(customFields);
   const updatePayload: Record<string, unknown> = {
     origin_id: formOriginId,
-    ...hashFields,
   };
+  if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
 
   console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId ?? "PRESERVED"}, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
-  console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
+  console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})${!updateRes.success ? " body=" + JSON.stringify(updateRes.data).slice(0, 400) : ""}`);
+  // Persist successfully sent custom fields locally for audit / dedupe
+  if (updateRes.success && cfPayload.length > 0) {
+    try {
+      await supabase
+        .from("lia_attendances")
+        .update({ piperun_custom_fields: customFields })
+        .eq("id", lead.id as string);
+    } catch (e) {
+      console.warn("[lia-assign] Failed to persist piperun_custom_fields snapshot:", e);
+    }
+  }
 
   // Add structured HTML note for PipeRun
   const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
@@ -508,15 +519,15 @@ async function moveDealToVendas(
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
-  const hashFields = customFieldsToHashMap(customFields);
+  const cfPayload = customFieldsToDealPayload(customFields);
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
     owner_id: ownerId,
     origin_id: formOriginId,
     freezed: 0,
-    ...hashFields,
   };
+  if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (companyId) updatePayload.company_id = companyId;
 
   console.log(`[lia-assign] Moving deal ${dealId} from Estagnados → Vendas, owner=${ownerId}`);
@@ -568,11 +579,12 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
-      const hashFields = customFieldsToHashMap(customFields);
-      if (Object.keys(hashFields).length > 0 || companyId) {
-        const enrichPayload: Record<string, unknown> = { origin_id: formOriginId, ...hashFields };
+      const cfPayload = customFieldsToDealPayload(customFields);
+      if (cfPayload.length > 0 || companyId) {
+        const enrichPayload: Record<string, unknown> = { origin_id: formOriginId };
+        if (cfPayload.length > 0) enrichPayload.custom_fields = cfPayload;
         if (companyId) enrichPayload.company_id = companyId;
-        console.log(`[lia-assign] Enriching new deal ${dealId} with custom fields: ${Object.keys(hashFields).join(",")}`);
+        console.log(`[lia-assign] Enriching new deal ${dealId} with ${cfPayload.length} custom fields`);
         const enrichRes = await piperunPut(apiToken, `deals/${dealId}`, enrichPayload);
         console.log(`[lia-assign] New deal custom-field PUT: ${enrichRes.success} (${enrichRes.status})${!enrichRes.success ? " body=" + JSON.stringify(enrichRes.data).slice(0, 500) : ""}`);
       }
