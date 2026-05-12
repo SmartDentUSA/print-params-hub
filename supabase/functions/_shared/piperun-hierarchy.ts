@@ -69,6 +69,7 @@ export async function updatePersonFields(
   personId: number,
   lead: Record<string, unknown>,
   originId?: number | null,
+  supabase?: SupabaseClient,
 ): Promise<void> {
   const nome = (lead.nome || lead.email || "") as string;
   const email = lead.email as string | null;
@@ -102,6 +103,24 @@ export async function updatePersonFields(
     const { custom_fields: _cf, ...withoutCF } = updatePayload;
     res = await piperunPut(apiToken, `persons/${personId}`, withoutCF);
     console.log(`[piperun-hierarchy] Person ${personId} retry without custom_fields: ${res.success} (${res.status})`);
+  }
+
+  // Active verify-and-recover: detect PipeRun's silent reject of emails/phones
+  // and remap the lead to the rightful owner if needed.
+  if (supabase && (updatePayload.emails || updatePayload.phones)) {
+    try {
+      const verify = await verifyAndRecoverPersonContact(
+        apiToken,
+        supabase,
+        String(lead.id || ""),
+        personId,
+        email && !isFakeEmail(email) ? email : null,
+        phone || null,
+      );
+      console.log(`[piperun-hierarchy] verifyRecover person=${personId} ok=${verify.ok} reason=${verify.reason || "-"} remapped=${verify.remapped_to || "-"}`);
+    } catch (e) {
+      console.warn("[piperun-hierarchy] verifyAndRecover error:", e);
+    }
   }
 }
 
