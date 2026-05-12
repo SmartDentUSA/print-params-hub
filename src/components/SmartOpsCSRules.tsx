@@ -41,6 +41,14 @@ interface Rule {
   waleads_media_caption: string | null;
   evolution_ativo: boolean;
   mensagem_evolution: string | null;
+  horario_inicio: string | null;
+  horario_fim: string | null;
+  dias_semana: number[] | null;
+  enviar_fora_horario: boolean;
+  mensagem_fora_horario: string | null;
+  media_url: string | null;
+  media_caption: string | null;
+  media_filename: string | null;
   ativo: boolean;
 }
 
@@ -65,6 +73,34 @@ const WALEADS_TIPOS = [
   { value: "document", label: "Documento" },
 ];
 
+const DIAS_SEMANA: { v: number; l: string }[] = [
+  { v: 1, l: "Seg" },
+  { v: 2, l: "Ter" },
+  { v: 3, l: "Qua" },
+  { v: 4, l: "Qui" },
+  { v: 5, l: "Sex" },
+  { v: 6, l: "Sáb" },
+  { v: 0, l: "Dom" },
+];
+
+const TIPO_ICON: Record<string, string> = {
+  text: "💬",
+  image: "🖼️",
+  audio: "🎵",
+  video: "🎥",
+  document: "📄",
+};
+
+function formatDias(d?: number[] | null): string {
+  if (!d || d.length === 0) return "Sem dias";
+  const set = new Set(d);
+  const weekdays = [1, 2, 3, 4, 5];
+  const isWeekdays = weekdays.every((x) => set.has(x)) && !set.has(0) && !set.has(6);
+  if (isWeekdays && set.size === 5) return "Seg–Sex";
+  if (set.size === 7) return "Todos os dias";
+  return DIAS_SEMANA.filter((x) => set.has(x.v)).map((x) => x.l).join(", ");
+}
+
 const defaultForm = {
   trigger_event: "novo_lead",
   produto_interesse: "",
@@ -79,6 +115,14 @@ const defaultForm = {
   waleads_media_caption: "",
   evolution_ativo: false,
   mensagem_evolution: "",
+  horario_inicio: "08:00",
+  horario_fim: "18:00",
+  dias_semana: [1, 2, 3, 4, 5] as number[],
+  enviar_fora_horario: false,
+  mensagem_fora_horario: "",
+  media_url: "",
+  media_caption: "",
+  media_filename: "",
 };
 
 export function SmartOpsCSRules() {
@@ -128,6 +172,14 @@ export function SmartOpsCSRules() {
       waleads_media_caption: r.waleads_media_caption || "",
       evolution_ativo: r.evolution_ativo ?? false,
       mensagem_evolution: r.mensagem_evolution || "",
+      horario_inicio: (r.horario_inicio || "08:00").slice(0, 5),
+      horario_fim: (r.horario_fim || "18:00").slice(0, 5),
+      dias_semana: Array.isArray(r.dias_semana) && r.dias_semana.length > 0 ? r.dias_semana : [1, 2, 3, 4, 5],
+      enviar_fora_horario: r.enviar_fora_horario ?? false,
+      mensagem_fora_horario: r.mensagem_fora_horario || "",
+      media_url: r.media_url || "",
+      media_caption: r.media_caption || "",
+      media_filename: r.media_filename || "",
     });
     setDialogOpen(true);
   };
@@ -171,6 +223,14 @@ export function SmartOpsCSRules() {
       waleads_media_caption: form.waleads_media_caption || null,
       evolution_ativo: form.evolution_ativo,
       mensagem_evolution: form.mensagem_evolution || null,
+      horario_inicio: form.horario_inicio || null,
+      horario_fim: form.horario_fim || null,
+      dias_semana: form.dias_semana,
+      enviar_fora_horario: form.enviar_fora_horario,
+      mensagem_fora_horario: form.mensagem_fora_horario || null,
+      media_url: form.media_url || null,
+      media_caption: form.media_caption || null,
+      media_filename: form.media_filename || null,
     };
     if (editing) {
       const { error } = await supabase.from("cs_automation_rules").update(payload).eq("id", editing.id);
