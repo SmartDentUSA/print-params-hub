@@ -281,6 +281,17 @@ export function SmartOpsCSRules() {
             </Button>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {(r.horario_inicio || r.horario_fim) && (
+            <span>🕐 {(r.horario_inicio || "00:00").slice(0, 5)}–{(r.horario_fim || "23:59").slice(0, 5)} · {formatDias(r.dias_semana)}</span>
+          )}
+          <span>{TIPO_ICON[r.tipo || "text"]} {WALEADS_TIPOS.find(t => t.value === (r.tipo || "text"))?.label}</span>
+        </div>
+        {r.enviar_fora_horario && r.mensagem_fora_horario && (
+          <div className="text-[11px] text-muted-foreground">
+            ⏰ Fora do horário: {r.mensagem_fora_horario.slice(0, 60)}{r.mensagem_fora_horario.length > 60 ? "…" : ""}
+          </div>
+        )}
         <div className="flex gap-4 text-[11px]">
           {r.manychat_ativo && (
             <span className="text-primary">✓ ManyChat: <span className="font-mono">{r.template_manychat || "—"}</span></span>
