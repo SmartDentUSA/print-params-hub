@@ -221,6 +221,46 @@ export function SmartOpsCSRules() {
     setForm(f => ({ ...f, waleads_media_caption: f.waleads_media_caption + `{{${varKey}}}` }));
   };
 
+  const [uploadingField, setUploadingField] = useState<null | "media" | "waleads">(null);
+
+  const handleMediaUpload = async (
+    file: File,
+    target: "media" | "waleads",
+    tipo: string,
+  ) => {
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "Limite de 16 MB (WhatsApp).", variant: "destructive" });
+      return;
+    }
+    setUploadingField(target);
+    try {
+      const safe = sanitizeFilename(file.name);
+      const path = `automations/${Date.now()}-${safe}`;
+      const { error: upErr } = await supabase.storage
+        .from("whatsapp-media")
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("whatsapp-media").getPublicUrl(path);
+      const url = pub.publicUrl;
+      if (target === "media") {
+        setForm(f => ({
+          ...f,
+          media_url: url,
+          ...(tipo === "document" ? { media_filename: file.name } : {}),
+        }));
+      } else {
+        setForm(f => ({ ...f, waleads_media_url: url }));
+      }
+      toast({ title: "Upload concluído" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast({ title: "Erro no upload", description: msg, variant: "destructive" });
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
   const handleSave = async () => {
     const payload: Record<string, unknown> = {
       team_member_id: selectedMemberId,
