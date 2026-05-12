@@ -1,102 +1,67 @@
-## Foco agora
+## Objetivo
 
-O problema atual não é Astron: é o fluxo `Meta Lead Ads -> smart-ops-ingest-lead -> smart-ops-lia-assign -> PipeRun` criando o Deal com nota correta, mas deixando campos customizados vazios no PipeRun.
+Garantir que leads vindos de **Meta Lead Ads / Astron / outros canais** sigam **exatamente** o mesmo fluxo Pessoa → Organização → Deal já consolidado para o **Formulário exocad I.A.** (sistema-form), incluindo PESQUISAR, REATIVAR (Estagnados → Vendas) e CRIAR deals com custom fields populados.
 
-Exemplo: Flávio Rodrigues tinha no payload/formulário:
+## Fluxo de referência (exocad I.A.) — como funciona hoje
 
-- telefone: `+5581996391671`
-- produto_interesse: `RayShape Edge Mini`
-- area_atuacao: `Clínica ou Consultório`
-- tem_scanner: `não`
-- tem_impressora: `sim`
-- impressora_modelo: `elegoo`
+O sistema-form aciona `smart-ops-ingest-lead` → grava `lia_attendances` (com colunas top-level: nome, email, telefone, area_atuacao, especialidade, produto_interesse, tem_scanner, tem_impressora, etc.) + `form_responses` + `lead_form_submissions` → invoca `smart-ops-lia-assign`, que executa:
 
-Mas no PipeRun esses campos ficaram como “Adicionar valor” ou “sem scanner/não definido”.
+```text
+1. findPersonByEmail  (estrito, sem fallback de telefone)
+   ├── existe  → reutiliza, updatePersonFields
+   └── não    → createPerson  (origin_id = form_name/origem_primeiro_contato)
+2. findOrCreateCompany  (anexa Organização à Person)
+3. findPersonDeals
+   ├── Won deal           → NUNCA TOCA (preserva CS/Suporte)
+   ├── Open em Vendas    → GOLDEN RULE: preserva owner/stage, só atualiza
+   │                        customFields via PUT + adiciona nota
+   ├── Open em Estagnados → moveDealToVendas (REATIVA + nota de reativação)
+   └── nenhum            → createNewDeal (POST + PUT customFields + nota)
+```
 
-## Causa provável
+A população de custom fields no PipeRun depende de o `lia_attendances` ter os campos top-level corretos. O `mapAttendanceToDealCustomFields` faz fallback no `form_data`, mas o fluxo exocad funciona porque `smart-ops-ingest-lead` promove os campos para top-level antes do lia-assign rodar.
 
-O `smart-ops-lia-assign` já monta `customFields`, mas o `createNewDeal` envia os campos customizados no POST como chaves hash soltas no payload do Deal. Pelo comportamento visto no PipeRun, o Deal nasce e a nota entra, mas os custom fields do POST não são persistidos de forma confiável.
+## Diagnóstico do problema atual
 
-O próprio código já trata PUT como mais confiável: `customFieldsToHashMap()` + `piperunPut(deals/{id}, hashFields)`. Então o fluxo do formulário do sistema deve ser replicado assim: criar Deal primeiro, depois fazer PUT de enriquecimento com todos os campos.
+**Meta Lead Ads** já invoca o mesmo `smart-ops-ingest-lead` → `smart-ops-lia-assign`, mas o **payload normalizado** em `smart-ops-meta-lead-webhook` não cobre os mesmos campos top-level que o sistema-form. Resultado: deals são criados, mas os custom fields (WhatsApp, Aston, área, produto, scanner, impressora) ficam vazios — exatamente o caso do Deal #59699720 (Flávio).
 
-## Plano de correção
+Origem da divergência:
+- Meta envia `phone_number`, `full_name`, etc. — `ingest-lead` mapeia esses para `telefone_raw`/`nome`, mas **não promove** `tem_impressora`, `tem_scanner`, `area_atuacao`, `especialidade` quando vêm em chaves não-canônicas do form Meta.
+- `produto_interesse` é inferido por keywords no webhook, mas **não é normalizado** quando o usuário escreve "Elegoo", "Anycubic" etc. nas respostas.
+- `form_data` recebe o payload bruto (catch-all), mas as colunas top-level ficam NULL → `mapAttendanceToDealCustomFields` tem que cair no fallback de sinônimos, que muitas vezes não bate.
 
-### 1. Corrigir criação de Deal no `smart-ops-lia-assign`
+## Mudanças propostas
 
-No `createNewDeal`:
+### 1. `smart-ops-meta-lead-webhook/index.ts`
+Espelhar a normalização do sistema-form: além de `email/full_name/phone_number`, **mapear explicitamente** todos os campos relevantes para as colunas canônicas que o lia-assign espera:
+- `area_atuacao` ← `fields.area_de_atuacao | area_atuacao | area | atuacao`
+- `especialidade` ← `fields.especialidade | specialty | especialidade_odontologica`
+- `tem_scanner` ← `fields.tem_scanner | possui_scanner | scanner` (normalizado: sim/não/marca)
+- `tem_impressora` ← `fields.tem_impressora | possui_impressora | impressora | impressoes_3d`
+- `impressora_modelo` ← `fields.modelo_impressora | impressora_modelo | printer_model`
+- `produto_interesse` ← cascata atual + também gravar `produto_interesse_auto` quando inferido por keyword
+- `empresa_nome`, `empresa_razao_social`, `cidade`, `uf` quando presentes
+- Garantir `telefone_raw` no payload mesmo quando `phone_number` vier formatado.
 
-1. Criar o Deal com payload mínimo e seguro:
-   - title
-   - pipeline_id
-   - stage_id
-   - owner_id
-   - origin_id
-   - reference
-   - person_id
-   - company_id
-   - deleted: 0
-2. Após receber `dealId`, executar imediatamente um `PUT /deals/{dealId}` com:
-   - origin_id
-   - company_id
-   - todos os campos customizados via hash (`customFieldsToHashMap(customFields)`)
-3. Só depois adicionar a nota estruturada.
-4. Logar erro se o PUT dos campos falhar, porque antes o sistema só logava o POST do Deal.
+### 2. `smart-ops-ingest-lead/index.ts`
+- Promover automaticamente para top-level **todos** os sinônimos conhecidos (`SYNONYMS` do `piperun-field-map.ts`) antes do INSERT/UPDATE em `lia_attendances`, não só os explícitos. Hoje já existe parte disso — completar para `tem_scanner`, `tem_impressora`, `impressora_modelo`, `area_atuacao`, `especialidade`.
+- Garantir que quando `produto_interesse` vier como inferência (keyword), também grave em `produto_interesse_auto` (regra Behavioral Ingestion).
 
-Resultado: o Deal continua sendo criado, mas os campos aparecem preenchidos como no formulário do sistema.
+### 3. `smart-ops-lia-assign/index.ts` — sem mudanças no fluxo
+O fluxo Pessoa→Empresa→Deal e a árvore de decisão (Won/Vendas/Estagnados/novo) **já está correta** — não tocar. Só validar que o `PUT /deals/{id}` com `customFieldsToHashMap(customFields)` (já adicionado em mudança anterior) está sendo chamado para todos os caminhos: criar novo, reativar de Estagnados, e GOLDEN RULE em Vendas.
 
-### 2. Garantir que os campos do Meta sejam mapeados corretamente
+### 4. Reprocessamento do Deal #59699720 (Flávio)
+Após deploy, executar `smart-ops-lia-assign?force=true` para o lead `flaviobraga81@hotmail.com` para que o PUT preencha WhatsApp, área, produto, scanner, impressora.
 
-No `_shared/piperun-field-map.ts`, reforçar `mapAttendanceToDealCustomFields` para:
-
-- Resolver `telefone_raw` além de `telefone_normalized`.
-- Resolver `produto_interesse` tanto do top-level quanto do `form_data.raw_fields`.
-- Resolver `area_atuacao`.
-- Resolver `tem_scanner`.
-- Resolver `tem_impressora`.
-- Se `tem_impressora=sim` e existir `impressora_modelo=elegoo`, enviar o valor final como `sim - elegoo` ou equivalente aceito pelo campo PipeRun.
-- Normalizar respostas Meta (`clínica_ou_consultório`, `ainda_não_digitalizo`) para texto humano antes de enviar.
-
-### 3. Corrigir o fluxo de ingestão Meta
-
-No `smart-ops-ingest-lead`:
-
-- Garantir que `tem_impressora` capture também o payload direto `tem_impressora` antes de buscas textuais genéricas.
-- Garantir que `produto_interesse` use `payload.produto_interesse` antes de detectar produto pelo nome do formulário, para não transformar “RayShape Edge Mini” em “Impressora 3D”.
-- Preservar todos os raw fields no `form_data`, como já faz.
-
-### 4. Reprocessar o Deal do Flávio
-
-Depois do patch:
-
-- Buscar `lia_attendances` por `flaviobraga81@hotmail.com`.
-- Reexecutar `smart-ops-lia-assign` com `lead_id` e `force=true` para aplicar o PUT de campos no Deal existente `59699720`, sem recriar Deal.
-- Validar via logs que o PUT enviou os hashes de:
-  - WhatsApp
-  - Produto de interesse
-  - Área de atuação
-  - Tem scanner
-  - Tem impressora
-  - Produto interesse auto, quando existir
-
-### 5. Separar Astron do comercial
-
-Manter a regra já definida:
-
-- Astron nunca cria Deal no Funil de Vendas.
-- Astron, quando criar oportunidade, deve ir somente para `Interesse em cursos`.
-- Cliente ganho ou pessoa com deal aberto não deve receber novo Deal comercial por causa de Astron.
-
-Mas essa parte fica isolada para não quebrar novamente o fluxo Meta/Formulário.
+### 5. Documentação
+Atualizar `mem/integration/piperun-customfields-resilience.md` registrando que **Meta/Astron seguem o mesmo contrato top-level que sistema-form** — qualquer canal novo deve normalizar campos para colunas canônicas em `lia_attendances` antes de invocar lia-assign.
 
 ## Arquivos a alterar
+- `supabase/functions/smart-ops-meta-lead-webhook/index.ts` (normalização ampliada)
+- `supabase/functions/smart-ops-ingest-lead/index.ts` (promoção automática de sinônimos)
+- `mem/integration/piperun-customfields-resilience.md` (regra de contrato)
 
-- `supabase/functions/smart-ops-lia-assign/index.ts`
-- `supabase/functions/_shared/piperun-field-map.ts`
-- `supabase/functions/smart-ops-ingest-lead/index.ts`
-
-## Validação
-
-- Conferir no banco o lead `flaviobraga81@hotmail.com`.
-- Conferir logs do `smart-ops-lia-assign` após reprocessamento.
-- Confirmar que o Deal existente foi atualizado, não duplicado.
-- Confirmar que os campos que estavam vazios no PipeRun foram enviados via PUT.
+## Não alterar
+- A árvore de decisão de `smart-ops-lia-assign` (Won/Vendas/Estagnados/novo).
+- `_shared/piperun-field-map.ts` (mapeamento PipeRun já correto após patch anterior).
+- Fluxo Astron `astron_course_progress` (sem criação de Deal comercial — regra já vigente).
