@@ -361,6 +361,28 @@ async function updatePersonFields(
   console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
   const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
   console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  // Audit log: contact published. Lets retry-cron safety-net detect leads
+  // whose Person card was never refreshed with emails[]/phones[].
+  if (res.success && (updatePayload.emails || updatePayload.phones)) {
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "info",
+        error_type: "piperun_person_contact_published",
+        lead_id: lead.id,
+        lead_email: email,
+        details: {
+          person_id: personId,
+          status: res.status,
+          published_email: Boolean(updatePayload.emails),
+          published_phone: Boolean(updatePayload.phones),
+        },
+      });
+    } catch {}
+  }
 }
 
 /**
@@ -1815,6 +1837,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Person resolution trace (always log, even on success) ──
+    // Fixes the Gabrielly-class blind spot: 6× error_no_person without any
+    // diagnostic for what the resolution path actually did.
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: personId ? "info" : "warning",
+        error_type: "person_resolution_trace",
+        lead_id: lead.id,
+        lead_email: leadEmail,
+        details: {
+          resolved_person_id: personId,
+          had_cached_pessoa_piperun_id: Boolean((lead as Record<string, unknown>).pessoa_piperun_id),
+          email_present: Boolean(leadEmail),
+          phone_present: Boolean(lead.telefone_normalized || lead.telefone_raw),
+          source: lead.source,
+          form_name: lead.form_name,
+        },
+      });
+    } catch {}
+
     if (personId) {
       // Step 5b: Update person fields (custom_fields, job_title, phones)
       // NOTE: do NOT pass originId on update — Person.origin is frozen at
@@ -1991,6 +2034,14 @@ Deno.serve(async (req) => {
       } catch (logErr) {
         console.error("[lia-assign] Failed to log health event", logErr);
       }
+      // Stamp the failed owner so metrics don't inflate round-robin assignments
+      // for a vendor who never actually saw the lead.
+      try {
+        await supabase
+          .from("lia_attendances")
+          .update({ last_failed_assignment_owner: assignedOwnerName })
+          .eq("id", lead.id);
+      } catch {}
       // HARDENING: when person creation failed, do NOT corrupt the lead with
       // owner/funnel placeholders. Leaving these fields untouched lets the
       // retry cron pick the lead up later and assign it for real.

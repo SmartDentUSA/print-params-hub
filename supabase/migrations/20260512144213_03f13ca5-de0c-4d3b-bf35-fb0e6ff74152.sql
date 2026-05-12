@@ -1,0 +1,1 @@
+ALTER TABLE public.lia_attendances ADD COLUMN IF NOT EXISTS last_failed_assignment_owner TEXT;

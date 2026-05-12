@@ -270,8 +270,62 @@ Deno.serve(async (req) => {
   const okCount = results.filter((r) => r.ok).length;
   console.log(`[retry-failed] Sweep done: ${results.length} processed, ${okCount} succeeded, ${results.length - okCount} failed`);
 
+  // ── Safety-net: backfill PipeRun Person contact for leads whose Person was
+  // created/reconciled but whose emails[]/phones[] were never re-published.
+  // Catches the Gabrielly-class bug: lia-assign exits via error_no_person
+  // (no PUT runs), then another path stamps pessoa_piperun_id later, leaving
+  // the Person card blank in PipeRun forever.
+  let contactBackfill: { invoked: boolean; lead_count: number } = { invoked: false, lead_count: 0 };
+  if (!dryRun && !emailsFilter) {
+    try {
+      const sinceIso = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const { data: orphanCandidates } = await supabase
+        .from("lia_attendances")
+        .select("id, email, telefone_normalized, telefone_raw, pessoa_piperun_id, created_at")
+        .is("merged_into", null)
+        .not("pessoa_piperun_id", "is", null)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      const ids = (orphanCandidates || []).map((l: any) => l.id);
+      if (ids.length > 0) {
+        // Filter out leads that already have a published/backfilled contact log
+        const { data: publishedLogs } = await supabase
+          .from("system_health_logs")
+          .select("details")
+          .in("error_type", [
+            "piperun_person_contact_published",
+            "piperun_person_contact_backfilled",
+          ])
+          .gte("created_at", sinceIso);
+        const publishedIds = new Set(
+          (publishedLogs || [])
+            .map((l: any) => l?.details?.lead_id)
+            .filter(Boolean),
+        );
+        const targets = (orphanCandidates || []).filter((l: any) => !publishedIds.has(l.id));
+        if (targets.length > 0) {
+          const batch = targets.slice(0, 50).map((t: any) => t.id);
+          contactBackfill = { invoked: true, lead_count: batch.length };
+          console.log(`[retry-failed] Safety-net: invoking contact backfill for ${batch.length} leads`);
+          await fetch(`${SUPABASE_URL}/functions/v1/piperun-person-contact-backfill`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({ lead_ids: batch }),
+          }).catch((e) => console.warn("[retry-failed] backfill call failed:", e));
+        }
+      }
+    } catch (e) {
+      console.warn("[retry-failed] Safety-net contact backfill error:", e);
+    }
+  }
+
   return new Response(
-    JSON.stringify({ checked: candidates.length, results }),
+    JSON.stringify({ checked: candidates.length, results, contact_backfill: contactBackfill }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });

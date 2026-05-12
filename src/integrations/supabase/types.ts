@@ -5920,6 +5920,7 @@ export type Database = {
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
+          last_failed_assignment_owner: string | null
           last_form_cad: string | null
           last_form_date_cad: string | null
           last_form_date_finalizacao: string | null
@@ -6431,6 +6432,7 @@ export type Database = {
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
+          last_failed_assignment_owner?: string | null
           last_form_cad?: string | null
           last_form_date_cad?: string | null
           last_form_date_finalizacao?: string | null
@@ -6942,6 +6944,7 @@ export type Database = {
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
+          last_failed_assignment_owner?: string | null
           last_form_cad?: string | null
           last_form_date_cad?: string | null
           last_form_date_finalizacao?: string | null
@@ -16540,6 +16543,7 @@ export type Database = {
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
+          last_failed_assignment_owner: string | null
           last_form_cad: string | null
           last_form_date_cad: string | null
           last_form_date_finalizacao: string | null
