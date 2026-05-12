@@ -12,3 +12,11 @@ type: feature
 **Why:** Piperun's native Meta Lead Ads integration creates Persons with `emails[]`/`phones[]` empty. CSP cards were appearing without contact even when CDP had everything. Discovered 2026-05-12 — Luis Marcondes França (Deal 59724041) and ~390 other leads from 2026-05-09→12.
 
 **Backfill:** `piperun-person-contact-backfill` edge function re-publishes full Person + Company payload for any canonical lead with `pessoa_piperun_id NOT NULL`. Accepts `{lead_ids|emails|days, limit}`. Logged via `system_health_logs.error_type='piperun_person_contact_backfilled'`.
+
+**Person Form Custom Fields (verified 2026-05-12):** `updatePersonFields` and the backfill MUST send `custom_fields:[{id,value}]` with the 4 form-response IDs (Pessoas):
+- `772727` Mapeamento Scanner formulário (Texto): `scanner_modelo` → `tem_scanner — modelo` → `form_data` scan
+- `772728` Mapeamento Impressora formulário (Texto): same cascade for impressora
+- `673900` ÁREA DE ATUAÇÃO (Única escolha): `matchPiperunEnum(area_atuacao, PIPERUN_AREA_ATUACAO_ENUM)` — accent/case-insensitive + synonyms
+- `445631` Especialidade principal (Múltipla escolha): `[matchPiperunEnum(especialidade, PIPERUN_ESPECIALIDADE_ENUM)]` (array)
+
+Helper `buildPersonFormCustomFields(lead)` lives in `_shared/piperun-field-map.ts`. Old IDs `674001`/`674002` (PESSOA_CUSTOM_FIELDS) belong to **Empresas**, not Pessoas — keep disabled. If full PUT 4xx, retry without `custom_fields` so contact data still lands.
