@@ -1,61 +1,73 @@
-## Diagnóstico objetivo
+## Diagnóstico
 
-O problema ainda está ativo. Nos logs dos leads do print, o backend está tentando publicar e-mail/telefone, PipeRun responde `200`, mas a Pessoa continua com `emails_count=0` e `phones_count=0`.
+Lead `clinicamontesclaros@yahoo.com` (Andre Almeida) está com:
+- `telefone_raw = 553898475101` (12 dígitos)
+- `telefone_normalized = +553898475101` (12 dígitos)
 
-Pior: quando o lead já tem `pessoa_piperun_id`, o fluxo atual valida esse ID procurando por e-mail/telefone. Como a Pessoa no PipeRun está vazia, a busca não acha contato e o sistema considera o ID “stale”, criando outra Pessoa nova. Isso gera Pessoas/Deals inconsistentes e cards sem vínculo útil.
+Origem: `piperun_webhook` (campo `person.contact_phones[0].number` veio sem o 9). A nota do Deal e a mensagem WhatsApp da L.I.A. apenas leem `lead.telefone_normalized` (`smart-ops-lia-assign` linha 915, `seller-summary.ts` linha 57), então o erro está **na ingestão**, não na geração da nota.
 
-Exemplos vistos agora:
-- `julianachiode@gmail.com`: Pessoa mudou de `46907444` para nova Pessoa vazia `46907652`.
-- `carolina@suprir.com.br`: Pessoa mudou para nova Pessoa vazia `46907655`.
-- `sueniafaria@gmail.com`: Pessoa mudou para nova Pessoa vazia `46907650`.
-- Logs: `piperun_email_silently_rejected` + `piperun_contact_still_missing_after_resync`.
+Regra atual (errada) em `smart-ops-piperun-webhook` (linhas 406-411), `smart-ops-ingest-lead` (linhas 11-18) e similares:
 
-## Plano de correção
+```ts
+if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
+```
 
-### 1. Trocar a validação de Pessoa cacheada
-Em `smart-ops-lia-assign`:
-- Se `lead.pessoa_piperun_id` existe, validar com `GET /persons/{id}`.
-- Não usar busca por e-mail/telefone para decidir se a Pessoa cacheada é inválida.
-- Só criar nova Pessoa se o `GET /persons/{id}` falhar de verdade ou indicar remoção/inexistência.
-- Se a Pessoa existe mas está sem contato, manter o ID e tentar republicar contato; nunca criar outra Pessoa por causa disso.
+Aceita 12 dígitos como válido, perpetuando o número truncado. ANATEL exige 9 dígitos pós-DDD para celulares (prefixo "9").
 
-### 2. Criar trava forte contra Deal em Pessoa vazia
-Depois de criar ou atualizar Pessoa:
-- Verificar se o PipeRun realmente gravou pelo menos um identificador esperado: e-mail ou telefone.
-- Se PipeRun retornar `200` mas a Pessoa continuar sem contato:
-  - tentar localizar dono real por e-mail/telefone;
-  - se achar, remapear o lead para esse dono;
-  - se não achar, bloquear criação/atualização de Deal novo para essa Pessoa vazia e registrar o motivo.
+## Correção
 
-Resultado esperado: o sistema pode falhar de forma segura, mas não cria mais Deal preso em Pessoa sem e-mail/telefone.
+### 1. Criar helper único `normalizeBrazilianPhone` em `_shared/phone-normalize.ts`
 
-### 3. Corrigir o helper compartilhado de hierarquia PipeRun
-Em `_shared/piperun-hierarchy.ts`:
-- Aplicar a mesma regra de segurança de `createPerson` usada no fluxo principal.
-- Bloquear Pessoa sem e-mail e sem telefone.
-- Validar contato após criação.
-- Evitar qualquer caminho paralelo que ainda possa criar Pessoa “só com nome”.
+Regras:
+- Strip non-digits, remover `0` inicial.
+- Se não tiver `55`, prefixar.
+- Após `55 + DDD(2)`:
+  - **9 dígitos** começando com `9` → válido (celular).
+  - **8 dígitos** começando com `6/7/8/9` → inserir `9` na frente → vira 9 dígitos. (Cobre o caso atual: `38 9847-5101` → `38 9 9847-5101`.)
+  - **8 dígitos** começando com `2/3/4/5` → fixo, manter.
+  - DDD fora de `11-99` → retornar `null`.
+- Validar resultado: 12 (fixo) ou 13 (móvel) dígitos. Caso contrário, `null`.
+- Retornar `+` + dígitos.
 
-### 4. Melhorar leitura do webhook do PipeRun
-Em `smart-ops-piperun-webhook`:
-- Expandir extração de Pessoa para ler também:
-  - `person.emails[].email`
-  - `person.phones[].phone`
-  - campos alternativos comuns do PipeRun.
-- Isso evita que webhooks com contato em arrays sejam interpretados como “sem e-mail/telefone”.
+### 2. Substituir todas as normalizações duplicadas
 
-### 5. Remediação dos leads afetados
-Depois do deploy:
-- Rodar a função de backfill/remediação para os registros com:
-  - `piperun_contact_still_missing_after_resync`
-  - `piperun_email_silently_rejected`
-  - criados nas últimas 72h.
-- Priorizar os leads visíveis no print e os logs recentes.
-- Registrar no `system_health_logs` quais foram remapeados, corrigidos ou bloqueados.
+Arquivos que reimplementam a lógica e devem importar o helper:
+- `supabase/functions/smart-ops-piperun-webhook/index.ts` (linhas 406-411 e 635-640)
+- `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 11-18)
+- demais funções listadas com `normalizePhone` própria (`piperun-full-sync`, `import-leads-csv`, `astron-postback`, `sync-loja-integrada-clients`, `sync-astron-members`, `omie-lead-enricher`, `smart-ops-cs-processor`, `smart-ops-ecommerce-webhook`, `smart-ops-wa-inbox-webhook`, `smart-ops-proactive-outreach`, `create-technical-ticket`).
 
-### 6. Validação final
-Validar por dados/logs que:
-- nenhum lead novo com `piperun_id` fica com `pessoa_piperun_id` recém-criado e Pessoa vazia;
-- os leads do print não continuam trocando para novas Pessoas vazias;
-- novos eventos não geram mais `piperun_contact_still_missing_after_resync` em massa;
-- `lia_attendances` mantém apenas leads canônicos (`merged_into is null`) no fluxo de CRM.
+Manter assinatura `(raw) => string | null` para evitar refactor amplo.
+
+### 3. Backfill do lead afetado e similares
+
+Migration única + script de remediação:
+```sql
+UPDATE lia_attendances
+SET telefone_normalized = '+55' || substring(regexp_replace(telefone_normalized,'\D','','g') from 3 for 2) || '9' || substring(regexp_replace(telefone_normalized,'\D','','g') from 5)
+WHERE merged_into IS NULL
+  AND length(regexp_replace(telefone_normalized,'\D','','g')) = 12
+  AND substring(regexp_replace(telefone_normalized,'\D','','g') from 5 for 1) ~ '[6789]';
+```
+
+E re-publicar contato para PipeRun via `piperun-person-contact-backfill` em `mode: remediate_silent_rejects` para os IDs afetados (a função já usa `updatePersonFields → verifyAndRecoverPersonContact`).
+
+### 4. Validação
+
+- Rodar a normalização em alguns exemplos:
+  - `+55 (38) 9847-5101` → `+5538998475101` ✅
+  - `+55 (38) 99847-5101` → `+5538998475101` ✅
+  - `(11) 3456-7890` → `+551134567890` ✅ (fixo, não insere 9)
+  - `+1 415 555 1234` → `null` (não-BR) — manter passthrough simples? **Decisão:** se não começar com `55` e tiver 10-11 dígitos assumir BR; senão preservar como dígitos com `+` se entre 8-15 dígitos.
+
+- SQL de auditoria pós-deploy:
+```sql
+SELECT count(*) FROM lia_attendances
+WHERE merged_into IS NULL
+  AND length(regexp_replace(telefone_normalized,'\D','','g')) = 12
+  AND substring(regexp_replace(telefone_normalized,'\D','','g') from 5 for 1) ~ '[6789]';
+```
+Esperado: 0.
+
+### 5. Memória
+
+Salvar `mem://architecture/brazilian-phone-normalization.md` com a regra do 9º dígito e o helper canônico, marcando como Core (qualquer ingestão de telefone deve usar o helper compartilhado).
