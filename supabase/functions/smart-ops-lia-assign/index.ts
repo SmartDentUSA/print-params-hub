@@ -337,6 +337,7 @@ async function updatePersonFields(
   const rawNome = (lead.nome || "") as string;
   // Don't send corrupted/junk names to PipeRun
   const nome = cleanPersonName(rawNome) || (lead.email as string) || "";
+  const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
@@ -344,6 +345,10 @@ async function updatePersonFields(
   // Build payload with standard fields + custom fields via hash keys
   const updatePayload: Record<string, unknown> = {};
   if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
+  // Re-publish canonical email/phone every PUT — Piperun does NOT auto-fill
+  // emails[]/phones[] when a Person is created via the native Meta Lead Ads
+  // integration, so the card stays empty until we backfill from the CDP.
+  if (email && !isFakeEmail(email)) updatePayload.emails = [{ email }];
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
 
