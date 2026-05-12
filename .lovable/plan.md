@@ -1,15 +1,19 @@
-## Mostrar telefone em todos os cards do Kanban
+## Adicionar telefone no card da Lista de Leads
 
-**Arquivo**: `src/components/smartops/KanbanLeadCard.tsx`
+**Arquivo**: `src/components/SmartOpsLeadsList.tsx` (componente `LeadRow`, ~linha 354)
 
-Adicionar uma linha logo abaixo do email (linha 130) exibindo `lead.telefone_normalized` quando presente, com o mesmo padrão visual das outras linhas (`text-[10px] text-muted-foreground truncate`) e emoji 📱.
+A linha do email (`intel-lr-email`) será modificada para mostrar o telefone logo abaixo, quando presente. Sem CSS novo — usa o mesmo estilo `intel-lr-email` para herdar cor/tamanho.
 
 ```tsx
-{lead.telefone_normalized && (
-  <div className="text-[10px] text-muted-foreground truncate">
-    📱 {lead.telefone_normalized}
+<div className="intel-lr-info">
+  <div className="intel-lr-name">{lead.nome}</div>
+  <div className="intel-lr-email">
+    {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
   </div>
-)}
+  {lead.telefone_normalized && (
+    <div className="intel-lr-email">📱 {lead.telefone_normalized}</div>
+  )}
+</div>
 ```
 
-Sem mudanças em backend, schema, ou no header de detalhe (já mostra). Apenas frontend, presentation.
+`telefone_normalized` já está incluído no `select` (linha 560), então não precisa mexer em backend nem query. Apenas frontend.
