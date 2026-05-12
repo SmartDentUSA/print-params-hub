@@ -22,6 +22,26 @@ type SupabaseClient = ReturnType<typeof createClient>;
 const norm = (s: string | null | undefined) => String(s || "").trim().toLowerCase();
 const digits = (s: string | null | undefined) => String(s || "").replace(/\D/g, "");
 
+/**
+ * Validate the TLD of an email. Rejects nonsense like ".TYPO", ".local",
+ * stray ".gmil" (typo of gmail), etc. We use a permissive regex (2..24 alpha
+ * chars) — it doesn't validate that the domain actually exists, only that
+ * the syntactic shape is plausible. PipeRun silently rejects malformed
+ * emails so this guard stops us from sending them.
+ */
+const VALID_TLD_RE = /\.[a-z]{2,24}$/i;
+const KNOWN_TYPO_TLDS = new Set(["typo", "local", "lan", "internal", "test", "invalid", "example"]);
+export function isValidEmailTld(email: string | null | undefined): boolean {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e || !e.includes("@")) return false;
+  const domain = e.split("@")[1] || "";
+  if (!domain.includes(".")) return false;
+  if (!VALID_TLD_RE.test(domain)) return false;
+  const tld = domain.split(".").pop() || "";
+  if (KNOWN_TYPO_TLDS.has(tld)) return false;
+  return true;
+}
+
 function pickByEmail(data: unknown, email: string): { id: number; company_id: number | null } | null {
   const lower = norm(email);
   if (!lower) return null;
@@ -267,6 +287,74 @@ export interface VerifyRecoverResult {
   reason?: string;
   emails_after: number;
   phones_after: number;
+}
+
+/**
+ * Force-populate a cached PipeRun Person that has no email/phone.
+ *
+ *  1) GET /persons/{id} — if it already has any contact, return early.
+ *  2) PUT a minimal payload with emails+phones (no name, no custom_fields)
+ *     to maximize chance PipeRun accepts.
+ *  3) GET /persons/{id} again to confirm contact landed.
+ *
+ * Returns:
+ *   { ok: true, alreadyHasContact }       — Person already had contact.
+ *   { ok: true, populated: true }         — PUT succeeded and contact now on card.
+ *   { ok: false, reason: 'silent_reject' }— PipeRun returned 200 but card stayed empty.
+ *   { ok: false, reason: 'invalid_email_tld' } — email TLD invalid; email skipped.
+ *   { ok: false, reason: 'no_contact_to_send' } — no email AND no phone provided.
+ */
+export interface ForcePopulateResult {
+  ok: boolean;
+  alreadyHasContact?: boolean;
+  populated?: boolean;
+  reason?: string;
+  emails_after: number;
+  phones_after: number;
+}
+export async function forcePopulateCachedPerson(
+  apiToken: string,
+  personId: number,
+  args: { email: string | null; phone: string | null },
+): Promise<ForcePopulateResult> {
+  const before = await getPersonContact(apiToken, personId);
+  if (before && (before.emails.length > 0 || before.phones.length > 0)) {
+    return { ok: true, alreadyHasContact: true, emails_after: before.emails.length, phones_after: before.phones.length };
+  }
+
+  const emailValid = !!args.email && isValidEmailTld(args.email);
+  const phoneDigits = digits(args.phone);
+  const phoneValid = phoneDigits.length >= 10;
+
+  if (!emailValid && !phoneValid) {
+    return {
+      ok: false,
+      reason: args.email && !emailValid ? "invalid_email_tld" : "no_contact_to_send",
+      emails_after: before?.emails.length ?? 0,
+      phones_after: before?.phones.length ?? 0,
+    };
+  }
+
+  const payload: Record<string, unknown> = {};
+  if (emailValid) payload.emails = [{ email: args.email, type: "work" }];
+  if (phoneValid) {
+    payload.phones = [{ phone: args.phone, type: "work" }];
+    payload.cellphone = args.phone;
+  }
+
+  try {
+    await piperunPut(apiToken, `persons/${personId}`, payload);
+  } catch (e) {
+    console.warn("[piperun-resolver] forcePopulate PUT error:", e);
+  }
+
+  const after = await getPersonContact(apiToken, personId);
+  const emailsAfter = after?.emails.length ?? 0;
+  const phonesAfter = after?.phones.length ?? 0;
+  const got = emailsAfter > 0 || phonesAfter > 0;
+  if (got) return { ok: true, populated: true, emails_after: emailsAfter, phones_after: phonesAfter };
+
+  return { ok: false, reason: "silent_reject", emails_after: emailsAfter, phones_after: phonesAfter };
 }
 
 /**
