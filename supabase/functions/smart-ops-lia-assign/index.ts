@@ -682,6 +682,22 @@ async function pickRandomActiveVendedor(
 const LIA_SOURCES = ["dra-lia", "whatsapp_lia", "handoff_lia"];
 const BLOCKED_SELLER_NAMES = ["Celular", "Comercial", "Vendas", "Smart Dent"];
 
+// ── Owners that NEVER receive leads as vendedores ──
+// Patricia Gastaldi (47675) usa o nº dela só para LIA/Copilot.
+// Qualquer lead roteado para ela vai para o Distribuidor de Leads.
+const BLOCKED_SELLER_OWNER_IDS = new Set<number>([47675]);
+const BLOCKED_SELLER_NAME_PATTERNS: RegExp[] = [/patric[ai]\s+(gastaldi|silva)/i];
+
+function isBlockedSeller(opts: { ownerId?: number | null; ownerName?: string | null }): boolean {
+  const { ownerId, ownerName } = opts;
+  if (ownerId != null && BLOCKED_SELLER_OWNER_IDS.has(Number(ownerId))) return true;
+  if (ownerName) {
+    const n = String(ownerName).trim();
+    if (BLOCKED_SELLER_NAME_PATTERNS.some((re) => re.test(n))) return true;
+  }
+  return false;
+}
+
 /**
  * Generate AI greeting from seller → lead using conversation context.
  */
@@ -1579,14 +1595,21 @@ Deno.serve(async (req) => {
     let assignedOwnerName: string;
 
     // Check if current owner exists and is active in team_members
-    if (lead.proprietario_lead_crm) {
+    if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
       const { data: currentOwner } = await supabase
         .from("team_members")
         .select("id, nome_completo, piperun_owner_id, ativo, waleads_api_key")
         .ilike("nome_completo", lead.proprietario_lead_crm)
         .maybeSingle();
 
-      if (currentOwner && currentOwner.ativo) {
+      if (
+        currentOwner &&
+        currentOwner.ativo &&
+        !isBlockedSeller({
+          ownerId: currentOwner.piperun_owner_id as number,
+          ownerName: currentOwner.nome_completo as string,
+        })
+      ) {
         assignedOwnerId = currentOwner.piperun_owner_id;
         assignedTeamMemberId = currentOwner.id;
         assignedOwnerName = currentOwner.nome_completo;
@@ -1599,12 +1622,27 @@ Deno.serve(async (req) => {
         assignedOwnerName = newOwner.nome_completo;
         console.log(`[lia-assign] Re-assigned (owner not in team or inactive) → ${assignedOwnerName}`);
       }
+    } else if (lead.proprietario_lead_crm && isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
+      // Patricia Gastaldi etc → Distribuidor de Leads (não sortear outro vendedor)
+      console.warn(`[lia-assign] Blocked seller "${lead.proprietario_lead_crm}" → routing to Distribuidor de Leads`);
+      const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+      assignedOwnerId = FALLBACK_OWNER_ID;
+      assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+      assignedTeamMemberId = null;
     } else {
       const newOwner = await pickRandomActiveVendedor(supabase);
-      assignedOwnerId = newOwner.piperun_owner_id;
-      assignedTeamMemberId = newOwner.id;
-      assignedOwnerName = newOwner.nome_completo;
-      console.log(`[lia-assign] Round Robin assigned: ${assignedOwnerName} (${assignedOwnerId})`);
+      if (isBlockedSeller({ ownerId: newOwner.piperun_owner_id, ownerName: newOwner.nome_completo })) {
+        console.warn(`[lia-assign] Round Robin landed on blocked seller "${newOwner.nome_completo}" → Distribuidor de Leads`);
+        const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+        assignedOwnerId = FALLBACK_OWNER_ID;
+        assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+        assignedTeamMemberId = null;
+      } else {
+        assignedOwnerId = newOwner.piperun_owner_id;
+        assignedTeamMemberId = newOwner.id;
+        assignedOwnerName = newOwner.nome_completo;
+        console.log(`[lia-assign] Round Robin assigned: ${assignedOwnerName} (${assignedOwnerId})`);
+      }
     }
 
     // ── 3. Determine pipeline & stage ──
@@ -1733,22 +1771,48 @@ Deno.serve(async (req) => {
         const dealOwnerInfo = PIPERUN_USERS[dealOwnerId];
         const dealOwnerName = dealOwnerInfo?.name || String(dealOwnerId);
 
-        // Override round-robin with deal's actual owner
-        assignedOwnerId = dealOwnerId;
-        assignedOwnerName = dealOwnerName;
+        if (isBlockedSeller({ ownerId: dealOwnerId, ownerName: dealOwnerName })) {
+          // Lead estava com vendedor bloqueado (ex.: Patricia Gastaldi) → mover deal para Distribuidor
+          const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+          assignedOwnerId = FALLBACK_OWNER_ID;
+          assignedOwnerName = fallbackUser?.name || "Thiago Nicoletti";
+          assignedTeamMemberId = null;
+          flowType = "rerouted_blocked_seller_vendas";
 
-        // Find team member for this owner
-        const { data: dealTeamMember } = await supabase
-          .from("team_members")
-          .select("id")
-          .eq("piperun_owner_id", dealOwnerId)
-          .eq("ativo", true)
-          .maybeSingle();
-        if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
+          await piperunPut(PIPERUN_API_KEY, `deals/${vendaDeal.id}`, {
+            pipeline_id: PIPELINES.DISTRIBUIDOR_LEADS,
+            stage_id: STAGES_DISTRIBUIDOR.DISTRIBUIDOR_DE_LEADS,
+            owner_id: assignedOwnerId,
+          });
+          await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
+          try {
+            await addDealNote(
+              PIPERUN_API_KEY,
+              Number(vendaDeal.id),
+              `🔁 [Dra. L.I.A.] Deal removido do owner bloqueado "${dealOwnerName}" e movido para Distribuidor de Leads.`,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] Failed to add re-route note:", e);
+          }
+          console.warn(`[lia-assign] BLOCKED SELLER on Vendas deal ${piperunId}: moved to Distribuidor (was ${dealOwnerName})`);
+        } else {
+          // Override round-robin with deal's actual owner
+          assignedOwnerId = dealOwnerId;
+          assignedOwnerName = dealOwnerName;
 
-        // Update ONLY custom fields + note (owner_id = null → preserved)
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
-        console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
+          // Find team member for this owner
+          const { data: dealTeamMember } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("piperun_owner_id", dealOwnerId)
+            .eq("ativo", true)
+            .maybeSingle();
+          if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
+
+          // Update ONLY custom fields + note (owner_id = null → preserved)
+          await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
+          console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
+        }
       } else if (estagnDeal) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
@@ -2016,28 +2080,69 @@ Deno.serve(async (req) => {
     }
     console.log(`[lia-assign] updateFields keys (${Object.keys(sanitizedUpdateFields).length}): ${Object.keys(sanitizedUpdateFields).join(",")}`);
 
-    const { error: updateError } = await supabase
+    // ── PHASED UPDATE ──
+    // Some opaque trigger / postgrest quirks cause `column "value" does not
+    // exist` (42703) when enrichment fields are mixed with the critical CRM
+    // binding fields. To never lose the deal binding, write CRITICAL fields
+    // first; if successful, write enrichment in a second best-effort call.
+    const CRITICAL_KEYS = new Set([
+      "proprietario_lead_crm",
+      "funil_entrada_crm",
+      "ultima_etapa_comercial",
+      "piperun_id",
+      "piperun_link",
+      "pessoa_piperun_id",
+      "empresa_piperun_id",
+      "status_oportunidade",
+    ]);
+    const criticalUpdate: Record<string, unknown> = {};
+    const enrichmentUpdate: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(sanitizedUpdateFields)) {
+      if (CRITICAL_KEYS.has(k)) criticalUpdate[k] = v;
+      else enrichmentUpdate[k] = v;
+    }
+
+    const { error: criticalError } = await supabase
       .from("lia_attendances")
-      .update(sanitizedUpdateFields)
+      .update(criticalUpdate)
       .eq("id", lead.id);
 
-    if (updateError) {
-      console.error(`[lia-assign] DB update FAILED for ${lead.id}:`, updateError);
+    if (criticalError) {
+      console.error(`[lia-assign] CRITICAL DB update FAILED for ${lead.id}:`, criticalError);
       try {
         await supabase.from("system_health_logs").insert({
           function_name: "smart-ops-lia-assign",
           severity: "error",
           error_type: "lead_update_failed",
           lead_email: lead.email,
-          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: updateError.message, code: updateError.code },
+          details: { lead_id: lead.id, attempted_piperun_id: piperunId, error: criticalError.message, code: criticalError.code, phase: "critical" },
         });
       } catch {}
       return new Response(JSON.stringify({
         success: false,
         error: "lead_update_failed",
-        details: updateError.message,
+        details: criticalError.message,
         lead_id: lead.id,
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (Object.keys(enrichmentUpdate).length > 0) {
+      const { error: enrichmentError } = await supabase
+        .from("lia_attendances")
+        .update(enrichmentUpdate)
+        .eq("id", lead.id);
+      if (enrichmentError) {
+        console.warn(`[lia-assign] Enrichment update failed for ${lead.id} (non-fatal): ${enrichmentError.message}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "lead_enrichment_update_failed",
+            lead_email: lead.email,
+            details: { lead_id: lead.id, error: enrichmentError.message, code: enrichmentError.code, phase: "enrichment", keys: Object.keys(enrichmentUpdate) },
+          });
+        } catch {}
+      }
     }
 
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
