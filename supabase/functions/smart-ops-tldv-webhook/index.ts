@@ -22,6 +22,11 @@ function sanitizeTldvApiKey(raw: string): string {
   return uuid || trimmed;
 }
 
+function toIntegerSeconds(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+}
+
 // ---------- tl;dv API helpers ----------
 async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
@@ -256,7 +261,7 @@ async function processMeeting(tldvId: string, eventType: string): Promise<{ ok: 
         tldv_id: String(tldvId),
         name: meta?.name || meta?.title || null,
         happened_at: meta?.happenedAt || meta?.startTime || meta?.created_at || null,
-        duration_seconds: meta?.duration || meta?.durationSeconds || null,
+        duration_seconds: toIntegerSeconds(meta?.duration ?? meta?.durationSeconds),
         platform: meta?.platform || null,
         url: meta?.url || meta?.shareUrl || null,
         organizer_email: organizer?.email || null,
