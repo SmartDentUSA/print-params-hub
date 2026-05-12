@@ -8,10 +8,17 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TLDV_API_KEY = Deno.env.get("TLDV_API_KEY") || "";
+const TLDV_API_KEY_RAW = Deno.env.get("TLDV_API_KEY") || "";
+const TLDV_API_KEY = sanitizeTldvApiKey(TLDV_API_KEY_RAW);
 const TLDV_BASE = "https://pasta.tldv.io/v1alpha1";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+function sanitizeTldvApiKey(raw: string): string {
+  const trimmed = raw.trim();
+  const uuid = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+  return uuid || trimmed;
+}
 
 async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
@@ -25,6 +32,44 @@ async function tldvFetch(path: string): Promise<any> {
     throw new Error(`tldv ${path} ${res.status}: ${txt.slice(0, 300)}`);
   }
   return res.json();
+}
+
+async function tldvDebugFetch(
+  path: string,
+  authMode: "x-api-key" | "X-API-Key" | "X-Api-Key" | "bearer" | "api-key" | "authorization-raw",
+): Promise<{ path: string; authMode: string; status: number; ok: boolean; body_preview: string }> {
+  const authHeaders =
+    authMode === "bearer"
+      ? { Authorization: `Bearer ${TLDV_API_KEY}` }
+      : authMode === "api-key"
+        ? { "api-key": TLDV_API_KEY }
+        : authMode === "X-API-Key"
+          ? { "X-API-Key": TLDV_API_KEY }
+          : authMode === "X-Api-Key"
+            ? { "X-Api-Key": TLDV_API_KEY }
+        : authMode === "authorization-raw"
+          ? { Authorization: TLDV_API_KEY }
+          : { "x-api-key": TLDV_API_KEY };
+  const res = await fetch(`${TLDV_BASE}${path}`, {
+    headers: {
+      ...authHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+  const body = await res.text();
+  return {
+    path,
+    authMode,
+    status: res.status,
+    ok: res.ok,
+    body_preview: body.slice(0, 600),
+  };
+}
+
+function parseMeetingDate(meeting: any): number {
+  const raw = meeting?.happenedAt || meeting?.startTime || meeting?.created_at || meeting?.createdAt;
+  const ts = Date.parse(raw || "");
+  return Number.isFinite(ts) ? ts : 0;
 }
 
 serve(async (req) => {
@@ -42,18 +87,33 @@ serve(async (req) => {
     if (url.searchParams.get("debug") === "health") {
       try {
         const h = await tldvFetch("/health");
-        return new Response(JSON.stringify({ health: h, key_prefix: TLDV_API_KEY.slice(0, 6), key_len: TLDV_API_KEY.length }), {
+        return new Response(JSON.stringify({ health: h, key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim() }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e) {
-        return new Response(JSON.stringify({ error: (e as Error).message, key_prefix: TLDV_API_KEY.slice(0, 6), key_len: TLDV_API_KEY.length }), {
+        return new Response(JSON.stringify({ error: (e as Error).message, key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim() }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
+    if (url.searchParams.get("debug") === "meetings") {
+      const attempts = [];
+      for (const path of ["/meetings", "/meetings?page=1&pageSize=10", "/meetings?page=1"]) {
+        attempts.push(await tldvDebugFetch(path, "x-api-key"));
+      }
+      attempts.push(await tldvDebugFetch("/meetings/", "x-api-key"));
+      for (const authMode of ["X-API-Key", "X-Api-Key", "bearer", "api-key", "authorization-raw"] as const) {
+        attempts.push(await tldvDebugFetch("/meetings", authMode));
+      }
+      return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_sanitized: TLDV_API_KEY.length, sanitized: TLDV_API_KEY !== TLDV_API_KEY_RAW.trim(), attempts }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const since: string = body.since || "2025-01-01";
+    const sinceTs = Date.parse(since);
     const limit: number = Math.min(Number(body.limit ?? 10), 200);
     const dryRun: boolean = body.dry_run !== false; // default true (safety)
     const reprocess: boolean = !!body.reprocess;
@@ -64,7 +124,7 @@ serve(async (req) => {
     while (collected.length < limit && page <= 20) {
       let payload: any;
       try {
-        payload = await tldvFetch(`/meetings?page=${page}&pageSize=50`);
+        payload = await tldvFetch(`/meetings?page=${page}&pageSize=10`);
       } catch (e) {
         return new Response(
           JSON.stringify({ error: (e as Error).message, hint: "Check TLDV_API_KEY and endpoint." }),
@@ -73,8 +133,8 @@ serve(async (req) => {
       }
       const items: any[] = payload?.results || payload?.data || payload?.meetings || [];
       if (!items.length) break;
-      collected.push(...items);
-      if (items.length < 50) break;
+      collected.push(...items.filter((m) => !Number.isFinite(sinceTs) || parseMeetingDate(m) >= sinceTs));
+      if (items.length < 10) break;
       page++;
     }
 

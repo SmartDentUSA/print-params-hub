@@ -9,12 +9,23 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TLDV_API_KEY = Deno.env.get("TLDV_API_KEY") || "";
+const TLDV_API_KEY = sanitizeTldvApiKey(Deno.env.get("TLDV_API_KEY") || "");
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") || "";
 
 const TLDV_BASE = "https://pasta.tldv.io/v1alpha1";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+function sanitizeTldvApiKey(raw: string): string {
+  const trimmed = raw.trim();
+  const uuid = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+  return uuid || trimmed;
+}
+
+function toIntegerSeconds(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+}
 
 // ---------- tl;dv API helpers ----------
 async function tldvFetch(path: string): Promise<any> {
@@ -250,7 +261,7 @@ async function processMeeting(tldvId: string, eventType: string): Promise<{ ok: 
         tldv_id: String(tldvId),
         name: meta?.name || meta?.title || null,
         happened_at: meta?.happenedAt || meta?.startTime || meta?.created_at || null,
-        duration_seconds: meta?.duration || meta?.durationSeconds || null,
+        duration_seconds: toIntegerSeconds(meta?.duration ?? meta?.durationSeconds),
         platform: meta?.platform || null,
         url: meta?.url || meta?.shareUrl || null,
         organizer_email: organizer?.email || null,
