@@ -1,54 +1,56 @@
-# Diagnóstico — "Não consigo criar um novo formulário"
+## Objetivo
 
-## Causa raiz
-A tabela `smartops_forms` tem **só duas RLS policies**:
-- `admin_all_smartops_forms` → `ALL` para `is_admin(auth.uid())`
-- `anon_read_active_forms` → `SELECT` para qualquer um quando `active=true`
+Criar as 2 edge functions tl;dv que faltam, validar o sync histórico em `dry_run` e depois rodar real, conferindo logs e dados nas tabelas `tldv_*`.
 
-Resultado: **somente usuários com `user_roles.role='admin'` conseguem inserir**. Hoje, na `user_roles`:
-- `admin`: `danilohen@gmail.com`, `pesquisa@smartdent.com.br`
-- `author`: `thiago.nicoletti@smartdent.com.br`, `mdguerra@smartdent.com.br`
+## Status atual
 
-Quem está logado como `author` clica em "Criar formulário SDR — Captação", o INSERT é bloqueado pelo RLS e o `handleCreate` em `SmartOpsFormBuilder.tsx` mostra `toast.error("Erro: new row violates row-level security policy ...")` (provavelmente passou despercebido).
+- **Schema:** `tldv_meetings`, `tldv_meeting_participants`, `tldv_meeting_intelligence`, `tldv_webhook_log` — já existem.
+- **Secret:** `TLDV_API_KEY` cadastrada no Supabase Dashboard.
+- **Edge functions:** `smart-ops-tldv-webhook` e `smart-ops-tldv-sync` **NÃO existem** em `supabase/functions/`. Precisam ser criadas do zero.
 
-Confirmado: o último form criado foi em **06/abr/2026** — desde então ninguém conseguiu criar (consistente com a tese: virou tarefa só de admin).
+## Etapas
 
-Não há erro de schema (constraint `form_purpose` aceita `sdr_captacao`), nem bug no front. É **autorização**.
+### 1. Criar `supabase/functions/smart-ops-tldv-webhook/index.ts`
+Recebe eventos do tl;dv (`TranscriptReady`):
+- Loga payload bruto em `tldv_webhook_log`.
+- Insere/upsert em `tldv_meetings` (id externo do tl;dv, título, data, transcript bruto, status).
+- Identifica participantes: cruza email com `team_members` e com `lia_attendances` (respeitando `merged_into IS NULL`) e popula `tldv_meeting_participants`.
+- Roda DeepSeek (já temos `DEEPSEEK_API_KEY`) com tool calling para extrair JSON estruturado: `products_mentioned`, `competitors`, `current_equipment`, `objections[]`, `interest_level`, `meeting_score`, `next_steps`. Salva em `tldv_meeting_intelligence`.
+- Se identificar lead: enriquece `lia_attendances` apenas com campos confirmados (equip_scanner, equip_impressora, etc.) seguindo o `Form Enrichment ALWAYS_UPDATE` para equipamentos e respeitando `Person Origin Frozen` (não sobrescreve `origem_primeiro_contato`).
+- Logs com prefixo `[tldv-webhook]` e `logAIUsage` da DeepSeek.
+- `verify_jwt = false` em `supabase/config.toml`.
 
-## Plano (somente RLS, sem mexer em UI)
+### 2. Criar `supabase/functions/smart-ops-tldv-sync/index.ts`
+Sync histórico paginado:
+- Body: `{ since: "2025-01-01", limit: 10, dry_run: true, reprocess: false }`.
+- Chama API tl;dv `GET /v1alpha1/meetings?from=...&page=...` usando `TLDV_API_KEY` (Bearer header).
+- Para cada meeting: pula se já existe em `tldv_meetings` (a menos que `reprocess=true`).
+- Em `dry_run`: retorna lista do que seria processado, sem gravar.
+- Caso real: encadeia POST para `smart-ops-tldv-webhook` com payload normalizado (fire-and-forget para não estourar timeout).
+- Retorna `{ found, skipped, queued, dry_run }`.
+- `verify_jwt = false`.
 
-### 1. Migration: liberar gestão de formulários para `author`
-Adicionar policies em `smartops_forms` permitindo `INSERT/UPDATE/DELETE` para usuários com role `admin` OU `author` (mantém `anon_read_active_forms` intacto). Usar `has_role(auth.uid(), 'author')` + `is_admin(auth.uid())`.
+### 3. Registrar config
+Adicionar em `supabase/config.toml`:
+```
+[functions.smart-ops-tldv-webhook]
+verify_jwt = false
 
-```sql
-create policy "authors_manage_smartops_forms"
-on public.smartops_forms
-for all
-to authenticated
-using (public.is_admin(auth.uid()) or public.has_role(auth.uid(), 'author'))
-with check (public.is_admin(auth.uid()) or public.has_role(auth.uid(), 'author'));
+[functions.smart-ops-tldv-sync]
+verify_jwt = false
 ```
 
-(A policy antiga `admin_all_smartops_forms` continua, sem conflito — RLS é OR entre policies.)
+### 4. Validação ao vivo (eu rodo após deploy)
+1. `dry_run: true` com `since=2025-01-01`, `limit=5` → conferir lista retornada.
+2. Inspecionar logs de `smart-ops-tldv-sync` (deve mostrar quantos achou na API tl;dv).
+3. Rodar real (`dry_run: false`, `limit=5`) → conferir logs do webhook, contar linhas em `tldv_meetings`, `tldv_meeting_participants`, `tldv_meeting_intelligence`.
+4. Se OK, rodar lote maior (`limit=50`).
 
-### 2. Replicar nas tabelas dependentes
-Mesmo padrão para que o autor consiga editar o formulário recém-criado:
-- `smartops_form_fields` (campos do form)
-- `smartops_form_submissions` (já tem INSERT público; só garantir SELECT/DELETE para author)
-- `smartops_form_field_responses` (workflow 7×3)
+### 5. Memória
+Salvar `mem://integration/tldv-meeting-intelligence` com a arquitetura final (webhook + sync + identidade por email + DeepSeek tool calling) e referenciar no índice.
 
-Verificar antes via `pg_policies` e só adicionar se faltar a permissão equivalente.
+## Fora de escopo
 
-### 3. Validação
-- Logar como `mdguerra@smartdent.com.br`, abrir `/admin → SmartOps → Formulários`, clicar **Novo Formulário**, escolher **SDR — Captação**, digitar nome e criar.
-- Conferir que o form aparece na lista e abre o editor `SmartOpsSdrCaptacaoEditor`.
-- Conferir que `anon` ainda consegue ler o form público em `/f/:slug`.
-
-## O que NÃO será alterado
-- UI do `SmartOpsFormBuilder` (já está correta).
-- Lógica de `handleCreate` / `handleCreateBaseForm`.
-- Função `is_admin()` nem hierarquia de roles.
-- Policy de leitura pública (`anon_read_active_forms`).
-
-## Alternativa (mais rápida, menos sustentável)
-Promover `thiago.nicoletti` e `mdguerra` para `admin` em `user_roles`. Resolve hoje, mas qualquer novo author terá o mesmo problema — por isso o plano principal é via RLS.
+- UI no admin para visualizar reuniões (sugiro depois, em request separado).
+- Renderização de objeções no card do lead Kanban.
+- Configuração do webhook no painel tl;dv (você faz manual após o deploy).
