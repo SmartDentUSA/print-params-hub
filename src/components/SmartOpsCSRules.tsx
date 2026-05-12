@@ -503,7 +503,38 @@ export function SmartOpsCSRules() {
                 <Label className="text-xs font-semibold">Mídia ({WALEADS_TIPOS.find(t => t.value === form.tipo)?.label})</Label>
                 <div>
                   <Label className="text-xs">URL da mídia</Label>
-                  <Input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="https://..." />
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.media_url}
+                      onChange={(e) => setForm({ ...form, media_url: e.target.value })}
+                      placeholder="https://..."
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingField === "media"}
+                      onClick={() => document.getElementById("media-upload-input")?.click()}
+                    >
+                      {uploadingField === "media" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><Upload className="h-4 w-4 mr-1" />Upload</>
+                      )}
+                    </Button>
+                    <input
+                      id="media-upload-input"
+                      type="file"
+                      hidden
+                      accept={ACCEPT_BY_TIPO[form.tipo] || "*/*"}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleMediaUpload(f, "media", form.tipo);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Legenda (opcional)</Label>
