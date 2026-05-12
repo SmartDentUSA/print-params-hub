@@ -682,6 +682,22 @@ async function pickRandomActiveVendedor(
 const LIA_SOURCES = ["dra-lia", "whatsapp_lia", "handoff_lia"];
 const BLOCKED_SELLER_NAMES = ["Celular", "Comercial", "Vendas", "Smart Dent"];
 
+// ── Owners that NEVER receive leads as vendedores ──
+// Patricia Gastaldi (47675) usa o nº dela só para LIA/Copilot.
+// Qualquer lead roteado para ela vai para o Distribuidor de Leads.
+const BLOCKED_SELLER_OWNER_IDS = new Set<number>([47675]);
+const BLOCKED_SELLER_NAME_PATTERNS: RegExp[] = [/patric[ai]\s+(gastaldi|silva)/i];
+
+function isBlockedSeller(opts: { ownerId?: number | null; ownerName?: string | null }): boolean {
+  const { ownerId, ownerName } = opts;
+  if (ownerId != null && BLOCKED_SELLER_OWNER_IDS.has(Number(ownerId))) return true;
+  if (ownerName) {
+    const n = String(ownerName).trim();
+    if (BLOCKED_SELLER_NAME_PATTERNS.some((re) => re.test(n))) return true;
+  }
+  return false;
+}
+
 /**
  * Generate AI greeting from seller → lead using conversation context.
  */
