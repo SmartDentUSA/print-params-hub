@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isFakeEmail } from "../_shared/lead-identity-guard.ts";
 import { piperunPut, buildPersonFormCustomFields } from "../_shared/piperun-field-map.ts";
+import { verifyAndRecoverPersonContact } from "../_shared/piperun-person-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,18 +16,34 @@ Deno.serve(async (req) => {
   const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY")!;
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  let body: { days?: number; limit?: number; lead_ids?: string[]; emails?: string[] } = {};
+  let body: { days?: number; limit?: number; lead_ids?: string[]; emails?: string[]; mode?: string } = {};
   try { body = await req.json(); } catch {}
   const days = body.days ?? 3;
   const limit = Math.min(body.limit ?? 50, 200);
+  const mode = body.mode || "default";
 
   let q = supa
     .from("lia_attendances")
-    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf,scanner_modelo,impressora_modelo,tem_scanner,tem_impressora,form_data")
+    .select("id,email,nome,telefone_normalized,telefone_raw,pessoa_piperun_id,empresa_piperun_id,area_atuacao,especialidade,pessoa_cargo,pessoa_cpf,pessoa_nascimento,pessoa_genero,pessoa_linkedin,pessoa_facebook,pessoa_observation,empresa_nome,empresa_razao_social,empresa_cnpj,empresa_segmento,empresa_website,empresa_email,empresa_telefone,empresa_cidade,empresa_uf,cidade,uf,scanner_marca,impressora_modelo,tem_scanner,tem_impressora,form_data")
     .is("merged_into", null)
     .not("pessoa_piperun_id", "is", null);
 
-  if (body.lead_ids?.length) {
+  if (mode === "remediate_silent_rejects") {
+    // Pull lead_ids from system_health_logs warnings in the last 72h.
+    const since = new Date(Date.now() - 72 * 3600_000).toISOString();
+    const { data: logs } = await supa
+      .from("system_health_logs")
+      .select("lead_id")
+      .in("error_type", ["piperun_contact_still_missing_after_resync", "piperun_email_silently_rejected"])
+      .gte("created_at", since)
+      .not("lead_id", "is", null)
+      .limit(limit * 2);
+    const ids = Array.from(new Set((logs ?? []).map((l) => l.lead_id).filter(Boolean))).slice(0, limit);
+    if (ids.length === 0) {
+      return new Response(JSON.stringify({ processed: 0, mode, note: "no_silent_reject_logs_in_72h" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    q = q.in("id", ids);
+  } else if (body.lead_ids?.length) {
     q = q.in("id", body.lead_ids);
   } else if (body.emails?.length) {
     q = q.in("email", body.emails.map((e) => String(e).toLowerCase().trim()));
@@ -83,6 +100,22 @@ Deno.serve(async (req) => {
       res = await piperunPut(PIPERUN_API_KEY, `persons/${personId}`, minimal);
     }
 
+    // Active verify-and-recover (remap if PipeRun silently rejected).
+    let verifyOk: boolean | null = null;
+    let remappedTo: number | null = null;
+    try {
+      const v = await verifyAndRecoverPersonContact(
+        PIPERUN_API_KEY, supa, String(lead.id),
+        personId,
+        email && !isFakeEmail(email) ? email : null,
+        phone || null,
+      );
+      verifyOk = v.ok;
+      remappedTo = v.remapped_to ?? null;
+    } catch (e) {
+      console.warn("[backfill] verify error:", e);
+    }
+
     // ── Company resync (best-effort) ──
     let companyRes: { success: boolean; status: number } | null = null;
     const companyId = Number(lead.empresa_piperun_id || 0);
@@ -106,18 +139,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    results.push({ id: lead.id, person_id: personId, company_id: companyId || null, person_status: res.status, person_ok: res.success, company_status: companyRes?.status || null, company_ok: companyRes?.success || null });
+    results.push({ id: lead.id, person_id: personId, company_id: companyId || null, person_status: res.status, person_ok: res.success, verify_ok: verifyOk, remapped_to: remappedTo, company_status: companyRes?.status || null, company_ok: companyRes?.success || null });
+    // Throttle to be gentle with PipeRun rate limits.
+    await new Promise((r) => setTimeout(r, 250));
     await supa.from("system_health_logs").insert({
       function_name: "piperun-person-contact-backfill",
       severity: res.success ? "info" : "warning",
       error_type: res.success ? "piperun_person_contact_backfilled" : "piperun_person_contact_backfill_failed",
       lead_id: lead.id,
       lead_email: email,
-      details: { person_id: personId, status: res.status, payload: personPayload, company_id: companyId || null, company_status: companyRes?.status || null },
+      details: { person_id: personId, status: res.status, mode, verify_ok: verifyOk, remapped_to: remappedTo, company_id: companyId || null, company_status: companyRes?.status || null },
     });
   }
 
-  return new Response(JSON.stringify({ processed: results.length, results }), {
+  return new Response(JSON.stringify({ processed: results.length, mode, results }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

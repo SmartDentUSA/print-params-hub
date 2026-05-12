@@ -85,6 +85,33 @@ async function findPersonByEmail(
   email: string,
   phoneNormalized?: string | null
 ): Promise<{ id: number; company_id: number | null } | null> {
+  if (!email && !phoneNormalized) return null;
+  try {
+    // Cascade: email exact → email search → phone exact → phone search.
+    // Prevents creating a duplicate Person when PipeRun already has one
+    // owning either identifier (would otherwise silently create a name-only
+    // shadow because emails/phones get deduped server-side).
+    const { findPersonByContact } = await import("../_shared/piperun-person-resolver.ts");
+    const hit = await findPersonByContact(apiToken, email || null, phoneNormalized || null);
+    if (hit) {
+      console.log(`[lia-assign] findPersonByContact: hit ${hit.id} via ${hit.matched_via}`);
+      return { id: hit.id, company_id: hit.company_id };
+    }
+    console.log(`[lia-assign] findPersonByContact: no match for email=${email || "-"} phone=${phoneNormalized || "-"}`);
+    return null;
+  } catch (e) {
+    console.warn("[lia-assign] Person search error:", e);
+  }
+  return null;
+}
+
+// Legacy implementation kept for reference — replaced by piperun-person-resolver.
+// deno-lint-ignore no-unused-vars
+async function _legacyFindPersonByEmail(
+  apiToken: string,
+  email: string,
+  phoneNormalized?: string | null
+): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
   try {
     // PipeRun's /persons endpoint IGNORES unknown filters and returns a generic
@@ -412,6 +439,26 @@ async function updatePersonFields(
         },
       });
     } catch {}
+  }
+  // Active verify-and-recover: GET /persons/{id} and detect PipeRun's silent
+  // reject of emails/phones. If the identifiers belong to another Person,
+  // remap the lead. Otherwise retry isolated PUTs.
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const { verifyAndRecoverPersonContact } = await import("../_shared/piperun-person-resolver.ts");
+    const verify = await verifyAndRecoverPersonContact(
+      apiToken,
+      supa,
+      String(lead.id || ""),
+      personId,
+      email && !isFakeEmail(email) ? email : null,
+      phone || null,
+    );
+    console.log(`[lia-assign] verifyRecover person=${personId} ok=${verify.ok} reason=${verify.reason || "-"} remapped=${verify.remapped_to || "-"} emails=${verify.emails_after} phones=${verify.phones_after}`);
+  } catch (e) {
+    console.warn("[lia-assign] verifyAndRecoverPersonContact error:", e);
   }
 }
 

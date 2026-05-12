@@ -20,3 +20,10 @@ type: feature
 - `445631` Especialidade principal (Múltipla escolha): `[matchPiperunEnum(especialidade, PIPERUN_ESPECIALIDADE_ENUM)]` (array)
 
 Helper `buildPersonFormCustomFields(lead)` lives in `_shared/piperun-field-map.ts`. Old IDs `674001`/`674002` (PESSOA_CUSTOM_FIELDS) belong to **Empresas**, not Pessoas — keep disabled. If full PUT 4xx, retry without `custom_fields` so contact data still lands.
+
+**PipeRun Silent Reject of emails/phones (verified 2026-05-12):** When the email/phone in the PUT payload already belongs to ANOTHER PipeRun Person, `PUT /persons/{id}` returns HTTP 200 but the array is silently dropped. `GET /persons/{id}` afterwards shows `emails:[]` / `phones:[]`. 127/266 leads in 24h hit this on 2026-05-12.
+
+**Mitigations (live in `_shared/piperun-person-resolver.ts`):**
+1. `findPersonByContact(apiToken, email, phone)` — cascade: `?emails[email]=` → `?search=email` → `?phones[phone]=` → `?search=<digits>`. Used by both `lia-assign:findPersonByEmail` and `_shared/piperun-hierarchy:findPersonByEmail`. Prevents creating a duplicate Person when one already owns either identifier.
+2. `verifyAndRecoverPersonContact(...)` runs after every PUT in `lia-assign:updatePersonFields`, `_shared/piperun-hierarchy:updatePersonFields`, and `piperun-person-contact-backfill`. Workflow: GET `/persons/{id}` → if `emails`/`phones` missing, locate the rightful Person owning them and remap `lia_attendances.pessoa_piperun_id` (log `piperun_person_remapped_owner_of_email`). If no other Person owns it, retry isolated PUTs and log `piperun_email_silently_rejected` on persistent failure.
+3. Backfill `mode:'remediate_silent_rejects'` re-runs verify-and-recover on every lead logged with `piperun_contact_still_missing_after_resync` or `piperun_email_silently_rejected` in the last 72h. Limit 200, throttle 250ms.

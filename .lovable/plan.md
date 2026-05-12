@@ -1,87 +1,66 @@
-## Objetivo
+# Person card chega vazio no PipeRun (intermitente)
 
-Após criar/atualizar a Pessoa no PipeRun (`updatePersonFields` em `_shared/piperun-hierarchy.ts`), enviar 4 custom fields adicionais com a resposta dos formulários:
+## Diagnóstico
 
-| Campo PipeRun | ID | Tipo | Fonte CDP |
-|---|---|---|---|
-| Mapeamento Scanner formulário | `772727` | Texto | `scanner_modelo` → fallback resposta crua de `form_data` (chaves: `tem_scanner`, `scanner`, `marca_scanner`, `modelo_scanner`) |
-| Mapeamento Impressora formulário | `772728` | Texto | `impressora_modelo` → fallback resposta crua de `form_data` (chaves: `tem_impressora`, `impressora`, `marca_impressora`, `modelo_impressora`) |
-| ÁREA DE ATUAÇÃO | `673900` | Única escolha | `area_atuacao` (normalizado UPPER) — valor precisa bater com enum |
-| Especialidade principal | `445631` | Múltipla escolha | `especialidade` (UPPER, array) — valor precisa bater com enum |
+Não é "às vezes envia certo, às vezes envia faltando" por bug nosso de payload — é **PipeRun aceitando o PUT (HTTP 200) e ignorando silenciosamente `emails[]`/`phones[]`** quando esses identificadores já estão atrelados a OUTRO Person.
 
-Os 2 primeiros são texto livre → enviam exatamente a resposta crua do formulário (com fallback `tem_X = "Sim/Não" + modelo`).
-Os 2 últimos são enums no PipeRun — precisam ser normalizados para os valores aceitos:
+**Evidências (últimas 24h):**
+- 266 leads com `piperun_person_contact_published` (PUT 200 com `emails`/`phones` no payload)
+- **127 leads** logo em seguida com `piperun_contact_still_missing_after_resync` (`GET /persons/{id}` retorna `emails_count:0, phones_count:0`)
+- Caso Enielson Neves (`53788790-…`): primeira chamada `lia-assign` em 18:56 retornou 504/WORKER_ERROR (mas provavelmente criou Person no PipeRun). Retry em 19:30 fez `findPersonByEmail` retornar null → `createPerson` criou Person 46902881 NOVO → PUT 200 → GET mostra emails/phones vazios. Resultado: card "E-mail não informado / Telefone não informado".
+
+**Causa raiz:**
+1. `findPersonByEmail` só compara `emails[].email` exato no array retornado pelo `/persons?search=`. Não tenta busca por telefone, não tenta `?search=<phone>`, e ignora a possibilidade de o Person ter sido criado pela integração nativa Meta sem email indexado ainda.
+2. Quando Person já existe com aquele email, PipeRun silenciosamente "limpa" o array no PUT (não retorna 422). Isso é confirmado por 127 casos hoje.
+3. Confirmado também o palpite do usuário: "quando não encontra Person, cria com apenas nome" — acontece quando `emails`/`phones` enviados no POST batem com Person existente; PipeRun cria a casca só com `name`.
+
+## O que vai mudar (3 arquivos)
+
+### 1. `_shared/piperun-hierarchy.ts` + `smart-ops-lia-assign/index.ts:findPersonByEmail`
+
+Cascata de busca antes de chamar `createPerson` (retorna primeiro hit válido):
 
 ```text
-ÁREA DE ATUAÇÃO (673900):
-  RADIOLOGIA ODONTOLÓGICA | CLÍNICA OU CONSULTÓRIO | LABORATÓRIO DE PRÓTESE |
-  PLANNING CENTER | EMPRESA DE ALINHADORES | GESTOR DE REDE DE CLÍNICAS |
-  GESTOR DE FRANQUIAS | CENTRAL DE IMPRESSÕES | EDUCAÇÃO | SEM INFOMAÇÃO
-
-Especialidade principal (445631):
-  CLÍNICO GERAL | DENTÍSTICA | IMPLANTODONTISTA | PROTESISTA | ODONTOPEDIATRIA |
-  ORTODONTISTA | PERIODONTISTA | RADIOLOGISTA | ESTOMATOLOGISTA |
-  CIRURGIA BUCO MAXILO FACIAL | TÉCNICO EM RADIOLOGIA |
-  TÉCNICO EM PRÓTESE ODONTOLÓGICA | OUTRA
+a) GET /persons?emails[email]=<email>           (já existe)
+b) GET /persons?search=<email>                   (já existe)
+c) GET /persons?phones[phone]=<phone_e164>       (NOVO)
+d) GET /persons?search=<phone_digits>            (NOVO)
+e) GET /persons?search=<phone_local_8_or_9_dig>  (NOVO — sem DDI/DDD para casar formato salvo)
 ```
 
-Se o valor do CDP não bater com o enum (após normalização tira-acento+UPPER+match fuzzy), envia o texto cru no observation e loga `piperun_person_enum_unmatched` em `system_health_logs` em vez de quebrar o PUT.
+Match estrito: comparar normalizando email (lowercase) e phone (apenas dígitos). Se qualquer hit casar, **reusar** esse `person_id` em vez de criar.
 
-## Implementação
+### 2. Verify-and-recover pós-PUT (no `lia-assign` E no `_shared`)
 
-### 1. `supabase/functions/_shared/piperun-field-map.ts`
-Adicionar constantes:
-```ts
-export const PESSOA_CUSTOM_FIELD_IDS = {
-  SCANNER_FORM: 772727,
-  IMPRESSORA_FORM: 772728,
-  AREA_ATUACAO: 673900,
-  ESPECIALIDADE: 445631,
-} as const;
+Hoje a etapa "verify" só LOGA quando `emails_count=0`. Vamos torná-la **ativa**:
 
-export const PIPERUN_AREA_ATUACAO_ENUM = [...];
-export const PIPERUN_ESPECIALIDADE_ENUM = [...];
-```
-+ helper `matchEnum(value, enumList)` (normaliza acento/caixa, retorna canônico ou null).
+1. `PUT /persons/{id}` com payload completo
+2. `GET /persons/{id}` — extrair `emails[]`, `phones[]`
+3. Se `emails[]` vazio E temos `lead.email`:
+   - `GET /persons?emails[email]=<email>` — descobrir o ID que detém o email
+   - Se for diferente do `personId` atual → marcar `personId` como duplicata: gravar em `lia_attendances.pessoa_piperun_id` o ID dono do email, gravar lead no novo Person via `updatePersonFields`, log `error_type='piperun_person_remapped_owner_of_email'`
+   - Se ninguém detém o email → tentar PUT novamente só com `{emails:[{email}]}` em payload mínimo (3ª tentativa); se ainda falhar, log `error_type='piperun_email_silently_rejected'` com payload+resposta
+4. Mesma lógica para `phones[]` vazio.
 
-### 2. `supabase/functions/_shared/piperun-hierarchy.ts → updatePersonFields`
-Construir `personCustomFields` a partir do `lead`:
+### 3. Backfill remediation: `piperun-person-contact-backfill`
 
-- **Scanner (772727)**: prioridade `scanner_modelo` → `tem_scanner + " — " + scanner_modelo` → varredura recursiva em `form_data` por chaves sinônimas (mesma lógica do `mapAttendanceToDealCustomFields`).
-- **Impressora (772728)**: idem com `impressora_modelo` / `tem_impressora`.
-- **Área (673900)**: `matchEnum(lead.area_atuacao, PIPERUN_AREA_ATUACAO_ENUM)`.
-- **Especialidade (445631)**: `matchEnum(lead.especialidade, PIPERUN_ESPECIALIDADE_ENUM)`. Como é múltipla escolha, enviar como array `[valor]`.
+Adicionar modo `mode:'remediate_silent_rejects'` que varre `system_health_logs` onde `error_type='piperun_contact_still_missing_after_resync'` nas últimas 72h e roda o verify-and-recover acima para cada um. Roda 1×/h via cron existente. Limite 200 por execução, throttle 250ms.
 
-Se houver custom fields montados, anexar ao payload do PUT como hash:
-```ts
-updatePayload.custom_fields = { "772727": "...", "772728": "...", "673900": "...", "445631": ["..."] }
-```
-(Formato hash já é o aceito pelo PipeRun — mesmo padrão usado em `customFieldsToHashMap` para Deals.)
+## Fora do escopo
 
-Retry minimal (`{name, emails, phones}`) já existente preservado: se o PUT completo falhar 422, loga `piperun_person_customfield_rejected` com a chave problemática e reenvia sem custom_fields.
-
-### 3. Backfill
-Estender `piperun-person-contact-backfill/index.ts` para também publicar esses 4 custom fields na pessoa (mesmo helper). Permite reprocessar leads recentes (incluindo `l.franca11@gmail.com`) sem recriar Deal.
-
-### 4. Memória
-Atualizar `mem/integration/piperun-person-contact-enrichment.md` com os 4 IDs de Pessoa e a regra de matching de enum.
-
-## Arquivos alterados
-
-- `supabase/functions/_shared/piperun-field-map.ts` — IDs + enums + matcher
-- `supabase/functions/_shared/piperun-hierarchy.ts` — `updatePersonFields` injeta custom_fields
-- `supabase/functions/piperun-person-contact-backfill/index.ts` — replica no backfill
-- `mem/integration/piperun-person-contact-enrichment.md` — documentar IDs
+- Não tocar em `createPerson` payload — já está correto.
+- Não mexer nas regras de Deal / custom fields.
+- Não mexer no debounce de 60s — continua válido para race conditions curtas.
 
 ## Validação
 
-1. Reprocessar `l.franca11@gmail.com` via backfill.
-2. Conferir card da Pessoa no PipeRun: 4 campos preenchidos.
-3. Validar logs `piperun_person_resync_ok`; sem `piperun_person_customfield_rejected`.
-4. Testar lead novo de formulário → confirmar populado no primeiro PUT.
+1. Reprocessar Enielson (`53788790-…`) e Su Fernandes (`b2f3511d-…`) com nova lógica → cards devem mostrar email + telefone.
+2. Rodar `remediate_silent_rejects` para os 127 leads das últimas 24h.
+3. Acompanhar `system_health_logs` por 24h: contagem de `piperun_contact_still_missing_after_resync` deve cair pra ~0; `piperun_person_remapped_owner_of_email` mostra quantos foram reatribuídos.
 
-## Fora de escopo
+## Arquivos editados
 
-- Custom fields 546566/546567 (Tem impressora/Tem scanner — Única escolha SIM/NÃO): podem entrar num passo 2 se necessário.
-- Sincronização reversa (PipeRun → CDP).
-- Mexer em custom fields de Deal/Empresa.
+- `supabase/functions/_shared/piperun-hierarchy.ts`
+- `supabase/functions/smart-ops-lia-assign/index.ts`
+- `supabase/functions/piperun-person-contact-backfill/index.ts`
+- `mem/integration/piperun-person-contact-enrichment.md` (documentar regra do silent reject)
