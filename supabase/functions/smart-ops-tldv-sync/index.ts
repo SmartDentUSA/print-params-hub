@@ -15,7 +15,11 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
 async function tldvFetch(path: string): Promise<any> {
   const res = await fetch(`${TLDV_BASE}${path}`, {
-    headers: { "x-api-key": TLDV_API_KEY, "Content-Type": "application/json" },
+    headers: {
+      "x-api-key": TLDV_API_KEY,
+      Authorization: `Bearer ${TLDV_API_KEY}`,
+      "Content-Type": "application/json",
+    },
   });
   if (!res.ok) {
     const txt = await res.text();
