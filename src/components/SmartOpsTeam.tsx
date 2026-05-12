@@ -378,6 +378,28 @@ export function SmartOpsTeam() {
       </DialogContent>
     </Dialog>
 
+    {/* Evolution QR Dialog */}
+    <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Conectar WhatsApp Evolution</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-center">
+          {qrCodeBase64 ? (
+            <>
+              <img src={qrCodeBase64} alt="QR Code Evolution" className="mx-auto w-64 h-64" />
+              <p className="text-sm text-muted-foreground">
+                Escaneie com o WhatsApp do número <span className="font-mono">{form.whatsapp_number}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Aguardando confirmação… (até 90s)</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground py-12">Gerando QR code…</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <SmartOpsSellerAutomations />
     </>
   );
