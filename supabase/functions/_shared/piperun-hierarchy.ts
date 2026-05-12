@@ -11,7 +11,7 @@ import {
   piperunPut,
   piperunGet,
   addDealNote,
-  customFieldsToHashMap,
+  customFieldsToDealPayload,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
 } from "./piperun-field-map.ts";
@@ -209,11 +209,11 @@ export async function updateExistingDeal(
   supabase: SupabaseClient,
   buildNotification: (lead: Record<string, unknown>, supabase: SupabaseClient) => Promise<string>
 ): Promise<void> {
-  const hashFields = customFieldsToHashMap(customFields);
+  const cfPayload = customFieldsToDealPayload(customFields);
   const updatePayload: Record<string, unknown> = {
     origin_id: ORIGINS.DRA_LIA.id,
-    ...hashFields,
   };
+  if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
 
@@ -234,15 +234,15 @@ export async function moveDealToVendas(
   supabase: SupabaseClient,
   buildNotification: (lead: Record<string, unknown>, supabase: SupabaseClient) => Promise<string>
 ): Promise<void> {
-  const hashFields = customFieldsToHashMap(customFields);
+  const cfPayload = customFieldsToDealPayload(customFields);
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
     owner_id: ownerId,
     origin_id: ORIGINS.DRA_LIA.id,
     freezed: 0,
-    ...hashFields,
   };
+  if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (companyId) updatePayload.company_id = companyId;
 
   await piperunPut(apiToken, `deals/${dealId}`, updatePayload);

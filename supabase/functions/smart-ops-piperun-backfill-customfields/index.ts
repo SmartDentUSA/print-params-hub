@@ -3,7 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   mapAttendanceToDealCustomFields,
-  customFieldsToHashMap,
+  customFieldsToDealPayload,
   piperunPut,
 } from "../_shared/piperun-field-map.ts";
 
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         continue;
       }
       candidates++;
-      const hashFields = customFieldsToHashMap(customFields);
+      const cfPayload = customFieldsToDealPayload(customFields);
 
       if (dryRun) {
         results.push({
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const putRes = await piperunPut(PIPERUN_API_KEY, `deals/${lead.piperun_id}`, hashFields);
+      const putRes = await piperunPut(PIPERUN_API_KEY, `deals/${lead.piperun_id}`, { custom_fields: cfPayload });
       if (putRes.success) {
         updated++;
         await supabase

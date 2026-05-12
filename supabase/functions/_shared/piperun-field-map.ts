@@ -1057,7 +1057,9 @@ export function mapAttendanceToDealCustomFields(
 
 /**
  * Convert custom fields array to hash-keyed flat object for PUT /deals
- * PipeRun PUT requires { "hash_key": "value" } format, not array
+ * DEPRECATED — PipeRun silently ignores hash-flat payloads (returns 200 OK
+ * but does not persist the values). Kept only for reference; do NOT use.
+ * The correct shape is `customFieldsToDealPayload` below.
  */
 export function customFieldsToHashMap(
   fields: Array<{ custom_field_id: number; value: string }>
@@ -1070,6 +1072,24 @@ export function customFieldsToHashMap(
     }
   }
   return hashMap;
+}
+
+/**
+ * Build the correct PipeRun POST/PUT /deals payload fragment for custom
+ * fields. Verified against api.pipe.run (deal 59699720, May 2026):
+ *   { custom_fields: [{ id: 549242, value: "Sim" }, ...] }
+ * Other shapes that LOOK valid but are silently ignored or rejected:
+ *   - hash flat at root (`{ <hash>: value }`)            → 200 but no-op
+ *   - `{ custom_field_id, value }` inside the array      → 422
+ *   - `{ hash, value }` inside the array                 → 422
+ * Only `{ id, value }` actually persists.
+ */
+export function customFieldsToDealPayload(
+  fields: Array<{ custom_field_id: number; value: string }>,
+): Array<{ id: number; value: string }> {
+  return fields
+    .filter((f) => f.custom_field_id && f.value !== undefined && f.value !== null && String(f.value).trim() !== "")
+    .map((f) => ({ id: f.custom_field_id, value: String(f.value) }));
 }
 
 // ─── PipeRun API helpers ───
