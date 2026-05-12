@@ -30,17 +30,23 @@ async function tldvFetch(path: string): Promise<any> {
 
 async function tldvDebugFetch(
   path: string,
-  authMode: "x-api-key" | "bearer" | "api-key" | "authorization-raw",
+  authMode: "x-api-key" | "X-API-Key" | "X-Api-Key" | "bearer" | "api-key" | "authorization-raw" | "query-api-key",
 ): Promise<{ path: string; authMode: string; status: number; ok: boolean; body_preview: string }> {
   const authHeaders =
     authMode === "bearer"
       ? { Authorization: `Bearer ${TLDV_API_KEY}` }
       : authMode === "api-key"
         ? { "api-key": TLDV_API_KEY }
+        : authMode === "X-API-Key"
+          ? { "X-API-Key": TLDV_API_KEY }
+          : authMode === "X-Api-Key"
+            ? { "X-Api-Key": TLDV_API_KEY }
         : authMode === "authorization-raw"
           ? { Authorization: TLDV_API_KEY }
           : { "x-api-key": TLDV_API_KEY };
-  const res = await fetch(`${TLDV_BASE}${path}`, {
+  const sep = path.includes("?") ? "&" : "?";
+  const requestPath = authMode === "query-api-key" ? `${path}${sep}apiKey=${encodeURIComponent(TLDV_API_KEY)}` : path;
+  const res = await fetch(`${TLDV_BASE}${requestPath}`, {
     headers: {
       ...authHeaders,
       "Content-Type": "application/json",
@@ -92,7 +98,8 @@ serve(async (req) => {
       for (const path of ["/meetings", "/meetings?page=1&pageSize=10", "/meetings?page=1"]) {
         attempts.push(await tldvDebugFetch(path, "x-api-key"));
       }
-      for (const authMode of ["bearer", "api-key", "authorization-raw"] as const) {
+      attempts.push(await tldvDebugFetch("/meetings/", "x-api-key"));
+      for (const authMode of ["X-API-Key", "X-Api-Key", "bearer", "api-key", "authorization-raw", "query-api-key"] as const) {
         attempts.push(await tldvDebugFetch("/meetings", authMode));
       }
       return new Response(JSON.stringify({ key_len_raw: TLDV_API_KEY_RAW.length, key_len_trimmed: TLDV_API_KEY.length, attempts }), {
