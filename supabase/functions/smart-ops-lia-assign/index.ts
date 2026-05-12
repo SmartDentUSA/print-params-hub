@@ -361,6 +361,28 @@ async function updatePersonFields(
   console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
   const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
   console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  // Audit log: contact published. Lets retry-cron safety-net detect leads
+  // whose Person card was never refreshed with emails[]/phones[].
+  if (res.success && (updatePayload.emails || updatePayload.phones)) {
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "info",
+        error_type: "piperun_person_contact_published",
+        lead_id: lead.id,
+        lead_email: email,
+        details: {
+          person_id: personId,
+          status: res.status,
+          published_email: Boolean(updatePayload.emails),
+          published_phone: Boolean(updatePayload.phones),
+        },
+      });
+    } catch {}
+  }
 }
 
 /**
