@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
 import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
 import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
+import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomations";
 
 const ACCEPT_BY_TIPO: Record<string, string> = {
   image: "image/*",
@@ -777,6 +778,7 @@ export function SmartOpsCSRules() {
           </div>
         </DialogContent>
       </Dialog>
+      <SmartOpsLiaAutomations />
     </div>
   );
 }
