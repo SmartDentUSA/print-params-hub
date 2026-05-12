@@ -88,12 +88,15 @@ Deno.serve(async (req) => {
     const telefoneRaw = extractField(payload, "phone_number", "phone", "mobile", "telefone", "celular", "user_phone");
     const telefoneNormalized = normalizePhone(telefoneRaw);
 
-    const areaAtuacao = extractField(payload, "area de atuacao", "area_atuacao", "specialty");
-    const especialidade = extractField(payload, "especialidade", "specialty");
+    const areaAtuacao = extractField(payload, "area de atuacao", "area_atuacao", "area_de_atuacao", "atuacao");
+    const especialidade = extractField(payload, "especialidade", "specialty", "especialidade_odontologica");
     const comoDigitaliza = extractField(payload, "como digitaliza", "como_digitaliza", "moldagens");
     const temImpressora = payload.tem_impressora
       ? String(payload.tem_impressora).trim()
-      : extractField(payload, "tem_impressora", "impressoes 3d", "utiliza impressoes", "possui_impressora");
+      : extractField(payload, "tem_impressora", "impressoes 3d", "impressoes_3d", "utiliza impressoes", "possui_impressora", "possui impressora", "impressora");
+    const temScanner = payload.tem_scanner
+      ? String(payload.tem_scanner).trim()
+      : extractField(payload, "tem_scanner", "possui_scanner", "possui scanner", "scanner_intraoral", "tem scanner");
     const impressoraModelo = payload.impressora_modelo
       ? String(payload.impressora_modelo).trim()
       : extractField(payload, "impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora");
@@ -185,7 +188,7 @@ Deno.serve(async (req) => {
       pessoa_facebook: payload.pessoa_facebook || null,
       // Equipamentos extras
       software_cad: payload.software_cad || null,
-      tem_scanner: payload.tem_scanner || null,
+      tem_scanner: temScanner,
       volume_mensal_pecas: payload.volume_mensal_pecas || null,
       principal_aplicacao: payload.principal_aplicacao || null,
       // Comercial
