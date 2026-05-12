@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
 import { isCompanyLikeName } from "../_shared/identity-utils.ts";
+import { fetchDealsContext, type DealsContext } from "../_shared/waleads-messaging.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -811,11 +812,14 @@ async function buildSellerNotification(
     console.warn("[lia-assign] Failed to fetch last question:", e);
   }
 
+  // Enrich with real deal history (current owner, distinct owners, first contact date)
+  const dealsCtx = await fetchDealsContext(supabase, lead);
+
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead);
+    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -824,15 +828,7 @@ async function buildSellerNotification(
 
   // Fallback static texts
   if (!historico) {
-    const parts: string[] = [];
-    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
-    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
-    else parts.push("Sem compras anteriores no e-commerce");
-    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
-    else parts.push("Sem cadastro na plataforma de cursos");
-    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
-    else parts.push("Nunca teve contato com vendedor");
-    historico = parts.join(". ") + ".";
+    historico = buildHistoricoFallback(lead, dealsCtx);
   }
   if (!oportunidade) {
     const parts: string[] = [];
@@ -913,11 +909,14 @@ async function buildDealNoteHTML(
     console.warn("[lia-assign] Failed to fetch last question:", e);
   }
 
+  // Enrich with real deal history (current owner, distinct owners, first contact date)
+  const dealsCtx = await fetchDealsContext(supabase, lead);
+
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead);
+    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -926,15 +925,7 @@ async function buildDealNoteHTML(
 
   // Fallback static texts
   if (!historico) {
-    const parts: string[] = [];
-    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
-    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
-    else parts.push("Sem compras anteriores no e-commerce");
-    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
-    else parts.push("Sem cadastro na plataforma de cursos");
-    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
-    else parts.push("Nunca teve contato com vendedor");
-    historico = parts.join(". ") + ".";
+    historico = buildHistoricoFallback(lead, dealsCtx);
   }
   if (!oportunidade) {
     const parts: string[] = [];
@@ -1059,8 +1050,56 @@ function formatDate(val: unknown): string {
 /**
  * AI generates ONLY historico + oportunidade as JSON.
  */
+function buildHistoricoFallback(
+  lead: Record<string, unknown>,
+  dealsCtx: DealsContext
+): string {
+  const parts: string[] = [];
+  const fc = dealsCtx.firstContactAt || (lead.data_primeiro_contato || lead.created_at) as string | undefined;
+  if (fc) parts.push(`Primeiro contato em ${formatDate(fc)}`);
+  if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
+  else parts.push("Sem compras anteriores no e-commerce");
+  if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
+  else parts.push("Sem cadastro na plataforma de cursos");
+  if (dealsCtx.currentOwner) parts.push(`Vendedor atual: ${dealsCtx.currentOwner}`);
+  if (dealsCtx.distinctOwners.length > 1) parts.push(`Owners no histórico: ${dealsCtx.distinctOwners.join(", ")}`);
+  else if (!dealsCtx.currentOwner && lead.proprietario_lead_crm) parts.push(`Vendedor: ${lead.proprietario_lead_crm}`);
+  else if (!dealsCtx.currentOwner) parts.push("Nunca teve contato com vendedor");
+  if (dealsCtx.total > 0) parts.push(`${dealsCtx.total} deal(s) (${dealsCtx.ganhos} ganhos / ${dealsCtx.perdidos} perdidos / ${dealsCtx.abertos} abertos)`);
+  return parts.join(". ") + ".";
+}
+
+function formatDealsBlockLocal(ctx: DealsContext): string {
+  if (ctx.total === 0) return "Sem deals registrados no histórico.";
+  const header = `Total de deals: ${ctx.total} (${ctx.ganhos} ganhos · ${ctx.perdidos} perdidos · ${ctx.abertos} abertos)`;
+  const owners = ctx.distinctOwners.length > 0
+    ? `Owners distintos no histórico (cronológico): ${ctx.distinctOwners.join(" → ")}`
+    : "Owners distintos no histórico: nenhum registrado";
+  const current = `Vendedor atual: ${ctx.currentOwner || "sem owner"}`;
+  const recent = ctx.recent.map((d) => {
+    const date = d.piperun_created_at ? formatDate(d.piperun_created_at) : "—";
+    return `  - #${d.piperun_deal_id || "?"} — ${d.pipeline_name || "—"} / ${d.stage_name || "—"} — ${d.status || "—"} — ${d.owner_name || "—"} — ${date}`;
+  }).join("\n");
+  return `${header}\n${current}\n${owners}\nDeals (mais recente primeiro):\n${recent}`;
+}
+
+function stripUnknownSellerNamesLocal(text: string, allowedOwners: string[], leadName: string): string {
+  if (!text) return text;
+  const allowed = new Set(allowedOwners.flatMap((o) => o.split(/\s+/)).map((t) => t.toLowerCase()));
+  const leadFirst = (leadName || "").split(/\s+/)[0]?.toLowerCase() || "";
+  const pattern = /\b(vendedor[a]?|sra\.?|sr\.?|dra?\.?)\s+([A-ZÀ-Ý][\wÀ-ÿ]+)(?:\s+([A-ZÀ-Ý][\wÀ-ÿ]+))?/g;
+  return text.replace(pattern, (match, _title, first: string, last?: string) => {
+    const f = first.toLowerCase();
+    const l = (last || "").toLowerCase();
+    if (f === leadFirst) return match;
+    if (allowed.has(f) || (l && allowed.has(l))) return match;
+    return "vendedor anterior";
+  });
+}
+
 async function generateHistoricoOportunidade(
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  dealsCtx?: DealsContext
 ): Promise<{ historico: string; oportunidade: string }> {
   const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
   if (!DEEPSEEK_API_KEY) return { historico: "", oportunidade: "" };
@@ -1088,18 +1127,23 @@ async function generateHistoricoOportunidade(
     } catch {}
   }
 
+  const dealsBlock = dealsCtx ? formatDealsBlockLocal(dealsCtx) : "Sem dados de deals fornecidos.";
+  const firstContactStr = dealsCtx?.firstContactAt
+    ? formatDate(dealsCtx.firstContactAt)
+    : (lead.data_primeiro_contato || lead.created_at || "N/A");
+
   const prompt = `Você é um estrategista comercial sênior. Analise os dados do lead e gere um JSON com 2 campos:
 - "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
 - "oportunidade": Briefing tático para o vendedor contendo: (1) equipamentos e software atuais, (2) objeção provável e como contorná-la, (3) abordagem recomendada e prova social relevante, (4) urgência e motivação
 
 DADOS:
 Nome: ${lead.nome || "N/A"}
-Primeiro contato: ${lead.data_primeiro_contato || lead.created_at || "N/A"}
+Primeiro contato: ${firstContactStr}
 E-commerce ID: ${lead.lojaintegrada_cliente_id || "Sem cadastro"}
 Último pedido: ${lead.lojaintegrada_ultimo_pedido_data || "Nunca"} (R$ ${lead.lojaintegrada_ultimo_pedido_valor || "0"})
 Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos
 Último login cursos: ${lead.astron_last_login_at || "Nunca"}
-Vendedor anterior: ${lead.proprietario_lead_crm || "Nenhum"}
+${dealsBlock}
 Impressora: ${lead.tem_impressora || "N/A"} ${lead.impressora_modelo || ""}
 Scanner: ${lead.tem_scanner || "N/A"}
 Software CAD: ${lead.software_cad || "N/A"}
@@ -1113,6 +1157,9 @@ REGRAS OBRIGATÓRIAS:
 2. Se um dado é "N/A" ou "Nunca", diga "sem informação disponível"
 3. NÃO invente dados que não estejam listados acima
 4. Seja TÁTICO e ACIONÁVEL — diga O QUE FAZER, não só o que aconteceu
+5. Use APENAS owners listados em "Owners distintos no histórico". NÃO invente nomes de vendedores.
+6. Se "Vendedor atual" diferir do mais antigo, mencione explicitamente que houve troca de owner.
+7. Use a data exata em "Primeiro contato". NÃO escolha datas intermediárias.
 
 Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
@@ -1125,10 +1172,10 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
     body: JSON.stringify({
       model: "deepseek-chat",
       messages: [
-        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores que não estejam nos DADOS. Refira-se ao lead como 'o profissional' ou 'o lead', NUNCA use nomes próprios no texto gerado." },
+        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes (de vendedores ou outros), datas ou valores que não estejam nos DADOS. Refira-se ao lead como 'o profissional' ou 'o lead', NUNCA use nomes próprios no texto gerado." },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
+      temperature: 0.2,
       max_tokens: 600,
     }),
     signal: AbortSignal.timeout(12000),
@@ -1159,6 +1206,15 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
     if (typeof parsed.oportunidade === "string") {
       parsed.oportunidade = parsed.oportunidade.replace(nameRegex, "o profissional");
     }
+  }
+
+  // Hallucination guard: strip seller names not in deal owners allowlist
+  const allowed = dealsCtx?.distinctOwners || [];
+  if (typeof parsed.historico === "string") {
+    parsed.historico = stripUnknownSellerNamesLocal(parsed.historico, allowed, String(lead.nome || ""));
+  }
+  if (typeof parsed.oportunidade === "string") {
+    parsed.oportunidade = stripUnknownSellerNamesLocal(parsed.oportunidade, allowed, String(lead.nome || ""));
   }
 
   return {

@@ -11,6 +11,132 @@ const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const BLOCKED_SELLER_NAMES = ["Celular", "Comercial", "Vendas", "Smart Dent"];
 const LIA_SOURCES = ["dra-lia", "whatsapp_lia", "handoff_lia"];
 
+// ─── Deals Context (shared helper) ───
+
+export interface DealRow {
+  piperun_deal_id?: string | number | null;
+  pipeline_name?: string | null;
+  stage_name?: string | null;
+  status?: string | null;
+  owner_name?: string | null;
+  piperun_created_at?: string | null;
+}
+
+export interface DealsContext {
+  total: number;
+  ganhos: number;
+  perdidos: number;
+  abertos: number;
+  currentOwner: string | null;
+  distinctOwners: string[];
+  firstContactAt: string | null;
+  recent: DealRow[];
+}
+
+function classifyStatus(s?: string | null): "ganho" | "perdido" | "aberto" {
+  const v = String(s || "").toLowerCase();
+  if (v.includes("ganh") || v === "won") return "ganho";
+  if (v.includes("perd") || v === "lost") return "perdido";
+  return "aberto";
+}
+
+export async function fetchDealsContext(
+  supabase: SupabaseClient,
+  lead: Record<string, unknown>
+): Promise<DealsContext> {
+  const empty: DealsContext = {
+    total: 0, ganhos: 0, perdidos: 0, abertos: 0,
+    currentOwner: null, distinctOwners: [], firstContactAt: null, recent: [],
+  };
+  try {
+    const leadId = lead.id as string | undefined;
+    if (!leadId) return empty;
+    const { data: deals } = await supabase
+      .from("deals")
+      .select("piperun_deal_id, pipeline_name, stage_name, status, owner_name, piperun_created_at")
+      .eq("lead_id", leadId)
+      .eq("is_deleted", false)
+      .order("piperun_created_at", { ascending: false })
+      .limit(20);
+    const list = (deals || []) as DealRow[];
+    if (list.length === 0) {
+      const fc = (lead.data_primeiro_contato || lead.created_at || null) as string | null;
+      return { ...empty, firstContactAt: fc };
+    }
+    let ganhos = 0, perdidos = 0, abertos = 0;
+    for (const d of list) {
+      const k = classifyStatus(d.status);
+      if (k === "ganho") ganhos++;
+      else if (k === "perdido") perdidos++;
+      else abertos++;
+    }
+    const currentOwner = list[0]?.owner_name || null;
+    // Distinct owners ordered chronologically (oldest -> newest)
+    const chrono = [...list].reverse();
+    const seen = new Set<string>();
+    const distinctOwners: string[] = [];
+    for (const d of chrono) {
+      const o = (d.owner_name || "").trim();
+      if (o && !seen.has(o)) { seen.add(o); distinctOwners.push(o); }
+    }
+    // First contact = MIN(deal.piperun_created_at, lead.data_primeiro_contato, lead.created_at)
+    const candidates: number[] = [];
+    for (const d of list) {
+      if (d.piperun_created_at) {
+        const t = Date.parse(String(d.piperun_created_at));
+        if (!isNaN(t)) candidates.push(t);
+      }
+    }
+    for (const v of [lead.data_primeiro_contato, lead.created_at]) {
+      if (v) {
+        const t = Date.parse(String(v));
+        if (!isNaN(t)) candidates.push(t);
+      }
+    }
+    const firstContactAt = candidates.length > 0
+      ? new Date(Math.min(...candidates)).toISOString()
+      : null;
+    return {
+      total: list.length, ganhos, perdidos, abertos,
+      currentOwner, distinctOwners, firstContactAt,
+      recent: list.slice(0, 5),
+    };
+  } catch (e) {
+    console.warn("[waleads-messaging] fetchDealsContext failed:", e);
+    return empty;
+  }
+}
+
+function formatDealsBlock(ctx: DealsContext): string {
+  if (ctx.total === 0) return "Sem deals registrados no histórico.";
+  const header = `Total de deals: ${ctx.total} (${ctx.ganhos} ganhos · ${ctx.perdidos} perdidos · ${ctx.abertos} abertos)`;
+  const owners = ctx.distinctOwners.length > 0
+    ? `Owners distintos no histórico (cronológico): ${ctx.distinctOwners.join(" → ")}`
+    : "Owners distintos no histórico: nenhum registrado";
+  const current = `Vendedor atual: ${ctx.currentOwner || "sem owner"}`;
+  const recent = ctx.recent.map((d) => {
+    const date = d.piperun_created_at ? formatDate(d.piperun_created_at) : "—";
+    return `  - #${d.piperun_deal_id || "?"} — ${d.pipeline_name || "—"} / ${d.stage_name || "—"} — ${d.status || "—"} — ${d.owner_name || "—"} — ${date}`;
+  }).join("\n");
+  return `${header}\n${current}\n${owners}\nDeals (mais recente primeiro):\n${recent}`;
+}
+
+// Strip sentences that cite seller names not in the allowlist (deal owners).
+function stripUnknownSellerNames(text: string, allowedOwners: string[], leadName: string): string {
+  if (!text) return text;
+  const allowed = new Set(allowedOwners.flatMap((o) => o.split(/\s+/)).map((t) => t.toLowerCase()));
+  const leadFirst = (leadName || "").split(/\s+/)[0]?.toLowerCase() || "";
+  // Pattern: "vendedor[a] Fulano [Sobrenome]" or "Sra/Sr/Dr/Dra Fulano"
+  const pattern = /\b(vendedor[a]?|sra\.?|sr\.?|dra?\.?)\s+([A-ZÀ-Ý][\wÀ-ÿ]+)(?:\s+([A-ZÀ-Ý][\wÀ-ÿ]+))?/g;
+  return text.replace(pattern, (match, _title, first: string, last?: string) => {
+    const f = first.toLowerCase();
+    const l = (last || "").toLowerCase();
+    if (f === leadFirst) return match; // lead-name handler runs separately
+    if (allowed.has(f) || (l && allowed.has(l))) return match;
+    return "vendedor anterior";
+  });
+}
+
 export async function sendWaLeadsMessage(
   supabaseUrl: string,
   serviceKey: string,
@@ -139,11 +265,14 @@ export async function buildSellerNotification(
     console.warn("[waleads-messaging] Failed to fetch last question:", e);
   }
 
+  // Enrich with real deal history
+  const dealsCtx = await fetchDealsContext(supabase, lead);
+
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead);
+    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -153,13 +282,17 @@ export async function buildSellerNotification(
   // Fallback static texts
   if (!historico) {
     const parts: string[] = [];
-    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
+    const fc = dealsCtx.firstContactAt || (lead.data_primeiro_contato || lead.created_at) as string | undefined;
+    if (fc) parts.push(`Primeiro contato em ${formatDate(fc)}`);
     if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
     else parts.push("Sem compras anteriores no e-commerce");
     if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
     else parts.push("Sem cadastro na plataforma de cursos");
-    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
-    else parts.push("Nunca teve contato com vendedor");
+    if (dealsCtx.currentOwner) parts.push(`Vendedor atual: ${dealsCtx.currentOwner}`);
+    if (dealsCtx.distinctOwners.length > 1) parts.push(`Owners no histórico: ${dealsCtx.distinctOwners.join(", ")}`);
+    else if (!dealsCtx.currentOwner && lead.proprietario_lead_crm) parts.push(`Vendedor: ${lead.proprietario_lead_crm}`);
+    else if (!dealsCtx.currentOwner) parts.push("Nunca teve contato com vendedor");
+    if (dealsCtx.total > 0) parts.push(`${dealsCtx.total} deal(s) (${dealsCtx.ganhos} ganhos / ${dealsCtx.perdidos} perdidos / ${dealsCtx.abertos} abertos)`);
     historico = parts.join(". ") + ".";
   }
   if (!oportunidade) {
@@ -213,8 +346,9 @@ function formatDate(val: unknown): string {
   } catch { return String(val).slice(0, 10); }
 }
 
-async function generateHistoricoOportunidade(
-  lead: Record<string, unknown>
+export async function generateHistoricoOportunidade(
+  lead: Record<string, unknown>,
+  dealsCtx?: DealsContext
 ): Promise<{ historico: string; oportunidade: string }> {
   const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
   if (!DEEPSEEK_API_KEY) return { historico: "", oportunidade: "" };
@@ -224,18 +358,23 @@ async function generateHistoricoOportunidade(
     ? `\nAnálise Cognitiva: Perfil=${cognitive.psychological_profile || "N/A"}, Motivação=${cognitive.primary_motivation || "N/A"}, Objeção=${cognitive.objection_risk || "N/A"}, Estágio=${cognitive.lead_stage_detected || "N/A"}, Trajetória=${cognitive.stage_trajectory || "N/A"}`
     : "";
 
+  const dealsBlock = dealsCtx ? formatDealsBlock(dealsCtx) : "Sem dados de deals fornecidos.";
+  const firstContactStr = dealsCtx?.firstContactAt
+    ? formatDate(dealsCtx.firstContactAt)
+    : (lead.data_primeiro_contato || lead.created_at || "N/A");
+
   const prompt = `Você é um estrategista comercial sênior. Analise os dados do lead e gere um JSON com 2 campos:
 - "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
 - "oportunidade": Briefing tático para o vendedor contendo: (1) equipamentos e software atuais, (2) objeção provável e como contorná-la, (3) abordagem recomendada e prova social relevante, (4) urgência e motivação
 
 DADOS:
 Nome: ${lead.nome || "N/A"}
-Primeiro contato: ${lead.data_primeiro_contato || lead.created_at || "N/A"}
+Primeiro contato: ${firstContactStr}
 E-commerce ID: ${lead.lojaintegrada_cliente_id || "Sem cadastro"}
 Último pedido: ${lead.lojaintegrada_ultimo_pedido_data || "Nunca"} (R$ ${lead.lojaintegrada_ultimo_pedido_valor || "0"})
 Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos
 Último login cursos: ${lead.astron_last_login_at || "Nunca"}
-Vendedor anterior: ${lead.proprietario_lead_crm || "Nenhum"}
+${dealsBlock}
 Impressora: ${lead.tem_impressora || "N/A"} ${lead.impressora_modelo || ""}
 Scanner: ${lead.tem_scanner || "N/A"}
 Software CAD: ${lead.software_cad || "N/A"}
@@ -244,7 +383,13 @@ Motivação: ${lead.primary_motivation || "N/A"}
 Risco objeção: ${lead.objection_risk || "N/A"}
 Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}
 
-REGRAS: NÃO use o nome do lead. Retorne APENAS JSON: {"historico":"...","oportunidade":"..."}`;
+REGRAS OBRIGATÓRIAS:
+- Use APENAS os fatos listados em DADOS. NÃO invente nomes de vendedores, datas ou valores.
+- NÃO use o nome do lead — diga "o profissional" ou "o lead".
+- Se houver mais de um owner em "Owners distintos", mencione cada um claramente.
+- Se "Vendedor atual" diferir do mais antigo da lista, deixe explícito que houve troca de owner.
+- Use a data exata em "Primeiro contato" — não escolha datas intermediárias.
+Retorne APENAS JSON: {"historico":"...","oportunidade":"..."}`;
 
   const res = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
@@ -255,10 +400,10 @@ REGRAS: NÃO use o nome do lead. Retorne APENAS JSON: {"historico":"...","oportu
     body: JSON.stringify({
       model: "deepseek-chat",
       messages: [
-        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. NÃO use nomes próprios." },
+        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores." },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
+      temperature: 0.2,
       max_tokens: 600,
     }),
     signal: AbortSignal.timeout(12000),
@@ -284,6 +429,15 @@ REGRAS: NÃO use o nome do lead. Retorne APENAS JSON: {"historico":"...","oportu
     const nameRegex = new RegExp(`\\b${leadNome}\\b`, "gi");
     if (typeof parsed.historico === "string") parsed.historico = parsed.historico.replace(nameRegex, "o profissional");
     if (typeof parsed.oportunidade === "string") parsed.oportunidade = parsed.oportunidade.replace(nameRegex, "o profissional");
+  }
+
+  // Hallucination guard: strip seller names not in deal owners allowlist
+  const allowed = dealsCtx?.distinctOwners || [];
+  if (typeof parsed.historico === "string") {
+    parsed.historico = stripUnknownSellerNames(parsed.historico, allowed, String(lead.nome || ""));
+  }
+  if (typeof parsed.oportunidade === "string") {
+    parsed.oportunidade = stripUnknownSellerNames(parsed.oportunidade, allowed, String(lead.nome || ""));
   }
 
   return {
