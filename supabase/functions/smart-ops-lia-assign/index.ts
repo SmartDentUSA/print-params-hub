@@ -1904,6 +1904,34 @@ Deno.serve(async (req) => {
       if (cachedCheck.exists) {
         if (cachedCheck.company_id) companyId = cachedCheck.company_id;
         console.log(`[lia-assign] Cached person ${personId} validated via GET (hasContact=${cachedCheck.hasContact})`);
+        // If the cached Person is a "ghost" (no email/phone), try to swap it
+        // for the rightful owner BEFORE we attempt updatePersonFields. The
+        // swap avoids both ghost proliferation and PipeRun's silent reject.
+        if (!cachedCheck.hasContact) {
+          try {
+            const { findPersonExpanded } = await import("../_shared/piperun-person-resolver.ts");
+            const owner = await findPersonExpanded(PIPERUN_API_KEY, {
+              email: leadEmail || null,
+              phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
+              name: (lead.nome as string | null) ?? null,
+            });
+            if (owner && owner.id !== personId) {
+              console.warn(`[lia-assign] Swapping empty cached person ${personId} → owner ${owner.id} via ${owner.matched_via}`);
+              try {
+                await supabase.from("system_health_logs").insert({
+                  function_name: "smart-ops-lia-assign",
+                  severity: "warning",
+                  error_type: "piperun_person_swapped_empty_to_owner",
+                  lead_id: lead.id,
+                  lead_email: leadEmail,
+                  details: { previous_person_id: personId, new_person_id: owner.id, matched_via: owner.matched_via, stage: "cached_check" },
+                });
+              } catch {}
+              personId = owner.id;
+              if (owner.company_id) companyId = owner.company_id;
+            }
+          } catch (e) { console.warn("[lia-assign] expanded-swap (cached) error:", e); }
+        }
       } else {
         console.warn(`[lia-assign] Cached person ${personId} truly missing in PipeRun, re-resolving`);
         const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
@@ -1912,17 +1940,45 @@ Deno.serve(async (req) => {
           companyId = fallback.company_id || companyId;
         } else {
           personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-lia-assign",
+              severity: "info",
+              error_type: "piperun_person_created_path",
+              lead_id: lead.id,
+              lead_email: leadEmail,
+              details: { via: "cache_missing_no_fallback", new_person_id: personId, previous_cached_id: lead.pessoa_piperun_id ?? null },
+            });
+          } catch {}
         }
       }
     } else {
-      const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
-      if (existingPerson) {
-        personId = existingPerson.id;
-        companyId = existingPerson.company_id || companyId;
-        console.log(`[lia-assign] Found existing person: ${personId}, company: ${companyId}`);
+      // Use expanded resolver (strict + name + localpart) so we don't keep
+      // creating ghost Persons when PipeRun's native Meta integration owns
+      // the email/phone in a card that doesn't respond to strict filters.
+      const { findPersonExpanded } = await import("../_shared/piperun-person-resolver.ts");
+      const existing = await findPersonExpanded(PIPERUN_API_KEY, {
+        email: leadEmail || null,
+        phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
+        name: (lead.nome as string | null) ?? null,
+      });
+      if (existing) {
+        personId = existing.id;
+        companyId = existing.company_id || companyId;
+        console.log(`[lia-assign] Found existing person via expanded: ${personId} (${existing.matched_via}), company: ${companyId}`);
       } else {
         personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
         console.log(`[lia-assign] Created new person: ${personId}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "info",
+            error_type: "piperun_person_created_path",
+            lead_id: lead.id,
+            lead_email: leadEmail,
+            details: { via: "no_match_after_expanded", new_person_id: personId },
+          });
+        } catch {}
       }
     }
 
@@ -2078,6 +2134,7 @@ Deno.serve(async (req) => {
               await supabase
                 .from("lia_attendances")
                 .update({
+                  pessoa_piperun_id: personId,
                   crm_creation_blocked: true,
                   crm_creation_blocked_reason: "empty_person_in_piperun",
                 })

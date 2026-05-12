@@ -116,6 +116,95 @@ export async function findPersonByContact(
 }
 
 /**
+ * Expanded resolver — used when the strict contact filter misses the
+ * "ghost" Person that PipeRun's native Meta Lead Ads integration creates
+ * (the Person card has the email/phone in raw fields that don't respond
+ * to `emails[email]`/`phones[phone]` filters but still cause the PUT to
+ * be silently rejected).
+ *
+ * Cascade:
+ *  1) findPersonByContact (strict).
+ *  2) GET /persons?search=<name>     → match if name OR email OR phone matches.
+ *  3) GET /persons?search=<localpart> → match if email OR phone matches.
+ *
+ * Returned Person is the one whose card actually owns the contact (i.e. has
+ * non-empty email or phone). Empty cards are ignored on purpose.
+ */
+export async function findPersonExpanded(
+  apiToken: string,
+  args: { email: string | null; phone: string | null; name: string | null },
+): Promise<{ id: number; company_id: number | null; matched_via: string } | null> {
+  const { email, phone, name } = args;
+
+  const strict = await findPersonByContact(apiToken, email, phone);
+  if (strict) return strict;
+
+  const lowerEmail = norm(email);
+  const phoneDigits = digits(phone);
+  const lowerName = norm(name);
+
+  const evaluate = (
+    items: Array<Record<string, unknown>> | undefined,
+    matchedVia: string,
+    requireContact: boolean,
+  ) => {
+    if (!items?.length) return null;
+    for (const p of items) {
+      const emails = ((p.emails as Array<Record<string, unknown>> | undefined) || [])
+        .map((e) => norm(String(e.email || ""))).filter(Boolean);
+      const phones = ((p.phones as Array<Record<string, unknown>> | undefined) || [])
+        .map((ph) => digits(String(ph.phone || ""))).filter(Boolean);
+      const pname = norm(String(p.name || ""));
+      const emailHit = lowerEmail && emails.includes(lowerEmail);
+      const phoneHit = phoneDigits && phones.some((c) =>
+        c === phoneDigits ||
+        (c.length >= 11 && phoneDigits.endsWith(c)) ||
+        (phoneDigits.length >= 11 && c.endsWith(phoneDigits))
+      );
+      const nameHit = lowerName && pname && pname === lowerName;
+      if (!emailHit && !phoneHit && !nameHit) continue;
+      if (requireContact && emails.length === 0 && phones.length === 0) continue;
+      if (!p.id) continue;
+      return {
+        id: Number(p.id),
+        company_id: p.company_id ? Number(p.company_id) : null,
+        matched_via: matchedVia + (emailHit ? "+email" : "") + (phoneHit ? "+phone" : "") + (nameHit ? "+name" : ""),
+      };
+    }
+    return null;
+  };
+
+  // 2) name search
+  if (lowerName && lowerName.length >= 3) {
+    try {
+      const res = await piperunGet(apiToken, "persons", { search: name as string, show: 50 });
+      if (res.success) {
+        const items = (res.data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+        const hit = evaluate(items, "name_search", /*requireContact*/ true);
+        if (hit) return hit;
+      }
+    } catch (e) { console.warn("[piperun-resolver] name_search error:", e); }
+  }
+
+  // 3) email localpart search
+  if (lowerEmail && lowerEmail.includes("@")) {
+    const localpart = lowerEmail.split("@")[0];
+    if (localpart && localpart.length >= 3) {
+      try {
+        const res = await piperunGet(apiToken, "persons", { search: localpart, show: 50 });
+        if (res.success) {
+          const items = (res.data as Record<string, unknown>)?.data as Array<Record<string, unknown>> | undefined;
+          const hit = evaluate(items, "localpart_search", /*requireContact*/ true);
+          if (hit) return hit;
+        }
+      } catch (e) { console.warn("[piperun-resolver] localpart_search error:", e); }
+    }
+  }
+
+  return null;
+}
+
+/**
  * GET the person and check if emails/phones actually landed.
  */
 export async function getPersonContact(
