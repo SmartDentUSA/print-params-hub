@@ -380,7 +380,27 @@ async function updatePersonFields(
   // stays empty until we backfill from the CDP.
   const updatePayload: Record<string, unknown> = {};
   if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
-  if (email && !isFakeEmail(email)) updatePayload.emails = [{ email }];
+  // TLD guard: strip emails with invalid TLDs (".TYPO", ".local", typos like
+  // ".gmil"). PipeRun silently rejects them, leaving the Person card empty.
+  const { isValidEmailTld: _isValidTld } = await import("../_shared/piperun-person-resolver.ts");
+  if (email && !isFakeEmail(email) && _isValidTld(email)) {
+    updatePayload.emails = [{ email }];
+  } else if (email && !isFakeEmail(email)) {
+    console.warn(`[lia-assign] SKIP email PUT — invalid TLD: ${email}`);
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "lead_email_invalid_tld_skipped",
+        lead_id: lead.id,
+        lead_email: email,
+        details: { person_id: personId, stage: "updatePersonFields" },
+      });
+    } catch {}
+  }
   if (phone) {
     updatePayload.phones = [{ phone }];
     updatePayload.cellphone = phone;
