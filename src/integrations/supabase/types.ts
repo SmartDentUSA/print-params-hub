@@ -1390,6 +1390,8 @@ export type Database = {
           evolution_ativo: boolean | null
           horario_fim: string | null
           horario_inicio: string | null
+          ia_instrucoes: string | null
+          ia_tom: string | null
           id: string
           manychat_ativo: boolean | null
           media_caption: string | null
@@ -1403,6 +1405,7 @@ export type Database = {
           template_manychat: string | null
           tipo: string | null
           trigger_event: string | null
+          usar_ia: boolean | null
           waleads_ativo: boolean | null
           waleads_media_caption: string | null
           waleads_media_url: string | null
@@ -1417,6 +1420,8 @@ export type Database = {
           evolution_ativo?: boolean | null
           horario_fim?: string | null
           horario_inicio?: string | null
+          ia_instrucoes?: string | null
+          ia_tom?: string | null
           id?: string
           manychat_ativo?: boolean | null
           media_caption?: string | null
@@ -1430,6 +1435,7 @@ export type Database = {
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
+          usar_ia?: boolean | null
           waleads_ativo?: boolean | null
           waleads_media_caption?: string | null
           waleads_media_url?: string | null
@@ -1444,6 +1450,8 @@ export type Database = {
           evolution_ativo?: boolean | null
           horario_fim?: string | null
           horario_inicio?: string | null
+          ia_instrucoes?: string | null
+          ia_tom?: string | null
           id?: string
           manychat_ativo?: boolean | null
           media_caption?: string | null
@@ -1457,6 +1465,7 @@ export type Database = {
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
+          usar_ia?: boolean | null
           waleads_ativo?: boolean | null
           waleads_media_caption?: string | null
           waleads_media_url?: string | null

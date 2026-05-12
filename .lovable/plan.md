@@ -1,70 +1,46 @@
-## Objetivo
+## Problema
 
-Expandir o modal "Nova Automação" (`src/components/SmartOpsCSRules.tsx`) com (1) seção de Horário de Envio, (2) seção genérica de Tipo de Mensagem (já que `tipo`/`media_*` são campos top-level, distintos dos `waleads_*`), e (3) enriquecer o card da regra com horário, ícone do tipo e preview da mensagem fora-do-horário.
+O lead **Dr.Valente / Dentista Macapa** está no deal PipeRun **59697957** (não `59698741` — esse é do Jonathan, outro lead do mesmo formulário). Em ambos, os custom fields do PipeRun (`Tem scanner`, `Tem impressora`, `Whatsapp`, `Produto de interesse`, `Área de Atuação`) aparecem como "Adicionar valor", apesar de:
 
-## Schema (já existe — sem migração)
+- `form_data.BLZ- Smart Dent.raw_fields` conter todos os valores.
+- `lia_attendances.tem_scanner = "não"`, `tem_impressora = "não"`, `produto_interesse = "BLZ Ino200"`, `area_atuacao = "CLÍNICA OU CONSULTÓRIO"` já estarem populados.
 
-`cs_automation_rules` já contém: `horario_inicio time`, `horario_fim time`, `dias_semana int[]`, `enviar_fora_horario bool`, `mensagem_fora_horario text`, `tipo text`, `media_url text`, `media_caption text`, `media_filename text`.
+## Causa raiz
 
-## Mudanças em `SmartOpsCSRules.tsx`
+Dois fatores cumulativos:
 
-### 1. Constantes e estado
+1. **Race condition de timing**: o deal foi criado via integração nativa Meta→PipeRun (origem "» BLZ- Smart Dent", diferente de `Dra. L.I.A.` que o `createNewDeal` aplicaria). Quando `smart-ops-lia-assign` rodou em seguida e chamou `updateExistingDeal` no deal já existente, as colunas top-level (`tem_scanner` etc.) podiam ainda não estar promovidas a partir de `form_data` pelo ingest dinâmico. Resultado: `mapAttendanceToDealCustomFields(lead)` devolveu array vazio e o PUT não enviou hash_fields.
+2. **Sem fallback no mapper**: `mapAttendanceToDealCustomFields` em `_shared/piperun-field-map.ts` só lê de `lead.<col>` top-level; não usa `lead.form_data.<form_name>.raw_fields` como fallback.
 
-- Adicionar constante `DIAS_SEMANA = [{v:1,l:"Seg"},{v:2,l:"Ter"},...,{v:0,l:"Dom"}]` (ISO: Seg=1 … Sáb=6, Dom=0).
-- Adicionar constante `TIPOS_MENSAGEM` reaproveitando `WALEADS_TIPOS` (mesma lista) com ícones: `text→💬, image→🖼️, audio→🎵, video→🎥, document→📄`. Helper `tipoIcon(t)`.
-- Estender `interface Rule` com: `horario_inicio: string|null; horario_fim: string|null; dias_semana: number[]|null; enviar_fora_horario: boolean; mensagem_fora_horario: string|null; media_url: string|null; media_caption: string|null; media_filename: string|null;`.
-- Estender `defaultForm` com os defaults: `horario_inicio: "08:00", horario_fim: "18:00", dias_semana: [1,2,3,4,5], enviar_fora_horario: false, mensagem_fora_horario: "", media_url: "", media_caption: "", media_filename: ""` e `tipo: "text"` (já existe).
-- `openEdit` carrega esses campos do registro (com fallback aos defaults; `horario_inicio` precisa ser convertido `"08:00:00" → "08:00"` via `slice(0,5)`).
+## Correção
 
-### 2. Persistência
+### 1. Resiliência no mapper (cobre todos os leads futuros, não só Meta)
+Em `supabase/functions/_shared/piperun-field-map.ts`, dentro de `mapAttendanceToDealCustomFields`:
 
-- `handleSave` adiciona ao payload os 8 campos novos (vazios viram `null` para textos; `dias_semana` sempre array; horários sempre HH:MM:00 — Postgres aceita HH:MM).
+- Antes do return, se algum dos campos prioritários (`tem_scanner`, `tem_impressora`, `produto_interesse`, `area_atuacao`, `especialidade`) ainda não foi adicionado, varrer `attendance.form_data` (qualquer chave de form, qualquer `raw_fields`/`responses`) buscando os mesmos nomes (case-insensitive, sinônimos: `tem_scanner|scanner`, `tem_impressora|impressora`, `produto|produto_interesse|equipamento`, `area_atuacao|area_de_atuacao`, `especialidade`).
+- Normalizar valores de área (UPPER → Capitalized) e produto (trim).
+- Logar quais campos vieram do fallback para auditoria.
 
-### 3. Bloco "Horário de Envio" no modal
+Efeito imediato: na próxima execução de qualquer fluxo que use esse mapper (lia-assign retry, piperun-retry-failed-leads, sync periódico), os custom_fields serão enviados ao PipeRun mesmo se a race condition recorrer.
 
-Inserir nova seção entre o cabeçalho e a seção ManyChat (antes do primeiro `<Separator />`):
-- Label "🕐 Horário de Envio".
-- Linha "Enviar entre" com dois `<Input type="time">` ligados a `horario_inicio` e `horario_fim`.
-- Grid de 7 chips clicáveis (Toggle visual via `Badge` ou `Button variant=outline/secondary`) representando dias da semana — clicar adiciona/remove de `dias_semana`. Itens visualmente destacados quando incluídos.
-- Switch "Enviar mensagem fora do horário" (`enviar_fora_horario`).
-- Quando ON, exibe `<Textarea>` "Mensagem fora do horário" ligada a `mensagem_fora_horario` com placeholder fornecido.
-- Adicionar `<Separator />` ao final.
+### 2. Backfill direcionado
+Criar uma edge function nova: `supabase/functions/smart-ops-piperun-backfill-customfields/index.ts`.
 
-### 4. Bloco "Tipo de Mensagem (geral)" no modal
+- Aceita `{ dry_run?: boolean, lead_ids?: string[], since?: ISO, limit?: number }`.
+- Query: `lia_attendances` onde `merged_into IS NULL` AND `piperun_id IS NOT NULL` AND (`piperun_custom_fields IS NULL OR piperun_custom_fields = '[]'::jsonb`) AND (`tem_scanner IS NOT NULL OR tem_impressora IS NOT NULL OR produto_interesse IS NOT NULL OR area_atuacao IS NOT NULL OR form_data IS NOT NULL`). Default `since = now() - 90 days`, `limit = 500`.
+- Para cada lead: chamar `mapAttendanceToDealCustomFields` (já com novo fallback) → `customFieldsToHashMap` → `piperunPut('deals/{piperun_id}', hashFields)`.
+- Se Person tiver custom fields também (`PESSOA_*` aceitos), enviar via `piperunPut('persons/{pessoa_piperun_id}', ...)`.
+- Atualizar `lia_attendances.piperun_custom_fields` localmente após sucesso (para refletir o estado).
+- Logar resultado por lead em `lia_attendances_logs` ou retornar JSON.
+- Rodar `dry_run: true` primeiro, depois `dry_run: false`.
 
-Adicionar `<Select>` para `form.tipo` com opções de `WALEADS_TIPOS` (label "Tipo geral da mensagem"). Posicionar logo após a seção de Horário (acima de ManyChat) — explicando em help text que esse tipo determina os campos de mídia compartilhados pelos canais.
+Casos confirmados que serão corrigidos pelo backfill: deal **59697957** (Dr.Valente) e **59698741** (Jonathan), além de todos os outros leads vindos de "BLZ- Smart Dent" e formulários Meta similares dos últimos 90 dias.
 
-Quando `form.tipo !== "text"`, renderizar:
-- `<Input>` "URL da mídia" → `media_url`.
-- `<Input>` "Legenda" → `media_caption`.
-- Se `form.tipo === "document"`: `<Input>` "Nome do arquivo" → `media_filename` (placeholder `proposta.pdf`).
-- Bloco preview condicional:
-  - `image`: `<img src={media_url} className="max-h-32 rounded border" />`
-  - `audio`: `<audio controls src={media_url} className="w-full" />`
-  - `video`: `<video controls src={media_url} className="max-h-32 rounded border" />`
-  - `document`: `<div>📄 {media_filename || "arquivo"}</div>`
-- Renderizar preview apenas com `onError` swallow para não quebrar layout em URL inválida.
-
-Não removo nem mexo na seção WaLeads existente — `waleads_tipo`/`waleads_media_*` continuam como campos específicos do canal.
-
-### 5. Card da regra (`renderRuleCard`)
-
-Adicionar uma terceira linha de meta dentro do `CardContent` (acima dos canais):
-- Texto "{horario_inicio?.slice(0,5)}–{horario_fim?.slice(0,5)} · {formatDias(dias_semana)}". Helper `formatDias`: se contém `[1..5]` exatos → "Seg–Sex"; se inclui 0 e 6 também → "Todos os dias"; senão lista abreviada `Seg, Qua, Sex`.
-- Ícone do tipo geral: `{tipoIcon(r.tipo)} {WALEADS_TIPOS.find(t=>t.value===r.tipo)?.label}`.
-- Se `r.enviar_fora_horario && r.mensagem_fora_horario`: nova linha `⏰ Fora do horário: <preview 60 chars>` em texto muted.
-
-Esses campos só aparecem quando preenchidos (graceful para regras antigas onde os campos vêm null).
-
-## Validação
-
-1. Abrir modal "Nova Automação" para um membro: confirmar inputs de horário, chips de dias, toggle e textarea condicional, selector de tipo geral com previews por tipo.
-2. Editar regra existente: verificar carregamento dos defaults e formato HH:MM nos time inputs.
-3. Salvar e reabrir: confirmar persistência de todos os 8 campos novos via SELECT em `cs_automation_rules`.
-4. Card da regra: deve exibir "08:00–18:00 · Seg–Sex" e ícone do tipo. Para regra com `enviar_fora_horario=true` e mensagem preenchida, mostrar o aviso `⏰ Fora do horário: …`.
+### 3. Memória
+Atualizar `mem://integration/piperun-sync-spec-v6` (ou criar `mem://integration/piperun-customfields-resilience`) registrando que `mapAttendanceToDealCustomFields` faz fallback em `form_data` e que existe a edge `smart-ops-piperun-backfill-customfields`.
 
 ## Fora de escopo
 
-- Implementar a lógica de fila/dispatch fora-do-horário no backend (somente UI agora).
-- Upload de mídia (apenas URL pública por enquanto).
-- Migração de dados (todos os campos já existem com defaults adequados).
+- Eliminar a race condition na origem (mudar o ingest dinâmico para promover colunas síncronamente antes do lia-assign).
+- Reescrever o webhook Meta para criar Deals via nossa API (atualmente o PipeRun cria o Deal via integração nativa).
+- Custom fields da Person (PESSOA_*) que o PipeRun rejeita com 422 (já desabilitado).
