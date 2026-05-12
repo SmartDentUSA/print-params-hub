@@ -28,38 +28,30 @@ Deno.serve(async (req) => {
         deal_fields: all.filter((f) => f.belongs === 1).map((f) => ({ id: f.id, name: f.name, hash: f.hash, type: f.type })),
       }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    // Test 4 different payload shapes to find what PipeRun actually persists
+    // Test multiple payload shapes against the EXISTING field "Tem scanner" (549242)
+    const FIELD_ID = 549242;
+    const FIELD_HASH = "cd2c1cc55889d78f63ed0ff639e6ecbb";
     const shapes: Array<{ name: string; body: Record<string, unknown> }> = [
-      {
-        name: "A_flat_hash",
-        body: { f7dc3e9b085802a19fcd444e46e69637: "+5581996391671_A" },
-      },
-      {
-        name: "B_array_objects",
-        body: { custom_fields: [{ custom_field_id: 549150, value: "+5581996391671_B" }] },
-      },
-      {
-        name: "C_hash_object",
-        body: { custom_fields: { f7dc3e9b085802a19fcd444e46e69637: "+5581996391671_C" } },
-      },
-      {
-        name: "D_id_keyed",
-        body: { custom_fields: { "549150": "+5581996391671_D" } },
-      },
+      { name: "E_flat_hash_only", body: { [FIELD_HASH]: "TEST_E" } },
+      { name: "F_array_value", body: { custom_fields: [{ custom_field_id: FIELD_ID, value: "TEST_F" }] } },
+      { name: "G_array_values", body: { custom_fields: [{ custom_field_id: FIELD_ID, values: "TEST_G" }] } },
+      { name: "H_array_id", body: { custom_fields: [{ id: FIELD_ID, value: "TEST_H" }] } },
+      { name: "I_array_hash_value", body: { custom_fields: [{ hash: FIELD_HASH, value: "TEST_I" }] } },
+      { name: "J_array_field_value", body: { custom_fields: [{ field_id: FIELD_ID, value: "TEST_J" }] } },
     ];
     for (const s of shapes) {
       const r = await piperunPut(KEY, `deals/${dealId}`, s.body);
       // Read back
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 600));
       const after = await piperunGet(KEY, `deals/${dealId}`, {}, { "with[]": ["customFields"] });
       const data = (after.data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
       const fields = (data?.customFields as Array<Record<string, unknown>> | undefined) || [];
-      const wa = fields.find((f) => Number(f.id) === 549150);
+      const probe = fields.find((f) => Number(f.id) === FIELD_ID);
       out[s.name] = {
         put_status: r.status,
         put_success: r.success,
-        put_response_excerpt: JSON.stringify(r.data).slice(0, 400),
-        whatsapp_after: wa?.value ?? "(missing)",
+        put_response_excerpt: JSON.stringify(r.data).slice(0, 600),
+        scanner_after: probe?.value ?? "(missing)",
       };
     }
     return new Response(JSON.stringify(out, null, 2), {
