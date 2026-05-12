@@ -285,6 +285,13 @@ export type Database = {
             foreignKeyName: "agent_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -646,6 +653,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "campaign_send_log_lead_id_fkey"
@@ -1609,6 +1623,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -1744,6 +1765,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deal_status_history_lead_id_fkey"
@@ -1989,6 +2017,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deals_lead_id_fkey"
@@ -2683,6 +2718,13 @@ export type Database = {
             foreignKeyName: "interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -2845,6 +2887,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "involve_me_sync_control_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "involve_me_sync_control_lead_id_fkey"
@@ -3650,6 +3699,13 @@ export type Database = {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -3833,6 +3889,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_cart_history_lead_id_fkey"
@@ -4029,6 +4092,13 @@ export type Database = {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -4218,6 +4288,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_course_progress_lead_id_fkey"
@@ -4450,6 +4527,13 @@ export type Database = {
             foreignKeyName: "lead_form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -4647,6 +4731,13 @@ export type Database = {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -4825,6 +4916,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_page_views_lead_id_fkey"
@@ -5039,6 +5137,13 @@ export type Database = {
             foreignKeyName: "lead_product_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -5248,6 +5353,13 @@ export type Database = {
             foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -5419,6 +5531,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_state_events_lead_id_fkey"
@@ -7139,6 +7258,13 @@ export type Database = {
             foreignKeyName: "lia_attendances_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -7406,6 +7532,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "message_logs_lead_id_fkey"
@@ -7750,6 +7883,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -7938,6 +8078,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "omie_notas_servico_lead_id_fkey"
@@ -8137,6 +8284,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
@@ -8810,6 +8964,189 @@ export type Database = {
         }
         Relationships: []
       }
+      piperun_stage_transitions: {
+        Row: {
+          created_at: string | null
+          deal_id: string | null
+          deal_status: number | null
+          etapa_from: string | null
+          etapa_to: string | null
+          id: string
+          lead_id: string | null
+          owner_id: number | null
+          owner_name: string | null
+          pipeline_id: number | null
+          pipeline_name: string | null
+          source: string | null
+          stage_from_id: number | null
+          stage_from_name: string | null
+          stage_to_id: number | null
+          stage_to_name: string | null
+          transitioned_at: string
+          trigger_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id?: string | null
+          deal_status?: number | null
+          etapa_from?: string | null
+          etapa_to?: string | null
+          id?: string
+          lead_id?: string | null
+          owner_id?: number | null
+          owner_name?: string | null
+          pipeline_id?: number | null
+          pipeline_name?: string | null
+          source?: string | null
+          stage_from_id?: number | null
+          stage_from_name?: string | null
+          stage_to_id?: number | null
+          stage_to_name?: string | null
+          transitioned_at?: string
+          trigger_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string | null
+          deal_status?: number | null
+          etapa_from?: string | null
+          etapa_to?: string | null
+          id?: string
+          lead_id?: string | null
+          owner_id?: number | null
+          owner_name?: string | null
+          pipeline_id?: number | null
+          pipeline_name?: string | null
+          source?: string | null
+          stage_from_id?: number | null
+          stage_from_name?: string | null
+          stage_to_id?: number | null
+          stage_to_name?: string | null
+          transitioned_at?: string
+          trigger_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       piperun_staging: {
         Row: {
           area_atuacao: string | null
@@ -9201,6 +9538,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactivation_sequences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "reactivation_sequences_lead_id_fkey"
@@ -10094,6 +10438,13 @@ export type Database = {
             foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -10489,6 +10840,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
@@ -11387,6 +11745,13 @@ export type Database = {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -11565,6 +11930,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "upsell_predictions_lead_id_fkey"
@@ -11833,6 +12205,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "whatsapp_inbox_lead_id_fkey"
@@ -12228,6 +12607,196 @@ export type Database = {
         }
         Relationships: []
       }
+      v_bi_atividades_por_resultado: {
+        Row: {
+          media_atividades: number | null
+          media_concluidas: number | null
+          media_ligacoes: number | null
+          media_reunioes: number | null
+          media_whatsapp: number | null
+          mediana_atividades: number | null
+          pipeline: string | null
+          produto: string | null
+          qtd_deals: number | null
+          status_oportunidade: string | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_atividades_unnested: {
+        Row: {
+          activity_id: number | null
+          concluida: boolean | null
+          criada_em: string | null
+          deal_id: string | null
+          etapa_atual: string | null
+          fim: string | null
+          inicio: string | null
+          lead_id: string | null
+          owner_id_atividade: number | null
+          pipeline: string | null
+          produto: string | null
+          status_atividade: string | null
+          status_oportunidade: string | null
+          tipo_atividade: string | null
+          titulo: string | null
+          vendedor: string | null
+          vendedor_atividade: string | null
+        }
+        Relationships: []
+      }
+      v_bi_funil_mensal: {
+        Row: {
+          ganhos: number | null
+          lead_time_medio: number | null
+          leads_entrada: number | null
+          mes: string | null
+          perdidos: number | null
+          pipeline: string | null
+          produto: string | null
+          receita: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_funil_overview: {
+        Row: {
+          dias_na_etapa_atual: number | null
+          etapa: string | null
+          etapa_codigo: string | null
+          lead_time_medio_dias: number | null
+          leads_cold: number | null
+          leads_hot: number | null
+          leads_warm: number | null
+          pipeline: string | null
+          qtd_leads: number | null
+          status: string | null
+          ticket_medio: number | null
+          valor_total_pipeline: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_lead_time_analise: {
+        Row: {
+          area: string | null
+          lead_time_max: number | null
+          lead_time_mediana: number | null
+          lead_time_medio: number | null
+          lead_time_min: number | null
+          lead_time_p25: number | null
+          lead_time_p75: number | null
+          pipeline: string | null
+          produto: string | null
+          qtd: number | null
+          status: string | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_motivos_perda: {
+        Row: {
+          etapa_perda: string | null
+          lead_time_medio_dias: number | null
+          motivo: string | null
+          pipeline: string | null
+          produto: string | null
+          qtd_perdas: number | null
+          ticket_medio_perdido: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_origem_conversao: {
+        Row: {
+          com_deal: number | null
+          formulario: string | null
+          ganhos: number | null
+          origem: string | null
+          pct_chegou_crm: number | null
+          perdidos: number | null
+          produto: string | null
+          receita_total: number | null
+          ticket_medio: number | null
+          total_leads: number | null
+          utm_campaign: string | null
+          utm_source: string | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_bi_performance_vendedor: {
+        Row: {
+          atividades_por_ganho: number | null
+          atividades_por_perda: number | null
+          em_aberto: number | null
+          ganhos: number | null
+          lead_time_medio_ganhos: number | null
+          lead_time_medio_perdidos: number | null
+          perdidos: number | null
+          receita_total: number | null
+          ticket_medio_ganhos: number | null
+          total_leads: number | null
+          vendedor: string | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_bi_produto_performance: {
+        Row: {
+          area_cliente: string | null
+          em_aberto: number | null
+          ganhos: number | null
+          lead_time_medio_ganhos: number | null
+          perdidos: number | null
+          produto: string | null
+          receita_total: number | null
+          ticket_medio: number | null
+          total_leads: number | null
+          win_rate_pct: number | null
+        }
+        Relationships: []
+      }
+      v_bi_saude_pipeline: {
+        Row: {
+          dias_medio_em_aberto: number | null
+          leads_parados_30d: number | null
+          leads_parados_60d: number | null
+          pipeline: string | null
+          sem_contato_14d: number | null
+          total_abertos: number | null
+          valor_pipeline: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_bi_stage_transitions: {
+        Row: {
+          etapa: string | null
+          etapa_codigo: string | null
+          media_dias_na_etapa: number | null
+          media_horas_na_etapa: number | null
+          mediana_dias_na_etapa: number | null
+          pipeline: string | null
+          qtd_saidas: number | null
+          saiu_em_aberto: number | null
+          saiu_ganho: number | null
+          saiu_perdido: number | null
+        }
+        Relationships: []
+      }
+      v_bi_temperatura_funil: {
+        Row: {
+          dias_medio_na_etapa: number | null
+          etapa: string | null
+          produto: string | null
+          qtd_leads: number | null
+          temperatura: string | null
+          valor_pipeline: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
       v_content_library_by_product: {
         Row: {
           channel: string | null
@@ -12309,6 +12878,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deal_items_lead_id_fkey"
@@ -12492,6 +13068,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
@@ -12809,6 +13392,13 @@ export type Database = {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -13043,6 +13633,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -13181,6 +13778,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lia_attendances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
