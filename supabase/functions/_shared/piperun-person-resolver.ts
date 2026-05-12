@@ -118,7 +118,7 @@ export async function findPersonByContact(
 /**
  * GET the person and check if emails/phones actually landed.
  */
-async function getPersonContact(
+export async function getPersonContact(
   apiToken: string,
   personId: number,
 ): Promise<{ emails: string[]; phones: string[] } | null> {
@@ -133,6 +133,43 @@ async function getPersonContact(
       .map((p) => digits(String(p.phone || ""))).filter(Boolean);
     return { emails, phones };
   } catch { return null; }
+}
+
+/**
+ * Validate a cached PipeRun Person ID by fetching it directly. Returns
+ * `{ exists: true, company_id, hasContact }` when the Person is reachable in
+ * PipeRun. We use this instead of an email/phone search because PipeRun's
+ * native Meta Lead Ads integration creates Persons with empty emails/phones —
+ * a search would return null and the caller would create a duplicate.
+ */
+export async function validateCachedPerson(
+  apiToken: string,
+  personId: number,
+): Promise<{ exists: boolean; company_id: number | null; hasContact: boolean }> {
+  try {
+    const res = await piperunGet(apiToken, `persons/${personId}`, {});
+    if (!res.success || !res.data) {
+      // 404/410 → really gone. Anything else (5xx, network) → assume still there.
+      const status = (res as { status?: number }).status;
+      const exists = status !== 404 && status !== 410;
+      return { exists, company_id: null, hasContact: false };
+    }
+    const data = (res.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    if (!data?.id) return { exists: false, company_id: null, hasContact: false };
+    const emails = (data.emails as Array<Record<string, unknown>> | undefined) || [];
+    const phones = (data.phones as Array<Record<string, unknown>> | undefined) || [];
+    const hasContact = emails.some((e) => String(e.email || "").trim() !== "")
+      || phones.some((p) => String(p.phone || "").trim() !== "");
+    return {
+      exists: true,
+      company_id: data.company_id ? Number(data.company_id) : null,
+      hasContact,
+    };
+  } catch {
+    // On unknown errors, assume the Person is still there to avoid creating a
+    // duplicate. The verify-and-recover step will fix contact later.
+    return { exists: true, company_id: null, hasContact: false };
+  }
 }
 
 export interface VerifyRecoverResult {
