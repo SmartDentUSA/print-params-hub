@@ -1,73 +1,89 @@
-## Diagnóstico
+## Diagnóstico — Wendril Dias (`97814f87…`)
 
-Lead `clinicamontesclaros@yahoo.com` (Andre Almeida) está com:
-- `telefone_raw = 553898475101` (12 dígitos)
-- `telefone_normalized = +553898475101` (12 dígitos)
+Sequência real (3 retries em 30 min):
 
-Origem: `piperun_webhook` (campo `person.contact_phones[0].number` veio sem o 9). A nota do Deal e a mensagem WhatsApp da L.I.A. apenas leem `lead.telefone_normalized` (`smart-ops-lia-assign` linha 915, `seller-summary.ts` linha 57), então o erro está **na ingestão**, não na geração da nota.
+```
+21:26 → person_resolution_trace: had_cached_pessoa_piperun_id=false → createPerson 46909081
+       → updatePersonFields → piperun_email_silently_rejected (missing_email + missing_phone)
+       → deal_creation_blocked_empty_person → lead.pessoa_piperun_id NÃO foi salvo
+21:30 → idem → cria outro Person 46909176 (lixo)
+22:00 → idem → cria Person 46910743 (lixo)
+```
 
-Regra atual (errada) em `smart-ops-piperun-webhook` (linhas 406-411), `smart-ops-ingest-lead` (linhas 11-18) e similares:
+Dois bugs reais:
+
+1. **Person ID vazado:** quando o guard "empty_person" bloqueia o Deal, `lia-assign` retorna sem persistir `pessoa_piperun_id` na `lia_attendances`. No retry seguinte `had_cached_pessoa_piperun_id=false`, então `findPersonByContact` é chamado, não acha (porque os Persons anteriores ficaram vazios e `findPersonByContact` filtra por email/phone existentes), e `createPerson` é chamado de novo → cria mais um Person fantasma. Geramos 3 Persons lixo para o mesmo lead.
+
+2. **Silent reject sem dono identificável:** PipeRun rejeita `wendril.dias16@gmail.com` e `+5563999810891` no PUT (200 OK mas o card fica vazio). `findPersonByContact` reverso não encontra outro Person dono — provavelmente porque o dono real é um Person criado pela integração nativa Meta↔PipeRun com o email/phone armazenado em campo "raw" que não responde aos filtros `emails[email]`/`phones[phone]`, mas ainda assim conta como conflito no PUT.
+
+## Correção (escolhida: "Resolver por busca + descartar cache vazio")
+
+### 1. `_shared/piperun-person-resolver.ts` — busca expandida
+
+Adicionar `findPersonExpanded(apiToken, { email, phone, name })`:
+
+- a) `findPersonByContact` (atual: 4 estratégias).
+- b) Se ainda nulo, `GET /persons?search=<nome>&show=50` e retornar matches que tenham OU email igual OU phone digits igual OU mesmo `name` exato (case-insensitive). Loga `matched_via=name_search_with_contact`.
+- c) Se ainda nulo, `GET /persons?search=<email-localpart>` (antes do `@`) e mesma validação.
+
+Esse passo encontra o "Person fantasma" criado pela integração nativa Meta quando o filtro estrito não pega.
+
+### 2. `lia-assign` — descartar Person empty antes de criar Deal
+
+No bloco "Step 5a" (linhas 1897-1927):
+
+- Quando `personId` (cached ou recém-encontrado) passar por `validateCachedPerson` e `hasContact === false`, chamar `findPersonExpanded` para procurar o dono real do email/phone/name.
+  - Se achar outro Person com contato → adotar esse ID, descartar o vazio, logar `error_type=piperun_person_swapped_empty_to_owner`.
+  - Se não achar nenhum outro → **manter** o personId vazio e prosseguir (o `verifyAndRecover` já tenta popular; se falhar, o guard bloqueia o Deal **mas** persiste o ID — ver passo 3).
+
+### 3. Persistir `pessoa_piperun_id` SEMPRE (mesmo bloqueado)
+
+No `lia-assign`, antes do `return` que sinaliza `blocked_empty_person` (linhas ~2080-2095):
 
 ```ts
-if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
+await supabase.from("lia_attendances")
+  .update({
+    pessoa_piperun_id: personId,
+    crm_creation_blocked: true,
+    crm_creation_blocked_reason: "empty_person_in_piperun",
+  })
+  .eq("id", lead.id);
 ```
 
-Aceita 12 dígitos como válido, perpetuando o número truncado. ANATEL exige 9 dígitos pós-DDD para celulares (prefixo "9").
+Assim, próximos retries reaproveitam o mesmo Person ID em vez de criar lixo. O `validateCachedPerson` no próximo retry vai detectar `hasContact=false` e o passo 2 vai tentar swap para o dono real.
 
-## Correção
+### 4. Limpeza retroativa (one-shot job)
 
-### 1. Criar helper único `normalizeBrazilianPhone` em `_shared/phone-normalize.ts`
+Criar uma função `piperun-person-empty-sweeper` (ou um SQL helper) que:
 
-Regras:
-- Strip non-digits, remover `0` inicial.
-- Se não tiver `55`, prefixar.
-- Após `55 + DDD(2)`:
-  - **9 dígitos** começando com `9` → válido (celular).
-  - **8 dígitos** começando com `6/7/8/9` → inserir `9` na frente → vira 9 dígitos. (Cobre o caso atual: `38 9847-5101` → `38 9 9847-5101`.)
-  - **8 dígitos** começando com `2/3/4/5` → fixo, manter.
-  - DDD fora de `11-99` → retornar `null`.
-- Validar resultado: 12 (fixo) ou 13 (móvel) dígitos. Caso contrário, `null`.
-- Retornar `+` + dígitos.
+- Para cada lead com `crm_creation_blocked='empty_person_in_piperun'`:
+  - Roda `findPersonExpanded`. Se achar dono → atualiza `pessoa_piperun_id`, limpa o block, re-enfileira no `lia-assign`.
+  - Se não achar → marca `raw_payload.empty_person_unresolvable=true` para inspeção manual (não tenta de novo).
 
-### 2. Substituir todas as normalizações duplicadas
+### 5. Logging adicional
 
-Arquivos que reimplementam a lógica e devem importar o helper:
-- `supabase/functions/smart-ops-piperun-webhook/index.ts` (linhas 406-411 e 635-640)
-- `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 11-18)
-- demais funções listadas com `normalizePhone` própria (`piperun-full-sync`, `import-leads-csv`, `astron-postback`, `sync-loja-integrada-clients`, `sync-astron-members`, `omie-lead-enricher`, `smart-ops-cs-processor`, `smart-ops-ecommerce-webhook`, `smart-ops-wa-inbox-webhook`, `smart-ops-proactive-outreach`, `create-technical-ticket`).
+Em todo `createPerson` invocado pelo `lia-assign`, logar `system_health_logs error_type=piperun_person_created_path` com `{ via: "fallback_after_findPerson_null", existing_cached_id, ... }`. Isso permite contar quantos Persons "lixo" são criados por dia e validar a correção.
 
-Manter assinatura `(raw) => string | null` para evitar refactor amplo.
+### 6. Validação pós-deploy
 
-### 3. Backfill do lead afetado e similares
+- Re-disparar manualmente `lia-assign` para o lead Wendril (`97814f87…`).
+- Verificar que `pessoa_piperun_id` é preenchido **sem** Deal criado (caso ainda fique vazio) ou **com** Deal (caso o dono real seja encontrado).
+- SQL audit:
+  ```sql
+  SELECT count(*) FROM lia_attendances
+  WHERE merged_into IS NULL AND crm_creation_blocked='empty_person_in_piperun';
+  ```
+  Esperado cair a zero após o sweeper.
 
-Migration única + script de remediação:
-```sql
-UPDATE lia_attendances
-SET telefone_normalized = '+55' || substring(regexp_replace(telefone_normalized,'\D','','g') from 3 for 2) || '9' || substring(regexp_replace(telefone_normalized,'\D','','g') from 5)
-WHERE merged_into IS NULL
-  AND length(regexp_replace(telefone_normalized,'\D','','g')) = 12
-  AND substring(regexp_replace(telefone_normalized,'\D','','g') from 5 for 1) ~ '[6789]';
-```
+### 7. Memória
 
-E re-publicar contato para PipeRun via `piperun-person-contact-backfill` em `mode: remediate_silent_rejects` para os IDs afetados (a função já usa `updatePersonFields → verifyAndRecoverPersonContact`).
+Atualizar `mem://architecture/empty-person-piperun-guard.md`:
 
-### 4. Validação
+- Adicionar regra: "Quando o guard bloquear Deal, `pessoa_piperun_id` DEVE ser persistido para evitar criação de Persons fantasmas em retries."
+- Documentar `findPersonExpanded` como o resolvedor canônico antes de chamar `createPerson` no `lia-assign`.
 
-- Rodar a normalização em alguns exemplos:
-  - `+55 (38) 9847-5101` → `+5538998475101` ✅
-  - `+55 (38) 99847-5101` → `+5538998475101` ✅
-  - `(11) 3456-7890` → `+551134567890` ✅ (fixo, não insere 9)
-  - `+1 415 555 1234` → `null` (não-BR) — manter passthrough simples? **Decisão:** se não começar com `55` e tiver 10-11 dígitos assumir BR; senão preservar como dígitos com `+` se entre 8-15 dígitos.
+## Resultado esperado
 
-- SQL de auditoria pós-deploy:
-```sql
-SELECT count(*) FROM lia_attendances
-WHERE merged_into IS NULL
-  AND length(regexp_replace(telefone_normalized,'\D','','g')) = 12
-  AND substring(regexp_replace(telefone_normalized,'\D','','g') from 5 for 1) ~ '[6789]';
-```
-Esperado: 0.
-
-### 5. Memória
-
-Salvar `mem://architecture/brazilian-phone-normalization.md` com a regra do 9º dígito e o helper canônico, marcando como Core (qualquer ingestão de telefone deve usar o helper compartilhado).
+- Lead Wendril e similares: `pessoa_piperun_id` preenchido no primeiro retry; sweeper resolve o conflito do PUT silencioso ou marca para inspeção manual.
+- Zero Persons "lixo" criados por retry-cron.
+- Cards do PipeRun deixam de proliferar com nomes duplicados sem contato.
