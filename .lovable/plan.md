@@ -1,87 +1,70 @@
-## Problema
+## Objetivo
 
-A nota "Novo Lead atribuído" gerada por `smart-ops-lia-assign` contradiz o "Resumo do Lead" (em `cs_automation`):
+Expandir o modal "Nova Automação" (`src/components/SmartOpsCSRules.tsx`) com (1) seção de Horário de Envio, (2) seção genérica de Tipo de Mensagem (já que `tipo`/`media_*` são campos top-level, distintos dos `waleads_*`), e (3) enriquecer o card da regra com horário, ícone do tipo e preview da mensagem fora-do-horário.
 
-- HISTÓRICO afirma "primeiro contato em 24/04/2026" (resumo correto: 19/04/2026, deal mais antigo) e cita "exceto a vendedora Janaina Santos" mesmo quando o owner atual nos 3 deals é Evandro Silva.
-- O LLM (DeepSeek) recebe um prompt empobrecido e alucina ao preencher lacunas.
+## Schema (já existe — sem migração)
 
-## Causa raiz
+`cs_automation_rules` já contém: `horario_inicio time`, `horario_fim time`, `dias_semana int[]`, `enviar_fora_horario bool`, `mensagem_fora_horario text`, `tipo text`, `media_url text`, `media_caption text`, `media_filename text`.
 
-`generateHistoricoOportunidade` em `supabase/functions/_shared/waleads-messaging.ts` envia ao DeepSeek:
+## Mudanças em `SmartOpsCSRules.tsx`
 
-- `Vendedor anterior: ${lead.proprietario_lead_crm}` — campo único, frequentemente desatualizado (ex.: Janaina, antiga owner) sem nenhuma indicação de owner atual ou histórico.
-- `Primeiro contato: ${lead.data_primeiro_contato || lead.created_at}` — para esse lead retornou 11/05 (deal mais novo), enquanto existem deals desde 19/04.
-- **Nenhuma informação sobre os deals existentes** (quantidade, funis, etapas, status, datas, owners). Sem esse contexto o modelo inventa "Janaina o atendeu previamente" e usa a data do meio (24/04).
-- Não passa `tem_scanner` e `tem_impressora` quando vazios, mas o LLM cita "não possui impressora, scanner nem software CAD" mesmo sem confirmação.
+### 1. Constantes e estado
 
-Adicionalmente, `data_primeiro_contato` no lead canônico não reflete o `MIN(deals.piperun_created_at)`.
+- Adicionar constante `DIAS_SEMANA = [{v:1,l:"Seg"},{v:2,l:"Ter"},...,{v:0,l:"Dom"}]` (ISO: Seg=1 … Sáb=6, Dom=0).
+- Adicionar constante `TIPOS_MENSAGEM` reaproveitando `WALEADS_TIPOS` (mesma lista) com ícones: `text→💬, image→🖼️, audio→🎵, video→🎥, document→📄`. Helper `tipoIcon(t)`.
+- Estender `interface Rule` com: `horario_inicio: string|null; horario_fim: string|null; dias_semana: number[]|null; enviar_fora_horario: boolean; mensagem_fora_horario: string|null; media_url: string|null; media_caption: string|null; media_filename: string|null;`.
+- Estender `defaultForm` com os defaults: `horario_inicio: "08:00", horario_fim: "18:00", dias_semana: [1,2,3,4,5], enviar_fora_horario: false, mensagem_fora_horario: "", media_url: "", media_caption: "", media_filename: ""` e `tipo: "text"` (já existe).
+- `openEdit` carrega esses campos do registro (com fallback aos defaults; `horario_inicio` precisa ser convertido `"08:00:00" → "08:00"` via `slice(0,5)`).
 
-## Solução escolhida
+### 2. Persistência
 
-1. Enriquecer o prompt do DeepSeek com histórico real de deals.
-2. Recalcular `data_primeiro_contato` a partir do mínimo entre lead/deals **na hora de montar a nota** (sem alterar o campo persistido).
+- `handleSave` adiciona ao payload os 8 campos novos (vazios viram `null` para textos; `dias_semana` sempre array; horários sempre HH:MM:00 — Postgres aceita HH:MM).
 
-## Mudanças técnicas
+### 3. Bloco "Horário de Envio" no modal
 
-### A) `supabase/functions/_shared/waleads-messaging.ts`
+Inserir nova seção entre o cabeçalho e a seção ManyChat (antes do primeiro `<Separator />`):
+- Label "🕐 Horário de Envio".
+- Linha "Enviar entre" com dois `<Input type="time">` ligados a `horario_inicio` e `horario_fim`.
+- Grid de 7 chips clicáveis (Toggle visual via `Badge` ou `Button variant=outline/secondary`) representando dias da semana — clicar adiciona/remove de `dias_semana`. Itens visualmente destacados quando incluídos.
+- Switch "Enviar mensagem fora do horário" (`enviar_fora_horario`).
+- Quando ON, exibe `<Textarea>` "Mensagem fora do horário" ligada a `mensagem_fora_horario` com placeholder fornecido.
+- Adicionar `<Separator />` ao final.
 
-Alterar a assinatura de `generateHistoricoOportunidade` para receber também um `dealsContext` (ou aceitar um segundo parâmetro opcional `extraContext: { deals, firstContactAt, currentOwner }`).
+### 4. Bloco "Tipo de Mensagem (geral)" no modal
 
-- Substituir a linha `Vendedor anterior: ...` por bloco multi-linha:
-  ```
-  Vendedor atual: <owner do deal mais recente>
-  Owners distintos no histórico: <lista única, ordenada por data>
-  Total de deals: N (X ganhos · Y perdidos · Z abertos)
-  Deals (mais recente primeiro):
-    - #ID — pipeline / etapa — status — owner — DD/MM/AAAA
-    ... (até 5)
-  ```
-- Recalcular `Primeiro contato: ${MIN(deals.piperun_created_at, lead.data_primeiro_contato, lead.created_at)}`.
-- Acrescentar regra explícita ao prompt:
-  > "Use APENAS os fatos listados em DADOS. Não invente nomes de vendedores nem datas. Se 'Owners distintos' tiver mais de um, mencione cada um. Se 'Vendedor atual' diferir do mais antigo, deixe claro que houve troca de owner."
-- Reduzir `temperature` de 0.5 para 0.2.
+Adicionar `<Select>` para `form.tipo` com opções de `WALEADS_TIPOS` (label "Tipo geral da mensagem"). Posicionar logo após a seção de Horário (acima de ManyChat) — explicando em help text que esse tipo determina os campos de mídia compartilhados pelos canais.
 
-### B) `supabase/functions/smart-ops-lia-assign/index.ts`
+Quando `form.tipo !== "text"`, renderizar:
+- `<Input>` "URL da mídia" → `media_url`.
+- `<Input>` "Legenda" → `media_caption`.
+- Se `form.tipo === "document"`: `<Input>` "Nome do arquivo" → `media_filename` (placeholder `proposta.pdf`).
+- Bloco preview condicional:
+  - `image`: `<img src={media_url} className="max-h-32 rounded border" />`
+  - `audio`: `<audio controls src={media_url} className="w-full" />`
+  - `video`: `<video controls src={media_url} className="max-h-32 rounded border" />`
+  - `document`: `<div>📄 {media_filename || "arquivo"}</div>`
+- Renderizar preview apenas com `onError` swallow para não quebrar layout em URL inválida.
 
-Antes de chamar `generateHistoricoOportunidade` (linhas 818 e 920), buscar deals do lead canônico:
+Não removo nem mexo na seção WaLeads existente — `waleads_tipo`/`waleads_media_*` continuam como campos específicos do canal.
 
-```ts
-const { data: deals } = await supabase
-  .from("deals")
-  .select("piperun_deal_id, pipeline_name, stage_name, status, owner_name, piperun_created_at")
-  .eq("lead_id", lead.id)
-  .eq("is_deleted", false)
-  .order("piperun_created_at", { ascending: false })
-  .limit(20);
-```
+### 5. Card da regra (`renderRuleCard`)
 
-Montar `dealsContext`:
-- `total`, `ganhos`, `perdidos`, `abertos` (contagens por `status`).
-- `currentOwner = deals[0]?.owner_name`.
-- `distinctOwners` = lista única preservando ordem cronológica.
-- `firstContactAt = min(MIN(deals.piperun_created_at), lead.data_primeiro_contato, lead.created_at)`.
-- `recent` = primeiras 5 entradas formatadas.
+Adicionar uma terceira linha de meta dentro do `CardContent` (acima dos canais):
+- Texto "{horario_inicio?.slice(0,5)}–{horario_fim?.slice(0,5)} · {formatDias(dias_semana)}". Helper `formatDias`: se contém `[1..5]` exatos → "Seg–Sex"; se inclui 0 e 6 também → "Todos os dias"; senão lista abreviada `Seg, Qua, Sex`.
+- Ícone do tipo geral: `{tipoIcon(r.tipo)} {WALEADS_TIPOS.find(t=>t.value===r.tipo)?.label}`.
+- Se `r.enviar_fora_horario && r.mensagem_fora_horario`: nova linha `⏰ Fora do horário: <preview 60 chars>` em texto muted.
 
-Passar esse contexto para `generateHistoricoOportunidade`. O fallback estático (linhas 826–836 e similar no buildDealNoteHTML) também passa a usar `firstContactAt` recalculado e `currentOwner` em vez de `proprietario_lead_crm`.
-
-### C) Reuso em `buildDealNoteHTML`
-
-Aplicar exatamente o mesmo enriquecimento na função HTML (linhas 886–1034), já que ela chama o mesmo `generateHistoricoOportunidade`. Extrair a busca de deals para uma helper local (`fetchDealsContext(supabase, lead)`) chamada por ambas.
-
-### D) Guard contra alucinação
-
-No pós-processamento de `generateHistoricoOportunidade` (já existe um regex que troca o nome do lead por "o profissional"), adicionar:
-- Se o texto retornado citar um nome próprio de vendedor que **não** está em `distinctOwners`, substituir por "vendedor anterior" (regex sobre lista de tokens capitalizados isolados que casem com `\bSrtaa? [A-Z]\w+`/`\bvendedor[a]? [A-Z]\w+`). Implementação simples: split por espaço, manter apenas se token maiúsculo estiver em allowlist.
-- Limitar a 500 chars já existe — manter.
-
-### Fora de escopo
-
-- Não recalcular nem persistir `lia_attendances.data_primeiro_contato` (display-only por enquanto).
-- Não tocar no enriquecimento cognitivo (cognitive_analysis vazio continua vazio).
-- Não alterar `smart-ops-evolution-manager` nem o front Evolution já entregue.
+Esses campos só aparecem quando preenchidos (graceful para regras antigas onde os campos vêm null).
 
 ## Validação
 
-1. Rodar `supabase--curl_edge_functions` chamando `/smart-ops-lia-assign` em modo dry-run para o lead canônico de Marlo Vinicios (id derivado do `piperun_id` do deal #59699356) e conferir a nota gerada.
-2. Inspecionar `supabase--edge_function_logs smart-ops-lia-assign` filtrando por `generate-briefing-deepseek` para confirmar que o prompt agora contém o bloco "Deals (mais recente primeiro)".
-3. Confirmar que o texto não cita nome de vendedor fora de `distinctOwners`.
+1. Abrir modal "Nova Automação" para um membro: confirmar inputs de horário, chips de dias, toggle e textarea condicional, selector de tipo geral com previews por tipo.
+2. Editar regra existente: verificar carregamento dos defaults e formato HH:MM nos time inputs.
+3. Salvar e reabrir: confirmar persistência de todos os 8 campos novos via SELECT em `cs_automation_rules`.
+4. Card da regra: deve exibir "08:00–18:00 · Seg–Sex" e ícone do tipo. Para regra com `enviar_fora_horario=true` e mensagem preenchida, mostrar o aviso `⏰ Fora do horário: …`.
+
+## Fora de escopo
+
+- Implementar a lógica de fila/dispatch fora-do-horário no backend (somente UI agora).
+- Upload de mídia (apenas URL pública por enquanto).
+- Migração de dados (todos os campos já existem com defaults adequados).

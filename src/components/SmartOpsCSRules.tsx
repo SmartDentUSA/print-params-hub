@@ -41,6 +41,14 @@ interface Rule {
   waleads_media_caption: string | null;
   evolution_ativo: boolean;
   mensagem_evolution: string | null;
+  horario_inicio: string | null;
+  horario_fim: string | null;
+  dias_semana: number[] | null;
+  enviar_fora_horario: boolean;
+  mensagem_fora_horario: string | null;
+  media_url: string | null;
+  media_caption: string | null;
+  media_filename: string | null;
   ativo: boolean;
 }
 
@@ -65,6 +73,34 @@ const WALEADS_TIPOS = [
   { value: "document", label: "Documento" },
 ];
 
+const DIAS_SEMANA: { v: number; l: string }[] = [
+  { v: 1, l: "Seg" },
+  { v: 2, l: "Ter" },
+  { v: 3, l: "Qua" },
+  { v: 4, l: "Qui" },
+  { v: 5, l: "Sex" },
+  { v: 6, l: "Sáb" },
+  { v: 0, l: "Dom" },
+];
+
+const TIPO_ICON: Record<string, string> = {
+  text: "💬",
+  image: "🖼️",
+  audio: "🎵",
+  video: "🎥",
+  document: "📄",
+};
+
+function formatDias(d?: number[] | null): string {
+  if (!d || d.length === 0) return "Sem dias";
+  const set = new Set(d);
+  const weekdays = [1, 2, 3, 4, 5];
+  const isWeekdays = weekdays.every((x) => set.has(x)) && !set.has(0) && !set.has(6);
+  if (isWeekdays && set.size === 5) return "Seg–Sex";
+  if (set.size === 7) return "Todos os dias";
+  return DIAS_SEMANA.filter((x) => set.has(x.v)).map((x) => x.l).join(", ");
+}
+
 const defaultForm = {
   trigger_event: "novo_lead",
   produto_interesse: "",
@@ -79,6 +115,14 @@ const defaultForm = {
   waleads_media_caption: "",
   evolution_ativo: false,
   mensagem_evolution: "",
+  horario_inicio: "08:00",
+  horario_fim: "18:00",
+  dias_semana: [1, 2, 3, 4, 5] as number[],
+  enviar_fora_horario: false,
+  mensagem_fora_horario: "",
+  media_url: "",
+  media_caption: "",
+  media_filename: "",
 };
 
 export function SmartOpsCSRules() {
@@ -128,6 +172,14 @@ export function SmartOpsCSRules() {
       waleads_media_caption: r.waleads_media_caption || "",
       evolution_ativo: r.evolution_ativo ?? false,
       mensagem_evolution: r.mensagem_evolution || "",
+      horario_inicio: (r.horario_inicio || "08:00").slice(0, 5),
+      horario_fim: (r.horario_fim || "18:00").slice(0, 5),
+      dias_semana: Array.isArray(r.dias_semana) && r.dias_semana.length > 0 ? r.dias_semana : [1, 2, 3, 4, 5],
+      enviar_fora_horario: r.enviar_fora_horario ?? false,
+      mensagem_fora_horario: r.mensagem_fora_horario || "",
+      media_url: r.media_url || "",
+      media_caption: r.media_caption || "",
+      media_filename: r.media_filename || "",
     });
     setDialogOpen(true);
   };
@@ -171,6 +223,14 @@ export function SmartOpsCSRules() {
       waleads_media_caption: form.waleads_media_caption || null,
       evolution_ativo: form.evolution_ativo,
       mensagem_evolution: form.mensagem_evolution || null,
+      horario_inicio: form.horario_inicio || null,
+      horario_fim: form.horario_fim || null,
+      dias_semana: form.dias_semana,
+      enviar_fora_horario: form.enviar_fora_horario,
+      mensagem_fora_horario: form.mensagem_fora_horario || null,
+      media_url: form.media_url || null,
+      media_caption: form.media_caption || null,
+      media_filename: form.media_filename || null,
     };
     if (editing) {
       const { error } = await supabase.from("cs_automation_rules").update(payload).eq("id", editing.id);
@@ -221,6 +281,17 @@ export function SmartOpsCSRules() {
             </Button>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {(r.horario_inicio || r.horario_fim) && (
+            <span>🕐 {(r.horario_inicio || "00:00").slice(0, 5)}–{(r.horario_fim || "23:59").slice(0, 5)} · {formatDias(r.dias_semana)}</span>
+          )}
+          <span>{TIPO_ICON[r.tipo || "text"]} {WALEADS_TIPOS.find(t => t.value === (r.tipo || "text"))?.label}</span>
+        </div>
+        {r.enviar_fora_horario && r.mensagem_fora_horario && (
+          <div className="text-[11px] text-muted-foreground">
+            ⏰ Fora do horário: {r.mensagem_fora_horario.slice(0, 60)}{r.mensagem_fora_horario.length > 60 ? "…" : ""}
+          </div>
+        )}
         <div className="flex gap-4 text-[11px]">
           {r.manychat_ativo && (
             <span className="text-primary">✓ ManyChat: <span className="font-mono">{r.template_manychat || "—"}</span></span>
@@ -364,12 +435,113 @@ export function SmartOpsCSRules() {
                 <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="text">Texto</SelectItem>
-                    <SelectItem value="audio">Áudio</SelectItem>
-                    <SelectItem value="video">Vídeo</SelectItem>
+                    {WALEADS_TIPOS.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{TIPO_ICON[t.value]} {t.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Mídia geral (quando tipo != texto) */}
+            {form.tipo !== "text" && (
+              <div className="space-y-2 p-3 border rounded-md bg-muted/30">
+                <Label className="text-xs font-semibold">Mídia ({WALEADS_TIPOS.find(t => t.value === form.tipo)?.label})</Label>
+                <div>
+                  <Label className="text-xs">URL da mídia</Label>
+                  <Input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="https://..." />
+                </div>
+                <div>
+                  <Label className="text-xs">Legenda (opcional)</Label>
+                  <Input value={form.media_caption} onChange={(e) => setForm({ ...form, media_caption: e.target.value })} placeholder="Legenda da mídia" />
+                </div>
+                {form.tipo === "document" && (
+                  <div>
+                    <Label className="text-xs">Nome do arquivo</Label>
+                    <Input value={form.media_filename} onChange={(e) => setForm({ ...form, media_filename: e.target.value })} placeholder="proposta.pdf" />
+                  </div>
+                )}
+                {form.media_url && (
+                  <div className="pt-2">
+                    {form.tipo === "image" && (
+                      <img src={form.media_url} alt="preview" className="max-h-32 rounded border" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    )}
+                    {form.tipo === "audio" && (
+                      <audio controls src={form.media_url} className="w-full" />
+                    )}
+                    {form.tipo === "video" && (
+                      <video controls src={form.media_url} className="max-h-32 rounded border" />
+                    )}
+                    {form.tipo === "document" && (
+                      <div className="text-sm flex items-center gap-2 p-2 bg-background rounded border">
+                        <span>📄</span><span>{form.media_filename || "arquivo"}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Horário de Envio */}
+            <div className="space-y-3">
+              <Label className="font-semibold">🕐 Horário de Envio</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Enviar a partir de</Label>
+                  <Input type="time" value={form.horario_inicio} onChange={(e) => setForm({ ...form, horario_inicio: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Até</Label>
+                  <Input type="time" value={form.horario_fim} onChange={(e) => setForm({ ...form, horario_fim: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Dias da semana</Label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {DIAS_SEMANA.map((d) => {
+                    const active = form.dias_semana.includes(d.v);
+                    return (
+                      <button
+                        key={d.v}
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            dias_semana: active
+                              ? f.dias_semana.filter((x) => x !== d.v)
+                              : [...f.dias_semana, d.v].sort(),
+                          }))
+                        }
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                          active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {d.l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Enviar mensagem fora do horário</Label>
+                <Switch checked={form.enviar_fora_horario} onCheckedChange={(v) => setForm({ ...form, enviar_fora_horario: v })} />
+              </div>
+              {form.enviar_fora_horario && (
+                <div>
+                  <Label className="text-xs">Mensagem fora do horário</Label>
+                  <Textarea
+                    value={form.mensagem_fora_horario}
+                    onChange={(e) => setForm({ ...form, mensagem_fora_horario: e.target.value })}
+                    placeholder="Ex: Olá! Recebi seu contato e te respondo amanhã no horário comercial 😊"
+                    rows={3}
+                  />
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Quando o toggle está desligado, mensagens fora do horário ficam enfileiradas para a próxima abertura.
+              </p>
             </div>
 
             <Separator />
