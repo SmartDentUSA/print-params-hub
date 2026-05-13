@@ -11,6 +11,16 @@ const corsHeaders = {
 
 const normalizePhone = normalizeBrazilianPhone;
 
+// Fontes comerciais que devem forçar criação de novo Deal no Funil de Vendas
+// quando o lead já existe em outro funil (ex.: Estagnados, Reativação).
+const NEW_DEAL_SOURCES = new Set([
+  "meta_lead_ads",
+  "meta_lead_ad",
+  "formulario",
+  "form",
+  "vendedor_direto",
+]);
+
 function extractField(payload: Record<string, unknown>, ...keys: string[]): string | null {
   for (const key of keys) {
     for (const [k, v] of Object.entries(payload)) {
@@ -406,8 +416,39 @@ Deno.serve(async (req) => {
 
     let leadId: string;
     let fieldsUpdated: string[] = [];
+    let forcedNewDeal = false;
 
     if (existingLead) {
+      // Regra: novo deal SEMPRE que vier de fonte comercial e lead não está no Funil de Vendas
+      const isInFunilDeVendas = (existingLead?.piperun_pipeline_name || '')
+        .toLowerCase()
+        .includes('funil de vendas');
+
+      const shouldForceNewDeal =
+        NEW_DEAL_SOURCES.has(source) &&
+        formName &&
+        existingLead?.piperun_id &&
+        !isInFunilDeVendas;
+
+      if (shouldForceNewDeal) {
+        await supabase.from('lia_attendances').update({
+          piperun_id: null,
+          piperun_link: null,
+          proprietario_lead_crm: null,
+          form_name: formName,
+          produto_interesse: produtoInteresse || existingLead.produto_interesse,
+          source,
+        }).eq('id', existingLead.id);
+
+        // Reflete localmente para que merge + deal-form-note enxerguem o estado já zerado
+        existingLead.piperun_id = null;
+        existingLead.piperun_link = null;
+        existingLead.proprietario_lead_crm = null;
+
+        forcedNewDeal = true;
+        console.log(`[ingest-lead] NOVO DEAL: ${existingLead.nome} estava em "${existingLead.piperun_pipeline_name}" → criando deal no Funil de Vendas`);
+      }
+
       // --- SMART MERGE using shared lead-enrichment module ---
       const { merged, fieldsUpdated: updated, fieldsSkipped } = mergeSmartLead(existingLead, incomingData, source);
       fieldsUpdated = updated;
@@ -756,6 +797,7 @@ Deno.serve(async (req) => {
       is_existing: !!existingLead,
       fields_updated: fieldsUpdated,
       pql_detected: detectedStage === "PQL_recompra",
+      forced_new_deal: forcedNewDeal,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
