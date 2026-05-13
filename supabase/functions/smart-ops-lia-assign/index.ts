@@ -2085,6 +2085,11 @@ Deno.serve(async (req) => {
       if (force_new_deal === true) {
         console.log(`[lia-assign] force_new_deal=true → bypassing vendaDeal/estagnDeal preserve for person ${personId}`);
         vendaDeal = undefined;
+        // Reset piperunId so the dedupe + `if (!piperunId)` guards downstream
+        // do NOT short-circuit createNewDeal. Each "Sob Consulta" submission
+        // must produce a brand-new Deal even if the Person already carries a
+        // cached piperun_id from a prior conversion.
+        piperunId = null;
       }
 
       // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
