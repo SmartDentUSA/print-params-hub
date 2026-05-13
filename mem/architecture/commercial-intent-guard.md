@@ -19,4 +19,9 @@ PipeRun Deal creation is restricted to leads with explicit commercial intent.
 
 **Why:** On 2026-05-11 the retry-cron pushed 17 non-commercial leads (Bruna Mascarenhas Astron student, Smart Dent employees, e-commerce-only buyers, raw WA pings) into PipeRun, polluting the CRM and triggering misleading WhatsApp seller notifications with all-N/A fields.
 
-**Funil Guard (2026-05-13):** Dedupe by cached `piperun_id` only preserves the existing Deal if it is alive AND in `PIPELINES.VENDAS`. Cached Deals living in CS / Suporte / Treinamento / Distribuidor / any non-Vendas pipeline force creation of a NEW Deal in Vendas (logged as `[lia-assign] FUNIL GUARD:`). Rationale: a lead engaging again must always have an open commercial opportunity in Vendas — post-sale or training pipelines do not count.
+**Funil + Status Guard (2026-05-13):** Dedupe by cached `piperun_id` only preserves the existing Deal if **alive AND open (status===0) AND in `PIPELINES.VENDAS`**. Any of the following force creation of a NEW Deal in Vendas:
+- Deal closed (status≠0 → won/lost/cancel) — even if in Vendas
+- Deal alive+open in CS / Suporte / Treinamento / Distribuidor / any non-Vendas pipeline (logged `[lia-assign] FUNIL GUARD:`)
+- Deal deleted/dead
+
+Rationale: a lead engaging again must always have an OPEN commercial opportunity in Vendas. Closed deals (lost/won) and post-sale/training pipelines never satisfy dedupe.
