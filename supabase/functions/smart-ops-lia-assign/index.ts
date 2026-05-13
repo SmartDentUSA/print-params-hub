@@ -221,13 +221,17 @@ async function createPerson(
   }
 
   // ── Debounce: refuse to create a duplicate Person for the same normalized
-  // name + same source within 60 seconds. Prevents the Watillas T. Santos
-  // class of bug where two parallel invocations create two PipeRun Persons
-  // for the same human within the same minute.
+  // name + same source within 60 seconds. Also debounces by email AND by
+  // phone (across any source) so concurrent Meta-cron + form-submission
+  // pipelines do not race-create two PipeRun Persons for the same human.
+  // Prevents the Watillas T. Santos / danilohen-Meta-loop class of bug.
   try {
     const normName = String(nome || "").trim().toLowerCase();
+    const sinceIso = new Date(Date.now() - 60_000).toISOString();
+    const selfId = (lead.id as string) || "00000000-0000-0000-0000-000000000000";
+
+    // (a) name + source
     if (normName) {
-      const sinceIso = new Date(Date.now() - 60_000).toISOString();
       const { data: recent } = await supa
         .from("lia_attendances")
         .select("id, pessoa_piperun_id, created_at")
@@ -235,12 +239,46 @@ async function createPerson(
         .eq("source", String(lead.source || ""))
         .not("pessoa_piperun_id", "is", null)
         .gte("created_at", sinceIso)
-        .neq("id", (lead.id as string) || "00000000-0000-0000-0000-000000000000")
+        .neq("id", selfId)
         .limit(1)
         .maybeSingle();
       if (recent?.pessoa_piperun_id) {
-        console.warn(`[lia-assign] DEBOUNCE: reusing pessoa ${recent.pessoa_piperun_id} for "${nome}" (created ${recent.created_at})`);
+        console.warn(`[lia-assign] DEBOUNCE(name+source): reusing pessoa ${recent.pessoa_piperun_id} for "${nome}" (created ${recent.created_at})`);
         return Number(recent.pessoa_piperun_id);
+      }
+    }
+
+    // (b) email — across ANY source
+    if (email) {
+      const { data: recentEmail } = await supa
+        .from("lia_attendances")
+        .select("id, pessoa_piperun_id, created_at, source")
+        .eq("email", email)
+        .not("pessoa_piperun_id", "is", null)
+        .gte("updated_at", sinceIso)
+        .neq("id", selfId)
+        .limit(1)
+        .maybeSingle();
+      if (recentEmail?.pessoa_piperun_id) {
+        console.warn(`[lia-assign] DEBOUNCE(email): reusing pessoa ${recentEmail.pessoa_piperun_id} for "${email}" (source=${recentEmail.source})`);
+        return Number(recentEmail.pessoa_piperun_id);
+      }
+    }
+
+    // (c) phone — across ANY source
+    if (phone) {
+      const { data: recentPhone } = await supa
+        .from("lia_attendances")
+        .select("id, pessoa_piperun_id, created_at, source")
+        .eq("telefone_normalized", phone)
+        .not("pessoa_piperun_id", "is", null)
+        .gte("updated_at", sinceIso)
+        .neq("id", selfId)
+        .limit(1)
+        .maybeSingle();
+      if (recentPhone?.pessoa_piperun_id) {
+        console.warn(`[lia-assign] DEBOUNCE(phone): reusing pessoa ${recentPhone.pessoa_piperun_id} for "${phone}" (source=${recentPhone.source})`);
+        return Number(recentPhone.pessoa_piperun_id);
       }
     }
   } catch (e) {
