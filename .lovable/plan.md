@@ -1,42 +1,29 @@
-# Central de Campanhas — destravar Step 1 → Segmentação
+# Step 2 — Renomear "Produto âncora" → "Produto de Interesse" + correções
 
 ## Diagnóstico
 
-No print, o botão **Próximo** está desabilitado mesmo com `Nome`, `Canal`, `Instância` e `Descrição` preenchidos. A causa é a validação no Step 1 (`SmartOpsCampaigns.tsx:569-573`):
+1. **Step 2 funciona**: a contagem de leads roda em tempo real via `useEffect` (`SmartOpsCampaigns.tsx:384-418`) consultando `lia_attendances` com todos os filtros aplicados, respeitando `merged_into IS NULL`. O botão "Próximo" só destrava quando há leads (`leadCount > 0`).
 
-```ts
-disabled={ !selectedContent || !campaignName.trim() || (sendChannel==="evolution" && !evolutionInstance) }
-```
+2. **Filtro "Produto âncora" usa a coluna errada para o que o usuário quer**: hoje filtra `anchor_product` (campo derivado/agregado). O campo que o time popula via formulários e CRM é **`produto_interesse`** (e seu agregado `produto_interesse_auto`), conforme as memórias de Behavioral Ingestion e Form Enrichment.
 
-O usuário digitou "DEDE" no campo de busca, mas **não clicou em nenhum resultado** (a busca não retornou itens correspondentes ao termo "DEDE"), então `selectedContent` continua `null` e a validação trava.
+3. **Bug residual do passo anterior**: `handleCreate` (linha 421) ainda exige `selectedContent`, e a inserção em `campaign_sessions` força `content_id`/`content_type`. Como agora o conteúdo é opcional, isso quebra ao tentar criar.
 
-Hoje o Step 1 obriga escolher um item já existente da biblioteca de conteúdos, o que não faz sentido quando:
-- a campanha é totalmente nova (texto vai ser composto depois);
-- a busca não retorna nada;
-- o usuário só quer disparar uma mensagem ad-hoc via Evolution.
+## Mudanças (apenas `src/components/SmartOpsCampaigns.tsx`)
 
-## Mudanças (apenas UI em `src/components/SmartOpsCampaigns.tsx`)
+### A. Rótulo + fonte de dados
+- Trocar label `"Produto âncora"` → `"Produto de Interesse"`.
+- Trocar a coluna fonte das opções de `anchor_product` → `produto_interesse` (com fallback `produto_interesse_auto` quando o primeiro estiver vazio).
+- Trocar o filtro de contagem de `ilike("anchor_product", …)` → `or("produto_interesse.ilike.%X%,produto_interesse_auto.ilike.%X%")` para casar ambos os campos.
+- Persistir em `lead_filters.produto_interesse` (em vez de `anchor_product`) — chave nova, sem migração.
+- Renomear estado `anchorProduct/anchorOptions` → `produtoInteresse/produtoInteresseOptions` para clareza.
 
-### 1. Tornar `selectedContent` opcional
-- Remover `!selectedContent` da condição `disabled` do botão Próximo.
-- Renomear o card para **"1. Conteúdo (opcional)"** e adicionar texto auxiliar: *"Escolha um item da biblioteca ou avance para compor a mensagem na próxima etapa."*
+### B. Step 3 (Revisar)
+- Atualizar o badge de filtros para usar o novo rótulo "Produto: X".
 
-### 2. Feedback quando a busca não retorna nada
-Abaixo do input de busca, quando `searchTerm.length >= 2 && searchResults.length === 0 && !loadingSearch`, mostrar:
-> *"Nenhum conteúdo encontrado para 'DEDE'. Você pode avançar sem selecionar."*
-
-### 3. Botão "Pular seleção de conteúdo"
-Quando `!selectedContent`, exibir um botão secundário discreto **"Continuar sem conteúdo"** ao lado do "Próximo", apenas para deixar claro que é permitido. (Tecnicamente redundante depois do item 1, mas remove a fricção visual reportada.)
-
-### 4. Persistência
-`handleCreate` já lida com `content_id` opcional via spread. Garantir que, quando `selectedContent` for `null`, gravamos `content_id: null` em `campaign_sessions` — confirmar no bloco existente sem alterar a estrutura do payload.
-
-### 5. Step 3 (Revisar)
-Quando não houver conteúdo selecionado, mostrar uma linha *"Conteúdo: a definir"* em vez de quebrar o card de preview.
+### C. Permitir criar sem conteúdo
+- Em `handleCreate`: remover `if (!selectedContent) return;`, manter só `!campaignName.trim()`.
+- No insert: `content_id: selectedContent?.id ?? null`, `content_type: selectedContent?.content_type ?? null`.
 
 ## Fora de escopo
-- Editor inline de mensagem nova (ficaria para próxima iteração).
-- Mudanças em Step 2 (segmentação) ou backend.
-
-## Pergunta única
-Confirma que quero mesmo permitir campanhas sem item da biblioteca selecionado? (alternativa seria forçar o usuário a sempre criar/selecionar um conteúdo antes — porém o fluxo atual já trava nessa hipótese exata).
+- Nenhuma mudança no backend, no schema ou no edge function de disparo.
+- Nenhuma mudança nos demais filtros (especialidade, UF etc.).

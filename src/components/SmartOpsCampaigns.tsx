@@ -298,7 +298,7 @@ function CreateCampaign({
   const [searchResults, setSearchResults] = useState<ContentItem[]>([]);
 
   // Step 2
-  const [anchorProduct, setAnchorProduct] = useState("all");
+  const [produtoInteresse, setProdutoInteresse] = useState("all");
   const [temperatura, setTemperatura] = useState("all");
   const [stageName, setStageName] = useState("all");
   const [especialidade, setEspecialidade] = useState("all");
@@ -314,7 +314,7 @@ function CreateCampaign({
   const [countLoading, setCountLoading] = useState(false);
 
   // Options
-  const [anchorOptions, setAnchorOptions] = useState<string[]>([]);
+  const [produtoInteresseOptions, setProdutoInteresseOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
   const [especialidadeOptions, setEspecialidadeOptions] = useState<string[]>([]);
   const [areaOptions, setAreaOptions] = useState<string[]>([]);
@@ -349,13 +349,20 @@ function CreateCampaign({
   useEffect(() => {
     (async () => {
       const base = supabase.from("lia_attendances").select(
-        "anchor_product, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
+        "produto_interesse, produto_interesse_auto, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
       ).is("merged_into", null).limit(5000);
       const { data } = await base;
       const rows = (data || []) as any[];
       const uniq = (key: string) =>
         [...new Set(rows.map(r => r[key]).filter(Boolean))].sort() as string[];
-      setAnchorOptions(uniq("anchor_product"));
+      const merged = [
+        ...new Set(
+          rows
+            .map(r => (r.produto_interesse || r.produto_interesse_auto || "").toString().trim())
+            .filter(Boolean)
+        ),
+      ].sort();
+      setProdutoInteresseOptions(merged);
       setStageOptions(uniq("piperun_stage_name"));
       setEspecialidadeOptions(uniq("especialidade"));
       setAreaOptions(uniq("area_atuacao"));
@@ -390,7 +397,12 @@ function CreateCampaign({
         .select("id", { count: "exact", head: true })
         .is("merged_into", null) as any;
 
-      if (anchorProduct !== "all") query = query.ilike("anchor_product", `%${anchorProduct}%`);
+      if (produtoInteresse !== "all") {
+        const safe = produtoInteresse.replace(/,/g, " ");
+        query = query.or(
+          `produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`
+        );
+      }
       if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
       if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
       if (especialidade !== "all") query = query.eq("especialidade", especialidade);
@@ -415,14 +427,14 @@ function CreateCampaign({
       setCountLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, anchorProduct, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+  }, [step, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
 
   const handleCreate = async () => {
-    if (!selectedContent || !campaignName.trim()) return;
+    if (!campaignName.trim()) return;
     setCreating(true);
     try {
       const filters: any = {};
-      if (anchorProduct !== "all") filters.anchor_product = anchorProduct;
+      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
       if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
       if (stageName !== "all") filters.piperun_stage_name = stageName;
       if (especialidade !== "all") filters.especialidade = especialidade;
@@ -440,8 +452,8 @@ function CreateCampaign({
         name: campaignName.trim(),
         description: campaignDesc.trim() || null,
         status: "draft",
-        content_id: selectedContent.id,
-        content_type: selectedContent.content_type,
+        content_id: selectedContent?.id ?? null,
+        content_type: selectedContent?.content_type ?? null,
         channel: sendChannel,
         lead_filters: Object.keys(filters).length ? filters : null,
         lead_count: leadCount,
@@ -595,12 +607,12 @@ function CreateCampaign({
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label className="text-sm font-medium">Produto âncora</label>
-                <Select value={anchorProduct} onValueChange={setAnchorProduct}>
+                <label className="text-sm font-medium">Produto de Interesse</label>
+                <Select value={produtoInteresse} onValueChange={setProdutoInteresse}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {anchorOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    {produtoInteresseOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -782,7 +794,7 @@ function CreateCampaign({
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Filtros</span>
                 <div className="flex gap-1 flex-wrap justify-end">
-                  {anchorProduct !== "all" && <Badge variant="outline">{anchorProduct}</Badge>}
+                  {produtoInteresse !== "all" && <Badge variant="outline">Produto: {produtoInteresse}</Badge>}
                   {temperatura !== "all" && <Badge variant="outline">Temp: {temperatura}</Badge>}
                   {stageName !== "all" && <Badge variant="outline">{stageName}</Badge>}
                   {especialidade !== "all" && <Badge variant="outline">{especialidade}</Badge>}
@@ -794,7 +806,7 @@ function CreateCampaign({
                   {temPrinter !== "all" && <Badge variant="outline">Impressora: {temPrinter === "yes" ? "Sim" : "Não"}</Badge>}
                   {recencia !== "any" && <Badge variant="outline">≤ {recencia}d</Badge>}
                   {clienteFilter !== "all" && <Badge variant="outline">{clienteFilter === "clientes" ? "Clientes" : "Leads"}</Badge>}
-                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" &&
+                  {produtoInteresse === "all" && temperatura === "all" && stageName === "all" &&
                    especialidade === "all" && areaAtuacao === "all" && uf === "all" &&
                    proprietario === "all" && realStatus === "all" && temScanner === "all" &&
                    temPrinter === "all" && recencia === "any" && clienteFilter === "all" &&
