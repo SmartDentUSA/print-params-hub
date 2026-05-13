@@ -1,3 +1,8 @@
+
+## Meta-cron duplicate Person prevention (2026-05-13)
+- `smart-ops-ingest-lead` HARD_DEDUPE: short-circuits when `lia_attendances.platform_lead_id = meta_leadgen_id` already exists (canonical only). Runs before the 6h activity-log dedupe.
+- `smart-ops-lia-assign:createPerson` debounce extended: name+source (60s) PLUS email (any source, 60s) PLUS phone (any source, 60s). Uses `updated_at` to also catch re-enrichments.
+- Both `ingest-lead` and `lia-assign` already follow `merged_into` chain to canonical, so secondary lead invocations never create new Persons.
 ---
 name: Commercial Intent Guard for PipeRun Deal Creation
 description: Astron Academy/e-commerce/raw WA leads must NEVER auto-create PipeRun Deals; lia-assign + retry-cron enforce via shared isCommercialSource()
