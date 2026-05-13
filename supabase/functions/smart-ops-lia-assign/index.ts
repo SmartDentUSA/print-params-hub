@@ -248,8 +248,17 @@ async function createPerson(
   }
 
   const personPayload: Record<string, unknown> = { name: nome };
-  if (email) personPayload.emails = [{ email }];
-  if (phone) personPayload.phones = [{ phone }];
+  // PipeRun changed contract (~2026-05-12): nested arrays are silently
+  // discarded on POST/PUT /persons. Send flat string fields. Keep nested
+  // arrays as backup for older API behavior.
+  if (email) {
+    personPayload.email = email;
+    personPayload.emails = [{ email }];
+  }
+  if (phone) {
+    personPayload.cellphone = phone;
+    personPayload.phones = [{ phone }];
+  }
   if (especialidade) personPayload.job_title = especialidade;
 
   // Person origin = FIRST-TOUCH only (frozen). Falls back to current campaign for brand-new leads.
@@ -311,7 +320,7 @@ async function createPerson(
   if (email) {
     const minimalName = fallbackName || sanitizePersonNameForPiperun("", email);
     console.warn(`[lia-assign] Retrying createPerson with minimal payload, name="${minimalName}"`);
-    const minimalPayload: Record<string, unknown> = { name: minimalName, emails: [{ email }] };
+    const minimalPayload: Record<string, unknown> = { name: minimalName, email, emails: [{ email }] };
     id = await tryCreate(minimalPayload, 3);
     if (id) return id;
   }
@@ -384,6 +393,7 @@ async function updatePersonFields(
   // ".gmil"). PipeRun silently rejects them, leaving the Person card empty.
   const { isValidEmailTld: _isValidTld } = await import("../_shared/piperun-person-resolver.ts");
   if (email && !isFakeEmail(email) && _isValidTld(email)) {
+    updatePayload.email = email;
     updatePayload.emails = [{ email }];
   } else if (email && !isFakeEmail(email)) {
     console.warn(`[lia-assign] SKIP email PUT — invalid TLD: ${email}`);
@@ -402,8 +412,8 @@ async function updatePersonFields(
     } catch {}
   }
   if (phone) {
-    updatePayload.phones = [{ phone }];
     updatePayload.cellphone = phone;
+    updatePayload.phones = [{ phone }];
   }
   if (jobTitle) updatePayload.job_title = jobTitle;
 
@@ -432,8 +442,14 @@ async function updatePersonFields(
   // least keeps email + phone visible.
   if (!res.success && (updatePayload.emails || updatePayload.phones)) {
     const minimal: Record<string, unknown> = {};
-    if (updatePayload.emails) minimal.emails = updatePayload.emails;
-    if (updatePayload.phones) minimal.phones = updatePayload.phones;
+    if (updatePayload.emails) {
+      minimal.email = updatePayload.email;
+      minimal.emails = updatePayload.emails;
+    }
+    if (updatePayload.phones) {
+      minimal.cellphone = updatePayload.cellphone;
+      minimal.phones = updatePayload.phones;
+    }
     if (updatePayload.name) minimal.name = updatePayload.name;
     const retryRes = await piperunPut(apiToken, `persons/${personId}`, minimal);
     console.log(`[lia-assign] Person ${personId} minimal retry: ${retryRes.success} (${retryRes.status})`);
