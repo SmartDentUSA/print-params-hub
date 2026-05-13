@@ -1,81 +1,67 @@
-## Objetivo
+# Central de Campanhas — UI Evolution + refinamento da segmentação
 
-Criar uma nova seção **"Automações LIA"** em `SmartOps → Automações` (componente `SmartOpsCSRules.tsx`), abaixo da listagem de automações por vendedor, com cards configuráveis para automações disparadas pela LIA (Boas-vindas ao Lead e Briefing ao Vendedor), reusando o design system existente (shadcn/ui, Tailwind, tokens semânticos).
+Escopo apenas frontend em `src/components/SmartOpsCampaigns.tsx` (wizard `CreateCampaign`). Backend Evolution já está pronto — a UI lê das colunas `team_members.evolution_instance_name` / `evolution_phone` (`ativo=true`) para listar os telefones conectados.
 
-## O que será construído
+## 1. Step 1 — Canal de envio
 
-### 1. Nova tabela `lia_automations` (Supabase)
+Adicionar **Evolution** ao select existente, ao lado de WhatsApp (WaLeads), SellFlux, Apenas registrar:
 
-Armazena a configuração de cada automação. Migration cria a tabela + seed das 2 automações iniciais.
+```text
+Canal de envio: [ Evolution ▾ ]
+Instância:      [ 🟢 Vilmar — +55 45 99902-1444 ▾ ]   ← só aparece quando canal = evolution
+```
 
-Colunas:
-- `id uuid pk`, `slug text unique` (`boas_vindas_lead`, `briefing_vendedor`)
-- `nome text`, `subtitulo text`, `icone text`, `cor text` (tokens: `blue`, `green`)
-- `trigger_event text` (ex: `lead_assigned_to_seller`)
-- `trigger_tags text[]` (chips exibidas no card)
-- `canal text` (`whatsapp`), `horario_inicio time`, `horario_fim time`
-- `mensagem_horario_comercial text`, `mensagem_fora_horario text`
-- `ativo boolean default true`
-- `function_name text` (referência ao `system_health_logs.function_name` para contar disparos — ex: `lia-welcome`, `lia-briefing`)
-- `short_link_tag text` (filtro em `short_links` para contar cliques)
+Detalhes:
+- Novo `SelectItem value="evolution"` → label `WhatsApp (Evolution)`.
+- Quando `sendChannel === "evolution"`:
+  - Renderizar um segundo `Select` "Instância" abaixo (full-width na grid sm:col-span-2).
+  - Carregar via `useEffect` consultando `team_members` (`select id, nome_completo, evolution_instance_name, evolution_phone where ativo=true and evolution_instance_name not null`).
+  - Cada item mostra `{nome_completo} — +{evolution_phone}` com bullet verde (assumimos conectado pois backend está estável; sem chamada extra de status).
+  - Estado novo `evolutionInstance: string` (guarda `evolution_instance_name`).
+  - Validação: botão "Próximo" desabilita quando `sendChannel === "evolution" && !evolutionInstance`.
 
-RLS: leitura/escrita restrita a admins (mesmo padrão de `cs_automation_rules`).
+Persistência (sem migração): no `handleCreate`, quando canal = evolution, gravar:
+```ts
+channel: "evolution",
+lead_filters: { ...filters, evolution_instance: evolutionInstance }
+```
 
-### 2. Edge function `automacoes-lia`
+Step 3 (Revisar) ganha linha extra "Instância" exibindo o telefone escolhido quando aplicável.
 
-Endpoints (mesma function, roteados por método):
-- `GET /functions/v1/automacoes-lia` → retorna lista com:
-  - dados da automação
-  - `enviadas_hoje`, `enviadas_total` (count em `system_health_logs` filtrando por `function_name` e `severity='info'`)
-  - `cliques` (sum de `click_count` em `short_links` por `produto`/tag ou janela de tempo) e `taxa = cliques/enviadas`
-- `PUT /functions/v1/automacoes-lia` body `{ id, ativo }` → toggle
-- `PATCH /functions/v1/automacoes-lia` body `{ id, ...campos }` → editar mensagens/horários
+## 2. Step 2 — Segmentação (próximas etapas do seletor)
 
-### 3. Frontend — `SmartOpsLiaAutomations.tsx` (novo componente)
+Hoje só temos: Produto âncora, Temperatura, Etapa CRM. Adicionar filtros úteis e já presentes em `lia_attendances`:
 
-Renderizado dentro de `SmartOpsCSRules.tsx`, abaixo da listagem de regras por vendedor.
+| Filtro | Campo | UI |
+|---|---|---|
+| **Especialidade** | `especialidade` | Select com distinct |
+| **Área de atuação** | `area_atuacao` | Select com distinct |
+| **UF** | `uf` | Select com distinct |
+| **Proprietário (vendedor)** | `proprietario_lead_crm` | Select com distinct |
+| **Status real** | `real_status` | Select com distinct |
+| **Tem scanner / impressora** | `tem_scanner`, `equip_printer_brand` | dois selects "Sim/Não/Todos" |
+| **Última interação** | `updated_at` | Select: 7d / 30d / 90d / qualquer |
+| **Já comprou?** | `total_deals_all > 0` | Toggle "Apenas clientes" / "Apenas leads" / "Todos" |
 
-**Header da seção:**
-- Ícone `Bot` (lucide) + título "Automações LIA" + `Badge` "N ativas"
-- Botão `+ Nova automação` à direita (abre `Dialog` — inicialmente desabilitado/coming soon, ou cria entrada vazia)
+Implementação:
+- Novos `useState` por filtro (default `"all"` ou `"any"`).
+- Carregar `distinct` como já fazem `anchorOptions` e `stageOptions` (um `useEffect` agrupando todas as queries, parallel).
+- Estender o `useEffect` de contagem com os novos filtros (`ilike`/`eq`/`gte`/`gt`).
+- Persistir no `lead_filters` JSON com chaves nomeadas — sem migração.
 
-**Card de automação (um por item):**
-- Header do card:
-  - Ícone colorido (`MessageSquareDot` para boas-vindas, `FileText` para briefing) com fundo `bg-blue-50/bg-green-50`
-  - Nome + subtítulo
-  - `Switch` ativo/inativo (PUT)
-- Linha de métricas (grid 4 colunas, mesmo padrão do `SmartOpsSellerAutomations`):
-  - Enviadas hoje | Total | Cliques | Taxa (%)
-- Body:
-  - Linha "Gatilho:" com `Badge`s das `trigger_tags`
-  - `Tabs` com `Horário comercial` / `Fora do horário` mostrando preview da `mensagem_*` via `<HighlightVariables />` (já existe em `WaLeadsVariableBar.tsx`)
-- Footer:
-  - Texto pequeno: `08:00–18:00 · WhatsApp`
-  - Botão `Editar` (abre `Dialog` com `Textarea` por variante + `WaLeadsVariableBar` para inserir variáveis)
+Layout: aumentar a grid para `sm:grid-cols-2 lg:grid-cols-3` mantendo o card de "leads impactados" full-width abaixo.
 
-**Integração:**
-- Em `SmartOpsCSRules.tsx`, importar e renderizar `<SmartOpsLiaAutomations />` no final do JSX principal, separado por `<Separator />`.
+## 3. Step 3 — Revisar
 
-### 4. Disparo real (fora do escopo do card visual, observação)
+Renderizar dinamicamente todos os filtros aplicados como `Badge`s, e adicionar a linha "Instância" quando canal = evolution.
 
-Os disparos efetivos de `lia-welcome` / `lia-briefing` já podem ser registrados em `system_health_logs` pelas functions existentes (ex: `smart-ops-lia-assign`). Se a flag `ativo=false`, a function consultora deve respeitar antes de enviar. Esta parte de execução não está no escopo deste plano — apenas a UI + leitura de métricas + toggle. Confirmar se devemos também ligar o respeito ao toggle nas functions de disparo.
+## Arquivos
+- **Editar:** `src/components/SmartOpsCampaigns.tsx` (única alteração — só UI/estado).
 
-## Detalhes técnicos
+## Fora do escopo
+- Disparo real Evolution (já pronto no backend conforme você confirmou — só consumirá `channel=evolution` + `lead_filters.evolution_instance`).
+- Migração no `campaign_sessions` — tudo cabe em `lead_filters` JSON.
+- Indicador "ao vivo" de status de cada instância (não pediu; podemos adicionar depois).
 
-- Estilo: tokens semânticos (`bg-card`, `text-foreground`, `text-muted-foreground`); cores primárias por automação via classes utilitárias condicionais (`blue`/`green`) compatíveis com light/dark.
-- Estado: `useState` + `useEffect` consumindo a edge function via `supabase.functions.invoke('automacoes-lia')`.
-- Toggle otimista com rollback em erro + `toast` (`sonner`).
-- Ícones: `Bot`, `MessageSquareDot`, `FileText`, `Pencil`, `Plus` (lucide-react).
-- Reusar `HighlightVariables` para preview com `{nome}`, `{produto}` etc.
-
-## Arquivos afetados
-
-- `supabase/migrations/<timestamp>_lia_automations.sql` (novo)
-- `supabase/functions/automacoes-lia/index.ts` (novo)
-- `src/components/smartops/SmartOpsLiaAutomations.tsx` (novo)
-- `src/components/SmartOpsCSRules.tsx` (renderiza o novo componente ao final)
-
-## Perguntas em aberto
-
-1. O botão **"+ Nova automação"** deve estar funcional já agora (criar entrada custom) ou apenas placeholder, dado que as 2 automações iniciais são fixas e ligadas a functions específicas?
-2. Devo já modificar `smart-ops-lia-assign` (e outras) para respeitar o toggle `ativo=false` (suprimindo o envio), ou apenas entregar UI + métricas + persistência da flag nesta etapa?
+## Pergunta única
+Está ok armazenar a instância em `campaign_sessions.lead_filters.evolution_instance` (sem migração), ou prefere uma coluna dedicada `evolution_instance text`?

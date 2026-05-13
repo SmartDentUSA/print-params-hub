@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Progress } from "@/components/ui/progress";
 import {
   Megaphone, RefreshCw, Cloud, Search, ArrowRight, ArrowLeft,
-  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image
+  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone
 } from "lucide-react";
 
 // ── Types ──
@@ -292,6 +292,8 @@ function CreateCampaign({
   const [campaignName, setCampaignName] = useState("");
   const [campaignDesc, setCampaignDesc] = useState("");
   const [sendChannel, setSendChannel] = useState("whatsapp");
+  const [evolutionInstance, setEvolutionInstance] = useState<string>("");
+  const [evolutionInstances, setEvolutionInstances] = useState<Array<{ instance: string; nome: string; phone: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<ContentItem[]>([]);
 
@@ -299,33 +301,67 @@ function CreateCampaign({
   const [anchorProduct, setAnchorProduct] = useState("all");
   const [temperatura, setTemperatura] = useState("all");
   const [stageName, setStageName] = useState("all");
+  const [especialidade, setEspecialidade] = useState("all");
+  const [areaAtuacao, setAreaAtuacao] = useState("all");
+  const [uf, setUf] = useState("all");
+  const [proprietario, setProprietario] = useState("all");
+  const [realStatus, setRealStatus] = useState("all");
+  const [temScanner, setTemScanner] = useState("all");
+  const [temPrinter, setTemPrinter] = useState("all");
+  const [recencia, setRecencia] = useState("any");
+  const [clienteFilter, setClienteFilter] = useState("all");
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
   // Options
   const [anchorOptions, setAnchorOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
+  const [especialidadeOptions, setEspecialidadeOptions] = useState<string[]>([]);
+  const [areaOptions, setAreaOptions] = useState<string[]>([]);
+  const [ufOptions, setUfOptions] = useState<string[]>([]);
+  const [proprietarioOptions, setProprietarioOptions] = useState<string[]>([]);
+  const [realStatusOptions, setRealStatusOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
+
+  // Load Evolution instances when channel = evolution
+  useEffect(() => {
+    if (sendChannel !== "evolution") return;
+    (async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("nome_completo, evolution_instance_name, evolution_phone")
+        .eq("ativo", true)
+        .not("evolution_instance_name", "is", null);
+      const list = (data || [])
+        .filter((r: any) => r.evolution_instance_name)
+        .map((r: any) => ({
+          instance: r.evolution_instance_name as string,
+          nome: (r.nome_completo as string) || r.evolution_instance_name,
+          phone: (r.evolution_phone as string) || "",
+        }));
+      setEvolutionInstances(list);
+      if (list.length === 1) setEvolutionInstance(list[0].instance);
+    })();
+  }, [sendChannel]);
 
   // Fetch filter options
   useEffect(() => {
     (async () => {
-      const { data: ap } = await supabase
-        .from("lia_attendances")
-        .select("anchor_product")
-        .not("anchor_product", "is", null)
-        .is("merged_into", null);
-      const unique = [...new Set((ap || []).map(r => r.anchor_product).filter(Boolean))] as string[];
-      setAnchorOptions(unique.sort());
-
-      const { data: st } = await supabase
-        .from("lia_attendances")
-        .select("piperun_stage_name")
-        .not("piperun_stage_name", "is", null)
-        .is("merged_into", null);
-      const uniqueStages = [...new Set((st || []).map(r => r.piperun_stage_name).filter(Boolean))] as string[];
-      setStageOptions(uniqueStages.sort());
+      const base = supabase.from("lia_attendances").select(
+        "anchor_product, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
+      ).is("merged_into", null).limit(5000);
+      const { data } = await base;
+      const rows = (data || []) as any[];
+      const uniq = (key: string) =>
+        [...new Set(rows.map(r => r[key]).filter(Boolean))].sort() as string[];
+      setAnchorOptions(uniq("anchor_product"));
+      setStageOptions(uniq("piperun_stage_name"));
+      setEspecialidadeOptions(uniq("especialidade"));
+      setAreaOptions(uniq("area_atuacao"));
+      setUfOptions(uniq("uf"));
+      setProprietarioOptions(uniq("proprietario_lead_crm"));
+      setRealStatusOptions(uniq("real_status"));
     })();
   }, []);
 
@@ -357,13 +393,29 @@ function CreateCampaign({
       if (anchorProduct !== "all") query = query.ilike("anchor_product", `%${anchorProduct}%`);
       if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
       if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
+      if (especialidade !== "all") query = query.eq("especialidade", especialidade);
+      if (areaAtuacao !== "all") query = query.eq("area_atuacao", areaAtuacao);
+      if (uf !== "all") query = query.eq("uf", uf);
+      if (proprietario !== "all") query = query.eq("proprietario_lead_crm", proprietario);
+      if (realStatus !== "all") query = query.eq("real_status", realStatus);
+      if (temScanner === "yes") query = query.eq("tem_scanner", true);
+      if (temScanner === "no") query = query.or("tem_scanner.is.null,tem_scanner.eq.false");
+      if (temPrinter === "yes") query = query.not("equip_printer_brand", "is", null);
+      if (temPrinter === "no") query = query.is("equip_printer_brand", null);
+      if (recencia !== "any") {
+        const days = parseInt(recencia);
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+        query = query.gte("updated_at", since);
+      }
+      if (clienteFilter === "clientes") query = query.gt("total_deals_all", 0);
+      if (clienteFilter === "leads") query = query.or("total_deals_all.is.null,total_deals_all.eq.0");
 
       const { count } = await query;
       setLeadCount(count ?? 0);
       setCountLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, anchorProduct, temperatura, stageName]);
+  }, [step, anchorProduct, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
 
   const handleCreate = async () => {
     if (!selectedContent || !campaignName.trim()) return;
@@ -373,6 +425,16 @@ function CreateCampaign({
       if (anchorProduct !== "all") filters.anchor_product = anchorProduct;
       if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
       if (stageName !== "all") filters.piperun_stage_name = stageName;
+      if (especialidade !== "all") filters.especialidade = especialidade;
+      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
+      if (uf !== "all") filters.uf = uf;
+      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
+      if (realStatus !== "all") filters.real_status = realStatus;
+      if (temScanner !== "all") filters.tem_scanner = temScanner;
+      if (temPrinter !== "all") filters.tem_printer = temPrinter;
+      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
+      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      if (sendChannel === "evolution" && evolutionInstance) filters.evolution_instance = evolutionInstance;
 
       const { error } = await supabase.from("campaign_sessions").insert({
         name: campaignName.trim(),
@@ -463,19 +525,53 @@ function CreateCampaign({
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="whatsapp">WhatsApp (WaLeads)</SelectItem>
+                    <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+            {sendChannel === "evolution" && (
+              <div>
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" /> Instância Evolution *
+                </label>
+                <Select value={evolutionInstance} onValueChange={setEvolutionInstance}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={evolutionInstances.length ? "Selecione um telefone conectado" : "Nenhuma instância configurada"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {evolutionInstances.map(i => (
+                      <SelectItem key={i.instance} value={i.instance}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          {i.nome}{i.phone ? ` — +${i.phone}` : ""}
+                          <span className="text-xs text-muted-foreground">({i.instance})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!evolutionInstances.length && (
+                  <p className="text-xs text-muted-foreground mt-1">Nenhum vendedor com instância Evolution ativa.</p>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Descrição (opcional)</label>
               <Input value={campaignDesc} onChange={(e) => setCampaignDesc(e.target.value)} placeholder="Objetivo da campanha..." />
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} disabled={!selectedContent || !campaignName.trim()}>
+              <Button
+                onClick={() => setStep(2)}
+                disabled={
+                  !selectedContent ||
+                  !campaignName.trim() ||
+                  (sendChannel === "evolution" && !evolutionInstance)
+                }
+              >
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -492,7 +588,7 @@ function CreateCampaign({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className="text-sm font-medium">Produto âncora</label>
                 <Select value={anchorProduct} onValueChange={setAnchorProduct}>
@@ -523,6 +619,101 @@ function CreateCampaign({
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {stageOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Especialidade</label>
+                <Select value={especialidade} onValueChange={setEspecialidade}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {especialidadeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Área de atuação</label>
+                <Select value={areaAtuacao} onValueChange={setAreaAtuacao}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {areaOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">UF</label>
+                <Select value={uf} onValueChange={setUf}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {ufOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Proprietário</label>
+                <Select value={proprietario} onValueChange={setProprietario}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {proprietarioOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Status real</label>
+                <Select value={realStatus} onValueChange={setRealStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {realStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tem scanner</label>
+                <Select value={temScanner} onValueChange={setTemScanner}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="yes">Sim</SelectItem>
+                    <SelectItem value="no">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tem impressora</label>
+                <Select value={temPrinter} onValueChange={setTemPrinter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="yes">Sim</SelectItem>
+                    <SelectItem value="no">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Última interação</label>
+                <Select value={recencia} onValueChange={setRecencia}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Qualquer</SelectItem>
+                    <SelectItem value="7">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30">Últimos 30 dias</SelectItem>
+                    <SelectItem value="90">Últimos 90 dias</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tipo de pessoa</label>
+                <Select value={clienteFilter} onValueChange={setClienteFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="clientes">Apenas clientes</SelectItem>
+                    <SelectItem value="leads">Apenas leads</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -568,6 +759,17 @@ function CreateCampaign({
                 <span className="text-muted-foreground">Canal</span>
                 <Badge variant="outline">{sendChannel}</Badge>
               </div>
+              {sendChannel === "evolution" && evolutionInstance && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Instância</span>
+                  <span className="font-medium">
+                    {(() => {
+                      const i = evolutionInstances.find(x => x.instance === evolutionInstance);
+                      return i ? `${i.nome}${i.phone ? ` — +${i.phone}` : ""}` : evolutionInstance;
+                    })()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Conteúdo</span>
                 <span className="font-medium truncate max-w-[60%] text-right">{selectedContent?.title || "—"}</span>
@@ -578,7 +780,20 @@ function CreateCampaign({
                   {anchorProduct !== "all" && <Badge variant="outline">{anchorProduct}</Badge>}
                   {temperatura !== "all" && <Badge variant="outline">Temp: {temperatura}</Badge>}
                   {stageName !== "all" && <Badge variant="outline">{stageName}</Badge>}
-                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" && <span>Nenhum (todos os leads)</span>}
+                  {especialidade !== "all" && <Badge variant="outline">{especialidade}</Badge>}
+                  {areaAtuacao !== "all" && <Badge variant="outline">{areaAtuacao}</Badge>}
+                  {uf !== "all" && <Badge variant="outline">UF: {uf}</Badge>}
+                  {proprietario !== "all" && <Badge variant="outline">{proprietario}</Badge>}
+                  {realStatus !== "all" && <Badge variant="outline">{realStatus}</Badge>}
+                  {temScanner !== "all" && <Badge variant="outline">Scanner: {temScanner === "yes" ? "Sim" : "Não"}</Badge>}
+                  {temPrinter !== "all" && <Badge variant="outline">Impressora: {temPrinter === "yes" ? "Sim" : "Não"}</Badge>}
+                  {recencia !== "any" && <Badge variant="outline">≤ {recencia}d</Badge>}
+                  {clienteFilter !== "all" && <Badge variant="outline">{clienteFilter === "clientes" ? "Clientes" : "Leads"}</Badge>}
+                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" &&
+                   especialidade === "all" && areaAtuacao === "all" && uf === "all" &&
+                   proprietario === "all" && realStatus === "all" && temScanner === "all" &&
+                   temPrinter === "all" && recencia === "any" && clienteFilter === "all" &&
+                   <span>Nenhum (todos os leads)</span>}
                 </div>
               </div>
               <div className="flex justify-between">
