@@ -66,6 +66,34 @@ Deno.serve(async (req) => {
     if (dedupeId) {
       try {
         const supabaseDedupe = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        // ─── HARD-DEDUPE: by dedicated column platform_lead_id ───
+        // If we already persisted this Meta leadgen_id on a lead, the cron is
+        // re-delivering the same lead. Short-circuit immediately, regardless
+        // of when the original event was logged. This prevents the
+        // "Person criada repetidamente a cada cron do meta" loop.
+        const { data: priorLead } = await supabaseDedupe
+          .from("lia_attendances")
+          .select("id, pessoa_piperun_id, piperun_id, merged_into")
+          .eq("platform_lead_id", String(dedupeId))
+          .is("merged_into", null)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (priorLead) {
+          console.log(
+            `[ingest-lead] HARD_DEDUPE_SKIPPED: platform_lead_id=${dedupeId} already on lead ${priorLead.id} (pessoa=${priorLead.pessoa_piperun_id ?? "n/a"})`,
+          );
+          return new Response(
+            JSON.stringify({
+              success: true,
+              duplicate_skipped: true,
+              dedupe_id: String(dedupeId),
+              dedupe_via: "platform_lead_id_column",
+              lead_id: priorLead.id,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
         const { data: priorEvent } = await supabaseDedupe
           .from("lead_activity_log")
           .select("id, event_timestamp, lead_id")
