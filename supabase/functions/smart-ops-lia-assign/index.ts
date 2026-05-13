@@ -320,7 +320,7 @@ async function createPerson(
   if (email) {
     const minimalName = fallbackName || sanitizePersonNameForPiperun("", email);
     console.warn(`[lia-assign] Retrying createPerson with minimal payload, name="${minimalName}"`);
-    const minimalPayload: Record<string, unknown> = { name: minimalName, emails: [{ email }] };
+    const minimalPayload: Record<string, unknown> = { name: minimalName, email, emails: [{ email }] };
     id = await tryCreate(minimalPayload, 3);
     if (id) return id;
   }
