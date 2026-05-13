@@ -649,7 +649,10 @@ Deno.serve(async (req) => {
       // a distinct revenue opportunity for that product.
       force_new_deal:
         payload.force_new_deal === true ||
-        (source === "loja_integrada" && formName === "produto_sob_consulta"),
+        (source === "loja_integrada" && (
+          formName === ECOM_QUOTE_LABEL ||
+          formName === "produto_sob_consulta"
+        )),
     });
     const cognitivePromise = dispatchAsync("cognitive-lead-analysis", {
       lead_id: leadId,
