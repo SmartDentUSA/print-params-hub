@@ -336,10 +336,15 @@ export async function forcePopulateCachedPerson(
   }
 
   const payload: Record<string, unknown> = {};
-  if (emailValid) payload.emails = [{ email: args.email, type: "work" }];
+  // PipeRun changed contract (~2026-05-12): nested arrays alone are silently
+  // discarded. Send flat string fields and keep nested as backup.
+  if (emailValid) {
+    payload.email = args.email;
+    payload.emails = [{ email: args.email, type: "work" }];
+  }
   if (phoneValid) {
-    payload.phones = [{ phone: args.phone, type: "work" }];
     payload.cellphone = args.phone;
+    payload.phones = [{ phone: args.phone, type: "work" }];
   }
 
   try {
@@ -415,11 +420,11 @@ export async function verifyAndRecoverPersonContact(
   // No other owner found — retry isolated PUTs as a last resort.
   let retriedEmail = false; let retriedPhone = false;
   if (!hasEmail && lowerEmail) {
-    const r = await piperunPut(apiToken, `persons/${personId}`, { emails: [{ email }] });
+    const r = await piperunPut(apiToken, `persons/${personId}`, { email, emails: [{ email }] });
     retriedEmail = r.success;
   }
   if (!hasPhone && phoneDigits) {
-    const r = await piperunPut(apiToken, `persons/${personId}`, { phones: [{ phone }], cellphone: phone });
+    const r = await piperunPut(apiToken, `persons/${personId}`, { cellphone: phone, phones: [{ phone }] });
     retriedPhone = r.success;
   }
 
