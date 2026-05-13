@@ -28,6 +28,8 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
+const WALEADS_ENABLED = false; // Pausado — usar Evolution API (smart-ops-lead-welcome + smart-ops-lia-notify-seller)
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -824,19 +826,22 @@ interface TeamMember {
 async function pickRandomActiveVendedor(
   supabase: ReturnType<typeof createClient>
 ): Promise<TeamMember> {
-  // Priority: vendedores with waleads_api_key configured
-  const { data: waMembers } = await supabase
-    .from("team_members")
-    .select("id, nome_completo, piperun_owner_id")
-    .eq("ativo", true)
-    .eq("role", "vendedor")
-    .not("waleads_api_key", "is", null);
-
-  if (waMembers && waMembers.length > 0) {
-    const idx = Math.floor(Math.random() * waMembers.length);
-    console.log(`[lia-assign] Selected WaLeads-enabled vendedor: ${waMembers[idx].nome_completo}`);
-    return waMembers[idx] as TeamMember;
-  }
+  // WALEADS_ENABLED: priorização por WaLeads pausada
+  // if (WALEADS_ENABLED) {
+  //   // Priority: vendedores with waleads_api_key configured
+  //   const { data: waMembers } = await supabase
+  //     .from("team_members")
+  //     .select("id, nome_completo, piperun_owner_id")
+  //     .eq("ativo", true)
+  //     .eq("role", "vendedor")
+  //     .not("waleads_api_key", "is", null);
+  //
+  //   if (waMembers && waMembers.length > 0) {
+  //     const idx = Math.floor(Math.random() * waMembers.length);
+  //     console.log(`[lia-assign] Selected WaLeads-enabled vendedor: ${waMembers[idx].nome_completo}`);
+  //     return waMembers[idx] as TeamMember;
+  //   }
+  // }
 
   // Fallback: any active vendedor
   const { data: members } = await supabase
@@ -2610,7 +2615,9 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
-    await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
+    if (WALEADS_ENABLED) {
+      await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
+    }
 
     return new Response(
       JSON.stringify({
