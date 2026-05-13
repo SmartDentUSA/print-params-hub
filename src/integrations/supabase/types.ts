@@ -17187,6 +17187,17 @@ export type Database = {
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      log_automation_message: {
+        Args: {
+          p_error?: string
+          p_lead_id: string
+          p_phone: string
+          p_preview: string
+          p_status?: string
+          p_tipo: string
+        }
+        Returns: undefined
+      }
       match_agent_embeddings: {
         Args: {
           match_count?: number
