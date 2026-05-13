@@ -477,7 +477,8 @@ function CreateCampaign({
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">1. Escolher Conteúdo</CardTitle>
+            <CardTitle className="text-base">1. Conteúdo (opcional)</CardTitle>
+            <p className="text-xs text-muted-foreground">Escolha um item da biblioteca ou avance para compor a mensagem na próxima etapa.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             {selectedContent ? (
@@ -511,6 +512,11 @@ function CreateCampaign({
                     <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   </div>
                 ))}
+                {searchTerm.trim().length >= 2 && searchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Nenhum conteúdo encontrado para "{searchTerm}". Você pode avançar sem selecionar.
+                  </p>
+                )}
               </div>
             )}
 
@@ -567,7 +573,6 @@ function CreateCampaign({
               <Button
                 onClick={() => setStep(2)}
                 disabled={
-                  !selectedContent ||
                   !campaignName.trim() ||
                   (sendChannel === "evolution" && !evolutionInstance)
                 }
