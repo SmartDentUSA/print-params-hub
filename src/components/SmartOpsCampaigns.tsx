@@ -759,6 +759,17 @@ function CreateCampaign({
                 <span className="text-muted-foreground">Canal</span>
                 <Badge variant="outline">{sendChannel}</Badge>
               </div>
+              {sendChannel === "evolution" && evolutionInstance && (
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Instância</span>
+                  <span className="font-medium">
+                    {(() => {
+                      const i = evolutionInstances.find(x => x.instance === evolutionInstance);
+                      return i ? `${i.nome}${i.phone ? ` — +${i.phone}` : ""}` : evolutionInstance;
+                    })()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Conteúdo</span>
                 <span className="font-medium truncate max-w-[60%] text-right">{selectedContent?.title || "—"}</span>
@@ -769,7 +780,20 @@ function CreateCampaign({
                   {anchorProduct !== "all" && <Badge variant="outline">{anchorProduct}</Badge>}
                   {temperatura !== "all" && <Badge variant="outline">Temp: {temperatura}</Badge>}
                   {stageName !== "all" && <Badge variant="outline">{stageName}</Badge>}
-                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" && <span>Nenhum (todos os leads)</span>}
+                  {especialidade !== "all" && <Badge variant="outline">{especialidade}</Badge>}
+                  {areaAtuacao !== "all" && <Badge variant="outline">{areaAtuacao}</Badge>}
+                  {uf !== "all" && <Badge variant="outline">UF: {uf}</Badge>}
+                  {proprietario !== "all" && <Badge variant="outline">{proprietario}</Badge>}
+                  {realStatus !== "all" && <Badge variant="outline">{realStatus}</Badge>}
+                  {temScanner !== "all" && <Badge variant="outline">Scanner: {temScanner === "yes" ? "Sim" : "Não"}</Badge>}
+                  {temPrinter !== "all" && <Badge variant="outline">Impressora: {temPrinter === "yes" ? "Sim" : "Não"}</Badge>}
+                  {recencia !== "any" && <Badge variant="outline">≤ {recencia}d</Badge>}
+                  {clienteFilter !== "all" && <Badge variant="outline">{clienteFilter === "clientes" ? "Clientes" : "Leads"}</Badge>}
+                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" &&
+                   especialidade === "all" && areaAtuacao === "all" && uf === "all" &&
+                   proprietario === "all" && realStatus === "all" && temScanner === "all" &&
+                   temPrinter === "all" && recencia === "any" && clienteFilter === "all" &&
+                   <span>Nenhum (todos os leads)</span>}
                 </div>
               </div>
               <div className="flex justify-between">
