@@ -806,7 +806,7 @@ function CreateCampaign({
                   {temPrinter !== "all" && <Badge variant="outline">Impressora: {temPrinter === "yes" ? "Sim" : "Não"}</Badge>}
                   {recencia !== "any" && <Badge variant="outline">≤ {recencia}d</Badge>}
                   {clienteFilter !== "all" && <Badge variant="outline">{clienteFilter === "clientes" ? "Clientes" : "Leads"}</Badge>}
-                  {anchorProduct === "all" && temperatura === "all" && stageName === "all" &&
+                  {produtoInteresse === "all" && temperatura === "all" && stageName === "all" &&
                    especialidade === "all" && areaAtuacao === "all" && uf === "all" &&
                    proprietario === "all" && realStatus === "all" && temScanner === "all" &&
                    temPrinter === "all" && recencia === "any" && clienteFilter === "all" &&
