@@ -2078,6 +2078,15 @@ Deno.serve(async (req) => {
         (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
       );
 
+      // ── FORCE NEW DEAL (e.g. Loja Integrada "Sob Consulta") ──
+      // Each product consult is a fresh revenue opportunity. Skip the
+      // vendaDeal-preserve and estagnado-reactivate branches; create a
+      // brand-new Deal even if open ones already exist for this Person.
+      if (force_new_deal === true) {
+        console.log(`[lia-assign] force_new_deal=true → bypassing vendaDeal/estagnDeal preserve for person ${personId}`);
+        vendaDeal = undefined;
+      }
+
       // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
       if (vendaDeal) {
         piperunId = String(vendaDeal.id);
@@ -2130,7 +2139,7 @@ Deno.serve(async (req) => {
           await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
           console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
         }
-      } else if (estagnDeal) {
+      } else if (estagnDeal && force_new_deal !== true) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
         await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
@@ -2139,7 +2148,7 @@ Deno.serve(async (req) => {
         flowType = "new_deal";
         // ── Dedupe guard: if lead already carries a piperun_id, validate it before creating a new deal ──
         const cachedDealId = (lead.piperun_id as string | null) || null;
-        if (cachedDealId) {
+        if (cachedDealId && force_new_deal !== true) {
           try {
             const check = await piperunGet(PIPERUN_API_KEY, `deals/${cachedDealId}`, {});
             const dealData = (check?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
