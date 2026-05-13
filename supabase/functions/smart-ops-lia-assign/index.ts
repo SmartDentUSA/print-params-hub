@@ -28,6 +28,8 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
+const WALEADS_ENABLED = false; // Pausado — usar Evolution API (smart-ops-lead-welcome + smart-ops-lia-notify-seller)
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
