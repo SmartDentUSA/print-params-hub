@@ -298,6 +298,10 @@ Deno.serve(async (req) => {
       "first_name", "last_name", "phone_number", "phone", "mobile", "celular",
       "user_phone", "user_email", "specialty", "product", "nome", "email",
       "telefone", "utm_source", "utm_medium", "utm_campaign", "utm_term",
+      // Loja Integrada / front-end metadata (preserved in raw_payload only) —
+      // never let these become inferred columns on lia_attendances.
+      "page_url", "page_title", "mensagem", "produto_id", "produto_sku",
+      "produto_nome", "referrer", "user_agent", "force_new_deal",
     ]);
     for (const [key, value] of Object.entries(payload)) {
       if (value == null || value === "") continue;
@@ -582,6 +586,13 @@ Deno.serve(async (req) => {
         ? "sdr_captacao_reativacao"
         : "ingest-lead",
       form_responses: payload.form_responses || [],
+      // Force a brand-new Deal whenever the submission is an explicit
+      // commercial inquiry on a product page (Loja Integrada "Sob Consulta"),
+      // even if the Person already has an open Vendas deal. Each consult is
+      // a distinct revenue opportunity for that product.
+      force_new_deal:
+        payload.force_new_deal === true ||
+        (source === "loja_integrada" && formName === "produto_sob_consulta"),
     });
     const cognitivePromise = dispatchAsync("cognitive-lead-analysis", {
       lead_id: leadId,
