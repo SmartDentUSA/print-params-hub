@@ -1,67 +1,42 @@
-# Central de Campanhas — UI Evolution + refinamento da segmentação
+# Central de Campanhas — destravar Step 1 → Segmentação
 
-Escopo apenas frontend em `src/components/SmartOpsCampaigns.tsx` (wizard `CreateCampaign`). Backend Evolution já está pronto — a UI lê das colunas `team_members.evolution_instance_name` / `evolution_phone` (`ativo=true`) para listar os telefones conectados.
+## Diagnóstico
 
-## 1. Step 1 — Canal de envio
+No print, o botão **Próximo** está desabilitado mesmo com `Nome`, `Canal`, `Instância` e `Descrição` preenchidos. A causa é a validação no Step 1 (`SmartOpsCampaigns.tsx:569-573`):
 
-Adicionar **Evolution** ao select existente, ao lado de WhatsApp (WaLeads), SellFlux, Apenas registrar:
-
-```text
-Canal de envio: [ Evolution ▾ ]
-Instância:      [ 🟢 Vilmar — +55 45 99902-1444 ▾ ]   ← só aparece quando canal = evolution
-```
-
-Detalhes:
-- Novo `SelectItem value="evolution"` → label `WhatsApp (Evolution)`.
-- Quando `sendChannel === "evolution"`:
-  - Renderizar um segundo `Select` "Instância" abaixo (full-width na grid sm:col-span-2).
-  - Carregar via `useEffect` consultando `team_members` (`select id, nome_completo, evolution_instance_name, evolution_phone where ativo=true and evolution_instance_name not null`).
-  - Cada item mostra `{nome_completo} — +{evolution_phone}` com bullet verde (assumimos conectado pois backend está estável; sem chamada extra de status).
-  - Estado novo `evolutionInstance: string` (guarda `evolution_instance_name`).
-  - Validação: botão "Próximo" desabilita quando `sendChannel === "evolution" && !evolutionInstance`.
-
-Persistência (sem migração): no `handleCreate`, quando canal = evolution, gravar:
 ```ts
-channel: "evolution",
-lead_filters: { ...filters, evolution_instance: evolutionInstance }
+disabled={ !selectedContent || !campaignName.trim() || (sendChannel==="evolution" && !evolutionInstance) }
 ```
 
-Step 3 (Revisar) ganha linha extra "Instância" exibindo o telefone escolhido quando aplicável.
+O usuário digitou "DEDE" no campo de busca, mas **não clicou em nenhum resultado** (a busca não retornou itens correspondentes ao termo "DEDE"), então `selectedContent` continua `null` e a validação trava.
 
-## 2. Step 2 — Segmentação (próximas etapas do seletor)
+Hoje o Step 1 obriga escolher um item já existente da biblioteca de conteúdos, o que não faz sentido quando:
+- a campanha é totalmente nova (texto vai ser composto depois);
+- a busca não retorna nada;
+- o usuário só quer disparar uma mensagem ad-hoc via Evolution.
 
-Hoje só temos: Produto âncora, Temperatura, Etapa CRM. Adicionar filtros úteis e já presentes em `lia_attendances`:
+## Mudanças (apenas UI em `src/components/SmartOpsCampaigns.tsx`)
 
-| Filtro | Campo | UI |
-|---|---|---|
-| **Especialidade** | `especialidade` | Select com distinct |
-| **Área de atuação** | `area_atuacao` | Select com distinct |
-| **UF** | `uf` | Select com distinct |
-| **Proprietário (vendedor)** | `proprietario_lead_crm` | Select com distinct |
-| **Status real** | `real_status` | Select com distinct |
-| **Tem scanner / impressora** | `tem_scanner`, `equip_printer_brand` | dois selects "Sim/Não/Todos" |
-| **Última interação** | `updated_at` | Select: 7d / 30d / 90d / qualquer |
-| **Já comprou?** | `total_deals_all > 0` | Toggle "Apenas clientes" / "Apenas leads" / "Todos" |
+### 1. Tornar `selectedContent` opcional
+- Remover `!selectedContent` da condição `disabled` do botão Próximo.
+- Renomear o card para **"1. Conteúdo (opcional)"** e adicionar texto auxiliar: *"Escolha um item da biblioteca ou avance para compor a mensagem na próxima etapa."*
 
-Implementação:
-- Novos `useState` por filtro (default `"all"` ou `"any"`).
-- Carregar `distinct` como já fazem `anchorOptions` e `stageOptions` (um `useEffect` agrupando todas as queries, parallel).
-- Estender o `useEffect` de contagem com os novos filtros (`ilike`/`eq`/`gte`/`gt`).
-- Persistir no `lead_filters` JSON com chaves nomeadas — sem migração.
+### 2. Feedback quando a busca não retorna nada
+Abaixo do input de busca, quando `searchTerm.length >= 2 && searchResults.length === 0 && !loadingSearch`, mostrar:
+> *"Nenhum conteúdo encontrado para 'DEDE'. Você pode avançar sem selecionar."*
 
-Layout: aumentar a grid para `sm:grid-cols-2 lg:grid-cols-3` mantendo o card de "leads impactados" full-width abaixo.
+### 3. Botão "Pular seleção de conteúdo"
+Quando `!selectedContent`, exibir um botão secundário discreto **"Continuar sem conteúdo"** ao lado do "Próximo", apenas para deixar claro que é permitido. (Tecnicamente redundante depois do item 1, mas remove a fricção visual reportada.)
 
-## 3. Step 3 — Revisar
+### 4. Persistência
+`handleCreate` já lida com `content_id` opcional via spread. Garantir que, quando `selectedContent` for `null`, gravamos `content_id: null` em `campaign_sessions` — confirmar no bloco existente sem alterar a estrutura do payload.
 
-Renderizar dinamicamente todos os filtros aplicados como `Badge`s, e adicionar a linha "Instância" quando canal = evolution.
+### 5. Step 3 (Revisar)
+Quando não houver conteúdo selecionado, mostrar uma linha *"Conteúdo: a definir"* em vez de quebrar o card de preview.
 
-## Arquivos
-- **Editar:** `src/components/SmartOpsCampaigns.tsx` (única alteração — só UI/estado).
-
-## Fora do escopo
-- Disparo real Evolution (já pronto no backend conforme você confirmou — só consumirá `channel=evolution` + `lead_filters.evolution_instance`).
-- Migração no `campaign_sessions` — tudo cabe em `lead_filters` JSON.
-- Indicador "ao vivo" de status de cada instância (não pediu; podemos adicionar depois).
+## Fora de escopo
+- Editor inline de mensagem nova (ficaria para próxima iteração).
+- Mudanças em Step 2 (segmentação) ou backend.
 
 ## Pergunta única
-Está ok armazenar a instância em `campaign_sessions.lead_filters.evolution_instance` (sem migração), ou prefere uma coluna dedicada `evolution_instance text`?
+Confirma que quero mesmo permitir campanhas sem item da biblioteca selecionado? (alternativa seria forçar o usuário a sempre criar/selecionar um conteúdo antes — porém o fluxo atual já trava nessa hipótese exata).
