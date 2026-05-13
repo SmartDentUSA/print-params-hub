@@ -525,19 +525,53 @@ function CreateCampaign({
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="whatsapp">WhatsApp (WaLeads)</SelectItem>
+                    <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+            {sendChannel === "evolution" && (
+              <div>
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" /> Instância Evolution *
+                </label>
+                <Select value={evolutionInstance} onValueChange={setEvolutionInstance}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={evolutionInstances.length ? "Selecione um telefone conectado" : "Nenhuma instância configurada"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {evolutionInstances.map(i => (
+                      <SelectItem key={i.instance} value={i.instance}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          {i.nome}{i.phone ? ` — +${i.phone}` : ""}
+                          <span className="text-xs text-muted-foreground">({i.instance})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!evolutionInstances.length && (
+                  <p className="text-xs text-muted-foreground mt-1">Nenhum vendedor com instância Evolution ativa.</p>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Descrição (opcional)</label>
               <Input value={campaignDesc} onChange={(e) => setCampaignDesc(e.target.value)} placeholder="Objetivo da campanha..." />
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} disabled={!selectedContent || !campaignName.trim()}>
+              <Button
+                onClick={() => setStep(2)}
+                disabled={
+                  !selectedContent ||
+                  !campaignName.trim() ||
+                  (sendChannel === "evolution" && !evolutionInstance)
+                }
+              >
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
