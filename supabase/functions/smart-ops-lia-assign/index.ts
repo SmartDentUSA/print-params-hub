@@ -248,8 +248,17 @@ async function createPerson(
   }
 
   const personPayload: Record<string, unknown> = { name: nome };
-  if (email) personPayload.emails = [{ email }];
-  if (phone) personPayload.phones = [{ phone }];
+  // PipeRun changed contract (~2026-05-12): nested arrays are silently
+  // discarded on POST/PUT /persons. Send flat string fields. Keep nested
+  // arrays as backup for older API behavior.
+  if (email) {
+    personPayload.email = email;
+    personPayload.emails = [{ email }];
+  }
+  if (phone) {
+    personPayload.cellphone = phone;
+    personPayload.phones = [{ phone }];
+  }
   if (especialidade) personPayload.job_title = especialidade;
 
   // Person origin = FIRST-TOUCH only (frozen). Falls back to current campaign for brand-new leads.
