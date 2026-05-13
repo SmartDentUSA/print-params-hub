@@ -125,8 +125,23 @@ Deno.serve(async (req) => {
 
     // --- Fix: declare source from payload ---
     const source = payload.source || payload.utm_source || "formulario";
-    const formName = payload.form_name || payload.formName || payload.form || null;
+    let formName: string | null = payload.form_name || payload.formName || payload.form || null;
     const formPurpose: string | null = payload.form_purpose || null;
+
+    // ── Loja Integrada: normalizar formulário de orçamento ──
+    // Front-end posta form_name="produto_sob_consulta" cru. Renomeamos para o
+    // label oficial usado no PipeRun (Origin) e fixamos a campanha orgânica.
+    const ECOM_QUOTE_LABEL    = "# - Orçamento e-commerce";
+    const ECOM_QUOTE_CAMPAIGN = "# - Orgânico e-commerce";
+    const isEcomQuote =
+      source === "loja_integrada" &&
+      (formName === "produto_sob_consulta" || formName === ECOM_QUOTE_LABEL);
+    if (isEcomQuote) {
+      formName = ECOM_QUOTE_LABEL;
+      payload.form_name       = ECOM_QUOTE_LABEL;
+      payload.origem_campanha = ECOM_QUOTE_CAMPAIGN;
+      payload.utm_campaign    = ECOM_QUOTE_CAMPAIGN;
+    }
 
     // --- Extract fields with EXPLICIT keys (avoid form_name collision) ---
     const nome = payload.nome || payload.full_name || payload.name || payload.user_name ||
@@ -167,9 +182,23 @@ Deno.serve(async (req) => {
       : extractField(payload, "impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora");
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const formProduct = detectProductFromFormName(formName);
-    const produtoInteresse = payload.produto_interesse
+    let produtoInteresse: string | null = payload.produto_interesse
       ? String(payload.produto_interesse).trim()
       : (extractField(payload, "produto_interesse", "product") || formProduct);
+
+    // Loja Integrada: produto selecionado pelo lead na loja → produto_interesse
+    if (isEcomQuote) {
+      const ecomProduct =
+        (typeof payload.produto_nome === "string" && payload.produto_nome.trim()) ||
+        (typeof payload.produto_sku  === "string" && payload.produto_sku.trim())  ||
+        (typeof payload.page_title   === "string" && payload.page_title.trim())   ||
+        null;
+      if (ecomProduct) {
+        produtoInteresse = ecomProduct;
+        payload.produto_interesse = ecomProduct;
+      }
+    }
+
     const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
 
     // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
