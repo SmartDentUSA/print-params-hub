@@ -2196,10 +2196,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── Step 5h: POST-DEAL VERIFY & RESYNC ──
-      // After the Deal is created/updated, re-publish Person + Company contact
-      // so the CRM card never appears without email/phone. Best-effort; logs
-      // any persistent gap for the safety-net cron to retry later.
+      // ── Step 5h: POST-DEAL RESYNC + CUSTOM FIELDS ──
+      // Re-publish Person/Company contact and write the PipeRun custom fields
+      // (fields:[{id,valor}] format confirmed via API). Best-effort.
       if (piperunId && personId) {
         try {
           await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
@@ -2213,31 +2212,87 @@ Deno.serve(async (req) => {
             console.warn("[lia-assign] Post-deal Company resync error:", e);
           }
         }
-        // Verify Person card is no longer blank
-        try {
-          const verify = await piperunGet(PIPERUN_API_KEY, `persons/${personId}`, {});
-          const personData = (verify?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
-          const emails = (personData?.emails as Array<Record<string, unknown>> | undefined) || [];
-          const phones = (personData?.phones as Array<Record<string, unknown>> | undefined) || [];
-          const stillMissing = emails.length === 0 && phones.length === 0;
-          await supabase.from("system_health_logs").insert({
-            function_name: "smart-ops-lia-assign",
-            severity: stillMissing ? "warning" : "info",
-            error_type: stillMissing
-              ? "piperun_contact_still_missing_after_resync"
-              : "piperun_person_resync_ok",
-            lead_id: lead.id,
-            lead_email: leadEmail,
-            details: {
-              person_id: personId,
-              company_id: companyId,
-              piperun_id: piperunId,
-              emails_count: emails.length,
-              phones_count: phones.length,
-            },
-          });
-        } catch (e) {
-          console.warn("[lia-assign] Post-deal verify error:", e);
+
+        // ── Custom fields: PESSOA + DEAL ──
+        const CF_PESSOA = {
+          area_atuacao: 673900,
+          especialidade: 445631,
+          tem_impressora: 546566,
+          mapeamento_scanner: 772727,
+          mapeamento_impressora: 772728,
+          origem_lead: 772511,
+        };
+        const CF_DEAL = {
+          area_atuacao: 549241,
+          especialidade: 549059,
+          produto_interesse: 549058,
+          tem_impressora: 549243,
+          produto_auto: 549148,
+        };
+
+        const formName = String((lead as Record<string, unknown>).form_name || "").trim();
+        const cfEmail = (lead.email as string | null) || null;
+        const phoneDigits = String(
+          (lead as Record<string, unknown>).telefone_normalized ||
+          (lead as Record<string, unknown>).telefone_raw || ""
+        ).replace(/\D/g, "");
+        const leadAreaAtuacao = (lead as Record<string, unknown>).area_atuacao as string | null;
+        const leadEspecialidade = (lead as Record<string, unknown>).especialidade as string | null;
+        const leadTemImpressora = String((lead as Record<string, unknown>).tem_impressora || "").toLowerCase();
+        const leadModeloScanner =
+          ((lead as Record<string, unknown>).como_digitaliza as string | null) ||
+          ((lead as Record<string, unknown>).equip_scanner as string | null);
+        const leadModeloImpressora = (lead as Record<string, unknown>).impressora_modelo as string | null;
+
+        // PESSOA fields
+        const personFields: Array<{ id: number; valor: string }> = [];
+        if (leadAreaAtuacao)
+          personFields.push({ id: CF_PESSOA.area_atuacao, valor: leadAreaAtuacao.toUpperCase() });
+        if (leadEspecialidade)
+          personFields.push({ id: CF_PESSOA.especialidade, valor: leadEspecialidade });
+        if (leadTemImpressora)
+          personFields.push({ id: CF_PESSOA.tem_impressora, valor: leadTemImpressora === "sim" ? "SIM" : "NÃO" });
+        if (leadModeloScanner && !["ainda_não_digitalizo", "sem scanner"].includes(leadModeloScanner.toLowerCase()))
+          personFields.push({ id: CF_PESSOA.mapeamento_scanner, valor: leadModeloScanner });
+        if (leadModeloImpressora && !["não tem", "sem impressora"].includes(leadModeloImpressora.toLowerCase()))
+          personFields.push({ id: CF_PESSOA.mapeamento_impressora, valor: leadModeloImpressora });
+        if (formName)
+          personFields.push({ id: CF_PESSOA.origem_lead, valor: `Meta Lead Ads — ${formName}` });
+
+        if (personId && (personFields.length > 0 || cfEmail || phoneDigits)) {
+          const personPayload: Record<string, unknown> = {};
+          if (personFields.length > 0) personPayload.fields = personFields;
+          if (cfEmail) {
+            personPayload.contact_emails = [{ address: cfEmail }];
+            personPayload.emails = [{ email: cfEmail }];
+          }
+          if (phoneDigits) {
+            personPayload.contact_phones = [{ number: phoneDigits, is_main: 1 }];
+            personPayload.phones = [{ phone: phoneDigits }];
+            personPayload.cellphone = phoneDigits;
+          }
+          await piperunPut(PIPERUN_API_KEY, `persons/${personId}`, personPayload)
+            .catch((e) => console.warn("[lia-assign] person fields PUT:", (e as Error).message));
+        }
+
+        // DEAL fields
+        if (piperunId) {
+          const dealFields: Array<{ id: number; valor: string }> = [];
+          if (leadAreaAtuacao)
+            dealFields.push({ id: CF_DEAL.area_atuacao, valor: leadAreaAtuacao });
+          if (leadEspecialidade)
+            dealFields.push({ id: CF_DEAL.especialidade, valor: leadEspecialidade });
+          if ((lead as Record<string, unknown>).produto_interesse)
+            dealFields.push({ id: CF_DEAL.produto_interesse, valor: String((lead as Record<string, unknown>).produto_interesse) });
+          if (leadTemImpressora)
+            dealFields.push({
+              id: CF_DEAL.tem_impressora,
+              valor: leadModeloImpressora ? `${leadTemImpressora} - ${leadModeloImpressora}` : leadTemImpressora,
+            });
+          if (dealFields.length > 0) {
+            await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, { fields: dealFields })
+              .catch((e) => console.warn("[lia-assign] deal fields PUT:", (e as Error).message));
+          }
         }
       }
     } else {
