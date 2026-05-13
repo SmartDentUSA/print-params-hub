@@ -1762,7 +1762,7 @@ Deno.serve(async (req) => {
     // webhook re-delivers the same leadgen_id every ~2 min and previously
     // looped through lia-assign continuously. Reactivation should only fire
     // for *genuinely new* form submissions (already deduped at ingest-lead).
-    if (!force && lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at) {
+    if (!force && force_new_deal !== true && lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
       if (Date.now() - lastUpdate < 5 * 60 * 1000) {
         console.log("[lia-assign] Already assigned recently, skipping");
