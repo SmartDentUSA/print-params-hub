@@ -1931,29 +1931,9 @@ Deno.serve(async (req) => {
         // swap avoids both ghost proliferation and PipeRun's silent reject.
         if (!cachedCheck.hasContact) {
           try {
-            // Step A: try to force-populate the cached Person directly. If it
-            // accepts the contact, we keep the same ID and avoid hunting for
-            // an "owner" Person (which often doesn't exist).
-            const { findPersonExpanded, forcePopulateCachedPerson } = await import("../_shared/piperun-person-resolver.ts");
-            try {
-              const fp = await forcePopulateCachedPerson(PIPERUN_API_KEY, personId, {
-                email: leadEmail || null,
-                phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
-              });
-              if (fp.ok) {
-                try {
-                  await supabase.from("system_health_logs").insert({
-                    function_name: "smart-ops-lia-assign",
-                    severity: "info",
-                    error_type: "piperun_person_force_populated",
-                    lead_id: lead.id,
-                    lead_email: leadEmail,
-                    details: { person_id: personId, ...fp, stage: "cached_check" },
-                  });
-                } catch {}
-                // populated → no need to swap; cached id stays.
-              }
-            } catch (e) { console.warn("[lia-assign] forcePopulate (cached) error:", e); }
+            // Try to swap the empty cached Person for an existing owner
+            // (matched by email/phone/name) before falling back to PUT.
+            const { findPersonExpanded } = await import("../_shared/piperun-person-resolver.ts");
             const owner = await findPersonExpanded(PIPERUN_API_KEY, {
               email: leadEmail || null,
               phone: (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null),
