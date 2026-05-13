@@ -2136,11 +2136,15 @@ Deno.serve(async (req) => {
             const check = await piperunGet(PIPERUN_API_KEY, `deals/${cachedDealId}`, {});
             const dealData = (check?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
             const isAlive = dealData && dealData.deleted !== 1 && dealData.deleted !== true;
-            if (isAlive) {
+            const cachedPipelineId = Number(dealData?.pipeline_id);
+            const isInVendas = cachedPipelineId === PIPELINES.VENDAS;
+            if (isAlive && isInVendas) {
               piperunId = cachedDealId;
               flowType = "preserve_cached_deal";
               await updateExistingDeal(PIPERUN_API_KEY, Number(cachedDealId), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
-              console.log(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} alive, updated instead of creating new`);
+              console.log(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} alive in Vendas, updated instead of creating new`);
+            } else if (isAlive && !isInVendas) {
+              console.log(`[lia-assign] FUNIL GUARD: cached deal ${cachedDealId} em pipeline ${cachedPipelineId} (não-Vendas) → criando NOVO Deal em Vendas`);
             } else {
               console.warn(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} dead/deleted, will create new`);
             }
