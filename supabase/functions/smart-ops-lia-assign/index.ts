@@ -2169,47 +2169,8 @@ Deno.serve(async (req) => {
           }
         }
         if (!piperunId) {
-        // ── EMPTY-PERSON GUARD ──
-        // Never create a brand-new Deal pointing to a Person that has no
-        // email AND no phone in PipeRun. After updatePersonFields + the
-        // verify-and-recover pass, if the Person card is still empty we
-        // abort so the retry-cron / backfill can fix the Person first.
-        try {
-          const { getPersonContact } = await import("../_shared/piperun-person-resolver.ts");
-          const contactNow = await getPersonContact(PIPERUN_API_KEY, personId);
-          const hasAny = !!contactNow && (contactNow.emails.length > 0 || contactNow.phones.length > 0);
-          if (!hasAny) {
-            console.error(`[lia-assign] BLOCKED new Deal: person ${personId} has no email/phone in PipeRun`);
-            try {
-              await supabase.from("system_health_logs").insert({
-                function_name: "smart-ops-lia-assign",
-                severity: "error",
-                error_type: "deal_creation_blocked_empty_person",
-                lead_id: lead.id,
-                lead_email: lead.email,
-                details: { person_id: personId, lead_id: lead.id, source: lead.source, form_name: lead.form_name },
-              });
-              await supabase
-                .from("lia_attendances")
-                .update({
-                  pessoa_piperun_id: personId,
-                  crm_creation_blocked: true,
-                  crm_creation_blocked_reason: "empty_person_in_piperun",
-                })
-                .eq("id", lead.id);
-            } catch {}
-            flowType = "blocked_empty_person";
-            return new Response(JSON.stringify({
-              success: false,
-              skipped: true,
-              reason: "empty_person_in_piperun",
-              person_id: personId,
-              lead_id: lead.id,
-            }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-        } catch (e) {
-          console.warn("[lia-assign] empty-person guard error (non-fatal):", e);
-        }
+        // empty-person guard removed: Deal must always be created;
+        // GET-based verification produced false positives.
         piperunId = await createNewDeal(
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
