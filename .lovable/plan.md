@@ -1,46 +1,58 @@
-## Objetivo
-Garantir que **todo lead com `piperun_id` apontando para um Deal fora do Funil de Vendas** receba **obrigatoriamente** um novo Deal no Funil de Vendas. Apenas Deals abertos no próprio Funil de Vendas continuam sendo preservados (dedupe).
+## Diagnóstico
 
-## Arquivo único alterado
-`supabase/functions/smart-ops-lia-assign/index.ts` — bloco **DEDUPE GUARD** (≈ linhas 2130–2150, logo antes de `createNewDeal`).
+Lead `danilohen@gmail.com` (id `366ea619`, Person `46927163`) reprocessado pelo `smart-ops-lia-assign` várias vezes hoje **sem criar novo Deal**. O `piperun_id` cached `59681674` aponta para um Deal que está:
 
-## Mudança lógica
+- `pipeline_id = 18784` (Funil de Vendas) ✅
+- `deleted = 0` (vivo) ✅
+- **`status = 3`** (perdida/cancelada — NÃO é open)
 
-Hoje:
+## Causa raiz
+
+No último patch, o **DEDUPE GUARD** (linhas 2138-2150 de `smart-ops-lia-assign/index.ts`) passou a preservar o deal quando `isAlive && isInVendas`, mas **removeu o check de `isOpen`**:
+
+```ts
+const isAlive = dealData && dealData.deleted !== 1 && dealData.deleted !== true;
+const isInVendas = cachedPipelineId === PIPELINES.VENDAS;
+if (isAlive && isInVendas) { /* preserve */ }
 ```
-if (isAlive && isOpen) → preserva cached deal (independente do funil)
-```
 
-Passa a ser:
-```
-const isInVendas = Number(dealData?.pipeline_id) === PIPELINES.VENDAS;
+Resultado: deals **fechados (perdida/cancelada/won) em Vendas** continuam sendo "preservados" via `updateExistingDeal`, e nenhum Deal novo é criado quando o lead volta a converter.
+
+Isso também explica por que o `produto_sob_consulta` do Danilo (que deveria gerar novo Deal) não cria nada: o filtro `openDeals` já exclui o Deal 59681674 (status=3), portanto `vendaDeal=undefined` e o fluxo cai no else `new_deal` — mas o DEDUPE GUARD reabsorve o cached e curto-circuita `createNewDeal`.
+
+## Correção (1 arquivo)
+
+`supabase/functions/smart-ops-lia-assign/index.ts` — bloco DEDUPE GUARD (~linha 2138):
+
+```ts
+const isAlive  = dealData && dealData.deleted !== 1 && dealData.deleted !== true;
+const isOpen   = Number(dealData?.status) === 0;             // ← restaurar
+const cachedPipelineId = Number(dealData?.pipeline_id);
+const isInVendas = cachedPipelineId === PIPELINES.VENDAS;
 
 if (isAlive && isOpen && isInVendas) {
-  // preserva cached deal — está aberto no Funil de Vendas
+  // preserva apenas Deal ABERTO no Funil de Vendas
   piperunId = cachedDealId;
   flowType = "preserve_cached_deal";
   await updateExistingDeal(...);
-} else if (isAlive && !isInVendas) {
-  // cached deal vivo mas em CS / Suporte / Treinamento / Distribuidor
-  // → OBRIGATÓRIO criar NOVO Deal no Funil de Vendas
-  console.log(`[lia-assign] FUNIL GUARD: cached deal ${cachedDealId} em pipeline ${cachedPipelineId} (não-Vendas) → criando NOVO Deal em Vendas`);
-  // segue fluxo normal de createNewDeal abaixo
+} else if (isAlive && isOpen && !isInVendas) {
+  // aberto em CS / Suporte / Treinamento → criar NOVO em Vendas
+  console.log(`[lia-assign] FUNIL GUARD: cached deal ${cachedDealId} aberto em pipeline ${cachedPipelineId} (não-Vendas) → criando NOVO Deal em Vendas`);
 } else {
-  // closed/dead → cria novo (comportamento já existente)
+  // fechado (won/lost/cancel) ou deletado → criar NOVO
+  console.warn(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} fechado (status=${dealData?.status}) ou morto, criando NOVO Deal`);
 }
 ```
 
 ## O que NÃO muda
-- **Golden Rule** (`vendaDeal` preservado quando já há Deal Won) — intacta.
-- **Estagnados** continuam sendo reativados via `moveDealToVendas` (não passa pelo guard).
-- **Commercial Intent Guard**, **Person Creation Integrity**, **Person Origin Frozen** — intactos.
-- `force_new_deal` (Loja Integrada Sob Consulta) — intacto.
-- Custom fields PESSOA + DEAL (`fields:[{id,valor}]`) entregues no patch anterior — intactos.
+
+- **Golden Rule** (`vendaDeal` = open + Vendas + !freezed) — intacto, executa **antes** do DEDUPE GUARD.
+- **Won deals** — continuam intocados via Golden Rule (`vendaDeal` os captura quando `status=1` for incluído? — não: Golden Rule só pega `status===0`). Won não passa pelo guard porque Golden Rule só lê openDeals; mas o cached pode ser Won → com a correção, Won (status=1) também cairá no "criar novo", o que é o desejado pelo usuário ("sempre criar novo lead que não esteja no funil de vendas [aberto]").
+- Estagnados, Commercial Intent Guard, Person Creation Integrity, `force_new_deal`, custom fields — intactos.
 
 ## Validação pós-deploy
-1. SQL: contar leads das últimas 24h cujo `piperun_pipeline_name != 'Funil de vendas'` e que receberam novo Deal em Vendas.
-2. Reprocessar `lead_id=366ea619-33c3-4fb1-b6ac-cf7c733aaac7` (Danilo Henrique, `piperun_id=59681674`) com `force_new_deal=false`. Se o Deal cached estiver em CS/Treinamento, deve gerar novo Deal em Vendas; se já estiver em Vendas, preserva.
-3. Verificar logs `[lia-assign] FUNIL GUARD:` no Edge Function logs.
 
-## Memória a atualizar
-`mem://architecture/commercial-intent-guard.md` — adicionar nota: "Dedupe de `piperun_id` só preserva Deal se estiver aberto **e no Funil de Vendas**. Deals em CS/Suporte/Treinamento forçam criação de novo Deal em Vendas."
+1. Reprocessar `lead_id=366ea619-33c3-4fb1-b6ac-cf7c733aaac7` com `force=true`. Esperado: novo Deal criado em Vendas (Deal 59681674 está perdido).
+2. Conferir logs `[lia-assign] DEDUPE GUARD: cached deal ... fechado (status=3)`.
+3. SQL: `SELECT piperun_id, status_oportunidade FROM lia_attendances WHERE id='366ea619-...'` — `piperun_id` deve mudar.
+4. Atualizar `mem://architecture/commercial-intent-guard.md`: "DEDUPE preserva Deal só se aberto **e** em Vendas. Qualquer Deal fechado (won/lost/cancel) → cria novo."
