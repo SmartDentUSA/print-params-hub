@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Progress } from "@/components/ui/progress";
 import {
   Megaphone, RefreshCw, Cloud, Search, ArrowRight, ArrowLeft,
-  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image
+  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone
 } from "lucide-react";
 
 // ── Types ──
@@ -292,6 +292,8 @@ function CreateCampaign({
   const [campaignName, setCampaignName] = useState("");
   const [campaignDesc, setCampaignDesc] = useState("");
   const [sendChannel, setSendChannel] = useState("whatsapp");
+  const [evolutionInstance, setEvolutionInstance] = useState<string>("");
+  const [evolutionInstances, setEvolutionInstances] = useState<Array<{ instance: string; nome: string; phone: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<ContentItem[]>([]);
 
@@ -299,33 +301,67 @@ function CreateCampaign({
   const [anchorProduct, setAnchorProduct] = useState("all");
   const [temperatura, setTemperatura] = useState("all");
   const [stageName, setStageName] = useState("all");
+  const [especialidade, setEspecialidade] = useState("all");
+  const [areaAtuacao, setAreaAtuacao] = useState("all");
+  const [uf, setUf] = useState("all");
+  const [proprietario, setProprietario] = useState("all");
+  const [realStatus, setRealStatus] = useState("all");
+  const [temScanner, setTemScanner] = useState("all");
+  const [temPrinter, setTemPrinter] = useState("all");
+  const [recencia, setRecencia] = useState("any");
+  const [clienteFilter, setClienteFilter] = useState("all");
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
   // Options
   const [anchorOptions, setAnchorOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
+  const [especialidadeOptions, setEspecialidadeOptions] = useState<string[]>([]);
+  const [areaOptions, setAreaOptions] = useState<string[]>([]);
+  const [ufOptions, setUfOptions] = useState<string[]>([]);
+  const [proprietarioOptions, setProprietarioOptions] = useState<string[]>([]);
+  const [realStatusOptions, setRealStatusOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
+
+  // Load Evolution instances when channel = evolution
+  useEffect(() => {
+    if (sendChannel !== "evolution") return;
+    (async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("nome_completo, evolution_instance_name, evolution_phone")
+        .eq("ativo", true)
+        .not("evolution_instance_name", "is", null);
+      const list = (data || [])
+        .filter((r: any) => r.evolution_instance_name)
+        .map((r: any) => ({
+          instance: r.evolution_instance_name as string,
+          nome: (r.nome_completo as string) || r.evolution_instance_name,
+          phone: (r.evolution_phone as string) || "",
+        }));
+      setEvolutionInstances(list);
+      if (list.length === 1) setEvolutionInstance(list[0].instance);
+    })();
+  }, [sendChannel]);
 
   // Fetch filter options
   useEffect(() => {
     (async () => {
-      const { data: ap } = await supabase
-        .from("lia_attendances")
-        .select("anchor_product")
-        .not("anchor_product", "is", null)
-        .is("merged_into", null);
-      const unique = [...new Set((ap || []).map(r => r.anchor_product).filter(Boolean))] as string[];
-      setAnchorOptions(unique.sort());
-
-      const { data: st } = await supabase
-        .from("lia_attendances")
-        .select("piperun_stage_name")
-        .not("piperun_stage_name", "is", null)
-        .is("merged_into", null);
-      const uniqueStages = [...new Set((st || []).map(r => r.piperun_stage_name).filter(Boolean))] as string[];
-      setStageOptions(uniqueStages.sort());
+      const base = supabase.from("lia_attendances").select(
+        "anchor_product, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
+      ).is("merged_into", null).limit(5000);
+      const { data } = await base;
+      const rows = (data || []) as any[];
+      const uniq = (key: string) =>
+        [...new Set(rows.map(r => r[key]).filter(Boolean))].sort() as string[];
+      setAnchorOptions(uniq("anchor_product"));
+      setStageOptions(uniq("piperun_stage_name"));
+      setEspecialidadeOptions(uniq("especialidade"));
+      setAreaOptions(uniq("area_atuacao"));
+      setUfOptions(uniq("uf"));
+      setProprietarioOptions(uniq("proprietario_lead_crm"));
+      setRealStatusOptions(uniq("real_status"));
     })();
   }, []);
 
@@ -357,13 +393,29 @@ function CreateCampaign({
       if (anchorProduct !== "all") query = query.ilike("anchor_product", `%${anchorProduct}%`);
       if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
       if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
+      if (especialidade !== "all") query = query.eq("especialidade", especialidade);
+      if (areaAtuacao !== "all") query = query.eq("area_atuacao", areaAtuacao);
+      if (uf !== "all") query = query.eq("uf", uf);
+      if (proprietario !== "all") query = query.eq("proprietario_lead_crm", proprietario);
+      if (realStatus !== "all") query = query.eq("real_status", realStatus);
+      if (temScanner === "yes") query = query.eq("tem_scanner", true);
+      if (temScanner === "no") query = query.or("tem_scanner.is.null,tem_scanner.eq.false");
+      if (temPrinter === "yes") query = query.not("equip_printer_brand", "is", null);
+      if (temPrinter === "no") query = query.is("equip_printer_brand", null);
+      if (recencia !== "any") {
+        const days = parseInt(recencia);
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+        query = query.gte("updated_at", since);
+      }
+      if (clienteFilter === "clientes") query = query.gt("total_deals_all", 0);
+      if (clienteFilter === "leads") query = query.or("total_deals_all.is.null,total_deals_all.eq.0");
 
       const { count } = await query;
       setLeadCount(count ?? 0);
       setCountLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, anchorProduct, temperatura, stageName]);
+  }, [step, anchorProduct, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
 
   const handleCreate = async () => {
     if (!selectedContent || !campaignName.trim()) return;
@@ -373,6 +425,16 @@ function CreateCampaign({
       if (anchorProduct !== "all") filters.anchor_product = anchorProduct;
       if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
       if (stageName !== "all") filters.piperun_stage_name = stageName;
+      if (especialidade !== "all") filters.especialidade = especialidade;
+      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
+      if (uf !== "all") filters.uf = uf;
+      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
+      if (realStatus !== "all") filters.real_status = realStatus;
+      if (temScanner !== "all") filters.tem_scanner = temScanner;
+      if (temPrinter !== "all") filters.tem_printer = temPrinter;
+      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
+      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      if (sendChannel === "evolution" && evolutionInstance) filters.evolution_instance = evolutionInstance;
 
       const { error } = await supabase.from("campaign_sessions").insert({
         name: campaignName.trim(),
