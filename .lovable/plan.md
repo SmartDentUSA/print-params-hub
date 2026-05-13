@@ -1,29 +1,44 @@
-# Step 2 — Renomear "Produto âncora" → "Produto de Interesse" + correções
-
 ## Diagnóstico
 
-1. **Step 2 funciona**: a contagem de leads roda em tempo real via `useEffect` (`SmartOpsCampaigns.tsx:384-418`) consultando `lia_attendances` com todos os filtros aplicados, respeitando `merged_into IS NULL`. O botão "Próximo" só destrava quando há leads (`leadCount > 0`).
+O loop não está vindo da UI. Ele está no backend:
 
-2. **Filtro "Produto âncora" usa a coluna errada para o que o usuário quer**: hoje filtra `anchor_product` (campo derivado/agregado). O campo que o time popula via formulários e CRM é **`produto_interesse`** (e seu agregado `produto_interesse_auto`), conforme as memórias de Behavioral Ingestion e Form Enrichment.
+- O mesmo `meta_leadgen_id`/`entity_id` (`2024284941526218`) foi processado 135 vezes em poucas horas.
+- A cada reprocessamento, `smart-ops-ingest-lead` dispara `smart-ops-lia-assign` novamente.
+- A função deployada ainda contém uma lógica perigosa registrada nos logs como `NOVO HIT... Limpando para novo deal`, que limpa/força novo negócio e faz o `lia-assign` criar outro negócio no PipeRun.
+- Quando a reativação `sdr_captacao_reativacao` não encontra deal em Estagnados, ela “continua fluxo normal”, o que permite criar novo negócio repetido.
+- As notas `Resumo do Lead` se repetem porque cada novo deal/atualização muda o resumo e dispara nova nota.
 
-3. **Bug residual do passo anterior**: `handleCreate` (linha 421) ainda exige `selectedContent`, e a inserção em `campaign_sessions` força `content_id`/`content_type`. Como agora o conteúdo é opcional, isso quebra ao tentar criar.
+## Plano de correção
 
-## Mudanças (apenas `src/components/SmartOpsCampaigns.tsx`)
+1. **Adicionar idempotência forte no `smart-ops-ingest-lead`**
+   - Para `source = meta_lead_ads`, detectar se `meta_leadgen_id` ou `platform_lead_id` já foi processado para o lead canônico.
+   - Se já existir evento `meta_ads_lead_entry` com o mesmo ID, retornar `duplicate_skipped` imediatamente.
+   - Não disparar `smart-ops-lia-assign`, `cognitive-lead-analysis`, SellFlux, nota de formulário nem novo evento de timeline nesses duplicados.
 
-### A. Rótulo + fonte de dados
-- Trocar label `"Produto âncora"` → `"Produto de Interesse"`.
-- Trocar a coluna fonte das opções de `anchor_product` → `produto_interesse` (com fallback `produto_interesse_auto` quando o primeiro estiver vazio).
-- Trocar o filtro de contagem de `ilike("anchor_product", …)` → `or("produto_interesse.ilike.%X%,produto_interesse_auto.ilike.%X%")` para casar ambos os campos.
-- Persistir em `lead_filters.produto_interesse` (em vez de `anchor_product`) — chave nova, sem migração.
-- Renomear estado `anchorProduct/anchorOptions` → `produtoInteresse/produtoInteresseOptions` para clareza.
+2. **Blindar a reativação SDR Captação em `smart-ops-lia-assign`**
+   - Se `trigger = sdr_captacao_reativacao` e não houver deal aberto no Funil Estagnados, retornar `skipped: no_estagnado_to_reactivate`.
+   - Não continuar para fluxo normal criando novo deal.
+   - Preservar a Golden Rule: se já existe deal aberto em Vendas, apenas atualizar/enriquecer, sem trocar owner e sem criar outro negócio.
 
-### B. Step 3 (Revisar)
-- Atualizar o badge de filtros para usar o novo rótulo "Produto: X".
+3. **Remover o comportamento deployado que limpa `piperun_id`**
+   - Garantir no código fonte que nenhum reprocessamento de Meta/Form apaga `piperun_id` para “forçar novo deal”.
+   - Redeployar `smart-ops-ingest-lead` para substituir a versão deployada que ainda mostra `NOVO HIT... Limpando para novo deal` nos logs.
 
-### C. Permitir criar sem conteúdo
-- Em `handleCreate`: remover `if (!selectedContent) return;`, manter só `!campaignName.trim()`.
-- No insert: `content_id: selectedContent?.id ?? null`, `content_type: selectedContent?.content_type ?? null`.
+4. **Deduplicar notas `Resumo do Lead`**
+   - Ajustar o hash do `seller-summary` para não mudar por causa de `Atualizado em hoje/agora` quando o conteúdo real é o mesmo.
+   - Adicionar janela de segurança: não postar outro `Resumo do Lead` em poucos minutos para o mesmo lead/deal se for reprocessamento.
 
-## Fora de escopo
-- Nenhuma mudança no backend, no schema ou no edge function de disparo.
-- Nenhuma mudança nos demais filtros (especialidade, UF etc.).
+5. **Deduplicar timeline técnica**
+   - Para `lead_activity_log`, evitar inserir novo `meta_ads_lead_entry` quando o mesmo `entity_id` já existe.
+   - Isso impede que a tela de histórico pareça “em loop” mesmo quando Meta/SellFlux reentregar o mesmo payload.
+
+6. **Validar em produção**
+   - Consultar o lead Heitor após a correção e confirmar que o mesmo `meta_leadgen_id` passa a retornar `duplicate_skipped`.
+   - Verificar logs de `smart-ops-ingest-lead` e `smart-ops-lia-assign` para confirmar que não há novo `Negócio criado` nem nova nota para o mesmo evento.
+
+## Arquivos envolvidos
+
+- `supabase/functions/smart-ops-ingest-lead/index.ts`
+- `supabase/functions/smart-ops-lia-assign/index.ts`
+- `supabase/functions/_shared/seller-summary.ts`
+- Possivelmente `supabase/functions/smart-ops-deal-form-note/index.ts` para o mesmo guard de nota duplicada.

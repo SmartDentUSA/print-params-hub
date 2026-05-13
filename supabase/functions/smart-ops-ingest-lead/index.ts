@@ -52,6 +52,49 @@ Deno.serve(async (req) => {
 
     console.log("[ingest-lead] Payload recebido:", JSON.stringify(payload).slice(0, 500));
 
+    // ─── IDEMPOTENCY GUARD (Meta Lead Ads / SellFlux re-delivery) ───
+    // Meta and SellFlux frequently re-deliver the SAME leadgen_id every 2 min,
+    // causing the same lead to be re-processed dozens of times → re-triggering
+    // lia-assign, SellFlux sync, deal-form-note and seller-summary in a loop.
+    // If we already have an event for this exact leadgen_id in the last 6h,
+    // short-circuit immediately.
+    const dedupeId =
+      payload.meta_leadgen_id ||
+      payload.platform_lead_id ||
+      payload.leadgen_id ||
+      null;
+    if (dedupeId) {
+      try {
+        const supabaseDedupe = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        const { data: priorEvent } = await supabaseDedupe
+          .from("lead_activity_log")
+          .select("id, event_timestamp, lead_id")
+          .eq("entity_id", String(dedupeId))
+          .in("event_type", ["meta_ads_lead_entry", "sellflux_lead_entry", "form_submission"])
+          .gte("event_timestamp", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+          .order("event_timestamp", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (priorEvent) {
+          console.log(
+            `[ingest-lead] DUPLICATE_SKIPPED: leadgen_id=${dedupeId} already processed at ${priorEvent.event_timestamp} (lead ${priorEvent.lead_id})`,
+          );
+          return new Response(
+            JSON.stringify({
+              success: true,
+              duplicate_skipped: true,
+              dedupe_id: String(dedupeId),
+              prior_event_at: priorEvent.event_timestamp,
+              lead_id: priorEvent.lead_id,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch (dedupeErr) {
+        console.warn("[ingest-lead] dedupe check failed (non-blocking):", dedupeErr);
+      }
+    }
+
     // --- Fix: declare source from payload ---
     const source = payload.source || payload.utm_source || "formulario";
     const formName = payload.form_name || payload.formName || payload.form || null;
