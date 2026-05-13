@@ -10367,6 +10367,7 @@ export type Database = {
           produto: string | null
           seller_name: string | null
           seller_phone: string | null
+          seller_photo_url: string | null
         }
         Insert: {
           click_count?: number | null
@@ -10380,6 +10381,7 @@ export type Database = {
           produto?: string | null
           seller_name?: string | null
           seller_phone?: string | null
+          seller_photo_url?: string | null
         }
         Update: {
           click_count?: number | null
@@ -10393,6 +10395,7 @@ export type Database = {
           produto?: string | null
           seller_name?: string | null
           seller_phone?: string | null
+          seller_photo_url?: string | null
         }
         Relationships: [
           {
@@ -11789,6 +11792,24 @@ export type Database = {
         }
         Relationships: []
       }
+      system_config: {
+        Row: {
+          config_key: string
+          config_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          config_key: string
+          config_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       system_health_logs: {
         Row: {
           ai_analysis: string | null
@@ -11852,6 +11873,7 @@ export type Database = {
           messaging_provider: string
           nome_completo: string
           notification_phone: string | null
+          photo_url: string | null
           piperun_owner_id: string | null
           role: string
           updated_at: string
@@ -11878,6 +11900,7 @@ export type Database = {
           messaging_provider?: string
           nome_completo: string
           notification_phone?: string | null
+          photo_url?: string | null
           piperun_owner_id?: string | null
           role: string
           updated_at?: string
@@ -11904,6 +11927,7 @@ export type Database = {
           messaging_provider?: string
           nome_completo?: string
           notification_phone?: string | null
+          photo_url?: string | null
           piperun_owner_id?: string | null
           role?: string
           updated_at?: string
