@@ -393,6 +393,7 @@ async function updatePersonFields(
   // ".gmil"). PipeRun silently rejects them, leaving the Person card empty.
   const { isValidEmailTld: _isValidTld } = await import("../_shared/piperun-person-resolver.ts");
   if (email && !isFakeEmail(email) && _isValidTld(email)) {
+    updatePayload.email = email;
     updatePayload.emails = [{ email }];
   } else if (email && !isFakeEmail(email)) {
     console.warn(`[lia-assign] SKIP email PUT — invalid TLD: ${email}`);
@@ -411,8 +412,8 @@ async function updatePersonFields(
     } catch {}
   }
   if (phone) {
-    updatePayload.phones = [{ phone }];
     updatePayload.cellphone = phone;
+    updatePayload.phones = [{ phone }];
   }
   if (jobTitle) updatePayload.job_title = jobTitle;
 
@@ -441,8 +442,14 @@ async function updatePersonFields(
   // least keeps email + phone visible.
   if (!res.success && (updatePayload.emails || updatePayload.phones)) {
     const minimal: Record<string, unknown> = {};
-    if (updatePayload.emails) minimal.emails = updatePayload.emails;
-    if (updatePayload.phones) minimal.phones = updatePayload.phones;
+    if (updatePayload.emails) {
+      minimal.email = updatePayload.email;
+      minimal.emails = updatePayload.emails;
+    }
+    if (updatePayload.phones) {
+      minimal.cellphone = updatePayload.cellphone;
+      minimal.phones = updatePayload.phones;
+    }
     if (updatePayload.name) minimal.name = updatePayload.name;
     const retryRes = await piperunPut(apiToken, `persons/${personId}`, minimal);
     console.log(`[lia-assign] Person ${personId} minimal retry: ${retryRes.success} (${retryRes.status})`);
