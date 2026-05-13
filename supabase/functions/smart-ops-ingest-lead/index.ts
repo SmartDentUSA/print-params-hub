@@ -224,6 +224,25 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (byPhone) { existingLead = byPhone; matchedVia = "phone"; }
     }
+    // Fallback: busca pelos últimos 9 dígitos do telefone (cobre variações de formato)
+    if (!existingLead && telefoneNormalized) {
+      const last9 = telefoneNormalized.replace(/\D/g, '').slice(-9);
+      if (last9.length === 9) {
+        const { data: byPhoneFuzzy } = await supabase
+          .from('lia_attendances')
+          .select('*')
+          .like('telefone_normalized', `%${last9}`)
+          .is('merged_into', null)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (byPhoneFuzzy) {
+          existingLead = byPhoneFuzzy;
+          matchedVia = 'phone';
+          console.log(`[ingest-lead] FUZZY_PHONE_MATCH: found ${byPhoneFuzzy.email} via last9=${last9}`);
+        }
+      }
+    }
     // Follow merged_into chain to canonical
     let hops = 0;
     while (existingLead?.merged_into && hops < 5) {
