@@ -236,6 +236,10 @@ export async function buildSellerDealSummaryHTML(
   if (links.length) sections.push(`<b>🔗 Links</b><br>${links.join(" · ")}`);
 
   const html = sections.join("<br>");
-  const hash = await sha256Hex(html);
+  // Hash excludes the "Atualizado em <hoje>" line so daily re-runs with
+  // identical content don't trigger a fresh PipeRun note. Without this,
+  // every Meta webhook redelivery posted a new identical "Resumo do Lead".
+  const hashable = html.replace(/<i>Atualizado em [^<]*<\/i><br>/g, "");
+  const hash = await sha256Hex(hashable);
   return { html, hash };
 }
