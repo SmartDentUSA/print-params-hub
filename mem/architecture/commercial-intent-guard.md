@@ -18,3 +18,5 @@ PipeRun Deal creation is restricted to leads with explicit commercial intent.
 2. `smart-ops-lia-assign` rejects with HTTP 409 + sets `crm_creation_blocked=true` + logs `lia_assign_blocked_non_commercial`.
 
 **Why:** On 2026-05-11 the retry-cron pushed 17 non-commercial leads (Bruna Mascarenhas Astron student, Smart Dent employees, e-commerce-only buyers, raw WA pings) into PipeRun, polluting the CRM and triggering misleading WhatsApp seller notifications with all-N/A fields.
+
+**Funil Guard (2026-05-13):** Dedupe by cached `piperun_id` only preserves the existing Deal if it is alive AND in `PIPELINES.VENDAS`. Cached Deals living in CS / Suporte / Treinamento / Distribuidor / any non-Vendas pipeline force creation of a NEW Deal in Vendas (logged as `[lia-assign] FUNIL GUARD:`). Rationale: a lead engaging again must always have an open commercial opportunity in Vendas — post-sale or training pipelines do not count.
