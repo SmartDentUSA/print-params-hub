@@ -173,8 +173,17 @@ Deno.serve(async (req) => {
     if (canCreate) {
       try {
         const payload: Record<string, unknown> = { name: (name || "Lead").slice(0, 80) };
-        if (emailForPiperun) payload.emails = [{ email: emailForPiperun }];
-        if (phoneDigitsLen >= 10) payload.phones = [{ phone }];
+        // PipeRun changed contract (~2026-05-12): nested arrays alone are
+        // silently discarded. Send flat email/cellphone strings; keep nested
+        // arrays as backup.
+        if (emailForPiperun) {
+          payload.email = emailForPiperun;
+          payload.emails = [{ email: emailForPiperun }];
+        }
+        if (phoneDigitsLen >= 10) {
+          payload.cellphone = phone;
+          payload.phones = [{ phone }];
+        }
         const res = await piperunPost(PIPERUN_API_KEY, "persons", payload);
         const newPersonData = res.success
           ? (res.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined
