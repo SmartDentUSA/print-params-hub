@@ -1,78 +1,58 @@
-# Disparador de SMS via DisparoPro na Central de Campanhas
+# Canal SMS (DisparoPro) + ROI tracking em `SmartOpsCampaigns.tsx`
 
-Adicionar SMS como novo canal no wizard já existente em SmartOps → Central de Campanhas → Criar Campanha, integrando à API HTTP da DisparoPro (`https://apihttp.disparopro.com.br:8433`), com Bearer token, saldo e DLR via webhook.
+Implementação **somente UI** no arquivo `src/components/SmartOpsCampaigns.tsx`. Backend (`smart-ops-sms-balance`, `smart-ops-sms-disparopro`, RPC `fn_sms_campaign_attribution`) e colunas (`provider_status`, `provider_detail_code`, `provider_detail_message`, `sms_opt_out`) já estarão prontos.
 
-## O que o usuário verá
+## Alvo único
+- `src/components/SmartOpsCampaigns.tsx` (1037 linhas, 3 seções: `CreateCampaign`, `CampaignHistory`, wrapper de tabs).
 
-Em **Criar Campanha**, o seletor "Canal de envio" ganha a opção **SMS (DisparoPro)**. Quando escolhido:
+## Mudanças
 
-- **Etapa 1 — Conteúdo**: além da busca na biblioteca, surge um campo `Mensagem SMS` (textarea) com:
-  - contador de caracteres e PDUs (160 / 153 por PDU em 7-bit; 70 / 67 em 16-bit; máx. 1377)
-  - toggle `Codificação` (`0 = 7-bit padrão GSM` / `8 = 16-bit Unicode/acentos`)
-  - badge de saldo da conta DisparoPro (lido via `GET /balance`)
-  - variáveis suportadas: `{{nome}}`, `{{primeiro_nome}}`, `{{empresa}}` — preview ao vivo com 1 lead exemplo.
-- **Etapa 2 — Segmentação**: filtros atuais inalterados; rodapé mostra "X leads com telefone normalizado válido / Y total" (filtra `telefone_normalized IS NOT NULL`).
-- **Etapa 3 — Revisar**: card de resumo com canal SMS, codificação, preview da mensagem, contagem de leads, custo aproximado (PDUs × leads) e dois botões: **Salvar como rascunho** e **Disparar SMS agora**.
+### 1. Tipos
+- `SendLog`: adicionar `provider_status?: string | null`, `provider_detail_code?: string | null`, `provider_detail_message?: string | null`.
+- `CampaignSession.results`: tipar como `{ sms_message?; sms_codificacao?; sms_pdus?; sms_custo_por_pdu?; sent?; failed? } | Record<string, unknown>`.
+- Novo tipo `SmsAttribution` exatamente como na spec.
 
-Na aba **Histórico**, campanhas SMS exibem por lead: `status` (Aguardando / Enviada / Entregue / Falha / Sem saldo) + `codigo_detalhe` + descrição da DisparoPro, atualizados via DLR.
+### 2. Imports adicionais
+`Skeleton` (`@/components/ui/skeleton`), `Input` se ainda não estiver importado, `useMemo`/`useRef` do React, `toast` de `sonner` (componente já usa toast — confirmar).
 
-## Como funciona (técnico)
+### 3. `CreateCampaign` — estado novo
+Adicionar conforme spec: `smsMessage`, `smsCodificacao`, `smsCustoPdu`, `smsBalance`, `smsBalanceLoading`, `smsLeadValidCount`, `sending`, `smsTextareaRef`, `smsStats` (memo).
 
-### 1. Secret
-Solicitar `DISPARO_PRO_TOKEN` (Bearer da conta DisparoPro). Opcional: `DISPARO_PRO_PARCEIRO_ID` se houver um ID fixo de parceiro; senão será o `campaign_id` curto.
+### 4. Seletor de canal
+Acrescentar `<SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>` no `<Select>` de canal de envio do step 1.
 
-### 2. Banco (migração)
-- `campaign_sessions.channel` passa a aceitar `'sms'` (validação só no front; coluna já é `text`).
-- Tabela `campaign_send_log` (criar se não existir, ou alterar):
-  - `campaign_id uuid`, `lead_id uuid`, `telefone text`, `nome text`
-  - `status text`, `error_message text`, `sent_at timestamptz`
-  - **novas**: `provider text` (`'disparopro'`), `provider_message_id text`, `provider_status text` (`ACCEPTED|DELIVERED|UNKNOWN|...`), `provider_detail_code text` (`000`, `190`, …), `provider_detail_message text`, `mensagem_rendered text`, `parceiro_id text`
-  - índice em `(provider, provider_message_id)` para casar com DLR.
-- RLS: admins (`has_role(auth.uid(),'admin')`) leem/escrevem; edge functions usam service role.
+### 5. Etapa 1 — bloco SMS condicional
+Renderizar quando `sendChannel === "sms"` o JSX da spec: badge de saldo (`useEffect` chama `smart-ops-sms-balance` ao trocar canal), Textarea + contador (chars / PDU / custo estimado), variáveis clicáveis (`{{nome}}`, `{{primeiro_nome}}`, `{{empresa}}`) com inserção na posição do cursor via ref, Select de codificação (`0` / `8`), Input numérico de custo/PDU (default `0.08`), preview com substituições de exemplo.
 
-### 3. Edge Functions (novas, `verify_jwt=false`, validam JWT no código)
+Validação para avançar: se `sendChannel === "sms"`, exigir `smsMessage.trim().length > 0`.
 
-**`smart-ops-sms-disparopro`** — POST `{ campaign_id }`:
-1. Valida JWT + role admin.
-2. Lê `campaign_sessions` + `lead_filters`.
-3. Resolve leads em `lia_attendances` com `merged_into IS NULL` e `telefone_normalized` válido (10–13 dígitos, prefixo `55`).
-4. Renderiza mensagem por lead (`{{primeiro_nome}}` etc.).
-5. Envia em batches de **500** (limite da API é 10000) para `POST https://apihttp.disparopro.com.br:8433/mt` com Bearer token, payload Array:
-   ```json
-   [{"numero":"5511...","servico":"short","mensagem":"...","parceiro_id":"<campaign_id_curto>","codificacao":"0"}]
-   ```
-6. Persiste cada item de `detail[]` em `campaign_send_log` (mapeando `id`, `codigo_status`, `codigo_detalhe`, `descricao_detalhe`).
-7. Atualiza `campaign_sessions` (`started_at`, `completed_at`, `sent_count`, `failed_count`, `status='completed'`).
-8. Sleep 100 ms entre batches (rate limit defensivo).
+### 6. Etapa 2 — contagem válida
+`useEffect` ao entrar no step 2 com `sendChannel === "sms"`: query `lia_attendances` com `merged_into IS NULL`, `telefone_normalized` not null, `sms_opt_out != true`, aplicando os mesmos filtros já existentes da segmentação. Fallback `try/catch` sem `sms_opt_out` se a coluna ainda não existir. Renderiza linha extra `📱 X leads com telefone válido / Y total`.
 
-**`smart-ops-sms-balance`** — GET: chama `GET /balance` e devolve `{ saldo }`. Cache de 60 s em memória.
+### 7. Etapa 3 — Revisar (quando SMS)
+Substituir resumo padrão por card SMS (Canal, Codificação, PDUs, Leads válidos, Custo total + breakdown) + preview da mensagem.
 
-**`smart-ops-sms-dlr`** — POST público (webhook DisparoPro): atualiza `campaign_send_log` por `provider_message_id` com novo `codigo_status` / `codigo_detalhe`. URL será informada para o usuário cadastrar em **DisparoPro → Integrações → Webhooks** (objeto `sms`, ação `dlr`).
+Botões:
+- `Salvar como rascunho` → `handleCreate()` existente.
+- `📱 Disparar SMS agora (N leads)` → novo `handleSendSms`: insere em `campaign_sessions` com `channel: "sms"`, `status: "running"`, `results: { sms_message, sms_codificacao, sms_pdus, sms_custo_por_pdu }`; chama `supabase.functions.invoke("smart-ops-sms-disparopro", { body: { campaign_id, sms_message, sms_codificacao } })`; `toast.loading` → `toast.success/error` com contagem `sent/failed`; `onCreated?.()` no sucesso.
 
-Todas com CORS padrão (`npm:@supabase/supabase-js@2/cors`) e validação Zod.
+### 8. `CampaignHistory` — detalhe SMS
+- Estado novo: `smsAttribution`.
+- `useEffect` quando `selectedCampaign?.channel === "sms"`: `supabase.rpc("fn_sms_campaign_attribution", { p_campaign_id })`.
+- `select` de logs passa a incluir `provider_status, provider_detail_code, provider_detail_message`.
+- Acima da tabela: grid 4 cards (Enviados/Entregues + taxa, Custo total + unitário, Leads gerados + CPL, Receita atribuída + ROI + nº de vendas).
+- Linha de UTM: `?utm_medium=sms&utm_campaign={parceiro_id}` com botão Copiar (clipboard).
+- Tabela: colunas extras `Status Operadora` (Badge colorido por estado: DELIVERED verde, ACCEPTED amarelo, BLACKLIST roxo, demais vermelho) e `Detalhe` (`{code} — {message}`). Renderizam só quando o canal é SMS.
 
-### 4. Frontend
-`src/components/SmartOpsCampaigns.tsx`:
-- Novo `SelectItem value="sms"` em canal.
-- Bloco condicional para SMS: textarea de mensagem, seletor de codificação, badge de saldo (fetch a `smart-ops-sms-balance`), preview renderizado.
-- Step 3: botão "Disparar SMS agora" → cria `campaign_sessions` com `channel='sms'` e invoca `smart-ops-sms-disparopro` com o id retornado.
-- `CampaignHistory`: quando `channel='sms'`, mostrar colunas `provider_status`, `codigo_detalhe`, `descricao_detalhe`.
+## Comportamento preservado
+- Canais existentes (whatsapp, evolution, sellflux, registro) seguem inalterados.
+- Botão "Criar Campanha" original mantido para canais não-SMS.
+- Padrão visual (Card, Badge, Select, Textarea, Skeleton) reaproveitado — sem novas libs.
 
-### 5. Normalização / segurança
-- Util `normalizeBrazilianPhone`: garante `55` + DDD + número; descarta inválidos antes do envio.
-- Token nunca vai ao frontend; só o edge consome.
-- Logar erros (sem token) em `system_health_logs`.
+## Riscos / fallbacks
+- `sms_opt_out` pode não existir no momento do build da UI: usar fallback no catch (já especificado).
+- `fn_sms_campaign_attribution` pode retornar null antes do disparo: card só renderiza se `smsAttribution` truthy.
+- Se `smart-ops-sms-balance` falhar, badge mostra "Indisponível" (não bloqueia o disparo).
 
-## Arquivos esperados
-- `supabase/functions/smart-ops-sms-disparopro/index.ts` (novo)
-- `supabase/functions/smart-ops-sms-balance/index.ts` (novo)
-- `supabase/functions/smart-ops-sms-dlr/index.ts` (novo, público)
-- `supabase/config.toml` (registrar as 3, `verify_jwt=false`)
-- Migração SQL: colunas `provider*` em `campaign_send_log` + índice
-- `src/components/SmartOpsCampaigns.tsx` (canal SMS, mensagem, saldo, disparo, histórico)
-
-## Confirmar antes de implementar
-1. Posso pedir o secret `DISPARO_PRO_TOKEN` agora?
-2. Existe um `parceiro_id` fixo da sua conta DisparoPro ou uso o id curto da campanha?
-3. MVP é disparo síncrono on-click (até ~5k leads por clique) — sem agendamento por enquanto. Ok?
-4. Quer já habilitar o webhook DLR (precisarei te dar a URL para colar no painel DisparoPro)?
+## Arquivos afetados
+- `src/components/SmartOpsCampaigns.tsx` — única edição.

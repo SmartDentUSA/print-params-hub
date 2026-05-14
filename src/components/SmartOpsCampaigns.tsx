@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,12 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import {
   Megaphone, RefreshCw, Cloud, Search, ArrowRight, ArrowLeft,
-  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone
+  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone, Copy
 } from "lucide-react";
 
 // ── Types ──
@@ -43,7 +46,14 @@ interface CampaignSession {
   lead_ids: string[] | null;
   sent_count: number | null;
   failed_count: number | null;
-  results: any;
+  results: {
+    sms_message?: string;
+    sms_codificacao?: string;
+    sms_pdus?: number;
+    sms_custo_por_pdu?: number;
+    sent?: number;
+    failed?: number;
+  } | Record<string, unknown> | null | any;
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -60,6 +70,25 @@ interface SendLog {
   error_message: string | null;
   nome: string | null;
   telefone: string | null;
+  provider_status?: string | null;
+  provider_detail_code?: string | null;
+  provider_detail_message?: string | null;
+}
+
+interface SmsAttribution {
+  sent: number;
+  failed: number;
+  delivered: number;
+  taxa_entrega: number;
+  pdus: number;
+  custo_por_pdu: number;
+  custo_total: number;
+  custo_unitario: number;
+  leads_gerados: number;
+  deals_ganhos: number;
+  receita: number;
+  roi: number | null;
+  utm_usado: string;
 }
 
 // ── Helpers ──
@@ -72,6 +101,7 @@ const channelColors: Record<string, string> = {
   blog: "bg-indigo-100 text-indigo-800 border-indigo-300",
   youtube: "bg-red-100 text-red-800 border-red-300",
   web: "bg-cyan-100 text-cyan-800 border-cyan-300",
+  sms: "bg-emerald-100 text-emerald-800 border-emerald-300",
 };
 
 const statusColors: Record<string, string> = {
@@ -313,6 +343,34 @@ function CreateCampaign({
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
+  // SMS (DisparoPro)
+  const [smsMessage, setSmsMessage] = useState("");
+  const [smsCodificacao, setSmsCodificacao] = useState<"0" | "8">("0");
+  const [smsCustoPdu, setSmsCustoPdu] = useState<string>("0.08");
+  const [smsBalance, setSmsBalance] = useState<string | null>(null);
+  const [smsBalanceLoading, setSmsBalanceLoading] = useState(false);
+  const [smsLeadValidCount, setSmsLeadValidCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const smsTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const smsStats = useMemo(() => {
+    const is7bit = smsCodificacao === "0";
+    const perPdu = is7bit ? 160 : 70;
+    const multiPerPdu = is7bit ? 153 : 67;
+    const len = smsMessage.length;
+    const pdus = len === 0 ? 0 : len <= perPdu ? 1 : Math.ceil(len / multiPerPdu);
+    const custoPdu = parseFloat(smsCustoPdu) || 0;
+    const leads = smsLeadValidCount ?? 0;
+    const custoTotal = pdus * leads * custoPdu;
+    return { is7bit, perPdu, multiPerPdu, len, pdus, custoTotal, custoPdu };
+  }, [smsMessage, smsCodificacao, smsCustoPdu, smsLeadValidCount]);
+
+  const renderSmsPreview = (msg: string) =>
+    msg
+      .replace(/\{\{nome\}\}/g, "Dr. João Silva")
+      .replace(/\{\{primeiro_nome\}\}/g, "João")
+      .replace(/\{\{empresa\}\}/g, "Clínica Exemplo");
+
   // Options
   const [produtoInteresseOptions, setProdutoInteresseOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
@@ -323,6 +381,16 @@ function CreateCampaign({
   const [realStatusOptions, setRealStatusOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
+
+  // Fetch DisparoPro balance when SMS channel is selected
+  useEffect(() => {
+    if (sendChannel !== "sms") return;
+    setSmsBalanceLoading(true);
+    supabase.functions.invoke("smart-ops-sms-balance")
+      .then(({ data }) => setSmsBalance((data as any)?.saldo ?? null))
+      .catch(() => setSmsBalance(null))
+      .finally(() => setSmsBalanceLoading(false));
+  }, [sendChannel]);
 
   // Load Evolution instances when channel = evolution
   useEffect(() => {
@@ -429,6 +497,51 @@ function CreateCampaign({
     return () => clearTimeout(timer);
   }, [step, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
 
+  // Count valid SMS leads (telefone_normalized IS NOT NULL, opt-out off)
+  useEffect(() => {
+    if (step !== 2 || sendChannel !== "sms") return;
+    (async () => {
+      const buildBase = () => {
+        let q = supabase
+          .from("lia_attendances")
+          .select("id", { count: "exact", head: true })
+          .is("merged_into", null)
+          .not("telefone_normalized", "is", null) as any;
+        if (produtoInteresse !== "all") {
+          const safe = produtoInteresse.replace(/,/g, " ");
+          q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
+        }
+        if (temperatura !== "all") q = q.eq("temperatura_lead", parseInt(temperatura));
+        if (stageName !== "all") q = q.eq("piperun_stage_name", stageName);
+        if (especialidade !== "all") q = q.eq("especialidade", especialidade);
+        if (areaAtuacao !== "all") q = q.eq("area_atuacao", areaAtuacao);
+        if (uf !== "all") q = q.eq("uf", uf);
+        if (proprietario !== "all") q = q.eq("proprietario_lead_crm", proprietario);
+        if (realStatus !== "all") q = q.eq("real_status", realStatus);
+        if (temScanner === "yes") q = q.eq("tem_scanner", true);
+        if (temScanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
+        if (temPrinter === "yes") q = q.not("equip_printer_brand", "is", null);
+        if (temPrinter === "no") q = q.is("equip_printer_brand", null);
+        if (recencia !== "any") {
+          const days = parseInt(recencia);
+          const since = new Date(Date.now() - days * 86400000).toISOString();
+          q = q.gte("updated_at", since);
+        }
+        if (clienteFilter === "clientes") q = q.gt("total_deals_all", 0);
+        if (clienteFilter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+        return q;
+      };
+      try {
+        const { count, error } = await buildBase().neq("sms_opt_out", true);
+        if (error) throw error;
+        setSmsLeadValidCount(count ?? 0);
+      } catch {
+        const { count } = await buildBase();
+        setSmsLeadValidCount(count ?? 0);
+      }
+    })();
+  }, [step, sendChannel, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+
   const handleCreate = async () => {
     if (!campaignName.trim()) return;
     setCreating(true);
@@ -465,6 +578,66 @@ function CreateCampaign({
       toast.error(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleSendSms = async () => {
+    if (!smsMessage.trim() || !campaignName.trim()) return;
+    setSending(true);
+    const tId = toast.loading("Disparando SMS...");
+    try {
+      const filters: any = {};
+      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
+      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
+      if (stageName !== "all") filters.piperun_stage_name = stageName;
+      if (especialidade !== "all") filters.especialidade = especialidade;
+      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
+      if (uf !== "all") filters.uf = uf;
+      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
+      if (realStatus !== "all") filters.real_status = realStatus;
+      if (temScanner !== "all") filters.tem_scanner = temScanner;
+      if (temPrinter !== "all") filters.tem_printer = temPrinter;
+      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
+      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+
+      const { data: camp, error: campErr } = await supabase
+        .from("campaign_sessions")
+        .insert({
+          name: campaignName.trim(),
+          description: campaignDesc.trim() || null,
+          channel: "sms",
+          content_id: null,
+          content_type: null,
+          lead_filters: Object.keys(filters).length ? filters : null,
+          lead_count: smsLeadValidCount ?? leadCount,
+          status: "running",
+          results: {
+            sms_message: smsMessage,
+            sms_codificacao: smsCodificacao,
+            sms_pdus: smsStats.pdus,
+            sms_custo_por_pdu: smsStats.custoPdu,
+          },
+        })
+        .select("id")
+        .single();
+      if (campErr || !camp) throw new Error(campErr?.message ?? "Erro ao criar campanha");
+
+      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
+        body: {
+          campaign_id: (camp as any).id,
+          sms_message: smsMessage,
+          sms_codificacao: smsCodificacao,
+        },
+      });
+      if (error) throw error;
+      const sent = (data as any)?.sent ?? 0;
+      const failed = (data as any)?.failed ?? 0;
+      toast.success(`Disparo concluído: ${sent} enviados, ${failed} falhas`, { id: tId });
+      onCreated();
+    } catch (e) {
+      toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -545,6 +718,7 @@ function CreateCampaign({
                     <SelectItem value="whatsapp">WhatsApp (WaLeads)</SelectItem>
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
+                    <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>
@@ -581,12 +755,103 @@ function CreateCampaign({
               <Input value={campaignDesc} onChange={(e) => setCampaignDesc(e.target.value)} placeholder="Objetivo da campanha..." />
             </div>
 
+            {sendChannel === "sms" && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Saldo DisparoPro:</span>
+                  {smsBalanceLoading ? (
+                    <Skeleton className="h-5 w-24" />
+                  ) : smsBalance ? (
+                    <Badge className="bg-green-100 text-green-800 border-green-300">R$ {smsBalance}</Badge>
+                  ) : (
+                    <Badge variant="secondary">Indisponível</Badge>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Mensagem SMS</Label>
+                  <Textarea
+                    ref={smsTextareaRef}
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    maxLength={1377}
+                    rows={4}
+                    placeholder="Ex: Ola {{primeiro_nome}}, temos oferta especial no BLZ INO200. Responda SIM para saber mais ou acesse: https://bit.ly/smartdent-blz?utm_medium=sms&utm_campaign=CAMP_ID"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Caracteres: {smsStats.len}/{smsStats.len <= smsStats.perPdu ? smsStats.perPdu : smsStats.multiPerPdu}
+                    {" • PDUs: "}{smsStats.pdus}
+                    {" • Custo estimado: R$ "}{smsStats.custoTotal.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 flex-wrap items-center">
+                  <span className="text-xs text-muted-foreground">Inserir:</span>
+                  {["{{nome}}", "{{primeiro_nome}}", "{{empresa}}"].map((v) => (
+                    <Badge
+                      key={v}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/10"
+                      onClick={() => {
+                        const el = smsTextareaRef.current;
+                        const start = el?.selectionStart ?? smsMessage.length;
+                        const end = el?.selectionEnd ?? smsMessage.length;
+                        const next = smsMessage.slice(0, start) + v + smsMessage.slice(end);
+                        setSmsMessage(next);
+                        setTimeout(() => {
+                          if (!el) return;
+                          el.focus();
+                          el.setSelectionRange(start + v.length, start + v.length);
+                        }, 0);
+                      }}
+                    >
+                      {v}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Label className="w-28 shrink-0">Codificação</Label>
+                  <Select value={smsCodificacao} onValueChange={(v) => setSmsCodificacao(v as "0" | "8")}>
+                    <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">7-bit — sem acentos, 160 chars/PDU</SelectItem>
+                      <SelectItem value="8">Unicode — com acentos, 70 chars/PDU</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Label className="w-28 shrink-0">Custo/PDU (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={smsCustoPdu}
+                    onChange={(e) => setSmsCustoPdu(e.target.value)}
+                    className="w-32"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Consulte DisparoPro → Planos para o valor exato
+                  </span>
+                </div>
+
+                {smsMessage && (
+                  <div className="bg-muted/30 p-3 rounded space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Preview</p>
+                    <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button
                 onClick={() => setStep(2)}
                 disabled={
                   !campaignName.trim() ||
-                  (sendChannel === "evolution" && !evolutionInstance)
+                  (sendChannel === "evolution" && !evolutionInstance) ||
+                  (sendChannel === "sms" && !smsMessage.trim())
                 }
               >
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
@@ -741,10 +1006,15 @@ function CreateCampaign({
               {countLoading ? (
                 <span className="text-sm text-muted-foreground">Contando leads...</span>
               ) : (
-                <span className="text-sm font-medium">
+                <div className="text-sm font-medium">
                   <Badge variant="secondary" className="text-base mr-2">{leadCount ?? 0}</Badge>
                   leads serão impactados
-                </span>
+                  {sendChannel === "sms" && (
+                    <p className="text-xs text-muted-foreground mt-1 font-normal">
+                      📱 {smsLeadValidCount ?? "…"} leads com telefone válido / {leadCount ?? 0} total
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -767,6 +1037,46 @@ function CreateCampaign({
             <CardTitle className="text-base">3. Revisar e Criar</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {sendChannel === "sms" ? (
+              <>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Campanha</span><span className="font-medium">{campaignName}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Canal</span><span>📱 SMS (DisparoPro)</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Codificação</span><span>{smsCodificacao === "0" ? "7-bit (sem acentos)" : "Unicode (com acentos)"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">PDUs/mensagem</span><span>{smsStats.pdus}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Leads válidos</span><span>{smsLeadValidCount ?? "…"}</span></div>
+                  <div className="flex justify-between font-medium">
+                    <span className="text-muted-foreground">Custo estimado</span>
+                    <span>R$ {smsStats.custoTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>({smsStats.pdus} PDUs × {smsLeadValidCount ?? 0} leads × R$ {smsStats.custoPdu.toFixed(3)}/PDU)</span>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-3 rounded mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Preview da mensagem</p>
+                  <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setStep(2)} disabled={sending}>
+                    <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+                  </Button>
+                  <Button variant="outline" onClick={handleCreate} disabled={sending || creating}>
+                    Salvar como rascunho
+                  </Button>
+                  <Button
+                    onClick={handleSendSms}
+                    disabled={sending || !smsMessage.trim()}
+                    className="flex-1"
+                  >
+                    {sending ? "Disparando..." : `📱 Disparar SMS agora (${smsLeadValidCount ?? 0} leads)`}
+                  </Button>
+                </div>
+              </>
+            ) : (
+            <>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Campanha</span>
@@ -828,6 +1138,8 @@ function CreateCampaign({
                 <Megaphone className="w-4 h-4 ml-1" />
               </Button>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -843,6 +1155,7 @@ function CampaignHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignSession | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
+  const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -859,13 +1172,22 @@ function CampaignHistory() {
 
   const openDetail = async (c: CampaignSession) => {
     setSelectedCampaign(c);
+    setSmsAttribution(null);
     const { data } = await supabase
       .from("campaign_send_log")
-      .select("id, campaign_id, lead_id, status, sent_at, error_message, nome, telefone")
+      .select("id, campaign_id, lead_id, status, sent_at, error_message, nome, telefone, provider_status, provider_detail_code, provider_detail_message")
       .eq("campaign_id", c.id)
       .order("sent_at", { ascending: false })
       .limit(200);
     setSendLogs(data || []);
+    if (c.channel === "sms") {
+      try {
+        const { data: attr } = await supabase.rpc("fn_sms_campaign_attribution" as any, { p_campaign_id: c.id });
+        if (attr) setSmsAttribution(attr as unknown as SmsAttribution);
+      } catch {
+        setSmsAttribution(null);
+      }
+    }
   };
 
   if (loading) return <div className="h-40 flex items-center justify-center text-muted-foreground">Carregando...</div>;
@@ -944,6 +1266,61 @@ function CampaignHistory() {
                   </div>
                 </div>
 
+                {selectedCampaign.channel === "sms" && smsAttribution && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Enviados / Entregues</p>
+                        <p className="text-xl font-bold">{smsAttribution.sent}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {smsAttribution.delivered} entregues ({smsAttribution.taxa_entrega}%)
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Custo total</p>
+                        <p className="text-xl font-bold">R$ {Number(smsAttribution.custo_total).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          R$ {Number(smsAttribution.custo_unitario).toFixed(4)}/SMS
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Leads gerados</p>
+                        <p className="text-xl font-bold text-blue-600">{smsAttribution.leads_gerados}</p>
+                        <p className="text-xs text-muted-foreground">
+                          CPL: {smsAttribution.leads_gerados > 0
+                            ? `R$ ${(smsAttribution.custo_total / smsAttribution.leads_gerados).toFixed(2)}`
+                            : "—"}
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Receita atribuída</p>
+                        <p className="text-xl font-bold text-green-600">
+                          R$ {Number(smsAttribution.receita).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ROI: {smsAttribution.roi != null ? `${smsAttribution.roi}%` : "—"} • {smsAttribution.deals_ganhos} vendas
+                        </p>
+                      </Card>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>🔗 UTM para links desta campanha:</span>
+                      <code className="bg-muted px-2 py-0.5 rounded">?{smsAttribution.utm_usado}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 px-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText("?" + smsAttribution.utm_usado);
+                          toast.success("UTM copiado");
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+
                 {selectedCampaign.lead_filters && (
                   <div>
                     <p className="font-medium mb-1">Filtros usados</p>
@@ -964,8 +1341,23 @@ function CampaignHistory() {
                           <div>
                             <span className="font-medium">{log.nome || log.lead_id.slice(0, 8)}</span>
                             {log.telefone && <span className="ml-2 text-muted-foreground">{log.telefone}</span>}
+                            {selectedCampaign.channel === "sms" && (log.provider_detail_code || log.provider_detail_message) && (
+                              <span className="ml-2 text-muted-foreground">
+                                {log.provider_detail_code ?? ""}{log.provider_detail_code && log.provider_detail_message ? " — " : ""}{log.provider_detail_message ?? ""}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
+                            {selectedCampaign.channel === "sms" && log.provider_status && (
+                              <Badge className={
+                                log.provider_status === "DELIVERED" ? "bg-green-100 text-green-800" :
+                                log.provider_status === "ACCEPTED"  ? "bg-yellow-100 text-yellow-800" :
+                                log.provider_status === "BLACKLIST" ? "bg-purple-100 text-purple-800" :
+                                "bg-red-100 text-red-800"
+                              }>
+                                {log.provider_status}
+                              </Badge>
+                            )}
                             {log.status === "sent" && <CheckCircle className="w-3 h-3 text-green-500" />}
                             {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
                             {log.status === "pending" && <AlertCircle className="w-3 h-3 text-amber-500" />}
