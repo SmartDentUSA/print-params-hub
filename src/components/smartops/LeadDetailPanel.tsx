@@ -11,8 +11,8 @@ import LeadFieldsInventory from "./LeadFieldsInventory";
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
 
 // ─── Status helpers (case-insensitive) ───
-const isWon = (s: string | null | undefined) => ["ganha", "won"].includes((s || "").toLowerCase());
-const isLost = (s: string | null | undefined) => ["perdida", "lost"].includes((s || "").toLowerCase());
+const isWon = (s: unknown) => ["ganha", "won"].includes(String(s ?? "").toLowerCase());
+const isLost = (s: unknown) => ["perdida", "lost"].includes(String(s ?? "").toLowerCase());
 
 // Strip HTML tags and return clean text
 const stripHtml = (str: any): string => {
