@@ -675,6 +675,244 @@ export function SmartOpsFormBuilder() {
                 )}
               </div>
 
+              {/* APARÊNCIA — Page builder */}
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Aparência (landing page)</p>
+
+                {/* Fundo */}
+                <div>
+                  <label className="text-xs font-medium">Tipo de fundo</label>
+                  <Select value={metaBgType} onValueChange={(v) => setMetaBgType(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solid">Cor sólida</SelectItem>
+                      <SelectItem value="gradient">Gradiente</SelectItem>
+                      <SelectItem value="image">Imagem de fundo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(metaBgType === "solid" || metaBgType === "gradient") && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs font-medium">Cor primária</label>
+                      <div className="flex gap-2">
+                        <input type="color" value={metaBgColor} onChange={(e) => setMetaBgColor(e.target.value)} className="h-10 w-12 rounded border" />
+                        <Input value={metaBgColor} onChange={(e) => setMetaBgColor(e.target.value)} placeholder="#ffffff" />
+                      </div>
+                    </div>
+                    {metaBgType === "gradient" && (
+                      <div>
+                        <label className="text-xs font-medium">Cor secundária</label>
+                        <div className="flex gap-2">
+                          <input type="color" value={metaBgColorTo} onChange={(e) => setMetaBgColorTo(e.target.value)} className="h-10 w-12 rounded border" />
+                          <Input value={metaBgColorTo} onChange={(e) => setMetaBgColorTo(e.target.value)} placeholder="#f5f5f5" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {metaBgType === "gradient" && (
+                  <div>
+                    <label className="text-xs font-medium">Ângulo do gradiente: {metaBgGradientAngle}°</label>
+                    <input type="range" min={0} max={360} value={metaBgGradientAngle} onChange={(e) => setMetaBgGradientAngle(Number(e.target.value))} className="w-full" />
+                  </div>
+                )}
+
+                {metaBgType === "image" && (
+                  <>
+                    <div>
+                      <label className="text-xs font-medium">URL da imagem de fundo</label>
+                      <Input value={metaBgImageUrl} onChange={(e) => setMetaBgImageUrl(e.target.value)} placeholder="https://..." />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Intensidade do overlay escuro: {Math.round(metaBgOverlayOpacity * 100)}%</label>
+                      <input type="range" min={0} max={1} step={0.05} value={metaBgOverlayOpacity} onChange={(e) => setMetaBgOverlayOpacity(Number(e.target.value))} className="w-full" />
+                    </div>
+                  </>
+                )}
+
+                {/* Tema + Layout */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium">Tema</label>
+                    <Select value={metaThemeMode} onValueChange={(v) => setMetaThemeMode(v as any)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Claro</SelectItem>
+                        <SelectItem value="dark">Escuro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium">Layout</label>
+                    <Select value={metaLayoutVariant} onValueChange={(v) => setMetaLayoutVariant(v as any)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="split">Split (mídia ao lado)</SelectItem>
+                        <SelectItem value="centered">Centralizado</SelectItem>
+                        <SelectItem value="full">Full-width hero</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Tipografia */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium">Fonte do título</label>
+                    <Select value={metaFontHeading} onValueChange={setMetaFontHeading}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["Inter","Space Grotesk","Playfair Display","DM Serif Display","Sora","Manrope","Outfit","Bebas Neue","Archivo Black"].map(f => (
+                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium">Fonte do corpo</label>
+                    <Select value={metaFontBody} onValueChange={setMetaFontBody}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["Inter","DM Sans","Plus Jakarta Sans","Work Sans","Manrope","Figtree","IBM Plex Sans","Nunito Sans"].map(f => (
+                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Botão */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium">Estilo do botão (raio)</label>
+                    <Select value={metaButtonRadius} onValueChange={(v) => setMetaButtonRadius(v as any)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Quadrado</SelectItem>
+                        <SelectItem value="sm">Levemente arredondado</SelectItem>
+                        <SelectItem value="md">Arredondado</SelectItem>
+                        <SelectItem value="lg">Bem arredondado</SelectItem>
+                        <SelectItem value="pill">Pill</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium">Sombra do botão</label>
+                    <Select value={metaButtonShadow} onValueChange={(v) => setMetaButtonShadow(v as any)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma</SelectItem>
+                        <SelectItem value="sm">Sutil</SelectItem>
+                        <SelectItem value="md">Média</SelectItem>
+                        <SelectItem value="glow">Glow (cor da marca)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* SEÇÕES EXTRAS */}
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Seções extras da landing</p>
+                  <Select value="" onValueChange={(v) => {
+                    if (!v) return;
+                    const base: any = { type: v, title: "" };
+                    if (v === "testimonials") base.items = [{ name: "", role: "", quote: "" }];
+                    if (v === "features") base.items = [{ icon: "✨", title: "", text: "" }];
+                    if (v === "faq") base.items = [{ q: "", a: "" }];
+                    if (v === "logos") base.items = [{ src: "", alt: "" }];
+                    setMetaExtraSections([...metaExtraSections, base]);
+                  }}>
+                    <SelectTrigger className="w-[180px] h-8"><SelectValue placeholder="+ Adicionar seção" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="testimonials">Depoimentos</SelectItem>
+                      <SelectItem value="features">Features / Benefícios</SelectItem>
+                      <SelectItem value="faq">FAQ</SelectItem>
+                      <SelectItem value="logos">Logos / Selos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {metaExtraSections.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhuma seção extra. Adicione blocos como depoimentos, features, FAQ ou logos.</p>
+                )}
+
+                {metaExtraSections.map((sec: any, sIdx: number) => (
+                  <div key={sIdx} className="border rounded-md p-3 space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">{sec.type}</Badge>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          const arr = [...metaExtraSections];
+                          if (sIdx > 0) { [arr[sIdx-1], arr[sIdx]] = [arr[sIdx], arr[sIdx-1]]; setMetaExtraSections(arr); }
+                        }}>↑</Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          const arr = [...metaExtraSections];
+                          if (sIdx < arr.length-1) { [arr[sIdx+1], arr[sIdx]] = [arr[sIdx], arr[sIdx+1]]; setMetaExtraSections(arr); }
+                        }}>↓</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setMetaExtraSections(metaExtraSections.filter((_:any,i:number)=>i!==sIdx))}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Input placeholder="Título da seção (opcional)" value={sec.title || ""} onChange={(e) => {
+                      const arr = [...metaExtraSections]; arr[sIdx] = { ...sec, title: e.target.value }; setMetaExtraSections(arr);
+                    }} />
+                    {(sec.items || []).map((it: any, iIdx: number) => (
+                      <div key={iIdx} className="grid grid-cols-1 gap-1.5 border-l-2 pl-2 py-1">
+                        {sec.type === "testimonials" && <>
+                          <Input placeholder="Nome" value={it.name||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,name:e.target.value};setMetaExtraSections(a);}} />
+                          <Input placeholder="Cargo / função" value={it.role||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,role:e.target.value};setMetaExtraSections(a);}} />
+                          <Textarea placeholder="Depoimento" rows={2} value={it.quote||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,quote:e.target.value};setMetaExtraSections(a);}} />
+                        </>}
+                        {sec.type === "features" && <>
+                          <div className="grid grid-cols-[60px_1fr] gap-1.5">
+                            <Input placeholder="✨" value={it.icon||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,icon:e.target.value};setMetaExtraSections(a);}} />
+                            <Input placeholder="Título" value={it.title||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,title:e.target.value};setMetaExtraSections(a);}} />
+                          </div>
+                          <Textarea placeholder="Descrição" rows={2} value={it.text||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,text:e.target.value};setMetaExtraSections(a);}} />
+                        </>}
+                        {sec.type === "faq" && <>
+                          <Input placeholder="Pergunta" value={it.q||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,q:e.target.value};setMetaExtraSections(a);}} />
+                          <Textarea placeholder="Resposta" rows={2} value={it.a||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,a:e.target.value};setMetaExtraSections(a);}} />
+                        </>}
+                        {sec.type === "logos" && <>
+                          <Input placeholder="URL do logo" value={it.src||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,src:e.target.value};setMetaExtraSections(a);}} />
+                          <Input placeholder="Alt" value={it.alt||""} onChange={(e)=>{const a=[...metaExtraSections];a[sIdx].items[iIdx]={...it,alt:e.target.value};setMetaExtraSections(a);}} />
+                        </>}
+                        <Button size="sm" variant="ghost" className="justify-self-end h-7" onClick={()=>{const a=[...metaExtraSections];a[sIdx].items=a[sIdx].items.filter((_:any,k:number)=>k!==iIdx);setMetaExtraSections(a);}}>Remover item</Button>
+                      </div>
+                    ))}
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const a = [...metaExtraSections];
+                      const empty = sec.type === "testimonials" ? { name:"", role:"", quote:"" }
+                        : sec.type === "features" ? { icon:"✨", title:"", text:"" }
+                        : sec.type === "faq" ? { q:"", a:"" }
+                        : { src:"", alt:"" };
+                      a[sIdx].items = [...(a[sIdx].items||[]), empty];
+                      setMetaExtraSections(a);
+                    }}><Plus className="w-3 h-3 mr-1" />Item</Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* CSS customizado */}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">CSS customizado (avançado)</p>
+                <Textarea
+                  rows={4}
+                  placeholder=".public-form-page h1 { letter-spacing: -0.02em; }"
+                  value={metaCustomCss}
+                  onChange={(e) => setMetaCustomCss(e.target.value)}
+                  className="font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground">Aplicado no escopo .public-form-page. Use com cuidado.</p>
+              </div>
+
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
