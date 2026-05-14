@@ -45,6 +45,8 @@ interface FormData {
   badge_text: string | null;
   cta_text: string | null;
   trust_text: string | null;
+  display_mode?: string | null;
+  show_progress?: boolean | null;
 }
 
 export default function PublicFormPage() {
@@ -58,6 +60,41 @@ export default function PublicFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const isStepMode = form?.display_mode === "step";
+  const totalSteps = fields.length;
+  const visibleFields = isStepMode
+    ? (fields[currentStep] ? [fields[currentStep]] : [])
+    : fields;
+  const isLastStep = !isStepMode || currentStep >= totalSteps - 1;
+
+  const validateField = (field: FormField): string | null => {
+    const val = values[field.id];
+    const empty = val === undefined || val === null || val === "" ||
+      (Array.isArray(val) && val.length === 0);
+    if (field.required && empty) return `Campo "${field.label}" é obrigatório.`;
+    if (!empty && field.field_type === "email" && !/^\S+@\S+\.\S+$/.test(String(val))) {
+      return "Informe um e-mail válido.";
+    }
+    if (!empty && field.field_type === "phone" && String(val).replace(/\D/g, "").length < 10) {
+      return "Informe um telefone válido.";
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const f = fields[currentStep];
+    if (f) {
+      const err = validateField(f);
+      if (err) { setInlineError(err); return; }
+    }
+    setInlineError(null);
+    setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
+  };
+  const goBack = () => {
+    setInlineError(null);
+    setCurrentStep((s) => Math.max(0, s - 1));
+  };
 
   useEffect(() => {
     const load = async () => {
