@@ -1058,6 +1058,74 @@ function CreateCampaign({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Segmentações salvas */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Bookmark className="w-4 h-4 text-primary" />
+                Segmentações salvas
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                <Select value={selectedSegmentId} onValueChange={handleSelectSegment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Carregar uma segmentação..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhuma —</SelectItem>
+                    {savedSegments.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.lead_count ?? 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshSegment}
+                  disabled={selectedSegmentId === "none" || refreshingSegment}
+                  title="Recalcular leads desta segmentação agora"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${refreshingSegment ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteSegment}
+                  disabled={selectedSegmentId === "none"}
+                  title="Excluir segmentação salva"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              {selectedSegmentId !== "none" && (() => {
+                const seg = savedSegments.find(s => s.id === selectedSegmentId);
+                if (!seg) return null;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    {seg.lead_count ?? 0} leads · última atualização: {seg.last_refreshed_at ? formatDate(seg.last_refreshed_at) : "—"}
+                  </p>
+                );
+              })()}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t">
+                <Input
+                  placeholder="Nome para salvar a segmentação atual"
+                  value={segmentName}
+                  onChange={(e) => setSegmentName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSaveSegment}
+                  disabled={savingSegment || !segmentName.trim()}
+                >
+                  <Save className="w-4 h-4 mr-1" />
+                  {savingSegment ? "Salvando..." : "Salvar segmentação"}
+                </Button>
+              </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className="text-sm font-medium">Produto de Interesse</label>
