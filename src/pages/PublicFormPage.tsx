@@ -502,17 +502,11 @@ export default function PublicFormPage() {
             className="space-y-5"
           >
             {isStepMode && form.show_progress !== false && totalSteps > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Pergunta {Math.min(safeStep + 1, totalSteps)} de {totalSteps}</span>
-                  <span>{Math.round(((safeStep + 1) / totalSteps) * 100)}%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-300"
-                    style={{ width: `${((safeStep + 1) / totalSteps) * 100}%`, backgroundColor: 'var(--brand)' }}
-                  />
-                </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full transition-all duration-300"
+                  style={{ width: `${((safeStep + 1) / totalSteps) * 100}%`, backgroundColor: 'var(--brand)' }}
+                />
               </div>
             )}
             {visibleFields.map((field) => (
