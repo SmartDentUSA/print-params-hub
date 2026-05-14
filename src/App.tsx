@@ -15,6 +15,7 @@ import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
 import SupportResources from "./pages/SupportResources";
+import SmartOpsFormFlowStandalone from "./pages/SmartOpsFormFlowStandalone";
 import DraLIA from "./components/DraLIA";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
@@ -32,6 +33,7 @@ const App = () => (
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
       <Route path="/admin" element={<AdminViewSecure />} />
+      <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       
       {/* Portuguese routes (default) */}
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
