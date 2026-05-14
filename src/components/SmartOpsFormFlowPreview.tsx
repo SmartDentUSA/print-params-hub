@@ -437,10 +437,7 @@ export function SmartOpsFormFlowPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
 
-  const { nodes, edges } = useMemo(() => {
-    const built = buildGraph(fields);
-    return { nodes: layout(built.nodes, built.edges), edges: built.edges };
-  }, [fields]);
+  const { nodes, edges } = useMemo(() => buildGraph(fields), [fields]);
 
   if (loading) return <p className="text-xs text-muted-foreground">Carregando fluxo…</p>;
   if (!fields.length) return <p className="text-xs text-muted-foreground">Nenhum campo cadastrado ainda.</p>;
