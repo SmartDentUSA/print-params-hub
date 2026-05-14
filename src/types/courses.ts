@@ -173,6 +173,8 @@ export interface DealSearchResult {
   pais_origem?: string;
   piperun_deals_history: PiperunDeal[];
   matched_deal: PiperunDeal;
+  rpc_strategy?: 'piperun_id' | 'pessoa_piperun_id' | 'deals_history' | string;
+  rpc_warning?: string | null;
 }
 
 export interface PiperunDeal {
