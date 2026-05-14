@@ -314,25 +314,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                         )}
                       </div>
 
-                      {ganhoDeals.length > 1 && (
-                        <div>
-                          <Label className="text-xs">Selecionar deal ganho:</Label>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {ganhoDeals.map((d, i) => (
-                              <Button
-                                key={d.deal_id}
-                                size="sm"
-                                variant={selectedDealIdx === i ? "default" : "outline"}
-                                onClick={() => handleSelectDeal(i)}
-                              >
-                                {d.deal_title || d.deal_id}
-                                {d.value ? ` (R$ ${d.value.toLocaleString("pt-BR")})` : ""}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       <Button
                         className="w-full"
                         onClick={() => {
@@ -351,9 +332,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
             {/* ═══ STEP 2: Conferência de dados ═══ */}
             {step === 2 && (
               <div className="space-y-4">
-                {dealSearch.result?.rpc_strategy === 'deals_history' && dealSearch.result?.rpc_warning && (
+                {dealSearch.result?.warning && (
                   <Badge variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
-                    ⚠️ Lead identificado pelo histórico — confirme os dados
+                    ⚠️ {dealSearch.result.warning}
                   </Badge>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
