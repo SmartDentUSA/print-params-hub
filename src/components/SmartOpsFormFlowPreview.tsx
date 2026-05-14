@@ -240,7 +240,7 @@ function buildGraph(fields: FlowField[]): { nodes: Node[]; edges: Edge[] } {
 function layout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 70, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: "LR", nodesep: 30, ranksep: 90, marginx: 20, marginy: 20 });
 
   for (const n of nodes) {
     g.setNode(n.id, {
@@ -259,8 +259,8 @@ function layout(nodes: Node[], edges: Edge[]): Node[] {
     return {
       ...n,
       position: { x: p.x - w / 2, y: p.y - h / 2 },
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
     };
   });
 }
@@ -281,7 +281,7 @@ function FieldNode({ data }: NodeProps) {
         borderColor: isMapping ? "hsl(38 92% 50%)" : "hsl(142 70% 40%)",
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: "transparent", border: 0 }} />
+      <Handle type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
       <div className="px-3 py-2 space-y-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-mono text-muted-foreground">#{field.order_index}</span>
@@ -309,7 +309,7 @@ function FieldNode({ data }: NodeProps) {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: "transparent", border: 0 }} />
+      <Handle type="source" position={Position.Right} style={{ background: "transparent", border: 0 }} />
     </div>
   );
 }
@@ -320,7 +320,7 @@ function EndNode() {
       className="rounded-full border-2 border-muted-foreground/30 bg-muted px-4 py-2 flex items-center gap-2 shadow-sm"
       style={{ width: 180, height: 60 }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: "transparent", border: 0 }} />
+      <Handle type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
       <CheckCircle2 className="w-4 h-4 text-green-600" />
       <span className="text-xs font-medium">Fim do formulário</span>
     </div>
