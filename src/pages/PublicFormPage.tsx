@@ -8,6 +8,7 @@ import { CheckCircle, Instagram, Youtube, Facebook, Linkedin, Twitter } from "lu
 import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { Slider } from "@/components/ui/slider";
+import { isFieldVisible } from "@/lib/formConditions";
 
 interface FormField {
   id: string;
@@ -20,6 +21,7 @@ interface FormField {
   placeholder: string | null;
   order_index: number;
   workflow_cell_target: string | null;
+  conditions?: any;
 }
 
 interface FormData {
@@ -62,11 +64,14 @@ export default function PublicFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const isStepMode = form?.display_mode === "step";
-  const totalSteps = fields.length;
+  // Filter fields by conditional logic against current answers
+  const renderableFields = fields.filter((f) => isFieldVisible(f, values));
+  const totalSteps = renderableFields.length;
+  const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
-    ? (fields[currentStep] ? [fields[currentStep]] : [])
-    : fields;
-  const isLastStep = !isStepMode || currentStep >= totalSteps - 1;
+    ? (renderableFields[safeStep] ? [renderableFields[safeStep]] : [])
+    : renderableFields;
+  const isLastStep = !isStepMode || safeStep >= totalSteps - 1;
 
   const validateField = (field: FormField): string | null => {
     const val = values[field.id];
@@ -83,7 +88,7 @@ export default function PublicFormPage() {
   };
 
   const goNext = () => {
-    const f = fields[currentStep];
+    const f = renderableFields[safeStep];
     if (f) {
       const err = validateField(f);
       if (err) { setInlineError(err); return; }
@@ -218,12 +223,15 @@ export default function PublicFormPage() {
     setSubmitting(true);
 
     // Build payload mapping db_column -> value, custom fields -> raw_payload
+    // Only include answers from currently visible fields (drop hidden/conditional)
+    const activeFieldIds = new Set(renderableFields.map((f) => f.id));
+    const activeFields = fields.filter((f) => activeFieldIds.has(f.id));
     const payload: Record<string, any> = {
       source: "form",
       form_name: form.name,
       form_purpose: form.form_purpose,
       // Enviar respostas inline para evitar race condition com lia-assign
-      form_responses: fields
+      form_responses: activeFields
         .filter(f => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
         .map(f => ({
           label: f.label,
@@ -233,7 +241,7 @@ export default function PublicFormPage() {
 
     const customFields: Record<string, any> = {};
 
-    for (const field of fields) {
+    for (const field of activeFields) {
       const val = values[field.id];
       if (!val && field.required) {
         toast_inline(`Campo "${field.label}" é obrigatório.`);
@@ -282,7 +290,7 @@ export default function PublicFormPage() {
       // Gravar respostas dos campos de mapeamento
       const leadId = ingestData?.lead_id;
       if (form.form_purpose === "sdr_captacao" && leadId) {
-        const mappingFields = fields.filter((f) => f.workflow_cell_target);
+        const mappingFields = activeFields.filter((f) => f.workflow_cell_target);
         if (mappingFields.length > 0) {
           const responses = mappingFields
             .map((f) => {
@@ -313,7 +321,7 @@ export default function PublicFormPage() {
 
       // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
       if (leadId) {
-        const allResponses = fields
+        const allResponses = activeFields
           .filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
           .map((f) => ({
             label: f.label,
@@ -496,13 +504,13 @@ export default function PublicFormPage() {
             {isStepMode && form.show_progress !== false && totalSteps > 0 && (
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Pergunta {Math.min(currentStep + 1, totalSteps)} de {totalSteps}</span>
-                  <span>{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
+                  <span>Pergunta {Math.min(safeStep + 1, totalSteps)} de {totalSteps}</span>
+                  <span>{Math.round(((safeStep + 1) / totalSteps) * 100)}%</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full transition-all duration-300"
-                    style={{ width: `${((currentStep + 1) / totalSteps) * 100}%`, backgroundColor: 'var(--brand)' }}
+                    style={{ width: `${((safeStep + 1) / totalSteps) * 100}%`, backgroundColor: 'var(--brand)' }}
                   />
                 </div>
               </div>
@@ -648,7 +656,7 @@ export default function PublicFormPage() {
 
             {isStepMode ? (
               <div className="flex gap-2">
-                {currentStep > 0 && (
+                {safeStep > 0 && (
                   <Button
                     type="button"
                     variant="outline"
