@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,12 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import {
   Megaphone, RefreshCw, Cloud, Search, ArrowRight, ArrowLeft,
-  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone
+  Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone, Copy
 } from "lucide-react";
 
 // ── Types ──
@@ -43,7 +46,14 @@ interface CampaignSession {
   lead_ids: string[] | null;
   sent_count: number | null;
   failed_count: number | null;
-  results: any;
+  results: {
+    sms_message?: string;
+    sms_codificacao?: string;
+    sms_pdus?: number;
+    sms_custo_por_pdu?: number;
+    sent?: number;
+    failed?: number;
+  } | Record<string, unknown> | null | any;
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -60,6 +70,25 @@ interface SendLog {
   error_message: string | null;
   nome: string | null;
   telefone: string | null;
+  provider_status?: string | null;
+  provider_detail_code?: string | null;
+  provider_detail_message?: string | null;
+}
+
+interface SmsAttribution {
+  sent: number;
+  failed: number;
+  delivered: number;
+  taxa_entrega: number;
+  pdus: number;
+  custo_por_pdu: number;
+  custo_total: number;
+  custo_unitario: number;
+  leads_gerados: number;
+  deals_ganhos: number;
+  receita: number;
+  roi: number | null;
+  utm_usado: string;
 }
 
 // ── Helpers ──
