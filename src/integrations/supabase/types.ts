@@ -11304,6 +11304,7 @@ export type Database = {
           created_at: string
           cta_text: string | null
           description: string | null
+          display_mode: string
           form_purpose: string
           hero_image_alt: string | null
           hero_image_url: string | null
@@ -11311,6 +11312,7 @@ export type Database = {
           media_type: string | null
           name: string
           product_catalog_id: string | null
+          show_progress: boolean
           slug: string
           submissions_count: number
           subtitle: string | null
@@ -11335,6 +11337,7 @@ export type Database = {
           created_at?: string
           cta_text?: string | null
           description?: string | null
+          display_mode?: string
           form_purpose?: string
           hero_image_alt?: string | null
           hero_image_url?: string | null
@@ -11342,6 +11345,7 @@ export type Database = {
           media_type?: string | null
           name: string
           product_catalog_id?: string | null
+          show_progress?: boolean
           slug: string
           submissions_count?: number
           subtitle?: string | null
@@ -11366,6 +11370,7 @@ export type Database = {
           created_at?: string
           cta_text?: string | null
           description?: string | null
+          display_mode?: string
           form_purpose?: string
           hero_image_alt?: string | null
           hero_image_url?: string | null
@@ -11373,6 +11378,7 @@ export type Database = {
           media_type?: string | null
           name?: string
           product_catalog_id?: string | null
+          show_progress?: boolean
           slug?: string
           submissions_count?: number
           subtitle?: string | null
