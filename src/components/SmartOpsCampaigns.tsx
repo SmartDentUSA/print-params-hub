@@ -1036,6 +1036,46 @@ function CreateCampaign({
             <CardTitle className="text-base">3. Revisar e Criar</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {sendChannel === "sms" ? (
+              <>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Campanha</span><span className="font-medium">{campaignName}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Canal</span><span>📱 SMS (DisparoPro)</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Codificação</span><span>{smsCodificacao === "0" ? "7-bit (sem acentos)" : "Unicode (com acentos)"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">PDUs/mensagem</span><span>{smsStats.pdus}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Leads válidos</span><span>{smsLeadValidCount ?? "…"}</span></div>
+                  <div className="flex justify-between font-medium">
+                    <span className="text-muted-foreground">Custo estimado</span>
+                    <span>R$ {smsStats.custoTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>({smsStats.pdus} PDUs × {smsLeadValidCount ?? 0} leads × R$ {smsStats.custoPdu.toFixed(3)}/PDU)</span>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-3 rounded mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Preview da mensagem</p>
+                  <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setStep(2)} disabled={sending}>
+                    <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+                  </Button>
+                  <Button variant="outline" onClick={handleCreate} disabled={sending || creating}>
+                    Salvar como rascunho
+                  </Button>
+                  <Button
+                    onClick={handleSendSms}
+                    disabled={sending || !smsMessage.trim()}
+                    className="flex-1"
+                  >
+                    {sending ? "Disparando..." : `📱 Disparar SMS agora (${smsLeadValidCount ?? 0} leads)`}
+                  </Button>
+                </div>
+              </>
+            ) : (
+            <>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Campanha</span>
@@ -1097,6 +1137,8 @@ function CreateCampaign({
                 <Megaphone className="w-4 h-4 ml-1" />
               </Button>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       )}
