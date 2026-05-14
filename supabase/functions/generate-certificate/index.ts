@@ -219,7 +219,7 @@ Deno.serve(async (req: Request) => {
 
     let enrollQuery = supabase
       .from("smartops_course_enrollments")
-      .select("id, person_name, status, certificate_pdf_path")
+      .select("id, person_name, status, certificate_pdf_path, certificate_render_snapshot")
       .eq("turma_id", turmaId);
 
     if (enrollmentIds && enrollmentIds.length > 0) {
@@ -242,7 +242,7 @@ Deno.serve(async (req: Request) => {
       const enrollIds = enrollments.map((e: any) => e.id);
       const { data: comps } = await supabase
         .from("smartops_enrollment_companions")
-        .select("id, enrollment_id, name, certificate_pdf_path")
+        .select("id, enrollment_id, name, certificate_pdf_path, certificate_render_snapshot")
         .in("enrollment_id", enrollIds);
       companions = comps || [];
     }
@@ -254,25 +254,46 @@ Deno.serve(async (req: Request) => {
     const results: any[] = [];
     const errors: any[] = [];
 
-    type Person = { type: "enrollment" | "companion"; id: string; name: string; existing_path?: string | null };
+    type Person = {
+      type: "enrollment" | "companion";
+      id: string;
+      name: string;
+      existing_path?: string | null;
+      render_snapshot?: any;
+    };
     const people: Person[] = [
       ...enrollments.map((e: any) => ({
         type: "enrollment" as const,
         id: e.id,
         name: e.person_name || "Participante",
         existing_path: e.certificate_pdf_path,
+        render_snapshot: e.certificate_render_snapshot,
       })),
       ...companions.map((c: any) => ({
         type: "companion" as const,
         id: c.id,
         name: c.name,
         existing_path: c.certificate_pdf_path,
+        render_snapshot: c.certificate_render_snapshot,
       })),
     ];
 
     for (const person of people) {
       try {
-        if (person.existing_path && !regenerate) {
+        const currentSnapshot = {
+          course_title: courseTitle,
+          location,
+          date_text: dateText,
+          student_name: person.name,
+        };
+        const snap = person.render_snapshot;
+        const isStale = !snap
+          || snap.course_title !== currentSnapshot.course_title
+          || snap.location     !== currentSnapshot.location
+          || snap.date_text    !== currentSnapshot.date_text
+          || snap.student_name !== currentSnapshot.student_name;
+
+        if (person.existing_path && !regenerate && !isStale) {
           const { data: signed } = await supabase.storage
             .from(BUCKET)
             .createSignedUrl(person.existing_path, 60 * 60 * 24 * 30);
@@ -314,6 +335,7 @@ Deno.serve(async (req: Request) => {
           .update({
             certificate_pdf_path: path,
             certificate_generated_at: new Date().toISOString(),
+            certificate_render_snapshot: currentSnapshot,
           })
           .eq("id", person.id);
 
@@ -327,7 +349,7 @@ Deno.serve(async (req: Request) => {
           person_name: person.name,
           pdf_path: path,
           signed_url: signed?.signedUrl,
-          status: "generated",
+          status: person.existing_path && isStale ? "regenerated_stale" : "generated",
         });
       } catch (e) {
         errors.push({
@@ -354,6 +376,7 @@ Deno.serve(async (req: Request) => {
         summary: {
           total: people.length,
           generated: results.filter((r) => r.status === "generated").length,
+          regenerated_stale: results.filter((r) => r.status === "regenerated_stale").length,
           skipped: results.filter((r) => r.status === "skipped_already_exists").length,
           failed: errors.length,
         },

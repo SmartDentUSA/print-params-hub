@@ -10680,6 +10680,7 @@ export type Database = {
           area_atuacao: string | null
           certificate_generated_at: string | null
           certificate_pdf_path: string | null
+          certificate_render_snapshot: Json | null
           course_id: string
           created_at: string | null
           created_by: string | null
@@ -10721,6 +10722,7 @@ export type Database = {
           area_atuacao?: string | null
           certificate_generated_at?: string | null
           certificate_pdf_path?: string | null
+          certificate_render_snapshot?: Json | null
           course_id: string
           created_at?: string | null
           created_by?: string | null
@@ -10762,6 +10764,7 @@ export type Database = {
           area_atuacao?: string | null
           certificate_generated_at?: string | null
           certificate_pdf_path?: string | null
+          certificate_render_snapshot?: Json | null
           course_id?: string
           created_at?: string | null
           created_by?: string | null
@@ -11119,6 +11122,7 @@ export type Database = {
           area_atuacao: string | null
           certificate_generated_at: string | null
           certificate_pdf_path: string | null
+          certificate_render_snapshot: Json | null
           created_at: string | null
           email: string | null
           enrollment_id: string
@@ -11131,6 +11135,7 @@ export type Database = {
           area_atuacao?: string | null
           certificate_generated_at?: string | null
           certificate_pdf_path?: string | null
+          certificate_render_snapshot?: Json | null
           created_at?: string | null
           email?: string | null
           enrollment_id: string
@@ -11143,6 +11148,7 @@ export type Database = {
           area_atuacao?: string | null
           certificate_generated_at?: string | null
           certificate_pdf_path?: string | null
+          certificate_render_snapshot?: Json | null
           created_at?: string | null
           email?: string | null
           enrollment_id?: string
