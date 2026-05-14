@@ -496,6 +496,51 @@ function CreateCampaign({
     return () => clearTimeout(timer);
   }, [step, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
 
+  // Count valid SMS leads (telefone_normalized IS NOT NULL, opt-out off)
+  useEffect(() => {
+    if (step !== 2 || sendChannel !== "sms") return;
+    (async () => {
+      const buildBase = () => {
+        let q = supabase
+          .from("lia_attendances")
+          .select("id", { count: "exact", head: true })
+          .is("merged_into", null)
+          .not("telefone_normalized", "is", null) as any;
+        if (produtoInteresse !== "all") {
+          const safe = produtoInteresse.replace(/,/g, " ");
+          q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
+        }
+        if (temperatura !== "all") q = q.eq("temperatura_lead", parseInt(temperatura));
+        if (stageName !== "all") q = q.eq("piperun_stage_name", stageName);
+        if (especialidade !== "all") q = q.eq("especialidade", especialidade);
+        if (areaAtuacao !== "all") q = q.eq("area_atuacao", areaAtuacao);
+        if (uf !== "all") q = q.eq("uf", uf);
+        if (proprietario !== "all") q = q.eq("proprietario_lead_crm", proprietario);
+        if (realStatus !== "all") q = q.eq("real_status", realStatus);
+        if (temScanner === "yes") q = q.eq("tem_scanner", true);
+        if (temScanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
+        if (temPrinter === "yes") q = q.not("equip_printer_brand", "is", null);
+        if (temPrinter === "no") q = q.is("equip_printer_brand", null);
+        if (recencia !== "any") {
+          const days = parseInt(recencia);
+          const since = new Date(Date.now() - days * 86400000).toISOString();
+          q = q.gte("updated_at", since);
+        }
+        if (clienteFilter === "clientes") q = q.gt("total_deals_all", 0);
+        if (clienteFilter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+        return q;
+      };
+      try {
+        const { count, error } = await buildBase().neq("sms_opt_out", true);
+        if (error) throw error;
+        setSmsLeadValidCount(count ?? 0);
+      } catch {
+        const { count } = await buildBase();
+        setSmsLeadValidCount(count ?? 0);
+      }
+    })();
+  }, [step, sendChannel, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+
   const handleCreate = async () => {
     if (!campaignName.trim()) return;
     setCreating(true);
