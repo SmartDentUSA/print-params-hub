@@ -344,19 +344,42 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                   <div>
                     <Label className="text-xs">Participante</Label>
-                    <Input value={formData.person_name} onChange={(e) => updateForm("person_name", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("person_name") ? "pr-7" : ""} value={formData.person_name} onChange={(e) => updateForm("person_name", e.target.value)} />
+                      {prefilledFields.has("person_name") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">E-mail</Label>
+                    <div className="relative">
+                      <Input className={prefilledFields.has("email") ? "pr-7" : ""} value={formData.email} onChange={(e) => updateForm("email", e.target.value)} />
+                      {prefilledFields.has("email") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Celular</Label>
+                    <div className="relative">
+                      <Input className={prefilledFields.has("telefone_br") ? "pr-7" : ""} value={formData.telefone_br} onChange={(e) => updateForm("telefone_br", e.target.value)} placeholder="11999887744" />
+                      {prefilledFields.has("telefone_br") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">ID PipeRun</Label>
-                    <Input value={dealSearch.result?.pessoa_piperun_id || ""} disabled />
+                    <Input value={dealSearch.result?.piperun_id || dealSearch.result?.pessoa_piperun_id || ""} disabled />
                   </div>
                   <div>
                     <Label className="text-xs">Especialidade</Label>
-                    <Input value={formData.especialidade} onChange={(e) => updateForm("especialidade", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("especialidade") ? "pr-7" : ""} value={formData.especialidade} onChange={(e) => updateForm("especialidade", e.target.value)} />
+                      {prefilledFields.has("especialidade") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Área de atuação</Label>
-                    <Input value={formData.area_atuacao} onChange={(e) => updateForm("area_atuacao", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("area_atuacao") ? "pr-7" : ""} value={formData.area_atuacao} onChange={(e) => updateForm("area_atuacao", e.target.value)} />
+                      {prefilledFields.has("area_atuacao") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Nº Contrato</Label>
@@ -364,7 +387,10 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                   <div>
                     <Label className="text-xs">Instagram</Label>
-                    <Input value={formData.instagram} onChange={(e) => updateForm("instagram", e.target.value)} placeholder="@usuario" />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("instagram") ? "pr-7" : ""} value={formData.instagram} onChange={(e) => updateForm("instagram", e.target.value)} placeholder="@usuario" />
+                      {prefilledFields.has("instagram") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                 </div>
 
@@ -374,23 +400,77 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     <h4 className="text-sm font-semibold text-muted-foreground">Dados da Empresa (B2B)</h4>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
+                        <Label className="text-xs">Razão social</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_nome") ? "pr-7" : ""} value={formData.empresa_nome} onChange={(e) => updateForm("empresa_nome", e.target.value)} />
+                          {prefilledFields.has("empresa_nome") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
                         <Label className="text-xs">CNPJ</Label>
-                        <Input value={formData.empresa_cnpj} onChange={(e) => updateForm("empresa_cnpj", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_cnpj") ? "pr-7" : ""} value={formData.empresa_cnpj} onChange={(e) => updateForm("empresa_cnpj", e.target.value)} />
+                          {prefilledFields.has("empresa_cnpj") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">CEP</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("cep") ? "pr-7" : ""} value={formData.cep} onChange={(e) => updateForm("cep", e.target.value)} />
+                          {prefilledFields.has("cep") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">País</Label>
-                        <Input value={formData.empresa_pais} onChange={(e) => updateForm("empresa_pais", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_pais") ? "pr-7" : ""} value={formData.empresa_pais} onChange={(e) => updateForm("empresa_pais", e.target.value)} />
+                          {prefilledFields.has("empresa_pais") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">Estado</Label>
-                        <Input value={formData.empresa_estado} onChange={(e) => updateForm("empresa_estado", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_estado") ? "pr-7" : ""} value={formData.empresa_estado} onChange={(e) => updateForm("empresa_estado", e.target.value)} />
+                          {prefilledFields.has("empresa_estado") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">Cidade</Label>
-                        <Input value={formData.empresa_cidade} onChange={(e) => updateForm("empresa_cidade", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_cidade") ? "pr-7" : ""} value={formData.empresa_cidade} onChange={(e) => updateForm("empresa_cidade", e.target.value)} />
+                          {prefilledFields.has("empresa_cidade") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Bairro</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("bairro") ? "pr-7" : ""} value={formData.bairro} onChange={(e) => updateForm("bairro", e.target.value)} />
+                          {prefilledFields.has("bairro") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label className="text-xs">Endereço</Label>
+                        <Label className="text-xs">Rua</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("rua") ? "pr-7" : ""} value={formData.rua} onChange={(e) => updateForm("rua", e.target.value)} />
+                          {prefilledFields.has("rua") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Número</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("numero") ? "pr-7" : ""} value={formData.numero} onChange={(e) => updateForm("numero", e.target.value)} />
+                          {prefilledFields.has("numero") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Complemento</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("complemento") ? "pr-7" : ""} value={formData.complemento} onChange={(e) => updateForm("complemento", e.target.value)} />
+                          {prefilledFields.has("complemento") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Endereço (livre)</Label>
                         <Input value={formData.empresa_endereco} onChange={(e) => updateForm("empresa_endereco", e.target.value)} />
                       </div>
                       <div>
