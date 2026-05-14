@@ -331,7 +331,13 @@ const nodeTypes = { fieldNode: FieldNode, endNode: EndNode };
 
 // ───────────────────────── Component ─────────────────────────
 
-export function SmartOpsFormFlowPreview({ formId }: { formId: string }) {
+export function SmartOpsFormFlowPreview({
+  formId,
+  height = 600,
+}: {
+  formId: string;
+  height?: number | string;
+}) {
   const [fields, setFields] = useState<FlowField[]>([]);
   const [loading, setLoading] = useState(true);
   const lastHashRef = useRef<string>("");
@@ -410,7 +416,7 @@ export function SmartOpsFormFlowPreview({ formId }: { formId: string }) {
         </span>
       </div>
 
-      <div className="rounded-md border bg-muted/10" style={{ height: 600 }}>
+      <div className="rounded-md border bg-muted/10 flex-1" style={{ height }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
