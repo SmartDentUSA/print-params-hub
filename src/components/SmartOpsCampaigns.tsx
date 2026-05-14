@@ -580,6 +580,66 @@ function CreateCampaign({
     }
   };
 
+  const handleSendSms = async () => {
+    if (!smsMessage.trim() || !campaignName.trim()) return;
+    setSending(true);
+    const tId = toast.loading("Disparando SMS...");
+    try {
+      const filters: any = {};
+      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
+      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
+      if (stageName !== "all") filters.piperun_stage_name = stageName;
+      if (especialidade !== "all") filters.especialidade = especialidade;
+      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
+      if (uf !== "all") filters.uf = uf;
+      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
+      if (realStatus !== "all") filters.real_status = realStatus;
+      if (temScanner !== "all") filters.tem_scanner = temScanner;
+      if (temPrinter !== "all") filters.tem_printer = temPrinter;
+      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
+      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+
+      const { data: camp, error: campErr } = await supabase
+        .from("campaign_sessions")
+        .insert({
+          name: campaignName.trim(),
+          description: campaignDesc.trim() || null,
+          channel: "sms",
+          content_id: null,
+          content_type: null,
+          lead_filters: Object.keys(filters).length ? filters : null,
+          lead_count: smsLeadValidCount ?? leadCount,
+          status: "running",
+          results: {
+            sms_message: smsMessage,
+            sms_codificacao: smsCodificacao,
+            sms_pdus: smsStats.pdus,
+            sms_custo_por_pdu: smsStats.custoPdu,
+          },
+        })
+        .select("id")
+        .single();
+      if (campErr || !camp) throw new Error(campErr?.message ?? "Erro ao criar campanha");
+
+      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
+        body: {
+          campaign_id: (camp as any).id,
+          sms_message: smsMessage,
+          sms_codificacao: smsCodificacao,
+        },
+      });
+      if (error) throw error;
+      const sent = (data as any)?.sent ?? 0;
+      const failed = (data as any)?.failed ?? 0;
+      toast.success(`Disparo concluído: ${sent} enviados, ${failed} falhas`, { id: tId });
+      onCreated();
+    } catch (e) {
+      toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Steps indicator */}
