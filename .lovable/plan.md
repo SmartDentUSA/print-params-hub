@@ -1,45 +1,96 @@
-## Diagnóstico
+## Contexto
 
-**Implementação atual dos formulários dinâmicos:**
-- `smartops_forms` (29 colunas) + `smartops_form_fields` armazenam definição.
-- `SmartOpsFormBuilder` (676 linhas) lista/cria forms; `SmartOpsFormEditor` (441) edita campos com mapeamento p/ colunas do CDP (Contato, Profissional, Empresa, Equipamentos, Interesse, SDR, Marketing).
-- `PublicFormPage` renderiza o formulário público em `/f/:slug`, faz submit em `lia_attendances`, dispara workflow SDR e cria deal no PipeRun quando aplicável.
-- Tipos de campo suportados: text, email, phone (com DDI), number, textarea, select, radio, checkbox, slider.
-- **Tudo funcionando**, exceto: `PublicFormPage.tsx` linha 453 renderiza `fields.map(...)` em uma única lista vertical. **Não existe modo passo-a-passo.**
+Boa notícia: o esquema já tem o que precisamos.
+- `smartops_form_fields.conditions` (jsonb) — já existe, mas hoje **não é lido nem editado** em nenhum lugar.
+- `smartops_form_fields.order_index` — define a ordem das perguntas, usada no modo step.
+- `PublicFormPage.tsx` já tem o modo step funcionando (`display_mode='step'` + `currentStep`).
 
-## O que falta — Modo Wizard (1 pergunta por vez)
+Sobre o "HTML não alterado": o embed dos formulários é um `<iframe src="/f/{slug}">`. O HTML do iframe é o `PublicFormPage`, que **lê `display_mode` do banco em tempo real**. Não há HTML estático para mudar — basta o usuário recarregar a página onde o iframe está hospedado para ver o modo step. Se ainda assim não aparecer, é cache do navegador ou o iframe está apontando para outro slug. Posso validar isso depois.
 
-### 1. Schema (migration)
-Adicionar em `smartops_forms`:
-- `display_mode text default 'list' check (display_mode in ('list','step'))`
-- `show_progress boolean default true` — barra de progresso no modo step
+## O que vamos construir
 
-### 2. Editor (`SmartOpsFormBuilder` ou `SmartOpsFormEditor`)
-Adicionar nas configurações gerais do formulário:
-- Toggle "Modo de exibição": `Lista única` | `Passo a passo (1 pergunta por vez)`
-- Switch "Mostrar barra de progresso" (visível só quando step)
+Lógica de **perguntas condicionais** (branching) no editor + no runtime, usando o campo `conditions` que já existe no banco.
 
-### 3. Renderização pública (`PublicFormPage.tsx`)
-Quando `form.display_mode === 'step'`:
-- Estado `currentStep` (0..fields.length-1).
-- Renderizar **somente** `fields[currentStep]` no mesmo bloco visual (mantém hero/imagem à esquerda).
-- Botões: `Voltar` (oculto no passo 0) + `Próximo` (ou `Enviar` no último passo).
-- Validação por passo: se `field.required` e vazio → bloqueia avanço com mensagem inline.
-- Email/telefone validados antes do `Próximo`.
-- Barra de progresso opcional `(currentStep+1)/fields.length` no topo do form.
-- Enter avança para próximo passo (não submete antes do fim).
-- Animação leve de transição (fade/slide opcional via Tailwind).
-- Modo `list` (default) continua exatamente como hoje — zero regressão.
+### 1. Modelo de dados (sem migration — só convenção JSON)
+
+Cada campo passa a ter `conditions` no formato:
+
+```json
+{
+  "show_if": {
+    "logic": "AND",                // AND | OR
+    "rules": [
+      { "field_id": "<uuid do campo pai>", "op": "equals", "value": "Sim" },
+      { "field_id": "<uuid>", "op": "in", "value": ["Anycubic","Phrozen"] }
+    ]
+  }
+}
+```
+
+Operadores suportados na v1: `equals`, `not_equals`, `in`, `not_in`, `is_empty`, `is_not_empty`.
+
+Quando `conditions` for `null` ou `{}`, o campo é sempre exibido (comportamento atual).
+
+### 2. Editor (`SmartOpsFormBuilder.tsx`)
+
+Em cada campo, adicionar um accordion **"Lógica condicional"** com:
+- Toggle: "Exibir este campo apenas se…"
+- Seletor de lógica AND/OR
+- Lista de regras, cada uma com:
+  - Dropdown de **campo pai** (apenas campos com `order_index` menor que o atual e do tipo `select`/`radio`/`checkbox`/`text`)
+  - Dropdown de **operador**
+  - Input de **valor** (vira dropdown multi quando o pai é select/radio — usa as `options` do pai)
+- Botão "+ Adicionar regra" / remover regra
+
+Salvar grava em `conditions.show_if`.
+
+Visualmente marcar campos dependentes com um badge "Condicional" e indentação para deixar a hierarquia legível na lista.
+
+### 3. Runtime (`PublicFormPage.tsx`)
+
+Criar helper `isFieldVisible(field, answers, allFields)` que avalia `conditions.show_if`.
+
+Aplicar em dois pontos:
+
+**Modo padrão (lista):** filtrar `fields` antes do `.map` de render.
+
+**Modo step:** o `currentStep` percorre apenas campos visíveis. Implementar via `visibleFields = fields.filter(isFieldVisible)` recalculado a cada mudança de resposta. Cuidado:
+- Ao responder uma pergunta pai e mudar a visibilidade de filhos, o `currentStep` precisa ser remapeado pelo `id` do campo atual, não pelo índice (senão pula/repete pergunta).
+- Limpar respostas de campos que ficaram invisíveis no submit (para não enviar dado órfão).
+- Barra de progresso usa `visibleFields.length` em vez de `fields.length`.
 
 ### 4. Validação
-- Testar com form existente alternando modos.
-- Confirmar submit final igual ao modo lista (mesma payload p/ `lia_attendances`, mesmo workflow SDR/PipeRun).
+
+- Backend: trigger leve em `smartops_form_field_responses` **não** muda — continua aceitando o que vier.
+- Frontend: `required` só é exigido se `isFieldVisible === true`.
+
+### 5. Exemplo do fluxo do usuário (caso citado)
+
+```text
+1. Tem scanner intraoral?           [Sim/Não]
+2. Qual marca do scanner?           show_if: #1 == "Sim"
+3. Tem impressora 3D?               [Sim/Não]
+4. Qual marca da impressora?        show_if: #3 == "Sim"
+5. Você imprime guias cirúrgicas?   show_if: #3 == "Sim"
+6. Qual marca de resina utiliza?    show_if: #5 == "Sim"
+```
+
+No modo step, quem responder "Não" em #1 pula direto para #3; quem responder "Não" em #3 vai direto pro fim.
 
 ## Arquivos afetados
-- `supabase/migrations/<timestamp>_form_display_mode.sql` (novo)
-- `src/components/SmartOpsFormBuilder.tsx` ou `SmartOpsFormEditor.tsx` (toggle de modo)
-- `src/pages/PublicFormPage.tsx` (renderização wizard)
 
-## Fora de escopo
-- Lógica condicional entre perguntas (skip logic) — pode entrar em iteração futura.
-- Salvar progresso parcial (resume) — não solicitado.
+- `src/components/SmartOpsFormBuilder.tsx` — UI do editor de condições por campo.
+- `src/pages/PublicFormPage.tsx` — helper `isFieldVisible` + filtro nas duas modalidades de render + ajuste do step navigator + validação de required.
+- (Opcional) `src/lib/formConditions.ts` — extrair o avaliador para um util testável.
+
+Sem migration, sem mudança de tipos do Supabase (a coluna já existe).
+
+## Fora de escopo (v1)
+
+- Saltos para etapa específica ("pula para pergunta X") — usaremos só visibilidade. O efeito de "pular" acontece naturalmente porque campos invisíveis somem do step navigator.
+- Operadores numéricos (`>`, `<`) — adicionar em v2 se precisar.
+- Condições aninhadas (grupo de regras dentro de regra) — v1 é uma lista plana com AND/OR único.
+
+## Pergunta antes de implementar
+
+A regra "pula para outra principal" do exemplo é exatamente o comportamento de **esconder dependentes** (que é o que esse plano faz), ou você precisa de **goto explícito** (ex.: "se Não → vá direto pra pergunta 5, ignorando 3 e 4")? Pelo seu exemplo parece ser o primeiro, mas confirmo antes de codar.
