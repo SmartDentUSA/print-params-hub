@@ -1463,6 +1463,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_product_sales: executeQueryProductSales,
   query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
+  get_lead_card: executeGetLeadCard,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
