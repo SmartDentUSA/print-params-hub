@@ -1,52 +1,45 @@
-# Copilot: acesso total aos dados do card do lead
+## Diagnóstico
 
-## Objetivo
-Dar ao Copilot a mesma visão 360° que o operador vê no `KanbanLeadDetail` — todos os campos do lead, deals PipeRun, pedidos eCommerce, dados Omie ERP, mensagens, interações de IA, log de atividades, histórico de funil e page views.
+**Implementação atual dos formulários dinâmicos:**
+- `smartops_forms` (29 colunas) + `smartops_form_fields` armazenam definição.
+- `SmartOpsFormBuilder` (676 linhas) lista/cria forms; `SmartOpsFormEditor` (441) edita campos com mapeamento p/ colunas do CDP (Contato, Profissional, Empresa, Equipamentos, Interesse, SDR, Marketing).
+- `PublicFormPage` renderiza o formulário público em `/f/:slug`, faz submit em `lia_attendances`, dispara workflow SDR e cria deal no PipeRun quando aplicável.
+- Tipos de campo suportados: text, email, phone (com DDI), number, textarea, select, radio, checkbox, slider.
+- **Tudo funcionando**, exceto: `PublicFormPage.tsx` linha 453 renderiza `fields.map(...)` em uma única lista vertical. **Não existe modo passo-a-passo.**
 
-## O que existe hoje
-- `query_leads` / `query_leads_advanced` retornam apenas um `select` curto e padrão.
-- `query_table` tem whitelist restrita — falta `whatsapp_inbox`, `lead_activity_log`, `lead_funnel_history`, `lead_page_views`, `piperun_deals_history`, `ecommerce_orders_history`, `proposals_data`, `omie_clientes`, `omie_pedidos`.
-- Existem tools pontuais (`query_deal_history`, `query_ecommerce_orders`) mas nada que entregue o card completo de uma vez.
+## O que falta — Modo Wizard (1 pergunta por vez)
 
-## Mudanças
+### 1. Schema (migration)
+Adicionar em `smartops_forms`:
+- `display_mode text default 'list' check (display_mode in ('list','step'))`
+- `show_progress boolean default true` — barra de progresso no modo step
 
-### 1. Nova tool `get_lead_card` (one-shot 360°)
-Edge function `smart-ops-copilot/index.ts`: nova tool que aceita `lead_id` ou `email`/`telefone`/`piperun_id` e retorna em um único payload:
+### 2. Editor (`SmartOpsFormBuilder` ou `SmartOpsFormEditor`)
+Adicionar nas configurações gerais do formulário:
+- Toggle "Modo de exibição": `Lista única` | `Passo a passo (1 pergunta por vez)`
+- Switch "Mostrar barra de progresso" (visível só quando step)
 
-```ts
-{
-  lead: <lia_attendances.* completo, exceto embeddings>,
-  deals: <piperun_deals_history ordenados desc>,
-  ecommerce_orders: <ecommerce_orders_history>,
-  omie: { score, faturamento, pedidos, classificacao, inadimplencia, ultima_compra },
-  activity_log: <lead_activity_log últimos 50>,
-  funnel_history: <lead_funnel_history>,
-  page_views: <lead_page_views últimos 30>,
-  whatsapp_inbox: <whatsapp_inbox últimos 30 por phone normalizado>,
-  agent_interactions: <últimos 20>,
-  message_logs: <últimos 30>
-}
-```
-Resolve identidade pelo cascade `piperun_id > email > telefone > id`, sempre filtrando `merged_into IS NULL` em `lia_attendances` (Core Rule).
+### 3. Renderização pública (`PublicFormPage.tsx`)
+Quando `form.display_mode === 'step'`:
+- Estado `currentStep` (0..fields.length-1).
+- Renderizar **somente** `fields[currentStep]` no mesmo bloco visual (mantém hero/imagem à esquerda).
+- Botões: `Voltar` (oculto no passo 0) + `Próximo` (ou `Enviar` no último passo).
+- Validação por passo: se `field.required` e vazio → bloqueia avanço com mensagem inline.
+- Email/telefone validados antes do `Próximo`.
+- Barra de progresso opcional `(currentStep+1)/fields.length` no topo do form.
+- Enter avança para próximo passo (não submete antes do fim).
+- Animação leve de transição (fade/slide opcional via Tailwind).
+- Modo `list` (default) continua exatamente como hoje — zero regressão.
 
-### 2. Ampliar `query_leads` e `query_leads_advanced`
-- Aceitar `select: "*"` para retornar o lead completo.
-- Adicionar exemplo no `description`: `select:"*"` quando o usuário pedir "tudo do lead", "card completo", "ficha", etc.
+### 4. Validação
+- Testar com form existente alternando modos.
+- Confirmar submit final igual ao modo lista (mesma payload p/ `lia_attendances`, mesmo workflow SDR/PipeRun).
 
-### 3. Expandir whitelist do `query_table`
-Adicionar: `whatsapp_inbox`, `lead_activity_log`, `lead_funnel_history`, `lead_page_views`, `piperun_deals_history`, `ecommerce_orders_history`, `proposals_data`, `omie_clientes`, `omie_pedidos`, `lead_state_events` (já está? confirmar).
+## Arquivos afetados
+- `supabase/migrations/<timestamp>_form_display_mode.sql` (novo)
+- `src/components/SmartOpsFormBuilder.tsx` ou `SmartOpsFormEditor.tsx` (toggle de modo)
+- `src/pages/PublicFormPage.tsx` (renderização wizard)
 
-### 4. System prompt
-Adicionar no prompt do Copilot:
-- "Quando o usuário pedir 'me mostra esse lead', 'ficha completa', 'card do lead', 'tudo sobre X' → use `get_lead_card`."
-- Lembrar que `get_lead_card` já cobre deals/eCommerce/Omie/atividade — não chamar tools redundantes em sequência.
-
-### 5. Memory
-Atualizar `mem://smart-ops/copilot-jsonb-intelligence-v3` (ou criar `mem://smart-ops/copilot-lead-360-access`) registrando a nova tool e a expansão da whitelist.
-
-## Arquivos
-- `supabase/functions/smart-ops-copilot/index.ts` (nova tool + dispatcher + whitelist + prompt)
-- `mem://smart-ops/copilot-lead-360-access` (novo)
-
-## Validação
-Pedir ao Copilot: "me dá tudo do lead joao@x.com" e confirmar que a resposta cita deals, pedidos eCommerce, Omie, últimas mensagens e atividade — tudo em uma chamada.
+## Fora de escopo
+- Lógica condicional entre perguntas (skip logic) — pode entrar em iteração futura.
+- Salvar progresso parcial (resume) — não solicitado.
