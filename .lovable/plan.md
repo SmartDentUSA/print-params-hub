@@ -1,58 +1,52 @@
-# Copilot: Métricas completas de funil por vendedor
+# Copilot: acesso total aos dados do card do lead
 
 ## Objetivo
-Fazer o Copilot responder, por vendedor e por mês:
-- Deals que **entraram no funil** (created_at do deal no mês)
-- Deals **ganhos** no mês
-- Deals **perdidos** no mês
-- Deals **abertos/estagnados** (ainda em aberto, somados)
-- **Total de leads do vendedor no mês** = ganhos + perdidos + abertos
-- **Receita** (mantém `vw_vendas_ganhas`) e **taxa de conversão** = ganhos / total
+Dar ao Copilot a mesma visão 360° que o operador vê no `KanbanLeadDetail` — todos os campos do lead, deals PipeRun, pedidos eCommerce, dados Omie ERP, mensagens, interações de IA, log de atividades, histórico de funil e page views.
+
+## O que existe hoje
+- `query_leads` / `query_leads_advanced` retornam apenas um `select` curto e padrão.
+- `query_table` tem whitelist restrita — falta `whatsapp_inbox`, `lead_activity_log`, `lead_funnel_history`, `lead_page_views`, `piperun_deals_history`, `ecommerce_orders_history`, `proposals_data`, `omie_clientes`, `omie_pedidos`.
+- Existem tools pontuais (`query_deal_history`, `query_ecommerce_orders`) mas nada que entregue o card completo de uma vez.
 
 ## Mudanças
 
-### 1. Migration — estender `fn_resumo_vendas_mes`
-Adicionar CTE `deals_no_funil` baseada em `deals.piperun_created_at` no mês alvo, agrupando por `LOWER(TRIM(owner_name))`:
+### 1. Nova tool `get_lead_card` (one-shot 360°)
+Edge function `smart-ops-copilot/index.ts`: nova tool que aceita `lead_id` ou `email`/`telefone`/`piperun_id` e retorna em um único payload:
 
-```sql
-deals_no_funil AS (
-  SELECT
-    LOWER(TRIM(owner_name)) AS vendedor_key,
-    COUNT(*) FILTER (WHERE status = 'ganha')   AS deals_ganhos,
-    COUNT(*) FILTER (WHERE status = 'perdida') AS deals_perdidos,
-    COUNT(*) FILTER (WHERE status = 'aberta')  AS deals_abertos,
-    COUNT(*) AS total_leads_mes
-  FROM public.deals
-  WHERE is_deleted IS NOT TRUE
-    AND owner_name IS NOT NULL
-    AND EXTRACT(YEAR  FROM piperun_created_at) = p_ano
-    AND EXTRACT(MONTH FROM piperun_created_at) = p_mes
-  GROUP BY LOWER(TRIM(owner_name))
-)
+```ts
+{
+  lead: <lia_attendances.* completo, exceto embeddings>,
+  deals: <piperun_deals_history ordenados desc>,
+  ecommerce_orders: <ecommerce_orders_history>,
+  omie: { score, faturamento, pedidos, classificacao, inadimplencia, ultima_compra },
+  activity_log: <lead_activity_log últimos 50>,
+  funnel_history: <lead_funnel_history>,
+  page_views: <lead_page_views últimos 30>,
+  whatsapp_inbox: <whatsapp_inbox últimos 30 por phone normalizado>,
+  agent_interactions: <últimos 20>,
+  message_logs: <últimos 30>
+}
 ```
+Resolve identidade pelo cascade `piperun_id > email > telefone > id`, sempre filtrando `merged_into IS NULL` em `lia_attendances` (Core Rule).
 
-LEFT JOIN com `base` (receita de `vw_vendas_ganhas`) por nome normalizado. Colunas adicionadas ao final do RETURNS TABLE (retrocompatível):
-- `deals_ganhos bigint`
-- `deals_perdidos bigint`
-- `deals_abertos bigint`
-- `total_leads_mes bigint`
-- `taxa_conversao numeric` = `ROUND(deals_ganhos::numeric / NULLIF(total_leads_mes,0) * 100, 1)`
+### 2. Ampliar `query_leads` e `query_leads_advanced`
+- Aceitar `select: "*"` para retornar o lead completo.
+- Adicionar exemplo no `description`: `select:"*"` quando o usuário pedir "tudo do lead", "card completo", "ficha", etc.
 
-Observação: `deals_ganhos` aqui conta deals criados no mês que já foram ganhos (cohort), diferente de `total_deals` da `base` que conta vendas fechadas no mês. Ambos coexistem — Copilot usa o adequado conforme a pergunta.
+### 3. Expandir whitelist do `query_table`
+Adicionar: `whatsapp_inbox`, `lead_activity_log`, `lead_funnel_history`, `lead_page_views`, `piperun_deals_history`, `ecommerce_orders_history`, `proposals_data`, `omie_clientes`, `omie_pedidos`, `lead_state_events` (já está? confirmar).
 
-### 2. `smart-ops-copilot/index.ts`
-- Atualizar schema da tool `query_sales_summary` incluindo as 5 novas colunas.
-- System prompt: ao montar ranking de vendedores, **sempre** incluir colunas: Vendedor | Total Leads | Ganhos | Perdidos | Abertos | Conversão | Receita | Ticket.
-- Esclarecer que "abertos" engloba estagnados (sem separação) e que `total_leads_mes = ganhos + perdidos + abertos` por data de criação do deal no funil.
+### 4. System prompt
+Adicionar no prompt do Copilot:
+- "Quando o usuário pedir 'me mostra esse lead', 'ficha completa', 'card do lead', 'tudo sobre X' → use `get_lead_card`."
+- Lembrar que `get_lead_card` já cobre deals/eCommerce/Omie/atividade — não chamar tools redundantes em sequência.
 
-### 3. Memory
-Atualizar `mem://smart-ops/revenue-intelligence-reporting-logic-v1` com a nova definição de "leads do mês" (created_at do deal) e fórmula de conversão.
-
-### 4. Validação
-- `SELECT * FROM fn_resumo_vendas_mes(2026, 4)` — conferir que soma bate.
-- Pedir ao Copilot "ranking completo de vendas de abril/2026" e validar tabela com 8 colunas.
+### 5. Memory
+Atualizar `mem://smart-ops/copilot-jsonb-intelligence-v3` (ou criar `mem://smart-ops/copilot-lead-360-access`) registrando a nova tool e a expansão da whitelist.
 
 ## Arquivos
-- Nova migration em `supabase/migrations/`
-- `supabase/functions/smart-ops-copilot/index.ts`
-- `mem://smart-ops/revenue-intelligence-reporting-logic-v1`
+- `supabase/functions/smart-ops-copilot/index.ts` (nova tool + dispatcher + whitelist + prompt)
+- `mem://smart-ops/copilot-lead-360-access` (novo)
+
+## Validação
+Pedir ao Copilot: "me dá tudo do lead joao@x.com" e confirmar que a resposta cita deals, pedidos eCommerce, Omie, últimas mensagens e atividade — tudo em uma chamada.

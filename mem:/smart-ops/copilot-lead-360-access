@@ -1,0 +1,21 @@
+---
+name: Copilot Lead 360 Access
+description: Tool get_lead_card retorna visão completa do card do lead em uma chamada (lia_attendances + deals + Omie + Sellflux + mensagens + atividade)
+type: feature
+---
+**Tool**: `get_lead_card` em `smart-ops-copilot`.
+
+**Resolução de identidade** (cascade): `lead_id` > `piperun_id` > `email` > `telefone` (normaliza para dígitos). Sempre filtra `merged_into IS NULL`.
+
+**Payload retornado**:
+- `lead`: lia_attendances completo (exceto embeddings/raw_payload)
+- `deals`: piperun_deals_history (JSONB)
+- `proposals`: proposals_data || itens_proposta_parsed
+- `cognitive_analysis`
+- `omie`: bloco com score, faturamento, classificacao, inadimplencia, ultima_compra, etc.
+- `sellflux`: sellflux_custom_fields
+- `activity_log` (50), `agent_interactions` (20), `message_logs` (30), `whatsapp_inbox` (30, por lead_id OR phone), `page_views` (30), `state_events` (30)
+
+**Whitelist `query_table` ampliada**: + `whatsapp_inbox`, `lead_activity_log`, `lead_page_views`.
+
+**Trigger no prompt**: "card", "ficha", "tudo sobre", "resume esse lead", "contexto do <nome>". Após get_lead_card, NÃO encadear query_deal_history/query_ecommerce_orders.
