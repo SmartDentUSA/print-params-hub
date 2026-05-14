@@ -16,6 +16,7 @@ import {
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsMappingFieldsEditor } from "./SmartOpsMappingFieldsEditor";
 import { WORKFLOW_CELLS } from "./SmartOpsMappingFieldsEditor";
+import { SmartOpsFormFlowPreview } from "./SmartOpsFormFlowPreview";
 
 interface SdrForm {
   id: string;
@@ -588,6 +589,18 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           </p>
         </div>
         <SmartOpsMappingFieldsEditor formId={form.id} />
+      </section>
+
+      {/* ─────────────────────────────────── SEÇÃO E ─────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b pb-2">
+          <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded">E</span>
+          <h4 className="font-semibold text-base">Pré-visualização do fluxo</h4>
+          <p className="text-xs text-muted-foreground ml-1">
+            Árvore de perguntas e suas regras condicionais (Seções C + D).
+          </p>
+        </div>
+        <SmartOpsFormFlowPreview formId={form.id} />
       </section>
     </div>
   );
