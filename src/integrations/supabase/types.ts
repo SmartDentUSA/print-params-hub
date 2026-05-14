@@ -16477,8 +16477,10 @@ export type Database = {
       fn_resumo_vendas_mes: {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
+          leads_recebidos: number
           pct_receita: number
           receita_total: number
+          taxa_conversao: number
           ticket_medio: number
           total_deals: number
           vendedor: string
