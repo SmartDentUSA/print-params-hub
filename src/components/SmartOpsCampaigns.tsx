@@ -390,6 +390,175 @@ function CreateCampaign({
       .replace(/\{\{primeiro_nome\}\}/g, "João")
       .replace(/\{\{empresa\}\}/g, "Clínica Exemplo");
 
+  // Build current filter object from state (single source of truth)
+  const buildFiltersObject = useCallback(() => {
+    const f: Record<string, any> = {};
+    if (produtoInteresse !== "all") f.produto_interesse = produtoInteresse;
+    if (temperatura !== "all") f.temperatura_lead = parseInt(temperatura);
+    if (stageName !== "all") f.piperun_stage_name = stageName;
+    if (especialidade !== "all") f.especialidade = especialidade;
+    if (areaAtuacao !== "all") f.area_atuacao = areaAtuacao;
+    if (uf !== "all") f.uf = uf;
+    if (proprietario !== "all") f.proprietario_lead_crm = proprietario;
+    if (realStatus !== "all") f.real_status = realStatus;
+    if (temScanner !== "all") f.tem_scanner = temScanner;
+    if (temPrinter !== "all") f.tem_printer = temPrinter;
+    if (recencia !== "any") f.recencia_dias = parseInt(recencia);
+    if (clienteFilter !== "all") f.cliente_filter = clienteFilter;
+    return f;
+  }, [produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+
+  // Apply a saved segment's filters into state
+  const applySegmentFilters = (filters: Record<string, any> | null | undefined) => {
+    const f = filters || {};
+    setProdutoInteresse(f.produto_interesse ?? "all");
+    setTemperatura(f.temperatura_lead != null ? String(f.temperatura_lead) : "all");
+    setStageName(f.piperun_stage_name ?? "all");
+    setEspecialidade(f.especialidade ?? "all");
+    setAreaAtuacao(f.area_atuacao ?? "all");
+    setUf(f.uf ?? "all");
+    setProprietario(f.proprietario_lead_crm ?? "all");
+    setRealStatus(f.real_status ?? "all");
+    setTemScanner(f.tem_scanner ?? "all");
+    setTemPrinter(f.tem_printer ?? "all");
+    setRecencia(f.recencia_dias != null ? String(f.recencia_dias) : "any");
+    setClienteFilter(f.cliente_filter ?? "all");
+  };
+
+  // Build a query against lia_attendances applying current filters (returns base query)
+  const applyFiltersToQuery = (q: any, f: Record<string, any>) => {
+    if (f.produto_interesse) {
+      const safe = String(f.produto_interesse).replace(/,/g, " ");
+      q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
+    }
+    if (f.temperatura_lead != null) q = q.eq("temperatura_lead", f.temperatura_lead);
+    if (f.piperun_stage_name) q = q.eq("piperun_stage_name", f.piperun_stage_name);
+    if (f.especialidade) q = q.eq("especialidade", f.especialidade);
+    if (f.area_atuacao) q = q.eq("area_atuacao", f.area_atuacao);
+    if (f.uf) q = q.eq("uf", f.uf);
+    if (f.proprietario_lead_crm) q = q.eq("proprietario_lead_crm", f.proprietario_lead_crm);
+    if (f.real_status) q = q.eq("real_status", f.real_status);
+    if (f.tem_scanner === "yes") q = q.eq("tem_scanner", true);
+    if (f.tem_scanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
+    if (f.tem_printer === "yes") q = q.not("equip_printer_brand", "is", null);
+    if (f.tem_printer === "no") q = q.is("equip_printer_brand", null);
+    if (f.recencia_dias != null) {
+      const since = new Date(Date.now() - Number(f.recencia_dias) * 86400000).toISOString();
+      q = q.gte("updated_at", since);
+    }
+    if (f.cliente_filter === "clientes") q = q.gt("total_deals_all", 0);
+    if (f.cliente_filter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+    return q;
+  };
+
+  const fetchSegments = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("campaign_segments")
+      .select("id,name,description,filters,lead_count,lead_ids,last_refreshed_at,created_at")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setSavedSegments((data || []) as any);
+  }, []);
+
+  useEffect(() => { fetchSegments(); }, [fetchSegments]);
+
+  const handleSelectSegment = (id: string) => {
+    setSelectedSegmentId(id);
+    if (id === "none") return;
+    const seg = savedSegments.find(s => s.id === id);
+    if (!seg) return;
+    applySegmentFilters(seg.filters);
+    toast.success(`Segmentação "${seg.name}" carregada`);
+  };
+
+  const handleSaveSegment = async () => {
+    const name = segmentName.trim();
+    if (!name) {
+      toast.error("Dê um nome à segmentação");
+      return;
+    }
+    setSavingSegment(true);
+    try {
+      const filters = buildFiltersObject();
+      // Snapshot current member ids
+      let q: any = supabase.from("lia_attendances").select("id").is("merged_into", null).limit(50000);
+      q = applyFiltersToQuery(q, filters);
+      const { data: rows, error: idsErr } = await q;
+      if (idsErr) throw idsErr;
+      const ids = (rows || []).map((r: any) => r.id);
+      const { data: inserted, error } = await supabase
+        .from("campaign_segments")
+        .insert({
+          name,
+          filters,
+          lead_ids: ids,
+          lead_count: ids.length,
+          last_refreshed_at: new Date().toISOString(),
+        })
+        .select("id,name,description,filters,lead_count,lead_ids,last_refreshed_at,created_at")
+        .single();
+      if (error) throw error;
+      toast.success(`Segmentação salva (${ids.length} leads)`);
+      setSegmentName("");
+      setSavedSegments(prev => [inserted as any, ...prev]);
+      setSelectedSegmentId((inserted as any).id);
+    } catch (e) {
+      toast.error(`Erro ao salvar: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setSavingSegment(false);
+    }
+  };
+
+  const handleRefreshSegment = async () => {
+    if (selectedSegmentId === "none") return;
+    const seg = savedSegments.find(s => s.id === selectedSegmentId);
+    if (!seg) return;
+    setRefreshingSegment(true);
+    try {
+      let q: any = supabase.from("lia_attendances").select("id").is("merged_into", null).limit(50000);
+      q = applyFiltersToQuery(q, seg.filters || {});
+      const { data: rows, error: idsErr } = await q;
+      if (idsErr) throw idsErr;
+      const ids = (rows || []).map((r: any) => r.id);
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("campaign_segments")
+        .update({ lead_ids: ids, lead_count: ids.length, last_refreshed_at: nowIso })
+        .eq("id", seg.id);
+      if (error) throw error;
+      const prevCount = seg.lead_count ?? 0;
+      const delta = ids.length - prevCount;
+      toast.success(
+        `Atualizado: ${ids.length} leads${delta !== 0 ? ` (${delta > 0 ? "+" : ""}${delta} desde a última atualização)` : ""}`
+      );
+      setSavedSegments(prev =>
+        prev.map(s => s.id === seg.id ? { ...s, lead_ids: ids, lead_count: ids.length, last_refreshed_at: nowIso } : s)
+      );
+    } catch (e) {
+      toast.error(`Erro ao atualizar: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setRefreshingSegment(false);
+    }
+  };
+
+  const handleDeleteSegment = async () => {
+    if (selectedSegmentId === "none") return;
+    const seg = savedSegments.find(s => s.id === selectedSegmentId);
+    if (!seg) return;
+    if (!confirm(`Excluir segmentação "${seg.name}"?`)) return;
+    const { error } = await supabase.from("campaign_segments").delete().eq("id", seg.id);
+    if (error) {
+      toast.error(`Erro: ${error.message}`);
+      return;
+    }
+    toast.success("Segmentação excluída");
+    setSavedSegments(prev => prev.filter(s => s.id !== seg.id));
+    setSelectedSegmentId("none");
+  };
+
   // Options
   const [produtoInteresseOptions, setProdutoInteresseOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
