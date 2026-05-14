@@ -758,6 +758,7 @@ function InscricoesTab() {
   const [editRow, setEditRow] = useState<any>(null);
   const [deleteRow, setDeleteRow] = useState<any>(null);
   const [certLoadingId, setCertLoadingId] = useState<string | null>(null);
+  const [certCompanionLoadingId, setCertCompanionLoadingId] = useState<string | null>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["smartops_courses_list"],
