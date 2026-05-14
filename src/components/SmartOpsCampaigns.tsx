@@ -342,6 +342,34 @@ function CreateCampaign({
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
+  // SMS (DisparoPro)
+  const [smsMessage, setSmsMessage] = useState("");
+  const [smsCodificacao, setSmsCodificacao] = useState<"0" | "8">("0");
+  const [smsCustoPdu, setSmsCustoPdu] = useState<string>("0.08");
+  const [smsBalance, setSmsBalance] = useState<string | null>(null);
+  const [smsBalanceLoading, setSmsBalanceLoading] = useState(false);
+  const [smsLeadValidCount, setSmsLeadValidCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const smsTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const smsStats = useMemo(() => {
+    const is7bit = smsCodificacao === "0";
+    const perPdu = is7bit ? 160 : 70;
+    const multiPerPdu = is7bit ? 153 : 67;
+    const len = smsMessage.length;
+    const pdus = len === 0 ? 0 : len <= perPdu ? 1 : Math.ceil(len / multiPerPdu);
+    const custoPdu = parseFloat(smsCustoPdu) || 0;
+    const leads = smsLeadValidCount ?? 0;
+    const custoTotal = pdus * leads * custoPdu;
+    return { is7bit, perPdu, multiPerPdu, len, pdus, custoTotal, custoPdu };
+  }, [smsMessage, smsCodificacao, smsCustoPdu, smsLeadValidCount]);
+
+  const renderSmsPreview = (msg: string) =>
+    msg
+      .replace(/\{\{nome\}\}/g, "Dr. João Silva")
+      .replace(/\{\{primeiro_nome\}\}/g, "João")
+      .replace(/\{\{empresa\}\}/g, "Clínica Exemplo");
+
   // Options
   const [produtoInteresseOptions, setProdutoInteresseOptions] = useState<string[]>([]);
   const [stageOptions, setStageOptions] = useState<string[]>([]);
