@@ -865,9 +865,15 @@ function InscricoesTab() {
       try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
 
       toast({
-        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado pronto',
+        title: cert.status === 'generated'
+          ? 'Certificado gerado'
+          : cert.status === 'regenerated_stale'
+            ? 'Certificado atualizado'
+            : 'Certificado pronto',
         description: opened
-          ? `${cert.person_name} — link copiado para a área de transferência.`
+          ? cert.status === 'regenerated_stale'
+            ? `${cert.person_name} — dados do curso mudaram, novo PDF gerado. Link copiado.`
+            : `${cert.person_name} — link copiado para a área de transferência.`
           : `${cert.person_name} — popup bloqueado. Link copiado para a área de transferência, cole na barra de endereços.`,
       });
 
