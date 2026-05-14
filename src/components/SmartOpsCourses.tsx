@@ -1016,7 +1016,8 @@ function InscricoesTab() {
                 const st = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
                 const startDate = r.turma_snapshot?.days?.[0]?.date;
                 return (
-                  <TableRow key={r.id}>
+                  <React.Fragment key={r.id}>
+                  <TableRow>
                     <TableCell>
                       <div className="font-medium">{r.person_name}</div>
                       {r.deal_id && <div className="text-xs text-muted-foreground">Deal {r.deal_id}</div>}
@@ -1054,6 +1055,45 @@ function InscricoesTab() {
                       </div>
                     </TableCell>
                   </TableRow>
+                  {r.companions?.length > 0 && (
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={7} className="py-2">
+                        <div className="pl-8 space-y-1">
+                          <div className="text-xs text-muted-foreground mb-1">Acompanhantes:</div>
+                          {r.companions.map((c: any) => (
+                            <div key={c.id} className="flex items-center gap-2 text-sm">
+                              <span className="flex-1">
+                                {c.name}
+                                {c.especialidade && <span className="text-muted-foreground"> · {c.especialidade}</span>}
+                              </span>
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={certCompanionLoadingId === c.id}
+                                      onClick={() => handleGenerateCompanionCertificate(r, c)}
+                                    >
+                                      {certCompanionLoadingId === c.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <Award className={`w-3.5 h-3.5 ${c.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {c.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 );
               })}
               {rows.length === 0 && (
