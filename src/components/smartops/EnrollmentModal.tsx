@@ -15,7 +15,7 @@ import type {
   ProposalItem, EquipmentData, EnrollmentCompanion,
 } from "@/types/courses";
 import {
-  extractProposalItems, isDealGanho, formatDatePtBr, formatWeekday,
+  extractProposalItems, formatDatePtBr, formatWeekday,
   MODALITY_CONFIG, EQUIP_CONFIG,
 } from "@/lib/courseUtils";
 import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } from "@/lib/courseWhatsapp";
@@ -114,16 +114,19 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   const dealSearch = useDealSearch();
   const { enroll } = useEnrollment();
   const [dealIdInput, setDealIdInput] = useState("");
-  const [selectedDealIdx, setSelectedDealIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   // Step 2 form
   const [formData, setFormData] = useState({
-    deal_title: "", person_name: "", especialidade: "", area_atuacao: "",
+    deal_title: "", person_name: "", email: "", telefone_br: "",
+    especialidade: "", area_atuacao: "",
     numero_contrato: "", instagram: "",
-    empresa_cnpj: "", empresa_pais: "", empresa_estado: "",
-    empresa_cidade: "", empresa_endereco: "", empresa_telefone: "",
+    empresa_nome: "", empresa_cnpj: "",
+    empresa_pais: "", empresa_estado: "", empresa_cidade: "",
+    cep: "", rua: "", numero: "", bairro: "", complemento: "",
+    empresa_endereco: "", empresa_telefone: "",
   });
+  const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
   const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({});
 
@@ -147,61 +150,50 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   // Populate form after search
   const populateFromResult = (result: DealSearchResult) => {
     const deal = result.matched_deal;
-    // Aggregate items from ALL ganho deals
-    const allGanho = result.piperun_deals_history.filter(isDealGanho);
-    let globalIdx = 0;
-    const items = allGanho.flatMap(d => {
-      const dItems = extractProposalItems(d, {}, d.deal_title || d.deal_id || '');
-      // Re-index equip_outro keys to avoid collisions across deals
-      return dItems.map(it => {
-        if (it.equip_key?.startsWith('equip_outro_')) {
-          return { ...it, equip_key: `equip_outro_${globalIdx++}` as any };
-        }
-        globalIdx++;
-        return it;
-      });
-    });
+    const items = deal
+      ? extractProposalItems(deal, {}, deal.deal_title || deal.deal_id || '')
+      : [];
     setProposalItems(items);
-    setFormData({
-      deal_title: deal.deal_title || "",
-      person_name: result.nome || "",
-      especialidade: result.especialidade || "",
-      area_atuacao: result.area_atuacao || "",
-      numero_contrato: "",
-      instagram: "",
-      empresa_cnpj: result.empresa_cnpj || "",
-      empresa_pais: result.pais_origem || "",
-      empresa_estado: result.uf || "",
-      empresa_cidade: result.cidade || "",
-      empresa_endereco: "",
-      empresa_telefone: "",
-    });
-    setEquipmentData({});
-  };
 
-  const ganhoDeals = useMemo(() => {
-    if (!dealSearch.result) return [];
-    return dealSearch.result.piperun_deals_history.filter(isDealGanho);
-  }, [dealSearch.result]);
+    const map: Record<string, string | null | undefined> = {
+      deal_title: deal?.deal_title || "",
+      person_name: result.nome,
+      email: result.email,
+      telefone_br: result.telefone_br,
+      especialidade: result.especialidade,
+      area_atuacao: result.area_atuacao,
+      instagram: result.instagram,
+      empresa_nome: result.empresa_nome,
+      empresa_cnpj: result.empresa_cnpj,
+      empresa_pais: result.pais ?? 'Brasil',
+      empresa_estado: result.estado,
+      empresa_cidade: result.cidade,
+      cep: result.cep,
+      rua: result.rua,
+      numero: result.numero,
+      bairro: result.bairro,
+      complemento: result.complemento,
+    };
 
-  const handleSelectDeal = (idx: number) => {
-    if (!dealSearch.result) return;
-    setSelectedDealIdx(idx);
-    const deal = ganhoDeals[idx] || dealSearch.result.matched_deal;
-    // Still aggregate ALL ganho deals items
-    let globalIdx = 0;
-    const allItems = ganhoDeals.flatMap(d => {
-      const dItems = extractProposalItems(d, {}, d.deal_title || d.deal_id || '');
-      return dItems.map(it => {
-        if (it.equip_key?.startsWith('equip_outro_')) {
-          return { ...it, equip_key: `equip_outro_${globalIdx++}` as any };
+    const filled = new Set<string>();
+    setFormData((f) => {
+      const next = { ...f };
+      for (const [k, v] of Object.entries(map)) {
+        if (v != null && String(v).trim() !== "") {
+          (next as any)[k] = String(v);
+          // deal_title vem do deal, não da RPC, então não conta como prefilled
+          if (k !== 'deal_title') filled.add(k);
+        } else {
+          (next as any)[k] = "";
         }
-        globalIdx++;
-        return it;
-      });
+      }
+      // limpar campos manuais sem fonte
+      next.numero_contrato = "";
+      next.empresa_endereco = "";
+      next.empresa_telefone = "";
+      return next;
     });
-    setProposalItems(allItems);
-    setFormData((f) => ({ ...f, deal_title: deal.deal_title || "" }));
+    setPrefilledFields(filled);
     setEquipmentData({});
   };
 
@@ -236,7 +228,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   const selectedTurma = turmas.find((t) => t.id === selectedTurmaId);
   const selectedDays = selectedTurma?.days ?? [];
 
-  const isB2B = dealSearch.result?.buyer_type === "B2B" || !!dealSearch.result?.empresa_cnpj;
+  const isB2B = !!dealSearch.result?.empresa_cnpj || !!formData.empresa_cnpj;
 
   // ─── Preview WA (Step 5) ───
   const waPreview = useMemo(() => {
@@ -248,9 +240,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
 
   // Extract numero_proposta from deal proposals
   const numeroProposta = useMemo(() => {
-    if (!dealSearch.result) return '';
-    const deal = dealSearch.result.matched_deal;
-    const proposals = deal?.proposals ?? [];
+    const deal = dealSearch.result?.matched_deal;
+    if (!deal) return '';
+    const proposals = deal.proposals ?? [];
     return proposals
       .map((p: any) => p.sigla || String(p.id))
       .filter(Boolean)
@@ -322,25 +314,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                         )}
                       </div>
 
-                      {ganhoDeals.length > 1 && (
-                        <div>
-                          <Label className="text-xs">Selecionar deal ganho:</Label>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {ganhoDeals.map((d, i) => (
-                              <Button
-                                key={d.deal_id}
-                                size="sm"
-                                variant={selectedDealIdx === i ? "default" : "outline"}
-                                onClick={() => handleSelectDeal(i)}
-                              >
-                                {d.deal_title || d.deal_id}
-                                {d.value ? ` (R$ ${d.value.toLocaleString("pt-BR")})` : ""}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       <Button
                         className="w-full"
                         onClick={() => {
@@ -359,9 +332,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
             {/* ═══ STEP 2: Conferência de dados ═══ */}
             {step === 2 && (
               <div className="space-y-4">
-                {dealSearch.result?.rpc_strategy === 'deals_history' && dealSearch.result?.rpc_warning && (
+                {dealSearch.result?.warning && (
                   <Badge variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
-                    ⚠️ Lead identificado pelo histórico — confirme os dados
+                    ⚠️ {dealSearch.result.warning}
                   </Badge>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -371,19 +344,42 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                   <div>
                     <Label className="text-xs">Participante</Label>
-                    <Input value={formData.person_name} onChange={(e) => updateForm("person_name", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("person_name") ? "pr-7" : ""} value={formData.person_name} onChange={(e) => updateForm("person_name", e.target.value)} />
+                      {prefilledFields.has("person_name") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">E-mail</Label>
+                    <div className="relative">
+                      <Input className={prefilledFields.has("email") ? "pr-7" : ""} value={formData.email} onChange={(e) => updateForm("email", e.target.value)} />
+                      {prefilledFields.has("email") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Celular</Label>
+                    <div className="relative">
+                      <Input className={prefilledFields.has("telefone_br") ? "pr-7" : ""} value={formData.telefone_br} onChange={(e) => updateForm("telefone_br", e.target.value)} placeholder="11999887744" />
+                      {prefilledFields.has("telefone_br") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">ID PipeRun</Label>
-                    <Input value={dealSearch.result?.pessoa_piperun_id || ""} disabled />
+                    <Input value={dealSearch.result?.piperun_id || dealSearch.result?.pessoa_piperun_id || ""} disabled />
                   </div>
                   <div>
                     <Label className="text-xs">Especialidade</Label>
-                    <Input value={formData.especialidade} onChange={(e) => updateForm("especialidade", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("especialidade") ? "pr-7" : ""} value={formData.especialidade} onChange={(e) => updateForm("especialidade", e.target.value)} />
+                      {prefilledFields.has("especialidade") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Área de atuação</Label>
-                    <Input value={formData.area_atuacao} onChange={(e) => updateForm("area_atuacao", e.target.value)} />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("area_atuacao") ? "pr-7" : ""} value={formData.area_atuacao} onChange={(e) => updateForm("area_atuacao", e.target.value)} />
+                      {prefilledFields.has("area_atuacao") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Nº Contrato</Label>
@@ -391,7 +387,10 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                   <div>
                     <Label className="text-xs">Instagram</Label>
-                    <Input value={formData.instagram} onChange={(e) => updateForm("instagram", e.target.value)} placeholder="@usuario" />
+                    <div className="relative">
+                      <Input className={prefilledFields.has("instagram") ? "pr-7" : ""} value={formData.instagram} onChange={(e) => updateForm("instagram", e.target.value)} placeholder="@usuario" />
+                      {prefilledFields.has("instagram") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                 </div>
 
@@ -401,23 +400,77 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     <h4 className="text-sm font-semibold text-muted-foreground">Dados da Empresa (B2B)</h4>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
+                        <Label className="text-xs">Razão social</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_nome") ? "pr-7" : ""} value={formData.empresa_nome} onChange={(e) => updateForm("empresa_nome", e.target.value)} />
+                          {prefilledFields.has("empresa_nome") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
                         <Label className="text-xs">CNPJ</Label>
-                        <Input value={formData.empresa_cnpj} onChange={(e) => updateForm("empresa_cnpj", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_cnpj") ? "pr-7" : ""} value={formData.empresa_cnpj} onChange={(e) => updateForm("empresa_cnpj", e.target.value)} />
+                          {prefilledFields.has("empresa_cnpj") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">CEP</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("cep") ? "pr-7" : ""} value={formData.cep} onChange={(e) => updateForm("cep", e.target.value)} />
+                          {prefilledFields.has("cep") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">País</Label>
-                        <Input value={formData.empresa_pais} onChange={(e) => updateForm("empresa_pais", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_pais") ? "pr-7" : ""} value={formData.empresa_pais} onChange={(e) => updateForm("empresa_pais", e.target.value)} />
+                          {prefilledFields.has("empresa_pais") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">Estado</Label>
-                        <Input value={formData.empresa_estado} onChange={(e) => updateForm("empresa_estado", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_estado") ? "pr-7" : ""} value={formData.empresa_estado} onChange={(e) => updateForm("empresa_estado", e.target.value)} />
+                          {prefilledFields.has("empresa_estado") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">Cidade</Label>
-                        <Input value={formData.empresa_cidade} onChange={(e) => updateForm("empresa_cidade", e.target.value)} />
+                        <div className="relative">
+                          <Input className={prefilledFields.has("empresa_cidade") ? "pr-7" : ""} value={formData.empresa_cidade} onChange={(e) => updateForm("empresa_cidade", e.target.value)} />
+                          {prefilledFields.has("empresa_cidade") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Bairro</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("bairro") ? "pr-7" : ""} value={formData.bairro} onChange={(e) => updateForm("bairro", e.target.value)} />
+                          {prefilledFields.has("bairro") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label className="text-xs">Endereço</Label>
+                        <Label className="text-xs">Rua</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("rua") ? "pr-7" : ""} value={formData.rua} onChange={(e) => updateForm("rua", e.target.value)} />
+                          {prefilledFields.has("rua") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Número</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("numero") ? "pr-7" : ""} value={formData.numero} onChange={(e) => updateForm("numero", e.target.value)} />
+                          {prefilledFields.has("numero") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Complemento</Label>
+                        <div className="relative">
+                          <Input className={prefilledFields.has("complemento") ? "pr-7" : ""} value={formData.complemento} onChange={(e) => updateForm("complemento", e.target.value)} />
+                          {prefilledFields.has("complemento") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
+                        </div>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Endereço (livre)</Label>
                         <Input value={formData.empresa_endereco} onChange={(e) => updateForm("empresa_endereco", e.target.value)} />
                       </div>
                       <div>
@@ -680,7 +733,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                 </div>
 
                 {/* Sem telefone */}
-                {!dealSearch.result?.telefone_normalized && (
+                {!dealSearch.result?.telefone && (
                   <div className="flex items-center gap-2 text-amber-600 text-sm">
                     <AlertTriangle className="w-4 h-4" />
                     WhatsApp não será enviado (sem telefone cadastrado)

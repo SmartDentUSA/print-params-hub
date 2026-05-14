@@ -16495,6 +16495,10 @@ export type Database = {
         }
         Returns: number
       }
+      fn_get_deal_from_history: {
+        Args: { p_deal_id: string; p_lead_id: string }
+        Returns: Json
+      }
       fn_get_deals_for_activity_backfill: {
         Args: { p_limit?: number; p_since?: string; p_status?: string }
         Returns: {

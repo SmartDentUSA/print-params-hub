@@ -139,7 +139,7 @@ export function useEnrollment() {
       // 7. WhatsApp (best-effort)
       await sendEnrollmentWA({
         enrollmentId: enrollment.id, leadId: p.dealResult.lead_id,
-        leadPhone: p.dealResult.telefone_normalized, personName: p.formData.person_name,
+        leadPhone: p.dealResult.telefone ?? undefined, personName: p.formData.person_name,
         course: p.course, turma: p.selectedTurma, days: p.turmadays, csEmail: user.email!,
       });
 
@@ -147,7 +147,7 @@ export function useEnrollment() {
       qc.invalidateQueries({ queryKey: ['smartops_enrollments'] });
       qc.invalidateQueries({ queryKey: ['v_turmas_com_vagas'] });
 
-      const noPhone = !p.dealResult.telefone_normalized ? ' · WA não enviado (sem telefone)' : '';
+      const noPhone = !p.dealResult.telefone ? ' · WA não enviado (sem telefone)' : '';
       toast({
         title: 'Agendamento confirmado!',
         description: `${p.formData.person_name} inscrito(a) na ${p.selectedTurma.label}${noPhone}`,
