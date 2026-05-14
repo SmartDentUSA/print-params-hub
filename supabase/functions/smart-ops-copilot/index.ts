@@ -1762,6 +1762,11 @@ Leads com equip_upgrade_signal = true e equipamento com mais de 18 meses têm al
 | Templates WA aprovados | query_table (whatsapp_templates, status=approved) |
 | Catálogo e workflow | query_table (product_taxonomy / system_a_catalog) |
 | Comportamento e jornada | query_table (lead_activity_log / lead_page_views) |
+| Card / ficha completa do lead | get_lead_card (one-shot 360°: perfil + Omie + deals + mensagens + atividade) |
+
+## ACESSO 360° AO LEAD (get_lead_card)
+
+Quando o usuário pedir "me mostra o lead X", "card completo", "ficha do <nome>", "tudo sobre o <email>", "resume esse lead", "contexto do <nome>" → use **get_lead_card** com lead_id, piperun_id, email ou telefone. Uma única chamada já retorna: todos os campos de lia_attendances, deals PipeRun (history JSONB), propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, últimas 30 mensagens WhatsApp, 20 interações de IA, 50 entradas do activity log, page views e state events. NÃO encadeie query_deal_history / query_ecommerce_orders depois — já vem tudo.
 
 ## CURADORIA DE CONTEÚDO
 
