@@ -1,0 +1,1 @@
+UPDATE public.smartops_forms SET display_mode='step', show_progress=true WHERE active=true;
