@@ -15,58 +15,29 @@ export function useDealSearch() {
     const id = dealId.trim();
     setLoading(true); setError(null); setResult(null);
 
-    const errors: string[] = [];
-
     try {
-      let data: any = null;
+      // 1) RPC resolve o lead canônico (sem duplicatas)
+      const { data: rpc, error: rpcErr } = await (supabase as any)
+        .rpc('fn_search_deal_for_training', { p_deal_id: id });
+      if (rpcErr) throw rpcErr;
 
-      // T1: piperun_id (coluna text)
-      const r1 = await (supabase as any).from('lia_attendances')
+      const r: any = rpc;
+      if (!r?.found || !r?.lead_id) {
+        setError('Deal não encontrado. Verifique o ID e tente novamente.');
+        return;
+      }
+      if (r.warning) console.warn('[DealSearch]', r.warning);
+
+      // 2) Hidrata o lead canônico para preservar Step 2/3 do EnrollmentModal
+      const { data, error: leadErr } = await (supabase as any)
+        .from('lia_attendances')
         .select(FIELDS)
-        .eq('piperun_id', id)
+        .eq('id', r.lead_id)
         .is('merged_into', null)
-        .limit(1);
-      if (r1.error) errors.push(`T1: ${r1.error.message}`);
-      if (!r1.error && r1.data?.length) data = r1.data[0];
-
-      // T2: pessoa_piperun_id (coluna int4)
-      if (!data && /^\d+$/.test(id)) {
-        const r2 = await (supabase as any).from('lia_attendances')
-          .select(FIELDS)
-          .eq('pessoa_piperun_id', Number(id))
-          .is('merged_into', null)
-          .limit(1);
-        if (r2.error) errors.push(`T2: ${r2.error.message}`);
-        if (!r2.error && r2.data?.length) data = r2.data[0];
-      }
-
-      // T3: JSONB contains deal_id string
+        .maybeSingle();
+      if (leadErr) throw leadErr;
       if (!data) {
-        const r3 = await (supabase as any).from('lia_attendances')
-          .select(FIELDS)
-          .contains('piperun_deals_history', JSON.stringify([{ deal_id: id }]))
-          .is('merged_into', null)
-          .limit(1);
-        if (r3.error) errors.push(`T3: ${r3.error.message}`);
-        if (!r3.error && r3.data?.length) data = r3.data[0];
-      }
-
-      // T4: JSONB contains deal_id number
-      if (!data && /^\d+$/.test(id)) {
-        const r4 = await (supabase as any).from('lia_attendances')
-          .select(FIELDS)
-          .contains('piperun_deals_history', JSON.stringify([{ deal_id: Number(id) }]))
-          .is('merged_into', null)
-          .limit(1);
-        if (r4.error) errors.push(`T4: ${r4.error.message}`);
-        if (!r4.error && r4.data?.length) data = r4.data[0];
-      }
-
-      if (!data) {
-        const detail = errors.length > 0
-          ? `Erros: ${errors.join(' | ')}`
-          : 'Nenhum registro com esse ID. Verifique se é o Deal ID correto.';
-        setError(detail);
+        setError('Lead canônico não encontrado para este deal.');
         return;
       }
 
@@ -81,7 +52,14 @@ export function useDealSearch() {
         return;
       }
 
-      setResult({ ...data, lead_id: data.id, piperun_deals_history: history, matched_deal: matchedDeal });
+      setResult({
+        ...data,
+        lead_id: data.id,
+        piperun_deals_history: history,
+        matched_deal: matchedDeal,
+        rpc_strategy: r.strategy,
+        rpc_warning: r.warning ?? null,
+      });
     } catch (err: any) {
       setError(`Erro: ${err?.message || String(err)}`);
     } finally {

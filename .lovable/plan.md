@@ -1,58 +1,110 @@
-# Canal SMS (DisparoPro) + ROI tracking em `SmartOpsCampaigns.tsx`
+## Objetivo
 
-Implementação **somente UI** no arquivo `src/components/SmartOpsCampaigns.tsx`. Backend (`smart-ops-sms-balance`, `smart-ops-sms-disparopro`, RPC `fn_sms_campaign_attribution`) e colunas (`provider_status`, `provider_detail_code`, `provider_detail_message`, `sms_opt_out`) já estarão prontos.
+Eliminar duplicatas na busca de Deal do agendamento de treinamento usando a nova RPC `fn_search_deal_for_training` como **resolvedor canônico do lead**, mantendo intacto o Step 2/3 do `EnrollmentModal` (seletor de ganho deals, extração de propostas, equipamentos).
 
-## Alvo único
-- `src/components/SmartOpsCampaigns.tsx` (1037 linhas, 3 seções: `CreateCampaign`, `CampaignHistory`, wrapper de tabs).
+## Estratégia: híbrida (2 etapas no hook)
 
-## Mudanças
+1. **RPC** identifica o lead único (sem duplicatas) e devolve metadados resolvidos do deal-alvo (nome, email, telefone, empresa, pipeline, etapa, proprietario, piperun_link, deal_value, strategy, warning).
+2. **SELECT em `lia_attendances`** (com `merged_into IS NULL`) pelo `lead_id` retornado pela RPC, para hidratar os campos que o Modal já consome: `piperun_deals_history`, `pessoa_piperun_id`, `buyer_type`, `empresa_cnpj`, `cidade`, `uf`, `pais_origem`, `especialidade`, `area_atuacao`.
 
-### 1. Tipos
-- `SendLog`: adicionar `provider_status?: string | null`, `provider_detail_code?: string | null`, `provider_detail_message?: string | null`.
-- `CampaignSession.results`: tipar como `{ sms_message?; sms_codificacao?; sms_pdus?; sms_custo_por_pdu?; sent?; failed? } | Record<string, unknown>`.
-- Novo tipo `SmsAttribution` exatamente como na spec.
+Isso preserva:
+- Seletor `ganhoDeals` (vários deals "ganho" no histórico)
+- `extractProposalItems` em Step 2/3 (equipamentos, seriais, writeback)
+- `numeroProposta` extraído de `matched_deal.proposals`
+- Detecção B2B
+- Todos os campos gravados no enrollment (`deal_id`, `deal_title`, `deal_value`, `pipeline_name`, `pessoa_piperun_id`)
 
-### 2. Imports adicionais
-`Skeleton` (`@/components/ui/skeleton`), `Input` se ainda não estiver importado, `useMemo`/`useRef` do React, `toast` de `sonner` (componente já usa toast — confirmar).
+## Mudanças por arquivo
 
-### 3. `CreateCampaign` — estado novo
-Adicionar conforme spec: `smsMessage`, `smsCodificacao`, `smsCustoPdu`, `smsBalance`, `smsBalanceLoading`, `smsLeadValidCount`, `sending`, `smsTextareaRef`, `smsStats` (memo).
+### `src/hooks/useDealSearch.ts` — reescrever o `search()`
 
-### 4. Seletor de canal
-Acrescentar `<SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>` no `<Select>` de canal de envio do step 1.
+```ts
+const search = async (dealId: string) => {
+  const id = dealId.trim();
+  if (!id) return;
+  setLoading(true); setError(null); setResult(null);
 
-### 5. Etapa 1 — bloco SMS condicional
-Renderizar quando `sendChannel === "sms"` o JSX da spec: badge de saldo (`useEffect` chama `smart-ops-sms-balance` ao trocar canal), Textarea + contador (chars / PDU / custo estimado), variáveis clicáveis (`{{nome}}`, `{{primeiro_nome}}`, `{{empresa}}`) com inserção na posição do cursor via ref, Select de codificação (`0` / `8`), Input numérico de custo/PDU (default `0.08`), preview com substituições de exemplo.
+  try {
+    // 1) RPC resolve o lead canônico (sem duplicatas)
+    const { data: rpc, error: rpcErr } = await supabase
+      .rpc('fn_search_deal_for_training', { p_deal_id: id });
+    if (rpcErr) throw rpcErr;
 
-Validação para avançar: se `sendChannel === "sms"`, exigir `smsMessage.trim().length > 0`.
+    const r = rpc as any;
+    if (!r?.found || !r?.lead_id) {
+      setError('Deal não encontrado. Verifique o ID e tente novamente.');
+      return;
+    }
+    if (r.warning) console.warn('[DealSearch]', r.warning);
 
-### 6. Etapa 2 — contagem válida
-`useEffect` ao entrar no step 2 com `sendChannel === "sms"`: query `lia_attendances` com `merged_into IS NULL`, `telefone_normalized` not null, `sms_opt_out != true`, aplicando os mesmos filtros já existentes da segmentação. Fallback `try/catch` sem `sms_opt_out` se a coluna ainda não existir. Renderiza linha extra `📱 X leads com telefone válido / Y total`.
+    // 2) Hidrata o lead canônico para preservar Step 2/3
+    const { data: lead, error: leadErr } = await (supabase as any)
+      .from('lia_attendances')
+      .select(FIELDS) // mesmos campos atuais
+      .eq('id', r.lead_id)
+      .is('merged_into', null)
+      .maybeSingle();
+    if (leadErr) throw leadErr;
+    if (!lead) {
+      setError('Lead canônico não encontrado para este deal.');
+      return;
+    }
 
-### 7. Etapa 3 — Revisar (quando SMS)
-Substituir resumo padrão por card SMS (Canal, Codificação, PDUs, Leads válidos, Custo total + breakdown) + preview da mensagem.
+    const history: PiperunDeal[] = lead.piperun_deals_history ?? [];
+    const matchedDeal =
+      history.find(d => String(d.deal_id) === id) ??
+      history.find(isDealGanho) ??
+      history[0];
 
-Botões:
-- `Salvar como rascunho` → `handleCreate()` existente.
-- `📱 Disparar SMS agora (N leads)` → novo `handleSendSms`: insere em `campaign_sessions` com `channel: "sms"`, `status: "running"`, `results: { sms_message, sms_codificacao, sms_pdus, sms_custo_por_pdu }`; chama `supabase.functions.invoke("smart-ops-sms-disparopro", { body: { campaign_id, sms_message, sms_codificacao } })`; `toast.loading` → `toast.success/error` com contagem `sent/failed`; `onCreated?.()` no sucesso.
+    if (!matchedDeal) {
+      setError(`Lead "${lead.nome}" sem deals no histórico.`);
+      return;
+    }
 
-### 8. `CampaignHistory` — detalhe SMS
-- Estado novo: `smsAttribution`.
-- `useEffect` quando `selectedCampaign?.channel === "sms"`: `supabase.rpc("fn_sms_campaign_attribution", { p_campaign_id })`.
-- `select` de logs passa a incluir `provider_status, provider_detail_code, provider_detail_message`.
-- Acima da tabela: grid 4 cards (Enviados/Entregues + taxa, Custo total + unitário, Leads gerados + CPL, Receita atribuída + ROI + nº de vendas).
-- Linha de UTM: `?utm_medium=sms&utm_campaign={parceiro_id}` com botão Copiar (clipboard).
-- Tabela: colunas extras `Status Operadora` (Badge colorido por estado: DELIVERED verde, ACCEPTED amarelo, BLACKLIST roxo, demais vermelho) e `Detalhe` (`{code} — {message}`). Renderizam só quando o canal é SMS.
+    setResult({
+      ...lead,
+      lead_id: lead.id,
+      piperun_deals_history: history,
+      matched_deal: matchedDeal,
+      // metadados extras vindos da RPC (não-bloqueantes)
+      rpc_strategy: r.strategy,
+      rpc_warning: r.warning ?? null,
+    } as DealSearchResult);
+  } catch (e: any) {
+    setError(`Erro ao buscar deal: ${e?.message || String(e)}`);
+  } finally {
+    setLoading(false);
+  }
+};
+```
 
-## Comportamento preservado
-- Canais existentes (whatsapp, evolution, sellflux, registro) seguem inalterados.
-- Botão "Criar Campanha" original mantido para canais não-SMS.
-- Padrão visual (Card, Badge, Select, Textarea, Skeleton) reaproveitado — sem novas libs.
+Remove os 4 fallbacks T1–T4 (a RPC já cobre todos eles).
 
-## Riscos / fallbacks
-- `sms_opt_out` pode não existir no momento do build da UI: usar fallback no catch (já especificado).
-- `fn_sms_campaign_attribution` pode retornar null antes do disparo: card só renderiza se `smsAttribution` truthy.
-- Se `smart-ops-sms-balance` falhar, badge mostra "Indisponível" (não bloqueia o disparo).
+### `src/types/courses.ts` — extensão opcional do tipo
 
-## Arquivos afetados
-- `src/components/SmartOpsCampaigns.tsx` — única edição.
+Adicionar em `DealSearchResult`:
+```ts
+rpc_strategy?: 'piperun_id' | 'pessoa_piperun_id' | 'deals_history' | string;
+rpc_warning?: string | null;
+```
+
+### `src/components/smartops/EnrollmentModal.tsx` — badge de aviso no Step 2
+
+No topo do bloco de conferência (Step 2), quando `dealSearch.result?.rpc_strategy === 'deals_history'` e `rpc_warning`:
+
+```tsx
+{dealSearch.result?.rpc_strategy === 'deals_history' && dealSearch.result?.rpc_warning && (
+  <Badge variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
+    ⚠️ Lead identificado pelo histórico — confirme os dados
+  </Badge>
+)}
+```
+
+Nada mais muda no Modal. `populateFromResult`, `ganhoDeals`, `numeroProposta`, `handleSubmit`, etc. continuam idênticos.
+
+## Fora de escopo
+
+- Não toco em `useEnrollment.ts`
+- Não altero a RPC do banco
+- Não removo nenhum campo do `DealSearchResult` (apenas adiciono dois opcionais)
+- Não mexo no Step 3/4/5 do Modal

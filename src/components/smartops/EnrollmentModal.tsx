@@ -359,6 +359,11 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
             {/* ═══ STEP 2: Conferência de dados ═══ */}
             {step === 2 && (
               <div className="space-y-4">
+                {dealSearch.result?.rpc_strategy === 'deals_history' && dealSearch.result?.rpc_warning && (
+                  <Badge variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
+                    ⚠️ Lead identificado pelo histórico — confirme os dados
+                  </Badge>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Deal</Label>
