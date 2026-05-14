@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus as PlusIcon } from "lucide-react";
 
 const DB_COLUMNS: Record<string, { label: string; columns: { value: string; label: string }[] }> = {
   "Contato": {
@@ -179,6 +181,7 @@ interface FormField {
   placeholder: string | null;
   order_index: number;
   roi_config: any;
+  conditions?: any;
 }
 
 export function SmartOpsFormEditor({
@@ -254,6 +257,31 @@ export function SmartOpsFormEditor({
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando campos...</p>;
 
+  const OPERATORS: { value: string; label: string; needsValue: boolean; multiValue?: boolean }[] = [
+    { value: "equals", label: "é igual a", needsValue: true },
+    { value: "not_equals", label: "é diferente de", needsValue: true },
+    { value: "in", label: "é uma de", needsValue: true, multiValue: true },
+    { value: "not_in", label: "não é nenhuma de", needsValue: true, multiValue: true },
+    { value: "is_not_empty", label: "está preenchido", needsValue: false },
+    { value: "is_empty", label: "está vazio", needsValue: false },
+  ];
+
+  const getShowIf = (field: FormField) => {
+    const c = field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)
+      ? (field.conditions as any) : {};
+    const s = c.show_if;
+    if (s && Array.isArray(s.rules)) return { logic: (s.logic === "OR" ? "OR" : "AND") as "AND"|"OR", rules: s.rules };
+    return null;
+  };
+
+  const setShowIf = (field: FormField, showIf: { logic: "AND"|"OR"; rules: any[] } | null) => {
+    const cur = field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)
+      ? { ...(field.conditions as any) } : {};
+    if (showIf === null) delete cur.show_if;
+    else cur.show_if = showIf;
+    updateField(field.id, { conditions: Object.keys(cur).length ? cur : null } as any);
+  };
+
   return (
     <div className="space-y-4">
       {fields.map((field, idx) => (
@@ -262,6 +290,9 @@ export function SmartOpsFormEditor({
             <div className="flex items-center gap-2">
               <GripVertical className="w-4 h-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-mono">#{idx + 1}</span>
+              {getShowIf(field) && (
+                <Badge variant="outline" className="text-[10px]">Condicional</Badge>
+              )}
               <div className="flex-1" />
               <Button variant="ghost" size="icon" onClick={() => moveField(idx, -1)} disabled={idx === 0}>
                 <ArrowUp className="w-4 h-4" />
@@ -429,6 +460,165 @@ export function SmartOpsFormEditor({
                 </div>
               </div>
             )}
+
+            {/* Conditional logic */}
+            {(() => {
+              const showIf = getShowIf(field);
+              const enabled = !!showIf;
+              const parentCandidates = fields.filter((f) =>
+                f.id !== field.id && f.order_index < field.order_index
+              );
+              return (
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(v) => {
+                        if (v) setShowIf(field, { logic: "AND", rules: [{ field_id: parentCandidates[0]?.id || "", op: "equals", value: "" }] });
+                        else setShowIf(field, null);
+                      }}
+                    />
+                    <Label className="text-xs">Exibir apenas se…</Label>
+                    {enabled && (
+                      <div className="ml-auto flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">Combinar regras:</span>
+                        <Select
+                          value={showIf!.logic}
+                          onValueChange={(v) => setShowIf(field, { ...showIf!, logic: v as "AND"|"OR" })}
+                        >
+                          <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AND">E (todas)</SelectItem>
+                            <SelectItem value="OR">OU (qualquer)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  {enabled && parentCandidates.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Mova este campo para baixo de outras perguntas para usar como condição.
+                    </p>
+                  )}
+
+                  {enabled && showIf!.rules.map((rule: any, ruleIdx: number) => {
+                    const parent = fields.find((f) => f.id === rule.field_id);
+                    const opMeta = OPERATORS.find((o) => o.value === rule.op);
+                    const parentOpts = parent && Array.isArray(parent.options) ? parent.options as string[] : null;
+                    const updateRule = (patch: any) => {
+                      const next = [...showIf!.rules];
+                      next[ruleIdx] = { ...next[ruleIdx], ...patch };
+                      setShowIf(field, { ...showIf!, rules: next });
+                    };
+                    const removeRule = () => {
+                      const next = showIf!.rules.filter((_: any, i: number) => i !== ruleIdx);
+                      if (next.length === 0) setShowIf(field, null);
+                      else setShowIf(field, { ...showIf!, rules: next });
+                    };
+                    return (
+                      <div key={ruleIdx} className="grid grid-cols-12 gap-2 items-start bg-muted/40 p-2 rounded">
+                        <div className="col-span-5">
+                          <Label className="text-[10px]">Pergunta</Label>
+                          <Select
+                            value={rule.field_id || ""}
+                            onValueChange={(v) => updateRule({ field_id: v, value: opMeta?.multiValue ? [] : "" })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                              {parentCandidates.map((f) => (
+                                <SelectItem key={f.id} value={f.id}>#{f.order_index + 1} — {f.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          <Label className="text-[10px]">Operador</Label>
+                          <Select
+                            value={rule.op}
+                            onValueChange={(v) => {
+                              const meta = OPERATORS.find((o) => o.value === v);
+                              updateRule({ op: v, value: meta?.needsValue ? (meta.multiValue ? [] : "") : undefined });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {OPERATORS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          {opMeta?.needsValue && (
+                            <>
+                              <Label className="text-[10px]">Valor</Label>
+                              {parentOpts && !opMeta.multiValue ? (
+                                <Select value={String(rule.value ?? "")} onValueChange={(v) => updateRule({ value: v })}>
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                  <SelectContent>
+                                    {parentOpts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              ) : parentOpts && opMeta.multiValue ? (
+                                <div className="border rounded p-1 max-h-24 overflow-auto bg-background">
+                                  {parentOpts.map((o) => {
+                                    const arr: string[] = Array.isArray(rule.value) ? rule.value : [];
+                                    const checked = arr.includes(o);
+                                    return (
+                                      <label key={o} className="flex items-center gap-1 text-xs">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={(e) => updateRule({
+                                            value: e.target.checked ? [...arr, o] : arr.filter((x) => x !== o),
+                                          })}
+                                        />
+                                        {o}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <Input
+                                  className="h-8 text-xs"
+                                  value={Array.isArray(rule.value) ? rule.value.join(", ") : (rule.value ?? "")}
+                                  onChange={(e) => updateRule({
+                                    value: opMeta.multiValue
+                                      ? e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+                                      : e.target.value,
+                                  })}
+                                  placeholder={opMeta.multiValue ? "valor1, valor2" : "valor"}
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="col-span-1 pt-5">
+                          <Button variant="ghost" size="icon" onClick={removeRule}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {enabled && parentCandidates.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowIf(field, {
+                        ...showIf!,
+                        rules: [...showIf!.rules, { field_id: parentCandidates[0].id, op: "equals", value: "" }],
+                      })}
+                    >
+                      <PlusIcon className="w-3 h-3 mr-1" /> Adicionar regra
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       ))}
