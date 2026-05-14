@@ -1265,6 +1265,61 @@ function CampaignHistory() {
                   </div>
                 </div>
 
+                {selectedCampaign.channel === "sms" && smsAttribution && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Enviados / Entregues</p>
+                        <p className="text-xl font-bold">{smsAttribution.sent}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {smsAttribution.delivered} entregues ({smsAttribution.taxa_entrega}%)
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Custo total</p>
+                        <p className="text-xl font-bold">R$ {Number(smsAttribution.custo_total).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          R$ {Number(smsAttribution.custo_unitario).toFixed(4)}/SMS
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Leads gerados</p>
+                        <p className="text-xl font-bold text-blue-600">{smsAttribution.leads_gerados}</p>
+                        <p className="text-xs text-muted-foreground">
+                          CPL: {smsAttribution.leads_gerados > 0
+                            ? `R$ ${(smsAttribution.custo_total / smsAttribution.leads_gerados).toFixed(2)}`
+                            : "—"}
+                        </p>
+                      </Card>
+                      <Card className="p-3">
+                        <p className="text-xs text-muted-foreground">Receita atribuída</p>
+                        <p className="text-xl font-bold text-green-600">
+                          R$ {Number(smsAttribution.receita).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ROI: {smsAttribution.roi != null ? `${smsAttribution.roi}%` : "—"} • {smsAttribution.deals_ganhos} vendas
+                        </p>
+                      </Card>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>🔗 UTM para links desta campanha:</span>
+                      <code className="bg-muted px-2 py-0.5 rounded">?{smsAttribution.utm_usado}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 px-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText("?" + smsAttribution.utm_usado);
+                          toast.success("UTM copiado");
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+
                 {selectedCampaign.lead_filters && (
                   <div>
                     <p className="font-medium mb-1">Filtros usados</p>
@@ -1285,8 +1340,23 @@ function CampaignHistory() {
                           <div>
                             <span className="font-medium">{log.nome || log.lead_id.slice(0, 8)}</span>
                             {log.telefone && <span className="ml-2 text-muted-foreground">{log.telefone}</span>}
+                            {selectedCampaign.channel === "sms" && (log.provider_detail_code || log.provider_detail_message) && (
+                              <span className="ml-2 text-muted-foreground">
+                                {log.provider_detail_code ?? ""}{log.provider_detail_code && log.provider_detail_message ? " — " : ""}{log.provider_detail_message ?? ""}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
+                            {selectedCampaign.channel === "sms" && log.provider_status && (
+                              <Badge className={
+                                log.provider_status === "DELIVERED" ? "bg-green-100 text-green-800" :
+                                log.provider_status === "ACCEPTED"  ? "bg-yellow-100 text-yellow-800" :
+                                log.provider_status === "BLACKLIST" ? "bg-purple-100 text-purple-800" :
+                                "bg-red-100 text-red-800"
+                              }>
+                                {log.provider_status}
+                              </Badge>
+                            )}
                             {log.status === "sent" && <CheckCircle className="w-3 h-3 text-green-500" />}
                             {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
                             {log.status === "pending" && <AlertCircle className="w-3 h-3 text-amber-500" />}
