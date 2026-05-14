@@ -612,7 +612,7 @@ export function SmartOpsFormEditor({
                         rules: [...showIf!.rules, { field_id: parentCandidates[0].id, op: "equals", value: "" }],
                       })}
                     >
-                      <PlusIcon className="w-3 h-3 mr-1" /> Adicionar regra
+                      <Plus className="w-3 h-3 mr-1" /> Adicionar regra
                     </Button>
                   )}
                 </div>
