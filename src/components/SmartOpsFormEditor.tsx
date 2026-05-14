@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus as PlusIcon } from "lucide-react";
 
 const DB_COLUMNS: Record<string, { label: string; columns: { value: string; label: string }[] }> = {
   "Contato": {
