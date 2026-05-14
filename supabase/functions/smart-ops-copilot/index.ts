@@ -1430,6 +1430,99 @@ async function executeQueryPrinterBrandDistribution(_args: any) {
   } catch (e) { return { error: (e as Error).message }; }
 }
 
+async function executeGetLeadCard(args: any) {
+  try {
+    // 1. Resolve canonical lead
+    let leadQuery = supabase.from("lia_attendances").select("*").is("merged_into", null).limit(1);
+    if (args.lead_id) {
+      leadQuery = supabase.from("lia_attendances").select("*").eq("id", args.lead_id).limit(1);
+    } else if (args.piperun_id) {
+      leadQuery = leadQuery.eq("piperun_id", String(args.piperun_id));
+    } else if (args.email) {
+      leadQuery = leadQuery.ilike("email", String(args.email).trim());
+    } else if (args.telefone) {
+      const digits = String(args.telefone).replace(/\D/g, "");
+      leadQuery = leadQuery.or(`telefone_normalized.eq.${digits},telefone.ilike.%${digits}%`);
+    } else {
+      return { error: "Informe lead_id, piperun_id, email ou telefone" };
+    }
+    const { data: leadRows, error: leadErr } = await leadQuery;
+    if (leadErr) return { error: leadErr.message };
+    const lead = leadRows?.[0];
+    if (!lead) return { error: "Lead não encontrado" };
+
+    // Strip heavy/embedding fields to keep payload compact
+    const HEAVY = new Set(["embedding", "embeddings", "raw_payload", "piperun_raw_payload"]);
+    const leadClean: any = {};
+    for (const [k, v] of Object.entries(lead)) {
+      if (!HEAVY.has(k)) leadClean[k] = v;
+    }
+
+    const include: string[] = Array.isArray(args.include) && args.include.length
+      ? args.include
+      : ["activity_log", "agent_interactions", "message_logs", "whatsapp_inbox", "page_views", "state_events"];
+    const want = (s: string) => include.includes(s);
+
+    // 2. Related rows in parallel
+    const phoneDigits = String(lead.telefone_normalized || lead.telefone || "").replace(/\D/g, "");
+    const tasks: Record<string, Promise<any>> = {};
+    if (want("activity_log")) tasks.activity_log = supabase.from("lead_activity_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50);
+    if (want("agent_interactions")) tasks.agent_interactions = supabase.from("agent_interactions").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(20);
+    if (want("message_logs")) tasks.message_logs = supabase.from("message_logs").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(30);
+    if (want("page_views")) tasks.page_views = supabase.from("lead_page_views").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(30);
+    if (want("state_events")) tasks.state_events = supabase.from("lead_state_events").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(30);
+    if (want("whatsapp_inbox")) {
+      // whatsapp_inbox links by lead_id OR phone
+      tasks.whatsapp_inbox = phoneDigits
+        ? supabase.from("whatsapp_inbox").select("*").or(`lead_id.eq.${lead.id},phone.eq.${phoneDigits}`).order("created_at", { ascending: false }).limit(30)
+        : supabase.from("whatsapp_inbox").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(30);
+    }
+
+    const keys = Object.keys(tasks);
+    const results = await Promise.all(keys.map(k => tasks[k]));
+    const related: any = {};
+    keys.forEach((k, i) => {
+      const r: any = results[i];
+      related[k] = r?.error ? { error: r.error.message } : (r?.data || []);
+    });
+
+    // 3. Compose 360 view
+    return {
+      lead: leadClean,
+      deals: leadClean.piperun_deals_history || [],
+      proposals: leadClean.proposals_data || leadClean.itens_proposta_parsed || [],
+      cognitive_analysis: leadClean.cognitive_analysis || null,
+      omie: {
+        codigo_cliente: leadClean.omie_codigo_cliente,
+        razao_social: leadClean.omie_razao_social,
+        tipo_pessoa: leadClean.omie_tipo_pessoa,
+        segmento: leadClean.omie_segmento,
+        score: leadClean.omie_score,
+        classificacao: leadClean.omie_classificacao,
+        faturamento_total: leadClean.omie_faturamento_total,
+        valor_pago: leadClean.omie_valor_pago,
+        valor_em_aberto: leadClean.omie_valor_em_aberto,
+        valor_vencido: leadClean.omie_valor_vencido,
+        percentual_pago: leadClean.omie_percentual_pago,
+        ticket_medio: leadClean.omie_ticket_medio,
+        total_pedidos: leadClean.omie_total_pedidos,
+        nf_count: leadClean.omie_nf_count,
+        ultima_compra: leadClean.omie_ultima_compra,
+        ultima_nf_emitida: leadClean.omie_ultima_nf_emitida,
+        dias_sem_comprar: leadClean.omie_dias_sem_comprar,
+        dias_atraso_max: leadClean.omie_dias_atraso_max,
+        frequencia_compra: leadClean.omie_frequencia_compra,
+        inadimplente: leadClean.omie_inadimplente,
+        last_sync: leadClean.omie_last_sync,
+      },
+      sellflux: leadClean.sellflux_custom_fields || null,
+      ...related,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
