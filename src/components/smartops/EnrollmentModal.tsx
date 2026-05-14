@@ -15,7 +15,7 @@ import type {
   ProposalItem, EquipmentData, EnrollmentCompanion,
 } from "@/types/courses";
 import {
-  extractProposalItems, isDealGanho, formatDatePtBr, formatWeekday,
+  extractProposalItems, formatDatePtBr, formatWeekday,
   MODALITY_CONFIG, EQUIP_CONFIG,
 } from "@/lib/courseUtils";
 import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } from "@/lib/courseWhatsapp";
@@ -114,16 +114,19 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   const dealSearch = useDealSearch();
   const { enroll } = useEnrollment();
   const [dealIdInput, setDealIdInput] = useState("");
-  const [selectedDealIdx, setSelectedDealIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   // Step 2 form
   const [formData, setFormData] = useState({
-    deal_title: "", person_name: "", especialidade: "", area_atuacao: "",
+    deal_title: "", person_name: "", email: "", telefone_br: "",
+    especialidade: "", area_atuacao: "",
     numero_contrato: "", instagram: "",
-    empresa_cnpj: "", empresa_pais: "", empresa_estado: "",
-    empresa_cidade: "", empresa_endereco: "", empresa_telefone: "",
+    empresa_nome: "", empresa_cnpj: "",
+    empresa_pais: "", empresa_estado: "", empresa_cidade: "",
+    cep: "", rua: "", numero: "", bairro: "", complemento: "",
+    empresa_endereco: "", empresa_telefone: "",
   });
+  const [prefilledFields, setPrefilledFields] = useState<Set<string>>(new Set());
   const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({});
 
@@ -147,61 +150,50 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   // Populate form after search
   const populateFromResult = (result: DealSearchResult) => {
     const deal = result.matched_deal;
-    // Aggregate items from ALL ganho deals
-    const allGanho = result.piperun_deals_history.filter(isDealGanho);
-    let globalIdx = 0;
-    const items = allGanho.flatMap(d => {
-      const dItems = extractProposalItems(d, {}, d.deal_title || d.deal_id || '');
-      // Re-index equip_outro keys to avoid collisions across deals
-      return dItems.map(it => {
-        if (it.equip_key?.startsWith('equip_outro_')) {
-          return { ...it, equip_key: `equip_outro_${globalIdx++}` as any };
-        }
-        globalIdx++;
-        return it;
-      });
-    });
+    const items = deal
+      ? extractProposalItems(deal, {}, deal.deal_title || deal.deal_id || '')
+      : [];
     setProposalItems(items);
-    setFormData({
-      deal_title: deal.deal_title || "",
-      person_name: result.nome || "",
-      especialidade: result.especialidade || "",
-      area_atuacao: result.area_atuacao || "",
-      numero_contrato: "",
-      instagram: "",
-      empresa_cnpj: result.empresa_cnpj || "",
-      empresa_pais: result.pais_origem || "",
-      empresa_estado: result.uf || "",
-      empresa_cidade: result.cidade || "",
-      empresa_endereco: "",
-      empresa_telefone: "",
-    });
-    setEquipmentData({});
-  };
 
-  const ganhoDeals = useMemo(() => {
-    if (!dealSearch.result) return [];
-    return dealSearch.result.piperun_deals_history.filter(isDealGanho);
-  }, [dealSearch.result]);
+    const map: Record<string, string | null | undefined> = {
+      deal_title: deal?.deal_title || "",
+      person_name: result.nome,
+      email: result.email,
+      telefone_br: result.telefone_br,
+      especialidade: result.especialidade,
+      area_atuacao: result.area_atuacao,
+      instagram: result.instagram,
+      empresa_nome: result.empresa_nome,
+      empresa_cnpj: result.empresa_cnpj,
+      empresa_pais: result.pais ?? 'Brasil',
+      empresa_estado: result.estado,
+      empresa_cidade: result.cidade,
+      cep: result.cep,
+      rua: result.rua,
+      numero: result.numero,
+      bairro: result.bairro,
+      complemento: result.complemento,
+    };
 
-  const handleSelectDeal = (idx: number) => {
-    if (!dealSearch.result) return;
-    setSelectedDealIdx(idx);
-    const deal = ganhoDeals[idx] || dealSearch.result.matched_deal;
-    // Still aggregate ALL ganho deals items
-    let globalIdx = 0;
-    const allItems = ganhoDeals.flatMap(d => {
-      const dItems = extractProposalItems(d, {}, d.deal_title || d.deal_id || '');
-      return dItems.map(it => {
-        if (it.equip_key?.startsWith('equip_outro_')) {
-          return { ...it, equip_key: `equip_outro_${globalIdx++}` as any };
+    const filled = new Set<string>();
+    setFormData((f) => {
+      const next = { ...f };
+      for (const [k, v] of Object.entries(map)) {
+        if (v != null && String(v).trim() !== "") {
+          (next as any)[k] = String(v);
+          // deal_title vem do deal, não da RPC, então não conta como prefilled
+          if (k !== 'deal_title') filled.add(k);
+        } else {
+          (next as any)[k] = "";
         }
-        globalIdx++;
-        return it;
-      });
+      }
+      // limpar campos manuais sem fonte
+      next.numero_contrato = "";
+      next.empresa_endereco = "";
+      next.empresa_telefone = "";
+      return next;
     });
-    setProposalItems(allItems);
-    setFormData((f) => ({ ...f, deal_title: deal.deal_title || "" }));
+    setPrefilledFields(filled);
     setEquipmentData({});
   };
 
@@ -236,7 +228,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   const selectedTurma = turmas.find((t) => t.id === selectedTurmaId);
   const selectedDays = selectedTurma?.days ?? [];
 
-  const isB2B = dealSearch.result?.buyer_type === "B2B" || !!dealSearch.result?.empresa_cnpj;
+  const isB2B = !!dealSearch.result?.empresa_cnpj || !!formData.empresa_cnpj;
 
   // ─── Preview WA (Step 5) ───
   const waPreview = useMemo(() => {
@@ -248,9 +240,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
 
   // Extract numero_proposta from deal proposals
   const numeroProposta = useMemo(() => {
-    if (!dealSearch.result) return '';
-    const deal = dealSearch.result.matched_deal;
-    const proposals = deal?.proposals ?? [];
+    const deal = dealSearch.result?.matched_deal;
+    if (!deal) return '';
+    const proposals = deal.proposals ?? [];
     return proposals
       .map((p: any) => p.sigla || String(p.id))
       .filter(Boolean)
