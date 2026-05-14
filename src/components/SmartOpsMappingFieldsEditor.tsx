@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export const WORKFLOW_CELLS: { value: string; label: string }[] = [
   { value: "1_captura_digital__scanner_intraoral", label: "1 · Captura Digital / Scanner Intraoral" },
@@ -94,10 +95,30 @@ interface MappingField {
   placeholder: string | null;
   order_index: number;
   workflow_cell_target: string | null;
+  conditions?: any;
 }
+
+interface ParentField {
+  id: string;
+  label: string;
+  field_type: string;
+  options: any;
+  order_index: number;
+  workflow_cell_target: string | null;
+}
+
+const OPERATORS: { value: string; label: string; needsValue: boolean; multiValue?: boolean }[] = [
+  { value: "equals", label: "é igual a", needsValue: true },
+  { value: "not_equals", label: "é diferente de", needsValue: true },
+  { value: "in", label: "é uma de", needsValue: true, multiValue: true },
+  { value: "not_in", label: "não é nenhuma de", needsValue: true, multiValue: true },
+  { value: "is_not_empty", label: "está preenchido", needsValue: false },
+  { value: "is_empty", label: "está vazio", needsValue: false },
+];
 
 export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
   const [fields, setFields] = useState<MappingField[]>([]);
+  const [allFormFields, setAllFormFields] = useState<ParentField[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchFields = async () => {
@@ -108,6 +129,12 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
       .not("workflow_cell_target", "is", null)
       .order("order_index");
     if (data) setFields(data as any);
+    const { data: allData } = await supabase
+      .from("smartops_form_fields" as any)
+      .select("id,label,field_type,options,order_index,workflow_cell_target")
+      .eq("form_id", formId)
+      .order("order_index");
+    if (allData) setAllFormFields(allData as any);
     setLoading(false);
   };
 
@@ -176,6 +203,22 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando campos de mapeamento...</p>;
 
+  const getShowIf = (field: MappingField) => {
+    const c = field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)
+      ? (field.conditions as any) : {};
+    const s = c.show_if;
+    if (s && Array.isArray(s.rules)) return { logic: (s.logic === "OR" ? "OR" : "AND") as "AND"|"OR", rules: s.rules };
+    return null;
+  };
+
+  const setShowIf = (field: MappingField, showIf: { logic: "AND"|"OR"; rules: any[] } | null) => {
+    const cur = field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)
+      ? { ...(field.conditions as any) } : {};
+    if (showIf === null) delete cur.show_if;
+    else cur.show_if = showIf;
+    updateField(field.id, { conditions: Object.keys(cur).length ? cur : null } as any);
+  };
+
   return (
     <div className="space-y-4">
       {fields.length === 0 && (
@@ -190,6 +233,9 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
             <div className="flex items-center gap-2">
               <GripVertical className="w-4 h-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-mono">#{idx + 1}</span>
+              {getShowIf(field) && (
+                <Badge variant="outline" className="text-[10px]">Condicional</Badge>
+              )}
               <div className="flex-1" />
               <Button variant="ghost" size="icon" onClick={() => moveField(idx, -1)} disabled={idx === 0}>
                 <ArrowUp className="w-4 h-4" />
