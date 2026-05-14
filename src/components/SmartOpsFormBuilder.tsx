@@ -611,6 +611,26 @@ export function SmartOpsFormBuilder() {
                 </div>
               </div>
 
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
+                <div>
+                  <label className="text-xs font-medium">Como as perguntas aparecem</label>
+                  <Select value={metaDisplayMode} onValueChange={(v) => setMetaDisplayMode(v as "list" | "step")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="list">Lista única (todas as perguntas)</SelectItem>
+                      <SelectItem value="step">Passo a passo (1 pergunta por vez)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {metaDisplayMode === "step" && (
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium">Mostrar barra de progresso</label>
+                    <Switch checked={metaShowProgress} onCheckedChange={setMetaShowProgress} />
+                  </div>
+                )}
+              </div>
+
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
