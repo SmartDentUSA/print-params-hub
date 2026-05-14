@@ -783,7 +783,7 @@ function InscricoesTab() {
            turma_id, certificate_pdf_path, certificate_generated_at,
            course:smartops_courses(title, modality, instructor_name),
            turma:smartops_course_turmas(label),
-           companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao)`,
+           companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao, certificate_pdf_path, certificate_generated_at)`,
           { count: "exact" }
         )
         .order("enrolled_at", { ascending: false });
