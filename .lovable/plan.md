@@ -1,90 +1,72 @@
-## Ideia
+## O que muda
 
-Adicionar, no final do `SmartOpsSdrCaptacaoEditor` (logo abaixo das Seções C + D), um painel **"Visualizar fluxo das perguntas"** que renderiza a árvore de dependências — mostrando visualmente quem depende de quem, e quais respostas levam a quais perguntas.
+Hoje o diagrama só desenha aresta quando existe regra `show_if`. O caminho "Não" some — fica parecendo que o fluxo termina ali. Vou desenhar **todas as ramificações possíveis** de cada pergunta, inclusive os caminhos onde a próxima pergunta é pulada.
 
-Isso valida o que você acabou de configurar **sem precisar abrir o `/f/{slug}` e responder manualmente**.
+## Regra de roteamento (para cada pergunta-pai com opções)
 
-## Três opções de visualização (escolha uma)
+Para cada pergunta do tipo `select` / `radio` / `boolean` com `options` definidas, gerar uma aresta **por opção**:
 
-### Opção A — Árvore hierárquica (recomendada)
+1. **Tem filhos para essa resposta?** (ex.: alguma pergunta posterior tem `show_if` que casa com essa opção)
+   - **Sim** → aresta da pergunta-pai → primeiro filho que casa, com label = valor da resposta (ex.: `"Sim"`).
+2. **Não tem filhos para essa resposta?**
+   - Aresta da pergunta-pai → **próxima pergunta no fluxo** (a próxima por `order_index` que seria visível com essa resposta), com label = valor da resposta + estilo tracejado cinza ("pula").
+   - Se não houver próxima pergunta visível → aresta para um nó terminal `[ Fim do formulário ]`.
 
-Renderiza um diagrama em árvore com `react-flow` (`@xyflow/react`, biblioteca leve já comum no ecossistema React).
+Para perguntas **sem options** (text/email/phone): uma única aresta "próxima" sólida → próxima pergunta visível, label vazio.
 
-```text
-[#1 Tem scanner?]──Sim──▶[#2 Qual marca?]
-                 └─Não──▶ (oculta #2)
+Para perguntas com regra **`is_not_empty` / `is_empty`**: tratar como branches `preenchido` / `vazio`.
 
-[#3 Tem impressora 3D?]──Sim──▶[#4 Qual marca?]
-                       │       └▶[#5 Imprime guias?]──Sim──▶[#6 Resina?]
-                       └─Não──▶ (oculta #4, #5, #6)
-```
+## Visual
 
-- Cada nó = uma pergunta (cor diferente para Seção C "Qualificação" vs Seção D "Mapeamento").
-- Cada aresta = uma regra `show_if` (label da aresta = "Sim", "Anycubic", "está preenchido", etc).
-- Perguntas-raiz (sem `show_if`) ficam no topo.
-- Click no nó → abre o card de edição correspondente.
-- Auto-layout com `dagre` (top-down).
+- **Aresta "ativa"** (resposta → filho condicional): linha **sólida verde**, label com a resposta.
+- **Aresta "pula"** (resposta que não ativa filho, vai pra próxima): linha **tracejada cinza**, label `"Não" → pula` (ou só o valor).
+- **Aresta "default"** (campo sem options): linha **sólida cinza**, sem label.
+- **Nó terminal** `[ ✓ Fim do formulário ]`: estilo distinto (cinza, ícone check) — único, todas as pontas finais convergem nele.
+- Layout dagre TB continua igual; setas entram pelo top, saem pelo bottom.
 
-**Prós:** mais visual, fácil de entender, mostra ramificações.  
-**Contras:** adiciona dependência (`@xyflow/react` ~80kb gzip + `dagre`).
-
-### Opção B — Lista hierárquica indentada (zero dependência)
-
-Renderiza uma `<ul>` recursiva: campos-raiz no nível 0, dependentes indentados embaixo do pai.
+## Exemplo do que o usuário vai ver
 
 ```text
-#1 Tem scanner intraoral?  [Sim/Não]
-   └─ se = "Sim"
-      #2 Qual marca do scanner?
-#3 Tem impressora 3D?  [Sim/Não]
-   └─ se = "Sim"
-      #4 Qual marca da impressora?
-      #5 Imprime guias cirúrgicas?
-         └─ se = "Sim"
-            #6 Qual marca de resina?
+        ┌──────────────────────┐
+        │ #1 Tem scanner?      │
+        └───┬───────────────┬──┘
+        Sim│           Não┊┊(pula)
+            ▼               ▼
+   ┌──────────────┐    ┌──────────────────────┐
+   │ #2 Marca?    │    │ #3 Tem impressora 3D?│
+   └──────┬───────┘    └───┬───────────────┬──┘
+          │             Sim│           Não┊┊(pula)
+          ▼                 ▼               ▼
+   ┌──────────────────┐  ┌──────────┐  ┌──────────────┐
+   │ #3 Tem impressora?│ │ #4 Marca?│  │ ✓ Fim do form│
+   └─────────┘         │ └────┬─────┘  └──────────────┘
+                       │      ▼
+                       │  ┌──────────────────┐
+                       │  │ #5 Imprime guias?│
+                       │  └─...
 ```
 
-- Pure HTML/CSS, sem libs novas.
-- Mostra a mesma informação, só não tem o "wow" visual.
+Toda resposta possível tem seta. Nada some.
 
-**Prós:** zero dependência, rápido, suficiente para validar lógica.  
-**Contras:** menos impressionante; quando uma pergunta tem múltiplos pais (lógica OR), a árvore vira grafo e a indentação não dá conta.
+## Onde aplico
 
-### Opção C — Mermaid via `<lov-artifact>` (gerar diagrama on-demand)
+**Editado:** `src/components/SmartOpsFormFlowPreview.tsx`
+- Nova função `buildRichEdges(fields)` que percorre cada pergunta e gera as arestas conforme as regras acima.
+- Adiciona o nó terminal `__end__`.
+- Adiciona estilos `solid-active` / `dashed-skip` / `solid-default`.
+- Mantém custom node, dagre, controls, minimap.
 
-Botão "Gerar diagrama" que monta um `flowchart TD` Mermaid e abre num modal.
+**Sem mudança:** demais arquivos.
 
-**Prós:** visual rico, exportável, sem custo de runtime.  
-**Contras:** não é editável inline, é uma "foto"; menos integrado ao editor.
+## Edge cases
 
-## Minha recomendação
-
-**Opção B agora, Opção A depois se precisar de mais.**
-
-Razões:
-1. Resolve 90% do "está correto?" — você bate o olho e vê a hierarquia.
-2. Zero dependência nova (você já tem `@xyflow/react`? Posso confirmar; se não, evita um install só para isso).
-3. Posso entregar em uma única edição num componente novo `SmartOpsFormFlowPreview.tsx`, lendo `smartops_form_fields` (mesma query que os editores já fazem) e montando a árvore a partir do campo `conditions.show_if`.
-4. Se mais tarde achar pouco, troco por React Flow sem refazer nada do editor.
-
-## Onde renderizar
-
-Nova seção no `SmartOpsSdrCaptacaoEditor`, abaixo da Seção D, recolhível (collapsible aberto por padrão):
-
-```
-─── E ─── 👁 Pré-visualização do fluxo
-[árvore renderizada aqui]
-```
-
-## Arquivos afetados (se aprovar Opção B)
-
-- **Novo:** `src/components/SmartOpsFormFlowPreview.tsx` — componente que busca os campos e renderiza a árvore.
-- **Editado:** `src/components/SmartOpsSdrCaptacaoEditor.tsx` — adicionar a Seção E renderizando o componente novo.
-- Reutiliza tipos/helpers de `src/lib/formConditions.ts`.
-
-Sem migration. Sem mudança no runtime do `PublicFormPage`.
+- Pergunta cuja regra usa `in [Anycubic, Phrozen]`: gera 1 aresta sólida saindo de cada uma dessas opções do pai (label = a opção). Outras opções do pai → tracejada para próxima.
+- Pergunta com opção que é parent de **vários** filhos: múltiplas arestas sólidas saindo da mesma opção (uma por filho). Funciona naturalmente no xyflow.
+- Pergunta com regra `equals "X"` mas o pai não tem essa opção cadastrada: nó vermelho "rota inválida".
 
 ## Pergunta antes de implementar
 
-1. **Vai com Opção B (lista hierárquica) ou prefere a A (React Flow visual com nós e setas)?**
-2. Quer que cada nó da árvore tenha um botão "Editar" que rola até o card correspondente, ou só visualização mesmo?
+Confirma a semântica:
+- Por **"próxima pergunta"** quando o usuário escolhe a opção que pula um bloco, você quer dizer **a próxima por `order_index` que ainda seria visível com essa resposta** (ou seja, posso ter que pular várias perguntas em cadeia)? Ou apenas a próxima por `order_index` literal (sem reavaliar a visibilidade)?
+
+Recomendo a primeira (próxima visível em cadeia) — reflete fielmente o que o usuário do formulário vai ver.
