@@ -558,6 +558,28 @@ const tools = [
       description: "Distribuição de leads canônicos por MARCA e MODELO de impressora 3D (RayShape Edge Mini, Creality Halot One Pro, Elegoo Mars/Saturn, Phrozen, Anycubic, Formlabs, etc). USE para perguntas sobre impressoras dos leads. Os campos `equip_impressora` e `impressora_modelo` ESTÃO populados via backfill Piperun — nunca responda que estão vazios.",
       parameters: { type: "object", properties: {}, required: [] }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_lead_card",
+      description: "Retorna a VISÃO 360° COMPLETA de um lead — mesma informação que aparece no card do operador. Inclui: todos os campos de lia_attendances (perfil, equipamentos, tags, score, propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, deals PipeRun history em JSONB), últimas mensagens WhatsApp, interações de IA, log de atividades, eventos de funil e page views. USE SEMPRE que o usuário pedir 'me mostra o lead X', 'card completo', 'ficha do lead', 'tudo sobre <nome/email>', 'resume esse lead', 'contexto do <nome>'. Resolve identidade na ordem: lead_id > piperun_id > email > telefone. Sempre filtra merged_into IS NULL.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead (preferencial)" },
+          piperun_id: { type: "string", description: "ID do deal/pessoa no PipeRun" },
+          email: { type: "string", description: "Email do lead" },
+          telefone: { type: "string", description: "Telefone (apenas dígitos ou formatado)" },
+          include: {
+            type: "array",
+            items: { type: "string" },
+            description: "Seções extras opcionais. Padrão inclui tudo. Valores: lead, activity_log, agent_interactions, message_logs, whatsapp_inbox, page_views, state_events"
+          }
+        },
+        required: []
+      }
+    }
   }
 ];
 
