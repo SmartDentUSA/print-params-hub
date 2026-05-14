@@ -190,6 +190,8 @@ export function SmartOpsFormBuilder() {
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
+  const [metaDisplayMode, setMetaDisplayMode] = useState<"list" | "step">("list");
+  const [metaShowProgress, setMetaShowProgress] = useState(true);
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -328,6 +330,8 @@ export function SmartOpsFormBuilder() {
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
+    setMetaDisplayMode((form.display_mode as any) === "step" ? "step" : "list");
+    setMetaShowProgress(form.show_progress !== false);
     setEditingMeta(form);
   };
 
@@ -348,6 +352,8 @@ export function SmartOpsFormBuilder() {
         campaign_identifier: metaCampaignIdentifier || null,
         product_catalog_id: metaProductCatalogId || null,
         workflow_stage_target: metaWorkflowStageTarget || null,
+        display_mode: metaDisplayMode,
+        show_progress: metaShowProgress,
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
