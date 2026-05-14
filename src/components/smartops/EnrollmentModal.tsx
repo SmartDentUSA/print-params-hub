@@ -532,6 +532,20 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                       const isSelected = selectedTurmaId === turma.id;
                       const mod = MODALITY_CONFIG[course.modality as keyof typeof MODALITY_CONFIG];
 
+                      // Estado calculado a partir das datas dos days (informativo, não bloqueia)
+                      const sortedDays = [...turma.days].sort((a, b) => a.date.localeCompare(b.date));
+                      const firstDay = sortedDays[0];
+                      const lastDay = sortedDays[sortedDays.length - 1];
+                      const today = new Date(); today.setHours(0, 0, 0, 0);
+                      const startDate = firstDay ? new Date(firstDay.date + "T00:00:00") : null;
+                      const endDate = lastDay ? new Date(lastDay.date + "T23:59:59") : null;
+                      let estado: { label: string; cls: string } | null = null;
+                      if (startDate && endDate) {
+                        if (today < startDate) estado = { label: "🟢 Inscrições abertas", cls: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" };
+                        else if (today >= startDate && today <= endDate) estado = { label: "🔴 Acontecendo", cls: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" };
+                        else estado = { label: "✅ Concluído", cls: "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300" };
+                      }
+
                       return (
                         <Card
                           key={turma.id}
@@ -548,6 +562,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                               </div>
                               <div className="flex items-center gap-2">
                                 {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
+                                {estado && <Badge className={estado.cls}>{estado.label}</Badge>}
                                 <Badge variant={lotado ? "destructive" : "outline"}>
                                   <Users className="w-3 h-3 mr-1" />
                                   {vagas} vagas
