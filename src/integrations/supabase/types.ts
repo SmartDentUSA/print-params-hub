@@ -11303,18 +11303,31 @@ export type Database = {
         Row: {
           active: boolean
           badge_text: string | null
+          bg_color: string | null
+          bg_color_to: string | null
+          bg_gradient_angle: number | null
+          bg_image_url: string | null
+          bg_overlay_opacity: number | null
+          bg_type: string | null
           brand_color_h: number | null
           brand_color_l: number | null
           brand_color_s: number | null
+          button_radius: string | null
+          button_shadow: string | null
           campaign_identifier: string | null
           created_at: string
           cta_text: string | null
+          custom_css: string | null
           description: string | null
           display_mode: string
+          extra_sections: Json | null
+          font_body: string | null
+          font_heading: string | null
           form_purpose: string
           hero_image_alt: string | null
           hero_image_url: string | null
           id: string
+          layout_variant: string | null
           media_type: string | null
           name: string
           product_catalog_id: string | null
@@ -11325,6 +11338,7 @@ export type Database = {
           success_message: string | null
           success_redirect_url: string | null
           theme_color: string | null
+          theme_mode: string | null
           title: string | null
           trust_text: string | null
           updated_at: string
@@ -11336,18 +11350,31 @@ export type Database = {
         Insert: {
           active?: boolean
           badge_text?: string | null
+          bg_color?: string | null
+          bg_color_to?: string | null
+          bg_gradient_angle?: number | null
+          bg_image_url?: string | null
+          bg_overlay_opacity?: number | null
+          bg_type?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
+          button_radius?: string | null
+          button_shadow?: string | null
           campaign_identifier?: string | null
           created_at?: string
           cta_text?: string | null
+          custom_css?: string | null
           description?: string | null
           display_mode?: string
+          extra_sections?: Json | null
+          font_body?: string | null
+          font_heading?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          layout_variant?: string | null
           media_type?: string | null
           name: string
           product_catalog_id?: string | null
@@ -11358,6 +11385,7 @@ export type Database = {
           success_message?: string | null
           success_redirect_url?: string | null
           theme_color?: string | null
+          theme_mode?: string | null
           title?: string | null
           trust_text?: string | null
           updated_at?: string
@@ -11369,18 +11397,31 @@ export type Database = {
         Update: {
           active?: boolean
           badge_text?: string | null
+          bg_color?: string | null
+          bg_color_to?: string | null
+          bg_gradient_angle?: number | null
+          bg_image_url?: string | null
+          bg_overlay_opacity?: number | null
+          bg_type?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
+          button_radius?: string | null
+          button_shadow?: string | null
           campaign_identifier?: string | null
           created_at?: string
           cta_text?: string | null
+          custom_css?: string | null
           description?: string | null
           display_mode?: string
+          extra_sections?: Json | null
+          font_body?: string | null
+          font_heading?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          layout_variant?: string | null
           media_type?: string | null
           name?: string
           product_catalog_id?: string | null
@@ -11391,6 +11432,7 @@ export type Database = {
           success_message?: string | null
           success_redirect_url?: string | null
           theme_color?: string | null
+          theme_mode?: string | null
           title?: string | null
           trust_text?: string | null
           updated_at?: string

@@ -169,6 +169,23 @@ export default function PublicFormPage() {
     };
   }, [form?.brand_color_h, form?.brand_color_s, form?.brand_color_l]);
 
+  // Dynamically load Google Fonts for chosen heading/body fonts
+  useEffect(() => {
+    if (!form) return;
+    const fonts = Array.from(new Set([
+      (form as any).font_heading,
+      (form as any).font_body,
+    ].filter(Boolean))) as string[];
+    if (fonts.length === 0) return;
+    const family = fonts.map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700;800`).join("&");
+    const href = `https://fonts.googleapis.com/css2?${family}&display=swap`;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, [form]);
+
   // Extract vibrant color from hero image/thumbnail and override CSS vars
   const handleHeroImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     try {
@@ -400,7 +417,30 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div className="public-form-page min-h-screen bg-background flex flex-col items-center p-4 pt-8 md:pt-16" data-layout="split-v2">
+    <div
+      className={`public-form-page min-h-screen flex flex-col items-center p-4 pt-8 md:pt-16 ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
+      data-layout={(form as any).layout_variant || "split"}
+      style={(() => {
+        const f: any = form;
+        const bgType = f.bg_type || "solid";
+        if (bgType === "gradient" && f.bg_color && f.bg_color_to) {
+          return { background: `linear-gradient(${f.bg_gradient_angle ?? 135}deg, ${f.bg_color}, ${f.bg_color_to})` };
+        }
+        if (bgType === "image" && f.bg_image_url) {
+          const ov = f.bg_overlay_opacity ?? 0.5;
+          return {
+            backgroundImage: `linear-gradient(rgba(0,0,0,${ov}), rgba(0,0,0,${ov})), url("${f.bg_image_url}")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed",
+          };
+        }
+        if (bgType === "solid" && f.bg_color) {
+          return { backgroundColor: f.bg_color };
+        }
+        return {};
+      })()}
+    >
       <style>{`
         :root {
           --brand-h: 215;
@@ -413,7 +453,22 @@ export default function PublicFormPage() {
           --brand-glow:  hsl(var(--brand-h), 90%,            calc(var(--brand-l) + 14%));
           --brand-faint: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.12);
           --brand-border:hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.28);
+          ${(form as any).font_body ? `font-family: "${(form as any).font_body}", system-ui, sans-serif;` : ""}
         }
+        .public-form-page h1, .public-form-page h2, .public-form-page h3 {
+          ${(form as any).font_heading ? `font-family: "${(form as any).font_heading}", system-ui, sans-serif;` : ""}
+        }
+        .public-form-page.dark { color: #f5f5f5; }
+        .public-form-page.dark .text-muted-foreground { color: rgba(245,245,245,0.7) !important; }
+        .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
+          background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
+        }
+        .public-form-page button[type="submit"] {
+          border-radius: ${({ none: "0", sm: "6px", md: "10px", lg: "16px", pill: "9999px" } as any)[(form as any).button_radius || "md"]};
+          box-shadow: ${({ none: "none", sm: "0 2px 8px rgba(0,0,0,0.08)", md: "0 8px 24px rgba(0,0,0,0.12)", glow: "0 0 32px var(--brand-faint), 0 4px 16px var(--brand-faint)" } as any)[(form as any).button_shadow || "sm"]};
+          transition: transform .15s ease, box-shadow .15s ease;
+        }
+        .public-form-page button[type="submit"]:hover { transform: translateY(-1px); }
         .public-form-page .brand-strip {
           background: var(--brand);
         }
@@ -427,10 +482,14 @@ export default function PublicFormPage() {
         .public-form-page .video-glow {
           box-shadow: 0 0 32px var(--brand-faint);
         }
+        .public-form-page[data-layout="centered"] .form-grid { grid-template-columns: 1fr !important; max-width: 640px; margin-inline: auto; }
+        .public-form-page[data-layout="centered"] .form-grid > div:first-child { text-align: center; }
+        .public-form-page[data-layout="full"] .form-grid { grid-template-columns: 1fr !important; }
+        ${(form as any).custom_css || ""}
       `}</style>
       {/* Brand color strip */}
       <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
-      <div className="w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
+      <div className="form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
         {/* Left column — media + text (sticky on desktop) */}
         <div className="md:sticky md:top-8 space-y-6">
           {/* Mídia HERO */}
@@ -691,6 +750,61 @@ export default function PublicFormPage() {
           </form>
         </div>
       </div>
+
+      {/* Seções extras (landing page) */}
+      {Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
+        <div className="w-full max-w-5xl mt-12 space-y-12">
+          {(form as any).extra_sections.map((sec: any, idx: number) => {
+            if (!sec || !sec.type) return null;
+            return (
+              <section key={idx} className="space-y-4">
+                {sec.title && <h2 className="text-2xl font-bold text-center">{sec.title}</h2>}
+                {sec.type === "testimonials" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <div key={i} className="rounded-lg border p-4 space-y-2 bg-card">
+                        <p className="text-sm italic">"{it.quote}"</p>
+                        <div className="text-xs">
+                          <p className="font-semibold">{it.name}</p>
+                          {it.role && <p className="text-muted-foreground">{it.role}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "features" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <div key={i} className="rounded-lg border p-4 space-y-2 bg-card">
+                        <div className="text-2xl">{it.icon || "✨"}</div>
+                        <h3 className="font-semibold">{it.title}</h3>
+                        <p className="text-sm text-muted-foreground">{it.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "faq" && (
+                  <div className="space-y-2 max-w-3xl mx-auto">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <details key={i} className="rounded-lg border p-3 bg-card">
+                        <summary className="font-medium cursor-pointer">{it.q}</summary>
+                        <p className="text-sm text-muted-foreground mt-2">{it.a}</p>
+                      </details>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "logos" && (
+                  <div className="flex flex-wrap items-center justify-center gap-6 opacity-80">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      it.src ? <img key={i} src={it.src} alt={it.alt || ""} className="h-10 object-contain" loading="lazy" /> : null
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {/* Footer — dados da empresa */}
       <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-2">
