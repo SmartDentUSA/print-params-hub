@@ -381,6 +381,16 @@ function CreateCampaign({
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
 
+  // Fetch DisparoPro balance when SMS channel is selected
+  useEffect(() => {
+    if (sendChannel !== "sms") return;
+    setSmsBalanceLoading(true);
+    supabase.functions.invoke("smart-ops-sms-balance")
+      .then(({ data }) => setSmsBalance((data as any)?.saldo ?? null))
+      .catch(() => setSmsBalance(null))
+      .finally(() => setSmsBalanceLoading(false));
+  }, [sendChannel]);
+
   // Load Evolution instances when channel = evolution
   useEffect(() => {
     if (sendChannel !== "evolution") return;
