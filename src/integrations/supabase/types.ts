@@ -610,6 +610,45 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          last_refreshed_at: string | null
+          lead_count: number | null
+          lead_ids: string[] | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          last_refreshed_at?: string | null
+          lead_count?: number | null
+          lead_ids?: string[] | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          last_refreshed_at?: string | null
+          lead_count?: number | null
+          lead_ids?: string[] | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaign_send_log: {
         Row: {
           anchor_product: string | null
