@@ -68,6 +68,8 @@ interface SmartOpsForm {
   brand_color_h: number | null;
   brand_color_s: number | null;
   brand_color_l: number | null;
+  display_mode?: string | null;
+  show_progress?: boolean | null;
 }
 
 const BASE_FORM_FIELDS = [
