@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { DealSearchResult, PiperunDeal } from '@/types/courses';
-import { isDealGanho } from '@/lib/courseUtils';
-
-const FIELDS = 'id,nome,email,telefone_normalized,piperun_id,pessoa_piperun_id,especialidade,area_atuacao,buyer_type,empresa_cnpj,cidade,uf,pais_origem,piperun_deals_history';
 
 export function useDealSearch() {
   const [loading, setLoading] = useState(false);
@@ -11,55 +8,34 @@ export function useDealSearch() {
   const [result, setResult]   = useState<DealSearchResult | null>(null);
 
   const search = async (dealId: string) => {
-    if (!dealId.trim()) return;
     const id = dealId.trim();
+    if (!id) return;
     setLoading(true); setError(null); setResult(null);
 
     try {
-      // 1) RPC resolve o lead canônico (sem duplicatas)
-      const { data: rpc, error: rpcErr } = await (supabase as any)
+      // 1) RPC resolve o lead canônico + payload completo (sem carregar 1000+ deals)
+      const { data, error: rpcErr } = await (supabase as any)
         .rpc('fn_search_deal_for_training', { p_deal_id: id });
       if (rpcErr) throw rpcErr;
-
-      const r: any = rpc;
-      if (!r?.found || !r?.lead_id) {
+      if (!data?.found) {
         setError('Deal não encontrado. Verifique o ID e tente novamente.');
         return;
       }
-      if (r.warning) console.warn('[DealSearch]', r.warning);
+      if (data.warning) console.warn('[DealSearch]', data.warning);
 
-      // 2) Hidrata o lead canônico para preservar Step 2/3 do EnrollmentModal
-      const { data, error: leadErr } = await (supabase as any)
-        .from('lia_attendances')
-        .select(FIELDS)
-        .eq('id', r.lead_id)
-        .is('merged_into', null)
-        .maybeSingle();
-      if (leadErr) throw leadErr;
-      if (!data) {
-        setError('Lead canônico não encontrado para este deal.');
-        return;
+      // 2) Fetch cirúrgico: extrai SÓ o deal escolhido do JSONB no servidor
+      let matched: PiperunDeal | null = null;
+      try {
+        const { data: dealRow, error: dealErr } = await (supabase as any).rpc(
+          'fn_get_deal_from_history',
+          { p_lead_id: data.lead_id, p_deal_id: id },
+        );
+        if (!dealErr && dealRow) matched = dealRow as PiperunDeal;
+      } catch (e) {
+        console.warn('[DealSearch] fn_get_deal_from_history fallback:', e);
       }
 
-      const history: PiperunDeal[] = data.piperun_deals_history ?? [];
-      const matchedDeal =
-        history.find((d: PiperunDeal) => String(d.deal_id) === id) ??
-        history.find(isDealGanho) ??
-        history[0];
-
-      if (!matchedDeal) {
-        setError(`Lead "${data.nome}" encontrado mas sem deals no histórico (${history.length} deals).`);
-        return;
-      }
-
-      setResult({
-        ...data,
-        lead_id: data.id,
-        piperun_deals_history: history,
-        matched_deal: matchedDeal,
-        rpc_strategy: r.strategy,
-        rpc_warning: r.warning ?? null,
-      });
+      setResult({ ...(data as DealSearchResult), matched_deal: matched });
     } catch (err: any) {
       setError(`Erro: ${err?.message || String(err)}`);
     } finally {
