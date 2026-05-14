@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { broadcastFormFieldsChanged } from "@/lib/formFlowBroadcast";
 
 const DB_COLUMNS: Record<string, { label: string; columns: { value: string; label: string }[] }> = {
   "Contato": {
@@ -219,7 +220,7 @@ export function SmartOpsFormEditor({
       required: false,
     } as any);
     if (error) toast.error(error.message);
-    else fetchFields();
+    else { fetchFields(); broadcastFormFieldsChanged(formId); }
   };
 
   const updateField = async (id: string, updates: Partial<FormField>) => {
@@ -227,11 +228,13 @@ export function SmartOpsFormEditor({
       .update(updates as any)
       .eq("id", id);
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    broadcastFormFieldsChanged(formId);
   };
 
   const deleteField = async (id: string) => {
     await supabase.from("smartops_form_fields" as any).delete().eq("id", id);
     fetchFields();
+    broadcastFormFieldsChanged(formId);
   };
 
   const moveField = async (index: number, dir: -1 | 1) => {
@@ -244,6 +247,7 @@ export function SmartOpsFormEditor({
     );
     await Promise.all(promises);
     fetchFields();
+    broadcastFormFieldsChanged(formId);
   };
 
   const handleColumnChange = (fieldId: string, value: string) => {

@@ -1,72 +1,81 @@
-## O que muda
+## Objetivo
 
-Hoje o diagrama só desenha aresta quando existe regra `show_if`. O caminho "Não" some — fica parecendo que o fluxo termina ali. Vou desenhar **todas as ramificações possíveis** de cada pergunta, inclusive os caminhos onde a próxima pergunta é pulada.
+Adicionar um botão na seção "Pré-visualização do fluxo" do editor (`SmartOpsSdrCaptacaoEditor`) que abre o fluxograma numa **nova janela/aba** (arrastável para outro monitor) e que se **atualiza automaticamente** conforme você modifica o formulário no editor original.
 
-## Regra de roteamento (para cada pergunta-pai com opções)
+---
 
-Para cada pergunta do tipo `select` / `radio` / `boolean` com `options` definidas, gerar uma aresta **por opção**:
+## Como vai funcionar (visão do usuário)
 
-1. **Tem filhos para essa resposta?** (ex.: alguma pergunta posterior tem `show_if` que casa com essa opção)
-   - **Sim** → aresta da pergunta-pai → primeiro filho que casa, com label = valor da resposta (ex.: `"Sim"`).
-2. **Não tem filhos para essa resposta?**
-   - Aresta da pergunta-pai → **próxima pergunta no fluxo** (a próxima por `order_index` que seria visível com essa resposta), com label = valor da resposta + estilo tracejado cinza ("pula").
-   - Se não houver próxima pergunta visível → aresta para um nó terminal `[ Fim do formulário ]`.
+1. Na seção "E. Pré-visualização do fluxo", aparece um botão **"Abrir em nova janela ↗"** ao lado do título.
+2. Clicando, abre `/admin/form-flow/<formId>` numa janela nova (sem header/sidebar do admin, ocupando 100% da tela — ideal para arrastar para outro monitor).
+3. Você volta para o editor, edita perguntas / opções / regras condicionais e clica em **Salvar**.
+4. A janela do fluxo detecta a mudança e re-renderiza o diagrama em ~1 segundo, sem precisar dar refresh.
 
-Para perguntas **sem options** (text/email/phone): uma única aresta "próxima" sólida → próxima pergunta visível, label vazio.
+---
 
-Para perguntas com regra **`is_not_empty` / `is_empty`**: tratar como branches `preenchido` / `vazio`.
+## Arquitetura técnica
 
-## Visual
+### 1. Nova rota standalone
+- Adicionar rota `/admin/form-flow/:formId` em `src/App.tsx` apontando para uma nova página `src/pages/SmartOpsFormFlowStandalone.tsx`.
+- A página renderiza apenas:
+  - Cabeçalho mínimo com nome do formulário + badge "🔴 ao vivo".
+  - `<SmartOpsFormFlowPreview formId={formId} />` ocupando `100vh`.
+- Sem `AdminSidebar`, sem `Header` — janela limpa para uso em monitor secundário.
 
-- **Aresta "ativa"** (resposta → filho condicional): linha **sólida verde**, label com a resposta.
-- **Aresta "pula"** (resposta que não ativa filho, vai pra próxima): linha **tracejada cinza**, label `"Não" → pula` (ou só o valor).
-- **Aresta "default"** (campo sem options): linha **sólida cinza**, sem label.
-- **Nó terminal** `[ ✓ Fim do formulário ]`: estilo distinto (cinza, ícone check) — único, todas as pontas finais convergem nele.
-- Layout dagre TB continua igual; setas entram pelo top, saem pelo bottom.
+### 2. Botão no editor
+- Em `SmartOpsSdrCaptacaoEditor.tsx`, ao lado de "Pré-visualização do fluxo":
+  ```tsx
+  <Button variant="outline" size="sm" onClick={() => 
+    window.open(`/admin/form-flow/${form.id}`, `flow-${form.id}`,
+      'width=1400,height=900,menubar=no,toolbar=no')
+  }>
+    <ExternalLink className="w-4 h-4 mr-1" /> Abrir em nova janela
+  </Button>
+  ```
+- O nome `flow-${form.id}` faz com que clicar de novo reutilize a janela existente (não abre múltiplas).
 
-## Exemplo do que o usuário vai ver
+### 3. Atualização em tempo real (2 camadas, redundantes)
 
-```text
-        ┌──────────────────────┐
-        │ #1 Tem scanner?      │
-        └───┬───────────────┬──┘
-        Sim│           Não┊┊(pula)
-            ▼               ▼
-   ┌──────────────┐    ┌──────────────────────┐
-   │ #2 Marca?    │    │ #3 Tem impressora 3D?│
-   └──────┬───────┘    └───┬───────────────┬──┘
-          │             Sim│           Não┊┊(pula)
-          ▼                 ▼               ▼
-   ┌──────────────────┐  ┌──────────┐  ┌──────────────┐
-   │ #3 Tem impressora?│ │ #4 Marca?│  │ ✓ Fim do form│
-   └─────────┘         │ └────┬─────┘  └──────────────┘
-                       │      ▼
-                       │  ┌──────────────────┐
-                       │  │ #5 Imprime guias?│
-                       │  └─...
-```
+**Camada A — Supabase Realtime (fonte da verdade):**
+- Em `SmartOpsFormFlowPreview.tsx`, inscrever no canal Postgres changes da tabela `smartops_form_fields`, filtrado por `form_id=eq.${formId}`.
+- Em qualquer `INSERT`/`UPDATE`/`DELETE`, refazer o `select` e reconstruir o grafo.
+- Requer que a tabela esteja com `REPLICA IDENTITY FULL` e adicionada à publicação `supabase_realtime`. Se ainda não estiver, criar migration:
+  ```sql
+  ALTER TABLE smartops_form_fields REPLICA IDENTITY FULL;
+  ALTER PUBLICATION supabase_realtime ADD TABLE smartops_form_fields;
+  ```
+  (idempotente — checar antes via `pg_publication_tables`).
 
-Toda resposta possível tem seta. Nada some.
+**Camada B — BroadcastChannel (latência zero entre abas do mesmo navegador):**
+- Após cada save bem-sucedido no editor (`SmartOpsFormEditor` / `SmartOpsMappingFieldsEditor`), emitir:
+  ```ts
+  new BroadcastChannel(`smartops-form-${formId}`).postMessage({ type: 'fields-updated' });
+  ```
+- A janela do fluxo escuta esse canal e dispara um refetch imediato (mesmo antes do realtime do Postgres chegar).
 
-## Onde aplico
+Combinando as duas: instantâneo na mesma máquina (BroadcastChannel) + funciona entre máquinas diferentes (Supabase Realtime).
 
-**Editado:** `src/components/SmartOpsFormFlowPreview.tsx`
-- Nova função `buildRichEdges(fields)` que percorre cada pergunta e gera as arestas conforme as regras acima.
-- Adiciona o nó terminal `__end__`.
-- Adiciona estilos `solid-active` / `dashed-skip` / `solid-default`.
-- Mantém custom node, dagre, controls, minimap.
+### 4. Indicador visual de "ao vivo"
+- Pequeno badge pulsante verde no canto da janela standalone: "● Conectado · atualiza ao salvar".
+- Se a inscrição realtime falhar, troca para amarelo: "● Polling a cada 5s" (fallback com `setInterval`).
 
-**Sem mudança:** demais arquivos.
+---
 
-## Edge cases
+## Arquivos a alterar/criar
 
-- Pergunta cuja regra usa `in [Anycubic, Phrozen]`: gera 1 aresta sólida saindo de cada uma dessas opções do pai (label = a opção). Outras opções do pai → tracejada para próxima.
-- Pergunta com opção que é parent de **vários** filhos: múltiplas arestas sólidas saindo da mesma opção (uma por filho). Funciona naturalmente no xyflow.
-- Pergunta com regra `equals "X"` mas o pai não tem essa opção cadastrada: nó vermelho "rota inválida".
+| Arquivo | Ação |
+|---|---|
+| `src/pages/SmartOpsFormFlowStandalone.tsx` | **Criar** — página fullscreen |
+| `src/App.tsx` | Adicionar rota `/admin/form-flow/:formId` |
+| `src/components/SmartOpsSdrCaptacaoEditor.tsx` | Adicionar botão "Abrir em nova janela" |
+| `src/components/SmartOpsFormFlowPreview.tsx` | Adicionar realtime subscription + BroadcastChannel listener |
+| `src/components/SmartOpsFormEditor.tsx` | Emitir BroadcastChannel após save |
+| `src/components/SmartOpsMappingFieldsEditor.tsx` | Emitir BroadcastChannel após save |
+| Migration nova | `ALTER PUBLICATION supabase_realtime ADD TABLE smartops_form_fields` (se necessário) |
 
-## Pergunta antes de implementar
+---
 
-Confirma a semântica:
-- Por **"próxima pergunta"** quando o usuário escolhe a opção que pula um bloco, você quer dizer **a próxima por `order_index` que ainda seria visível com essa resposta** (ou seja, posso ter que pular várias perguntas em cadeia)? Ou apenas a próxima por `order_index` literal (sem reavaliar a visibilidade)?
+## Decisões a confirmar
 
-Recomendo a primeira (próxima visível em cadeia) — reflete fielmente o que o usuário do formulário vai ver.
+1. **Acesso à rota standalone**: ela deve exigir login (mesmo guard que `/admin`) ou pode ser pública por `formId` (mais fácil de abrir em outro monitor sem relogar)? Recomendo **exigir login** — mesmo guard do admin.
+2. **Realtime entre máquinas diferentes**: vale a pena habilitar Supabase Realtime na tabela (migration), ou só atualização entre abas do mesmo navegador (BroadcastChannel) já basta para seu caso de uso?
