@@ -697,7 +697,7 @@ export type Database = {
             foreignKeyName: "campaign_send_log_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "campaign_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -16673,6 +16673,10 @@ export type Database = {
         Returns: {
           lead_id: string
         }[]
+      }
+      fn_sms_campaign_attribution: {
+        Args: { p_campaign_id: string }
+        Returns: Json
       }
       fn_stage_dh_leads: { Args: { p_data: Json }; Returns: number }
       fn_sync_normalized_from_lead: {
