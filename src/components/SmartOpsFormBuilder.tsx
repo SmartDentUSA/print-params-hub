@@ -68,6 +68,8 @@ interface SmartOpsForm {
   brand_color_h: number | null;
   brand_color_s: number | null;
   brand_color_l: number | null;
+  display_mode?: string | null;
+  show_progress?: boolean | null;
 }
 
 const BASE_FORM_FIELDS = [
@@ -188,6 +190,8 @@ export function SmartOpsFormBuilder() {
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
+  const [metaDisplayMode, setMetaDisplayMode] = useState<"list" | "step">("list");
+  const [metaShowProgress, setMetaShowProgress] = useState(true);
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -326,6 +330,8 @@ export function SmartOpsFormBuilder() {
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
+    setMetaDisplayMode((form.display_mode as any) === "step" ? "step" : "list");
+    setMetaShowProgress(form.show_progress !== false);
     setEditingMeta(form);
   };
 
@@ -346,6 +352,8 @@ export function SmartOpsFormBuilder() {
         campaign_identifier: metaCampaignIdentifier || null,
         product_catalog_id: metaProductCatalogId || null,
         workflow_stage_target: metaWorkflowStageTarget || null,
+        display_mode: metaDisplayMode,
+        show_progress: metaShowProgress,
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
@@ -601,6 +609,26 @@ export function SmartOpsFormBuilder() {
                   <label className="text-xs font-medium">Etapa Workflow (workflow_stage_target)</label>
                   <Input value={metaWorkflowStageTarget} onChange={(e) => setMetaWorkflowStageTarget(e.target.value)} placeholder="ex: 1_captura_digital__scanner_intraoral" />
                 </div>
+              </div>
+
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
+                <div>
+                  <label className="text-xs font-medium">Como as perguntas aparecem</label>
+                  <Select value={metaDisplayMode} onValueChange={(v) => setMetaDisplayMode(v as "list" | "step")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="list">Lista única (todas as perguntas)</SelectItem>
+                      <SelectItem value="step">Passo a passo (1 pergunta por vez)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {metaDisplayMode === "step" && (
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium">Mostrar barra de progresso</label>
+                    <Switch checked={metaShowProgress} onCheckedChange={setMetaShowProgress} />
+                  </div>
+                )}
               </div>
 
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
