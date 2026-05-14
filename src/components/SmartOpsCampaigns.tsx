@@ -1005,10 +1005,15 @@ function CreateCampaign({
               {countLoading ? (
                 <span className="text-sm text-muted-foreground">Contando leads...</span>
               ) : (
-                <span className="text-sm font-medium">
+                <div className="text-sm font-medium">
                   <Badge variant="secondary" className="text-base mr-2">{leadCount ?? 0}</Badge>
                   leads serão impactados
-                </span>
+                  {sendChannel === "sms" && (
+                    <p className="text-xs text-muted-foreground mt-1 font-normal">
+                      📱 {smsLeadValidCount ?? "…"} leads com telefone válido / {leadCount ?? 0} total
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
