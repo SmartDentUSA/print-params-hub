@@ -500,7 +500,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_sales_summary",
-      description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para perguntas sobre faturamento, receita, total de vendas, ranking de vendedores. NUNCA use query_deal_history ou PipeRun API para calcular totais de receita. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
+      description: "Retorna total de vendas e ranking COMPLETO de vendedores de um mês. Cada item do ranking inclui: vendedor, total_deals (deals ganhos), receita_total, ticket_medio, pct_receita, leads_recebidos (no mês), taxa_conversao (% deals ganhos / leads recebidos). USE SEMPRE para faturamento, receita, total de vendas, ranking, performance e taxa de conversão por vendedor. NUNCA use query_deal_history ou PipeRun API para calcular totais. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
       parameters: {
         type: "object",
         properties: {
