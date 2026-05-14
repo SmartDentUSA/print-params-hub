@@ -5769,6 +5769,8 @@ export type Database = {
           company_hash: string | null
           company_id: string | null
           confidence_score_analysis: number | null
+          contact_sync_attempts: number | null
+          contact_sync_failed_at: string | null
           created_at: string
           crm_creation_blocked: boolean | null
           crm_creation_blocked_reason: string | null
@@ -6282,6 +6284,8 @@ export type Database = {
           company_hash?: string | null
           company_id?: string | null
           confidence_score_analysis?: number | null
+          contact_sync_attempts?: number | null
+          contact_sync_failed_at?: string | null
           created_at?: string
           crm_creation_blocked?: boolean | null
           crm_creation_blocked_reason?: string | null
@@ -6795,6 +6799,8 @@ export type Database = {
           company_hash?: string | null
           company_id?: string | null
           confidence_score_analysis?: number | null
+          contact_sync_attempts?: number | null
+          contact_sync_failed_at?: string | null
           created_at?: string
           crm_creation_blocked?: boolean | null
           crm_creation_blocked_reason?: string | null
@@ -16671,6 +16677,8 @@ export type Database = {
           company_hash: string | null
           company_id: string | null
           confidence_score_analysis: number | null
+          contact_sync_attempts: number | null
+          contact_sync_failed_at: string | null
           created_at: string
           crm_creation_blocked: boolean | null
           crm_creation_blocked_reason: string | null
