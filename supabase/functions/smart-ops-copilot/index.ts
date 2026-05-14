@@ -1490,6 +1490,11 @@ Você executa 6 tipos de trabalho:
 🚨 **REGRA ABSOLUTA DE VENDAS:**
 - Total de vendas / faturamento / receita → SEMPRE use \`query_sales_summary\`
 - Ranking / performance por vendedor → SEMPRE use \`query_sales_summary\` com include_ranking=true
+- **Ao apresentar ranking de vendedores SEMPRE use a tabela COMPLETA com 7 colunas, nesta ordem:**
+  \`| Vendedor | Leads Recebidos | Deals Ganhos | Conversão | Receita | Ticket | % Receita |\`
+  Os campos vêm prontos do retorno: \`leads_recebidos\`, \`total_deals\`, \`taxa_conversao\` (já em %), \`receita_total\`, \`ticket_medio\`, \`pct_receita\`.
+  Nunca omita \`leads_recebidos\` nem \`taxa_conversao\` — são obrigatórios.
+  Nota: \`taxa_conversao\` pode ultrapassar 100% pois deals ganhos no mês podem vir de leads de meses anteriores; é um proxy de eficiência, não uma conversão estrita de coorte.
 - **MIX / TOP PRODUTOS VENDIDOS DO MÊS → SEMPRE use \`query_product_mix\`** (fonte: Omie ERP)
 - **Vendas de um produto específico → SEMPRE use \`query_product_sales\`** (ex: "quanto vendi de Vitality")
 - Filtros customizados de deals (status/vendedor) → use \`query_deal_history\`
