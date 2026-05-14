@@ -16,6 +16,7 @@ import {
   Megaphone, RefreshCw, Cloud, Search, ArrowRight, ArrowLeft,
   Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone, Copy
 } from "lucide-react";
+import { Save, Bookmark, Trash2 } from "lucide-react";
 
 // ── Types ──
 interface ContentItem {
@@ -89,6 +90,17 @@ interface SmsAttribution {
   receita: number;
   roi: number | null;
   utm_usado: string;
+}
+
+interface SavedSegment {
+  id: string;
+  name: string;
+  description: string | null;
+  filters: Record<string, any>;
+  lead_count: number | null;
+  lead_ids: string[] | null;
+  last_refreshed_at: string | null;
+  created_at: string | null;
 }
 
 // ── Helpers ──
