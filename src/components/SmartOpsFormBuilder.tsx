@@ -192,6 +192,21 @@ export function SmartOpsFormBuilder() {
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
   const [metaDisplayMode, setMetaDisplayMode] = useState<"list" | "step">("list");
   const [metaShowProgress, setMetaShowProgress] = useState(true);
+  // ------- Aparência (page builder) -------
+  const [metaBgType, setMetaBgType] = useState<"solid" | "gradient" | "image">("solid");
+  const [metaBgColor, setMetaBgColor] = useState("#ffffff");
+  const [metaBgColorTo, setMetaBgColorTo] = useState("#f5f5f5");
+  const [metaBgGradientAngle, setMetaBgGradientAngle] = useState(135);
+  const [metaBgImageUrl, setMetaBgImageUrl] = useState("");
+  const [metaBgOverlayOpacity, setMetaBgOverlayOpacity] = useState(0.5);
+  const [metaThemeMode, setMetaThemeMode] = useState<"light" | "dark">("light");
+  const [metaLayoutVariant, setMetaLayoutVariant] = useState<"split" | "centered" | "full">("split");
+  const [metaFontHeading, setMetaFontHeading] = useState("Inter");
+  const [metaFontBody, setMetaFontBody] = useState("Inter");
+  const [metaButtonRadius, setMetaButtonRadius] = useState<"none" | "sm" | "md" | "lg" | "pill">("md");
+  const [metaButtonShadow, setMetaButtonShadow] = useState<"none" | "sm" | "md" | "glow">("sm");
+  const [metaExtraSections, setMetaExtraSections] = useState<any[]>([]);
+  const [metaCustomCss, setMetaCustomCss] = useState("");
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -332,6 +347,21 @@ export function SmartOpsFormBuilder() {
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
     setMetaDisplayMode((form.display_mode as any) === "step" ? "step" : "list");
     setMetaShowProgress(form.show_progress !== false);
+    const f: any = form;
+    setMetaBgType((f.bg_type as any) || "solid");
+    setMetaBgColor(f.bg_color || "#ffffff");
+    setMetaBgColorTo(f.bg_color_to || "#f5f5f5");
+    setMetaBgGradientAngle(f.bg_gradient_angle ?? 135);
+    setMetaBgImageUrl(f.bg_image_url || "");
+    setMetaBgOverlayOpacity(f.bg_overlay_opacity ?? 0.5);
+    setMetaThemeMode((f.theme_mode as any) || "light");
+    setMetaLayoutVariant((f.layout_variant as any) || "split");
+    setMetaFontHeading(f.font_heading || "Inter");
+    setMetaFontBody(f.font_body || "Inter");
+    setMetaButtonRadius((f.button_radius as any) || "md");
+    setMetaButtonShadow((f.button_shadow as any) || "sm");
+    setMetaExtraSections(Array.isArray(f.extra_sections) ? f.extra_sections : []);
+    setMetaCustomCss(f.custom_css || "");
     setEditingMeta(form);
   };
 
@@ -354,6 +384,20 @@ export function SmartOpsFormBuilder() {
         workflow_stage_target: metaWorkflowStageTarget || null,
         display_mode: metaDisplayMode,
         show_progress: metaShowProgress,
+        bg_type: metaBgType,
+        bg_color: metaBgColor || null,
+        bg_color_to: metaBgColorTo || null,
+        bg_gradient_angle: metaBgGradientAngle,
+        bg_image_url: metaBgImageUrl || null,
+        bg_overlay_opacity: metaBgOverlayOpacity,
+        theme_mode: metaThemeMode,
+        layout_variant: metaLayoutVariant,
+        font_heading: metaFontHeading || null,
+        font_body: metaFontBody || null,
+        button_radius: metaButtonRadius,
+        button_shadow: metaButtonShadow,
+        extra_sections: metaExtraSections,
+        custom_css: metaCustomCss || null,
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
