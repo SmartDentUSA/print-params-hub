@@ -45,9 +45,7 @@ export default function SmartOpsFormFlowStandalone() {
         </span>
       </header>
       <div className="flex-1 overflow-hidden p-3">
-        <div className="h-full [&>div]:h-full [&>div>div:last-child]:!h-full">
-          <SmartOpsFormFlowPreview formId={formId} />
-        </div>
+        <SmartOpsFormFlowPreview formId={formId} height="calc(100vh - 90px)" />
       </div>
     </div>
   );
