@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { broadcastFormFieldsChanged } from "@/lib/formFlowBroadcast";
 
 export const WORKFLOW_CELLS: { value: string; label: string }[] = [
   { value: "1_captura_digital__scanner_intraoral", label: "1 · Captura Digital / Scanner Intraoral" },
@@ -151,7 +152,7 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
       workflow_cell_target: "",
     } as any);
     if (error) toast.error(error.message);
-    else fetchFields();
+    else { fetchFields(); broadcastFormFieldsChanged(formId); }
   };
 
   const updateField = async (id: string, updates: Partial<MappingField>) => {
@@ -159,11 +160,13 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
       .update(updates as any)
       .eq("id", id);
     setFields(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    broadcastFormFieldsChanged(formId);
   };
 
   const deleteField = async (id: string) => {
     await supabase.from("smartops_form_fields" as any).delete().eq("id", id);
     fetchFields();
+    broadcastFormFieldsChanged(formId);
   };
 
   const moveField = async (index: number, dir: -1 | 1) => {
@@ -184,6 +187,7 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
       .update({ order_index: updated[index].order_index } as any)
       .eq("id", updated[target].id);
     fetchFields();
+    broadcastFormFieldsChanged(formId);
   };
 
   const handleColumnChange = (fieldId: string, value: string) => {
