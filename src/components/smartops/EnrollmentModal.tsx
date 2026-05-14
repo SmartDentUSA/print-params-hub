@@ -653,7 +653,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                 </div>
 
                 {/* Sem telefone */}
-                {!dealSearch.result?.telefone_normalized && (
+                {!dealSearch.result?.telefone && (
                   <div className="flex items-center gap-2 text-amber-600 text-sm">
                     <AlertTriangle className="w-4 h-4" />
                     WhatsApp não será enviado (sem telefone cadastrado)
