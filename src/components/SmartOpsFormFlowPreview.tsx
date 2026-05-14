@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ReactFlow,
@@ -334,21 +334,57 @@ const nodeTypes = { fieldNode: FieldNode, endNode: EndNode };
 export function SmartOpsFormFlowPreview({ formId }: { formId: string }) {
   const [fields, setFields] = useState<FlowField[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastHashRef = useRef<string>("");
 
   useEffect(() => {
     let active = true;
-    (async () => {
+
+    const fetchFields = async () => {
       const { data } = await supabase
         .from("smartops_form_fields" as any)
         .select("id,label,field_type,required,order_index,workflow_cell_target,options,conditions")
         .eq("form_id", formId)
         .order("order_index");
-      if (active && data) setFields(data as any);
-      if (active) setLoading(false);
-    })();
+      if (!active || !data) return;
+      const hash = JSON.stringify(data);
+      if (hash !== lastHashRef.current) {
+        lastHashRef.current = hash;
+        setFields(data as any);
+      }
+      if (loading) setLoading(false);
+    };
+
+    fetchFields();
+
+    // Polling — funciona em qualquer máquina/aba
+    const pollId = window.setInterval(fetchFields, 2000);
+
+    // BroadcastChannel — refresh instantâneo entre abas do mesmo navegador
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(`smartops-form-${formId}`);
+      bc.onmessage = () => fetchFields();
+    } catch {
+      // navegador sem suporte — polling cobre
+    }
+
+    // Supabase Realtime — caso a publicação esteja habilitada
+    const channel = supabase
+      .channel(`form-fields-${formId}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "smartops_form_fields", filter: `form_id=eq.${formId}` },
+        () => fetchFields(),
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      window.clearInterval(pollId);
+      bc?.close();
+      supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
 
   const { nodes, edges } = useMemo(() => {
