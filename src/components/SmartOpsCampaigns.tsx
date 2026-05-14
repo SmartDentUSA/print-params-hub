@@ -1154,6 +1154,7 @@ function CampaignHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignSession | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
+  const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -1170,13 +1171,22 @@ function CampaignHistory() {
 
   const openDetail = async (c: CampaignSession) => {
     setSelectedCampaign(c);
+    setSmsAttribution(null);
     const { data } = await supabase
       .from("campaign_send_log")
-      .select("id, campaign_id, lead_id, status, sent_at, error_message, nome, telefone")
+      .select("id, campaign_id, lead_id, status, sent_at, error_message, nome, telefone, provider_status, provider_detail_code, provider_detail_message")
       .eq("campaign_id", c.id)
       .order("sent_at", { ascending: false })
       .limit(200);
     setSendLogs(data || []);
+    if (c.channel === "sms") {
+      try {
+        const { data: attr } = await supabase.rpc("fn_sms_campaign_attribution" as any, { p_campaign_id: c.id });
+        if (attr) setSmsAttribution(attr as unknown as SmsAttribution);
+      } catch {
+        setSmsAttribution(null);
+      }
+    }
   };
 
   if (loading) return <div className="h-40 flex items-center justify-center text-muted-foreground">Carregando...</div>;
