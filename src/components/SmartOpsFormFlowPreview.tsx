@@ -38,6 +38,10 @@ interface FieldOption {
 const NODE_WIDTH = 280;
 const NODE_HEIGHT = 110;
 const END_NODE_ID = "__end__";
+const COL_W = 340;
+const ROW_H = 150;
+const X0 = 40;
+const Y0 = 40;
 
 // ───────────────────────── Helpers ─────────────────────────
 
@@ -139,23 +143,85 @@ function getBranches(field: FlowField): Branch[] {
 
 function buildGraph(fields: FlowField[]): { nodes: Node[]; edges: Edge[] } {
   const sorted = [...fields].sort((a, b) => a.order_index - b.order_index);
+
+  // ── Column assignment: each field belongs to the column of its "root main"
+  // (the first ancestor without show_if). Mains themselves get sequential cols.
+  const mains = sorted.filter((f) => !getShowIf(f) || !(getShowIf(f)?.rules?.length));
+  const colOf = new Map<string, number>();
+  mains.forEach((m, i) => colOf.set(m.id, i));
+  const fieldById = new Map(sorted.map((f) => [f.id, f] as const));
+  const rootMainOf = (f: FlowField): FlowField => {
+    let cur: FlowField | undefined = f;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      const si = getShowIf(cur);
+      if (!si || !si.rules?.length) return cur;
+      const parentId = si.rules[0]?.field_id;
+      const parent = parentId ? fieldById.get(parentId) : undefined;
+      if (!parent) return cur;
+      cur = parent;
+    }
+    return f;
+  };
+  for (const f of sorted) {
+    if (colOf.has(f.id)) continue;
+    const root = rootMainOf(f);
+    const c = colOf.get(root.id) ?? 0;
+    colOf.set(f.id, c);
+  }
+  // End node sits one column past the last main
+  const endCol = mains.length;
+  colOf.set(END_NODE_ID, endCol);
+
+  // ── Row assignment: mains at row 0; conditionals stacked top-down per column
+  const rowOf = new Map<string, number>();
+  for (const m of mains) rowOf.set(m.id, 0);
+  const byCol = new Map<number, FlowField[]>();
+  for (const f of sorted) {
+    if (colOf.get(f.id) === undefined) continue;
+    if (rowOf.has(f.id)) continue; // main
+    const c = colOf.get(f.id)!;
+    if (!byCol.has(c)) byCol.set(c, []);
+    byCol.get(c)!.push(f);
+  }
+  for (const [, list] of byCol) {
+    list.sort((a, b) => a.order_index - b.order_index);
+    list.forEach((f, i) => rowOf.set(f.id, i + 1));
+  }
+  rowOf.set(END_NODE_ID, 0);
+
+  const positionFor = (id: string) => ({
+    x: X0 + (colOf.get(id) ?? 0) * COL_W,
+    y: Y0 + (rowOf.get(id) ?? 0) * ROW_H,
+  });
+
   const nodes: Node[] = sorted.map((f) => ({
     id: f.id,
     type: "fieldNode",
-    position: { x: 0, y: 0 },
+    position: positionFor(f.id),
     data: { field: f },
   }));
-
-  // Terminal node
   nodes.push({
     id: END_NODE_ID,
     type: "endNode",
-    position: { x: 0, y: 0 },
+    position: positionFor(END_NODE_ID),
     data: {},
   });
 
   const edges: Edge[] = [];
   let edgeSeq = 0;
+
+  const handlesFor = (sourceId: string, targetId: string) => {
+    const sc = colOf.get(sourceId) ?? 0;
+    const tc = colOf.get(targetId) ?? 0;
+    if (sc === tc) {
+      // same column → vertical (down)
+      return { sourceHandle: "b", targetHandle: "t" };
+    }
+    // different column → horizontal (rightward)
+    return { sourceHandle: "r", targetHandle: "l" };
+  };
 
   for (const parent of sorted) {
     const branches = getBranches(parent);
@@ -183,10 +249,13 @@ function buildGraph(fields: FlowField[]): { nodes: Node[]; edges: Edge[] } {
       if (activeChildren.length > 0) {
         // Active branch — solid green edges to each matched child
         for (const child of activeChildren) {
+          const h = handlesFor(parent.id, child.id);
           edges.push({
             id: `e${edgeSeq++}`,
             source: parent.id,
             target: child.id,
+            sourceHandle: h.sourceHandle,
+            targetHandle: h.targetHandle,
             label: branch.label || undefined,
             animated: false,
             style: { stroke: "hsl(142 70% 40%)", strokeWidth: 2 },
@@ -207,10 +276,13 @@ function buildGraph(fields: FlowField[]): { nodes: Node[]; edges: Edge[] } {
             ? `${branch.label} → pula`
             : branch.label
           : undefined;
+        const h = handlesFor(parent.id, targetId);
         edges.push({
           id: `e${edgeSeq++}`,
           source: parent.id,
           target: targetId,
+          sourceHandle: h.sourceHandle,
+          targetHandle: h.targetHandle,
           label: labelText,
           animated: false,
           style: {
@@ -234,36 +306,6 @@ function buildGraph(fields: FlowField[]): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-// ───────────────────────── Dagre layout ─────────────────────────
-
-function layout(nodes: Node[], edges: Edge[]): Node[] {
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 30, ranksep: 90, marginx: 20, marginy: 20 });
-
-  for (const n of nodes) {
-    g.setNode(n.id, {
-      width: n.id === END_NODE_ID ? 180 : NODE_WIDTH,
-      height: n.id === END_NODE_ID ? 60 : NODE_HEIGHT,
-    });
-  }
-  for (const e of edges) g.setEdge(e.source, e.target);
-
-  dagre.layout(g);
-
-  return nodes.map((n) => {
-    const p = g.node(n.id);
-    const w = n.id === END_NODE_ID ? 180 : NODE_WIDTH;
-    const h = n.id === END_NODE_ID ? 60 : NODE_HEIGHT;
-    return {
-      ...n,
-      position: { x: p.x - w / 2, y: p.y - h / 2 },
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
-    };
-  });
-}
-
 // ───────────────────────── Custom nodes ─────────────────────────
 
 function FieldNode({ data }: NodeProps) {
@@ -280,7 +322,8 @@ function FieldNode({ data }: NodeProps) {
         borderColor: isMapping ? "hsl(38 92% 50%)" : "hsl(142 70% 40%)",
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
+      <Handle id="l" type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
+      <Handle id="t" type="target" position={Position.Top} style={{ background: "transparent", border: 0 }} />
       <div className="px-3 py-2 space-y-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-mono text-muted-foreground">#{field.order_index}</span>
@@ -308,7 +351,8 @@ function FieldNode({ data }: NodeProps) {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: "transparent", border: 0 }} />
+      <Handle id="r" type="source" position={Position.Right} style={{ background: "transparent", border: 0 }} />
+      <Handle id="b" type="source" position={Position.Bottom} style={{ background: "transparent", border: 0 }} />
     </div>
   );
 }
@@ -319,7 +363,8 @@ function EndNode() {
       className="rounded-full border-2 border-muted-foreground/30 bg-muted px-4 py-2 flex items-center gap-2 shadow-sm"
       style={{ width: 180, height: 60 }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
+      <Handle id="l" type="target" position={Position.Left} style={{ background: "transparent", border: 0 }} />
+      <Handle id="t" type="target" position={Position.Top} style={{ background: "transparent", border: 0 }} />
       <CheckCircle2 className="w-4 h-4 text-green-600" />
       <span className="text-xs font-medium">Fim do formulário</span>
     </div>
