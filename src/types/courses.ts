@@ -158,23 +158,46 @@ export interface EnrollmentCompanion {
 }
 
 export interface DealSearchResult {
+  found: boolean;
   lead_id: string;
-  nome: string;
-  email?: string;
-  telefone_normalized?: string;
-  piperun_id?: string;
-  pessoa_piperun_id?: string;
-  especialidade?: string;
-  area_atuacao?: string;
-  buyer_type?: string;
-  empresa_cnpj?: string;
-  cidade?: string;
-  uf?: string;
-  pais_origem?: string;
-  piperun_deals_history: PiperunDeal[];
-  matched_deal: PiperunDeal;
-  rpc_strategy?: 'piperun_id' | 'pessoa_piperun_id' | 'deals_history' | string;
-  rpc_warning?: string | null;
+  strategy?: string;
+  warning?: string | null;
+
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;       // 5511999887744 — wa.me / Evolution
+  telefone_br: string | null;    // 11999887744   — input form
+  telefone_fmt: string | null;   // (11) 99988-7744
+  telefone_e164: string | null;  // +5511999887744
+  instagram: string | null;
+  area_atuacao: string | null;
+  especialidade: string | null;
+  cargo: string | null;
+  empresa_nome: string | null;
+  empresa_cnpj: string | null;
+  cpf: string | null;
+  cidade: string | null;
+  estado: string | null;
+  cep: string | null;
+  rua: string | null;
+  numero: string | null;
+  bairro: string | null;
+  complemento: string | null;
+  pais: string | null;
+  produto_interesse: string | null;
+  tem_scanner: string | null;
+  tem_impressora: string | null;
+  impressora_modelo: string | null;
+  piperun_id: string | null;
+  pessoa_piperun_id?: string | null;
+  pipeline: string | null;
+  etapa: string | null;
+  proprietario: string | null;
+  deal_value: number | null;
+  piperun_link: string | null;
+
+  // Hidratação cirúrgica do deal escolhido (para Equipamentos/Snapshot)
+  matched_deal?: PiperunDeal | null;
 }
 
 export interface PiperunDeal {
