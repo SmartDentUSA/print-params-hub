@@ -717,6 +717,7 @@ function CreateCampaign({
                     <SelectItem value="whatsapp">WhatsApp (WaLeads)</SelectItem>
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
+                    <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>
@@ -753,12 +754,103 @@ function CreateCampaign({
               <Input value={campaignDesc} onChange={(e) => setCampaignDesc(e.target.value)} placeholder="Objetivo da campanha..." />
             </div>
 
+            {sendChannel === "sms" && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Saldo DisparoPro:</span>
+                  {smsBalanceLoading ? (
+                    <Skeleton className="h-5 w-24" />
+                  ) : smsBalance ? (
+                    <Badge className="bg-green-100 text-green-800 border-green-300">R$ {smsBalance}</Badge>
+                  ) : (
+                    <Badge variant="secondary">Indisponível</Badge>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Mensagem SMS</Label>
+                  <Textarea
+                    ref={smsTextareaRef}
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    maxLength={1377}
+                    rows={4}
+                    placeholder="Ex: Ola {{primeiro_nome}}, temos oferta especial no BLZ INO200. Responda SIM para saber mais ou acesse: https://bit.ly/smartdent-blz?utm_medium=sms&utm_campaign=CAMP_ID"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Caracteres: {smsStats.len}/{smsStats.len <= smsStats.perPdu ? smsStats.perPdu : smsStats.multiPerPdu}
+                    {" • PDUs: "}{smsStats.pdus}
+                    {" • Custo estimado: R$ "}{smsStats.custoTotal.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 flex-wrap items-center">
+                  <span className="text-xs text-muted-foreground">Inserir:</span>
+                  {["{{nome}}", "{{primeiro_nome}}", "{{empresa}}"].map((v) => (
+                    <Badge
+                      key={v}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/10"
+                      onClick={() => {
+                        const el = smsTextareaRef.current;
+                        const start = el?.selectionStart ?? smsMessage.length;
+                        const end = el?.selectionEnd ?? smsMessage.length;
+                        const next = smsMessage.slice(0, start) + v + smsMessage.slice(end);
+                        setSmsMessage(next);
+                        setTimeout(() => {
+                          if (!el) return;
+                          el.focus();
+                          el.setSelectionRange(start + v.length, start + v.length);
+                        }, 0);
+                      }}
+                    >
+                      {v}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Label className="w-28 shrink-0">Codificação</Label>
+                  <Select value={smsCodificacao} onValueChange={(v) => setSmsCodificacao(v as "0" | "8")}>
+                    <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">7-bit — sem acentos, 160 chars/PDU</SelectItem>
+                      <SelectItem value="8">Unicode — com acentos, 70 chars/PDU</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Label className="w-28 shrink-0">Custo/PDU (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={smsCustoPdu}
+                    onChange={(e) => setSmsCustoPdu(e.target.value)}
+                    className="w-32"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Consulte DisparoPro → Planos para o valor exato
+                  </span>
+                </div>
+
+                {smsMessage && (
+                  <div className="bg-muted/30 p-3 rounded space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Preview</p>
+                    <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button
                 onClick={() => setStep(2)}
                 disabled={
                   !campaignName.trim() ||
-                  (sendChannel === "evolution" && !evolutionInstance)
+                  (sendChannel === "evolution" && !evolutionInstance) ||
+                  (sendChannel === "sms" && !smsMessage.trim())
                 }
               >
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
