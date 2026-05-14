@@ -1,81 +1,58 @@
-## Objetivo
+## Layout híbrido + rotulagem por resposta
 
-Adicionar um botão na seção "Pré-visualização do fluxo" do editor (`SmartOpsSdrCaptacaoEditor`) que abre o fluxograma numa **nova janela/aba** (arrastável para outro monitor) e que se **atualiza automaticamente** conforme você modifica o formulário no editor original.
+### Estrutura visual
 
----
+- **Perguntas principais** (sem `show_if`) ficam no **trilho horizontal** (esquerda → direita), na ordem do `order_index`.
+- **Condicionais** (com `show_if`) descem **verticalmente** abaixo da principal que as dispara, formando uma coluna por principal.
+- Cadeias de condicionais (condicional que depende de outra condicional) continuam empilhando para baixo na mesma coluna.
 
-## Como vai funcionar (visão do usuário)
+```text
+[Q1: Tem impressora?] ──Sim──→ [Q3: Tem scanner?] ──→ [Q5] ──→ [Fim]
+   │                              │
+   │ Não                          │ Não
+   ▼                              ▼
+[Q2a: Quer comprar?]           [Q4a: Quer comprar?]
+   │
+   ▼
+[Q2b: Qual marca?]
+```
 
-1. Na seção "E. Pré-visualização do fluxo", aparece um botão **"Abrir em nova janela ↗"** ao lado do título.
-2. Clicando, abre `/admin/form-flow/<formId>` numa janela nova (sem header/sidebar do admin, ocupando 100% da tela — ideal para arrastar para outro monitor).
-3. Você volta para o editor, edita perguntas / opções / regras condicionais e clica em **Salvar**.
-4. A janela do fluxo detecta a mudança e re-renderiza o diagrama em ~1 segundo, sem precisar dar refresh.
+### Regra-chave: rótulo da seta = resposta que ativa
 
----
+Toda aresta que entra em uma condicional deve mostrar **qual resposta da pergunta anterior** ativa esse caminho. A lógica já existe parcialmente no `buildGraph` atual (variável `branch.label`), mas vai ser reforçada:
 
-## Arquitetura técnica
+1. Para cada **principal P** com opções (Sim/Não, marcas, etc.):
+   - Para cada opção `o`:
+     - Se existe condicional `C` filha de P cuja `show_if` é satisfeita por `o` → desenhar seta **vertical** de P↓C com label = `o.label` (ex.: "Não").
+     - Senão (resposta pula condicionais) → desenhar seta **horizontal** de P→próxima principal com label = `o.label` (ex.: "Sim → continua").
+2. Para condicional C → próxima principal: seta **horizontal** saindo da direita da última condicional da coluna até a próxima principal, com label da resposta de C que leva ao trilho (se C tiver opções).
+3. Setas entre principais consecutivas sem ramificação ficam **sem label** (fluxo natural).
 
-### 1. Nova rota standalone
-- Adicionar rota `/admin/form-flow/:formId` em `src/App.tsx` apontando para uma nova página `src/pages/SmartOpsFormFlowStandalone.tsx`.
-- A página renderiza apenas:
-  - Cabeçalho mínimo com nome do formulário + badge "🔴 ao vivo".
-  - `<SmartOpsFormFlowPreview formId={formId} />` ocupando `100vh`.
-- Sem `AdminSidebar`, sem `Header` — janela limpa para uso em monitor secundário.
+### Cor/estilo das arestas (mantém atual)
 
-### 2. Botão no editor
-- Em `SmartOpsSdrCaptacaoEditor.tsx`, ao lado de "Pré-visualização do fluxo":
-  ```tsx
-  <Button variant="outline" size="sm" onClick={() => 
-    window.open(`/admin/form-flow/${form.id}`, `flow-${form.id}`,
-      'width=1400,height=900,menubar=no,toolbar=no')
-  }>
-    <ExternalLink className="w-4 h-4 mr-1" /> Abrir em nova janela
-  </Button>
-  ```
-- O nome `flow-${form.id}` faz com que clicar de novo reutilize a janela existente (não abre múltiplas).
+- Verde sólido = caminho ativo identificado por resposta.
+- Cinza tracejada = "pula condicional" (mantém comportamento atual).
+- Label sempre visível com fundo branco para legibilidade.
 
-### 3. Atualização em tempo real (2 camadas, redundantes)
+### Implementação em `src/components/SmartOpsFormFlowPreview.tsx`
 
-**Camada A — Supabase Realtime (fonte da verdade):**
-- Em `SmartOpsFormFlowPreview.tsx`, inscrever no canal Postgres changes da tabela `smartops_form_fields`, filtrado por `form_id=eq.${formId}`.
-- Em qualquer `INSERT`/`UPDATE`/`DELETE`, refazer o `select` e reconstruir o grafo.
-- Requer que a tabela esteja com `REPLICA IDENTITY FULL` e adicionada à publicação `supabase_realtime`. Se ainda não estiver, criar migration:
-  ```sql
-  ALTER TABLE smartops_form_fields REPLICA IDENTITY FULL;
-  ALTER PUBLICATION supabase_realtime ADD TABLE smartops_form_fields;
-  ```
-  (idempotente — checar antes via `pg_publication_tables`).
+1. **Substituir `layout()`** (que usa dagre) por posicionamento manual em grid:
+   - `mains = fields.filter(f => !getShowIf(f))` ordenados por `order_index`.
+   - Cada principal recebe `x = X0 + i*COL_W`, `y = Y0`.
+   - Para cada principal, BFS pelos descendentes condicionais (`childrenOf(parentId)`), empilhando em `y += ROW_H` na mesma coluna.
+   - `EndNode` à direita do último principal.
 
-**Camada B — BroadcastChannel (latência zero entre abas do mesmo navegador):**
-- Após cada save bem-sucedido no editor (`SmartOpsFormEditor` / `SmartOpsMappingFieldsEditor`), emitir:
-  ```ts
-  new BroadcastChannel(`smartops-form-${formId}`).postMessage({ type: 'fields-updated' });
-  ```
-- A janela do fluxo escuta esse canal e dispara um refetch imediato (mesmo antes do realtime do Postgres chegar).
+2. **Adicionar handles Top/Bottom** em `FieldNode` (já tem Left/Right). Em `EndNode` basta Left.
 
-Combinando as duas: instantâneo na mesma máquina (BroadcastChannel) + funciona entre máquinas diferentes (Supabase Realtime).
+3. **Reescrever a seleção de handle por aresta** dentro do `buildGraph`:
+   - Se `target` está na **mesma coluna** que `source` (filho condicional) → `sourceHandle="b"`, `targetHandle="t"` (vertical).
+   - Se `target` está em **coluna à direita** (próxima principal ou End) → `sourceHandle="r"`, `targetHandle="l"` (horizontal).
+   - Resolver coluna do target a partir do mapa `pos` calculado no layout (precisa rodar layout antes de finalizar handles, ou indexar por `mainColumnOf(fieldId)`).
 
-### 4. Indicador visual de "ao vivo"
-- Pequeno badge pulsante verde no canto da janela standalone: "● Conectado · atualiza ao salvar".
-- Se a inscrição realtime falhar, troca para amarelo: "● Polling a cada 5s" (fallback com `setInterval`).
+4. **Garantir labels**: `branch.label` já existe — só reforçar que arestas verticais (P→condicional) sempre carreguem o label da resposta que ativa, e arestas horizontais que representam "pula" carreguem label da resposta + " → segue".
 
----
+### Arquivo a alterar
 
-## Arquivos a alterar/criar
+- `src/components/SmartOpsFormFlowPreview.tsx` — função `layout`, componente `FieldNode` (handles), e a parte de criação de edges em `buildGraph` (sourceHandle/targetHandle + reforço de labels).
 
-| Arquivo | Ação |
-|---|---|
-| `src/pages/SmartOpsFormFlowStandalone.tsx` | **Criar** — página fullscreen |
-| `src/App.tsx` | Adicionar rota `/admin/form-flow/:formId` |
-| `src/components/SmartOpsSdrCaptacaoEditor.tsx` | Adicionar botão "Abrir em nova janela" |
-| `src/components/SmartOpsFormFlowPreview.tsx` | Adicionar realtime subscription + BroadcastChannel listener |
-| `src/components/SmartOpsFormEditor.tsx` | Emitir BroadcastChannel após save |
-| `src/components/SmartOpsMappingFieldsEditor.tsx` | Emitir BroadcastChannel após save |
-| Migration nova | `ALTER PUBLICATION supabase_realtime ADD TABLE smartops_form_fields` (se necessário) |
-
----
-
-## Decisões a confirmar
-
-1. **Acesso à rota standalone**: ela deve exigir login (mesmo guard que `/admin`) ou pode ser pública por `formId` (mais fácil de abrir em outro monitor sem relogar)? Recomendo **exigir login** — mesmo guard do admin.
-2. **Realtime entre máquinas diferentes**: vale a pena habilitar Supabase Realtime na tabela (migration), ou só atualização entre abas do mesmo navegador (BroadcastChannel) já basta para seu caso de uso?
+Nenhum outro arquivo precisa mudar.
