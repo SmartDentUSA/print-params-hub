@@ -1,17 +1,36 @@
-## Objetivo
-No mobile, aumentar a altura/tipografia dos campos do formulário público para melhorar usabilidade no toque. Desktop permanece igual.
+## Diagnóstico
 
-## Alteração
-Arquivo: `src/pages/PublicFormPage.tsx`
+O estilo está salvo no banco para o formulário `forms_bite_splint_flex` (`bg_color`, `theme_mode`, `layout_variant`, fontes, botão etc.). O problema principal está no botão **Copiar HTML embed**: ele gera sempre o mesmo HTML fixo, com CSS estático (`body`, `iframe`) e sem usar as configurações do formulário. Por isso o HTML copiado continua igual mesmo após salvar a aparência.
 
-Adicionar classes responsivas nos campos (linhas 519–579):
+## Plano de correção
 
-- `Input` (text, email, number): adicionar `className="h-12 text-base md:h-10 md:text-sm"`
-- `PhoneInputWithDDI`: passar mesma classe (se aceita) ou envolver com wrapper; vou aplicar via prop `className` se suportada — caso não, deixo o componente como está e padronizo apenas os Inputs nativos.
-- `textarea`: trocar `p-2 text-sm min-h-[100px]` por `p-3 text-base min-h-[140px] md:p-2 md:text-sm md:min-h-[100px]`
-- `select`: trocar `p-2 text-sm` por `h-12 px-3 text-base md:h-10 md:px-2 md:text-sm`
-- `radio`/`checkbox` labels: aumentar área clicável no mobile — `text-base py-2 md:text-sm md:py-0`, e os `<input>` ganham `w-5 h-5 md:w-4 md:h-4`.
-- `Label`: `text-base md:text-sm` (opcional, leve).
+1. **Atualizar o modelo de dados no builder**
+   - Incluir no tipo `SmartOpsForm` os campos de aparência já existentes no banco: `bg_type`, `bg_color`, `bg_color_to`, `bg_gradient_angle`, `bg_image_url`, `bg_overlay_opacity`, `theme_mode`, `layout_variant`, `font_heading`, `font_body`, `button_radius`, `button_shadow`, `extra_sections`, `custom_css`, `updated_at`.
 
-## Não muda
-- Lógica, validação, layout geral, desktop.
+2. **Trocar `copyEmbed(slug, formName)` para receber o formulário completo**
+   - Alterar a chamada do botão para `copyEmbed(form)`.
+   - Assim o gerador terá acesso às configurações salvas daquele formulário específico.
+
+3. **Gerar HTML embed com estilos persistidos**
+   - Inserir no HTML copiado:
+     - background sólido/gradiente/imagem conforme o formulário;
+     - modo claro/escuro;
+     - fontes escolhidas via Google Fonts;
+     - layout variant como classe/data-attribute;
+     - raio/sombra do botão como CSS variables/documentação de estilo;
+     - cache-buster no iframe usando `updated_at` para evitar embed antigo/cacheado.
+   - Manter SEO/GEO e Schema existentes.
+
+4. **Ajustar URL do iframe para forçar atualização quando estilo muda**
+   - Gerar `src=".../f/slug?v=timestamp"`.
+   - Isso resolve o caso comum em que o iframe externo continua mostrando cache antigo.
+
+5. **Verificação**
+   - Comparar o HTML gerado antes/depois no código para confirmar que deixou de ser estático.
+   - Conferir que a página pública já lê os campos do banco e aplica os estilos no runtime.
+
+## Arquivos previstos
+
+- `src/components/SmartOpsFormBuilder.tsx`
+
+Não pretendo mexer no banco nem alterar regras de ingestão de leads.
