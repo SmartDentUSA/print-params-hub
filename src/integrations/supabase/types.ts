@@ -16657,6 +16657,10 @@ export type Database = {
           valor: number
         }[]
       }
+      fn_search_deal_for_training: {
+        Args: { p_deal_id: string }
+        Returns: Json
+      }
       fn_search_deals_by_status:
         | {
             Args: {
