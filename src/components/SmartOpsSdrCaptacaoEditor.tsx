@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Upload, X, ImageIcon, Video } from "lucide-react";
+import { Upload, X, ImageIcon, Video, ExternalLink } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -599,6 +599,22 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           <p className="text-xs text-muted-foreground ml-1">
             Árvore de perguntas e suas regras condicionais (Seções C + D).
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() =>
+              window.open(
+                `/admin/form-flow/${form.id}`,
+                `flow-${form.id}`,
+                "width=1400,height=900,menubar=no,toolbar=no,location=no",
+              )
+            }
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Abrir em nova janela
+          </Button>
         </div>
         <SmartOpsFormFlowPreview formId={form.id} />
       </section>
