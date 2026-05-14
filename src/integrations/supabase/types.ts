@@ -621,8 +621,15 @@ export type Database = {
           id: string
           lead_id: string
           media_url_sent: string | null
+          mensagem_rendered: string | null
           nome: string | null
+          parceiro_id: string | null
           piperun_stage: string | null
+          provider: string | null
+          provider_detail_code: string | null
+          provider_detail_message: string | null
+          provider_message_id: string | null
+          provider_status: string | null
           scheduled_at: string | null
           sellflux_broadcast_id: string | null
           sent_at: string | null
@@ -641,8 +648,15 @@ export type Database = {
           id?: string
           lead_id: string
           media_url_sent?: string | null
+          mensagem_rendered?: string | null
           nome?: string | null
+          parceiro_id?: string | null
           piperun_stage?: string | null
+          provider?: string | null
+          provider_detail_code?: string | null
+          provider_detail_message?: string | null
+          provider_message_id?: string | null
+          provider_status?: string | null
           scheduled_at?: string | null
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
@@ -661,8 +675,15 @@ export type Database = {
           id?: string
           lead_id?: string
           media_url_sent?: string | null
+          mensagem_rendered?: string | null
           nome?: string | null
+          parceiro_id?: string | null
           piperun_stage?: string | null
+          provider?: string | null
+          provider_detail_code?: string | null
+          provider_detail_message?: string | null
+          provider_message_id?: string | null
+          provider_status?: string | null
           scheduled_at?: string | null
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
@@ -873,6 +894,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      campaign_sms_responses: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          data_recebimento: string | null
+          id: string
+          intencao: string | null
+          lead_id: string | null
+          nome: string | null
+          parceiro_id: string | null
+          raw_payload: Json | null
+          resposta: string | null
+          telefone: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          data_recebimento?: string | null
+          id?: string
+          intencao?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          parceiro_id?: string | null
+          raw_payload?: Json | null
+          resposta?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          data_recebimento?: string | null
+          id?: string
+          intencao?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          parceiro_id?: string | null
+          raw_payload?: Json | null
+          resposta?: string | null
+          telefone?: string | null
+        }
+        Relationships: []
       }
       campaigns: {
         Row: {
@@ -6190,6 +6253,8 @@ export type Database = {
           sdr_usa_resina_smartdent: boolean | null
           sellflux_custom_fields: Json | null
           sellflux_synced_at: string | null
+          sms_opt_out: boolean | null
+          sms_opt_out_at: string | null
           software_cad: string | null
           source: string
           source_reference: string | null
@@ -6705,6 +6770,8 @@ export type Database = {
           sdr_usa_resina_smartdent?: boolean | null
           sellflux_custom_fields?: Json | null
           sellflux_synced_at?: string | null
+          sms_opt_out?: boolean | null
+          sms_opt_out_at?: string | null
           software_cad?: string | null
           source?: string
           source_reference?: string | null
@@ -7220,6 +7287,8 @@ export type Database = {
           sdr_usa_resina_smartdent?: boolean | null
           sellflux_custom_fields?: Json | null
           sellflux_synced_at?: string | null
+          sms_opt_out?: boolean | null
+          sms_opt_out_at?: string | null
           software_cad?: string | null
           source?: string
           source_reference?: string | null
@@ -17140,6 +17209,8 @@ export type Database = {
           sdr_usa_resina_smartdent: boolean | null
           sellflux_custom_fields: Json | null
           sellflux_synced_at: string | null
+          sms_opt_out: boolean | null
+          sms_opt_out_at: string | null
           software_cad: string | null
           source: string
           source_reference: string | null
