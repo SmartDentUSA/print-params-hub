@@ -751,6 +751,61 @@ export default function PublicFormPage() {
         </div>
       </div>
 
+      {/* Seções extras (landing page) */}
+      {Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
+        <div className="w-full max-w-5xl mt-12 space-y-12">
+          {(form as any).extra_sections.map((sec: any, idx: number) => {
+            if (!sec || !sec.type) return null;
+            return (
+              <section key={idx} className="space-y-4">
+                {sec.title && <h2 className="text-2xl font-bold text-center">{sec.title}</h2>}
+                {sec.type === "testimonials" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <div key={i} className="rounded-lg border p-4 space-y-2 bg-card">
+                        <p className="text-sm italic">"{it.quote}"</p>
+                        <div className="text-xs">
+                          <p className="font-semibold">{it.name}</p>
+                          {it.role && <p className="text-muted-foreground">{it.role}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "features" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <div key={i} className="rounded-lg border p-4 space-y-2 bg-card">
+                        <div className="text-2xl">{it.icon || "✨"}</div>
+                        <h3 className="font-semibold">{it.title}</h3>
+                        <p className="text-sm text-muted-foreground">{it.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "faq" && (
+                  <div className="space-y-2 max-w-3xl mx-auto">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      <details key={i} className="rounded-lg border p-3 bg-card">
+                        <summary className="font-medium cursor-pointer">{it.q}</summary>
+                        <p className="text-sm text-muted-foreground mt-2">{it.a}</p>
+                      </details>
+                    ))}
+                  </div>
+                )}
+                {sec.type === "logos" && (
+                  <div className="flex flex-wrap items-center justify-center gap-6 opacity-80">
+                    {(sec.items || []).map((it: any, i: number) => (
+                      it.src ? <img key={i} src={it.src} alt={it.alt || ""} className="h-10 object-contain" loading="lazy" /> : null
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
+
       {/* Footer — dados da empresa */}
       <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-2">
         {company?.business?.legal_name && (
