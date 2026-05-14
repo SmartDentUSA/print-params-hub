@@ -1,19 +1,17 @@
-## Esconder contador "Pergunta X de Y · NN%" no formulário público
+## Objetivo
+No mobile, aumentar a altura/tipografia dos campos do formulário público para melhorar usabilidade no toque. Desktop permanece igual.
 
-No arquivo `src/pages/PublicFormPage.tsx`, linhas 505-509 atualmente renderizam:
+## Alteração
+Arquivo: `src/pages/PublicFormPage.tsx`
 
-```tsx
-<div className="flex justify-between text-xs ...">
-  <span>Pergunta {safeStep+1} de {totalSteps}</span>
-  <span>{Math.round(...)}%</span>
-</div>
-<div className="h-2 ..."> <div style={{ width: ... }} /> </div>
-```
+Adicionar classes responsivas nos campos (linhas 519–579):
 
-### Mudança
-Remover o bloco `<div>` com os dois `<span>` (linhas ~506-509), mantendo apenas a barra colorida (linhas 510-514). O lead deixa de saber quantas perguntas faltam, evitando desistência.
+- `Input` (text, email, number): adicionar `className="h-12 text-base md:h-10 md:text-sm"`
+- `PhoneInputWithDDI`: passar mesma classe (se aceita) ou envolver com wrapper; vou aplicar via prop `className` se suportada — caso não, deixo o componente como está e padronizo apenas os Inputs nativos.
+- `textarea`: trocar `p-2 text-sm min-h-[100px]` por `p-3 text-base min-h-[140px] md:p-2 md:text-sm md:min-h-[100px]`
+- `select`: trocar `p-2 text-sm` por `h-12 px-3 text-base md:h-10 md:px-2 md:text-sm`
+- `radio`/`checkbox` labels: aumentar área clicável no mobile — `text-base py-2 md:text-sm md:py-0`, e os `<input>` ganham `w-5 h-5 md:w-4 md:h-4`.
+- `Label`: `text-base md:text-sm` (opcional, leve).
 
-### Arquivo
-- `src/pages/PublicFormPage.tsx` — única alteração.
-
-Sem impacto em lógica de avanço, validação ou estado.
+## Não muda
+- Lógica, validação, layout geral, desktop.
