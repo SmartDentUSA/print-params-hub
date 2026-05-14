@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -758,6 +758,7 @@ function InscricoesTab() {
   const [editRow, setEditRow] = useState<any>(null);
   const [deleteRow, setDeleteRow] = useState<any>(null);
   const [certLoadingId, setCertLoadingId] = useState<string | null>(null);
+  const [certCompanionLoadingId, setCertCompanionLoadingId] = useState<string | null>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["smartops_courses_list"],
@@ -782,7 +783,7 @@ function InscricoesTab() {
            turma_id, certificate_pdf_path, certificate_generated_at,
            course:smartops_courses(title, modality, instructor_name),
            turma:smartops_course_turmas(label),
-           companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao)`,
+           companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao, certificate_pdf_path, certificate_generated_at)`,
           { count: "exact" }
         )
         .order("enrolled_at", { ascending: false });
@@ -882,6 +883,69 @@ function InscricoesTab() {
     }
   };
 
+  const handleGenerateCompanionCertificate = async (enrollment: any, companion: any) => {
+    if (!enrollment.turma_id) {
+      toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
+      return;
+    }
+    setCertCompanionLoadingId(companion.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-certificate', {
+        body: {
+          turma_id: enrollment.turma_id,
+          enrollment_ids: [enrollment.id],
+          include_companions: true,
+          regenerate: false,
+        },
+      });
+      if (error) throw error;
+
+      const certs = (data as any)?.certificates ?? [];
+      const errs = (data as any)?.errors ?? [];
+      const cert = certs.find((c: any) => c.type === 'companion' && c.id === companion.id);
+      const failed = errs.find((e: any) => e.type === 'companion' && e.id === companion.id);
+      if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
+      if (!cert?.signed_url) throw new Error('PDF do acompanhante não retornado pela função');
+
+      const url: string = cert.signed_url;
+      let opened = false;
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        opened = true;
+      } catch {
+        opened = false;
+      }
+      if (!opened) {
+        const w = window.open(url, '_blank', 'noopener,noreferrer');
+        opened = !!w;
+      }
+      try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
+
+      toast({
+        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado pronto',
+        description: opened
+          ? `${cert.person_name} — link copiado para a área de transferência.`
+          : `${cert.person_name} — popup bloqueado. Link copiado para a área de transferência, cole na barra de endereços.`,
+      });
+
+      qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao gerar certificado',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setCertCompanionLoadingId(null);
+    }
+  };
+
   const exportCSV = () => {
     if (!rows.length) return;
     const headers = ["Nome", "Curso", "Turma", "Deal", "Status", "Data Inscrição", "WA"];
@@ -952,7 +1016,8 @@ function InscricoesTab() {
                 const st = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
                 const startDate = r.turma_snapshot?.days?.[0]?.date;
                 return (
-                  <TableRow key={r.id}>
+                  <React.Fragment key={r.id}>
+                  <TableRow>
                     <TableCell>
                       <div className="font-medium">{r.person_name}</div>
                       {r.deal_id && <div className="text-xs text-muted-foreground">Deal {r.deal_id}</div>}
@@ -990,6 +1055,45 @@ function InscricoesTab() {
                       </div>
                     </TableCell>
                   </TableRow>
+                  {r.companions?.length > 0 && (
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={7} className="py-2">
+                        <div className="pl-8 space-y-1">
+                          <div className="text-xs text-muted-foreground mb-1">Acompanhantes:</div>
+                          {r.companions.map((c: any) => (
+                            <div key={c.id} className="flex items-center gap-2 text-sm">
+                              <span className="flex-1">
+                                {c.name}
+                                {c.especialidade && <span className="text-muted-foreground"> · {c.especialidade}</span>}
+                              </span>
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={certCompanionLoadingId === c.id}
+                                      onClick={() => handleGenerateCompanionCertificate(r, c)}
+                                    >
+                                      {certCompanionLoadingId === c.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <Award className={`w-3.5 h-3.5 ${c.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {c.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 );
               })}
               {rows.length === 0 && (
