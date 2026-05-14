@@ -486,8 +486,28 @@ export default function PublicFormPage() {
 
         {/* Right column — form fields */}
         <div>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {fields.map((field) => (
+          <form
+            onSubmit={(e) => {
+              if (isStepMode && !isLastStep) { e.preventDefault(); goNext(); return; }
+              handleSubmit(e);
+            }}
+            className="space-y-5"
+          >
+            {isStepMode && form.show_progress !== false && totalSteps > 0 && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Pergunta {Math.min(currentStep + 1, totalSteps)} de {totalSteps}</span>
+                  <span>{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{ width: `${((currentStep + 1) / totalSteps) * 100}%`, backgroundColor: 'var(--brand)' }}
+                  />
+                </div>
+              </div>
+            )}
+            {visibleFields.map((field) => (
               <div key={field.id} className="space-y-1.5">
                 <Label>
                   {field.label}
@@ -626,14 +646,38 @@ export default function PublicFormPage() {
               <p className="text-sm text-destructive">{inlineError}</p>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={submitting}
-              style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
-            >
-              {submitting ? "Enviando..." : (form.cta_text || "Enviar")}
-            </Button>
+            {isStepMode ? (
+              <div className="flex gap-2">
+                {currentStep > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={goBack}
+                    disabled={submitting}
+                  >
+                    Voltar
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={submitting}
+                  style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
+                >
+                  {submitting ? "Enviando..." : (isLastStep ? (form.cta_text || "Enviar") : "Próximo")}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting}
+                style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
+              >
+                {submitting ? "Enviando..." : (form.cta_text || "Enviar")}
+              </Button>
+            )}
             {form.trust_text && (
               <p className="text-xs text-center text-muted-foreground pt-1">{form.trust_text}</p>
             )}
