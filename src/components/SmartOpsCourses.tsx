@@ -883,6 +883,69 @@ function InscricoesTab() {
     }
   };
 
+  const handleGenerateCompanionCertificate = async (enrollment: any, companion: any) => {
+    if (!enrollment.turma_id) {
+      toast({ title: "Erro", description: "Inscrição sem turma_id", variant: "destructive" });
+      return;
+    }
+    setCertCompanionLoadingId(companion.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-certificate', {
+        body: {
+          turma_id: enrollment.turma_id,
+          enrollment_ids: [enrollment.id],
+          include_companions: true,
+          regenerate: false,
+        },
+      });
+      if (error) throw error;
+
+      const certs = (data as any)?.certificates ?? [];
+      const errs = (data as any)?.errors ?? [];
+      const cert = certs.find((c: any) => c.type === 'companion' && c.id === companion.id);
+      const failed = errs.find((e: any) => e.type === 'companion' && e.id === companion.id);
+      if (failed) throw new Error(failed.error || 'Falha ao gerar certificado');
+      if (!cert?.signed_url) throw new Error('PDF do acompanhante não retornado pela função');
+
+      const url: string = cert.signed_url;
+      let opened = false;
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        opened = true;
+      } catch {
+        opened = false;
+      }
+      if (!opened) {
+        const w = window.open(url, '_blank', 'noopener,noreferrer');
+        opened = !!w;
+      }
+      try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
+
+      toast({
+        title: cert.status === 'generated' ? 'Certificado gerado' : 'Certificado pronto',
+        description: opened
+          ? `${cert.person_name} — link copiado para a área de transferência.`
+          : `${cert.person_name} — popup bloqueado. Link copiado para a área de transferência, cole na barra de endereços.`,
+      });
+
+      qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao gerar certificado',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setCertCompanionLoadingId(null);
+    }
+  };
+
   const exportCSV = () => {
     if (!rows.length) return;
     const headers = ["Nome", "Curso", "Turma", "Deal", "Status", "Data Inscrição", "WA"];
