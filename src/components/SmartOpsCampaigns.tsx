@@ -355,6 +355,13 @@ function CreateCampaign({
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
+  // Saved segments
+  const [savedSegments, setSavedSegments] = useState<SavedSegment[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string>("none");
+  const [segmentName, setSegmentName] = useState("");
+  const [savingSegment, setSavingSegment] = useState(false);
+  const [refreshingSegment, setRefreshingSegment] = useState(false);
+
   // SMS (DisparoPro)
   const [smsMessage, setSmsMessage] = useState("");
   const [smsCodificacao, setSmsCodificacao] = useState<"0" | "8">("0");
