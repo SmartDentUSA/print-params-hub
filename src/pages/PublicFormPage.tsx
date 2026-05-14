@@ -522,6 +522,7 @@ export default function PublicFormPage() {
                     value={values[field.id] || ""}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     required={field.required}
+                    className="h-12 text-base md:h-10 md:text-sm"
                   />
                 )}
 
@@ -532,6 +533,7 @@ export default function PublicFormPage() {
                     value={values[field.id] || ""}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     required={field.required}
+                    className="h-12 text-base md:h-10 md:text-sm"
                   />
                 )}
 
@@ -551,12 +553,13 @@ export default function PublicFormPage() {
                     value={values[field.id] || ""}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     required={field.required}
+                    className="h-12 text-base md:h-10 md:text-sm"
                   />
                 )}
 
                 {field.field_type === "textarea" && (
                   <textarea
-                    className="w-full border rounded-md p-2 text-sm min-h-[100px] bg-background border-input"
+                    className="w-full border rounded-md p-3 text-base min-h-[140px] bg-background border-input md:p-2 md:text-sm md:min-h-[100px]"
                     placeholder={field.placeholder || ""}
                     value={values[field.id] || ""}
                     onChange={(e) => handleChange(field.id, e.target.value)}
@@ -566,7 +569,7 @@ export default function PublicFormPage() {
 
                 {field.field_type === "select" && (
                   <select
-                    className="w-full border rounded-md p-2 text-sm bg-background border-input"
+                    className="w-full border rounded-md h-12 px-3 text-base bg-background border-input md:h-10 md:px-2 md:text-sm"
                     value={values[field.id] || ""}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     required={field.required}
@@ -581,7 +584,7 @@ export default function PublicFormPage() {
                 {field.field_type === "radio" && (
                   <div className="space-y-2">
                     {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                      <label key={opt} className="flex items-center gap-2 text-sm">
+                      <label key={opt} className="flex items-center gap-3 text-base py-1.5 md:gap-2 md:text-sm md:py-0">
                         <input
                           type="radio"
                           name={`field-${field.id}`}
@@ -589,6 +592,7 @@ export default function PublicFormPage() {
                           checked={values[field.id] === opt}
                           onChange={() => handleChange(field.id, opt)}
                           required={field.required && !values[field.id]}
+                          className="w-5 h-5 md:w-4 md:h-4"
                         />
                         {opt}
                       </label>
@@ -599,7 +603,7 @@ export default function PublicFormPage() {
                 {field.field_type === "checkbox" && (
                   <div className="space-y-2">
                     {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                      <label key={opt} className="flex items-center gap-2 text-sm">
+                      <label key={opt} className="flex items-center gap-3 text-base py-1.5 md:gap-2 md:text-sm md:py-0">
                         <input
                           type="checkbox"
                           checked={(values[field.id] || []).includes(opt)}
@@ -610,6 +614,7 @@ export default function PublicFormPage() {
                               e.target.checked ? [...current, opt] : current.filter((v: string) => v !== opt)
                             );
                           }}
+                          className="w-5 h-5 md:w-4 md:h-4"
                         />
                         {opt}
                       </label>
