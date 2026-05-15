@@ -1063,6 +1063,11 @@ function InscricoesTab() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        <ComprovanteImersaoButton
+                          enrollmentId={r.id}
+                          personName={r.person_name}
+                          turmaLabel={r.turma?.label}
+                        />
                         <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     </TableCell>
@@ -1099,6 +1104,12 @@ function InscricoesTab() {
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
+                              <ComprovanteImersaoButton
+                                enrollmentId={r.id}
+                                companionId={c.id}
+                                personName={c.name}
+                                turmaLabel={r.turma?.label}
+                              />
                             </div>
                           ))}
                         </div>
