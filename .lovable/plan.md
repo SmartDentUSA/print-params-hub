@@ -1,22 +1,54 @@
-## Contexto
+## Diagnóstico do problema
 
-Pesquisei o catálogo de cursos (`src/components/SmartOpsCourses.tsx`). Há **um único botão "Editar" por curso** (linha 434, no header do `CourseCard`), e a tabela de turmas (linhas 444-479) hoje não tem botão de Editar nem coluna de ações por turma — só mostra Data / Horário / Inscritos / Vagas.
+Desempacotei o `imersao_BLZ_INO200.docx` e o `word/document.xml` tem um **mismatch entre `<w:tblGrid>` e as células** — esse é o motivo do layout quebrado:
 
-Como o pedido é "ao lado do botão Editar **em cada turma**" e tecnicamente esse botão por turma não existe, vou seguir a intenção (1 botão `Gerar Doc` **por turma**, já que a Edge Function recebe `turma_id`) e adicionar uma nova coluna **"Ações"** ao final da tabela de turmas.
+```text
+<w:tblGrid>: 3 colunas (1900 + 3946 + 3946 = 9792)
 
-## Mudanças
+Linha header (banda azul):
+  <w:tc gridSpan="2" w:w="9792">  ← ERRADO
+  Diz que ocupa 2 colunas mas tem largura total da tabela (9792)
+  Deveria ser gridSpan="3"
 
-### 1. Criar `src/components/GerarDocButton.tsx`
-Conteúdo exatamente como você forneceu — chama `smartops-gerar-doc-turma?turma_id=...` com o JWT do usuário, baixa `.docx`, mostra toast.
+Linhas de dados (Contrato/Equipamento/Insumos):
+  <w:tc w:w="1900">  +  <w:tc w:w="7892">  ← ERRADO
+  Segunda célula tem 7892 mas não tem gridSpan
+  Deveria ter gridSpan="2" (3946+3946=7892)
+```
 
-### 2. Editar `src/components/SmartOpsCourses.tsx`
-- Importar `GerarDocButton`.
-- Na tabela de turmas (linhas 444-479):
-  - Adicionar `<th className="text-right py-1.5 font-medium">Ações</th>` ao `<thead>`.
-  - Adicionar `<td className="py-1.5 text-right">` com `<GerarDocButton turmaId={t.id} turmaLabel={t.label || t.start_date} />` em cada linha.
+Word/Google Docs vê 2 células onde o grid promete 3 → recalcula larguras na marra → colunas estouram, células deslocadas, bordas mal alinhadas. É exatamente o sintoma de "layout quebrado".
 
-Nada mais é alterado — filtros, ordenação, lógica de inscrições e o botão "Editar" do curso permanecem intactos.
+## Bloqueio: o código gerador não está neste repositório
 
-## Confirmação necessária
+A edge function `smartops-gerar-doc-turma` **está deployada** em `okeogjgqijbfkudfjadz` (responde 401 sem auth), mas não existe em `supabase/functions/` deste projeto Lovable. Os 3 projetos Lovable acessíveis (landing-craftsman-76, dental-cad-form-submit, schedule-sync-smart-meet) também não parecem ter esse código.
 
-Se você na verdade queria o botão **no header do curso, ao lado do "Editar" do curso** (e não por turma), me avise — nesse caso ele não receberia `turma_id` e precisaríamos decidir qual turma usar. Confirmando a abordagem por turma, eu implemento.
+## O que preciso de você
+
+Antes de eu corrigir, me diga **onde mora o código fonte do `smartops-gerar-doc-turma`**:
+
+1. Foi deployado manualmente no Supabase via CLI/dashboard a partir de outro repo (System A)?
+2. Está em outro projeto Lovable que não está na minha lista?
+3. Quer que eu **recrie a função aqui** em `supabase/functions/smartops-gerar-doc-turma/` (e nesse caso vai sobrescrever a versão atual no deploy)?
+
+## Correção (quando eu tiver acesso ao código)
+
+Duas opções, em ordem de preferência:
+
+- **Opção A (recomendada): simplificar o grid pra 2 colunas reais.**
+  Em vez de declarar 3 colunas no `tblGrid` e depois fazer ginástica com `gridSpan`:
+  ```
+  <w:tblGrid>
+    <w:gridCol w:w="1900"/>
+    <w:gridCol w:w="7892"/>
+  </w:tblGrid>
+  ```
+  Header vira `gridSpan="2"` (correto: 2 de 2 colunas).
+  Linhas de dados ficam naturais sem gridSpan.
+
+- **Opção B: manter 3 colunas no grid e arrumar os spans.**
+  Header: `gridSpan="3"`.
+  Linhas de dados: segunda célula com `gridSpan="2"`.
+
+A opção A é mais limpa e menos suscetível a regressão.
+
+Me confirma onde está o código (ou autoriza recriar aqui) e eu aplico o fix.
