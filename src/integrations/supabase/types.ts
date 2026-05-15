@@ -10704,6 +10704,7 @@ export type Database = {
           lead_id: string | null
           notes: string | null
           numero_contrato: string | null
+          numero_nf: string | null
           numero_proposta: string | null
           person_name: string | null
           person_piperun_id: string | null
@@ -10746,6 +10747,7 @@ export type Database = {
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
+          numero_nf?: string | null
           numero_proposta?: string | null
           person_name?: string | null
           person_piperun_id?: string | null
@@ -10788,6 +10790,7 @@ export type Database = {
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
+          numero_nf?: string | null
           numero_proposta?: string | null
           person_name?: string | null
           person_piperun_id?: string | null
