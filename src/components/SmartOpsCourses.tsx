@@ -25,6 +25,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
+import { GerarDocButton } from "@/components/GerarDocButton";
 import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/courses";
 import { MODALITY_CONFIG, STATUS_CONFIG, formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { CourseCreateModal } from "./smartops/CourseCreateModal";
@@ -447,7 +448,8 @@ function CatalogoTab() {
                             <th className="text-left py-1.5 pr-4 font-medium">Turma / Data</th>
                             <th className="text-left py-1.5 pr-4 font-medium">Horário</th>
                             <th className="text-right py-1.5 pr-4 font-medium">Inscritos</th>
-                            <th className="text-right py-1.5 font-medium">Vagas</th>
+                            <th className="text-right py-1.5 pr-4 font-medium">Vagas</th>
+                            <th className="text-right py-1.5 font-medium">Ações</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -465,13 +467,16 @@ function CatalogoTab() {
                                 {t.start_time?.substring(0, 5)}–{t.end_time?.substring(0, 5)}
                               </td>
                               <td className="py-1.5 pr-4 text-right">{t.enrolled_count}</td>
-                              <td className="py-1.5 text-right">
+                              <td className="py-1.5 pr-4 text-right">
                                 <span className={
                                   t.vagas_disponiveis === 0 ? 'text-red-500 font-medium' :
                                   t.vagas_disponiveis <= 3 ? 'text-amber-500' : 'text-muted-foreground'
                                 }>
                                   {t.vagas_disponiveis === 0 ? 'Lotado' : `${t.vagas_disponiveis} restantes`}
                                 </span>
+                              </td>
+                              <td className="py-1.5 text-right">
+                                <GerarDocButton turmaId={t.id} turmaLabel={t.label || t.start_date} />
                               </td>
                             </tr>
                           ))}
