@@ -26,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
+import { ComprovanteImersaoButton } from "@/components/ComprovanteImersaoButton";
 import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/courses";
 import { MODALITY_CONFIG, STATUS_CONFIG, formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { CourseCreateModal } from "./smartops/CourseCreateModal";
