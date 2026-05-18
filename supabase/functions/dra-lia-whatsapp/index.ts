@@ -443,15 +443,18 @@ Deno.serve(async (req) => {
 
     // 2b. Pre-seed agent_sessions ONLY for real leads with real email (parity with site recognition).
     // Includes topic_context so dra-lia uses the same route as the site (commercial/support/parameters).
-    const isRealLead = !!(leadId && leadEmail && !/@whatsapp\.lead$/i.test(leadEmail));
-    if (isRealLead) {
+    // Any matched lead pre-seeds identity so the qualification interceptor does not re-ask name/email.
+    const hasRealEmail = !!(leadEmail && !/@whatsapp\.lead$/i.test(leadEmail));
+    if (leadId) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
         current_state: "chatting",
         extracted_entities: {
           lead_id: leadId,
           lead_name: leadNome || `WhatsApp ${phoneDigits.slice(-4)}`,
-          lead_email: leadEmail,
+          lead_email: hasRealEmail ? leadEmail : `wa_${phoneDigits}@whatsapp.lead`,
+          identity_known: true,
+          wa_phone: phoneDigits,
           topic_context: topicContext,
         },
         last_activity_at: new Date().toISOString(),
@@ -460,7 +463,7 @@ Deno.serve(async (req) => {
       if (sessErr) {
         console.warn("[dra-lia-wa] Failed to upsert agent_sessions:", sessErr.message);
       } else {
-        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} (lead ${leadId}, topic=${topicContext})`);
+        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} (lead ${leadId}, realEmail=${hasRealEmail}, topic=${topicContext})`);
       }
     } else {
       // Unknown / placeholder — store topic_context + phone so qualification persists across turns
@@ -473,6 +476,18 @@ Deno.serve(async (req) => {
         },
         last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" }).then(({ error: e }) => { if (e) console.warn("[wa] session upsert error:", e.message); });
+    }
+
+    // Persist LID → phone mapping (and lead) for next webhooks
+    if (lidId && lidId !== phoneDigits) {
+      await supabase.from("wa_lid_phone_map").upsert({
+        lid_id: lidId,
+        phone_digits: phoneDigits,
+        lead_id: leadId,
+        last_seen_at: new Date().toISOString(),
+      }, { onConflict: "lid_id" }).then(({ error }) => {
+        if (error) console.warn("[dra-lia-wa] wa_lid_phone_map upsert error:", error.message);
+      });
     }
 
     // 3. If image present, download and base64-encode for dra-lia visual classifier (parity with site)
