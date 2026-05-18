@@ -25,6 +25,14 @@ const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
+// Ajuste 4: tunable history window for DeepSeek/Gemini prompt assembly.
+// Default 15 keeps latency low for long-running leads. Override via env var.
+const HISTORY_WINDOW = (() => {
+  const raw = Deno.env.get("DRA_LIA_HISTORY_WINDOW");
+  const n = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 15;
+})();
+
 // ── Fetch company context from external knowledge-base (ai_training format, live data) ──
 // Timeout: 3s. Falls back to hardcoded values if fetch fails — zero risk to main flow.
 async function fetchCompanyContext(): Promise<string> {
