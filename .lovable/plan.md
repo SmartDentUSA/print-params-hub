@@ -1,71 +1,82 @@
-## Objetivo
-Fazer o WhatsApp (Evolution) ter exatamente o mesmo protocolo de atendimento da Dra. LIA no site: mesma qualificação, mesmas rotas (commercial/support/parameters), mesma análise de imagem, mesmos guards.
+## Diagnóstico (dados reais das últimas 6h)
 
-## Diagnóstico (resumo)
-Hoje o WhatsApp chama `dra-lia` via `dra-lia-whatsapp`, mas:
-1. `topic_context` é sempre `null` → nunca dispara fluxo comercial (SPIN), suporte estruturado, nem rota de parâmetros.
-2. Imagens vão por **outra função** (`smart-ops-wa-inbox-webhook`) com `topic_context: "support"` fixo, e não passam pelo classificador visual do site.
-3. Existem **duas funções** recebendo o mesmo webhook Evolution com responsabilidades sobrepostas (drift garantido).
-4. Pre-seed de identidade + placeholder lead `wa_*@whatsapp.lead` bypassam a qualificação progressiva do site.
-5. Resposta truncada em 4000 chars sem fallback "ver no site".
+Olhando `agent_interactions` filtrado por `session_id LIKE 'wa_%'`:
 
-## Mudanças
+### Bug 1 — `@lid` não resolvido vira session_id "fantasma"
+Sessões com 14-15 dígitos (não são telefones BR válidos):
+- `wa_85427386060951`, `wa_217643424423953`, `wa_270900884713608`, `wa_98908885786860`, `wa_252982331457641`, `wa_146613104304265`...
 
-### 1. Consolidar em uma única função `dra-lia-whatsapp`
-- Mover a lógica de **intent classification** + **hot lead alert** + **inbox logging** de `smart-ops-wa-inbox-webhook` para dentro de `dra-lia-whatsapp`.
-- Apontar o webhook da Evolution para `dra-lia-whatsapp` apenas.
-- Deprecar `smart-ops-wa-inbox-webhook` (manter um stub que faz forward para a nova função até o webhook ser repontado, depois remover).
+Esses são **WhatsApp LIDs** (IDs internos). O código tenta resolver `@lid → senderPn`, mas quando o Evolution não envia `senderPn`/`participant`, cai no fallback e usa o próprio LID como telefone. Consequência:
 
-### 2. Derivar `topic_context` dinamicamente
-Antes de chamar `dra-lia`, computar `topic_context` na seguinte ordem:
-- Se mensagem tem imagem → roteamento idêntico ao site (não fixar "support").
-- Se intent classificado for `interesse_imediato`, `interesse_futuro`, `objecao`, `pedido_info` → `topic_context = "commercial"`.
-- Se intent for `suporte` ou regex `isSupportQuestion` casar → `topic_context = "support"`.
-- Se mensagem casar regex de parâmetros (impressora/resina/modelo) → `topic_context = "parameters"`.
-- Caso contrário → `null` (comportamento atual).
-- Persistir `topic_context` em `agent_sessions.extracted_entities.topic_context` para continuidade entre turnos.
+- O mesmo contato gera **múltiplos `session_id`** (um por LID/dispositivo + um com telefone real).
+- Cada nova sessão tem histórico vazio → LIA **reinicia a qualificação a cada turno** ("informe seu e-mail", "qual sua área?", etc.).
+- Exemplo: `wa_98908885786860` (82 turnos) e `wa_270900884713608` (32 turnos) são claramente a mesma conversa (Henrique / Elegoo Mars 5 Ultra) dividida.
 
-### 3. Imagens com mesmo protocolo do site
-- Em `dra-lia-whatsapp`, quando o payload Evolution trouxer mídia tipo imagem:
-  - Baixar a imagem, converter para base64.
-  - Chamar `dra-lia` passando `image_data: { base64, mime_type }` (mesmo formato do site) **sem** forçar `topic_context: "support"` — deixar o classificador visual (Gemini Flash Lite) decidir.
-- Remover a rota de imagem do inbox-webhook (vai junto com a consolidação do item 1).
+### Bug 2 — LIA conversa consigo mesma (eco)
+Em `wa_98908885786860` aparecem como `user_message`:
+- `"Encontrei a Elegoo Mars 5 Ultra! Qual resina você vai usar?"`
+- `"Me diga o nome da resina e verifico os parâmetros para você 😊"`
+- `"Mas não se preocupe! Nossa equipe de especialistas técnicos pode resolver isso agora mesmo para você"`
 
-### 4. Qualificação progressiva também no WhatsApp
-- Remover o pre-seed agressivo que pula coleta de email para qualquer lead conhecido por telefone.
-- Manter pre-seed apenas quando o lead tem **nome real + email real + telefone real** (não placeholder `@whatsapp.lead`).
-- Para lead novo (sem match): **não criar placeholder** imediatamente. Deixar `dra-lia` rodar o fluxo de qualificação (nome → email → telefone → área → especialidade) e só criar o `lia_attendances` quando os campos mínimos estiverem presentes (respeitando `validateLeadIdentity`).
-- `session_id = wa_<digits>` continua igual; o lead é vinculado depois via merge engine.
+São respostas **da própria LIA** voltando como inbound. O guard `shouldIgnore` só checa `fromMe`/`isGroup`. Quando outro canal (SDR humano, automação Sellflux) envia mensagem pelo mesmo número, o webhook trata como inbound do lead. Resultado: LIA responde à própria fala e o usuário vê o bot "avançando sozinho" (`"Está avançando sem eu ter respondido"` — reclamação literal em `wa_36099401461830`).
 
-### 5. Encurtamento inteligente da resposta
-- Manter `stripMarkdownForWhatsApp` (necessário para WhatsApp não renderizar markdown).
-- Se resposta > 4000 chars: cortar no último parágrafo completo + fallback "📖 Resposta completa: {URL do artigo RAG mais relevante}" usando o primeiro link do contexto RAG retornado.
-- Se não houver link RAG, fallback genérico para `parametros.smartdent.com.br`.
+### Bug 3 — Pré-seed da sessão não bloqueia o `needs_email_first`
+Mesmo após upsert de `agent_sessions` com `lead_email`, o interceptor `lead_collection:needs_email_first` em `dra-lia` segue disparando ("Para que eu possa te reconhecer, informe seu e-mail" — visto em `wa_217643424423953` e `wa_252982331457641`). O interceptor lê `lia_attendances` por outro critério (não a sessão), e o pré-seed só ocorre quando `isRealLead = true` — mas a maioria dos casos chega via LID/placeholder e cai no else.
 
-### 6. Repasse de contexto comercial/SPIN
-- Quando `topic_context = "commercial"`, garantir que o histórico (`agent_interactions`) é repassado igual ao site, para que o SPIN avance entre turnos.
-- Persistir `spin_progress` em `agent_sessions.extracted_entities` (já é feito pelo `dra-lia`, só precisa garantir que o `session_id` é estável).
+### Bug 4 — Histórico fica preso a `session_id` instável
+`history` é buscado por `eq("session_id", sessionId)`. Como o `sessionId` muda quando o LID muda, o histórico é sempre vazio para esses casos, mesmo quando o `lead_id` é o mesmo (e tem 50+ turnos no outro session_id).
 
-### 7. Atualizar memory
-- `mem://dra-lia/whatsapp-session-and-identity-v3` → bump v4 documentando: (a) `topic_context` derivado dinamicamente, (b) imagens com classificador visual, (c) qualificação progressiva mantida.
-- Nova memória `mem://dra-lia/whatsapp-protocol-parity-v1` consolidando "WhatsApp = Site" como regra.
+---
 
-## Detalhes técnicos (resumo de código)
+## Plano
 
-**Arquivos a alterar:**
-- `supabase/functions/dra-lia-whatsapp/index.ts` — absorve classificação de intent, derivação de `topic_context`, processamento de imagem, ajuste do pre-seed.
-- `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` — vira um forward 1:1 para `dra-lia-whatsapp` (para não quebrar webhooks já apontados); marcado como deprecated.
-- `supabase/functions/_shared/lia-guards.ts` — reuso de `isSupportQuestion`, novo helper `deriveTopicContext(message, intent)` exportado.
+### 1. Resolver `@lid` de forma robusta antes de derivar `sessionId`
+Em `extractFields`:
+- Expandir busca de telefone real: `body.data.key.senderPn`, `body.data.key.participantPn`, `body.contextInfo.participant`, `body.message.contextInfo.participant`, `body.pushName_phone`, `body.contact.wa_id`.
+- Se ainda assim não resolver, **NÃO** usar o LID como telefone. Em vez disso, consultar `lia_attendances` por `lid_id` (novo campo opcional em `extracted_entities` ou tabela de mapping `wa_lid_phone_map`) ou ignorar o webhook (`status: 200, reason: "unresolved_lid"`) e logar para investigação.
+- Persistir o mapeamento `lid → phone` em `wa_lid_phone_map` (cria tabela simples) sempre que conseguir resolver, para os próximos webhooks usarem direto.
 
-**Sem alteração de schema** (`agent_sessions`, `lia_attendances`, `whatsapp_inbox` já têm os campos necessários).
+### 2. Session ID estável baseado no lead, não no LID
+- Se conseguir resolver o telefone real → `sessionId = wa_<phoneDigits>` (igual hoje).
+- Se houver `leadId` (match por telefone OU por LID mapeado) → `sessionId = lead_<leadId>` como override, garantindo que histórico do mesmo lead sempre seja recuperado independentemente do canal.
+- Migração suave: ao processar um webhook, se o telefone real for resolvido e existir `agent_interactions` antigo com `session_id = wa_<lid>` para esse mesmo lead, fazer `UPDATE agent_interactions SET session_id = wa_<phone> WHERE session_id = wa_<lid>` (uma vez, idempotente).
 
-## Não faz parte deste plano
-- Mudança no `dra-lia` (site) — permanece intocado, é a referência de verdade.
-- Migração para outro provedor de WhatsApp.
-- Mudança na UI do Inbox/Kanban.
+### 3. Anti-eco robusto contra mensagens enviadas por outros canais
+Em `shouldIgnore` + dedup:
+- Antes de processar, comparar `messageText` (normalizado: lowercase, trim, sem emojis/pontuação) com as **últimas 5 respostas outbound** da LIA para esse telefone (já há `whatsapp_inbox` com `direction='outbound'`).
+- Se match exato OU `levenshtein < 5%`, retornar `{ignored: true, reason: "echo_of_own_message"}`.
+- Adicional: se a mensagem inbound chegar < 3s após uma outbound da LIA E começar com "Olá!", "Entendi", "Perfeito" ou outras frases típicas de bot, ignorar como eco.
+
+### 4. Bloquear `needs_email_first` quando sessão já tem identidade
+No `dra-lia` (interceptor de coleta de email):
+- Antes de disparar `needs_email_first`, checar `agent_sessions.extracted_entities.lead_email`. Se presente e válido, pular o interceptor.
+- Atualmente já há lógica similar, mas só roda quando `leadState.leadId` está presente. Adicionar fallback via session.
+
+### 5. Pré-seed também para leads conhecidos por telefone (não só "real lead")
+Hoje só faz pré-seed completo quando `isRealLead = leadId && leadEmail && !@whatsapp.lead`. Mudar para:
+- Se `leadId` existe (qualquer match), pré-seedar `lead_id`, `lead_name`, `lead_email` (mesmo placeholder) em `agent_sessions`, marcando `extracted_entities.identity_known = true`.
+- O interceptor de qualificação no `dra-lia` então respeita essa flag e não pergunta de novo.
+
+### 6. Telemetria mínima
+- Log estruturado por sessão: `{event: "wa_inbound", phone_resolved: bool, lid_fallback: bool, session_reused: bool, history_turns: N}`.
+- Query de auditoria sugerida (sem implementar agora): contar sessions duplicadas por lead nas últimas 24h.
+
+---
+
+## Arquivos a alterar
+
+- `supabase/functions/dra-lia-whatsapp/index.ts` — itens 1, 2, 3, 5.
+- `supabase/functions/dra-lia/index.ts` — item 4 (apenas o interceptor `needs_email_first`).
+- Nova migration: `wa_lid_phone_map` (`lid_id text PK`, `phone_digits text`, `lead_id uuid null`, `created_at`, `last_seen_at`).
+- Backfill SQL one-shot: consolidar `agent_interactions` órfãs com `session_id = wa_<lid>` para `wa_<phone>` onde o lead já está resolvido.
+
+## Fora deste plano
+- Mudar `dra-lia` site (intocado).
+- Trocar provedor de WhatsApp.
+- Reformar a UI do Inbox.
 
 ## Validação
-1. Mensagem comercial via WA ("quero comprar uma Phrozen") → deve disparar SPIN igual ao site (verificar `spin_progress` em `agent_sessions`).
-2. Foto de impressão com defeito via WA → deve passar pelo classificador visual (verificar log `[IMAGE_RAG]` em `dra-lia`).
-3. "Como faço cura de resina?" via WA → resposta idêntica à do site, com mesmos links canônicos.
-4. Lead novo via WA → não cria placeholder até ter nome+email reais.
+1. Mesmo lead enviando por 2 dispositivos (LID diferente) → 1 só `session_id`, histórico contínuo.
+2. SDR humano respondendo manualmente pelo mesmo número → próxima inbound do lead NÃO trata a fala do SDR como eco do lead.
+3. Lead conhecido (com email) envia "oi" → LIA cumprimenta pelo nome, **não** pergunta email.
+4. `wa_98908885786860` + `wa_270900884713608` colapsam em um único `session_id` após backfill.
