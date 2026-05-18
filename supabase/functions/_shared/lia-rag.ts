@@ -206,7 +206,7 @@ export async function searchContentDirect(
     const { data: resins } = await supabaseClient.from("resins").select("id, name, slug, clinical_indication, biocompatibility_class").ilike("name", searchPattern).limit(3);
     if (resins) {
       for (const r of resins) {
-        results.push({ source_type: "resin", similarity: 0.70, chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`, metadata: { title: r.name, slug: r.slug, url_publica: `${siteBaseUrl}/resinas/${r.slug}` } });
+        results.push({ source_type: "resin", similarity: 0.70, chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`, metadata: { title: r.name, slug: r.slug, url_publica: r.slug ? `${siteBaseUrl}/resinas/${r.slug}` : null } });
       }
     }
   } catch (e) { console.warn("[searchContentDirect] Resins search failed:", e); }
@@ -337,7 +337,10 @@ export async function searchCatalogProducts(supabase: SupabaseClient, message: s
     }
     if (technicalSpecs) chunkText += ` | SPECS: ${JSON.stringify(technicalSpecs).slice(0, 400)}`;
 
-    return { id: p.id, source_type: 'catalog_product', chunk_text: chunkText, metadata: { title: p.name, slug: p.slug, url_publica: p.slug ? `${siteBaseUrl}/produtos/${p.slug}` : null, cta_1_url: p.cta_1_url }, similarity, nameMatchCount };
+    // Prefer cleaned shop URL (cta_1_url) so LIA sempre manda o link da LOJA, não da página de parâmetros.
+    const shopUrl = sanitizeShopUrl(p.cta_1_url);
+    const fallbackUrl = p.slug ? `${siteBaseUrl}/produtos/${p.slug}` : null;
+    return { id: p.id, source_type: 'catalog_product', chunk_text: chunkText, metadata: { title: p.name, slug: p.slug, url_publica: shopUrl || fallbackUrl }, similarity, nameMatchCount };
   });
 
   scored.sort((a: { nameMatchCount: number; similarity: number }, b: { nameMatchCount: number; similarity: number }) => b.nameMatchCount - a.nameMatchCount || b.similarity - a.similarity);
@@ -364,7 +367,11 @@ export async function searchProcessingInstructions(supabase: SupabaseClient, mes
   return matched.slice(0, 3).map(({ resin: r }: { resin: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null; cta_1_label: string | null } }) => ({
     id: r.id, source_type: "processing_protocol",
     chunk_text: `${r.name} (${r.manufacturer}) — Instruções de Pré e Pós Processamento:\n${r.processing_instructions}`,
-    metadata: { title: `Protocolo de Processamento: ${r.name}`, resin_name: r.name, cta_1_url: r.cta_1_url, url_publica: r.slug ? `${siteBaseUrl}/resina/${r.slug}` : null },
+    metadata: (() => {
+      const shopUrl = sanitizeShopUrl(r.cta_1_url);
+      const fallbackUrl = r.slug ? `${siteBaseUrl}/resinas/${r.slug}` : null;
+      return { title: `Protocolo de Processamento: ${r.name}`, resin_name: r.name, url_publica: shopUrl || fallbackUrl };
+    })(),
     similarity: (() => {
       const resinWords = `${r.name} ${r.manufacturer}`.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
       const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length > 3);
