@@ -239,30 +239,48 @@ export type Database = {
         Row: {
           created_at: string | null
           current_state: string
+          evolution_instance: string | null
           extracted_entities: Json | null
+          handoff_at: string | null
+          handoff_reason: string | null
           id: string
+          is_human: boolean | null
           last_activity_at: string | null
           lead_id: string | null
+          messages: Json | null
+          phone: string | null
           session_id: string
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           current_state?: string
+          evolution_instance?: string | null
           extracted_entities?: Json | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
+          is_human?: boolean | null
           last_activity_at?: string | null
           lead_id?: string | null
+          messages?: Json | null
+          phone?: string | null
           session_id: string
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           current_state?: string
+          evolution_instance?: string | null
           extracted_entities?: Json | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
+          is_human?: boolean | null
           last_activity_at?: string | null
           lead_id?: string | null
+          messages?: Json | null
+          phone?: string | null
           session_id?: string
           updated_at?: string | null
         }
@@ -6211,6 +6229,7 @@ export type Database = {
           platform_placement: string | null
           portfolio_json: Json | null
           portfolio_updated_at: string | null
+          prazo_compra: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
           primary_motivation: string | null
@@ -6252,12 +6271,14 @@ export type Database = {
           sdr_cad_treinamento: string | null
           sdr_caracterizacao_interesse: string | null
           sdr_caracterizacao_produto_atual: string | null
+          sdr_completo: boolean | null
           sdr_cura_modelo: string | null
           sdr_cursos_area: string | null
           sdr_cursos_interesse: string | null
           sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
           sdr_entrada_valor: number | null
+          sdr_etapa: string | null
           sdr_fresadora_marca: string | null
           sdr_fresadora_modelo: string | null
           sdr_fresagem_interesse: string | null
@@ -6286,6 +6307,7 @@ export type Database = {
           sdr_smartmake_interesse: boolean | null
           sdr_software_cad_interesse: string | null
           sdr_solucoes_interesse: string | null
+          sdr_started_at: string | null
           sdr_suporte_descricao: string | null
           sdr_suporte_equipamento: string | null
           sdr_suporte_tipo: string | null
@@ -6336,7 +6358,11 @@ export type Database = {
           utm_term: string | null
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
+          wa_chat_summary: string | null
           wa_group_origem: string | null
+          wa_last_summary_at: string | null
+          wa_total_messages: number | null
+          whatsapp_lid: string | null
           whatsapp_opt_out: boolean
           workflow_portfolio: Json | null
           workflow_score: number | null
@@ -6728,6 +6754,7 @@ export type Database = {
           platform_placement?: string | null
           portfolio_json?: Json | null
           portfolio_updated_at?: string | null
+          prazo_compra?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -6769,12 +6796,14 @@ export type Database = {
           sdr_cad_treinamento?: string | null
           sdr_caracterizacao_interesse?: string | null
           sdr_caracterizacao_produto_atual?: string | null
+          sdr_completo?: boolean | null
           sdr_cura_modelo?: string | null
           sdr_cursos_area?: string | null
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
           sdr_entrada_valor?: number | null
+          sdr_etapa?: string | null
           sdr_fresadora_marca?: string | null
           sdr_fresadora_modelo?: string | null
           sdr_fresagem_interesse?: string | null
@@ -6803,6 +6832,7 @@ export type Database = {
           sdr_smartmake_interesse?: boolean | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
+          sdr_started_at?: string | null
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
@@ -6853,7 +6883,11 @@ export type Database = {
           utm_term?: string | null
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
+          wa_chat_summary?: string | null
           wa_group_origem?: string | null
+          wa_last_summary_at?: string | null
+          wa_total_messages?: number | null
+          whatsapp_lid?: string | null
           whatsapp_opt_out?: boolean
           workflow_portfolio?: Json | null
           workflow_score?: number | null
@@ -7245,6 +7279,7 @@ export type Database = {
           platform_placement?: string | null
           portfolio_json?: Json | null
           portfolio_updated_at?: string | null
+          prazo_compra?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -7286,12 +7321,14 @@ export type Database = {
           sdr_cad_treinamento?: string | null
           sdr_caracterizacao_interesse?: string | null
           sdr_caracterizacao_produto_atual?: string | null
+          sdr_completo?: boolean | null
           sdr_cura_modelo?: string | null
           sdr_cursos_area?: string | null
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
           sdr_entrada_valor?: number | null
+          sdr_etapa?: string | null
           sdr_fresadora_marca?: string | null
           sdr_fresadora_modelo?: string | null
           sdr_fresagem_interesse?: string | null
@@ -7320,6 +7357,7 @@ export type Database = {
           sdr_smartmake_interesse?: boolean | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
+          sdr_started_at?: string | null
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
@@ -7370,7 +7408,11 @@ export type Database = {
           utm_term?: string | null
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
+          wa_chat_summary?: string | null
           wa_group_origem?: string | null
+          wa_last_summary_at?: string | null
+          wa_total_messages?: number | null
+          whatsapp_lid?: string | null
           whatsapp_opt_out?: boolean
           workflow_portfolio?: Json | null
           workflow_score?: number | null
@@ -7868,6 +7910,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meta_lead_event_buffer: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          form_id: string | null
+          form_name: string | null
+          id: string
+          last_attempt_at: string | null
+          leadgen_id: string
+          page_id: string | null
+          processed_lead_id: string | null
+          processed_piperun_id: string | null
+          raw_fields: Json | null
+          raw_payload: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          leadgen_id: string
+          page_id?: string | null
+          processed_lead_id?: string | null
+          processed_piperun_id?: string | null
+          raw_fields?: Json | null
+          raw_payload?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          leadgen_id?: string
+          page_id?: string | null
+          processed_lead_id?: string | null
+          processed_piperun_id?: string | null
+          raw_fields?: Json | null
+          raw_payload?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       models: {
         Row: {
@@ -11623,6 +11719,57 @@ export type Database = {
           },
         ]
       }
+      social_proof_snippets: {
+        Row: {
+          active: boolean | null
+          cidade: string | null
+          created_at: string | null
+          especialidade: string | null
+          id: string
+          nome_cliente: string | null
+          produto_especifico: string | null
+          produto_tag: string | null
+          quote: string
+          quote_longo: string | null
+          source_id: string
+          spin_context: string | null
+          uf: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          cidade?: string | null
+          created_at?: string | null
+          especialidade?: string | null
+          id?: string
+          nome_cliente?: string | null
+          produto_especifico?: string | null
+          produto_tag?: string | null
+          quote: string
+          quote_longo?: string | null
+          source_id: string
+          spin_context?: string | null
+          uf?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          cidade?: string | null
+          created_at?: string | null
+          especialidade?: string | null
+          id?: string
+          nome_cliente?: string | null
+          produto_especifico?: string | null
+          produto_tag?: string | null
+          quote?: string
+          quote_longo?: string | null
+          source_id?: string
+          spin_context?: string | null
+          uf?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       support_cases: {
         Row: {
           author_user_id: string | null
@@ -13112,6 +13259,516 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wa_followup_queue: {
+        Row: {
+          created_at: string | null
+          followup_enviado_at: string | null
+          followup_tentativas: number | null
+          id: string
+          lead_id: string
+          phone: string
+          sdr_etapa: string | null
+          session_id: string
+          status: string | null
+          ultima_msg_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          followup_enviado_at?: string | null
+          followup_tentativas?: number | null
+          id?: string
+          lead_id: string
+          phone: string
+          sdr_etapa?: string | null
+          session_id: string
+          status?: string | null
+          ultima_msg_at: string
+        }
+        Update: {
+          created_at?: string | null
+          followup_enviado_at?: string | null
+          followup_tentativas?: number | null
+          id?: string
+          lead_id?: string
+          phone?: string
+          sdr_etapa?: string | null
+          session_id?: string
+          status?: string | null
+          ultima_msg_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_group_dispatch_log: {
+        Row: {
+          evolution_response: Json | null
+          group_id: string
+          group_jid: string
+          id: string
+          message_preview: string | null
+          schedule_id: string | null
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          evolution_response?: Json | null
+          group_id: string
+          group_jid: string
+          id?: string
+          message_preview?: string | null
+          schedule_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          evolution_response?: Json | null
+          group_id?: string
+          group_jid?: string
+          id?: string
+          message_preview?: string | null
+          schedule_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_group_dispatch_log_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_dispatch_log_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "wa_group_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_group_members: {
+        Row: {
+          group_id: string
+          id: string
+          is_admin: boolean | null
+          joined_at: string | null
+          lead_id: string | null
+          phone: string | null
+          phone_jid: string
+          synced_at: string | null
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          is_admin?: boolean | null
+          joined_at?: string | null
+          lead_id?: string | null
+          phone?: string | null
+          phone_jid: string
+          synced_at?: string | null
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          is_admin?: boolean | null
+          joined_at?: string | null
+          lead_id?: string | null
+          phone?: string | null
+          phone_jid?: string
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_group_schedules: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          dia_regua: number
+          dias_semana: number[] | null
+          group_id: string
+          horario: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message_text: string
+          proximo_disparo: string | null
+          tipo_disparo: string | null
+          total_disparado: number | null
+          ultimo_disparo: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dia_regua: number
+          dias_semana?: number[] | null
+          group_id: string
+          horario?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_text: string
+          proximo_disparo?: string | null
+          tipo_disparo?: string | null
+          total_disparado?: number | null
+          ultimo_disparo?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dia_regua?: number
+          dias_semana?: number[] | null
+          group_id?: string
+          horario?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string
+          proximo_disparo?: string | null
+          tipo_disparo?: string | null
+          total_disparado?: number | null
+          ultimo_disparo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_group_schedules_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_groups: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          evolution_instance: string
+          group_jid: string
+          id: string
+          membros_count: number | null
+          nome: string
+          produto_tag: string | null
+          regua_ativa: boolean | null
+          tipo: string | null
+          turma_id: string | null
+          ultima_sync: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          evolution_instance?: string
+          group_jid: string
+          id?: string
+          membros_count?: number | null
+          nome: string
+          produto_tag?: string | null
+          regua_ativa?: boolean | null
+          tipo?: string | null
+          turma_id?: string | null
+          ultima_sync?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          evolution_instance?: string
+          group_jid?: string
+          id?: string
+          membros_count?: number | null
+          nome?: string
+          produto_tag?: string | null
+          regua_ativa?: boolean | null
+          tipo?: string | null
+          turma_id?: string | null
+          ultima_sync?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_groups_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_groups_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_message_dedup: {
+        Row: {
+          created_at: string | null
+          msg_id: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          msg_id: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          msg_id?: string
+          phone?: string | null
+        }
+        Relationships: []
       }
       whatsapp_inbox: {
         Row: {
@@ -17188,6 +17845,7 @@ export type Database = {
           platform_placement: string | null
           portfolio_json: Json | null
           portfolio_updated_at: string | null
+          prazo_compra: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
           primary_motivation: string | null
@@ -17229,12 +17887,14 @@ export type Database = {
           sdr_cad_treinamento: string | null
           sdr_caracterizacao_interesse: string | null
           sdr_caracterizacao_produto_atual: string | null
+          sdr_completo: boolean | null
           sdr_cura_modelo: string | null
           sdr_cursos_area: string | null
           sdr_cursos_interesse: string | null
           sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
           sdr_entrada_valor: number | null
+          sdr_etapa: string | null
           sdr_fresadora_marca: string | null
           sdr_fresadora_modelo: string | null
           sdr_fresagem_interesse: string | null
@@ -17263,6 +17923,7 @@ export type Database = {
           sdr_smartmake_interesse: boolean | null
           sdr_software_cad_interesse: string | null
           sdr_solucoes_interesse: string | null
+          sdr_started_at: string | null
           sdr_suporte_descricao: string | null
           sdr_suporte_equipamento: string | null
           sdr_suporte_tipo: string | null
@@ -17313,7 +17974,11 @@ export type Database = {
           utm_term: string | null
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
+          wa_chat_summary: string | null
           wa_group_origem: string | null
+          wa_last_summary_at: string | null
+          wa_total_messages: number | null
+          whatsapp_lid: string | null
           whatsapp_opt_out: boolean
           workflow_portfolio: Json | null
           workflow_score: number | null
