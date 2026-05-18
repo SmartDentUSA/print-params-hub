@@ -135,9 +135,13 @@ serve(async (req) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
 
+  let lockedLeadId: string | null = null;
+  let supabaseForFinally: ReturnType<typeof createClient> | null = null;
+
   try {
     const { email, leadId } = await req.json();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    supabaseForFinally = supabase;
 
     // ── Guard 1: Find lead (expanded SELECT for longitudinal memory + audit) ──
     let query = supabase.from("lia_attendances").select(
@@ -187,6 +191,9 @@ serve(async (req) => {
           JSON.stringify({ status: "skipped", reason: "lock_contention", lead_id: leadData.id }),
           { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
+      } else {
+        // Lock acquired at session-level — MUST release explicitly in finally.
+        lockedLeadId = leadData.id as string;
       }
     }
 
@@ -556,5 +563,14 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       status: err instanceof DOMException && err.name === "AbortError" ? 504 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  } finally {
+    // Lock hygiene: always release session-level advisory lock, even on early return / error.
+    if (lockedLeadId && supabaseForFinally) {
+      try {
+        await supabaseForFinally.rpc("release_cognitive_analysis_lock", { target_lead_id: lockedLeadId });
+      } catch (releaseErr) {
+        console.warn("[cognitive] release_cognitive_analysis_lock failed:", releaseErr);
+      }
+    }
   }
 });
