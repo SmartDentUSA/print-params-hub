@@ -132,6 +132,16 @@ function shouldIgnore(body: Record<string, unknown>): string | null {
   return null;
 }
 
+// ── Normalize text for anti-echo comparison ───
+function normalizeForEcho(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ── Consume SSE stream from dra-lia and return full text ───
 async function consumeSSEStream(response: Response): Promise<string> {
   if (!response.body) return "";
