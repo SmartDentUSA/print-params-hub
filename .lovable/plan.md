@@ -1,61 +1,83 @@
-## Objetivo
+## Diagnóstico
 
-Garantir, via testes Deno automatizados, que a proteção anti-echo da `dra-lia-whatsapp`:
-1. **Ignora** mensagens inbound que são eco de saídas recentes da própria LIA (mesmo texto, com emoji/pontuação/caixa diferente, ou prefixo longo).
-2. **NÃO bloqueia** conversas reais (perguntas curtas do lead, respostas distintas, textos parecidos mas não idênticos).
+Investiguei `supabase/functions/_shared/lia-rag.ts` e os dados reais em `system_a_catalog` / `resins`. Encontrei 3 causas independentes para os links quebrados/errados:
 
-## Estratégia
+### 1. URLs com sujeira no banco (trailing dash, espaços, HTML)
+Vários `cta_1_url` e `system_a_product_url` terminam com `-` ou `/`, o que dá 404 na loja:
+- `https://loja.smartdent.com.br/resina-smart-print-try-in-calcinavel-`
+- `https://loja.smartdent.com.br/resina-smart-print-clear-guide-`
+- `https://loja.smartdent.com.br/resina-smart-print-temp-`
 
-A lógica atual mistura função pura (`normalizeForEcho`) com I/O (consulta `whatsapp_inbox`). Para testar de forma confiável e rápida, dividir em duas camadas:
+A LIA repassa o valor cru e o link quebra.
 
-### 1. Extrair função pura `isEchoOfOutbound`
-Criar `supabase/functions/dra-lia-whatsapp/echo-guard.ts` exportando:
-- `normalizeForEcho(s: string): string` (movida de `index.ts`)
-- `isEchoOfOutbound(incoming: string, recentOutbound: string[]): { isEcho: boolean; matchedIndex?: number; reason?: string }`
+### 2. URL "pública" do catálogo confundindo o modelo
+Para produtos do catálogo, hoje emitimos **dois** links no contexto que vai ao LLM:
 
-Reusar em `index.ts` (import + remover duplicata). Lógica idêntica à atual: comparar normalizado, exato OU prefixo ≥60 chars quando outbound > 40 chars, ignorando outbound < 8 chars normalizados.
+```
+[CATALOG_PRODUCT] ... | URL: https://parametros.smartdent.com.br/produtos/<slug> | COMPRA: https://loja.smartdent.com.br/<slug>
+```
 
-### 2. Suite de testes unitários (offline, rápida)
-Arquivo: `supabase/functions/dra-lia-whatsapp/echo-guard_test.ts` — `Deno.test()` cobrindo:
+O LLM frequentemente envia o primeiro (parametros), que é a página de parâmetros do produto — não a loja. O usuário pede "link da loja" e recebe `parametros.smartdent.com.br/...`. Errado pelo intent comercial.
 
-**Casos que DEVEM detectar eco (isEcho=true):**
-- Texto idêntico ao último outbound
-- Mesmo texto com emoji adicionado ("Olá! 👋" vs "Olá!")
-- Diferença apenas em caixa/pontuação ("Tudo bem?" vs "tudo bem")
-- Espaços/quebras de linha extras
-- Inbound com prefixo de outbound longo (>60 chars do início)
-- Match contra qualquer um dos últimos 5 outbounds (não só o mais recente)
+### 3. Rota singular inexistente para protocolo de resina
+Em `searchProcessingInstructions` (lia-rag.ts:352) montamos:
 
-**Casos que NÃO podem ser eco (isEcho=false):**
-- Resposta curta típica do lead: "sim", "ok", "quanto custa?"
-- Pergunta nova do lead totalmente diferente
-- Outbound vazio ou < 8 chars normalizados (ignorar como base de comparação)
-- Lista de outbounds vazia
-- Texto parecido mas não prefixo (ex.: lead repete uma palavra do bot)
-- Inbound longo que contém só uma palavra comum do outbound
+```
+url_publica: `${siteBaseUrl}/resina/${slug}`   ← singular, rota não existe
+```
 
-### 3. Teste de integração (deployed function)
-Arquivo: `supabase/functions/dra-lia-whatsapp/index_test.ts` — usando `supabase--curl_edge_functions` semantics via `fetch` direto + `dotenv/load.ts`:
+A rota real em `src/App.tsx` é `/resinas/:slug` (plural). Resultado: link 404.
 
-- **Setup**: usar telefone de teste (ex.: `5500000000099`). Inserir 1 linha em `whatsapp_inbox` com `direction=outbound`, `phone_normalized` correspondente, `message_text="Olá Dr., posso te ajudar com a Anycubic Photon Mono M5s?"`.
-- **Cenário 1 (eco)**: POST webhook com mesmo texto + emoji → esperar `{ ignored: true, reason: "echo_of_own_outbound" }`, status 200.
-- **Cenário 2 (real)**: POST webhook com `"quanto custa a m5s?"` → esperar resposta processada (não ignorada por echo; pode retornar 200 com outro shape).
-- **Teardown**: deletar linhas de teste.
+---
 
-Marcar testes de integração como skip se `VITE_SUPABASE_URL` ausente, para não quebrar em ambientes sem `.env`.
+## Plano de Correção
 
-### 4. Execução
-Rodar via `supabase--test_edge_functions` com `{ functions: ["dra-lia-whatsapp"] }`. Unit tests rodam em < 1s; integração roda contra o ambiente real.
+Tudo em `supabase/functions/_shared/lia-rag.ts` (mais um helper). Sem mudanças de UI, schema ou comportamento de chat.
 
-## Arquivos a criar/alterar
+### Passo 1 — Helper `sanitizeShopUrl()`
+Adicionar função pura no topo de `lia-rag.ts`:
+- Remove tags HTML residuais
+- `trim()` e remove espaços internos
+- Remove caracteres finais inválidos: `-`, `/`, `.`, `,`, `;`, `:` (loop até estabilizar, preservando `://`)
+- Retorna `null` se o resultado ficar vazio ou sem `http`
 
-- **Novo**: `supabase/functions/dra-lia-whatsapp/echo-guard.ts` (função pura extraída)
-- **Novo**: `supabase/functions/dra-lia-whatsapp/echo-guard_test.ts` (~15 casos unitários)
-- **Novo**: `supabase/functions/dra-lia-whatsapp/index_test.ts` (2 casos integração + setup/teardown)
-- **Editar**: `supabase/functions/dra-lia-whatsapp/index.ts` — importar de `echo-guard.ts`, remover `normalizeForEcho` local e substituir o bloco inline pelo `isEchoOfOutbound`
+Usar em todo lugar que emite `cta_1_url` / `system_a_product_url` / `url_publica` apontando para loja.
 
-## Fora de escopo
+### Passo 2 — `searchCatalogProducts` (linha ~325)
+Trocar metadata para:
+- `url_publica`: usa `sanitizeShopUrl(p.cta_1_url)` como primário. Se ausente, cai para `${siteBaseUrl}/produtos/${slug}`.
+- Remover o campo `cta_1_url` separado do metadata para não duplicar no prompt.
 
-- Mudar a lógica de anti-echo em si (apenas extrair + testar comportamento atual).
-- Testar resolução de LID, pré-seed de lead ou qualificação — outros guardas têm seus próprios planos.
-- Mock de Supabase client (preferimos integração real para o I/O).
+Resultado no contexto: uma única `URL: https://loja.smartdent.com.br/<slug-limpo>`.
+
+### Passo 3 — `searchProcessingInstructions` (linha ~352)
+- Corrigir `/resina/` → `/resinas/` (plural, rota real).
+- Preferir `sanitizeShopUrl(r.cta_1_url)` como `url_publica`; queda para `${siteBaseUrl}/resinas/${slug}` se não houver.
+- Remover `cta_1_url` separado do metadata.
+
+### Passo 4 — Bloco `resin` no RAG vetorial (linha ~194 e ~237)
+- Aplicar `sanitizeShopUrl` em qualquer URL de resina exposta.
+- Manter `/resinas/${slug}` (já está plural correto aqui).
+
+### Passo 5 — `buildStructuredContext` (linha ~562)
+Como produtos agora só têm `url_publica`, a linha `| COMPRA: ${cta_1_url}` deixa de existir naturalmente. Confirmar que nenhum outro `source_type` quebre por causa disso.
+
+### Passo 6 — Teste unitário rápido
+Adicionar `supabase/functions/_shared/lia-rag_test.ts` com casos para `sanitizeShopUrl`:
+- `https://loja.smartdent.com.br/foo-` → `https://loja.smartdent.com.br/foo`
+- `  https://x.com/y/  ` → `https://x.com/y`
+- `<a>https://x.com/z</a>` → `https://x.com/z`
+- `null` / `""` / `"abc"` → `null`
+
+Rodar via `supabase--test_edge_functions`.
+
+### Passo 7 — Deploy
+Redeploy de `dra-lia` e `dra-lia-whatsapp` (ambas importam `lia-rag.ts`).
+
+---
+
+## Fora de escopo (proponho como follow-up se quiser)
+- **Limpeza no banco** dos `cta_1_url`/`system_a_product_url` com trailing dash (migration + UPDATE com regex). O sanitizador runtime já resolve, mas a limpeza no banco evita o problema em outros consumidores (admin, cards, auto-inject).
+- Auditoria do importador que está gravando URLs com `-` no final (provável `LojaIntegradaImporter` ou `PublicAPIProductImporter`).
+
+Confirma que posso prosseguir? Se quiser, já incluo a migration de limpeza no mesmo passo.
