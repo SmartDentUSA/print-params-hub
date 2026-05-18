@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
+import { classifyMessage, deriveTopicContext } from "../_shared/wa-intent.ts";
+import { mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,35 @@ function stripMarkdownForWhatsApp(text: string): string {
 // ── Strip WhatsApp suffixes from phone/chat IDs ───
 function stripWaSuffix(raw: string): string {
   return raw.replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+}
+
+// ── Smart truncation: cut at last full paragraph + RAG fallback link ───
+function smartTruncateForWhatsApp(text: string, maxLen: number, fallbackUrl: string | null): string {
+  if (text.length <= maxLen) return text;
+  const reserve = 120;
+  const sliceEnd = maxLen - reserve;
+  const slice = text.slice(0, sliceEnd);
+  const lastParaBreak = slice.lastIndexOf("\n\n");
+  const cut = lastParaBreak > sliceEnd * 0.6 ? slice.slice(0, lastParaBreak) : slice;
+  const tail = fallbackUrl
+    ? `\n\n📖 Resposta completa: ${fallbackUrl}`
+    : `\n\n📖 Resposta completa em: https://parametros.smartdent.com.br`;
+  return cut.trimEnd() + tail;
+}
+
+// ── Extract media (image) from Evolution payload ───
+function extractMedia(body: Record<string, unknown>): { url: string | null; type: string | null } {
+  const data = (body.data || {}) as Record<string, unknown>;
+  const msg = (data.message || body.message_obj || {}) as Record<string, unknown>;
+  const url = String(
+    body.media_url || body.mediaUrl || (msg as any).imageMessage?.url ||
+    (msg as any).image?.url || (body as any).file_url || ""
+  ) || null;
+  const type = String(
+    body.media_type || body.mediaType || (data as any).messageType ||
+    ((msg as any).imageMessage ? "image" : "") || ""
+  ) || null;
+  return { url, type };
 }
 
 // ── Extract fields from flexible payload shapes ───
@@ -243,6 +273,15 @@ Deno.serve(async (req) => {
     const phoneSuffix = normalizePhoneForMatch(phone);
     console.log(`[dra-lia-wa] Received: phone=${phoneDigits} msg="${messageText.slice(0, 80)}"`);
 
+    // ── Extract media (image) so we can pass image_data to dra-lia (parity with site) ──
+    const media = extractMedia(body);
+    const hasImage = !!(media.url && (media.type === "image" || /image\//i.test(media.type || "")));
+
+    // ── Intent classification + topic_context derivation (mirror site routes) ──
+    const { intent, confidence } = classifyMessage(messageText);
+    const topicContext = deriveTopicContext(messageText, intent, hasImage);
+    console.log(`[dra-lia-wa] Intent=${intent} (${confidence}%) topic_context=${topicContext} hasImage=${hasImage}`);
+
     // ── Content dedup: check if same phone+message already processed in last 5 min ───
     const fiveMinAgo = new Date(Date.now() - DEDUP_CONTENT_MINUTES * 60 * 1000).toISOString();
     const { data: recentInbound } = await supabase
@@ -280,7 +319,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Find or create lead in lia_attendances
+    // 1. Find lead in lia_attendances (DO NOT create placeholder — let dra-lia qualify)
     let leadId: string | null = null;
     let leadEmail: string | null = null;
     let leadNome: string | null = null;
@@ -288,8 +327,9 @@ Deno.serve(async (req) => {
     if (phoneSuffix.length >= 8) {
       const { data: leads } = await supabase
         .from("lia_attendances")
-        .select("id, email, nome, total_messages, total_sessions")
+        .select("id, email, nome, total_messages, total_sessions, proprietario_lead_crm, especialidade, ultima_etapa_comercial, lead_stage_detected, urgency_level, recommended_approach, tags_crm")
         .ilike("telefone_normalized", `%${phoneSuffix}`)
+        .is("merged_into", null)
         .limit(1);
 
       if (leads && leads.length > 0) {
@@ -300,55 +340,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Track whether this is a pre-existing lead (real) vs newly created placeholder
-    let isPlaceholderLead = false;
-
+    // No placeholder creation: dra-lia runs progressive qualification (nome → email → tel → área → especialidade)
+    // and merge engine vinculates the lia_attendances row once minimum identity exists.
     if (!leadId) {
-      const placeholderEmail = `wa_${phoneDigits}_${Date.now()}@whatsapp.lead`;
-      const nome = senderName || `WhatsApp ${phoneDigits.slice(-4)}`;
-      // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
-      const identity = validateLeadIdentity({
-        nome,
-        email: placeholderEmail,
-        phoneNormalized: phoneSuffix,
-        rawPhone: phone,
-      });
-      if (!identity.ok) {
-        await logRejectedLead(supabase, {
-          functionName: "dra-lia-whatsapp",
-          source: "whatsapp_lia",
-          check: identity,
-          email: placeholderEmail,
-          raw: { phone, phoneDigits, senderName },
-        });
-        console.log(
-          `[dra-lia-wa] Lead criação BLOQUEADA (identity incompleta: ${identity.missing.join(",")}). Seguindo só com sessão.`,
-        );
-        // segue sem leadId — sessão por phoneDigits ainda funciona
-      } else {
-      const { data: newLead, error: createErr } = await supabase
-        .from("lia_attendances")
-        .insert({
-          nome,
-          email: placeholderEmail,
-          telefone_raw: phone,
-          telefone_normalized: phoneSuffix,
-          source: "whatsapp_lia",
-          lead_status: "novo",
-        })
-        .select("id, email, nome")
-        .single();
-
-      if (createErr) {
-        console.error("[dra-lia-wa] Error creating lead:", createErr);
-      } else if (newLead) {
-        leadId = newLead.id;
-        leadEmail = newLead.email;
-        leadNome = newLead.nome;
-        isPlaceholderLead = true;
-        console.log(`[dra-lia-wa] Created new PLACEHOLDER lead: ${leadNome} (${leadId}) — will NOT pre-seed session`);
-      }
-      }
+      console.log(`[dra-lia-wa] Unknown phone ${phoneDigits} — dra-lia will run full qualification flow`);
     }
 
     // 2. Build conversation history from agent_interactions (query by session_id, not lead_id)
@@ -378,20 +373,18 @@ Deno.serve(async (req) => {
       ? history.filter((msg) => !(msg.role === "assistant" && /e-?mail|email|correo/i.test(msg.content) && /reconhecer|recognize|reconocerte|token|informe|informar|forneça|provide/i.test(msg.content)))
       : history;
 
-    // 2b. Pre-seed agent_sessions so dra-lia skips email collection
-    // ONLY for REAL leads (pre-existing in DB). Placeholder leads (@whatsapp.lead)
-    // must NOT be pre-seeded so dra-lia asks for name/email normally.
-    if (leadId && !isPlaceholderLead) {
+    // 2b. Pre-seed agent_sessions ONLY for real leads with real email (parity with site recognition).
+    // Includes topic_context so dra-lia uses the same route as the site (commercial/support/parameters).
+    const isRealLead = !!(leadId && leadEmail && !/@whatsapp\.lead$/i.test(leadEmail));
+    if (isRealLead) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
-        // IMPORTANT: do not write lia_attendances.id into agent_sessions.lead_id
-        // because this FK points to public.leads.id and causes FK violations.
-        // We pre-seed recognition data only in extracted_entities.
         current_state: "chatting",
         extracted_entities: {
           lead_id: leadId,
           lead_name: leadNome || `WhatsApp ${phoneDigits.slice(-4)}`,
           lead_email: leadEmail,
+          topic_context: topicContext,
         },
         last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" });
@@ -399,24 +392,43 @@ Deno.serve(async (req) => {
       if (sessErr) {
         console.warn("[dra-lia-wa] Failed to upsert agent_sessions:", sessErr.message);
       } else {
-        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} with lead ${leadId}`);
+        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} (lead ${leadId}, topic=${topicContext})`);
       }
-    } else if (isPlaceholderLead) {
-      console.log(`[dra-lia-wa] Skipping pre-seed for placeholder lead ${leadId} — dra-lia will collect name/email`);
-      // Store only the lia_attendances placeholder ID in session so we can merge later
+    } else {
+      // Unknown / placeholder — store topic_context + phone so qualification persists across turns
       await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
         current_state: "chatting",
         extracted_entities: {
-          placeholder_lia_id: leadId,
-          placeholder_phone: phoneDigits,
+          wa_phone: phoneDigits,
+          topic_context: topicContext,
         },
         last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" }).then(({ error: e }) => { if (e) console.warn("[wa] session upsert error:", e.message); });
     }
 
-    // 3. Call dra-lia internally (SSE stream)
+    // 3. If image present, download and base64-encode for dra-lia visual classifier (parity with site)
+    let imageData: { base64: string; mime_type: string } | null = null;
+    if (hasImage && media.url) {
+      try {
+        const imgRes = await fetch(media.url, { signal: AbortSignal.timeout(10000) });
+        if (imgRes.ok) {
+          const buf = await imgRes.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          const mime = imgRes.headers.get("content-type") || "image/jpeg";
+          imageData = { base64: b64, mime_type: mime };
+          console.log(`[dra-lia-wa] Image fetched: ${buf.byteLength}B mime=${mime}`);
+        } else {
+          console.warn(`[dra-lia-wa] Image fetch failed status=${imgRes.status}`);
+        }
+      } catch (e) {
+        console.warn("[dra-lia-wa] Image fetch error:", e);
+      }
+    }
+
+    // 4. Call dra-lia internally (SSE stream) with topic_context + image_data
     let liaResponse = "";
+    let ragLinks: string[] = [];
 
     try {
       const liaUrl = `${SUPABASE_URL}/functions/v1/dra-lia?action=chat`;
@@ -427,11 +439,12 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
-          message: messageText,
+          message: messageText || (hasImage ? "Analise esta imagem" : ""),
           history: filteredHistory,
           lang: "pt-BR",
           session_id: sessionId,
-          topic_context: null,
+          topic_context: topicContext,
+          image_data: imageData,
         }),
         signal: AbortSignal.timeout(45000),
       });
@@ -463,11 +476,16 @@ Deno.serve(async (req) => {
       liaResponse = `${leadNome}, já te reconheci por aqui ✅\n\nComo posso te ajudar agora?`;
     }
 
-    // 4. Format for WhatsApp
-    let waMessage = stripMarkdownForWhatsApp(liaResponse);
-    if (waMessage.length > MAX_WHATSAPP_LENGTH) {
-      waMessage = waMessage.slice(0, MAX_WHATSAPP_LENGTH - 50) + "\n\n... (mensagem completa disponível em nosso site)";
+    // Extract candidate fallback URL from RAG links present in the response
+    {
+      const re = /https?:\/\/[^\s)>\]]+/g;
+      const matches = liaResponse.match(re);
+      if (matches) ragLinks = matches.slice(0, 3);
     }
+
+    // 5. Format for WhatsApp + smart truncation with RAG fallback link
+    let waMessage = stripMarkdownForWhatsApp(liaResponse);
+    waMessage = smartTruncateForWhatsApp(waMessage, MAX_WHATSAPP_LENGTH, ragLinks[0] || null);
 
     // 5. Send reply via smart-ops-send-waleads (same path as manual card)
     let replySent = false;
@@ -549,15 +567,71 @@ Deno.serve(async (req) => {
     await supabase.from("whatsapp_inbox").insert({
       phone: phoneDigits,
       phone_normalized: phoneSuffix,
-      message_text: messageText,
+      message_text: messageText || (hasImage ? "[image]" : ""),
+      media_url: media.url,
+      media_type: media.type,
       direction: "inbound",
       lead_id: leadId,
       matched_by: leadId ? `ilike_%${phoneSuffix}` : "created_new",
-      intent_detected: "lia_autonomous",
-      confidence_score: 100,
+      intent_detected: intent,
+      confidence_score: confidence,
       raw_payload: body,
       processed_at: new Date().toISOString(),
     });
+
+    // 7. Hot lead alert: notify seller for immediate/future interest
+    if (leadId && (intent === "interesse_imediato" || intent === "interesse_futuro")) {
+      try {
+        const { data: hotLead } = await supabase
+          .from("lia_attendances")
+          .select("nome, especialidade, proprietario_lead_crm, ultima_etapa_comercial, lead_stage_detected, urgency_level, recommended_approach")
+          .eq("id", leadId)
+          .single();
+        const ownerName = hotLead?.proprietario_lead_crm || "Sem owner";
+        const firstName = ownerName.split(" ")[0];
+        const { data: members } = await supabase
+          .from("team_members")
+          .select("id, nome_completo, whatsapp_number, waleads_api_key")
+          .ilike("nome_completo", `%${firstName}%`)
+          .eq("ativo", true)
+          .not("waleads_api_key", "is", null)
+          .limit(1);
+        if (members && members.length > 0 && members[0].whatsapp_number) {
+          const m = members[0];
+          const alertMsg = [
+            "🚨 OPORTUNIDADE QUENTE",
+            `Lead: ${hotLead?.nome || "?"} (${hotLead?.especialidade || "?"})`,
+            `Owner: ${ownerName}`,
+            `Resposta: "${messageText.slice(0, 200)}"`,
+            `Etapa CRM: ${hotLead?.ultima_etapa_comercial || "?"}`,
+            `Cognitivo: ${hotLead?.lead_stage_detected || "?"} | Urgência: ${hotLead?.urgency_level || "?"}`,
+            `Ação: ${hotLead?.recommended_approach || "Contato imediato"}`,
+          ].join("\n");
+          await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({ team_member_id: m.id, phone: m.whatsapp_number, tipo: "text", message: alertMsg, lead_id: leadId }),
+          });
+          console.log(`[dra-lia-wa] Hot lead alert sent to ${m.nome_completo}`);
+        }
+      } catch (e) {
+        console.warn("[dra-lia-wa] Hot lead alert error:", e);
+      }
+    }
+
+    // 8. sem_interesse → tag lead
+    if (leadId && intent === "sem_interesse") {
+      try {
+        const { data: tagLead } = await supabase
+          .from("lia_attendances").select("tags_crm").eq("id", leadId).single();
+        const newTags = mergeTagsCrm(tagLead?.tags_crm as string[] | null, ["A_SEM_RESPOSTA"]);
+        await supabase.from("lia_attendances")
+          .update({ tags_crm: newTags, updated_at: new Date().toISOString() })
+          .eq("id", leadId);
+      } catch (e) {
+        console.warn("[dra-lia-wa] sem_interesse tag error:", e);
+      }
+    }
 
     const result = {
       success: true,
@@ -565,6 +639,9 @@ Deno.serve(async (req) => {
       reply_sent: replySent,
       reply_length: waMessage.length,
       team_member_id: teamMemberId,
+      intent,
+      topic_context: topicContext,
+      had_image: hasImage,
     };
 
     console.log("[dra-lia-wa] Result:", JSON.stringify(result));
