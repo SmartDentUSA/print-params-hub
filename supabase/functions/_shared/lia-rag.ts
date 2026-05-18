@@ -4,23 +4,11 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { STOPWORDS_PT } from "./lia-guards.ts";
+import { sanitizeShopUrl } from "./shop-url.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
-// ── Shop URL sanitizer ──
-// Cleans cta_1_url / system_a_product_url values stored with trailing dashes,
-// stray HTML tags, or whitespace. Returns null if the result is not a usable URL.
-export function sanitizeShopUrl(raw: string | null | undefined): string | null {
-  if (!raw || typeof raw !== "string") return null;
-  let s = raw.replace(/<[^>]*>/g, "").replace(/\s+/g, "").trim();
-  // Strip trailing junk repeatedly, but never touch the "://" segment.
-  // Allowed trailing chars get removed: - . , ; : / ! ? )
-  while (s.length > 0 && /[\-.,;:/!?)]$/.test(s) && !s.endsWith("://")) {
-    s = s.slice(0, -1);
-  }
-  if (!/^https?:\/\/[^\s]+\.[^\s]+/i.test(s)) return null;
-  return s;
-}
+export { sanitizeShopUrl };
 
 // ── Topic context re-ranking weights ──
 export const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
