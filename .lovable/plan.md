@@ -1,220 +1,84 @@
-# Endurecer o fluxo LIA: concorrência, merge e echo (v2 — com templates)
+## Refinos pós-Frente 1: nomenclatura, cache canônico, lock hygiene e janela DeepSeek
 
-Plano aprovado pelo usuário com refinamentos de código. Execução em 3 frentes sequenciais. Frente 1 primeiro para aliviar imediatamente o gargalo de produção.
+Quatro ajustes finos cirúrgicos, baseados nas observações A–C e nos próximos passos. Cada um é isolado e pode entrar como hotfix sem tocar o núcleo do `dra-lia`.
 
-## Frente 1 — Isolar `cognitive-lead-analysis` de `lia_attendances`
+---
 
-**Problema:** `cognitive-lead-analysis` faz `UPDATE lia_attendances` async na mesma linha que o turno reescreve → lock-contention → timeout do turno.
+### Ajuste 1 — Renomear tag `sem_interesse` no fluxo Hot-Lead (WhatsApp)
 
-### 1.1 Migration (schema)
+**Problema:** `smart-ops-lia-assign` dispara `Hot-lead Alert` e, no mesmo branch, aplica tag `sem_interesse`. Contradição semântica que polui dashboards de RFM/Intelligence Score e confunde SDR.
 
-```sql
--- Tabela de insights cognitivos (1:1 com lia_attendances)
-CREATE TABLE public.lia_cognitive_insights (
-    lead_id UUID PRIMARY KEY REFERENCES public.lia_attendances(id) ON DELETE CASCADE,
-    cognitive_summary TEXT,
-    cognitive_score INT,
-    cognitive_updated_at TIMESTAMPTZ DEFAULT NOW(),
-    payload JSONB DEFAULT '{}'::jsonb,
-    version INT DEFAULT 1
-);
+**Investigação prévia (antes de patch):**
+- Mapear todos call-sites de `sem_interesse` (tag em `lia_attendances.tags` / `crm_tags`).
+- Confirmar se a tag atual é "lead caiu em hot-alert e ainda não foi tocado por humano" (aguardando_humano) **ou** "engine classificou como sem fit" (na verdade `sem_fit`).
+- Auditar Copilot tools (`query_leads`, RFM rules) que filtram por essa tag.
 
-ALTER TABLE public.lia_cognitive_insights ENABLE ROW LEVEL SECURITY;
+**Decisão proposta:** trocar para `aguardando_humano` quando vier de hot-alert. Manter `sem_interesse` apenas quando vier explicitamente da classificação cognitiva como rejeição.
 
-CREATE POLICY "Allow authenticated read" ON public.lia_cognitive_insights
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow service_role full access" ON public.lia_cognitive_insights
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+**Patch:**
+- `smart-ops-lia-assign/index.ts`: separar dois branches de tag (`hotAlertTag = 'aguardando_humano'`, `cognitiveRejectionTag = 'sem_interesse'`).
+- Migration de dados: reclassificar leads históricos com `sem_interesse` aplicado em janela de hot-alert (heurística: tag aplicada nos últimos 60s após `hot_lead_alert_sent_at`) → `aguardando_humano`.
+- Atualizar `mem://smart-ops/lead-card-business-intelligence-tables-v4` e regras RFM se filtrarem por essa tag.
 
--- View enriquecida para consumidores (Copilot, Hero Card)
-CREATE OR REPLACE VIEW public.vw_lia_attendances_enriched AS
-SELECT a.*,
-       c.cognitive_summary,
-       c.cognitive_score,
-       c.cognitive_updated_at AS insight_updated_at,
-       c.payload AS cognitive_payload
-FROM public.lia_attendances a
-LEFT JOIN public.lia_cognitive_insights c ON a.id = c.lead_id;
+---
 
--- Backfill incremental dos dados legados
-INSERT INTO public.lia_cognitive_insights (lead_id, cognitive_summary, cognitive_updated_at)
-SELECT id, cognitive_summary, cognitive_updated_at
-FROM public.lia_attendances
-WHERE cognitive_summary IS NOT NULL
-ON CONFLICT (lead_id) DO NOTHING;
+### Ajuste 2 — Cache do `resolveCanonicalLead` (preventivo)
 
--- RPC para advisory lock por lead
-CREATE OR REPLACE FUNCTION public.try_lock_cognitive_analysis(target_lead_id UUID)
-RETURNS BOOLEAN AS $$
-  SELECT pg_try_advisory_xact_lock(hashtext(target_lead_id::text));
-$$ LANGUAGE sql;
-```
+**Problema:** chamada síncrona a cada inbound WA escala mal sob >50 msg/s. Hoje aguenta, mas evita refactor futuro.
 
-Colunas `lia_attendances.cognitive_*` ficam `DEPRECATED` por 1 release (sem escrita nova). Removidas depois.
+**Solução leve (sem Redis):**
+- Cache em memória LRU dentro do worker da edge function (`Map<phone_digits, {canonicalId, expiresAt}>`, TTL 30s, max 500 entradas).
+- Invalida no commit do `merge_lia_attendances` (publica em canal Postgres `pg_notify('canonical_invalidate', source_id)`, edge subscribe via realtime).
+- Métrica: `system_health_logs(event_type='canonical_cache_hit' | 'canonical_cache_miss')`.
 
-### 1.2 Edge function refactor
+**Arquivo:** `_shared/identity-utils.ts` → adicionar `resolveCanonicalLeadCached(supabase, phoneOrId)`. Manter `resolveCanonicalLead` raw como fallback/debug.
 
-- `cognitive-lead-analysis/index.ts`: substituir `UPDATE lia_attendances SET cognitive_*` (linhas 387 e 433) por `UPSERT` em `lia_cognitive_insights`. Antes de tudo, chamar `supabase.rpc('try_lock_cognitive_analysis', { target_lead_id: leadId })`; se `false`, retorna `202 { status: 'skipped', reason: 'lock_contention' }` + insere `system_health_logs(event_type='cog_lock_skipped')`.
-- `dra-lia/index.ts` (linha 1431): mantém fire-and-forget; só muda o destino de leitura/escrita interno.
-- Consumidores que leem `cognitive_summary` (Copilot `get_lead_card`, Hero Card, qualquer query SQL) passam a usar `vw_lia_attendances_enriched`. Inventário de call-sites antes de remover as colunas.
+**Escopo mínimo aceitável:** se o usuário não quiser invest agora, só instrumentar latência (`p50/p95` de `resolveCanonicalLead`) em `system_health_logs` para decidir depois.
 
-## Frente 2 — Merge atômico e resolução canônica recursiva
+---
 
-**Problema:** `merged_into` pode ser preenchido antes da consolidação do histórico, e o filtro `WHERE merged_into IS NULL` quebra a sessão ativa.
+### Ajuste 3 — Lock hygiene em `cognitive-lead-analysis`
 
-### 2.1 Migration: RPC atômica
+**Problema:** `pg_try_advisory_xact_lock` libera no commit/rollback, mas o `try/finally` da edge function não garante que a transação fecha em erro não capturado (ex: timeout DeepSeek mata o worker).
 
-```sql
-CREATE OR REPLACE FUNCTION public.merge_lia_attendances(source_id UUID, target_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-    -- Lock ordenado para evitar deadlocks cruzados
-    IF source_id < target_id THEN
-        PERFORM id FROM public.lia_attendances WHERE id IN (source_id, target_id) FOR UPDATE;
-    ELSE
-        PERFORM id FROM public.lia_attendances WHERE id IN (target_id, source_id) FOR UPDATE;
-    END IF;
+**Patch:**
+- Trocar `pg_try_advisory_xact_lock` por `pg_try_advisory_lock` + `pg_advisory_unlock` explícito em `finally`.
+- Wrap toda lógica pós-lock em `try { ... } finally { await supabase.rpc('release_cognitive_analysis_lock', { target_lead_id }); }`.
+- Migration: criar `release_cognitive_analysis_lock(uuid)` que chama `pg_advisory_unlock(hashtext(uuid::text))`.
+- Garantir que o lock não vaza entre invocações da mesma worker (Deno reusa conexões).
 
-    -- Consolidar identificadores no target (sem sobrescrever)
-    UPDATE public.lia_attendances t
-    SET email = COALESCE(t.email, s.email),
-        phone = COALESCE(t.phone, s.phone),
-        piperun_id = COALESCE(t.piperun_id, s.piperun_id),
-        metadata = COALESCE(t.metadata,'{}'::jsonb) || COALESCE(s.metadata,'{}'::jsonb)
-    FROM public.lia_attendances s
-    WHERE t.id = target_id AND s.id = source_id;
+**Risco:** se a worker morrer **antes** do `finally`, o lock fica órfão. Mitigação: TTL implícito via reinicialização do pool de conexões Supabase (~minutos). Adicionar job `cleanup_orphan_advisory_locks` opcional rodando a cada 5min.
 
-    -- Reatribuir FKs (lista gerada dinamicamente na migration via information_schema)
-    UPDATE public.agent_sessions      SET lead_id = target_id WHERE lead_id = source_id;
-    UPDATE public.agent_interactions  SET lead_id = target_id WHERE lead_id = source_id;
-    UPDATE public.whatsapp_inbox      SET lead_id = target_id WHERE lead_id = source_id;
-    -- … demais FKs (deals, lead_page_views, tickets, etc.) inventariadas na migration
+---
 
-    -- Migrar insights cognitivos
-    INSERT INTO public.lia_cognitive_insights (lead_id, cognitive_summary, cognitive_score, payload)
-    SELECT target_id, cognitive_summary, cognitive_score, payload
-    FROM public.lia_cognitive_insights WHERE lead_id = source_id
-    ON CONFLICT (lead_id) DO UPDATE
-       SET cognitive_summary = COALESCE(lia_cognitive_insights.cognitive_summary, EXCLUDED.cognitive_summary);
-    DELETE FROM public.lia_cognitive_insights WHERE lead_id = source_id;
+### Ajuste 4 — Janela de contexto DeepSeek
 
-    -- Marcar merge POR ÚLTIMO
-    UPDATE public.lia_attendances
-       SET merged_into = target_id, merged_at = NOW()
-     WHERE id = source_id;
+**Problema:** prompt já tem smart-truncation > 4000 chars, mas histórico cresce O(n) com `agent_interactions`. Latência sobe com leads de 50+ turnos.
 
-    INSERT INTO public.system_health_logs (event_type, details)
-    VALUES ('merge_rpc_calls', jsonb_build_object('source', source_id, 'target', target_id));
+**Patch em `dra-lia/index.ts` (etapa de montagem do prompt):**
+- Limitar `agent_interactions` carregadas: `LIMIT 15 ORDER BY created_at DESC` (hoje pega tudo da sessão).
+- Manter system prompt + últimas 15 mensagens (~ 7-8 turnos U/A) + resumo cognitivo (`lia_cognitive_insights.cognitive_summary`) como "memória longa".
+- Quando truncar, prefixar: `[Resumo das interações anteriores: <cognitive_summary>]`.
+- Flag de tuning: `DRA_LIA_HISTORY_WINDOW` env var (default 15) para ajustar sem deploy.
 
-    RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
+**Métrica:** logar `prompt_messages_count` e `prompt_chars` em `system_health_logs` para validar redução de p95.
 
-### 2.2 Refactor dos call-sites de merge
+---
 
-Substituir todo `update({ merged_into })` por `supabase.rpc('merge_lia_attendances', { source_id, target_id })`. Auditar: `dra-lia/index.ts` (linhas 2312-2352), `smart-ops-lia-assign`, `smart-ops-ingest-lead`, `smart-ops-sync-piperun`, `piperun-person-contact-backfill`, `omie-lead-enricher`.
+### Ordem de execução proposta
 
-### 2.3 Helper `resolveCanonicalLead`
+1. **Ajuste 4** (DeepSeek window) — quick win, sem migration, impacto imediato em latência.
+2. **Ajuste 3** (lock hygiene) — migration + refactor isolado em `cognitive-lead-analysis`.
+3. **Ajuste 1** (tag rename) — requer alinhamento de regra de negócio antes (ver pergunta abaixo).
+4. **Ajuste 2** (cache canônico) — só se métrica do Ajuste 3 (`canonical_cache_miss` latency) justificar. Apenas instrumentação primeiro.
 
-Em `_shared/identity-utils.ts`, expor:
+### Fora de escopo
+- Frentes 2 e 3 originais (merge RPC + echo by ID) — continuam pendentes, plano anterior em `.lovable/plan.md`.
+- Redis real (overkill para volume atual).
+- Remoção das colunas `lia_attendances.cognitive_*`.
 
-```ts
-export async function resolveCanonicalLead(supabase: any, currentId: string, maxDepth = 5): Promise<string> {
-  let activeId = currentId;
-  for (let i = 0; i < maxDepth; i++) {
-    const { data } = await supabase
-      .from('lia_attendances')
-      .select('id, merged_into')
-      .eq('id', activeId)
-      .single();
-    if (!data) break;
-    if (!data.merged_into) return data.id;
-    activeId = data.merged_into;
-  }
-  return activeId;
-}
-```
-
-`dra-lia` e `dra-lia-whatsapp` deixam de usar `.is('merged_into', null)` na resolução do lead corrente e passam a chamar `resolveCanonicalLead` após localizar o lead por email/phone. Isso elimina "sessão fantasma" durante merge.
-
-## Frente 3 — Echo guard por message ID
-
-**Problema:** echo-guard só conhece texto; sob delay da Evolution a outbound ainda não está em `whatsapp_inbox` e o eco passa. Mensagens curtas geram falso positivo no futuro.
-
-### 3.1 Migration
-
-```sql
-ALTER TABLE public.whatsapp_inbox ADD COLUMN wa_message_id TEXT;
-CREATE UNIQUE INDEX idx_unique_wa_message_id_outbound
-  ON public.whatsapp_inbox(wa_message_id)
-  WHERE wa_message_id IS NOT NULL;
-
-CREATE TABLE public.wa_outbound_pending (
-    wa_message_id TEXT PRIMARY KEY,
-    phone_normalized TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_wa_outbound_pending_phone ON public.wa_outbound_pending(phone_normalized);
-
-ALTER TABLE public.wa_outbound_pending ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role only" ON public.wa_outbound_pending
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-```
-
-Job pg_cron a cada 1 min: `DELETE FROM wa_outbound_pending WHERE created_at < NOW() - INTERVAL '60 seconds';`
-
-### 3.2 `smart-ops-send-waleads` (nova ordem)
-
-1. Gerar/obter `wa_message_id` antes do envio.
-2. `INSERT wa_outbound_pending`.
-3. `fetch` para Evolution.
-4. Em sucesso → `INSERT whatsapp_inbox(... wa_message_id)` e `DELETE wa_outbound_pending WHERE wa_message_id = …`.
-5. Em erro → manter pending para o TTL expirar.
-
-### 3.3 `dra-lia-whatsapp/index.ts` echo guard
-
-Fluxo:
-
-```text
-Webhook → extrai key.id
-       → SELECT 1 FROM wa_outbound_pending WHERE wa_message_id = ?  →  ignore: echo_by_id_pending
-       → SELECT 1 FROM whatsapp_inbox WHERE wa_message_id = ? AND direction='outbound' → ignore: echo_by_id_stored
-       → Fallback texto (atual) APENAS se body.fromMe === true OU match EXATO (remover regra de prefix) → echo_by_text_fallback
-       → senão → processa turno
-```
-
-Atualizar `echo-guard_test.ts` com:
-- (a) eco detectado por ID pending,
-- (b) eco detectado por ID stored,
-- (c) "ok" inbound NÃO dispara eco sem id correspondente,
-- (d) prefix-only deixa de bloquear (regressão intencional do comportamento atual).
-
-Logar `system_health_logs(event_type='echo_by_id' | 'echo_by_text_fallback')` para medir conversão.
-
-## Ordem de execução
-
-1. **Frente 1** (alívio imediato): migration + refactor cognitive-lead-analysis + ajuste consumidores da view.
-2. **Frente 2**: RPC merge + helper canônico + refactor call-sites.
-3. **Frente 3**: schema WA + send-waleads + echo guard + testes Deno.
-4. **Validação** (query padrão):
-
-```sql
-SELECT event_type, count(*) AS ocorrencias, min(created_at) AS monitorado_desde
-FROM public.system_health_logs
-WHERE event_type IN ('cog_lock_skipped','merge_rpc_calls','echo_by_id','echo_by_text_fallback')
-GROUP BY event_type;
-```
-
-5. Atualizar memórias do projeto:
-   - `mem://architecture/cognitive-insights-isolation` (Frente 1)
-   - `mem://architecture/merge-atomic-rpc-and-canonical-resolution` (Frente 2)
-   - `mem://architecture/whatsapp-echo-guard-by-id` (Frente 3)
-   - Ajustar Core: filtro `merged_into IS NULL` agora opcional quando se usa `resolveCanonicalLead`.
-
-## Fora de escopo
-
-- Rewrite do `summarize_session` (etapa 7 do `dra-lia`).
-- Mudança de provedor WhatsApp (já em transição).
-- Limpeza histórica de `merged_into` órfãos.
-- Remoção das colunas `lia_attendances.cognitive_*` (fica para release seguinte, após período DEPRECATED).
+### Pergunta de bloqueio (Ajuste 1)
+Confirme a regra de negócio antes de eu codar:
+- **Opção A:** `aguardando_humano` para hot-alert WA, `sem_interesse` só para rejeição cognitiva explícita (proposto).
+- **Opção B:** `comercial_alta_prioridade` para hot-alert, `sem_interesse` mantido onde está (sem reclassificar histórico).
+- **Opção C:** manter como está, é intencional (qual a lógica?).
