@@ -124,6 +124,12 @@ function buildDocx(args: {
   participanteNome: string;
   participanteCpf: string;
   participanteProfissao: string;
+  participante2Nome: string;
+  participante2Cpf: string;
+  participante2Profissao: string;
+  participante3Nome: string;
+  participante3Cpf: string;
+  participante3Profissao: string;
   nf1: string; nf2: string;
 }): Document {
   const a = args;
@@ -251,10 +257,10 @@ function buildDocx(args: {
 
           p(`4.1 Nome: ${a.participanteNome || BLANK_LONG}`),
           p(`     CPF: ${a.participanteCpf || BLANK_MED}    Profissão: ${a.participanteProfissao || BLANK_MED}`),
-          p(`4.2 Nome: ${BLANK_LONG}`),
-          p(`     CPF: ${BLANK_MED}    Profissão: ${BLANK_MED}`),
-          p(`4.3 Nome: ${BLANK_LONG}`),
-          p(`     CPF: ${BLANK_MED}    Profissão: ${BLANK_MED}`, { spacingAfter: 200 }),
+          p(`4.2 Nome: ${a.participante2Nome || BLANK_LONG}`),
+          p(`     CPF: ${a.participante2Cpf || BLANK_MED}    Profissão: ${a.participante2Profissao || BLANK_MED}`),
+          p(`4.3 Nome: ${a.participante3Nome || BLANK_LONG}`),
+          p(`     CPF: ${a.participante3Cpf || BLANK_MED}    Profissão: ${a.participante3Profissao || BLANK_MED}`, { spacingAfter: 200 }),
 
           new Paragraph({
             alignment: AlignmentType.JUSTIFIED,
