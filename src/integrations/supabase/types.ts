@@ -1183,6 +1183,24 @@ export type Database = {
           },
         ]
       }
+      cognitive_lead_locks: {
+        Row: {
+          lead_id: string
+          locked_at: string
+          ttl_seconds: number
+        }
+        Insert: {
+          lead_id: string
+          locked_at?: string
+          ttl_seconds?: number
+        }
+        Update: {
+          lead_id?: string
+          locked_at?: string
+          ttl_seconds?: number
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           annual_revenue: number | null
@@ -18219,6 +18237,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
       compute_workflow_timeline: {
         Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
         Returns: Json
