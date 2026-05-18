@@ -19267,6 +19267,10 @@ export type Database = {
           model: string
         }[]
       }
+      release_cognitive_analysis_lock: {
+        Args: { target_lead_id: string }
+        Returns: boolean
+      }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
         Returns: {
