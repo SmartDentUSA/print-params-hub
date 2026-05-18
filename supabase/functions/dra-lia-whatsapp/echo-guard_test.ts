@@ -2,8 +2,8 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { isEchoOfOutbound, normalizeForEcho } from "./echo-guard.ts";
 
 // ── normalizeForEcho ─────────────────────────────────────────────────
-Deno.test("normalize: strips emoji, punctuation, case, extra spaces", () => {
-  assertEquals(normalizeForEcho("Olá, Dr.! 👋  Tudo bem?"), "ola dr tudo bem");
+Deno.test("normalize: strips emoji, punctuation, case, extra spaces (preserves accents)", () => {
+  assertEquals(normalizeForEcho("Olá, Dr.! 👋  Tudo bem?"), "olá dr tudo bem");
   assertEquals(normalizeForEcho("  HELLO  \n\n World  "), "hello world");
   assertEquals(normalizeForEcho(""), "");
   assertEquals(normalizeForEcho(null as unknown as string), "");
@@ -23,7 +23,7 @@ Deno.test("echo: same text with added emoji", () => {
 });
 
 Deno.test("echo: case + punctuation difference only", () => {
-  const r = isEchoOfOutbound("OLA DR POSSO AJUDAR", ["Olá, Dr.! Posso ajudar?"]);
+  const r = isEchoOfOutbound("OLÁ DR POSSO AJUDAR", ["Olá, Dr.! Posso ajudar?"]);
   assertEquals(r.isEcho, true);
 });
 
