@@ -80,10 +80,18 @@ function extractFields(body: Record<string, unknown>): { phone: string; messageT
   // @lid resolution: WhatsApp sends internal IDs instead of real phone numbers.
   // The real phone is available in alternative payload fields.
   if (rawPhone.includes("@lid") || (phone.replace(/\D/g, "").length > 13)) {
+    const nestedKey = (nested.key || {}) as Record<string, unknown>;
+    const nestedMsg = (nested.message || {}) as Record<string, unknown>;
+    const ctxInfo = ((nestedMsg as any).extendedTextMessage?.contextInfo ||
+                     (nestedMsg as any).imageMessage?.contextInfo ||
+                     (body as any).contextInfo || {}) as Record<string, unknown>;
     const senderPn = String(
       body.senderPn || nested.senderPn || keyData.senderPn ||
+      nestedKey.senderPn || nestedKey.participantPn || nestedKey.remoteJidAlt ||
+      ctxInfo.participant || (ctxInfo as any).participantPn ||
       body.remoteJidAlt || nested.remoteJidAlt || keyData.remoteJidAlt ||
-      body.participant || nested.participant || ""
+      body.participant || nested.participant ||
+      (body as any).wa_id || (customer as any).wa_id || (nested as any).wa_id || ""
     );
     const altPhone = stripWaSuffix(senderPn);
     const altDigits = altPhone.replace(/\D/g, "");
