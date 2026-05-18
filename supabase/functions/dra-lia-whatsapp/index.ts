@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
+import { classifyMessage, deriveTopicContext } from "../_shared/wa-intent.ts";
+import { mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +34,35 @@ function stripMarkdownForWhatsApp(text: string): string {
 // ── Strip WhatsApp suffixes from phone/chat IDs ───
 function stripWaSuffix(raw: string): string {
   return raw.replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+}
+
+// ── Smart truncation: cut at last full paragraph + RAG fallback link ───
+function smartTruncateForWhatsApp(text: string, maxLen: number, fallbackUrl: string | null): string {
+  if (text.length <= maxLen) return text;
+  const reserve = 120;
+  const sliceEnd = maxLen - reserve;
+  const slice = text.slice(0, sliceEnd);
+  const lastParaBreak = slice.lastIndexOf("\n\n");
+  const cut = lastParaBreak > sliceEnd * 0.6 ? slice.slice(0, lastParaBreak) : slice;
+  const tail = fallbackUrl
+    ? `\n\n📖 Resposta completa: ${fallbackUrl}`
+    : `\n\n📖 Resposta completa em: https://parametros.smartdent.com.br`;
+  return cut.trimEnd() + tail;
+}
+
+// ── Extract media (image) from Evolution payload ───
+function extractMedia(body: Record<string, unknown>): { url: string | null; type: string | null } {
+  const data = (body.data || {}) as Record<string, unknown>;
+  const msg = (data.message || body.message_obj || {}) as Record<string, unknown>;
+  const url = String(
+    body.media_url || body.mediaUrl || (msg as any).imageMessage?.url ||
+    (msg as any).image?.url || (body as any).file_url || ""
+  ) || null;
+  const type = String(
+    body.media_type || body.mediaType || (data as any).messageType ||
+    ((msg as any).imageMessage ? "image" : "") || ""
+  ) || null;
+  return { url, type };
 }
 
 // ── Extract fields from flexible payload shapes ───
