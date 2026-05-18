@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { sanitizeShopUrl } from "./lia-rag.ts";
+import { sanitizeShopUrl } from "./shop-url.ts";
 
 Deno.test("sanitizeShopUrl: removes trailing dash", () => {
   assertEquals(
