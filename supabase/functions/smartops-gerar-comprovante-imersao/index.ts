@@ -27,6 +27,32 @@ const BLANK_LONG = "_______________________________________________";
 const BLANK_MED = "________________________";
 const BLANK_SHORT = "______";
 
+function pickFirst(...vals: (string | null | undefined)[]): string {
+  for (const v of vals) {
+    if (v && String(v).trim().length > 0) return String(v).trim();
+  }
+  return "";
+}
+
+function formatDoc(value: string | null | undefined): string {
+  if (!value) return "";
+  const digits = String(value).replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
+  }
+  if (digits.length === 14) {
+    return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`;
+  }
+  return String(value).trim();
+}
+
+function addDaysISO(iso: string, days: number): string {
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) return iso;
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
 function fmtDate(d?: string | null): { dd: string; mm: string; yyyy: string } {
   if (!d) return { dd: "____", mm: "____", yyyy: "________" };
   const dt = new Date(d);
@@ -43,21 +69,30 @@ function parseTurmaLabel(
   label: string | null,
   launchDate: string | null,
 ): { start: string | null; end: string | null } {
-  if (!label) return { start: launchDate, end: null };
-  const m = label.match(
-    /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*(?:a|–|-|to)\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i,
-  );
-  if (m) {
-    const yEnd = m[6].length === 2 ? `20${m[6]}` : m[6];
-    const yStart = m[3]
-      ? m[3].length === 2 ? `20${m[3]}` : m[3]
-      : yEnd;
-    return {
-      start: `${yStart}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`,
-      end: `${yEnd}-${m[5].padStart(2, "0")}-${m[4].padStart(2, "0")}`,
-    };
+  // Case A: range "DD/MM[/YYYY] a DD/MM/YYYY"
+  if (label) {
+    const rangeRe =
+      /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*(?:a|–|—|-|to)\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i;
+    const m = label.match(rangeRe);
+    if (m) {
+      const yEnd = m[6].length === 2 ? `20${m[6]}` : m[6];
+      const yStart = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : yEnd;
+      return {
+        start: `${yStart}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`,
+        end: `${yEnd}-${m[5].padStart(2, "0")}-${m[4].padStart(2, "0")}`,
+      };
+    }
+    // Case B: first DD/MM/YYYY anywhere in the label
+    const single = label.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (single) {
+      const y = single[3].length === 2 ? `20${single[3]}` : single[3];
+      const startIso = `${y}-${single[2].padStart(2, "0")}-${single[1].padStart(2, "0")}`;
+      return { start: startIso, end: addDaysISO(startIso, 2) };
+    }
   }
-  return { start: launchDate, end: null };
+  // Case C: launch_date fallback (imersão = 3 dias)
+  if (launchDate) return { start: launchDate, end: addDaysISO(launchDate, 2) };
+  return { start: null, end: null };
 }
 
 function p(text: string, opts: { bold?: boolean; align?: any; size?: number; spacingAfter?: number } = {}) {
@@ -379,18 +414,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Fetch all companions of this enrollment (used for 4.2/4.3 when generating titular's doc)
+    const { data: allCompanions } = await admin
+      .from("smartops_enrollment_companions")
+      .select("id, name, cpf, especialidade")
+      .eq("enrollment_id", enrollmentId);
+    const companions = allCompanions || [];
+
     let participantName = enr.person_name || "";
     let participantEspecialidade = enr.especialidade || "";
+    let participantCpfRaw = "";
+    let isCompanion = false;
     if (companionId) {
-      const { data: comp } = await admin
-        .from("smartops_enrollment_companions")
-        .select("name, especialidade")
-        .eq("id", companionId)
-        .eq("enrollment_id", enrollmentId)
-        .maybeSingle();
+      isCompanion = true;
+      const comp = companions.find((c: any) => c.id === companionId);
       if (comp) {
         participantName = comp.name;
-        participantEspecialidade = comp.especialidade || "";
+        participantEspecialidade = comp.especialidade || enr.especialidade || "";
+        participantCpfRaw = comp.cpf || "";
       }
     }
 
@@ -400,44 +441,88 @@ Deno.serve(async (req: Request) => {
       .eq("id", enr.turma_id)
       .maybeSingle();
 
-    let leadCpf = "";
-    let leadNome = "";
+    let lead: any = null;
     if (enr.lead_id) {
-      const { data: lead } = await admin
+      const { data: l } = await admin
         .from("lia_attendances")
-        .select("nome, pessoa_cpf, empresa_nome")
+        .select(
+          "nome, pessoa_cpf, pessoa_cargo, pessoa_endereco, especialidade, empresa_nome, empresa_razao_social, empresa_cnpj, empresa_endereco, empresa_cidade, empresa_uf, cidade, uf",
+        )
         .eq("id", enr.lead_id)
         .is("merged_into", null)
         .maybeSingle();
-      if (lead) {
-        leadNome = lead.nome || "";
-        leadCpf = lead.pessoa_cpf || "";
-      }
+      lead = l;
+    }
+
+    // Try to fetch up to 2 most recent NFs from Omie for this lead
+    let omieNfs: any[] = [];
+    if (enr.lead_id) {
+      const { data: nfs } = await admin
+        .from("omie_notas_fiscais")
+        .select("numero_nf, cliente_nome, cliente_cpf_cnpj, data_emissao")
+        .eq("lead_id", enr.lead_id)
+        .order("data_emissao", { ascending: false })
+        .limit(2);
+      omieNfs = nfs || [];
     }
 
     const dates = parseTurmaLabel(turma?.label || null, turma?.launch_date || null);
     const start = fmtDate(dates.start);
     const end = fmtDate(dates.end || dates.start);
 
-    const declaranteName = leadNome || enr.person_name || "";
-    const empresaCnpj = enr.empresa_cnpj || "";
+    // Cascata de fontes
+    const declaranteName = pickFirst(enr.person_name, lead?.nome);
+    const cpfDeclaranteRaw = pickFirst(
+      lead?.pessoa_cpf,
+      enr.empresa_cnpj,
+      lead?.empresa_cnpj,
+    );
+    const empresa = pickFirst(
+      lead?.empresa_razao_social,
+      lead?.empresa_nome,
+      omieNfs[0]?.cliente_nome,
+    );
+    const endereco = pickFirst(enr.empresa_endereco, lead?.empresa_endereco, lead?.pessoa_endereco);
+    const cidade = pickFirst(enr.empresa_cidade, lead?.empresa_cidade, lead?.cidade);
+    const estado = pickFirst(enr.empresa_estado, lead?.empresa_uf, lead?.uf);
+    const contrato = pickFirst(enr.numero_contrato);
+
+    // NFs: prefer enrollment.numero_nf, fallback to omie
     const nfParts = (enr.numero_nf || "").split(/[\s,;\/]+/).filter(Boolean);
+    const nf1 = pickFirst(nfParts[0], omieNfs[0]?.numero_nf);
+    const nf2 = pickFirst(nfParts[1], omieNfs[1]?.numero_nf);
+
+    // Participante principal (4.1)
+    const part41Nome = participantName || lead?.nome || "";
+    const part41Cpf = isCompanion ? participantCpfRaw : pickFirst(lead?.pessoa_cpf);
+    const part41Prof = pickFirst(participantEspecialidade, lead?.pessoa_cargo, lead?.especialidade);
+
+    // 4.2 / 4.3 — apenas no doc do titular, preenche com até 2 acompanhantes
+    const extras = isCompanion ? [] : companions.slice(0, 2);
+    const part42 = extras[0];
+    const part43 = extras[1];
 
     const doc = buildDocx({
       declarante: declaranteName,
-      cpfDeclarante: empresaCnpj || leadCpf,
-      empresa: "",
-      endereco: enr.empresa_endereco || "",
-      cidade: enr.empresa_cidade || "",
-      estado: enr.empresa_estado || "",
-      contrato: enr.numero_contrato || "",
+      cpfDeclarante: formatDoc(cpfDeclaranteRaw),
+      empresa,
+      endereco,
+      cidade,
+      estado,
+      contrato,
       startDD: start.dd, startMM: start.mm, startYY: start.yyyy,
       endDD: end.dd, endMM: end.mm, endYY: end.yyyy,
-      participanteNome: participantName,
-      participanteCpf: companionId ? "" : leadCpf,
-      participanteProfissao: participantEspecialidade,
-      nf1: nfParts[0] || "",
-      nf2: nfParts[1] || "",
+      participanteNome: part41Nome,
+      participanteCpf: formatDoc(part41Cpf),
+      participanteProfissao: part41Prof,
+      participante2Nome: part42?.name || "",
+      participante2Cpf: formatDoc(part42?.cpf || ""),
+      participante2Profissao: part42?.especialidade || "",
+      participante3Nome: part43?.name || "",
+      participante3Cpf: formatDoc(part43?.cpf || ""),
+      participante3Profissao: part43?.especialidade || "",
+      nf1,
+      nf2,
     });
 
     const buffer = await Packer.toBuffer(doc);
