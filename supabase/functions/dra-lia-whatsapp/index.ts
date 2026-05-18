@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
     const looksLikeLid = rawPhoneField.includes("@lid") || phoneDigits.length >= 14 || phoneDigits.length < 10;
     let lidId: string | null = null;
     if (looksLikeLid) {
-      lidId = phoneDigits; // store the LID for later mapping persistence
+      lidId = phoneDigits;
       const { data: mapped } = await supabase
         .from("wa_lid_phone_map")
         .select("phone_digits, lead_id")
@@ -303,15 +303,11 @@ Deno.serve(async (req) => {
       if (mapped?.phone_digits) {
         console.log(`[dra-lia-wa] LID ${lidId} → mapped phone ${mapped.phone_digits}`);
         phoneDigits = mapped.phone_digits;
-        // refresh last_seen_at
         await supabase.from("wa_lid_phone_map")
           .update({ last_seen_at: new Date().toISOString() })
           .eq("lid_id", lidId);
       } else {
-        console.warn(`[dra-lia-wa] Unresolved LID ${lidId} and no mapping found — ignoring webhook to avoid ghost session`);
-        return new Response(JSON.stringify({ ignored: true, reason: "unresolved_lid", lid: lidId }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        console.warn(`[dra-lia-wa] Unresolved LID ${lidId} — proceeding with LID as session key (will map once senderPn arrives)`);
       }
     }
     const phoneSuffix = normalizePhoneForMatch(phoneDigits);
