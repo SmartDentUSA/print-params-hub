@@ -287,9 +287,59 @@ Deno.serve(async (req) => {
       }
     }
 
-    const phoneDigits = phone.replace(/\D/g, "");
-    const phoneSuffix = normalizePhoneForMatch(phone);
-    console.log(`[dra-lia-wa] Received: phone=${phoneDigits} msg="${messageText.slice(0, 80)}"`);
+    let phoneDigits = phone.replace(/\D/g, "");
+    // ── LID fallback: if "phone" is actually an unresolved LID, try our mapping table ──
+    // Heuristic: BR phones have 10–13 digits with country code. Anything ≥14 digits is a LID.
+    const rawPhoneField = String(body.phone || body.from || body.sender || (body as any).chatId || "");
+    const looksLikeLid = rawPhoneField.includes("@lid") || phoneDigits.length >= 14 || phoneDigits.length < 10;
+    let lidId: string | null = null;
+    if (looksLikeLid) {
+      lidId = phoneDigits; // store the LID for later mapping persistence
+      const { data: mapped } = await supabase
+        .from("wa_lid_phone_map")
+        .select("phone_digits, lead_id")
+        .eq("lid_id", lidId)
+        .maybeSingle();
+      if (mapped?.phone_digits) {
+        console.log(`[dra-lia-wa] LID ${lidId} → mapped phone ${mapped.phone_digits}`);
+        phoneDigits = mapped.phone_digits;
+        // refresh last_seen_at
+        await supabase.from("wa_lid_phone_map")
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq("lid_id", lidId);
+      } else {
+        console.warn(`[dra-lia-wa] Unresolved LID ${lidId} and no mapping found — ignoring webhook to avoid ghost session`);
+        return new Response(JSON.stringify({ ignored: true, reason: "unresolved_lid", lid: lidId }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    const phoneSuffix = normalizePhoneForMatch(phoneDigits);
+    console.log(`[dra-lia-wa] Received: phone=${phoneDigits} lid=${lidId || "-"} msg="${messageText.slice(0, 80)}"`);
+
+    // ── Anti-echo: ignore inbound that matches recent LIA outbound text (SDR/automation echo) ──
+    {
+      const { data: recentOut } = await supabase
+        .from("whatsapp_inbox")
+        .select("message_text, created_at")
+        .eq("phone_normalized", phoneSuffix)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (recentOut && recentOut.length > 0) {
+        const incomingNorm = normalizeForEcho(messageText);
+        for (const out of recentOut) {
+          const outNorm = normalizeForEcho(String(out.message_text || ""));
+          if (!outNorm || outNorm.length < 8) continue;
+          if (outNorm === incomingNorm || (outNorm.length > 40 && incomingNorm.includes(outNorm.slice(0, 60)))) {
+            console.warn(`[dra-lia-wa] Echo guard: inbound matches recent outbound — ignoring`);
+            return new Response(JSON.stringify({ ignored: true, reason: "echo_of_own_outbound" }), {
+              status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+    }
 
     // ── Extract media (image) so we can pass image_data to dra-lia (parity with site) ──
     const media = extractMedia(body);
