@@ -80,10 +80,18 @@ function extractFields(body: Record<string, unknown>): { phone: string; messageT
   // @lid resolution: WhatsApp sends internal IDs instead of real phone numbers.
   // The real phone is available in alternative payload fields.
   if (rawPhone.includes("@lid") || (phone.replace(/\D/g, "").length > 13)) {
+    const nestedKey = (nested.key || {}) as Record<string, unknown>;
+    const nestedMsg = (nested.message || {}) as Record<string, unknown>;
+    const ctxInfo = ((nestedMsg as any).extendedTextMessage?.contextInfo ||
+                     (nestedMsg as any).imageMessage?.contextInfo ||
+                     (body as any).contextInfo || {}) as Record<string, unknown>;
     const senderPn = String(
       body.senderPn || nested.senderPn || keyData.senderPn ||
+      nestedKey.senderPn || nestedKey.participantPn || nestedKey.remoteJidAlt ||
+      ctxInfo.participant || (ctxInfo as any).participantPn ||
       body.remoteJidAlt || nested.remoteJidAlt || keyData.remoteJidAlt ||
-      body.participant || nested.participant || ""
+      body.participant || nested.participant ||
+      (body as any).wa_id || (customer as any).wa_id || (nested as any).wa_id || ""
     );
     const altPhone = stripWaSuffix(senderPn);
     const altDigits = altPhone.replace(/\D/g, "");
@@ -122,6 +130,16 @@ function shouldIgnore(body: Record<string, unknown>): string | null {
     return "isGroup";
   }
   return null;
+}
+
+// ── Normalize text for anti-echo comparison ───
+function normalizeForEcho(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ── Consume SSE stream from dra-lia and return full text ───
@@ -269,9 +287,55 @@ Deno.serve(async (req) => {
       }
     }
 
-    const phoneDigits = phone.replace(/\D/g, "");
-    const phoneSuffix = normalizePhoneForMatch(phone);
-    console.log(`[dra-lia-wa] Received: phone=${phoneDigits} msg="${messageText.slice(0, 80)}"`);
+    let phoneDigits = phone.replace(/\D/g, "");
+    // ── LID fallback: if "phone" is actually an unresolved LID, try our mapping table ──
+    // Heuristic: BR phones have 10–13 digits with country code. Anything ≥14 digits is a LID.
+    const rawPhoneField = String(body.phone || body.from || body.sender || (body as any).chatId || "");
+    const looksLikeLid = rawPhoneField.includes("@lid") || phoneDigits.length >= 14 || phoneDigits.length < 10;
+    let lidId: string | null = null;
+    if (looksLikeLid) {
+      lidId = phoneDigits;
+      const { data: mapped } = await supabase
+        .from("wa_lid_phone_map")
+        .select("phone_digits, lead_id")
+        .eq("lid_id", lidId)
+        .maybeSingle();
+      if (mapped?.phone_digits) {
+        console.log(`[dra-lia-wa] LID ${lidId} → mapped phone ${mapped.phone_digits}`);
+        phoneDigits = mapped.phone_digits;
+        await supabase.from("wa_lid_phone_map")
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq("lid_id", lidId);
+      } else {
+        console.warn(`[dra-lia-wa] Unresolved LID ${lidId} — proceeding with LID as session key (will map once senderPn arrives)`);
+      }
+    }
+    const phoneSuffix = normalizePhoneForMatch(phoneDigits);
+    console.log(`[dra-lia-wa] Received: phone=${phoneDigits} lid=${lidId || "-"} msg="${messageText.slice(0, 80)}"`);
+
+    // ── Anti-echo: ignore inbound that matches recent LIA outbound text (SDR/automation echo) ──
+    {
+      const { data: recentOut } = await supabase
+        .from("whatsapp_inbox")
+        .select("message_text, created_at")
+        .eq("phone_normalized", phoneSuffix)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (recentOut && recentOut.length > 0) {
+        const incomingNorm = normalizeForEcho(messageText);
+        for (const out of recentOut) {
+          const outNorm = normalizeForEcho(String(out.message_text || ""));
+          if (!outNorm || outNorm.length < 8) continue;
+          if (outNorm === incomingNorm || (outNorm.length > 40 && incomingNorm.includes(outNorm.slice(0, 60)))) {
+            console.warn(`[dra-lia-wa] Echo guard: inbound matches recent outbound — ignoring`);
+            return new Response(JSON.stringify({ ignored: true, reason: "echo_of_own_outbound" }), {
+              status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+    }
 
     // ── Extract media (image) so we can pass image_data to dra-lia (parity with site) ──
     const media = extractMedia(body);
@@ -375,15 +439,18 @@ Deno.serve(async (req) => {
 
     // 2b. Pre-seed agent_sessions ONLY for real leads with real email (parity with site recognition).
     // Includes topic_context so dra-lia uses the same route as the site (commercial/support/parameters).
-    const isRealLead = !!(leadId && leadEmail && !/@whatsapp\.lead$/i.test(leadEmail));
-    if (isRealLead) {
+    // Any matched lead pre-seeds identity so the qualification interceptor does not re-ask name/email.
+    const hasRealEmail = !!(leadEmail && !/@whatsapp\.lead$/i.test(leadEmail));
+    if (leadId) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
         current_state: "chatting",
         extracted_entities: {
           lead_id: leadId,
           lead_name: leadNome || `WhatsApp ${phoneDigits.slice(-4)}`,
-          lead_email: leadEmail,
+          lead_email: hasRealEmail ? leadEmail : `wa_${phoneDigits}@whatsapp.lead`,
+          identity_known: true,
+          wa_phone: phoneDigits,
           topic_context: topicContext,
         },
         last_activity_at: new Date().toISOString(),
@@ -392,7 +459,7 @@ Deno.serve(async (req) => {
       if (sessErr) {
         console.warn("[dra-lia-wa] Failed to upsert agent_sessions:", sessErr.message);
       } else {
-        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} (lead ${leadId}, topic=${topicContext})`);
+        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} (lead ${leadId}, realEmail=${hasRealEmail}, topic=${topicContext})`);
       }
     } else {
       // Unknown / placeholder — store topic_context + phone so qualification persists across turns
@@ -405,6 +472,18 @@ Deno.serve(async (req) => {
         },
         last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" }).then(({ error: e }) => { if (e) console.warn("[wa] session upsert error:", e.message); });
+    }
+
+    // Persist LID → phone mapping (and lead) for next webhooks
+    if (lidId && lidId !== phoneDigits) {
+      await supabase.from("wa_lid_phone_map").upsert({
+        lid_id: lidId,
+        phone_digits: phoneDigits,
+        lead_id: leadId,
+        last_seen_at: new Date().toISOString(),
+      }, { onConflict: "lid_id" }).then(({ error }) => {
+        if (error) console.warn("[dra-lia-wa] wa_lid_phone_map upsert error:", error.message);
+      });
     }
 
     // 3. If image present, download and base64-encode for dra-lia visual classifier (parity with site)

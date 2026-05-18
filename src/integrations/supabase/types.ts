@@ -13752,6 +13752,30 @@ export type Database = {
           },
         ]
       }
+      wa_lid_phone_map: {
+        Row: {
+          created_at: string
+          last_seen_at: string
+          lead_id: string | null
+          lid_id: string
+          phone_digits: string
+        }
+        Insert: {
+          created_at?: string
+          last_seen_at?: string
+          lead_id?: string | null
+          lid_id: string
+          phone_digits: string
+        }
+        Update: {
+          created_at?: string
+          last_seen_at?: string
+          lead_id?: string | null
+          lid_id?: string
+          phone_digits?: string
+        }
+        Relationships: []
+      }
       wa_message_dedup: {
         Row: {
           created_at: string | null
