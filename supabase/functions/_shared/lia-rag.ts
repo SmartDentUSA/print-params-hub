@@ -7,6 +7,21 @@ import { STOPWORDS_PT } from "./lia-guards.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+// ── Shop URL sanitizer ──
+// Cleans cta_1_url / system_a_product_url values stored with trailing dashes,
+// stray HTML tags, or whitespace. Returns null if the result is not a usable URL.
+export function sanitizeShopUrl(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let s = raw.replace(/<[^>]*>/g, "").replace(/\s+/g, "").trim();
+  // Strip trailing junk repeatedly, but never touch the "://" segment.
+  // Allowed trailing chars get removed: - . , ; : / ! ? )
+  while (s.length > 0 && /[\-.,;:/!?)]$/.test(s) && !s.endsWith("://")) {
+    s = s.slice(0, -1);
+  }
+  if (!/^https?:\/\/[^\s]+\.[^\s]+/i.test(s)) return null;
+  return s;
+}
+
 // ── Topic context re-ranking weights ──
 export const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
   parameters: { parameter_set: 1.5, resin: 1.3, resin_document: 1.3, processing_protocol: 1.4, article: 0.9, video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
