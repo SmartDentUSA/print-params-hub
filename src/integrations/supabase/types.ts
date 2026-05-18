@@ -404,6 +404,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_token_usage: {
@@ -874,6 +881,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -1883,6 +1897,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_status_history: {
@@ -2028,6 +2049,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -2280,6 +2308,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -2979,6 +3014,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -3150,6 +3192,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "involve_me_sync_control_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -3960,6 +4009,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_activity_log_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4152,6 +4208,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -4353,6 +4416,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_conversion_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4551,6 +4621,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -4788,6 +4865,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_form_submissions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4992,6 +5076,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_opportunities_product_key_fkey"
             columns: ["product_key"]
             isOneToOne: false
@@ -5179,6 +5270,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -5398,6 +5496,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_product_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -5614,6 +5719,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_sdr_interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -5794,6 +5906,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -7561,6 +7680,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lia_attendances_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -7675,6 +7801,166 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      lia_cognitive_insights: {
+        Row: {
+          cognitive_score: number | null
+          cognitive_summary: string | null
+          cognitive_updated_at: string
+          created_at: string
+          lead_id: string
+          payload: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          cognitive_score?: number | null
+          cognitive_summary?: string | null
+          cognitive_updated_at?: string
+          created_at?: string
+          lead_id: string
+          payload?: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          cognitive_score?: number | null
+          cognitive_summary?: string | null
+          cognitive_updated_at?: string
+          created_at?: string
+          lead_id?: string
+          payload?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marketing_assets: {
         Row: {
@@ -7900,6 +8186,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -8303,6 +8596,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
             columns: ["vendedor_codigo"]
             isOneToOne: false
@@ -8500,6 +8800,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -8706,6 +9013,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -9463,6 +9777,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       piperun_staging: {
@@ -9960,6 +10281,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactivation_sequences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -10727,6 +11055,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "short_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       site_settings: {
@@ -11026,6 +11361,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -11436,6 +11778,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -12462,6 +12811,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
@@ -12709,6 +13065,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tldv_meeting_intelligence_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: true
@@ -12882,6 +13245,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -13157,6 +13527,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -13417,6 +13794,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       wa_group_dispatch_log: {
@@ -13623,6 +14007,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -13964,6 +14355,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -14654,6 +15052,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_equipment_field_map: {
@@ -14842,6 +15247,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -15163,6 +15575,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_lead_timeline: {
@@ -15404,6 +15823,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_open_opportunities: {
@@ -15552,6 +15978,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
         ]
@@ -16360,6 +16793,13 @@ export type Database = {
             referencedRelation: "vw_leads_qualidade_ruim"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_tldv_produto_intel: {
@@ -16907,6 +17347,707 @@ export type Database = {
           telefone_normalized?: string | null
         }
         Relationships: []
+      }
+      vw_lia_attendances_enriched: {
+        Row: {
+          academy_curso_concluido: string[] | null
+          academy_progresso_pct: number | null
+          academy_ultimo_modulo_acessado: string | null
+          anchor_product: string | null
+          area_atuacao: string | null
+          astron_courses_access: Json | null
+          astron_courses_completed: number | null
+          astron_courses_total: number | null
+          astron_created_at: string | null
+          astron_email: string | null
+          astron_last_login_at: string | null
+          astron_login_url: string | null
+          astron_nome: string | null
+          astron_phone: string | null
+          astron_plans_active: string[] | null
+          astron_plans_data: Json | null
+          astron_status: string | null
+          astron_synced_at: string | null
+          astron_user_id: number | null
+          ativo_cad: boolean | null
+          ativo_cad_ia: boolean | null
+          ativo_cura: boolean | null
+          ativo_insumos: boolean | null
+          ativo_notebook: boolean | null
+          ativo_print: boolean | null
+          ativo_scan: boolean | null
+          ativo_smart_slice: boolean | null
+          automation_cooldown_until: string | null
+          avg_ticket: number | null
+          buyer_type: string | null
+          churn_risk_score: number | null
+          cidade: string | null
+          codigo_contrato: string | null
+          cognitive_analysis: Json | null
+          cognitive_analyzed_at: string | null
+          cognitive_context_hash: string | null
+          cognitive_model_version: string | null
+          cognitive_payload: Json | null
+          cognitive_prompt_hash: string | null
+          cognitive_updated_at: string | null
+          comentario_perda: string | null
+          como_digitaliza: string | null
+          company_hash: string | null
+          company_id: string | null
+          confidence_score_analysis: number | null
+          contact_sync_attempts: number | null
+          contact_sync_failed_at: string | null
+          created_at: string | null
+          crm_creation_blocked: boolean | null
+          crm_creation_blocked_reason: string | null
+          crm_lock_source: string | null
+          crm_lock_until: string | null
+          cs_treinamento: string | null
+          data_contrato: string | null
+          data_fechamento_crm: string | null
+          data_primeiro_contato: string | null
+          data_treinamento: string | null
+          data_ultima_compra_cad: string | null
+          data_ultima_compra_cad_ia: string | null
+          data_ultima_compra_cura: string | null
+          data_ultima_compra_insumos: string | null
+          data_ultima_compra_notebook: string | null
+          data_ultima_compra_print: string | null
+          data_ultima_compra_scan: string | null
+          data_ultima_compra_smart_slice: string | null
+          do_not_contact: boolean | null
+          email: string | null
+          empresa_cidade: string | null
+          empresa_cnae: string | null
+          empresa_cnaes: Json | null
+          empresa_cnpj: string | null
+          empresa_custom_fields: Json | null
+          empresa_data_abertura: string | null
+          empresa_email: string | null
+          empresa_email_nf: string | null
+          empresa_endereco: Json | null
+          empresa_facebook: string | null
+          empresa_hash: string | null
+          empresa_ie: string | null
+          empresa_linkedin: string | null
+          empresa_nome: string | null
+          empresa_pais: string | null
+          empresa_piperun_id: number | null
+          empresa_porte: string | null
+          empresa_razao_social: string | null
+          empresa_segmento: string | null
+          empresa_situacao: string | null
+          empresa_telefone: string | null
+          empresa_touch_model: string | null
+          empresa_uf: string | null
+          empresa_website: string | null
+          entrada_sistema: string | null
+          equip_cad: string | null
+          equip_cad_ativacao: string | null
+          equip_cad_serial: string | null
+          equip_fresadora: string | null
+          equip_fresadora_ativacao: string | null
+          equip_fresadora_idade_meses: number | null
+          equip_fresadora_serial: string | null
+          equip_impressora: string | null
+          equip_impressora_ativacao: string | null
+          equip_impressora_ativacao_estimada: string | null
+          equip_impressora_idade_meses: number | null
+          equip_impressora_serial: string | null
+          equip_notebook: string | null
+          equip_notebook_ativacao: string | null
+          equip_notebook_serial: string | null
+          equip_pos_impressao: string | null
+          equip_pos_impressao_ativacao: string | null
+          equip_pos_impressao_serial: string | null
+          equip_scanner: string | null
+          equip_scanner_ativacao: string | null
+          equip_scanner_ativacao_estimada: string | null
+          equip_scanner_bancada: string | null
+          equip_scanner_bancada_ativacao: string | null
+          equip_scanner_bancada_serial: string | null
+          equip_scanner_idade_meses: number | null
+          equip_scanner_serial: string | null
+          equip_upgrade_produto: string | null
+          equip_upgrade_reasoning: string | null
+          equip_upgrade_signal: boolean | null
+          equip_upgrade_urgency: string | null
+          erp_last_event: string | null
+          erp_status: string | null
+          erp_updated_at: string | null
+          especialidade: string | null
+          form_data: Json | null
+          form_name: string | null
+          forma_pagamento: string | null
+          frete_codigo_rastreio: string | null
+          frete_link_rastreio: string | null
+          frete_previsao_entrega: string | null
+          frete_status: string | null
+          frete_tipo: string | null
+          frete_transportadora: string | null
+          frete_updated_at: string | null
+          frete_valor: number | null
+          funil_entrada_crm: string | null
+          historico_resumos: Json | null
+          hits_cad: number | null
+          hits_e1_acessorios: number | null
+          hits_e1_notebook: number | null
+          hits_e1_pecas_partes: number | null
+          hits_e1_scanner_bancada: number | null
+          hits_e1_scanner_intraoral: number | null
+          hits_e2_creditos_ia: number | null
+          hits_e2_pecas_partes: number | null
+          hits_e2_servico: number | null
+          hits_e2_software: number | null
+          hits_e3_acessorios: number | null
+          hits_e3_impressora: number | null
+          hits_e3_pecas_partes: number | null
+          hits_e3_resina: number | null
+          hits_e3_software: number | null
+          hits_e4_equipamentos: number | null
+          hits_e4_limpeza_acabamento: number | null
+          hits_e5_caracterizacao: number | null
+          hits_e5_dentistica_orto: number | null
+          hits_e5_instalacao: number | null
+          hits_e6_online: number | null
+          hits_e6_presencial: number | null
+          hits_e7_acessorios: number | null
+          hits_e7_equipamentos: number | null
+          hits_e7_insumos: number | null
+          hits_e7_pecas_partes: number | null
+          hits_e7_servico: number | null
+          hits_e7_software: number | null
+          hits_finalizacao: number | null
+          hits_fresagem: number | null
+          hits_impressao3d: number | null
+          hits_insumos_cursos: number | null
+          hits_pos_impressao: number | null
+          hits_scanner: number | null
+          id: string | null
+          id_cliente_smart: string | null
+          imersao_concluida: boolean | null
+          imersao_data: string | null
+          imersao_equipamentos_treinados: string[] | null
+          imersao_turma_id: string | null
+          impressora_modelo: string | null
+          imprime_guias: string | null
+          imprime_modelos: string | null
+          imprime_placas: string | null
+          imprime_resinas_ld: string | null
+          informacao_desejada: string | null
+          insight_cognitive_score: number | null
+          insight_cognitive_summary: string | null
+          insight_updated_at: string | null
+          instagram: string | null
+          insumos_adquiridos: string | null
+          intelligence_score: Json | null
+          intelligence_score_backfilled_at: string | null
+          intelligence_score_total: number | null
+          intelligence_score_updated_at: string | null
+          interest_timeline: string | null
+          ip_origem: string | null
+          itens_proposta_crm: string | null
+          itens_proposta_parsed: Json | null
+          last_automated_action_at: string | null
+          last_deal_date: string | null
+          last_deal_value: number | null
+          last_failed_assignment_owner: string | null
+          last_form_cad: string | null
+          last_form_date_cad: string | null
+          last_form_date_finalizacao: string | null
+          last_form_date_fresagem: string | null
+          last_form_date_impressao: string | null
+          last_form_date_insumos: string | null
+          last_form_date_pos_impressao: string | null
+          last_form_date_scanner: string | null
+          last_form_finalizacao: string | null
+          last_form_fresagem: string | null
+          last_form_impressao: string | null
+          last_form_insumos: string | null
+          last_form_pos_impressao: string | null
+          last_form_scanner: string | null
+          last_seller_note_at: string | null
+          last_seller_note_hash: string | null
+          last_sync_at: string | null
+          last_sync_source: string | null
+          last_waleads_instance: string | null
+          lead_card_published_at: string | null
+          lead_card_url: string | null
+          lead_stage_detected: string | null
+          lead_status: string | null
+          lead_timing_dias: number | null
+          lia_briefing_sent_at: string | null
+          lojaintegrada_bairro: string | null
+          lojaintegrada_bandeira_cartao: string | null
+          lojaintegrada_cep: string | null
+          lojaintegrada_cliente_data_criacao: string | null
+          lojaintegrada_cliente_id: number | null
+          lojaintegrada_cliente_obs: string | null
+          lojaintegrada_complemento: string | null
+          lojaintegrada_cupom_desconto: string | null
+          lojaintegrada_cupom_json: Json | null
+          lojaintegrada_data_modificacao: string | null
+          lojaintegrada_data_nascimento: string | null
+          lojaintegrada_endereco: string | null
+          lojaintegrada_forma_envio: string | null
+          lojaintegrada_forma_pagamento: string | null
+          lojaintegrada_historico_pedidos: Json | null
+          lojaintegrada_itens_json: Json | null
+          lojaintegrada_ltv: number | null
+          lojaintegrada_marketplace: Json | null
+          lojaintegrada_numero: string | null
+          lojaintegrada_parcelas: number | null
+          lojaintegrada_pedido_id: number | null
+          lojaintegrada_peso_real: number | null
+          lojaintegrada_primeira_compra: string | null
+          lojaintegrada_raw_payload: Json | null
+          lojaintegrada_referencia: string | null
+          lojaintegrada_sexo: string | null
+          lojaintegrada_tipo_pessoa: string | null
+          lojaintegrada_total_pedidos_pagos: number | null
+          lojaintegrada_tracking_code: string | null
+          lojaintegrada_ultimo_pedido_data: string | null
+          lojaintegrada_ultimo_pedido_numero: number | null
+          lojaintegrada_ultimo_pedido_status: string | null
+          lojaintegrada_ultimo_pedido_valor: number | null
+          lojaintegrada_updated_at: string | null
+          lojaintegrada_utm_campaign: string | null
+          lojaintegrada_valor_desconto: number | null
+          lojaintegrada_valor_envio: number | null
+          lojaintegrada_valor_subtotal: number | null
+          ltv_projected_12m: number | null
+          ltv_projected_24m: number | null
+          ltv_total: number | null
+          map_fresadora_date: string | null
+          map_fresadora_marca: string | null
+          map_fresadora_modelo: string | null
+          merge_history: Json | null
+          merged_at: string | null
+          merged_into: string | null
+          meta_created_time: string | null
+          meta_form_id: string | null
+          meta_leadgen_id: string | null
+          meta_page_id: string | null
+          meta_platform: string | null
+          motivo_perda: string | null
+          next_purchase_probability: number | null
+          next_purchase_product: string | null
+          next_purchase_value: number | null
+          next_purchase_window_end: string | null
+          next_purchase_window_start: string | null
+          next_upsell_date_est: string | null
+          next_upsell_product: string | null
+          next_upsell_score: number | null
+          next_upsell_stage: string | null
+          nome: string | null
+          nps_recomendaria: number | null
+          nps_respondido_em: string | null
+          nps_satisfacao: number | null
+          nps_temas_cursos: string[] | null
+          objection_risk: string | null
+          omie_classificacao: string | null
+          omie_codigo_cliente: number | null
+          omie_dias_atraso_max: number | null
+          omie_dias_sem_comprar: number | null
+          omie_faturamento_total: number | null
+          omie_frequencia_compra: number | null
+          omie_inadimplente: boolean | null
+          omie_last_sync: string | null
+          omie_nf_count: number | null
+          omie_percentual_pago: number | null
+          omie_razao_social: string | null
+          omie_score: number | null
+          omie_segmento: string | null
+          omie_ticket_medio: number | null
+          omie_tipo_pessoa: string | null
+          omie_total_pedidos: number | null
+          omie_ultima_compra: string | null
+          omie_ultima_nf_emitida: string | null
+          omie_valor_em_aberto: number | null
+          omie_valor_pago: number | null
+          omie_valor_vencido: number | null
+          opportunity_score: number | null
+          opportunity_signals: Json | null
+          origem_campanha: string | null
+          origem_primeiro_contato: string | null
+          original_date: string | null
+          original_id: string | null
+          original_source: string | null
+          pais_origem: string | null
+          person_hash: string | null
+          person_id: string | null
+          pessoa_cargo: string | null
+          pessoa_cpf: string | null
+          pessoa_endereco: Json | null
+          pessoa_facebook: string | null
+          pessoa_genero: string | null
+          pessoa_hash: string | null
+          pessoa_lgpd: Json | null
+          pessoa_linkedin: string | null
+          pessoa_manager: Json | null
+          pessoa_nascimento: string | null
+          pessoa_observation: string | null
+          pessoa_piperun_id: number | null
+          pessoa_rdstation: string | null
+          pessoa_website: string | null
+          piperun_action: Json | null
+          piperun_activities: Json | null
+          piperun_closed_at: string | null
+          piperun_created_at: string | null
+          piperun_custom_fields: Json | null
+          piperun_deal_city: string | null
+          piperun_deal_order: number | null
+          piperun_deals_history: Json | null
+          piperun_deleted: boolean | null
+          piperun_description: string | null
+          piperun_files: Json | null
+          piperun_forms: Json | null
+          piperun_frozen: boolean | null
+          piperun_frozen_at: string | null
+          piperun_hash: string | null
+          piperun_id: string | null
+          piperun_involved_users: Json | null
+          piperun_last_contact_at: string | null
+          piperun_lead_time: number | null
+          piperun_link: string | null
+          piperun_observation: string | null
+          piperun_origin_id: number | null
+          piperun_origin_name: string | null
+          piperun_origin_sub_name: string | null
+          piperun_owner_id: number | null
+          piperun_pipeline_id: number | null
+          piperun_pipeline_name: string | null
+          piperun_probability: number | null
+          piperun_probably_closed_at: string | null
+          piperun_raw_payload: Json | null
+          piperun_stage_changed_at: string | null
+          piperun_stage_id: number | null
+          piperun_stage_name: string | null
+          piperun_status: number | null
+          piperun_tags_raw: Json | null
+          piperun_title: string | null
+          piperun_updated_at: string | null
+          piperun_value_mrr: number | null
+          platform: string | null
+          platform_ad_id: string | null
+          platform_adgroup_id: string | null
+          platform_campaign_id: string | null
+          platform_cpl: number | null
+          platform_form_id: string | null
+          platform_lead_id: string | null
+          platform_placement: string | null
+          portfolio_json: Json | null
+          portfolio_updated_at: string | null
+          prazo_compra: string | null
+          prediction_accuracy: number | null
+          predictions_updated_at: string | null
+          primary_motivation: string | null
+          principal_aplicacao: string | null
+          proactive_count: number | null
+          proactive_sent_at: string | null
+          produto_interesse: string | null
+          produto_interesse_auto: string | null
+          produto_interesse_raw: string | null
+          proposals_data: Json | null
+          proposals_last_status: number | null
+          proposals_total_mrr: number | null
+          proposals_total_value: number | null
+          proprietario_lead_crm: string | null
+          psychological_profile: string | null
+          raw_payload: Json | null
+          reactivation_cap_until: string | null
+          real_status: string | null
+          recommended_approach: string | null
+          recompra_alert: boolean | null
+          recompra_days_overdue: number | null
+          recompra_stage: string | null
+          resina_consumo_mensal_estimado: number | null
+          resina_interesse: string | null
+          resumo_historico_ia: string | null
+          reuniao_agendada: boolean | null
+          rota_inicial_lia: string | null
+          scanner_marca: string | null
+          score: number | null
+          sdr_blz_ino200_data_resposta: string | null
+          sdr_blz_ino200_duracao_seg: number | null
+          sdr_blz_ino200_ip_hash: string | null
+          sdr_blz_ino200_outcome: string | null
+          sdr_blz_ino200_pais: string | null
+          sdr_blz_ino200_pontos: number | null
+          sdr_blz_ino200_score: number | null
+          sdr_cad_funcionalidades: string | null
+          sdr_cad_licenca: string | null
+          sdr_cad_treinamento: string | null
+          sdr_caracterizacao_interesse: string | null
+          sdr_caracterizacao_produto_atual: string | null
+          sdr_completo: boolean | null
+          sdr_cura_modelo: string | null
+          sdr_cursos_area: string | null
+          sdr_cursos_interesse: string | null
+          sdr_cursos_modalidade: string | null
+          sdr_dentistica_interesse: string | null
+          sdr_entrada_valor: number | null
+          sdr_etapa: string | null
+          sdr_fresadora_marca: string | null
+          sdr_fresadora_modelo: string | null
+          sdr_fresagem_interesse: string | null
+          sdr_impressora_interesse: string | null
+          sdr_insumos_lab_interesse: string | null
+          sdr_insumos_tipo: string | null
+          sdr_marca_impressora_param: string | null
+          sdr_modelo_impressora_param: string | null
+          sdr_paga_por_placa: string | null
+          sdr_perde_pacientes: string | null
+          sdr_pos_impressao_interesse: string | null
+          sdr_quant_parcelas: number | null
+          sdr_quantas_placas: string | null
+          sdr_resina_atual: string | null
+          sdr_resina_param: string | null
+          sdr_scanner_bancada_data_resposta: string | null
+          sdr_scanner_bancada_duracao_seg: number | null
+          sdr_scanner_bancada_ip_hash: string | null
+          sdr_scanner_bancada_outcome: string | null
+          sdr_scanner_bancada_pais: string | null
+          sdr_scanner_bancada_pontos: number | null
+          sdr_scanner_bancada_score: number | null
+          sdr_scanner_interesse: string | null
+          sdr_scanner_modelo: string | null
+          sdr_smartgum_interesse: boolean | null
+          sdr_smartmake_interesse: boolean | null
+          sdr_software_cad_interesse: string | null
+          sdr_solucoes_interesse: string | null
+          sdr_started_at: string | null
+          sdr_suporte_descricao: string | null
+          sdr_suporte_equipamento: string | null
+          sdr_suporte_tipo: string | null
+          sdr_usa_resina_smartdent: boolean | null
+          sellflux_custom_fields: Json | null
+          sellflux_synced_at: string | null
+          sms_opt_out: boolean | null
+          sms_opt_out_at: string | null
+          software_cad: string | null
+          source: string | null
+          source_reference: string | null
+          status_atual_lead_crm: string | null
+          status_cad: string | null
+          status_impressora: string | null
+          status_insumos: string | null
+          status_oportunidade: string | null
+          status_pos_impressao: string | null
+          status_scanner: string | null
+          suporte_educacional_tickets_total: number | null
+          suporte_impressora_tickets_6m: number | null
+          suporte_tecnico_tickets_total: number | null
+          tags_crm: string[] | null
+          telefone_normalized: string | null
+          telefone_raw: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          temperatura_lead: string | null
+          timeline_cad: Json | null
+          timeline_cursos: Json | null
+          timeline_finalizacao: Json | null
+          timeline_fresagem: Json | null
+          timeline_impressao: Json | null
+          timeline_pos_impressao: Json | null
+          timeline_scanner: Json | null
+          tipo_local: string | null
+          total_deals: number | null
+          total_deals_all: number | null
+          total_messages: number | null
+          total_sessions: number | null
+          uf: string | null
+          ultima_etapa_comercial: string | null
+          ultima_sessao_at: string | null
+          updated_at: string | null
+          urgency_level: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor_oportunidade: number | null
+          volume_mensal_pecas: string | null
+          wa_chat_summary: string | null
+          wa_group_origem: string | null
+          wa_last_summary_at: string | null
+          wa_total_messages: number | null
+          whatsapp_lid: string | null
+          whatsapp_opt_out: boolean | null
+          workflow_portfolio: Json | null
+          workflow_score: number | null
+          workflow_timeline: Json | null
+          workflow_timeline_updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
       }
       vw_omie_vendas_mes: {
         Row: {
@@ -18142,6 +19283,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      try_lock_cognitive_analysis: {
+        Args: { target_lead_id: string }
+        Returns: boolean
+      }
       unaccent: { Args: { "": string }; Returns: string }
       update_extra_data_reviews: {
         Args: {
