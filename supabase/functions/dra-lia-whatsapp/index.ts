@@ -132,15 +132,8 @@ function shouldIgnore(body: Record<string, unknown>): string | null {
   return null;
 }
 
-// ── Normalize text for anti-echo comparison ───
-function normalizeForEcho(s: string): string {
-  return (s || "")
-    .toLowerCase()
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// ── Anti-echo guard (pure helpers extracted for testability) ───
+import { isEchoOfOutbound } from "./echo-guard.ts";
 
 // ── Consume SSE stream from dra-lia and return full text ───
 async function consumeSSEStream(response: Response): Promise<string> {
@@ -323,16 +316,15 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(5);
       if (recentOut && recentOut.length > 0) {
-        const incomingNorm = normalizeForEcho(messageText);
-        for (const out of recentOut) {
-          const outNorm = normalizeForEcho(String(out.message_text || ""));
-          if (!outNorm || outNorm.length < 8) continue;
-          if (outNorm === incomingNorm || (outNorm.length > 40 && incomingNorm.includes(outNorm.slice(0, 60)))) {
-            console.warn(`[dra-lia-wa] Echo guard: inbound matches recent outbound — ignoring`);
-            return new Response(JSON.stringify({ ignored: true, reason: "echo_of_own_outbound" }), {
-              status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
+        const echo = isEchoOfOutbound(
+          messageText,
+          recentOut.map((o) => String(o.message_text || "")),
+        );
+        if (echo.isEcho) {
+          console.warn(`[dra-lia-wa] Echo guard: inbound matches recent outbound (${echo.reason}) — ignoring`);
+          return new Response(JSON.stringify({ ignored: true, reason: "echo_of_own_outbound", match: echo.reason }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
       }
     }
