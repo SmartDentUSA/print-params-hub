@@ -3862,12 +3862,32 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
     const messagesForAI = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-8).map((h: { role: string; content: string }) => ({
+      ...history.slice(-HISTORY_WINDOW).map((h: { role: string; content: string }) => ({
         role: h.role,
         content: h.content,
       })),
       { role: "user", content: userMessageContent },
     ];
+
+    // Ajuste 4: instrument prompt size for latency tuning.
+    try {
+      const promptChars = messagesForAI.reduce((acc, m) => {
+        const c = typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length;
+        return acc + c;
+      }, 0);
+      supabase.from("system_health_logs").insert({
+        function_name: "dra-lia",
+        severity: "info",
+        error_type: "prompt_window",
+        lead_email: null,
+        details: {
+          messages_count: messagesForAI.length,
+          prompt_chars: promptChars,
+          history_window: HISTORY_WINDOW,
+          history_in_count: Array.isArray(history) ? history.length : 0,
+        },
+      }).then(({ error: e }) => { if (e) console.warn("[prompt_window] log error:", e.message); });
+    } catch (_) { /* silent */ }
 
     // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor
     const callAI = async (model: string, truncateHistory = false): Promise<Response> => {
