@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { classifyMessage, deriveTopicContext } from "../_shared/wa-intent.ts";
 import { mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
 
