@@ -165,6 +165,31 @@ serve(async (req) => {
       });
     }
 
+    // ── Guard 1.5: Advisory lock per lead (prevents concurrent COG runs of same lead) ──
+    // Frente 1: isolates cognitive-lead-analysis writes from in-flight chat turns on the
+    // same lia_attendances row. If lock can't be acquired, another worker is processing
+    // this lead OR the chat turn is mid-write — skip silently with 202.
+    {
+      const { data: lockOk, error: lockErr } = await supabase
+        .rpc("try_lock_cognitive_analysis", { target_lead_id: leadData.id });
+      if (lockErr) {
+        console.warn("[cognitive] advisory lock RPC error (proceeding):", lockErr);
+      } else if (lockOk === false) {
+        // Health log: count contention to validate impact post-deploy
+        supabase.from("system_health_logs").insert({
+          function_name: "cognitive-lead-analysis",
+          severity: "info",
+          error_type: "cog_lock_skipped",
+          lead_email: leadData.email as string | null,
+          details: { lead_id: leadData.id },
+        }).then(({ error: e }) => { if (e) console.warn("[cog_lock_skipped] health log error:", e.message); });
+        return new Response(
+          JSON.stringify({ status: "skipped", reason: "lock_contention", lead_id: leadData.id }),
+          { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ── Guard 2: Min 5 messages ──
     const { data: leadsRecord } = await supabase
       .from("leads")
@@ -383,7 +408,42 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       calculated_at: new Date().toISOString(),
     };
 
-    // ── Upsert ──
+    // ── Write 1/2: Insights into dedicated table (Frente 1 — decoupled from chat turn) ──
+    const insightPayload = {
+      cognitive_analysis: cognitiveData,
+      lead_stage_detected: cognitiveData.lead_stage_detected ?? null,
+      interest_timeline: cognitiveData.interest_timeline ?? null,
+      urgency_level: cognitiveData.urgency_level ?? null,
+      psychological_profile: typeof cognitiveData.psychological_profile === "string"
+        ? cognitiveData.psychological_profile.slice(0, 200) : null,
+      primary_motivation: typeof cognitiveData.primary_motivation === "string"
+        ? cognitiveData.primary_motivation.slice(0, 200) : null,
+      objection_risk: typeof cognitiveData.objection_risk === "string"
+        ? cognitiveData.objection_risk.slice(0, 200) : null,
+      recommended_approach: typeof cognitiveData.recommended_approach === "string"
+        ? cognitiveData.recommended_approach.slice(0, 500) : null,
+      confidence_score_analysis: cognitiveData.confidence_score_analysis ?? null,
+      model: modelUsed,
+      prompt_hash: promptHash,
+      context_hash: contextHash,
+    };
+    const { error: insightUpsertError } = await supabase
+      .from("lia_cognitive_insights")
+      .upsert({
+        lead_id: leadData.id,
+        cognitive_summary: typeof cognitiveData.recommended_approach === "string"
+          ? cognitiveData.recommended_approach.slice(0, 500) : null,
+        cognitive_score: typeof cognitiveData.confidence_score_analysis === "number"
+          ? cognitiveData.confidence_score_analysis : null,
+        cognitive_updated_at: new Date().toISOString(),
+        payload: insightPayload,
+      }, { onConflict: "lead_id" });
+    if (insightUpsertError) {
+      console.error("[cognitive] lia_cognitive_insights upsert error:", insightUpsertError);
+    }
+
+    // ── Write 2/2: Single consolidated update on lia_attendances (legacy consumers) ──
+    // DEPRECATED: removed in a future release after consumers migrate to vw_lia_attendances_enriched.
     const { error: updateError } = await supabase
       .from("lia_attendances")
       .update({
@@ -392,11 +452,15 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
         lead_stage_detected: cognitiveData.lead_stage_detected,
         interest_timeline: cognitiveData.interest_timeline,
         urgency_level: cognitiveData.urgency_level,
-        psychological_profile: typeof cognitiveData.psychological_profile === "string" ? cognitiveData.psychological_profile.slice(0, 200) : null,
-        primary_motivation: typeof cognitiveData.primary_motivation === "string" ? cognitiveData.primary_motivation.slice(0, 200) : null,
-        objection_risk: typeof cognitiveData.objection_risk === "string" ? cognitiveData.objection_risk.slice(0, 200) : null,
-        recommended_approach: typeof cognitiveData.recommended_approach === "string" ? cognitiveData.recommended_approach.slice(0, 500) : null,
+        psychological_profile: insightPayload.psychological_profile,
+        primary_motivation: insightPayload.primary_motivation,
+        objection_risk: insightPayload.objection_risk,
+        recommended_approach: insightPayload.recommended_approach,
         confidence_score_analysis: cognitiveData.confidence_score_analysis,
+        cognitive_model_version: modelUsed,
+        cognitive_prompt_hash: promptHash,
+        cognitive_context_hash: contextHash,
+        cognitive_analyzed_at: new Date().toISOString(),
       })
       .eq("id", leadData.id);
 
@@ -428,14 +492,6 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
         intelligence_score: leadData.intelligence_score || null,
       }).catch((e: unknown) => console.warn("[cognitive] State event insert failed:", e));
     }
-
-    // ── Update audit fields ──
-    await supabase.from("lia_attendances").update({
-      cognitive_model_version: modelUsed,
-      cognitive_prompt_hash: promptHash,
-      cognitive_context_hash: contextHash,
-      cognitive_analyzed_at: new Date().toISOString(),
-    }).eq("id", leadData.id).catch((e: unknown) => console.warn("[cognitive] Audit fields update failed:", e));
 
     // ── Recalculate intelligence score ──
     await supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadData.id })
