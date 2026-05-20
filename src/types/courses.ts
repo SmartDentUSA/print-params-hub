@@ -43,6 +43,7 @@ export interface Turma {
   start_time?: string;
   end_date?: string;
   end_time?: string;
+  turma_number?: number | null;
 }
 
 export interface TurmaComVagas extends Turma {
