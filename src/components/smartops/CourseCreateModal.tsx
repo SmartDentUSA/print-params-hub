@@ -465,8 +465,35 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     const periodo = dataInicio && dataFim
       ? (dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`)
       : "";
-    const horas = durationHoursPerDay ? String(durationHoursPerDay) : "8";
-    const cargaH = durationHoursPerDay ? String(durationHoursPerDay * durationDays) : "";
+    // Calcula horas/dia e carga horária a partir dos horários reais dos dias da turma.
+    const fmtH = (n: number) => {
+      const r = Math.round(n * 10) / 10;
+      return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+    };
+    const hoursOfDay = (start?: string, end?: string): number | null => {
+      if (!start || !end) return null;
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+      const d = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+      return d > 0 ? d : null;
+    };
+    const perDay = days
+      .map((d) => hoursOfDay(d.start_time, d.end_time))
+      .filter((h): h is number => h != null);
+    let horas = "";
+    let cargaH = "";
+    if (perDay.length > 0) {
+      const total = perDay.reduce((a, b) => a + b, 0);
+      horas = fmtH(total / perDay.length);
+      cargaH = fmtH(total);
+    } else if (durationHoursPerDay) {
+      horas = fmtH(durationHoursPerDay);
+      cargaH = fmtH(durationHoursPerDay * durationDays);
+    } else {
+      horas = "8";
+      cargaH = String(8 * durationDays);
+    }
     const vars: Record<string, string> = {
       nome: "Dr. João Silva",
       curso: title || "Curso",
@@ -476,7 +503,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       periodo: periodo || "27 de maio de 2026 a 29 de maio de 2026",
       dias: String(durationDays),
       horas_dia: horas,
-      carga_horaria: cargaH || String(durationDays * 8),
+      carga_horaria: cargaH,
       instrutor: instructorName || "Instrutor",
     };
     return certificateBody.replace(/\{\{\s*([\wÀ-ÿ_]+)\s*\}\}/gi, (_m, k) =>
