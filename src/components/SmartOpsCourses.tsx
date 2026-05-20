@@ -737,17 +737,33 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             />
           </div>
 
-          {/* ── Acompanhantes (readonly) ── */}
-          {companions.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Acompanhantes</h4>
-              <div className="flex flex-wrap gap-2">
-                {companions.map((c: any) => (
-                  <Badge key={c.id} variant="secondary" className="text-xs">{c.name}{c.especialidade ? ` (${c.especialidade})` : ''}</Badge>
-                ))}
+          {/* ── Acompanhantes (editável) ── */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Acompanhantes</h4>
+            {companionsList.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhum acompanhante cadastrado.</p>
+            )}
+            {companionsList.map((c, i) => (
+              <div key={c.id || `new-${i}`} className="border rounded-md p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Acompanhante {i + 1}{c._new ? ' (novo)' : ''}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeCompanion(i)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div><Label className="text-xs">Nome *</Label><Input value={c.name || ''} onChange={(e) => updateCompanion(i, 'name', e.target.value)} /></div>
+                  <div><Label className="text-xs">Especialidade</Label><TaxonomySelect options={ESPECIALIDADE_OPTIONS} value={c.especialidade || ''} onChange={(v) => updateCompanion(i, 'especialidade', v)} /></div>
+                  <div><Label className="text-xs">Área de atuação</Label><TaxonomySelect options={AREA_ATUACAO_OPTIONS} value={c.area_atuacao || ''} onChange={(v) => updateCompanion(i, 'area_atuacao', v)} /></div>
+                  <div><Label className="text-xs">E-mail</Label><Input type="email" value={c.email || ''} onChange={(e) => updateCompanion(i, 'email', e.target.value)} /></div>
+                  <div className="sm:col-span-2"><Label className="text-xs">Telefone</Label><Input value={c.phone || ''} onChange={(e) => updateCompanion(i, 'phone', e.target.value)} /></div>
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addCompanion}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar acompanhante
+            </Button>
+          </div>
 
           {/* ── Observações ── */}
           <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => uf('notes', e.target.value)} rows={2} /></div>
