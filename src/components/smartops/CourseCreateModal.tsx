@@ -248,6 +248,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
       setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
       setTurmas([]);
+      setCertificateBody(DEFAULT_CERTIFICATE_BODY);
       return;
     }
     setTitle(course.title);
@@ -265,6 +266,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setStageAfterEnroll(course.stage_after_enroll);
     setPublicVisible(course.public_visible);
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
+    setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRecurrenceEnabled(course.recurrence_enabled || false);
     setRecurrenceType((course.recurrence_type as any) || 'weeks');
     setRecurrenceInterval(course.recurrence_interval || 1);
