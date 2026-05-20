@@ -186,6 +186,60 @@ export default function PublicFormPage() {
     return () => { document.head.removeChild(link); };
   }, [form]);
 
+  // Form-specific tracking pixels (GTM/GA4/Meta/TikTok) — injected only if differ from globals
+  useEffect(() => {
+    if (!form) return;
+    const f: any = form;
+    const created: HTMLElement[] = [];
+    const html = document.documentElement.outerHTML;
+
+    const append = (el: HTMLElement) => { document.head.appendChild(el); created.push(el); };
+    const inlineScript = (code: string) => {
+      const s = document.createElement('script');
+      s.text = code;
+      append(s);
+    };
+    const srcScript = (src: string) => {
+      const s = document.createElement('script');
+      s.async = true;
+      s.src = src;
+      append(s);
+    };
+
+    // GTM
+    if (f.tracking_gtm_id && !html.includes(f.tracking_gtm_id)) {
+      inlineScript(`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${f.tracking_gtm_id}');`);
+    }
+    // GA4
+    if (f.tracking_ga4_id && !html.includes(f.tracking_ga4_id)) {
+      srcScript(`https://www.googletagmanager.com/gtag/js?id=${f.tracking_ga4_id}`);
+      inlineScript(`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=window.gtag||gtag;gtag('js',new Date());gtag('config','${f.tracking_ga4_id}',{send_page_view:true});`);
+    }
+    // Meta Pixel
+    if (f.tracking_meta_pixel_id && !html.includes(f.tracking_meta_pixel_id)) {
+      inlineScript(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${f.tracking_meta_pixel_id}');fbq('track','PageView');`);
+    }
+    // TikTok Pixel
+    if (f.tracking_tiktok_pixel_id && !html.includes(f.tracking_tiktok_pixel_id)) {
+      inlineScript(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load('${f.tracking_tiktok_pixel_id}');ttq.page();}(window,document,'ttq');`);
+    }
+    // Snippet livre
+    if (f.tracking_extra_head) {
+      const wrap = document.createElement('div');
+      wrap.setAttribute('data-tracking-extra', '1');
+      wrap.innerHTML = f.tracking_extra_head;
+      // Mover scripts inline para executar
+      wrap.querySelectorAll('script').forEach((old) => {
+        const ns = document.createElement('script');
+        for (const a of Array.from(old.attributes)) ns.setAttribute(a.name, a.value);
+        ns.text = old.textContent || '';
+        append(ns);
+      });
+    }
+
+    return () => { created.forEach((el) => el.remove()); };
+  }, [form]);
+
   // Extract vibrant color from hero image/thumbnail and override CSS vars
   const handleHeroImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     try {
@@ -367,6 +421,33 @@ export default function PublicFormPage() {
       } catch (e) {
         console.error('GTM dataLayer error:', e);
       }
+
+      // Meta Pixel — Lead
+      try {
+        const fbq = (window as any).fbq;
+        if (typeof fbq === 'function') {
+          fbq('track', 'Lead', { content_name: form.name ?? '' });
+        }
+      } catch {}
+
+      // GA4 — generate_lead
+      try {
+        const gtag = (window as any).gtag;
+        if (typeof gtag === 'function') {
+          gtag('event', 'generate_lead', {
+            form_name: form.name ?? '',
+            form_purpose: form.form_purpose ?? '',
+          });
+        }
+      } catch {}
+
+      // TikTok Pixel — SubmitForm
+      try {
+        const ttq = (window as any).ttq;
+        if (ttq && typeof ttq.track === 'function') {
+          ttq.track('SubmitForm', { content_name: form.name ?? '' });
+        }
+      } catch {}
 
       // Redirect if URL configured
       const redirectUrl = (form as any).success_redirect_url;
