@@ -90,6 +90,7 @@ export interface SmartopsCourse {
   recurrence_time_start?: string;
   recurrence_time_end?: string;
   recurrence_duration_h?: number;
+  certificate_body_template?: string | null;
   created_at: string;
   updated_at: string;
   turmas?: Turma[];
