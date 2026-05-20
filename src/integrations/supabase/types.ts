@@ -11354,6 +11354,27 @@ export type Database = {
         }
         Relationships: []
       }
+      sitemap_resubmit_state: {
+        Row: {
+          id: number
+          last_marked_at: string
+          last_submitted_at: string | null
+          needs_resubmit: boolean
+        }
+        Insert: {
+          id?: number
+          last_marked_at?: string
+          last_submitted_at?: string | null
+          needs_resubmit?: boolean
+        }
+        Update: {
+          id?: number
+          last_marked_at?: string
+          last_submitted_at?: string | null
+          needs_resubmit?: boolean
+        }
+        Relationships: []
+      }
       smart_form_rate_limit: {
         Row: {
           ip_hash: string
