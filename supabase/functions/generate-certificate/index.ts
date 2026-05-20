@@ -121,6 +121,7 @@ async function generateCertificatePdf(opts: {
   courseTitle: string;
   location: string;
   dateText: string;
+  bodyText: string;
 }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(opts.templateBytes);
   pdfDoc.registerFontkit(fontkit);
@@ -158,25 +159,22 @@ async function generateCertificatePdf(opts: {
     color: black,
   });
 
-  const line1 = `concluiu com êxito o treinamento de ${opts.courseTitle}`;
-  const line1Width = alef.widthOfTextAtSize(line1, TEXT_SIZE);
-  page.drawText(line1, {
-    x: CONTENT_CENTER_X - line1Width / 2,
-    y: LINE1_BASELINE_Y,
-    size: TEXT_SIZE,
-    font: alef,
-    color: black,
-  });
-
-  const line2 = `em ${opts.location}, realizado de ${opts.dateText}.`;
-  const line2Width = alef.widthOfTextAtSize(line2, TEXT_SIZE);
-  page.drawText(line2, {
-    x: CONTENT_CENTER_X - line2Width / 2,
-    y: LINE2_BASELINE_Y,
-    size: TEXT_SIZE,
-    font: alef,
-    color: black,
-  });
+  // Renderiza o corpo do certificado (template configurável) com word-wrap centralizado
+  const lines = wrapText(opts.bodyText, alef, TEXT_SIZE, BODY_MAX_WIDTH);
+  let y = BODY_TOP_Y;
+  for (const line of lines) {
+    if (line) {
+      const w = alef.widthOfTextAtSize(line, TEXT_SIZE);
+      page.drawText(line, {
+        x: CONTENT_CENTER_X - w / 2,
+        y,
+        size: TEXT_SIZE,
+        font: alef,
+        color: black,
+      });
+    }
+    y -= BODY_LINE_HEIGHT;
+  }
 
   return await pdfDoc.save();
 }
