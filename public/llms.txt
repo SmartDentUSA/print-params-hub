@@ -44,3 +44,18 @@ https://parametros.smartdent.com.br/base-conhecimento
 https://parametros.smartdent.com.br/en/knowledge-base
 https://loja.smartdent.com.br
 https://www.wikidata.org/wiki/Q138636902
+
+## Pages
+
+- [Home — Hub de Fluxo Digital](https://parametros.smartdent.com.br/): Hub de parâmetros 3D, fluxo digital e conhecimento clínico Smart Dent.
+- [Base de Conhecimento (PT)](https://parametros.smartdent.com.br/base-conhecimento): Artigos técnicos, guias clínicos e protocolos do fluxo digital odontológico.
+- [Calculadora de ROI](https://parametros.smartdent.com.br/base-conhecimento/calculadora-roi): Simulador de retorno do investimento em fluxo digital odontológico.
+- [Catálogo de Produtos e Documentos](https://parametros.smartdent.com.br/support-resources): Resinas 3D, equipamentos e fichas técnicas (FISPQ, manuais).
+- [Sobre a Smart Dent](https://parametros.smartdent.com.br/sobre): Quem é a Smart Dent, missão e capacidades.
+- [Knowledge Base (EN)](https://parametros.smartdent.com.br/en/knowledge-base): English technical articles, clinical guides and digital workflow protocols.
+- [Base de Conocimiento (ES)](https://parametros.smartdent.com.br/es/base-conocimiento): Artículos técnicos en español sobre flujo digital odontológico.
+
+## Optional
+
+- [ROI Calculator (EN)](https://parametros.smartdent.com.br/en/knowledge-base/roi-calculator): English ROI simulator.
+- [Calculadora de ROI (ES)](https://parametros.smartdent.com.br/es/base-conocimiento/calculadora-roi): Simulador de ROI en español.
