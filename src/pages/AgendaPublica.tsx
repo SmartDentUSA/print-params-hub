@@ -130,6 +130,11 @@ export default function AgendaPublica() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Helmet>
+        <title>Agenda de Treinamentos | Smart Dent</title>
+        <meta name="description" content="Confira os próximos cursos e imersões da Smart Dent com vagas abertas." />
+        <link rel="canonical" href="https://parametros.smartdent.com.br/agenda" />
+      </Helmet>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Próximos Treinamentos</h1>
