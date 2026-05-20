@@ -508,6 +508,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         meeting_link: meetingLink || null,
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
+        certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
