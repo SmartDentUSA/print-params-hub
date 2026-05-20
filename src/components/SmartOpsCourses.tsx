@@ -886,124 +886,140 @@ function InscricoesTab() {
         <Button variant="outline" size="sm" onClick={exportCSV}><Download className="w-4 h-4 mr-1" /> CSV</Button>
       </div>
 
-      {/* Tabela */}
+      {/* Lista agrupada por Curso/Turma */}
       {isLoading ? (
         <div className="text-center py-8 text-muted-foreground">Carregando inscrições...</div>
+      ) : rows.length === 0 ? (
+        <div className="border rounded-md text-center py-8 text-muted-foreground">Nenhuma inscrição encontrada.</div>
       ) : (
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Lead</TableHead>
-                <TableHead>Curso</TableHead>
-                <TableHead>Turma</TableHead>
-                <TableHead>Data Início</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">WA</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r: any) => {
-                const st = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
-                const startDate = r.turma_snapshot?.days?.[0]?.date;
-                return (
-                  <React.Fragment key={r.id}>
-                  <TableRow>
-                    <TableCell>
-                      <div className="font-medium">{r.person_name}</div>
-                      {r.deal_id && <div className="text-xs text-muted-foreground">Deal {r.deal_id}</div>}
-                    </TableCell>
-                    <TableCell className="text-sm">{r.course?.title}</TableCell>
-                    <TableCell className="text-sm">{r.turma?.label}</TableCell>
-                    <TableCell className="text-sm">{startDate ? formatDatePtBr(startDate) : "—"}</TableCell>
-                    <TableCell><Badge className={st?.badge}>{st?.label ?? r.status}</Badge></TableCell>
-                    <TableCell className="text-center">{waIcon(r)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setEditRow(r)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={certLoadingId === r.id}
-                                onClick={() => handleGenerateCertificate(r)}
-                              >
-                                {certLoadingId === r.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Award className={`w-3.5 h-3.5 ${r.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {r.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <ComprovanteImersaoButton
-                          enrollmentId={r.id}
-                          personName={r.person_name}
-                          turmaLabel={r.turma?.label}
-                        />
-                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
+        <div className="space-y-4">
+          {(() => {
+            const groups = new Map<string, { course: string; turma: string; startDate?: string; rows: any[] }>();
+            for (const r of rows) {
+              const key = `${r.course?.title ?? '—'}__${r.turma?.label ?? '—'}`;
+              if (!groups.has(key)) {
+                groups.set(key, {
+                  course: r.course?.title ?? '—',
+                  turma: r.turma?.label ?? '—',
+                  startDate: r.turma_snapshot?.days?.[0]?.date,
+                  rows: [],
+                });
+              }
+              groups.get(key)!.rows.push(r);
+            }
+            return Array.from(groups.values()).map((g, i) => {
+              const totalCompanions = g.rows.reduce((s, r) => s + (r.companions?.length ?? 0), 0);
+              return (
+                <div key={i} className="border rounded-md overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b">
+                    <div>
+                      <div className="font-semibold">{g.course}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Turma: {g.turma}{g.startDate ? ` · Início ${formatDatePtBr(g.startDate)}` : ''}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                  {r.companions?.length > 0 && (
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={7} className="py-2">
-                        <div className="pl-8 space-y-1">
-                          <div className="text-xs text-muted-foreground mb-1">Acompanhantes:</div>
-                          {r.companions.map((c: any) => (
-                            <div key={c.id} className="flex items-center gap-2 text-sm">
-                              <span className="flex-1">
-                                {c.name}
-                                {c.especialidade && <span className="text-muted-foreground"> · {c.especialidade}</span>}
-                              </span>
+                    </div>
+                    <div className="flex gap-2 text-xs">
+                      <Badge variant="secondary">{g.rows.length} participante{g.rows.length !== 1 ? 's' : ''}</Badge>
+                      {totalCompanions > 0 && (
+                        <Badge variant="outline">{totalCompanions} acompanhante{totalCompanions !== 1 ? 's' : ''}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="divide-y">
+                    {g.rows.map((r: any) => {
+                      const st = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
+                      return (
+                        <div key={r.id} className="px-4 py-3">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">{r.person_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {r.deal_id ? `Deal ${r.deal_id} · ` : ''}Inscrito {r.enrolled_at ? formatDatePtBr(r.enrolled_at.substring(0,10)) : '—'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={st?.badge}>{st?.label ?? r.status}</Badge>
+                              <span title="WhatsApp">{waIcon(r)}</span>
+                              <Button variant="ghost" size="sm" onClick={() => setEditRow(r)}><Pencil className="w-3.5 h-3.5" /></Button>
                               <TooltipProvider delayDuration={200}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      disabled={certCompanionLoadingId === c.id}
-                                      onClick={() => handleGenerateCompanionCertificate(r, c)}
+                                      disabled={certLoadingId === r.id}
+                                      onClick={() => handleGenerateCertificate(r)}
                                     >
-                                      {certCompanionLoadingId === c.id ? (
+                                      {certLoadingId === r.id ? (
                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                       ) : (
-                                        <Award className={`w-3.5 h-3.5 ${c.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                        <Award className={`w-3.5 h-3.5 ${r.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
                                       )}
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    {c.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                                    {r.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
                               <ComprovanteImersaoButton
                                 enrollmentId={r.id}
-                                companionId={c.id}
-                                personName={c.name}
+                                personName={r.person_name}
                                 turmaLabel={r.turma?.label}
                               />
+                              <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
                             </div>
-                          ))}
+                          </div>
+                          {r.companions?.length > 0 && (
+                            <div className="mt-2 ml-4 pl-3 border-l space-y-1">
+                              <div className="text-xs text-muted-foreground">Acompanhantes ({r.companions.length}):</div>
+                              {r.companions.map((c: any) => (
+                                <div key={c.id} className="flex items-center gap-2 text-sm">
+                                  <span className="flex-1 truncate">
+                                    {c.name}
+                                    {c.especialidade && <span className="text-muted-foreground"> · {c.especialidade}</span>}
+                                  </span>
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          disabled={certCompanionLoadingId === c.id}
+                                          onClick={() => handleGenerateCompanionCertificate(r, c)}
+                                        >
+                                          {certCompanionLoadingId === c.id ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          ) : (
+                                            <Award className={`w-3.5 h-3.5 ${c.certificate_pdf_path ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        {c.certificate_pdf_path ? 'Abrir certificado' : 'Gerar certificado'}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <ComprovanteImersaoButton
+                                    enrollmentId={r.id}
+                                    companionId={c.id}
+                                    personName={c.name}
+                                    turmaLabel={r.turma?.label}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  </React.Fragment>
-                );
-              })}
-              {rows.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma inscrição encontrada.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
