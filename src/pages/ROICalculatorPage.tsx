@@ -155,6 +155,26 @@ export default function ROICalculatorPage() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <Helmet>
+        <title>Calculadora de ROI Odontológico 3D | Smart Dent</title>
+        <meta name="description" content="Calcule o retorno do investimento em fluxo digital odontológico: compare tempo, custo e produtividade entre processo manual e Smart." />
+        <link rel="canonical" href="https://parametros.smartdent.com.br/base-conhecimento/calculadora-roi" />
+        <meta property="og:title" content="Calculadora de ROI Odontológico 3D | Smart Dent" />
+        <meta property="og:description" content="Compare tempo, custo e produtividade do fluxo digital odontológico manual vs Smart e descubra seu ROI." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://parametros.smartdent.com.br/base-conhecimento/calculadora-roi" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "Calculadora de ROI Smart Dent",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "url": "https://parametros.smartdent.com.br/base-conhecimento/calculadora-roi",
+          "description": "Simulador de ROI para fluxo digital odontológico, comparando tempo e custo entre processo manual e Smart Dent.",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+          "publisher": { "@type": "Organization", "name": "Smart Dent", "url": "https://parametros.smartdent.com.br" }
+        })}</script>
+      </Helmet>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
