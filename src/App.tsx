@@ -11,7 +11,6 @@ import NotFound from "./pages/NotFound";
 import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
-import EmbedTrainings from "./pages/EmbedTrainings";
 import AgendaPublica from "./pages/AgendaPublica";
 import { Navigate } from "react-router-dom";
 import PublicFormPage from "./pages/PublicFormPage";
