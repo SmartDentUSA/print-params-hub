@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2, X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
@@ -502,6 +502,29 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
   const companions: any[] = enrollment.companions || [];
   const turmaSnap = enrollment.turma_snapshot;
 
+  // ── Acompanhantes editáveis ──
+  const [companionsList, setCompanionsList] = useState<any[]>(
+    (companions || []).map((c) => ({ ...c }))
+  );
+  const [delIds, setDelIds] = useState<string[]>([]);
+  const updateCompanion = (idx: number, field: string, value: any) => {
+    setCompanionsList((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+  const removeCompanion = (idx: number) => {
+    setCompanionsList((prev) => {
+      const target = prev[idx];
+      if (target?.id) setDelIds((d) => [...d, target.id]);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+  const addCompanion = () => {
+    setCompanionsList((prev) => [...prev, { _new: true, name: '', especialidade: '', area_atuacao: '', email: '', phone: '' }]);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -535,19 +558,66 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
         changed.equipment_data = form.equipment_data;
       }
 
-      if (Object.keys(changed).length === 0) { toast({ title: "Nenhuma alteração" }); onClose(); return; }
+      const companionsDirty = delIds.length > 0 || companionsList.some((c) => !c.id && (c.name || '').trim()) ||
+        companionsList.some((c) => {
+          if (!c.id) return false;
+          const orig = (companions || []).find((o: any) => o.id === c.id) || {};
+          return ['name', 'especialidade', 'area_atuacao', 'email', 'phone'].some((f) => String(c[f] ?? '') !== String(orig[f] ?? ''));
+        });
 
-      const { error } = await (supabase as any).from('smartops_course_enrollments')
-        .update({ ...changed, updated_at: new Date().toISOString() })
-        .eq('id', enrollment.id);
-      if (error) throw error;
+      if (Object.keys(changed).length === 0 && !companionsDirty) {
+        toast({ title: "Nenhuma alteração" }); onClose(); return;
+      }
+
+      if (Object.keys(changed).length > 0) {
+        const { error } = await (supabase as any).from('smartops_course_enrollments')
+          .update({ ...changed, updated_at: new Date().toISOString() })
+          .eq('id', enrollment.id);
+        if (error) throw error;
+      }
 
       if (changed.instagram && enrollment.lead_id) {
         await (supabase as any).from('lia_attendances')
           .update({ instagram: changed.instagram }).eq('id', enrollment.lead_id).is('merged_into', null);
       }
 
+      // ── Persistir acompanhantes (delete + update + insert) ──
+      const errors: string[] = [];
+      for (const id of delIds) {
+        const { error } = await (supabase as any).from('smartops_enrollment_companions').delete().eq('id', id);
+        if (error) errors.push(error.message);
+      }
+      const origById = new Map<string, any>((companions || []).filter((c: any) => c.id).map((c: any) => [c.id, c]));
+      for (const c of companionsList) {
+        if (c.id) {
+          const orig = origById.get(c.id);
+          const fields = ['name', 'especialidade', 'area_atuacao', 'email', 'phone'];
+          const diff: Record<string, any> = {};
+          for (const f of fields) {
+            if (String(c[f] ?? '') !== String(orig?.[f] ?? '')) diff[f] = c[f] || null;
+          }
+          if (Object.keys(diff).length > 0) {
+            const { error } = await (supabase as any).from('smartops_enrollment_companions').update(diff).eq('id', c.id);
+            if (error) errors.push(error.message);
+          }
+        } else if ((c.name || '').trim()) {
+          const { error } = await (supabase as any).from('smartops_enrollment_companions').insert({
+            enrollment_id: enrollment.id,
+            name: c.name.trim(),
+            email: c.email || null,
+            phone: c.phone || null,
+            especialidade: c.especialidade || null,
+            area_atuacao: c.area_atuacao || null,
+          });
+          if (error) errors.push(error.message);
+        }
+      }
+      if (errors.length > 0) {
+        toast({ title: "Erro ao salvar acompanhantes", description: errors[0], variant: "destructive" });
+      }
+
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+      qc.invalidateQueries({ queryKey: ["smartops_companions_map"] });
       toast({ title: "Inscrição atualizada!" });
       onClose();
     } catch (err: any) {
@@ -667,17 +737,33 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             />
           </div>
 
-          {/* ── Acompanhantes (readonly) ── */}
-          {companions.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Acompanhantes</h4>
-              <div className="flex flex-wrap gap-2">
-                {companions.map((c: any) => (
-                  <Badge key={c.id} variant="secondary" className="text-xs">{c.name}{c.especialidade ? ` (${c.especialidade})` : ''}</Badge>
-                ))}
+          {/* ── Acompanhantes (editável) ── */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Acompanhantes</h4>
+            {companionsList.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhum acompanhante cadastrado.</p>
+            )}
+            {companionsList.map((c, i) => (
+              <div key={c.id || `new-${i}`} className="border rounded-md p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Acompanhante {i + 1}{c._new ? ' (novo)' : ''}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeCompanion(i)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div><Label className="text-xs">Nome *</Label><Input value={c.name || ''} onChange={(e) => updateCompanion(i, 'name', e.target.value)} /></div>
+                  <div><Label className="text-xs">Especialidade</Label><TaxonomySelect options={ESPECIALIDADE_OPTIONS} value={c.especialidade || ''} onChange={(v) => updateCompanion(i, 'especialidade', v)} /></div>
+                  <div><Label className="text-xs">Área de atuação</Label><TaxonomySelect options={AREA_ATUACAO_OPTIONS} value={c.area_atuacao || ''} onChange={(v) => updateCompanion(i, 'area_atuacao', v)} /></div>
+                  <div><Label className="text-xs">E-mail</Label><Input type="email" value={c.email || ''} onChange={(e) => updateCompanion(i, 'email', e.target.value)} /></div>
+                  <div className="sm:col-span-2"><Label className="text-xs">Telefone</Label><Input value={c.phone || ''} onChange={(e) => updateCompanion(i, 'phone', e.target.value)} /></div>
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addCompanion}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar acompanhante
+            </Button>
+          </div>
 
           {/* ── Observações ── */}
           <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => uf('notes', e.target.value)} rows={2} /></div>
