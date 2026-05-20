@@ -143,6 +143,23 @@ export function useEnrollment() {
         course: p.course, turma: p.selectedTurma, days: p.turmadays, csEmail: user.email!,
       });
 
+      // 8. Refresh nota do Deal no PipeRun com resumo completo (best-effort)
+      supabase.functions.invoke('smart-ops-deal-form-note', {
+        body: {
+          lead_id: p.dealResult.lead_id,
+          form_name: `Inscrição em Treinamento — ${p.course.title}`,
+          responses: [
+            { label: "Treinamento", value: p.course.title },
+            { label: "Turma", value: p.selectedTurma.label },
+            { label: "Participante", value: p.formData.person_name },
+            { label: "Nº Contrato", value: p.formData.numero_contrato || "—" },
+            { label: "Nº Proposta", value: p.numero_proposta || "—" },
+            { label: "Instagram", value: p.instagram || "—" },
+            { label: "Notas CS", value: p.notes || "—" },
+          ],
+        },
+      }).catch((e: any) => console.warn('[deal-note-enrollment]', e));
+
       qc.invalidateQueries({ queryKey: ['smartops_courses'] });
       qc.invalidateQueries({ queryKey: ['smartops_enrollments'] });
       qc.invalidateQueries({ queryKey: ['v_turmas_com_vagas'] });
