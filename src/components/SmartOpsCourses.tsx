@@ -892,7 +892,7 @@ function InscricoesTab() {
       ) : rows.length === 0 ? (
         <div className="border rounded-md text-center py-8 text-muted-foreground">Nenhuma inscrição encontrada.</div>
       ) : (
-        <div className="space-y-4">
+        <Accordion type="multiple" className="space-y-3">
           {(() => {
             const groups = new Map<string, { course: string; turma: string; startDate?: string; rows: any[] }>();
             for (const r of rows) {
@@ -907,24 +907,27 @@ function InscricoesTab() {
               }
               groups.get(key)!.rows.push(r);
             }
-            return Array.from(groups.values()).map((g, i) => {
+            return Array.from(groups.entries()).map(([key, g]) => {
               const totalCompanions = g.rows.reduce((s, r) => s + (r.companions?.length ?? 0), 0);
               return (
-                <div key={i} className="border rounded-md overflow-hidden">
-                  <div className="bg-muted/50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b">
-                    <div>
-                      <div className="font-semibold">{g.course}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Turma: {g.turma}{g.startDate ? ` · Início ${formatDatePtBr(g.startDate)}` : ''}
+                <AccordionItem key={key} value={key} className="border rounded-md overflow-hidden bg-card">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 [&[data-state=open]]:bg-muted/50 [&[data-state=open]]:border-b">
+                    <div className="flex flex-1 flex-wrap items-center justify-between gap-2 pr-2">
+                      <div className="text-left">
+                        <div className="font-semibold">{g.course}</div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          Turma: {g.turma}{g.startDate ? ` · Início ${formatDatePtBr(g.startDate)}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 text-xs">
+                        <Badge variant="secondary">{g.rows.length} participante{g.rows.length !== 1 ? 's' : ''}</Badge>
+                        {totalCompanions > 0 && (
+                          <Badge variant="outline">{totalCompanions} acompanhante{totalCompanions !== 1 ? 's' : ''}</Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-2 text-xs">
-                      <Badge variant="secondary">{g.rows.length} participante{g.rows.length !== 1 ? 's' : ''}</Badge>
-                      {totalCompanions > 0 && (
-                        <Badge variant="outline">{totalCompanions} acompanhante{totalCompanions !== 1 ? 's' : ''}</Badge>
-                      )}
-                    </div>
-                  </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-0">
                   <div className="divide-y">
                     {g.rows.map((r: any) => {
                       const st = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
@@ -1016,11 +1019,12 @@ function InscricoesTab() {
                       );
                     })}
                   </div>
-                </div>
+                  </AccordionContent>
+                </AccordionItem>
               );
             });
           })()}
-        </div>
+        </Accordion>
       )}
 
       {/* Paginação */}
