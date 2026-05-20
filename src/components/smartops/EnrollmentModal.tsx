@@ -22,6 +22,36 @@ import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } f
 import { useDealSearch } from "@/hooks/useDealSearch";
 import { useEnrollment } from "@/hooks/useEnrollment";
 import { EquipmentSerialsSection } from "./EquipmentSerialsSection";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS, findOption, type TaxonomyOption } from "@/lib/dentalTaxonomy";
+
+function TaxonomySelect({
+  options, value, onChange, placeholder, className,
+}: {
+  options: TaxonomyOption[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const hasMatch = !!findOption(options, value);
+  const showLegacy = !!value && !hasMatch;
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger className={className}>
+        <SelectValue placeholder={placeholder || "Selecione..."} />
+      </SelectTrigger>
+      <SelectContent>
+        {showLegacy && (
+          <SelectItem value={value}>{`(atual) ${value}`}</SelectItem>
+        )}
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 interface Props {
   course: SmartopsCourse;
@@ -370,14 +400,24 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   <div>
                     <Label className="text-xs">Especialidade</Label>
                     <div className="relative">
-                      <Input className={prefilledFields.has("especialidade") ? "pr-7" : ""} value={formData.especialidade} onChange={(e) => updateForm("especialidade", e.target.value)} />
+                      <TaxonomySelect
+                        className={prefilledFields.has("especialidade") ? "pr-7" : ""}
+                        options={ESPECIALIDADE_OPTIONS}
+                        value={formData.especialidade}
+                        onChange={(v) => updateForm("especialidade", v)}
+                      />
                       {prefilledFields.has("especialidade") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
                     </div>
                   </div>
                   <div>
                     <Label className="text-xs">Área de atuação</Label>
                     <div className="relative">
-                      <Input className={prefilledFields.has("area_atuacao") ? "pr-7" : ""} value={formData.area_atuacao} onChange={(e) => updateForm("area_atuacao", e.target.value)} />
+                      <TaxonomySelect
+                        className={prefilledFields.has("area_atuacao") ? "pr-7" : ""}
+                        options={AREA_ATUACAO_OPTIONS}
+                        value={formData.area_atuacao}
+                        onChange={(v) => updateForm("area_atuacao", v)}
+                      />
                       {prefilledFields.has("area_atuacao") && <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" />}
                     </div>
                   </div>
@@ -665,11 +705,12 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                         </div>
                         <div>
                           <Label className="text-xs">Especialidade</Label>
-                          <Input
+                          <TaxonomySelect
+                            options={ESPECIALIDADE_OPTIONS}
                             value={c.especialidade || ""}
-                            onChange={(e) => {
+                            onChange={(v) => {
                               const updated = [...companions];
-                              updated[i] = { ...updated[i], especialidade: e.target.value };
+                              updated[i] = { ...updated[i], especialidade: v };
                               setCompanions(updated);
                             }}
                           />
