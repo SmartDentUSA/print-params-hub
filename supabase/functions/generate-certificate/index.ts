@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
       .select(`
         id, label, course_id,
         course:smartops_courses!course_id (
-          id, title, location, instructor_name
+          id, title, location, instructor_name, duration_days, duration_hours_per_day, certificate_body_template
         )
       `)
       .eq("id", turmaId)
@@ -230,6 +230,11 @@ Deno.serve(async (req: Request) => {
     const course = (turma as any).course;
     const courseTitle = course?.title || "Treinamento";
     const location = course?.location || "Smart Dent";
+    const instructor = course?.instructor_name || "";
+    const durationDays = Number(course?.duration_days || 1);
+    const hoursPerDay = course?.duration_hours_per_day ? Number(course.duration_hours_per_day) : null;
+    const bodyTemplate: string = course?.certificate_body_template
+      || `concluiu com êxito o treinamento de {{curso}}.\nA imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}}, com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o treinamento técnico para operação e utilização das soluções adquiridas.`;
 
     const { data: days } = await supabase
       .from("smartops_turma_days")
@@ -245,6 +250,10 @@ Deno.serve(async (req: Request) => {
       );
     }
     const dateText = formatDateRange(dateList);
+    const sortedDates = [...dateList].sort();
+    const dataInicio = formatDateBR(sortedDates[0]);
+    const dataFim = formatDateBR(sortedDates[sortedDates.length - 1]);
+    const periodo = dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`;
 
     let enrollQuery = supabase
       .from("smartops_course_enrollments")
