@@ -17368,6 +17368,7 @@ export type Database = {
           start_date: string | null
           start_time: string | null
           total_days: number | null
+          turma_number: number | null
           vagas_disponiveis: number | null
           whatsapp_group_link: string | null
         }
