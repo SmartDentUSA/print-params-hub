@@ -1,38 +1,59 @@
 ## Objetivo
-Adotar o PDF `CRACHA_TREINAMENTO_2-2.pdf` como **layout e fundo oficial** dos crachás gerados pela edge function `smartops-gerar-crachas-turma`. Hoje a função desenha o logo programaticamente; passaremos a embutir o PDF original como fundo e apenas sobrepor os dados dinâmicos (Nome, Especialidade, Cidade/UF) nas posições corretas.
+Tornar dinâmica a duração no item 2 do comprovante de imersão (`smartops-gerar-comprovante-imersao`), refletindo `duration_days` e `duration_hours_per_day` do curso. Hoje o texto está hardcoded em **"com duração de 3 (três) dias"**.
 
-## Estrutura do template (A4 retrato)
-- 2 crachás por página, divididos por linha horizontal no meio.
-- Cada crachá é dobrável (fold no meio): metade superior rotacionada 180° (logo no canto superior esquerdo invertido), metade inferior na orientação normal (logo no canto inferior direito).
-- Áreas de texto: centro de cada metade, onde hoje há espaço em branco.
+## Texto atual (item 2)
+> A imersão ocorreu na cidade de São Carlos / SP, no período de DD/MM/YYYY a DD/MM/YYYY, **com duração de 3 (três) dias**, e teve como objetivo o treinamento técnico…
 
-## Mudanças
+## Texto novo (formato)
+> …no período de DD/MM/YYYY a DD/MM/YYYY, **com duração de N ({extenso}) {dia|dias}, totalizando H horas**, e teve como objetivo…
 
-### 1. Armazenar o template
-- Copiar `user-uploads://CRACHA_TREINAMENTO_2-2.pdf` para `supabase/functions/smartops-gerar-crachas-turma/template-cracha.pdf`.
-- A edge function carrega o arquivo via `Deno.readFile(new URL('./template-cracha.pdf', import.meta.url))`.
+Regras:
+- Sempre exibir dias com extenso entre parênteses (1 = "um", 2 = "dois", 3 = "três", …, 10 = "dez"; >10 usa só numérico).
+- Suprimir o trecho ", totalizando H horas" quando `duration_hours_per_day` for nulo ou 0.
+- Quando ambos existirem, calcular total = `duration_days * duration_hours_per_day`.
 
-### 2. Reescrever `supabase/functions/smartops-gerar-crachas-turma/index.ts`
-- Remover o desenho manual do logo "Smart Dent".
-- Para cada par de participantes:
-  1. Carregar o template com `PDFDocument.load(templateBytes)`.
-  2. Copiar a página do template para o documento de saída (`copyPages`).
-  3. Sobrepor os textos dinâmicos com `page.drawText`:
-     - **Metade inferior (normal)**: Nome (grande, ~28pt), Especialidade (~14pt), Cidade/UF (~12pt) centralizados horizontalmente, posicionados ~meio da metade inferior.
-     - **Metade superior (rotacionada 180°)**: mesmos campos do **segundo** participante, desenhados com `rotate: degrees(180)` e coordenadas espelhadas, para ficarem legíveis quando o crachá for dobrado.
-  4. Se houver número ímpar de participantes, a metade superior da última página fica sem dados (apenas template).
-- Manter fonte `StandardFonts.HelveticaBold` para Nome e `Helvetica` para os demais.
-- Manter agregação de dados atual (enrollments + companions + enriquecimento via `lia_attendances`).
+## Mudanças em `supabase/functions/smartops-gerar-comprovante-imersao/index.ts`
 
-### 3. Frontend
-- Nenhuma alteração. `GerarCrachasButton` continua chamando a mesma função.
+### 1. Buscar curso
+Atualizar o SELECT da turma para incluir `course_id`:
+```ts
+.from("smartops_course_turmas").select("label, launch_date, course_id")
+```
+Adicionar nova query:
+```ts
+const { data: course } = await admin
+  .from("smartops_courses")
+  .select("duration_days, duration_hours_per_day")
+  .eq("id", turma.course_id)
+  .maybeSingle();
+const durationDays = course?.duration_days ?? 3;
+const hoursPerDay = course?.duration_hours_per_day ?? null;
+const totalHours = hoursPerDay ? durationDays * hoursPerDay : null;
+```
+
+### 2. Calcular data fim com base em dias reais
+Em `parseTurmaLabel` Case B/C, substituir o fixo `addDaysISO(launchDate, 2)` por `addDaysISO(launchDate, durationDays - 1)`. Passar `durationDays` como parâmetro da função.
+
+### 3. Helpers de extenso
+Adicionar utilitário local `numToExtenso(n)` cobrindo 1–10 (fallback retorna string vazia → renderiza só o número).
+
+### 4. Atualizar `buildDocx`
+- Adicionar campos `durationDays: number; durationHoursTotal: number | null` à interface de args.
+- Substituir o trecho hardcoded por:
+```ts
+`...no período de ${a.startDD}/${a.startMM}/${a.startYY} a ${a.endDD}/${a.endMM}/${a.endYY}, com duração de ${a.durationDays}${ext ? ` (${ext})` : ""} ${a.durationDays === 1 ? "dia" : "dias"}${a.durationHoursTotal ? `, totalizando ${a.durationHoursTotal} horas` : ""}, e teve como objetivo...`
+```
+
+### 5. Passar valores no `buildDocx({...})`
+Adicionar `durationDays`, `durationHoursTotal` ao call site.
+
+## Não alterar
+- Layout, demais cláusulas, geração do DOCX, função `smartops-gerar-doc-turma`, frontend.
 
 ## Validação
-- Após deploy, baixar o PDF gerado para uma turma de teste e conferir visualmente:
-  - Fundo idêntico ao template (logos nas posições corretas).
-  - Nome/especialidade/cidade legíveis quando dobrado.
-  - Rotação 180° correta na metade superior.
+- Gerar comprovante para uma turma com `duration_days=3, hours=8` → "duração de 3 (três) dias, totalizando 24 horas".
+- Gerar para curso de 1 dia 4h → "duração de 1 (um) dia, totalizando 4 horas".
+- Curso sem `duration_hours_per_day` → "duração de N (extenso) dias".
 
 ## Arquivos
-- **Criado**: `supabase/functions/smartops-gerar-crachas-turma/template-cracha.pdf`
-- **Editado**: `supabase/functions/smartops-gerar-crachas-turma/index.ts`
+- **Editado**: `supabase/functions/smartops-gerar-comprovante-imersao/index.ts`
