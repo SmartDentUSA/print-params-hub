@@ -22,36 +22,8 @@ import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } f
 import { useDealSearch } from "@/hooks/useDealSearch";
 import { useEnrollment } from "@/hooks/useEnrollment";
 import { EquipmentSerialsSection } from "./EquipmentSerialsSection";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS, findOption, type TaxonomyOption } from "@/lib/dentalTaxonomy";
-
-function TaxonomySelect({
-  options, value, onChange, placeholder, className,
-}: {
-  options: TaxonomyOption[];
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  className?: string;
-}) {
-  const hasMatch = !!findOption(options, value);
-  const showLegacy = !!value && !hasMatch;
-  return (
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder || "Selecione..."} />
-      </SelectTrigger>
-      <SelectContent>
-        {showLegacy && (
-          <SelectItem value={value}>{`(atual) ${value}`}</SelectItem>
-        )}
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
+import { TaxonomySelect } from "./TaxonomySelect";
 
 interface Props {
   course: SmartopsCourse;
@@ -117,11 +89,19 @@ function CompanionsInline({ companions, onChange }: {
               </div>
               <div>
                 <Label className="text-xs">Área de atuação</Label>
-                <Input value={draft.area_atuacao || ""} onChange={(e) => setDraft((d) => ({ ...d, area_atuacao: e.target.value }))} />
+                <TaxonomySelect
+                  options={AREA_ATUACAO_OPTIONS}
+                  value={draft.area_atuacao || ""}
+                  onChange={(v) => setDraft((d) => ({ ...d, area_atuacao: v }))}
+                />
               </div>
               <div className="sm:col-span-2">
                 <Label className="text-xs">Especialidade</Label>
-                <Input value={draft.especialidade || ""} onChange={(e) => setDraft((d) => ({ ...d, especialidade: e.target.value }))} />
+                <TaxonomySelect
+                  options={ESPECIALIDADE_OPTIONS}
+                  value={draft.especialidade || ""}
+                  onChange={(v) => setDraft((d) => ({ ...d, especialidade: v }))}
+                />
               </div>
             </div>
             <div className="flex gap-2">
