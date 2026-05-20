@@ -14431,6 +14431,7 @@ export type Database = {
           evolution_instance: string
           group_jid: string
           id: string
+          invite_link: string | null
           membros_count: number | null
           nome: string
           produto_tag: string | null
@@ -14447,6 +14448,7 @@ export type Database = {
           evolution_instance?: string
           group_jid: string
           id?: string
+          invite_link?: string | null
           membros_count?: number | null
           nome: string
           produto_tag?: string | null
@@ -14463,6 +14465,7 @@ export type Database = {
           evolution_instance?: string
           group_jid?: string
           id?: string
+          invite_link?: string | null
           membros_count?: number | null
           nome?: string
           produto_tag?: string | null
