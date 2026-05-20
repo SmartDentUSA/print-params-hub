@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, Video, User, Clock } from "lucide-react";
+import { CalendarDays, MapPin, Video, User } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { cn } from "@/lib/utils";
+import type { TurmaComVagas } from "@/types/courses";
 
 const MODALITY_LABEL: Record<string, string> = {
   presencial: "Presencial",
@@ -14,33 +15,41 @@ const MODALITY_LABEL: Record<string, string> = {
   gravado: "Gravado",
 };
 
-type PublicTurma = {
-  id: string;
-  label: string;
-  slots: number;
-  enrolled_count: number;
-  start_date?: string;
-  end_date?: string;
-  start_time?: string;
-  end_time?: string;
-};
+type Variant = "green" | "amber" | "red" | "blue" | "muted";
+type CountdownResult = { label: string; variant: Variant } | null;
 
-type PublicCourse = {
-  id: string;
-  title: string;
-  slug: string;
-  modality: string;
-  category?: string | null;
-  instructor_name?: string | null;
-  cover_image_url?: string | null;
-  location?: string | null;
-  meeting_link?: string | null;
-  duration_days?: number | null;
-  turmas: PublicTurma[];
-};
+function useCountdown() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  return (startDate?: string, startTime?: string, endDate?: string, endTime?: string, modality?: string): CountdownResult => {
+    if (!startDate) return null;
+    const sTime = startTime?.substring(0, 5) ?? "09:00";
+    const eDate = endDate ?? startDate;
+    const eTime = endTime?.substring(0, 5) ?? "18:00";
+    const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
+    const endMs = new Date(`${eDate}T${eTime}:00`).getTime();
+    const diffStart = startMs - now;
+    const daysUntil = Math.ceil(diffStart / 86400000);
+    if (now >= endMs) return { label: "Curso realizado", variant: "muted" };
+    if (now >= startMs) return { label: "Acontecendo agora", variant: "blue" };
+    if (modality === "presencial") {
+      if (daysUntil <= 3) return { label: "Inscrições encerradas", variant: "red" };
+      if (daysUntil <= 7) return { label: `Faltam ${daysUntil} dias para encerrar inscrições`, variant: "amber" };
+      return { label: "Inscrições abertas", variant: "green" };
+    }
+    const d = Math.floor(diffStart / 86400000);
+    const h = Math.floor((diffStart % 86400000) / 3600000);
+    const m = Math.floor((diffStart % 3600000) / 60000);
+    return { label: `${d}d ${h}h ${m}m`, variant: "green" };
+  };
+}
 
 export default function AgendaPublica() {
   const queryClient = useQueryClient();
+  const getCountdown = useCountdown();
 
   // Notify parent (when iframed) of content height so the host can auto-resize.
   useEffect(() => {
@@ -71,8 +80,10 @@ export default function AgendaPublica() {
 
   // Realtime: invalida queries quando cursos/turmas/dias mudam
   useEffect(() => {
-    const invalidate = () =>
-      queryClient.invalidateQueries({ queryKey: ["public_courses_agenda"] });
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas"] });
+      queryClient.invalidateQueries({ queryKey: ["public_agenda_courses"] });
+    };
     const channel = (supabase as any)
       .channel("agenda-publica-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
@@ -84,49 +95,43 @@ export default function AgendaPublica() {
     };
   }, [queryClient]);
 
-  const { data: courses = [], isLoading } = useQuery({
-    queryKey: ["public_courses_agenda"],
-    refetchOnWindowFocus: true,
+  // Cursos públicos (filtragem por public_visible)
+  const { data: publicCourseIds = [] } = useQuery({
+    queryKey: ["public_agenda_courses"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select(`
-          id, title, slug, modality, category, instructor_name,
-          cover_image_url, location, meeting_link, duration_days,
-          turmas:smartops_course_turmas (
-            id, label, slots, enrolled_count, active, sort_order,
-            days:smartops_turma_days (day_number, date, start_time, end_time)
-          )
-        `)
+        .select("id")
         .eq("active", true)
-        .eq("public_visible", true)
-        .order("created_at", { ascending: false });
+        .eq("public_visible", true);
       if (error) throw error;
-      const today = new Date().toISOString().slice(0, 10);
-      return ((data ?? []) as any[])
-        .map((c) => {
-          const turmas = (c.turmas ?? [])
-            .filter((t: any) => t.active !== false)
-            .map((t: any) => {
-              const days = (t.days ?? []).sort((a: any, b: any) => a.day_number - b.day_number);
-              return {
-                id: t.id,
-                label: t.label,
-                slots: t.slots,
-                enrolled_count: t.enrolled_count,
-                start_date: days[0]?.date,
-                start_time: days[0]?.start_time,
-                end_date: days[days.length - 1]?.date,
-                end_time: days[days.length - 1]?.end_time,
-              } as PublicTurma;
-            })
-            .filter((t: PublicTurma) => !t.end_date || t.end_date >= today)
-            .sort((a: PublicTurma, b: PublicTurma) => (a.start_date || "").localeCompare(b.start_date || ""));
-          return { ...c, turmas } as PublicCourse;
-        })
-        .filter((c: PublicCourse) => c.turmas.length > 0);
+      return ((data ?? []) as any[]).map((c) => c.id as string);
     },
   });
+
+  // Turmas (mesma fonte do admin: v_turmas_com_vagas)
+  const { data: allTurmas = [], isLoading } = useQuery({
+    queryKey: ["public_agenda_turmas"],
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("v_turmas_com_vagas")
+        .select("*")
+        .eq("active", true)
+        .order("start_date");
+      if (error) throw error;
+      return data as TurmaComVagas[];
+    },
+  });
+
+  const turmas = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const allowed = new Set(publicCourseIds);
+    return allTurmas
+      .filter((t) => allowed.has(t.course_id))
+      .filter((t) => !t.end_date || t.end_date >= today)
+      .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
+  }, [allTurmas, publicCourseIds]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -145,15 +150,19 @@ export default function AgendaPublica() {
 
         {isLoading ? (
           <div className="text-center py-16 text-muted-foreground">Carregando...</div>
-        ) : courses.length === 0 ? (
+        ) : turmas.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>Nenhum treinamento disponível no momento.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {courses.map((c) => (
-              <CoursePublicCard key={c.id} course={c} />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {turmas.map((t) => (
+              <PublicTurmaCard
+                key={t.id}
+                turma={t}
+                status={getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality)}
+              />
             ))}
           </div>
         )}
@@ -162,84 +171,92 @@ export default function AgendaPublica() {
   );
 }
 
-function CoursePublicCard({ course }: { course: PublicCourse }) {
-  const nextTurma = course.turmas[0];
-  const totalVagas = useMemo(
-    () => course.turmas.reduce((s, t) => s + Math.max(t.slots - t.enrolled_count, 0), 0),
-    [course.turmas]
-  );
+const STATUS_DOT: Record<Variant, string> = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-rose-500",
+  blue: "bg-sky-500",
+  muted: "bg-muted-foreground/50",
+};
 
-  const subtitle = [
-    MODALITY_LABEL[course.modality] || course.modality,
-    course.duration_days ? `${course.duration_days} ${course.duration_days === 1 ? "dia" : "dias"}` : null,
-    course.modality === "presencial" ? course.location : (course.meeting_link ? "Online" : null),
-  ].filter(Boolean).join(" · ");
+const STATUS_PILL: Record<Variant, string> = {
+  green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+  red: "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
+  blue: "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
+  muted: "bg-muted text-muted-foreground",
+};
+
+function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: CountdownResult }) {
+  const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
+  const lotado = (turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0)) === 0;
+  const isMuted = status?.variant === "muted";
+
+  const pctColor =
+    pct >= 100 ? "text-rose-600 dark:text-rose-400"
+    : pct >= 60 ? "text-emerald-600 dark:text-emerald-400"
+    : pct >= 30 ? "text-amber-600 dark:text-amber-400"
+    : "text-muted-foreground";
+
+  const subtitleParts = [
+    MODALITY_LABEL[turma.modality || "presencial"],
+    turma.total_days ? `${turma.total_days} ${turma.total_days === 1 ? "dia" : "dias"}` : null,
+    turma.modality === "presencial" ? turma.location : (turma.meeting_link ? "Link online" : null),
+  ].filter(Boolean);
+
+  const dateLine = turma.start_date
+    ? turma.end_date && turma.end_date !== turma.start_date
+      ? `${formatDatePtBr(turma.start_date)} – ${formatDatePtBr(turma.end_date)}`
+      : formatDatePtBr(turma.start_date)
+    : turma.label;
 
   return (
-    <article className="bg-card border rounded-xl overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
-      {course.cover_image_url ? (
-        <div className="aspect-[16/9] bg-muted overflow-hidden">
-          <img src={course.cover_image_url} alt={course.title} className="w-full h-full object-cover" loading="lazy" />
-        </div>
-      ) : (
-        <div className="aspect-[16/9] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-          <CalendarDays className="w-10 h-10 text-primary/40" />
+    <div className={cn("relative bg-card border rounded-xl p-5 transition-all hover:shadow-md", isMuted && "opacity-60")}>
+      {status && (
+        <div className="mb-3">
+          <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
+            <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
+            {status.label}
+          </span>
         </div>
       )}
 
-      <div className="p-5 flex flex-col gap-3 flex-1">
-        <div>
-          <h2 className="font-semibold text-lg leading-tight line-clamp-2">{course.title}</h2>
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        </div>
+      <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
+        {turma.course_title || "Sem curso"} <span className="text-muted-foreground font-normal">— {turma.label}</span>
+      </h3>
+      <p className="text-xs text-muted-foreground mb-1">{subtitleParts.join(" · ")}</p>
+      <p className="text-xs text-muted-foreground/80 mb-4 flex items-center gap-1">
+        {turma.modality === "presencial" ? <MapPin className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+        {dateLine}
+      </p>
 
-        {course.instructor_name && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <User className="w-3 h-3" /> {course.instructor_name}
-          </p>
-        )}
-
-        <div className="space-y-1.5 border-t pt-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Próximas turmas</div>
-          {course.turmas.slice(0, 3).map((t) => (
-            <div key={t.id} className="flex items-center justify-between text-xs gap-2">
-              <span className="flex items-center gap-1.5 text-foreground/90 truncate">
-                {course.modality === "presencial" ? <MapPin className="w-3 h-3 shrink-0" /> : <Video className="w-3 h-3 shrink-0" />}
-                <span className="truncate">
-                  {t.start_date ? formatDatePtBr(t.start_date) : t.label}
-                  {t.end_date && t.end_date !== t.start_date && ` – ${formatDatePtBr(t.end_date)}`}
-                </span>
-              </span>
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
-                (t.slots - t.enrolled_count) <= 0
-                  ? "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
-                  : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-              )}>
-                {(t.slots - t.enrolled_count) <= 0 ? "Lotado" : `${t.slots - t.enrolled_count} vagas`}
-              </span>
-            </div>
-          ))}
-          {course.turmas.length > 3 && (
-            <div className="text-[10px] text-muted-foreground">+ {course.turmas.length - 3} outras datas</div>
-          )}
-        </div>
-
-        <div className="mt-auto pt-3 border-t flex items-center justify-between">
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {totalVagas > 0 ? `${totalVagas} vagas disponíveis` : "Sem vagas"}
-          </span>
-          <a
-            href={`https://wa.me/5511933221001?text=${encodeURIComponent(`Olá! Tenho interesse no treinamento: ${course.title}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:opacity-90 transition"
-          >
-            Quero participar
-          </a>
-        </div>
+      <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+        <Metric label="Vagas" value={turma.slots} />
+        <Metric label="Inscritos" value={turma.enrolled_count} />
+        <Metric
+          label="Ocupação"
+          value={lotado ? "Lotado" : `${pct}%`}
+          valueClassName={lotado ? "text-rose-600 dark:text-rose-400" : pctColor}
+        />
       </div>
-    </article>
+
+      {turma.instructor_name && (
+        <div className="mt-3 pt-3 border-t">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <User className="w-3 h-3 shrink-0" />
+            {turma.instructor_name}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value, valueClassName }: { label: string; value: React.ReactNode; valueClassName?: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+      <div className={cn("text-2xl font-semibold leading-tight", valueClassName)}>{value}</div>
+    </div>
   );
 }
