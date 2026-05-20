@@ -356,8 +356,8 @@ Deno.serve(async (req: Request) => {
           data_fim: dataFim,
           periodo,
           dias: String(durationDays),
-          horas_dia: hoursPerDay != null ? String(hoursPerDay) : "",
-          carga_horaria: hoursPerDay != null ? String(hoursPerDay * durationDays) : "",
+          horas_dia: horasDiaStr,
+          carga_horaria: cargaHorariaStr,
           instrutor: instructor,
         };
         const bodyText = renderTemplate(bodyTemplate, vars);
