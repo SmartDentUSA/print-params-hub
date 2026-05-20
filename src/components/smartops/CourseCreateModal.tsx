@@ -434,6 +434,56 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     }, 0);
   };
 
+  // ─── Certificate template insert variable ───
+  const insertCertificateVariable = (key: string) => {
+    const ta = certificateRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = certificateBody.substring(0, start);
+    const after = certificateBody.substring(end);
+    setCertificateBody(before + key + after);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start + key.length, start + key.length);
+    }, 0);
+  };
+
+  // ─── Certificate preview ───
+  const certificatePreview = (() => {
+    const firstTurma = turmas[0];
+    const days = firstTurma?.days ?? [];
+    const sortedDates = days.map((d) => d.date).filter(Boolean).sort();
+    const meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    const fmt = (s: string) => {
+      if (!s) return "";
+      const [y, m, d] = s.split("-").map(Number);
+      return `${d} de ${meses[m - 1]} de ${y}`;
+    };
+    const dataInicio = fmt(sortedDates[0] || "");
+    const dataFim = fmt(sortedDates[sortedDates.length - 1] || "");
+    const periodo = dataInicio && dataFim
+      ? (dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`)
+      : "";
+    const horas = durationHoursPerDay ? String(durationHoursPerDay) : "8";
+    const cargaH = durationHoursPerDay ? String(durationHoursPerDay * durationDays) : "";
+    const vars: Record<string, string> = {
+      nome: "Dr. João Silva",
+      curso: title || "Curso",
+      local: modality === "presencial" ? (location || "Smart Dent") : (meetingLink || "Online"),
+      data_inicio: dataInicio || "27 de maio de 2026",
+      data_fim: dataFim || "29 de maio de 2026",
+      periodo: periodo || "27 de maio de 2026 a 29 de maio de 2026",
+      dias: String(durationDays),
+      horas_dia: horas,
+      carga_horaria: cargaH || String(durationDays * 8),
+      instrutor: instructorName || "Instrutor",
+    };
+    return certificateBody.replace(/\{\{\s*([\wÀ-ÿ_]+)\s*\}\}/gi, (_m, k) =>
+      vars[k.toLowerCase()] ?? `{{${k}}}`
+    );
+  })();
+
   // ─── WA preview ───
   const waPreview = (() => {
     const firstTurma = turmas[0];
