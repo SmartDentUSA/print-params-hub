@@ -1,42 +1,41 @@
-## Problema
+## Diagnóstico
 
-1. **`Horas/dia` não persiste** — o campo existe e o `handleSave` envia `duration_hours_per_day`, mas todos os cursos no banco estão com `NULL`. Causa raiz provável: o usuário não preenche esse campo manualmente porque ele duplica informação que já existe nos **horários por dia da turma** (`start_time`/`end_time`). Mesmo se preenchesse, ele precisaria reeditar em cada curso para o certificado funcionar.
-2. **`{{carga_horaria}}` no certificado fica vazio** — a edge function só calcula `hoursPerDay * durationDays` quando `duration_hours_per_day` está preenchido (que é sempre `null` hoje).
+O texto do certificado **é salvo corretamente no banco** (confirmado em `smartops_courses.certificate_body_template` para o curso "Chairside Print"). O problema é só na **leitura**: o select da lista de cursos em `SmartOpsCourses.tsx` (linha 278-290) não inclui o campo `certificate_body_template`.
 
-## Solução
+Quando o usuário reabre o curso pra editar, o `course` passado ao `CourseCreateModal` vem **sem** esse campo. O `useEffect` da linha 269 então executa:
 
-Tornar `horas_dia` e `carga_horaria` **derivados automaticamente** dos horários de cada dia da turma (que o usuário já preenche), eliminando o campo manual como fonte de verdade.
+```ts
+setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
+```
 
-### 1. Edge function `generate-certificate`
-- Buscar os dias da turma com `start_time` e `end_time` (já busca `date` em `smartops_turma_days`; expandir para incluir os horários).
-- Calcular `hoursPerDay` como a **média** das horas de cada dia (`(end_time - start_time)` em horas, média entre dias). Se todos forem iguais, vira o valor inteiro; se variarem, formatar com 1 casa decimal.
-- Calcular `cargaHoraria` como a **soma** das horas de todos os dias (mais preciso que `dias × horas`).
-- Fallback: se algum dia não tiver horários, usar o `duration_hours_per_day` do curso; se nem isso existir, omitir as variáveis (render como vazio, sem quebrar o template).
-- Atualizar `vars.horas_dia` e `vars.carga_horaria` no loop de pessoas.
-- `body_text` continua entrando no snapshot, então PDFs antigos regeneram automaticamente.
+Como `certificate_body_template` é `undefined`, cai no DEFAULT. Resultado: o textarea sempre mostra o texto padrão, dando a impressão de que a edição não persistiu.
 
-### 2. UI `CourseCreateModal.tsx`
-- **Manter** o input "Horas/dia" como override opcional (texto auxiliar: "Opcional — calculado automaticamente pelos horários da turma quando vazio").
-- **Atualizar o `certificatePreview`** para calcular `horas_dia` e `carga_horaria` a partir dos `start_time`/`end_time` da primeira turma, com a mesma lógica da edge function. Assim a pré-visualização bate com o PDF real.
+O mesmo problema afeta outros campos que o modal lê mas o select não traz:
+- `certificate_body_template`
+- `duration_hours_per_day`
+- `whatsapp_message_template`
+- `pipeline_id_kanban`
+- `stage_after_enroll`
+- `description`
 
-### 3. Sem migration
-Nenhuma mudança de schema. O campo `duration_hours_per_day` continua existindo apenas como override.
+## Correção
 
-## Detalhes técnicos
+Adicionar esses campos faltantes ao `select` da query `["smartops_courses"]` em `src/components/SmartOpsCourses.tsx` (linha 278). Uma linha só, sem migration, sem mexer em edge function.
 
-- Helper compartilhado (inline na edge function e replicado no preview do modal):
-  ```ts
-  function hoursBetween(start: string, end: string): number {
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = end.split(":").map(Number);
-    return ((eh * 60 + em) - (sh * 60 + sm)) / 60;
-  }
-  ```
-- Formatar números: inteiros sem decimal (`8`), fracionários com `.toFixed(1).replace(/\.0$/, "")`.
-- Edge function: query `smartops_turma_days` passa a selecionar `date, start_time, end_time`.
+```ts
+.select(`
+  id, title, slug, modality, category, instructor_name,
+  cover_image_url, max_capacity, duration_days, duration_hours_per_day,
+  location, meeting_link, active, public_visible, description,
+  certificate_body_template, whatsapp_message_template,
+  pipeline_id_kanban, stage_after_enroll,
+  recurrence_enabled, recurrence_type, recurrence_interval,
+  recurrence_until, recurrence_time_start, recurrence_time_end,
+  whatsapp_group_link,
+  turmas:smartops_course_turmas (...)
+`)
+```
 
 ## Fora de escopo
 
-- Não remove o campo do banco nem da UI (mantém como override).
-- Não muda layout do certificado nem do template.
-- Não mexe em outras variáveis (`{{nome}}`, `{{local}}`, etc.).
+Não mexer no `handleSave`, no modal, nem na edge function — todos já estão corretos.
