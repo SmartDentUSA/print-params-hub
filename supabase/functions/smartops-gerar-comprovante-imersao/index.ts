@@ -68,6 +68,7 @@ function fmtDate(d?: string | null): { dd: string; mm: string; yyyy: string } {
 function parseTurmaLabel(
   label: string | null,
   launchDate: string | null,
+  durationDays: number = 3,
 ): { start: string | null; end: string | null } {
   // Case A: range "DD/MM[/YYYY] a DD/MM/YYYY"
   if (label) {
@@ -87,12 +88,20 @@ function parseTurmaLabel(
     if (single) {
       const y = single[3].length === 2 ? `20${single[3]}` : single[3];
       const startIso = `${y}-${single[2].padStart(2, "0")}-${single[1].padStart(2, "0")}`;
-      return { start: startIso, end: addDaysISO(startIso, 2) };
+      return { start: startIso, end: addDaysISO(startIso, Math.max(0, durationDays - 1)) };
     }
   }
-  // Case C: launch_date fallback (imersão = 3 dias)
-  if (launchDate) return { start: launchDate, end: addDaysISO(launchDate, 2) };
+  // Case C: launch_date fallback
+  if (launchDate) return { start: launchDate, end: addDaysISO(launchDate, Math.max(0, durationDays - 1)) };
   return { start: null, end: null };
+}
+
+function numToExtenso(n: number): string {
+  const map: Record<number, string> = {
+    1: "um", 2: "dois", 3: "três", 4: "quatro", 5: "cinco",
+    6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
+  };
+  return map[n] ?? "";
 }
 
 function p(text: string, opts: { bold?: boolean; align?: any; size?: number; spacingAfter?: number } = {}) {
@@ -121,6 +130,8 @@ function buildDocx(args: {
   contrato: string;
   startDD: string; startMM: string; startYY: string;
   endDD: string; endMM: string; endYY: string;
+  durationDays: number;
+  durationHoursTotal: number | null;
   participanteNome: string;
   participanteCpf: string;
   participanteProfissao: string;
@@ -221,7 +232,12 @@ function buildDocx(args: {
             children: [
               new TextRun({
                 text:
-                  `2. A imersão ocorreu na cidade de São Carlos / SP, no período de ${a.startDD}/${a.startMM}/${a.startYY} a ${a.endDD}/${a.endMM}/${a.endYY}, com duração de 3 (três) dias, e teve como objetivo o treinamento técnico para operação e utilização dos equipamentos adquiridos;`,
+                  (() => {
+                    const ext = numToExtenso(a.durationDays);
+                    const diasStr = `${a.durationDays}${ext ? ` (${ext})` : ""} ${a.durationDays === 1 ? "dia" : "dias"}`;
+                    const horasStr = a.durationHoursTotal ? `, totalizando ${a.durationHoursTotal} horas` : "";
+                    return `2. A imersão ocorreu na cidade de São Carlos / SP, no período de ${a.startDD}/${a.startMM}/${a.startYY} a ${a.endDD}/${a.endMM}/${a.endYY}, com duração de ${diasStr}${horasStr}, e teve como objetivo o treinamento técnico para operação e utilização dos equipamentos adquiridos;`;
+                  })(),
                 size: 22,
               }),
             ],
@@ -443,9 +459,25 @@ Deno.serve(async (req: Request) => {
 
     const { data: turma } = await admin
       .from("smartops_course_turmas")
-      .select("label, launch_date")
+      .select("label, launch_date, course_id")
       .eq("id", enr.turma_id)
       .maybeSingle();
+
+    let durationDays = 3;
+    let durationHoursTotal: number | null = null;
+    if (turma?.course_id) {
+      const { data: course } = await admin
+        .from("smartops_courses")
+        .select("duration_days, duration_hours_per_day")
+        .eq("id", turma.course_id)
+        .maybeSingle();
+      if (course?.duration_days && course.duration_days > 0) {
+        durationDays = course.duration_days;
+      }
+      if (course?.duration_hours_per_day && course.duration_hours_per_day > 0) {
+        durationHoursTotal = durationDays * course.duration_hours_per_day;
+      }
+    }
 
     let lead: any = null;
     if (enr.lead_id) {
@@ -472,7 +504,7 @@ Deno.serve(async (req: Request) => {
       omieNfs = nfs || [];
     }
 
-    const dates = parseTurmaLabel(turma?.label || null, turma?.launch_date || null);
+    const dates = parseTurmaLabel(turma?.label || null, turma?.launch_date || null, durationDays);
     const start = fmtDate(dates.start);
     const end = fmtDate(dates.end || dates.start);
 
@@ -518,6 +550,8 @@ Deno.serve(async (req: Request) => {
       contrato,
       startDD: start.dd, startMM: start.mm, startYY: start.yyyy,
       endDD: end.dd, endMM: end.mm, endYY: end.yyyy,
+      durationDays,
+      durationHoursTotal,
       participanteNome: part41Nome,
       participanteCpf: formatDoc(part41Cpf),
       participanteProfissao: part41Prof,
