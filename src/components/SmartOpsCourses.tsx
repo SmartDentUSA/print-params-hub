@@ -621,6 +621,32 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
       qc.invalidateQueries({ queryKey: ["smartops_companions_map"] });
       toast({ title: "Inscrição atualizada!" });
+
+      // Atualizar nota do Deal no PipeRun com os campos editados (best-effort)
+      if (enrollment.lead_id && Object.keys(changed).length > 0) {
+        const labelMap: Record<string, string> = {
+          status: "Status", deal_title: "Deal", deal_value: "Valor",
+          numero_contrato: "Nº Contrato", numero_proposta: "Nº Proposta",
+          numero_nf: "Nº NF", tipo_entrega: "Tipo de Entrega", rastreamento: "Rastreamento",
+          instagram: "Instagram", notes: "Notas CS",
+          especialidade: "Especialidade", area_atuacao: "Área de Atuação",
+          empresa_cnpj: "CNPJ", empresa_pais: "País", empresa_estado: "Estado",
+          empresa_cidade: "Cidade", empresa_endereco: "Endereço", empresa_telefone: "Telefone empresa",
+        };
+        const responses = Object.entries(changed)
+          .filter(([k]) => labelMap[k])
+          .map(([k, v]) => ({ label: labelMap[k], value: v == null || v === "" ? "—" : String(v) }));
+        if (responses.length > 0) {
+          (supabase as any).functions.invoke('smart-ops-deal-form-note', {
+            body: {
+              lead_id: enrollment.lead_id,
+              form_name: `Atualização CS — ${enrollment.course?.title || "Inscrição"}`,
+              responses,
+            },
+          }).catch((e: any) => console.warn('[deal-note-edit]', e));
+        }
+      }
+
       onClose();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
