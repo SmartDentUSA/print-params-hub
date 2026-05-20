@@ -285,6 +285,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         (data ?? []).map((t: any) => ({
           id: t.id,
           label: t.label,
+          turma_number: t.turma_number,
           slots: t.slots,
           sellflux_tag: t.sellflux_tag || "",
           whatsapp_group_link: t.whatsapp_group_link || "",
