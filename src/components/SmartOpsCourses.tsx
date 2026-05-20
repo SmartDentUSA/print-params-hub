@@ -33,6 +33,9 @@ import { CourseCreateModal } from "./smartops/CourseCreateModal";
 import { EnrollmentModal } from "./smartops/EnrollmentModal";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
+import { TreinamentosToolbar, type FilterTab } from "./smartops/TreinamentosToolbar";
+import { TurmaCard } from "./smartops/TurmaCard";
+import { CourseCard } from "./smartops/CourseCard";
 
 // ─── Countdown Hook ───
 type CountdownResult = {
