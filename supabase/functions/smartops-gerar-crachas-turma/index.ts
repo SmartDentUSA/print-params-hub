@@ -6,6 +6,7 @@
 // frente e verso idênticos.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb, degrees } from "npm:pdf-lib@1.17.1";
+import { TEMPLATE_CRACHA_BASE64 } from "./template-cracha.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,10 +169,9 @@ async function buildPdf(courseTitle: string, turmaLabel: string, rows: Participa
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Carrega o template (fundo oficial com logos posicionados)
-  const templateBytes = await Deno.readFile(new URL("./template-cracha.pdf", import.meta.url));
+  // Carrega o template (fundo oficial com logos posicionados) embutido como base64
+  const templateBytes = Uint8Array.from(atob(TEMPLATE_CRACHA_BASE64), (c) => c.charCodeAt(0));
   const [templatePage] = await pdf.embedPdf(templateBytes, [0]);
-  const templateDims = templatePage.scale(1);
 
   if (!rows.length) {
     const page = pdf.addPage([A4_W, A4_H]);
