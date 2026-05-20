@@ -312,6 +312,41 @@ function CatalogoTab() {
     else qc.invalidateQueries({ queryKey: ["smartops_courses"] });
   };
 
+  const cloneCourse = async (c: SmartopsCourse) => {
+    try {
+      const { data: full, error: fetchErr } = await (supabase as any)
+        .from("smartops_courses")
+        .select("*")
+        .eq("id", c.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const { id, created_at, updated_at, created_by, slug, title, ...rest } = full as any;
+      const suffix = Date.now().toString(36).slice(-4);
+      const newTitle = `Cópia de ${title}`;
+      const newSlug = `${slug}-copia-${suffix}`;
+
+      const { data: inserted, error: insertErr } = await (supabase as any)
+        .from("smartops_courses")
+        .insert({
+          ...rest,
+          title: newTitle,
+          slug: newSlug,
+          active: false,
+          public_visible: false,
+        })
+        .select("*")
+        .single();
+      if (insertErr) throw insertErr;
+
+      toast({ title: "Curso clonado!", description: "Edite os detalhes e cadastre as turmas." });
+      qc.invalidateQueries({ queryKey: ["smartops_courses"] });
+      setEditCourse(inserted as SmartopsCourse);
+    } catch (err: any) {
+      toast({ title: "Erro ao clonar", description: err.message, variant: "destructive" });
+    }
+  };
+
   const counters = useMemo(() => {
     const c = { todos: courses.length, ativos: 0, inativos: 0, privados: 0 };
     for (const x of courses) {
@@ -388,6 +423,7 @@ function CatalogoTab() {
               onEdit={() => setEditCourse(c)}
               onToggleActive={() => toggleField(c.id, "active", !c.active)}
               onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
+              onClone={() => cloneCourse(c)}
             />
           ))}
         </div>

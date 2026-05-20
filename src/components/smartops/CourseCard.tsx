@@ -1,5 +1,5 @@
 import React from "react";
-import { Share2, MoreVertical, User, Repeat, Image as ImageIcon } from "lucide-react";
+import { Share2, MoreVertical, User, Repeat, Image as ImageIcon, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -36,9 +36,10 @@ interface Props {
   onEdit: () => void;
   onTogglePublic: () => void;
   onToggleActive: () => void;
+  onClone: () => void;
 }
 
-export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive }: Props) {
+export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive, onClone }: Props) {
   const turmas = (course.turmas ?? []) as any[];
   const totalSlots = turmas.reduce((s, t) => s + (t.slots || 0), 0);
   const totalEnrolled = turmas.reduce((s, t) => s + (t.enrolled_count || 0), 0);
@@ -72,8 +73,14 @@ export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive }: P
           {STATUS_LABEL[status]}
         </span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-            <Share2 className="w-3.5 h-3.5" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Clonar curso"
+            onClick={onClone}
+          >
+            <Copy className="w-3.5 h-3.5" />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -81,6 +88,7 @@ export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive }: P
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>Editar curso</DropdownMenuItem>
+              <DropdownMenuItem onClick={onClone}>Clonar curso</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onToggleActive}>
                 {course.active ? "Marcar como inativo" : "Ativar curso"}
