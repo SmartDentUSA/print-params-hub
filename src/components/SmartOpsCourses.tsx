@@ -502,6 +502,29 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
   const companions: any[] = enrollment.companions || [];
   const turmaSnap = enrollment.turma_snapshot;
 
+  // ── Acompanhantes editáveis ──
+  const [companionsList, setCompanionsList] = useState<any[]>(
+    (companions || []).map((c) => ({ ...c }))
+  );
+  const [delIds, setDelIds] = useState<string[]>([]);
+  const updateCompanion = (idx: number, field: string, value: any) => {
+    setCompanionsList((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+  const removeCompanion = (idx: number) => {
+    setCompanionsList((prev) => {
+      const target = prev[idx];
+      if (target?.id) setDelIds((d) => [...d, target.id]);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+  const addCompanion = () => {
+    setCompanionsList((prev) => [...prev, { _new: true, name: '', especialidade: '', area_atuacao: '', email: '', phone: '' }]);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -547,7 +570,43 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
           .update({ instagram: changed.instagram }).eq('id', enrollment.lead_id).is('merged_into', null);
       }
 
+      // ── Persistir acompanhantes (delete + update + insert) ──
+      const errors: string[] = [];
+      for (const id of delIds) {
+        const { error } = await (supabase as any).from('smartops_enrollment_companions').delete().eq('id', id);
+        if (error) errors.push(error.message);
+      }
+      const origById = new Map<string, any>((companions || []).filter((c: any) => c.id).map((c: any) => [c.id, c]));
+      for (const c of companionsList) {
+        if (c.id) {
+          const orig = origById.get(c.id);
+          const fields = ['name', 'especialidade', 'area_atuacao', 'email', 'phone'];
+          const diff: Record<string, any> = {};
+          for (const f of fields) {
+            if (String(c[f] ?? '') !== String(orig?.[f] ?? '')) diff[f] = c[f] || null;
+          }
+          if (Object.keys(diff).length > 0) {
+            const { error } = await (supabase as any).from('smartops_enrollment_companions').update(diff).eq('id', c.id);
+            if (error) errors.push(error.message);
+          }
+        } else if ((c.name || '').trim()) {
+          const { error } = await (supabase as any).from('smartops_enrollment_companions').insert({
+            enrollment_id: enrollment.id,
+            name: c.name.trim(),
+            email: c.email || null,
+            phone: c.phone || null,
+            especialidade: c.especialidade || null,
+            area_atuacao: c.area_atuacao || null,
+          });
+          if (error) errors.push(error.message);
+        }
+      }
+      if (errors.length > 0) {
+        toast({ title: "Erro ao salvar acompanhantes", description: errors[0], variant: "destructive" });
+      }
+
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+      qc.invalidateQueries({ queryKey: ["smartops_companions_map"] });
       toast({ title: "Inscrição atualizada!" });
       onClose();
     } catch (err: any) {
