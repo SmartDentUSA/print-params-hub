@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
