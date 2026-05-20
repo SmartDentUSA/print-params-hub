@@ -949,61 +949,62 @@ export function SmartOpsFormBuilder() {
       ) : forms.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nenhum formulário criado ainda.</p>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-left p-3 font-medium">Nome</th>
-                <th className="text-left p-3 font-medium">Finalidade</th>
-                <th className="text-center p-3 font-medium">Submissões</th>
-                <th className="text-center p-3 font-medium">Ativo</th>
-                <th className="text-right p-3 font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forms.map((form) => (
-                <tr key={form.id} className="border-t">
-                  <td className="p-3">
-                    <div className="font-medium">{form.name}</div>
-                    {(form as any).title && (
-                      <div className="text-xs text-muted-foreground">Web: {(form as any).title}</div>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <Badge variant="outline" className={PURPOSE_CONFIG[form.form_purpose]?.color ?? "bg-gray-100 text-gray-600 border-gray-300"}>
-                      {PURPOSE_CONFIG[form.form_purpose]?.label ?? form.form_purpose}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-center">{form.submissions_count}</td>
-                  <td className="p-3 text-center">
-                    <Switch checked={form.active} onCheckedChange={() => toggleActive(form)} />
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" onClick={() => openEditMeta(form)} title="Editar nome/config">
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setEditingForm(form)} title="Editar campos">
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(form)} title="Duplicar formulário">
-                        <CopyPlus className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => copyLink(form.slug)} title="Copiar link">
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => copyEmbed(form.slug, form.name)} title="Copiar HTML embed com SEO">
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteForm(form.id)} title="Excluir">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-6">
+          {/* Filtro de período */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground mr-1">Período:</span>
+            {[
+              { l: "24h", v: 1 },
+              { l: "7d", v: 7 },
+              { l: "30d", v: 30 },
+              { l: "90d", v: 90 },
+              { l: "Tudo", v: 0 },
+            ].map((p) => (
+              <Button
+                key={p.v}
+                size="sm"
+                variant={periodDays === p.v ? "default" : "outline"}
+                className="h-7 px-2.5"
+                onClick={() => setPeriodDays(p.v)}
+              >
+                {p.l}
+              </Button>
+            ))}
+          </div>
+
+          {/* Grupos por finalidade */}
+          {Object.entries(PURPOSE_CONFIG).map(([purposeKey, cfg]) => {
+            const groupForms = forms.filter((f) => f.form_purpose === purposeKey);
+            if (groupForms.length === 0) return null;
+            return (
+              <section key={purposeKey} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {cfg.label}
+                  </h3>
+                  <Badge variant="outline" className="text-[10px]">{groupForms.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {groupForms.map((form) => (
+                    <FormMetricsCard
+                      key={form.id}
+                      form={form}
+                      metrics={metricsByForm[form.id]}
+                      purposeLabel={cfg.label}
+                      purposeColor={cfg.color}
+                      onToggleActive={() => toggleActive(form)}
+                      onEditMeta={() => openEditMeta(form)}
+                      onEditFields={() => setEditingForm(form)}
+                      onDuplicate={() => handleDuplicate(form)}
+                      onCopyLink={() => copyLink(form.slug)}
+                      onCopyEmbed={() => copyEmbed(form.slug, form.name)}
+                      onDelete={() => deleteForm(form.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
