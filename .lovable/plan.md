@@ -1,84 +1,121 @@
-## Refinos pós-Frente 1: nomenclatura, cache canônico, lock hygiene e janela DeepSeek
+## Plano de implementação — 4 lacunas confirmadas
 
-Quatro ajustes finos cirúrgicos, baseados nas observações A–C e nos próximos passos. Cada um é isolado e pode entrar como hotfix sem tocar o núcleo do `dra-lia`.
-
----
-
-### Ajuste 1 — Renomear tag `sem_interesse` no fluxo Hot-Lead (WhatsApp)
-
-**Problema:** `smart-ops-lia-assign` dispara `Hot-lead Alert` e, no mesmo branch, aplica tag `sem_interesse`. Contradição semântica que polui dashboards de RFM/Intelligence Score e confunde SDR.
-
-**Investigação prévia (antes de patch):**
-- Mapear todos call-sites de `sem_interesse` (tag em `lia_attendances.tags` / `crm_tags`).
-- Confirmar se a tag atual é "lead caiu em hot-alert e ainda não foi tocado por humano" (aguardando_humano) **ou** "engine classificou como sem fit" (na verdade `sem_fit`).
-- Auditar Copilot tools (`query_leads`, RFM rules) que filtram por essa tag.
-
-**Decisão proposta:** trocar para `aguardando_humano` quando vier de hot-alert. Manter `sem_interesse` apenas quando vier explicitamente da classificação cognitiva como rejeição.
-
-**Patch:**
-- `smart-ops-lia-assign/index.ts`: separar dois branches de tag (`hotAlertTag = 'aguardando_humano'`, `cognitiveRejectionTag = 'sem_interesse'`).
-- Migration de dados: reclassificar leads históricos com `sem_interesse` aplicado em janela de hot-alert (heurística: tag aplicada nos últimos 60s após `hot_lead_alert_sent_at`) → `aguardando_humano`.
-- Atualizar `mem://smart-ops/lead-card-business-intelligence-tables-v4` e regras RFM se filtrarem por essa tag.
+Todas as lacunas validadas no lead `366ea619…`. Execução numa única passada, sem migração de schema.
 
 ---
 
-### Ajuste 2 — Cache do `resolveCanonicalLead` (preventivo)
+### Ajuste A — `form_data` passa a fazer merge profundo por submissão
 
-**Problema:** chamada síncrona a cada inbound WA escala mal sob >50 msg/s. Hoje aguenta, mas evita refactor futuro.
+**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
 
-**Solução leve (sem Redis):**
-- Cache em memória LRU dentro do worker da edge function (`Map<phone_digits, {canonicalId, expiresAt}>`, TTL 30s, max 500 entradas).
-- Invalida no commit do `merge_lia_attendances` (publica em canal Postgres `pg_notify('canonical_invalidate', source_id)`, edge subscribe via realtime).
-- Métrica: `system_health_logs(event_type='canonical_cache_hit' | 'canonical_cache_miss')`.
+1. Adicionar `"form_data"` em `MERGE_JSONB_FIELDS` (junto com `sellflux_custom_fields` e `raw_payload`).
+2. Estender o branch de merge JSONB para `form_data`: em vez de spread raso, fazer **append por submissão** sob a chave `form_name`:
+   ```ts
+   form_data[form_name] = [...(existing[form_name] || []), { submitted_at, responses, raw_fields }]
+   ```
+   (mantém histórico de cada envio, não sobrescreve.)
+3. Quando o `form_name` for `unknown`/null, agrupar sob `_unnamed`.
 
-**Arquivo:** `_shared/identity-utils.ts` → adicionar `resolveCanonicalLeadCached(supabase, phoneOrId)`. Manter `resolveCanonicalLead` raw como fallback/debug.
+**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 400–415)
 
-**Escopo mínimo aceitável:** se o usuário não quiser invest agora, só instrumentar latência (`p50/p95` de `resolveCanonicalLead`) em `system_health_logs` para decidir depois.
-
----
-
-### Ajuste 3 — Lock hygiene em `cognitive-lead-analysis`
-
-**Problema:** `pg_try_advisory_xact_lock` libera no commit/rollback, mas o `try/finally` da edge function não garante que a transação fecha em erro não capturado (ex: timeout DeepSeek mata o worker).
-
-**Patch:**
-- Trocar `pg_try_advisory_xact_lock` por `pg_try_advisory_lock` + `pg_advisory_unlock` explícito em `finally`.
-- Wrap toda lógica pós-lock em `try { ... } finally { await supabase.rpc('release_cognitive_analysis_lock', { target_lead_id }); }`.
-- Migration: criar `release_cognitive_analysis_lock(uuid)` que chama `pg_advisory_unlock(hashtext(uuid::text))`.
-- Garantir que o lock não vaza entre invocações da mesma worker (Deno reusa conexões).
-
-**Risco:** se a worker morrer **antes** do `finally`, o lock fica órfão. Mitigação: TTL implícito via reinicialização do pool de conexões Supabase (~minutos). Adicionar job `cleanup_orphan_advisory_locks` opcional rodando a cada 5min.
+- Continuar montando o snapshot da submissão atual; o merge profundo no shared faz o resto.
+- Remover o `existingFormData` local (agora redundante) para evitar dupla aplicação.
 
 ---
 
-### Ajuste 4 — Janela de contexto DeepSeek
+### Ajuste B — Preservar histórico de `custom_fields`
 
-**Problema:** prompt já tem smart-truncation > 4000 chars, mas histórico cresce O(n) com `agent_interactions`. Latência sobe com leads de 50+ turnos.
+**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts`
 
-**Patch em `dra-lia/index.ts` (etapa de montagem do prompt):**
-- Limitar `agent_interactions` carregadas: `LIMIT 15 ORDER BY created_at DESC` (hoje pega tudo da sessão).
-- Manter system prompt + últimas 15 mensagens (~ 7-8 turnos U/A) + resumo cognitivo (`lia_cognitive_insights.cognitive_summary`) como "memória longa".
-- Quando truncar, prefixar: `[Resumo das interações anteriores: <cognitive_summary>]`.
-- Flag de tuning: `DRA_LIA_HISTORY_WINDOW` env var (default 15) para ajustar sem deploy.
+No ponto onde o payload é normalizado (antes do smart-merge), transformar:
+```jsonc
+payload.raw_payload = { custom_fields: {...} }
+```
+em:
+```jsonc
+payload.raw_payload = {
+  custom_fields: {...},                       // última versão (compat)
+  custom_fields_history: [                    // append-only
+    { submitted_at, form_name, fields: {...} }
+  ]
+}
+```
 
-**Métrica:** logar `prompt_messages_count` e `prompt_chars` em `system_health_logs` para validar redução de p95.
+**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
+
+- Garantir que `raw_payload` continue em `MERGE_JSONB_FIELDS`.
+- Adicionar lógica especial: se a chave entrante for `custom_fields_history` (array), **concatenar** com o existente em vez de sobrescrever (limitar a últimos 50 itens para não inflar a row).
 
 ---
 
-### Ordem de execução proposta
+### Ajuste C — Enriquecer o prompt da `cognitive-lead-analysis`
 
-1. **Ajuste 4** (DeepSeek window) — quick win, sem migration, impacto imediato em latência.
-2. **Ajuste 3** (lock hygiene) — migration + refactor isolado em `cognitive-lead-analysis`.
-3. **Ajuste 1** (tag rename) — requer alinhamento de regra de negócio antes (ver pergunta abaixo).
-4. **Ajuste 2** (cache canônico) — só se métrica do Ajuste 3 (`canonical_cache_miss` latency) justificar. Apenas instrumentação primeiro.
+**Arquivo:** `supabase/functions/cognitive-lead-analysis/index.ts`
 
-### Fora de escopo
-- Frentes 2 e 3 originais (merge RPC + echo by ID) — continuam pendentes, plano anterior em `.lovable/plan.md`.
-- Redis real (overkill para volume atual).
-- Remoção das colunas `lia_attendances.cognitive_*`.
+1. Ampliar o `select` na linha 148, adicionando:
+   ```
+   equip_scanner, sdr_software_cad_interesse,
+   imprime_resinas_ld, imprime_guias,
+   form_data, raw_payload
+   ```
+2. Após o `select` do lead, carregar `smartops_form_field_responses`:
+   ```ts
+   const { data: sdrResponses } = await supabase
+     .from("smartops_form_field_responses")
+     .select("field_label, value, created_at")
+     .eq("lead_id", leadData.id)
+     .order("created_at", { ascending: false })
+     .limit(40);
+   ```
+   Deduplicar por `field_label` mantendo o `value` mais recente.
+3. Construir bloco `**Perfil técnico (SDR Qualificação):**` no prompt, listando:
+   - Marca do scanner (`equip_scanner`)
+   - Software CAD em uso (`sdr_software_cad_interesse`)
+   - Imprime resinas LD / guias cirúrgicas / placas / modelos
+   - Custom fields do `raw_payload.custom_fields` (descoberta, motivo de perda de pacientes, contato com 3D)
+   - Top 10 pares `field_label → value` mais recentes de `sdrResponses` não duplicados acima
+4. Atualizar instruções do prompt para usar esses sinais ao decidir:
+   - `lead_stage_detected` (uso de CAD + resinas LD → MQL avançado / SAL)
+   - `objection_risk` (motivo de perde_pacientes vira pista de objeção)
+   - `recommended_approach` (citar marca de scanner/CAD para contextualizar)
 
-### Pergunta de bloqueio (Ajuste 1)
-Confirme a regra de negócio antes de eu codar:
-- **Opção A:** `aguardando_humano` para hot-alert WA, `sem_interesse` só para rejeição cognitiva explícita (proposto).
-- **Opção B:** `comercial_alta_prioridade` para hot-alert, `sem_interesse` mantido onde está (sem reclassificar histórico).
-- **Opção C:** manter como está, é intencional (qual a lógica?).
+---
+
+### Ajuste D — Observabilidade
+
+**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
+
+- No `mergeSmartLead`, quando uma chave em `MERGE_JSONB_FIELDS` for ignorada por payload vazio, inserir log em `system_health_logs` com `event_type='jsonb_merge_noop'`, `metadata: { field, source }`.
+- Quando o append em `form_data[form_name]` ocorrer, registrar `event_type='form_data_appended'` com `{ form_name, responses_count, raw_fields_count }`.
+
+(Insert opcional via service role — usar fire-and-forget para não bloquear ingest.)
+
+---
+
+## Arquivos tocados
+
+```text
+supabase/functions/_shared/lead-enrichment.ts        (A, B, D)
+supabase/functions/smart-ops-ingest-lead/index.ts    (A cleanup, B normalize)
+supabase/functions/cognitive-lead-analysis/index.ts  (C: select + prompt + sdrResponses)
+mem/architecture/lead-form-enrichment-v3.md          (atualizar — registrar merge profundo)
+mem/architecture/lead-form-catch-all-jsonb.md        (atualizar — custom_fields_history)
+mem/dra-lia/cognitive-prompt-sdr-enrichment.md       (NOVO — documentar Ajuste C)
+mem/index.md                                          (referenciar nova memória)
+```
+
+## Validação pós-deploy
+
+1. Submeter o `# - Formulário Padrão` 2× com respostas diferentes em `impressao_de_modelos`.
+2. Checar `lia_attendances.form_data` → deve conter array com 2 entradas sob a chave `# - Formulário Padrão`.
+3. Checar `raw_payload.custom_fields_history` → 2 itens, mais recente primeiro.
+4. Disparar `cognitive-lead-analysis` para o lead e verificar nos logs que o prompt contém o bloco `Perfil técnico (SDR Qualificação)` com marca scanner + CAD + resinas.
+5. `system_health_logs` deve mostrar 1 `form_data_appended` por submissão.
+
+## Fora de escopo
+
+- Nenhuma mudança em `PublicFormPage`, `smart-ops-lia-assign` ou PipeRun (payload já chega correto).
+- Sem alteração de schema.
+- Sem mudança nas tags / fluxo de hot-lead (Ajuste 1 do plano anterior continua aguardando decisão A/B/C).
+
+Aprova a execução de A + B + C + D nesta passada?
