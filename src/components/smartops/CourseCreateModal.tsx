@@ -786,7 +786,16 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                     <CardContent className="pt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">
-                          {turma.id ? turma.label : `Nova turma ${tIdx + 1}`}
+                          {turma.id ? (
+                            <>
+                              {turma.turma_number != null && (
+                                <span className="mr-2 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
+                                  {modality === 'presencial' ? `#${turma.turma_number}` : `#${String(turma.turma_number).padStart(3, '0')}`}
+                                </span>
+                              )}
+                              {turma.label}
+                            </>
+                          ) : `Nova turma ${tIdx + 1}`}
                           {turma.id && turma.enrolled_count > 0 && (
                             <Badge variant="outline" className="ml-2">{turma.enrolled_count} inscritos</Badge>
                           )}
