@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarDays, MapPin, Video, User, Clock } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
@@ -38,7 +39,9 @@ type PublicCourse = {
   turmas: PublicTurma[];
 };
 
-export default function EmbedTrainings() {
+export default function AgendaPublica() {
+  const queryClient = useQueryClient();
+
   // Notify parent (when iframed) of content height so the host can auto-resize.
   useEffect(() => {
     const post = () => {
@@ -66,8 +69,24 @@ export default function EmbedTrainings() {
     };
   }, []);
 
+  // Realtime: invalida queries quando cursos/turmas/dias mudam
+  useEffect(() => {
+    const invalidate = () =>
+      queryClient.invalidateQueries({ queryKey: ["public_courses_agenda"] });
+    const channel = (supabase as any)
+      .channel("agenda-publica-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const { data: courses = [], isLoading } = useQuery({
-    queryKey: ["public_courses_embed"],
+    queryKey: ["public_courses_agenda"],
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
