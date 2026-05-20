@@ -1,41 +1,44 @@
 ## Diagnóstico
 
-O texto do certificado **é salvo corretamente no banco** (confirmado em `smartops_courses.certificate_body_template` para o curso "Chairside Print"). O problema é só na **leitura**: o select da lista de cursos em `SmartOpsCourses.tsx` (linha 278-290) não inclui o campo `certificate_body_template`.
+Existem 3 turmas com `whatsapp_group_link` preenchido em `smartops_course_turmas`, mas só **1** tem registro em `wa_groups`. O hook `useTurmaWaGroup` consulta exclusivamente `wa_groups`, então nas outras 2 turmas o botão volta a aparecer com bolinha vermelha e habilitado para criar de novo, mesmo já tendo grupo.
 
-Quando o usuário reabre o curso pra editar, o `course` passado ao `CourseCreateModal` vem **sem** esse campo. O `useEffect` da linha 269 então executa:
-
-```ts
-setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
-```
-
-Como `certificate_body_template` é `undefined`, cai no DEFAULT. Resultado: o textarea sempre mostra o texto padrão, dando a impressão de que a edição não persistiu.
-
-O mesmo problema afeta outros campos que o modal lê mas o select não traz:
-- `certificate_body_template`
-- `duration_hours_per_day`
-- `whatsapp_message_template`
-- `pipeline_id_kanban`
-- `stage_after_enroll`
-- `description`
+Causas possíveis: link foi colado manualmente no modal, ou a edge function `smartops-create-turma-wagroup` retornou ok mas não escreveu em `wa_groups`. De qualquer forma, a fonte de verdade visível ao usuário é o `whatsapp_group_link` da turma — basta a UI respeitá-lo.
 
 ## Correção
 
-Adicionar esses campos faltantes ao `select` da query `["smartops_courses"]` em `src/components/SmartOpsCourses.tsx` (linha 278). Uma linha só, sem migration, sem mexer em edge function.
+### 1. `src/components/smartops/TurmaCard.tsx`
+Calcular um `effectiveGroup` que considera ambos os sinais:
 
 ```ts
-.select(`
-  id, title, slug, modality, category, instructor_name,
-  cover_image_url, max_capacity, duration_days, duration_hours_per_day,
-  location, meeting_link, active, public_visible, description,
-  certificate_body_template, whatsapp_message_template,
-  pipeline_id_kanban, stage_after_enroll,
-  recurrence_enabled, recurrence_type, recurrence_interval,
-  recurrence_until, recurrence_time_start, recurrence_time_end,
-  whatsapp_group_link,
-  turmas:smartops_course_turmas (...)
-`)
+const effectiveGroup = waGroup ?? (turma.whatsapp_group_link
+  ? { id: "link-only", nome: null }
+  : null);
 ```
+
+Passar `effectiveGroup` para os dois botões (`CreateTurmaWaGroupButton` e `AddTurmaToWaGroupButton`) no lugar de `waGroup`.
+
+Resultado: se a turma já tem link salvo, o botão fica verde e desabilitado, independente do `wa_groups`.
+
+### 2. `src/components/smartops/CreateTurmaWaGroupButton.tsx`
+Após sucesso da edge function, gravar o link na turma para que a persistência fique garantida mesmo se `wa_groups` não tiver sido populado:
+
+```ts
+if (r.invite_link) {
+  await supabase.from("smartops_course_turmas")
+    .update({ whatsapp_group_link: r.invite_link })
+    .eq("id", turmaId);
+}
+await onCreated();
+```
+
+(Se a edge function não devolver `invite_link`, esse bloco simplesmente não roda e o comportamento atual fica preservado.)
+
+### 3. Tooltip
+Atualizar o texto do tooltip quando o sinal vier só do link:
+`"Grupo já vinculado"` em vez de `"Grupo já criado"`.
 
 ## Fora de escopo
 
-Não mexer no `handleSave`, no modal, nem na edge function — todos já estão corretos.
+- Não mexer na edge function `smartops-create-turma-wagroup`.
+- Não criar migration nem alterar `wa_groups`.
+- Não tocar no fluxo de envio de mensagens / Evolution.

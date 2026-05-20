@@ -53,6 +53,9 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
   const lotado = (turma.vagas_disponiveis ?? 0) === 0;
   const isMuted = status?.variant === "muted";
   const { group: waGroup, loading: waChecking, refetch: refetchWaGroup } = useTurmaWaGroup(turma.id);
+  const effectiveWaGroup = waGroup ?? (turma.whatsapp_group_link
+    ? { id: "link-only", nome: null }
+    : null);
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -152,13 +155,13 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
             turmaId={turma.id}
-            group={waGroup}
+            group={effectiveWaGroup}
             checking={waChecking}
             onCreated={refetchWaGroup}
           />
           <AddTurmaToWaGroupButton
             turmaId={turma.id}
-            group={waGroup}
+            group={effectiveWaGroup}
             checking={waChecking}
           />
           <Button
