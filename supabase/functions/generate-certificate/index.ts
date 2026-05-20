@@ -84,6 +84,20 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   });
 }
 
+function hoursBetween(start?: string | null, end?: string | null): number | null {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+  const diff = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  return diff > 0 ? diff : null;
+}
+
+function formatHours(n: number): string {
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+}
+
 function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split(/\r?\n/)) {
