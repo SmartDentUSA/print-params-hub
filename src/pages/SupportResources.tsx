@@ -243,6 +243,35 @@ export default function SupportResources() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <Helmet>
+        <title>Catálogo de Produtos e Documentos Técnicos | Smart Dent</title>
+        <meta name="description" content="Catálogo Smart Dent: resinas 3D, equipamentos odontológicos, fichas técnicas, FISPQ e documentos de uso clínico em um só lugar." />
+        <link rel="canonical" href="https://parametros.smartdent.com.br/support-resources" />
+        <meta property="og:title" content="Catálogo de Produtos e Documentos Técnicos | Smart Dent" />
+        <meta property="og:description" content="Resinas 3D, equipamentos odontológicos e documentos técnicos Smart Dent reunidos em um catálogo unificado." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://parametros.smartdent.com.br/support-resources" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          "name": "Catálogo Smart Dent",
+          "url": "https://parametros.smartdent.com.br/support-resources",
+          "numberOfItems": filteredProducts.length || products.length,
+          "itemListElement": (filteredProducts.length ? filteredProducts : products).slice(0, 30).map((p, i) => ({
+            "@type": "ListItem",
+            "position": i + 1,
+            "item": {
+              "@type": "Product",
+              "name": p.name,
+              "category": p.category,
+              ...(p.image_url ? { "image": p.image_url } : {}),
+              ...(p.description ? { "description": String(p.description).replace(/<[^>]+>/g, "").slice(0, 300) } : {}),
+              ...(p.shop_url ? { "url": p.shop_url } : {}),
+              "brand": { "@type": "Brand", "name": "Smart Dent" }
+            }
+          }))
+        })}</script>
+      </Helmet>
       <Header showAdminButton={true} />
 
       <main className="container mx-auto px-4 py-8">
