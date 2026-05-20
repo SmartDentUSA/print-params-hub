@@ -262,9 +262,11 @@ function RecurrenceSummary({ course }: { course: SmartopsCourse }) {
 function CatalogoTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [editCourse, setEditCourse] = useState<SmartopsCourse | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [filterKey, setFilterKey] = useState<"todos" | "ativos" | "inativos" | "privados">("todos");
+  const [sort, setSort] = useState<"recent" | "title" | "turmas">("recent");
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ["smartops_courses"],
@@ -312,121 +314,84 @@ function CatalogoTab() {
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando cursos...</div>;
 
+  const counters = useMemo(() => {
+    const c = { todos: courses.length, ativos: 0, inativos: 0, privados: 0 };
+    for (const x of courses) {
+      if (!x.active) c.inativos++;
+      else if (!x.public_visible) c.privados++;
+      else c.ativos++;
+    }
+    return c;
+  }, [courses]);
+
+  const filtered = useMemo(() => {
+    let arr = [...courses];
+    if (filterKey === "ativos") arr = arr.filter(c => c.active && c.public_visible);
+    if (filterKey === "inativos") arr = arr.filter(c => !c.active);
+    if (filterKey === "privados") arr = arr.filter(c => c.active && !c.public_visible);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      arr = arr.filter(c =>
+        c.title.toLowerCase().includes(s) ||
+        (c.instructor_name || "").toLowerCase().includes(s)
+      );
+    }
+    arr.sort((a, b) => {
+      if (sort === "title") return a.title.localeCompare(b.title);
+      if (sort === "turmas") return ((b.turmas?.length ?? 0) - (a.turmas?.length ?? 0));
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    });
+    return arr;
+  }, [courses, filterKey, search, sort]);
+
+  const tabs: FilterTab[] = [
+    { key: "todos", label: "Todos", count: counters.todos },
+    { key: "ativos", label: "Ativos", count: counters.ativos },
+    { key: "privados", label: "Privados", count: counters.privados },
+    { key: "inativos", label: "Inativos", count: counters.inativos },
+  ];
+
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4 mr-2" /> Novo Curso</Button>
-      </div>
+      <TreinamentosToolbar
+        tabs={tabs}
+        activeTab={filterKey}
+        onTabChange={(k) => setFilterKey(k as any)}
+        search={search}
+        onSearchChange={setSearch}
+        sort={sort}
+        onSortChange={(s) => setSort(s as any)}
+        sortOptions={[
+          { value: "recent", label: "Mais recentes" },
+          { value: "title", label: "Nome A–Z" },
+          { value: "turmas", label: "Mais turmas" },
+        ]}
+        searchPlaceholder="Buscar cursos…"
+        ctaLabel="+ Novo Curso"
+        onCtaClick={() => setShowCreate(true)}
+      />
 
-      <div className="space-y-4">
-        {courses.map((c) => {
-          const mod = MODALITY_CONFIG[c.modality as keyof typeof MODALITY_CONFIG];
-          const turmasList = (c.turmas ?? []) as any[];
-          const isExpanded = expandedId === c.id;
-          const visibleTurmas = isExpanded ? turmasList : turmasList.slice(0, 3);
-
-          return (
-            <Card key={c.id} className="overflow-hidden">
-              <div className="flex">
-                {c.cover_image_url ? (
-                  <div className="w-32 shrink-0 bg-muted overflow-hidden hidden sm:block">
-                    <img src={c.cover_image_url} alt={c.title} className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-32 shrink-0 bg-muted items-center justify-center hidden sm:flex">
-                    <Image className="w-8 h-8 text-muted-foreground/40" />
-                  </div>
-                )}
-                <CardContent className="pt-4 flex-1 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold leading-tight">{c.title}</h3>
-                      {c.instructor_name && <p className="text-xs text-muted-foreground">Instrutor: {c.instructor_name}</p>}
-                      {c.duration_days && <span className="text-xs text-muted-foreground">{c.duration_days} dia{c.duration_days > 1 ? 's' : ''}</span>}
-                      {c.location && <span className="text-xs text-muted-foreground ml-2">{c.location}</span>}
-                      <RecurrenceSummary course={c} />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
-                      <Button variant="outline" size="sm" onClick={() => setEditCourse(c)}>
-                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Editar
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Turmas/Sessões */}
-                  {turmasList.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Turmas e Sessões</h4>
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-muted-foreground border-b border-border">
-                            <th className="text-left py-1.5 pr-4 font-medium">Turma / Data</th>
-                            <th className="text-left py-1.5 pr-4 font-medium">Horário</th>
-                            <th className="text-right py-1.5 pr-4 font-medium">Inscritos</th>
-                            <th className="text-right py-1.5 pr-4 font-medium">Vagas</th>
-                            <th className="text-right py-1.5 font-medium">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {visibleTurmas.map((t: any) => (
-                            <tr key={t.id} className="border-b border-border/50 hover:bg-muted/30">
-                              <td className="py-1.5 pr-4">
-                                {t.start_date
-                                  ? new Date(t.start_date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
-                                  : t.label}
-                                {t.end_date && t.end_date !== t.start_date && (
-                                  <span className="text-muted-foreground"> – {new Date(t.end_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                                )}
-                              </td>
-                              <td className="py-1.5 pr-4 font-mono">
-                                {t.start_time?.substring(0, 5)}–{t.end_time?.substring(0, 5)}
-                              </td>
-                              <td className="py-1.5 pr-4 text-right">{t.enrolled_count}</td>
-                              <td className="py-1.5 pr-4 text-right">
-                                <span className={
-                                  t.vagas_disponiveis === 0 ? 'text-red-500 font-medium' :
-                                  t.vagas_disponiveis <= 3 ? 'text-amber-500' : 'text-muted-foreground'
-                                }>
-                                  {t.vagas_disponiveis === 0 ? 'Lotado' : `${t.vagas_disponiveis} restantes`}
-                                </span>
-                              </td>
-                              <td className="py-1.5 text-right">
-                                <GerarDocButton turmaId={t.id} turmaLabel={t.label || t.start_date} />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {turmasList.length > 3 && (
-                        <button
-                          onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 mt-2 flex items-center gap-1"
-                        >
-                          {isExpanded
-                            ? <><ChevronUp className="w-3 h-3" /> Recolher</>
-                            : <><ChevronDown className="w-3 h-3" /> Mostrar todas as {turmasList.length} sessões</>}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 text-xs pt-1 border-t">
-                    <button className="flex items-center gap-1" onClick={() => toggleField(c.id, "active", !c.active)}>
-                      {c.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
-                      {c.active ? "Ativo" : "Inativo"}
-                    </button>
-                    <button className="flex items-center gap-1" onClick={() => toggleField(c.id, "public_visible", !c.public_visible)}>
-                      {c.public_visible ? <ToggleRight className="w-4 h-4 text-blue-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
-                      {c.public_visible ? "Público" : "Privado"}
-                    </button>
-                  </div>
-                </CardContent>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
+          <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Nenhum curso encontrado.</p>
+          <Button className="mt-4" onClick={() => setShowCreate(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Criar primeiro curso
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((c) => (
+            <CourseCard
+              key={c.id}
+              course={c}
+              onEdit={() => setEditCourse(c)}
+              onToggleActive={() => toggleField(c.id, "active", !c.active)}
+              onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
+            />
+          ))}
+        </div>
+      )}
 
       {(showCreate || editCourse) && (
         <CourseCreateModal
