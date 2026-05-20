@@ -499,10 +499,32 @@ Deno.serve(async (req) => {
         ? existingLead.raw_payload.form_submissions
         : [];
 
+      // Preserve custom_fields history (Ajuste B) — each submission appends an
+      // entry; the top-level custom_fields keeps the latest for compat.
+      const incomingCustomFields = (payload?.raw_payload?.custom_fields ?? null) as
+        | Record<string, unknown>
+        | null;
+      const existingCfHistory = Array.isArray(existingLead.raw_payload?.custom_fields_history)
+        ? existingLead.raw_payload.custom_fields_history
+        : [];
+      const nextCfHistory =
+        incomingCustomFields && Object.keys(incomingCustomFields).length > 0
+          ? [
+              ...existingCfHistory,
+              {
+                submitted_at: new Date().toISOString(),
+                form_name: formName,
+                source,
+                fields: incomingCustomFields,
+              },
+            ].slice(-50)
+          : existingCfHistory;
+
       merged.raw_payload = {
         ...(existingLead.raw_payload || {}),
         ...(merged.raw_payload || {}),
         form_submissions: [...existingHistory, submissionEntry],
+        custom_fields_history: nextCfHistory,
         latest_payload: payload,
       };
 
