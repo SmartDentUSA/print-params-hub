@@ -60,7 +60,7 @@ export function AddTurmaToWaGroupButton({ turmaId, group, checking }: Props) {
     ? "Crie o grupo WA primeiro"
     : allAdded
       ? "Participantes adicionados"
-      : "Adicionar participantes";
+      : "Add membros";
 
   return (
     <TooltipProvider>
