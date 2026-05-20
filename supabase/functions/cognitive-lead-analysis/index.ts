@@ -156,7 +156,10 @@ serve(async (req) => {
        astron_courses_completed, astron_courses_total, astron_last_login_at,
        astron_plans_active,
        lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor,
-       intelligence_score, proprietario_lead_crm`
+       intelligence_score, proprietario_lead_crm,
+       equip_scanner, sdr_software_cad_interesse,
+       imprime_resinas_ld, imprime_guias, especialidade,
+       form_data, raw_payload`
     );
     if (email) query = query.eq("email", email);
     else if (leadId) query = query.eq("id", leadId);
