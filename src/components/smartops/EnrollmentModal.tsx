@@ -22,7 +22,6 @@ import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } f
 import { useDealSearch } from "@/hooks/useDealSearch";
 import { useEnrollment } from "@/hooks/useEnrollment";
 import { EquipmentSerialsSection } from "./EquipmentSerialsSection";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { TaxonomySelect } from "./TaxonomySelect";
 
