@@ -347,6 +347,32 @@ function CatalogoTab() {
     }
   };
 
+  const deleteCourse = async (c: SmartopsCourse) => {
+    const totalEnrolled = (c.turmas ?? []).reduce((s: number, t: any) => s + (t.enrolled_count || 0), 0);
+    if (totalEnrolled > 0) {
+      toast({
+        title: "Não é possível excluir",
+        description: `Este curso tem ${totalEnrolled} inscrito(s). Remova as inscrições antes de excluir.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!window.confirm(`Excluir o curso "${c.title}"? Esta ação não pode ser desfeita e removerá todas as turmas.`)) return;
+    try {
+      const turmaIds = (c.turmas ?? []).map((t: any) => t.id).filter(Boolean);
+      if (turmaIds.length) {
+        await (supabase as any).from("smartops_turma_days").delete().in("turma_id", turmaIds);
+        await (supabase as any).from("smartops_course_turmas").delete().in("id", turmaIds);
+      }
+      const { error } = await (supabase as any).from("smartops_courses").delete().eq("id", c.id);
+      if (error) throw error;
+      toast({ title: "Curso excluído" });
+      qc.invalidateQueries({ queryKey: ["smartops_courses"] });
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+  };
+
   const counters = useMemo(() => {
     const c = { todos: courses.length, ativos: 0, inativos: 0, privados: 0 };
     for (const x of courses) {
@@ -424,6 +450,7 @@ function CatalogoTab() {
               onToggleActive={() => toggleField(c.id, "active", !c.active)}
               onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
               onClone={() => cloneCourse(c)}
+              onDelete={() => deleteCourse(c)}
             />
           ))}
         </div>
