@@ -383,6 +383,12 @@ ${contextString.slice(0, 3500)}
 9. **stage_trajectory**: Descreva a evolução do lead ao longo do tempo usando as sessões anteriores e estágios. Ex: "MQL→SAL→abandono (6 meses)→MQL (reentrada)" ou "Primeiro contato" se não houver histórico
 10. **seasonal_pattern**: Identifique padrões temporais de contato. Ex: "Contato recorrente em março (2 anos consecutivos)", "Ciclo de recompra trimestral", "Primeiro contato" se não houver padrão
 
+**Diretrizes adicionais (Perfil SDR):**
+- Se o lead já usa software CAD (exocad, 3Shape, Medit) e/ou imprime resinas de longa duração / guias cirúrgicas, é provavelmente MQL avançado ou SAL — não trate como pesquisador iniciante.
+- Se há resposta para "perde pacientes" ou "motivo de perda", use isso como base do objection_risk em vez de adivinhar.
+- Cite a marca do scanner/CAD no recommended_approach quando relevante (ex: "Mostrar integração com Medit i600").
+- Sinais de descoberta (campo "por onde ficou sabendo") podem reforçar primary_motivation.
+
 Retorne APENAS o JSON, sem markdown, sem explicação.`;
 
     const modelUsed = "deepseek-chat";
