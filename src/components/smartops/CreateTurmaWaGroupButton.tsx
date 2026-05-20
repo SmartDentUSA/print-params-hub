@@ -4,15 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
+import type { TurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 
 interface Props {
   turmaId: string;
-  turmaLabel?: string;
+  group: TurmaWaGroup | null;
+  checking: boolean;
+  onCreated: () => void | Promise<void>;
 }
 
-export function CreateTurmaWaGroupButton({ turmaId }: Props) {
-  const { group, loading: checking, refetch } = useTurmaWaGroup(turmaId);
+export function CreateTurmaWaGroupButton({ turmaId, group, checking, onCreated }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async (e: React.MouseEvent) => {
@@ -29,7 +30,7 @@ export function CreateTurmaWaGroupButton({ turmaId }: Props) {
         toast.error(r.error || "Falha ao criar grupo");
       } else {
         toast.success(`✅ Grupo '${r.grupo ?? "WhatsApp"}' criado`);
-        await refetch();
+        await onCreated();
       }
     } catch (err: any) {
       toast.error(err?.message || "Falha ao criar grupo");
