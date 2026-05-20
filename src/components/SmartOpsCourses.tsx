@@ -312,8 +312,6 @@ function CatalogoTab() {
     else qc.invalidateQueries({ queryKey: ["smartops_courses"] });
   };
 
-  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando cursos...</div>;
-
   const counters = useMemo(() => {
     const c = { todos: courses.length, ativos: 0, inativos: 0, privados: 0 };
     for (const x of courses) {
@@ -350,6 +348,8 @@ function CatalogoTab() {
     { key: "privados", label: "Privados", count: counters.privados },
     { key: "inativos", label: "Inativos", count: counters.inativos },
   ];
+
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando cursos...</div>;
 
   return (
     <>
