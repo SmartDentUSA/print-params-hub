@@ -232,7 +232,12 @@ function buildDocx(args: {
             children: [
               new TextRun({
                 text:
-                  `2. A imersão ocorreu na cidade de São Carlos / SP, no período de ${a.startDD}/${a.startMM}/${a.startYY} a ${a.endDD}/${a.endMM}/${a.endYY}, com duração de 3 (três) dias, e teve como objetivo o treinamento técnico para operação e utilização dos equipamentos adquiridos;`,
+                  (() => {
+                    const ext = numToExtenso(a.durationDays);
+                    const diasStr = `${a.durationDays}${ext ? ` (${ext})` : ""} ${a.durationDays === 1 ? "dia" : "dias"}`;
+                    const horasStr = a.durationHoursTotal ? `, totalizando ${a.durationHoursTotal} horas` : "";
+                    return `2. A imersão ocorreu na cidade de São Carlos / SP, no período de ${a.startDD}/${a.startMM}/${a.startYY} a ${a.endDD}/${a.endMM}/${a.endYY}, com duração de ${diasStr}${horasStr}, e teve como objetivo o treinamento técnico para operação e utilização dos equipamentos adquiridos;`;
+                  })(),
                 size: 22,
               }),
             ],
