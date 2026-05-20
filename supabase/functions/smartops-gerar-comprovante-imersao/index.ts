@@ -459,9 +459,25 @@ Deno.serve(async (req: Request) => {
 
     const { data: turma } = await admin
       .from("smartops_course_turmas")
-      .select("label, launch_date")
+      .select("label, launch_date, course_id")
       .eq("id", enr.turma_id)
       .maybeSingle();
+
+    let durationDays = 3;
+    let durationHoursTotal: number | null = null;
+    if (turma?.course_id) {
+      const { data: course } = await admin
+        .from("smartops_courses")
+        .select("duration_days, duration_hours_per_day")
+        .eq("id", turma.course_id)
+        .maybeSingle();
+      if (course?.duration_days && course.duration_days > 0) {
+        durationDays = course.duration_days;
+      }
+      if (course?.duration_hours_per_day && course.duration_hours_per_day > 0) {
+        durationHoursTotal = durationDays * course.duration_hours_per_day;
+      }
+    }
 
     let lead: any = null;
     if (enr.lead_id) {
@@ -488,7 +504,7 @@ Deno.serve(async (req: Request) => {
       omieNfs = nfs || [];
     }
 
-    const dates = parseTurmaLabel(turma?.label || null, turma?.launch_date || null);
+    const dates = parseTurmaLabel(turma?.label || null, turma?.launch_date || null, durationDays);
     const start = fmtDate(dates.start);
     const end = fmtDate(dates.end || dates.start);
 
