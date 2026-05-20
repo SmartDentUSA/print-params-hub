@@ -65,7 +65,12 @@ export async function buildSellerDealSummaryHTML(
       : Promise.resolve({ data: null }),
     leadId
       ? supabase.from("smartops_course_enrollments")
-          .select("deal_title,deal_pipeline_name,turma_snapshot,status,enrolled_at,certificate_generated_at")
+          .select(`
+            id,deal_title,status,enrolled_at,certificate_generated_at,certificate_pdf_path,
+            notes,instagram,numero_contrato,numero_proposta,numero_nf,tipo_entrega,rastreamento,turma_snapshot,
+            turma:smartops_course_turmas(label,turma_number,start_date,end_date,location,modality,whatsapp_group_link,
+              course:smartops_courses(title))
+          `)
           .eq("lead_id", leadId).order("enrolled_at", { ascending: false }).limit(10)
       : Promise.resolve({ data: [] }),
     leadId
@@ -161,15 +166,48 @@ export async function buildSellerDealSummaryHTML(
   // 5. Cursos / Treinamentos
   const enrollments = ((enrollRes as any)?.data as Array<Record<string, unknown>>) || [];
   if (enrollments.length || lead.astron_user_id) {
-    const lines: string[] = [];
+    const blocks: string[] = [];
     if (lead.astron_user_id) {
-      lines.push(`• Plataforma Astron: ${esc(lead.astron_courses_completed || 0)}/${esc(lead.astron_courses_total || 0)} cursos concluídos`);
+      blocks.push(`• Plataforma Astron: ${esc(lead.astron_courses_completed || 0)}/${esc(lead.astron_courses_total || 0)} cursos concluídos`);
     }
     for (const e of enrollments.slice(0, 5)) {
-      const turma = (e.turma_snapshot as Record<string, unknown> | null)?.nome || "—";
-      lines.push(`&nbsp;&nbsp;◦ ${esc(e.deal_title || "Treinamento")} — turma ${esc(turma)} — ${esc(e.status)} (${fmtDate(e.enrolled_at)})`);
+      const turma = (e.turma as Record<string, unknown> | null) || {};
+      const snap = (e.turma_snapshot as Record<string, unknown> | null) || {};
+      const courseTitle = (turma.course as Record<string, unknown> | null)?.title || e.deal_title || "Treinamento";
+      const turmaLabel = turma.label || snap.nome || "—";
+      const turmaNum = turma.turma_number ? `#${esc(turma.turma_number)} ` : "";
+      const period = (turma.start_date || turma.end_date)
+        ? `${fmtDate(turma.start_date)}${turma.end_date && turma.end_date !== turma.start_date ? "–" + fmtDate(turma.end_date) : ""}`
+        : "";
+      const sub: string[] = [];
+      sub.push(`&nbsp;&nbsp;◦ <b>${esc(courseTitle)}</b> — Turma ${turmaNum}${esc(turmaLabel)}`);
+      const meta: string[] = [];
+      if (period) meta.push(`📅 ${period}`);
+      if (turma.modality) meta.push(`🎯 ${esc(turma.modality)}`);
+      if (turma.location) meta.push(`📍 ${esc(turma.location)}`);
+      meta.push(`Status: ${esc(e.status)}`);
+      meta.push(`Inscrito: ${fmtDate(e.enrolled_at)}`);
+      sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;${meta.join(" · ")}`);
+      if (turma.whatsapp_group_link) {
+        sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;💬 Grupo WhatsApp: <a href="${esc(turma.whatsapp_group_link)}">${esc(turma.whatsapp_group_link)}</a>`);
+      }
+      const docs: string[] = [];
+      if (e.numero_contrato) docs.push(`Contrato ${esc(e.numero_contrato)}`);
+      if (e.numero_proposta) docs.push(`Proposta ${esc(e.numero_proposta)}`);
+      if (e.numero_nf) docs.push(`NF ${esc(e.numero_nf)}`);
+      if (docs.length) sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;📄 ${docs.join(" · ")}`);
+      const delivery: string[] = [];
+      if (e.tipo_entrega) delivery.push(`Entrega: ${esc(e.tipo_entrega)}`);
+      if (e.rastreamento) delivery.push(`Rastreio: ${esc(e.rastreamento)}`);
+      if (delivery.length) sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;📦 ${delivery.join(" · ")}`);
+      if (e.instagram) sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;📷 Instagram: ${esc(e.instagram)}`);
+      if (e.certificate_pdf_path || e.certificate_generated_at) {
+        sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;🎖️ Certificado: gerado em ${fmtDate(e.certificate_generated_at)}`);
+      }
+      if (e.notes) sub.push(`&nbsp;&nbsp;&nbsp;&nbsp;📝 Notas CS: ${esc(e.notes)}`);
+      blocks.push(sub.join("<br>"));
     }
-    sections.push(`<b>🎓 Cursos & Treinamentos</b><br>${lines.join("<br>")}<br>`);
+    sections.push(`<b>🎓 Cursos & Treinamentos</b><br>${blocks.join("<br>")}<br>`);
   } else {
     sections.push(`<b>🎓 Cursos & Treinamentos</b><br>• Sem matrículas registradas.<br>`);
   }
