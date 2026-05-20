@@ -16,6 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, X, CalendarDays, Image, Repeat } from "lucide-react";
+import { DatePickerInput } from "./DatePickerInput";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -106,7 +107,7 @@ function RecurrenceSection(props: {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label className="text-xs">Primeira sessão</Label>
-          <Input type="date" value={p.recurrenceBaseDate} onChange={(e) => p.setRecurrenceBaseDate(e.target.value)} />
+          <DatePickerInput value={p.recurrenceBaseDate} onChange={p.setRecurrenceBaseDate} className="w-full" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div><Label className="text-xs">Início</Label><Input type="time" value={p.recurrenceTimeStart} onChange={(e) => p.setRecurrenceTimeStart(e.target.value)} /></div>
@@ -135,7 +136,7 @@ function RecurrenceSection(props: {
         </div>
         <div>
           <Label className="text-xs">Até a data</Label>
-          <Input type="date" value={p.recurrenceUntil} onChange={(e) => p.setRecurrenceUntil(e.target.value)} />
+          <DatePickerInput value={p.recurrenceUntil} onChange={p.setRecurrenceUntil} className="w-full" />
         </div>
       </div>
 
@@ -806,7 +807,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                         {turma.days.map((day, dIdx) => (
                           <div key={dIdx} className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
-                            <Input type="date" className="w-[140px]" value={day.date} onChange={(e) => updateDay(tIdx, dIdx, "date", e.target.value)} />
+                            <DatePickerInput
+                              className="w-[160px]"
+                              value={day.date}
+                              onChange={(v) => updateDay(tIdx, dIdx, "date", v)}
+                            />
                             <Input type="time" className="w-[100px]" value={day.start_time} onChange={(e) => updateDay(tIdx, dIdx, "start_time", e.target.value)} />
                             <span className="text-xs">às</span>
                             <Input type="time" className="w-[100px]" value={day.end_time} onChange={(e) => updateDay(tIdx, dIdx, "end_time", e.target.value)} />
