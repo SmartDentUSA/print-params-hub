@@ -1,121 +1,66 @@
-## Plano de implementação — 4 lacunas confirmadas
+## Objetivo
 
-Todas as lacunas validadas no lead `366ea619…`. Execução numa única passada, sem migração de schema.
+Qualquer submissão de um formulário público ativo (`smartops_forms.active=true`) deve **sempre abrir um Deal NOVO no Funil de Vendas do PipeRun**, mesmo que o lead já tenha Deal aberto em Vendas ou Estagnado. Mesmo comportamento que hoje só existe para Loja Integrada "Sob Consulta".
 
----
+## Mudança única (cirúrgica)
 
-### Ajuste A — `form_data` passa a fazer merge profundo por submissão
+**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 745–762)
 
-**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
+O dispatch para `smart-ops-lia-assign` já aceita `force_new_deal`. Hoje ele só é `true` para Loja Integrada. Vamos expandir para **toda submissão de formulário** (ou seja, sempre que o ingest está sendo disparado pelo `PublicFormPage` / formulário ativo — caracterizado pela presença de `form_name` no payload).
 
-1. Adicionar `"form_data"` em `MERGE_JSONB_FIELDS` (junto com `sellflux_custom_fields` e `raw_payload`).
-2. Estender o branch de merge JSONB para `form_data`: em vez de spread raso, fazer **append por submissão** sob a chave `form_name`:
-   ```ts
-   form_data[form_name] = [...(existing[form_name] || []), { submitted_at, responses, raw_fields }]
-   ```
-   (mantém histórico de cada envio, não sobrescreve.)
-3. Quando o `form_name` for `unknown`/null, agrupar sob `_unnamed`.
-
-**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 400–415)
-
-- Continuar montando o snapshot da submissão atual; o merge profundo no shared faz o resto.
-- Remover o `existingFormData` local (agora redundante) para evitar dupla aplicação.
-
----
-
-### Ajuste B — Preservar histórico de `custom_fields`
-
-**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts`
-
-No ponto onde o payload é normalizado (antes do smart-merge), transformar:
-```jsonc
-payload.raw_payload = { custom_fields: {...} }
-```
-em:
-```jsonc
-payload.raw_payload = {
-  custom_fields: {...},                       // última versão (compat)
-  custom_fields_history: [                    // append-only
-    { submitted_at, form_name, fields: {...} }
-  ]
-}
+```ts
+force_new_deal:
+  payload.force_new_deal === true ||
+  // NOVO — toda submissão de formulário ativo abre Deal novo em Vendas
+  (typeof formName === "string" && formName.trim().length > 0) ||
+  (source === "loja_integrada" && (
+    formName === ECOM_QUOTE_LABEL ||
+    formName === "produto_sob_consulta"
+  )),
 ```
 
-**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
+Resultado:
 
-- Garantir que `raw_payload` continue em `MERGE_JSONB_FIELDS`.
-- Adicionar lógica especial: se a chave entrante for `custom_fields_history` (array), **concatenar** com o existente em vez de sobrescrever (limitar a últimos 50 itens para não inflar a row).
+- `smart-ops-lia-assign` (linha 2106) já trata `force_new_deal === true`:
+  - Ignora preserve do Deal aberto em Vendas (Golden Rule é bypassada)
+  - Ignora reativação de Estagnado
+  - Zera `piperunId` cacheado pra não cair no dedupe-guard
+  - Cai em `createNewDeal(...)` direto no `PIPELINES.VENDAS`
+- Deal antigo permanece intocado (won/aberto/estagnado) — apenas se soma um novo na esteira de Vendas.
 
----
+## O que NÃO muda
 
-### Ajuste C — Enriquecer o prompt da `cognitive-lead-analysis`
+- Person/Company continuam reutilizando o mesmo `pessoa_piperun_id` / `empresa_piperun_id` (não duplica pessoa).
+- Origem Person continua congelada no primeiro contato (Person Origin Frozen).
+- `origin_name` do Deal continua sendo o `form_name` exato (Piperun Deals Metadata).
+- Round-robin de owner volta a operar normalmente (sem herdar owner do Deal antigo, pois agora estamos criando Deal novo).
+- Webhooks Sellflux/cognitivo/Meta continuam idem.
+- Loja Integrada "Sob Consulta" continua disparando `force_new_deal` (já coberto pela condição existente).
+- Astron postback, e-commerce order sync, WA inbound puro etc. **não disparam** `force_new_deal` porque não têm `form_name` (continuam respeitando Commercial Intent Guard).
 
-**Arquivo:** `supabase/functions/cognitive-lead-analysis/index.ts`
+## Efeito colateral esperado
 
-1. Ampliar o `select` na linha 148, adicionando:
-   ```
-   equip_scanner, sdr_software_cad_interesse,
-   imprime_resinas_ld, imprime_guias,
-   form_data, raw_payload
-   ```
-2. Após o `select` do lead, carregar `smartops_form_field_responses`:
-   ```ts
-   const { data: sdrResponses } = await supabase
-     .from("smartops_form_field_responses")
-     .select("field_label, value, created_at")
-     .eq("lead_id", leadData.id)
-     .order("created_at", { ascending: false })
-     .limit(40);
-   ```
-   Deduplicar por `field_label` mantendo o `value` mais recente.
-3. Construir bloco `**Perfil técnico (SDR Qualificação):**` no prompt, listando:
-   - Marca do scanner (`equip_scanner`)
-   - Software CAD em uso (`sdr_software_cad_interesse`)
-   - Imprime resinas LD / guias cirúrgicas / placas / modelos
-   - Custom fields do `raw_payload.custom_fields` (descoberta, motivo de perda de pacientes, contato com 3D)
-   - Top 10 pares `field_label → value` mais recentes de `sdrResponses` não duplicados acima
-4. Atualizar instruções do prompt para usar esses sinais ao decidir:
-   - `lead_stage_detected` (uso de CAD + resinas LD → MQL avançado / SAL)
-   - `objection_risk` (motivo de perde_pacientes vira pista de objeção)
-   - `recommended_approach` (citar marca de scanner/CAD para contextualizar)
+- Lead que preenche 3 formulários diferentes terá 3 Deals abertos em paralelo em Funil de Vendas.
+- Cada Deal carrega `origin_name` = nome do formulário que o originou → SDR distingue qual campanha gerou cada oportunidade.
+- Round-robin distribui cada Deal novo para um vendedor (potencialmente diferentes vendedores no mesmo lead — alinhado ao modelo "oportunidade por intenção").
 
----
+## Memória a atualizar
 
-### Ajuste D — Observabilidade
-
-**Arquivo:** `supabase/functions/_shared/lead-enrichment.ts`
-
-- No `mergeSmartLead`, quando uma chave em `MERGE_JSONB_FIELDS` for ignorada por payload vazio, inserir log em `system_health_logs` com `event_type='jsonb_merge_noop'`, `metadata: { field, source }`.
-- Quando o append em `form_data[form_name]` ocorrer, registrar `event_type='form_data_appended'` com `{ form_name, responses_count, raw_fields_count }`.
-
-(Insert opcional via service role — usar fire-and-forget para não bloquear ingest.)
-
----
-
-## Arquivos tocados
-
-```text
-supabase/functions/_shared/lead-enrichment.ts        (A, B, D)
-supabase/functions/smart-ops-ingest-lead/index.ts    (A cleanup, B normalize)
-supabase/functions/cognitive-lead-analysis/index.ts  (C: select + prompt + sdrResponses)
-mem/architecture/lead-form-enrichment-v3.md          (atualizar — registrar merge profundo)
-mem/architecture/lead-form-catch-all-jsonb.md        (atualizar — custom_fields_history)
-mem/dra-lia/cognitive-prompt-sdr-enrichment.md       (NOVO — documentar Ajuste C)
-mem/index.md                                          (referenciar nova memória)
-```
+- `mem://integration/piperun-deal-metadata-rules` → adicionar nota: "Toda submissão de formulário ativo cria Deal novo em Vendas (force_new_deal=true). Person é reutilizada."
+- Atualizar `mem://index.md` no item Commercial Intent Guard pra refletir que `form_name` agora também implica `force_new_deal`.
 
 ## Validação pós-deploy
 
-1. Submeter o `# - Formulário Padrão` 2× com respostas diferentes em `impressao_de_modelos`.
-2. Checar `lia_attendances.form_data` → deve conter array com 2 entradas sob a chave `# - Formulário Padrão`.
-3. Checar `raw_payload.custom_fields_history` → 2 itens, mais recente primeiro.
-4. Disparar `cognitive-lead-analysis` para o lead e verificar nos logs que o prompt contém o bloco `Perfil técnico (SDR Qualificação)` com marca scanner + CAD + resinas.
-5. `system_health_logs` deve mostrar 1 `form_data_appended` por submissão.
+1. Submeter `# - Formulário Padrão` no email `danilohen@gmail.com` (já tem Estagnado aberto).
+2. Conferir em `deals` que surge novo registro com `pipeline_name='Funil de vendas'` e `piperun_created_at` da submissão.
+3. Conferir que o Deal Estagnado antigo (58968895) permanece intocado.
+4. Submeter de novo o mesmo formulário → deve gerar **outro** Deal novo em Vendas (não atualizar o anterior).
+5. Conferir nos logs do `smart-ops-lia-assign`: `force_new_deal=true → bypassing vendaDeal/estagnDeal preserve`.
 
 ## Fora de escopo
 
-- Nenhuma mudança em `PublicFormPage`, `smart-ops-lia-assign` ou PipeRun (payload já chega correto).
 - Sem alteração de schema.
-- Sem mudança nas tags / fluxo de hot-lead (Ajuste 1 do plano anterior continua aguardando decisão A/B/C).
+- Sem mudança no Commercial Intent Guard (que continua bloqueando astron/ecommerce sem form).
+- Sem mudança em PublicFormPage, ingest payload normalization, Sellflux ou cognitive analysis.
 
-Aprova a execução de A + B + C + D nesta passada?
+Aprova?
