@@ -18872,6 +18872,17 @@ export type Database = {
           ultima_atividade: string
         }[]
       }
+      fn_form_metrics: {
+        Args: { p_period_days?: number }
+        Returns: {
+          daily_series: Json
+          deals_won: number
+          form_id: string
+          leads: number
+          unique_visitors: number
+          visitors: number
+        }[]
+      }
       fn_generate_recurrent_turmas: {
         Args: {
           p_base_date: string
