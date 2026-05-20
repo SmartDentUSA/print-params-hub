@@ -193,6 +193,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
+  const certificateRef = useRef<HTMLTextAreaElement>(null);
 
   // Course fields
   const [title, setTitle] = useState("");
@@ -210,6 +211,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [stageAfterEnroll, setStageAfterEnroll] = useState("treinamento_agendado");
   const [publicVisible, setPublicVisible] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
+  const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
   // Recurrence (online only)
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
