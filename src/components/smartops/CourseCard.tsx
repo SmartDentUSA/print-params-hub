@@ -1,5 +1,5 @@
 import React from "react";
-import { Share2, MoreVertical, User, Repeat, Image as ImageIcon, Copy } from "lucide-react";
+import { MoreVertical, User, Repeat, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -37,9 +37,10 @@ interface Props {
   onTogglePublic: () => void;
   onToggleActive: () => void;
   onClone: () => void;
+  onDelete: () => void;
 }
 
-export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive, onClone }: Props) {
+export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive, onClone, onDelete }: Props) {
   const turmas = (course.turmas ?? []) as any[];
   const totalSlots = turmas.reduce((s, t) => s + (t.slots || 0), 0);
   const totalEnrolled = turmas.reduce((s, t) => s + (t.enrolled_count || 0), 0);
@@ -95,6 +96,15 @@ export function CourseCard({ course, onEdit, onTogglePublic, onToggleActive, onC
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onTogglePublic}>
                 {course.public_visible ? "Tornar privado" : "Tornar público"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                disabled={totalEnrolled > 0}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-2" />
+                {totalEnrolled > 0 ? `Excluir (${totalEnrolled} inscrito${totalEnrolled !== 1 ? "s" : ""})` : "Excluir curso"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
