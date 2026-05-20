@@ -65,7 +65,12 @@ export async function buildSellerDealSummaryHTML(
       : Promise.resolve({ data: null }),
     leadId
       ? supabase.from("smartops_course_enrollments")
-          .select("deal_title,deal_pipeline_name,turma_snapshot,status,enrolled_at,certificate_generated_at")
+          .select(`
+            id,deal_title,status,enrolled_at,certificate_generated_at,certificate_pdf_path,
+            notes,instagram,numero_contrato,numero_proposta,numero_nf,tipo_entrega,rastreamento,turma_snapshot,
+            turma:smartops_course_turmas(label,turma_number,start_date,end_date,location,modality,whatsapp_group_link,
+              course:smartops_courses(title))
+          `)
           .eq("lead_id", leadId).order("enrolled_at", { ascending: false }).limit(10)
       : Promise.resolve({ data: [] }),
     leadId
