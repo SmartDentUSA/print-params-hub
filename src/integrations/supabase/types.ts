@@ -12209,6 +12209,11 @@ export type Database = {
           theme_color: string | null
           theme_mode: string | null
           title: string | null
+          tracking_extra_head: string | null
+          tracking_ga4_id: string | null
+          tracking_gtm_id: string | null
+          tracking_meta_pixel_id: string | null
+          tracking_tiktok_pixel_id: string | null
           trust_text: string | null
           updated_at: string
           video_embed_url: string | null
@@ -12256,6 +12261,11 @@ export type Database = {
           theme_color?: string | null
           theme_mode?: string | null
           title?: string | null
+          tracking_extra_head?: string | null
+          tracking_ga4_id?: string | null
+          tracking_gtm_id?: string | null
+          tracking_meta_pixel_id?: string | null
+          tracking_tiktok_pixel_id?: string | null
           trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
@@ -12303,6 +12313,11 @@ export type Database = {
           theme_color?: string | null
           theme_mode?: string | null
           title?: string | null
+          tracking_extra_head?: string | null
+          tracking_ga4_id?: string | null
+          tracking_gtm_id?: string | null
+          tracking_meta_pixel_id?: string | null
+          tracking_tiktok_pixel_id?: string | null
           trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
