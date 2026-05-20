@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import AdminViewSecure from "./pages/AdminViewSecure";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -12,7 +12,6 @@ import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
 import AgendaPublica from "./pages/AgendaPublica";
-import { Navigate } from "react-router-dom";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
