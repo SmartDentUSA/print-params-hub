@@ -43,16 +43,27 @@ export default function EmbedTrainings() {
   useEffect(() => {
     const post = () => {
       try {
+        const h = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        );
         window.parent?.postMessage(
-          { type: "smartdent:embed:treinamentos:height", height: document.documentElement.scrollHeight },
+          { type: "smartdent:embed:treinamentos:height", height: h },
           "*"
         );
       } catch {}
     };
     post();
+    window.addEventListener("load", post);
     const ro = new ResizeObserver(post);
     ro.observe(document.body);
-    return () => ro.disconnect();
+    // Fallback polling caso o host bloqueie ResizeObserver/imagens carreguem depois
+    const interval = window.setInterval(post, 1000);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("load", post);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const { data: courses = [], isLoading } = useQuery({
