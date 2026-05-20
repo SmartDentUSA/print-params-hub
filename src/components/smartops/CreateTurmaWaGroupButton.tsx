@@ -26,10 +26,16 @@ export function CreateTurmaWaGroupButton({ turmaId, group, checking, onCreated }
         body: { turma_id: turmaId },
       });
       if (error) throw error;
-      const r = (data ?? {}) as { ok?: boolean; grupo?: string; error?: string };
+      const r = (data ?? {}) as { ok?: boolean; grupo?: string; invite_link?: string; error?: string };
       if (r.ok === false) {
         toast.error(r.error || "Falha ao criar grupo");
       } else {
+        if (r.invite_link) {
+          await supabase
+            .from("smartops_course_turmas" as any)
+            .update({ whatsapp_group_link: r.invite_link })
+            .eq("id", turmaId);
+        }
         toast.success(`✅ Grupo '${r.grupo ?? "WhatsApp"}' criado`);
         await onCreated();
       }
@@ -44,7 +50,7 @@ export function CreateTurmaWaGroupButton({ turmaId, group, checking, onCreated }
   const disabled = checking || alreadyExists || loading;
   const dotColor = alreadyExists ? "bg-emerald-500" : "bg-rose-500";
   const tooltip = alreadyExists
-    ? `Grupo já criado${group?.nome ? `: ${group.nome}` : ""}`
+    ? (group?.nome ? `Grupo já criado: ${group.nome}` : "Grupo já vinculado")
     : "Criar grupo WA";
 
   return (
