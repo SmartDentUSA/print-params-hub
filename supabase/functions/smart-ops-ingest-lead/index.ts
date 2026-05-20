@@ -755,6 +755,10 @@ Deno.serve(async (req) => {
       // a distinct revenue opportunity for that product.
       force_new_deal:
         payload.force_new_deal === true ||
+        // NOVO — toda submissão de formulário ativo (qualquer form_name)
+        // abre Deal novo em Funil de Vendas. Person é reutilizada; Deals
+        // anteriores (aberto/estagnado/perdido) permanecem intocados.
+        (typeof formName === "string" && formName.trim().length > 0) ||
         (source === "loja_integrada" && (
           formName === ECOM_QUOTE_LABEL ||
           formName === "produto_sob_consulta"
