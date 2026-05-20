@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
+import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -138,6 +139,7 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         ) : <span />}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <AddTurmaToWaGroupButton turmaId={turma.id} />
           <Button
             size="sm"
             variant={lotado ? "secondary" : "default"}
