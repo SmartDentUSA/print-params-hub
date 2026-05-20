@@ -1,39 +1,50 @@
-## Diagnóstico
+## Escopo
 
-O número atual está baixo porque a função `fn_form_metrics` conta leads pela tabela `smartops_form_field_responses`.
+Adicionar um botão "👥 Grupo WA" ao lado do "Gerar Doc" em cada card de turma (`TurmaCard.tsx`), sem alterar mais nada da tela.
 
-Essa tabela não representa uma submissão completa: ela grava apenas respostas de campos de mapeamento/portfolio. Por isso o formulário `# - Formulário exocad I.A.` aparece com 5 leads, mas a origem real no CDP mostra 25 leads gerados.
+## Componente novo
 
-Validação feita no banco:
+Criar `src/components/smartops/AddTurmaToWaGroupButton.tsx`:
+
+- Props: `turmaId: string`.
+- Ao montar, consulta `wa_groups` filtrando por `turma_id` e guarda `{ id, nome }` (se houver).
+- Renderiza um `Button` outline pequeno com ícone `Users`:
+  - Sem grupo vinculado: botão desabilitado, envolto em `Tooltip` "Nenhum grupo WA vinculado a esta turma".
+  - Com grupo vinculado: clicável.
+- Loading: troca ícone por `Loader2` (spin) e texto "Adicionando...".
+
+## Ação
+
+Ao clicar, chama `supabase.functions.invoke('smartops-add-turma-to-wagroup', { body: { turma_id } })`.
+
+Resposta esperada (contrato a confirmar):
 
 ```text
-# - Formulário exocad I.A.
-- smartops_form_field_responses: 5 leads únicos
-- smartops_forms.submissions_count: 16
-- lia_attendances.form_name: 27 leads canônicos
-- excluindo origens não geradas pelo formulário (loja_integrada e astron_postback): 25 leads canônicos
+{ ok: boolean, adicionados?: number, grupo?: string, erros?: number, erros_nomes?: string[], error?: string }
 ```
 
-## Plano de correção
+Toast com `sonner`:
 
-1. Atualizar a função `fn_form_metrics(p_period_days int)` para calcular `leads` a partir de `lia_attendances`, não mais de `smartops_form_field_responses`.
-   - Usar `lia_attendances.form_name = smartops_forms.name` como vínculo principal.
-   - Aplicar sempre `merged_into IS NULL` para contar apenas leads canônicos.
-   - Filtrar pelo período usando `lia_attendances.created_at`.
-   - Excluir fontes que não foram geradas pelo formulário público, como `loja_integrada` e `astron_postback`, para bater com os 25 do Exocad I.A.
+- `ok: true` e `erros = 0` → `toast.success("✅ {adicionados} participantes adicionados ao grupo '{grupo}'")`.
+- `ok: true` com `erros > 0` → `toast.success(...)` + segundo `toast.warning("⚠️ {erros} números com erro: nome1, nome2, …")`.
+- `ok: false` → `toast.error(error || "Falha ao adicionar ao grupo")`.
 
-2. Ajustar `deals_won` para usar a mesma base de leads gerados pelo formulário.
-   - A conversão será calculada sobre esses leads canônicos.
-   - Oportunidade ganha continua vindo de `piperun_deals_history` com status `ganha`.
+## Integração
 
-3. Manter visitantes como está.
-   - `Visitantes` continuará vindo de `lead_page_views` em `/f/{slug}`.
-   - `Visitantes únicos` continuará usando `session_id`.
+Em `src/components/smartops/TurmaCard.tsx`, dentro da `div` do rodapé que já contém o `GerarDocButton`, inserir o novo botão imediatamente após ele:
 
-4. Validar no banco depois da migração.
-   - Em “Tudo”, `# - Formulário exocad I.A.` deve mostrar 25 leads.
-   - Em 30 dias, ele deve mostrar apenas os leads gerados dentro dos últimos 30 dias.
+```tsx
+<GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+<AddTurmaToWaGroupButton turmaId={turma.id} />
+```
 
-## Observação importante
+Nada mais é alterado.
 
-O card tem filtro de período. Então o número 25 só deve aparecer quando o filtro estiver em “Tudo”. Se o filtro estiver em 30 dias, o número correto será menor.
+## Pendência (precisa confirmar antes de codar)
+
+A Edge Function `smartops-add-turma-to-wagroup` **não existe** no projeto (`supabase/functions/`). O frontend vai chamar mesmo assim, mas vai falhar até a função existir.
+
+Você quer:
+
+1. Só o botão agora (eu crio a função depois quando você pedir), ou
+2. Eu já crio também a edge function `smartops-add-turma-to-wagroup` nesta mesma iteração — nesse caso preciso saber qual provedor WhatsApp usar (Evolution API self-hosted, conforme a Core memory) e em qual instância adicionar membros.
