@@ -286,6 +286,55 @@ serve(async (req) => {
       .map((m) => `Usuário: ${m.user_message}\nLIA: ${m.agent_response || "(sem resposta)"}`)
       .join("\n\n");
 
+    // ── SDR Qualification Profile (Ajuste C) ──
+    // Carrega respostas de formulários de captação SDR vinculadas a este lead.
+    // Dedup por field_label mantendo a resposta mais recente.
+    let sdrProfileBlock = "";
+    try {
+      const { data: sdrResponses } = await supabase
+        .from("smartops_form_field_responses")
+        .select("field_label, value, created_at")
+        .eq("lead_id", leadData.id)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      const dedup = new Map<string, string>();
+      for (const r of (sdrResponses || []) as Array<{ field_label: string; value: string }>) {
+        const label = (r.field_label || "").trim();
+        if (!label || dedup.has(label)) continue;
+        dedup.set(label, String(r.value ?? "").slice(0, 200));
+      }
+      const topPairs = Array.from(dedup.entries()).slice(0, 12);
+
+      const rawCustom = (leadData as any).raw_payload?.custom_fields as
+        | Record<string, unknown>
+        | undefined;
+      const customFieldsList = rawCustom && typeof rawCustom === "object"
+        ? Object.entries(rawCustom).slice(0, 10)
+        : [];
+
+      const profileLines: string[] = [];
+      const ld = leadData as any;
+      if (ld.equip_scanner) profileLines.push(`- Marca scanner: ${ld.equip_scanner}`);
+      if (ld.sdr_software_cad_interesse) profileLines.push(`- Software CAD em uso: ${ld.sdr_software_cad_interesse}`);
+      if (ld.imprime_resinas_ld) profileLines.push(`- Resinas longa duração: ${ld.imprime_resinas_ld}`);
+      if (ld.imprime_guias) profileLines.push(`- Guias cirúrgicas: ${ld.imprime_guias}`);
+      if (ld.especialidade) profileLines.push(`- Especialidade: ${ld.especialidade}`);
+      for (const [k, v] of customFieldsList) {
+        if (v == null || v === "") continue;
+        profileLines.push(`- ${k.replace(/_/g, " ")}: ${String(v).slice(0, 160)}`);
+      }
+      for (const [label, value] of topPairs) {
+        // Evita duplicação grosseira com linhas já adicionadas
+        if (profileLines.some((l) => l.toLowerCase().includes(label.toLowerCase().slice(0, 20)))) continue;
+        profileLines.push(`- ${label}: ${value}`);
+      }
+      if (profileLines.length > 0) {
+        sdrProfileBlock = `\n**Perfil técnico (SDR Qualificação):**\n${profileLines.join("\n")}\n`;
+      }
+    } catch (e) {
+      console.warn("[cognitive] Failed to build SDR profile block:", e);
+    }
+
     // ── Deterministic PQL override ──
     const isExistingCustomer = leadData.status_oportunidade === "ganha";
     const isAutonomousReentry = leadData.source !== "vendedor_direto" && leadData.rota_inicial_lia !== "vendedor_direto";
@@ -300,7 +349,7 @@ Scanner: ${leadData.tem_scanner || "N/I"} | Volume: ${leadData.volume_mensal_pec
 Etapa CRM: ${leadData.ultima_etapa_comercial || "N/I"} | Status: ${leadData.status_oportunidade || "N/I"}
 Produto anterior: ${leadData.produto_interesse || "N/I"}
 Resumo IA: ${(leadData.resumo_historico_ia || "").slice(0, 300)}
-
+${sdrProfileBlock}
 **Memória Longitudinal:**
 - Sessões anteriores:
 ${longitudinal.sessionHistory}
