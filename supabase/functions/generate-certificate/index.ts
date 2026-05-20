@@ -44,6 +44,9 @@ const LINE2_BASELINE_Y = PAGE_H - 391;  // ~204 — "em [local], realizado de [d
 const NAME_BASE_SIZE = 75;  // tamanho inicial do nome (auto-fit reduz se necessário)
 const NAME_MIN_SIZE = 38;   // mínimo antes de aplicar escala forçada
 const TEXT_SIZE = 15;       // texto secundário (Alef)
+const BODY_LINE_HEIGHT = TEXT_SIZE * 1.35;
+const BODY_MAX_WIDTH = 620; // largura útil para o corpo (mais larga que o nome)
+const BODY_TOP_Y = PAGE_H - 370; // baseline da primeira linha do corpo
 
 let cachedTemplate: Uint8Array | null = null;
 let cachedItalianno: Uint8Array | null = null;
@@ -72,6 +75,34 @@ function formatDateRange(dates: string[]): string {
   const last = sorted[sorted.length - 1];
   if (first === last) return formatDateBR(first);
   return `${formatDateBR(first)} a ${formatDateBR(last)}`;
+}
+
+function renderTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{\s*([\wÀ-ÿ_]+)\s*\}\}/gi, (_m, k: string) => {
+    const key = k.toLowerCase();
+    return vars[key] ?? "";
+  });
+}
+
+function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of text.split(/\r?\n/)) {
+    if (!paragraph.trim()) { lines.push(""); continue; }
+    const words = paragraph.split(/\s+/);
+    let current = "";
+    for (const w of words) {
+      const candidate = current ? `${current} ${w}` : w;
+      const width = font.widthOfTextAtSize(candidate, size);
+      if (width <= maxWidth) {
+        current = candidate;
+      } else {
+        if (current) lines.push(current);
+        current = w;
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines;
 }
 
 async function loadAsset(supabase: any, file: string): Promise<Uint8Array> {
