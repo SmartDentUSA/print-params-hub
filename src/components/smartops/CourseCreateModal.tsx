@@ -27,6 +27,7 @@ import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 interface LocalTurma {
   id?: string;
   label: string;
+  turma_number?: number | null;
   slots: number;
   sellflux_tag: string;
   whatsapp_group_link: string;
