@@ -17695,6 +17695,81 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_copilot_mix_produtos: {
+        Row: {
+          categoria: string | null
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          produto: string | null
+          receita: number | null
+          ticket_unitario: number | null
+          unidades: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_copilot_pipeline_aberto: {
+        Row: {
+          deal_mais_antigo: string | null
+          deals_abertos: number | null
+          ticket_medio: number | null
+          ultima_atividade: string | null
+          valor_pipeline: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_copilot_ranking_vendedores: {
+        Row: {
+          deals: number | null
+          periodo: string | null
+          receita: number | null
+          ticket_medio: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_copilot_receita_mensal: {
+        Row: {
+          ano: number | null
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          mes_num: number | null
+          primeiro_fechamento: string | null
+          receita: number | null
+          ticket_medio: number | null
+          ultimo_fechamento: string | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_copilot_receita_total_mensal: {
+        Row: {
+          ano: number | null
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          mes_num: number | null
+          receita: number | null
+          ticket_medio: number | null
+          vendedores_ativos: number | null
+        }
+        Relationships: []
+      }
+      vw_copilot_ytd_2026: {
+        Row: {
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          receita_acumulada: number | null
+          receita_mes: number | null
+          ticket_medio: number | null
+          vendedores_ativos: number | null
+        }
+        Relationships: []
+      }
       vw_dashboard_financeiro: {
         Row: {
           deals_ganhos: number | null

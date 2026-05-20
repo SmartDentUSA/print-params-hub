@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
+import EmbedTrainings from "./pages/EmbedTrainings";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
@@ -74,6 +75,7 @@ const App = () => (
       
       {/* Dra. L.I.A. embed route (no header/footer for iframe) */}
       <Route path="/embed/dra-lia" element={<AgentEmbed />} />
+      <Route path="/embed/treinamentos" element={<EmbedTrainings />} />
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />

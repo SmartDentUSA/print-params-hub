@@ -1132,6 +1132,7 @@ export function SmartOpsCourses() {
         <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
+        <TabsTrigger value="publica">Página Pública</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
@@ -1143,6 +1144,93 @@ export function SmartOpsCourses() {
       <TabsContent value="inscricoes">
         <InscricoesTab />
       </TabsContent>
+      <TabsContent value="publica">
+        <PaginaPublicaTab />
+      </TabsContent>
     </Tabs>
+  );
+}
+
+// ─── Aba Página Pública (embed) ───
+function PaginaPublicaTab() {
+  const { toast } = useToast();
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const publicUrl = `${origin}/embed/treinamentos`;
+  const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>`;
+  const autoResizeSnippet = `<iframe id="smartdent-treinamentos" src="${publicUrl}" style="width:100%;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>
+<script>
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'smartdent:embed:treinamentos:height') {
+      var f = document.getElementById('smartdent-treinamentos');
+      if (f) f.style.height = (e.data.height + 20) + 'px';
+    }
+  });
+<\/script>`;
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => toast({ title: `${label} copiado!` }),
+      () => toast({ title: "Erro ao copiar", variant: "destructive" })
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Embed em site externo</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Esta página lista automaticamente todos os cursos <strong>Ativos</strong> e <strong>Públicos</strong> do catálogo,
+            com suas próximas turmas e vagas disponíveis. Use o link ou cole o código abaixo no site externo.
+          </p>
+
+          <div>
+            <Label className="text-xs">URL pública</Label>
+            <div className="flex gap-2 mt-1">
+              <Input value={publicUrl} readOnly className="font-mono text-xs" />
+              <Button variant="outline" onClick={() => copy(publicUrl, "Link")}>Copiar</Button>
+              <Button variant="outline" onClick={() => window.open(publicUrl, "_blank")}>Abrir</Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Código iframe (simples)</Label>
+            <div className="flex gap-2 mt-1">
+              <Textarea value={iframeSnippet} readOnly rows={2} className="font-mono text-xs" />
+              <Button variant="outline" onClick={() => copy(iframeSnippet, "Código")}>Copiar</Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Código iframe com auto-ajuste de altura (recomendado)</Label>
+            <div className="flex gap-2 mt-1">
+              <Textarea value={autoResizeSnippet} readOnly rows={8} className="font-mono text-xs" />
+              <Button variant="outline" onClick={() => copy(autoResizeSnippet, "Código")}>Copiar</Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              O iframe se ajusta automaticamente conforme o número de cursos exibidos.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Pré-visualização</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-hidden bg-muted/30">
+            <iframe
+              src={publicUrl}
+              className="w-full"
+              style={{ height: "800px", border: 0 }}
+              title="Pré-visualização da página pública"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
