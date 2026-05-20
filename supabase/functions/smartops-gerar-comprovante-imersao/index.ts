@@ -130,6 +130,8 @@ function buildDocx(args: {
   contrato: string;
   startDD: string; startMM: string; startYY: string;
   endDD: string; endMM: string; endYY: string;
+  durationDays: number;
+  durationHoursTotal: number | null;
   participanteNome: string;
   participanteCpf: string;
   participanteProfissao: string;
