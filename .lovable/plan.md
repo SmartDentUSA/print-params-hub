@@ -1,33 +1,39 @@
-# Corrigir contagem de Leads na RPC `fn_form_metrics`
-
 ## Diagnóstico
 
-A RPC atual conta leads a partir de `lead_form_submissions`, mas essa tabela está **vazia** (0 linhas). As submissões reais vivem em `smartops_form_field_responses`:
+O número atual está baixo porque a função `fn_form_metrics` conta leads pela tabela `smartops_form_field_responses`.
 
+Essa tabela não representa uma submissão completa: ela grava apenas respostas de campos de mapeamento/portfolio. Por isso o formulário `# - Formulário exocad I.A.` aparece com 5 leads, mas a origem real no CDP mostra 25 leads gerados.
+
+Validação feita no banco:
+
+```text
+# - Formulário exocad I.A.
+- smartops_form_field_responses: 5 leads únicos
+- smartops_forms.submissions_count: 16
+- lia_attendances.form_name: 27 leads canônicos
+- excluindo origens não geradas pelo formulário (loja_integrada e astron_postback): 25 leads canônicos
 ```
-form fbe205b0  →  37 rows, 5 leads distintos (UI mostrava 0)
-form 63ecb106  →  10 rows, 1 lead distinto
-```
 
-Cada submissão gera N linhas (1 por campo). Para contar "leads gerados" corretamente precisamos de `count(DISTINCT lead_id)` por `form_id`.
+## Plano de correção
 
-## Mudança
+1. Atualizar a função `fn_form_metrics(p_period_days int)` para calcular `leads` a partir de `lia_attendances`, não mais de `smartops_form_field_responses`.
+   - Usar `lia_attendances.form_name = smartops_forms.name` como vínculo principal.
+   - Aplicar sempre `merged_into IS NULL` para contar apenas leads canônicos.
+   - Filtrar pelo período usando `lia_attendances.created_at`.
+   - Excluir fontes que não foram geradas pelo formulário público, como `loja_integrada` e `astron_postback`, para bater com os 25 do Exocad I.A.
 
-Reescrever `fn_form_metrics` trocando as CTEs `ld` (leads) e `wins` (deals_won) para usarem `smartops_form_field_responses`:
+2. Ajustar `deals_won` para usar a mesma base de leads gerados pelo formulário.
+   - A conversão será calculada sobre esses leads canônicos.
+   - Oportunidade ganha continua vindo de `piperun_deals_history` com status `ganha`.
 
-- **ld**: `SELECT form_id, count(DISTINCT lead_id) FROM smartops_form_field_responses WHERE created_at >= since`
-- **wins**: distinct lead_ids da mesma tabela → join em `lia_attendances` (canonical, `merged_into IS NULL`) → existência de deal com `status='ganha'` em `piperun_deals_history`.
+3. Manter visitantes como está.
+   - `Visitantes` continuará vindo de `lead_page_views` em `/f/{slug}`.
+   - `Visitantes únicos` continuará usando `session_id`.
 
-`lead_id` em `smartops_form_field_responses` já é UUID (igual a `lia_attendances.id`), sem cast.
+4. Validar no banco depois da migração.
+   - Em “Tudo”, `# - Formulário exocad I.A.` deve mostrar 25 leads.
+   - Em 30 dias, ele deve mostrar apenas os leads gerados dentro dos últimos 30 dias.
 
-## Validação esperada
+## Observação importante
 
-- Formulário **exocad I.A.** (fbe205b0) — Visitantes 130 / Leads **5** (antes mostrava 0).
-- Formulário **exocad I.A. cópia** (63ecb106) — Visitantes 34 / Leads **1**.
-- Form base (sem respostas) — Leads 0.
-
-Sem mudanças no frontend; o componente `FormMetricsCard` já consome esses campos.
-
-## Por que não usar `smartops_forms.submissions_count`?
-
-Esse contador é incrementado por evento e pode estar inflado (16 vs 5 reais). A fonte da verdade é o `lead_id` único em `smartops_form_field_responses`. Mantemos a integridade da regra "1 lead canônico = 1 submissão" (`merged_into IS NULL` aplicado no join com `lia_attendances`).
+O card tem filtro de período. Então o número 25 só deve aparecer quando o filtro estiver em “Tudo”. Se o filtro estiver em 30 dias, o número correto será menor.
