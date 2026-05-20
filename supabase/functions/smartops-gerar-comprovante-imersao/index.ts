@@ -68,6 +68,7 @@ function fmtDate(d?: string | null): { dd: string; mm: string; yyyy: string } {
 function parseTurmaLabel(
   label: string | null,
   launchDate: string | null,
+  durationDays: number = 3,
 ): { start: string | null; end: string | null } {
   // Case A: range "DD/MM[/YYYY] a DD/MM/YYYY"
   if (label) {
@@ -87,12 +88,20 @@ function parseTurmaLabel(
     if (single) {
       const y = single[3].length === 2 ? `20${single[3]}` : single[3];
       const startIso = `${y}-${single[2].padStart(2, "0")}-${single[1].padStart(2, "0")}`;
-      return { start: startIso, end: addDaysISO(startIso, 2) };
+      return { start: startIso, end: addDaysISO(startIso, Math.max(0, durationDays - 1)) };
     }
   }
-  // Case C: launch_date fallback (imersão = 3 dias)
-  if (launchDate) return { start: launchDate, end: addDaysISO(launchDate, 2) };
+  // Case C: launch_date fallback
+  if (launchDate) return { start: launchDate, end: addDaysISO(launchDate, Math.max(0, durationDays - 1)) };
   return { start: null, end: null };
+}
+
+function numToExtenso(n: number): string {
+  const map: Record<number, string> = {
+    1: "um", 2: "dois", 3: "três", 4: "quatro", 5: "cinco",
+    6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
+  };
+  return map[n] ?? "";
 }
 
 function p(text: string, opts: { bold?: boolean; align?: any; size?: number; spacingAfter?: number } = {}) {
