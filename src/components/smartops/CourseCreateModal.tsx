@@ -27,6 +27,7 @@ import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 interface LocalTurma {
   id?: string;
   label: string;
+  turma_number?: number | null;
   slots: number;
   sellflux_tag: string;
   whatsapp_group_link: string;
@@ -285,6 +286,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         (data ?? []).map((t: any) => ({
           id: t.id,
           label: t.label,
+          turma_number: t.turma_number,
           slots: t.slots,
           sellflux_tag: t.sellflux_tag || "",
           whatsapp_group_link: t.whatsapp_group_link || "",
@@ -785,7 +787,16 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                     <CardContent className="pt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">
-                          {turma.id ? turma.label : `Nova turma ${tIdx + 1}`}
+                          {turma.id ? (
+                            <>
+                              {turma.turma_number != null && (
+                                <span className="mr-2 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
+                                  {modality === 'presencial' ? `#${turma.turma_number}` : `#${String(turma.turma_number).padStart(3, '0')}`}
+                                </span>
+                              )}
+                              {turma.label}
+                            </>
+                          ) : `Nova turma ${tIdx + 1}`}
                           {turma.id && turma.enrolled_count > 0 && (
                             <Badge variant="outline" className="ml-2">{turma.enrolled_count} inscritos</Badge>
                           )}

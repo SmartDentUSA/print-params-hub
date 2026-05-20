@@ -636,7 +636,19 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
           {/* ── Curso / Turma (readonly) ── */}
           <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
             <div><span className="text-muted-foreground">Curso: </span><strong>{enrollment.course?.title}</strong></div>
-            <div><span className="text-muted-foreground">Turma: </span><strong>{enrollment.turma?.label}</strong></div>
+            <div>
+              <span className="text-muted-foreground">Turma: </span>
+              <strong>
+                {enrollment.turma?.turma_number && (
+                  <span className="mr-1.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs">
+                    {enrollment.course?.modality === 'presencial'
+                      ? `#${enrollment.turma.turma_number}`
+                      : `#${String(enrollment.turma.turma_number).padStart(3, '0')}`}
+                  </span>
+                )}
+                {enrollment.turma?.label}
+              </strong>
+            </div>
             {turmaSnap?.days?.length > 0 && (
               <div className="text-xs text-muted-foreground">
                 {turmaSnap.days.map((d: any) => (
@@ -819,7 +831,7 @@ function InscricoesTab() {
            turma_snapshot, equipment_data, proposal_items_snapshot, notes,
            turma_id, certificate_pdf_path, certificate_generated_at,
            course:smartops_courses(title, modality, instructor_name),
-           turma:smartops_course_turmas(label),
+           turma:smartops_course_turmas(label, turma_number),
            companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao, certificate_pdf_path, certificate_generated_at)`,
           { count: "exact" }
         )
@@ -1047,11 +1059,15 @@ function InscricoesTab() {
           {(() => {
             const groups = new Map<string, { course: string; turma: string; startDate?: string; rows: any[] }>();
             for (const r of rows) {
-              const key = `${r.course?.title ?? '—'}__${r.turma?.label ?? '—'}`;
+              const tnum = r.turma?.turma_number;
+              const modality = r.course?.modality;
+              const tnumStr = tnum ? (modality === 'presencial' ? `#${tnum}` : `#${String(tnum).padStart(3, '0')}`) : '';
+              const turmaLabel = tnumStr ? `${tnumStr} ${r.turma?.label ?? '—'}` : (r.turma?.label ?? '—');
+              const key = `${r.course?.title ?? '—'}__${turmaLabel}`;
               if (!groups.has(key)) {
                 groups.set(key, {
                   course: r.course?.title ?? '—',
-                  turma: r.turma?.label ?? '—',
+                  turma: turmaLabel,
                   startDate: r.turma_snapshot?.days?.[0]?.date,
                   rows: [],
                 });
