@@ -12,6 +12,7 @@ import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
+import { formatTurmaNumber } from "@/lib/turmaNumber";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -108,6 +109,11 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
 
       {/* Title */}
       <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
+        {formatTurmaNumber(turma.turma_number, turma.modality) && (
+          <span className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold align-middle">
+            {formatTurmaNumber(turma.turma_number, turma.modality)}
+          </span>
+        )}
         {turma.course_title || "Sem curso"} <span className="text-muted-foreground font-normal">— {turma.label}</span>
       </h3>
       <p className="text-xs text-muted-foreground mb-1">{subtitleParts.join(" · ")}</p>
