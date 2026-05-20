@@ -24,6 +24,23 @@ import {
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 
+// Default do texto do certificado (corpo após o nome do aluno)
+export const DEFAULT_CERTIFICATE_BODY = `concluiu com êxito o treinamento de {{curso}}.
+A imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}}, com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o treinamento técnico para operação e utilização das soluções adquiridas.`;
+
+export const CERTIFICATE_VARIABLES: { key: string; desc: string }[] = [
+  { key: "{{nome}}",         desc: "Nome do participante" },
+  { key: "{{curso}}",        desc: "Título do curso" },
+  { key: "{{local}}",        desc: "Local do treinamento" },
+  { key: "{{data_inicio}}",  desc: "Data do primeiro dia (ex.: 27 de maio de 2026)" },
+  { key: "{{data_fim}}",     desc: "Data do último dia" },
+  { key: "{{periodo}}",      desc: "Período completo (data_inicio a data_fim)" },
+  { key: "{{dias}}",         desc: "Número de dias" },
+  { key: "{{horas_dia}}",    desc: "Horas por dia" },
+  { key: "{{carga_horaria}}",desc: "Carga horária total (dias × horas/dia)" },
+  { key: "{{instrutor}}",    desc: "Nome do instrutor" },
+];
+
 interface LocalTurma {
   id?: string;
   label: string;
