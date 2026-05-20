@@ -84,6 +84,20 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   });
 }
 
+function hoursBetween(start?: string | null, end?: string | null): number | null {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+  const diff = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  return diff > 0 ? diff : null;
+}
+
+function formatHours(n: number): string {
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+}
+
 function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split(/\r?\n/)) {
@@ -238,7 +252,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: days } = await supabase
       .from("smartops_turma_days")
-      .select("date")
+      .select("date, start_time, end_time")
       .eq("turma_id", turmaId)
       .order("date", { ascending: true });
 
@@ -254,6 +268,22 @@ Deno.serve(async (req: Request) => {
     const dataInicio = formatDateBR(sortedDates[0]);
     const dataFim = formatDateBR(sortedDates[sortedDates.length - 1]);
     const periodo = dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`;
+
+    // Calcula horas/dia e carga horária a partir dos horários reais dos dias.
+    const perDayHours = (days || [])
+      .map((d: any) => hoursBetween(d.start_time, d.end_time))
+      .filter((h: number | null): h is number => h != null && h > 0);
+    let horasDiaStr = "";
+    let cargaHorariaStr = "";
+    if (perDayHours.length > 0) {
+      const totalHours = perDayHours.reduce((a, b) => a + b, 0);
+      const avg = totalHours / perDayHours.length;
+      horasDiaStr = formatHours(avg);
+      cargaHorariaStr = formatHours(totalHours);
+    } else if (hoursPerDay != null) {
+      horasDiaStr = formatHours(hoursPerDay);
+      cargaHorariaStr = formatHours(hoursPerDay * durationDays);
+    }
 
     let enrollQuery = supabase
       .from("smartops_course_enrollments")
@@ -326,8 +356,8 @@ Deno.serve(async (req: Request) => {
           data_fim: dataFim,
           periodo,
           dias: String(durationDays),
-          horas_dia: hoursPerDay != null ? String(hoursPerDay) : "",
-          carga_horaria: hoursPerDay != null ? String(hoursPerDay * durationDays) : "",
+          horas_dia: horasDiaStr,
+          carga_horaria: cargaHorariaStr,
           instrutor: instructor,
         };
         const bodyText = renderTemplate(bodyTemplate, vars);

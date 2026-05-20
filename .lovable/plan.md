@@ -1,56 +1,42 @@
-## Objetivo
-Adicionar campo "Texto do Certificado" editável no curso, com variáveis substituíveis, para substituir o texto fixo atual do PDF.
+## Problema
 
-## Variáveis suportadas
-- `{{nome}}` — nome do participante
-- `{{curso}}` — título do curso
-- `{{local}}` — local
-- `{{data_inicio}}` — data do primeiro dia (ex.: "27 de maio de 2026")
-- `{{data_fim}}` — data do último dia
-- `{{periodo}}` — "27 de maio de 2026 a 29 de maio de 2026"
-- `{{dias}}` — número de dias
-- `{{horas_dia}}` — horas por dia
-- `{{carga_horaria}}` — dias × horas/dia
-- `{{instrutor}}` — instrutor
+1. **`Horas/dia` não persiste** — o campo existe e o `handleSave` envia `duration_hours_per_day`, mas todos os cursos no banco estão com `NULL`. Causa raiz provável: o usuário não preenche esse campo manualmente porque ele duplica informação que já existe nos **horários por dia da turma** (`start_time`/`end_time`). Mesmo se preenchesse, ele precisaria reeditar em cada curso para o certificado funcionar.
+2. **`{{carga_horaria}}` no certificado fica vazio** — a edge function só calcula `hoursPerDay * durationDays` quando `duration_hours_per_day` está preenchido (que é sempre `null` hoje).
 
-## Mudanças
+## Solução
 
-### 1. Banco (migration)
-Adicionar coluna em `smartops_courses`:
-- `certificate_body_template TEXT` (nullable) — template com `{{variáveis}}`
+Tornar `horas_dia` e `carga_horaria` **derivados automaticamente** dos horários de cada dia da turma (que o usuário já preenche), eliminando o campo manual como fonte de verdade.
 
-Default sugerido (aplicado em UI quando vazio, não no banco):
-```
-concluiu com êxito o treinamento de {{curso}}.
-A imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}},
-com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o
-treinamento técnico para operação e utilização das soluções adquiridas.
-```
+### 1. Edge function `generate-certificate`
+- Buscar os dias da turma com `start_time` e `end_time` (já busca `date` em `smartops_turma_days`; expandir para incluir os horários).
+- Calcular `hoursPerDay` como a **média** das horas de cada dia (`(end_time - start_time)` em horas, média entre dias). Se todos forem iguais, vira o valor inteiro; se variarem, formatar com 1 casa decimal.
+- Calcular `cargaHoraria` como a **soma** das horas de todos os dias (mais preciso que `dias × horas`).
+- Fallback: se algum dia não tiver horários, usar o `duration_hours_per_day` do curso; se nem isso existir, omitir as variáveis (render como vazio, sem quebrar o template).
+- Atualizar `vars.horas_dia` e `vars.carga_horaria` no loop de pessoas.
+- `body_text` continua entrando no snapshot, então PDFs antigos regeneram automaticamente.
 
-### 2. UI — `src/components/smartops/CourseCreateModal.tsx`
-- Novo `Textarea` "Texto do certificado" (5–6 linhas).
-- Helper text listando as variáveis disponíveis como chips clicáveis (inserem no cursor).
-- Botão "Restaurar texto padrão".
-- Pré-visualização ao vivo com valores de exemplo.
+### 2. UI `CourseCreateModal.tsx`
+- **Manter** o input "Horas/dia" como override opcional (texto auxiliar: "Opcional — calculado automaticamente pelos horários da turma quando vazio").
+- **Atualizar o `certificatePreview`** para calcular `horas_dia` e `carga_horaria` a partir dos `start_time`/`end_time` da primeira turma, com a mesma lógica da edge function. Assim a pré-visualização bate com o PDF real.
 
-### 3. Tipos — `src/types/courses.ts`
-Adicionar `certificate_body_template?: string` em `SmartopsCourse`.
-
-### 4. Edge Function — `supabase/functions/generate-certificate/index.ts`
-- Carregar `certificate_body_template` do curso.
-- Função `renderTemplate(tpl, vars)` que substitui `{{chave}}` (case-insensitive, aceita acentos/espaços normalizados).
-- Substituir as duas `drawText` fixas (line1/line2) por renderização do template:
-  - Quebrar em parágrafos por `\n`.
-  - Word-wrap por largura (`MAX_NAME_WIDTH` ~520) usando `alef.widthOfTextAtSize`.
-  - Desenhar centralizado, começando em `LINE1_BASELINE_Y`, com `lineHeight = TEXT_SIZE * 1.4`.
-- Incluir o template renderizado no `certificate_render_snapshot` para que mudanças no texto invalidem PDFs antigos (regen automático).
-- Fallback: se template vazio/null, mantém as 2 linhas atuais.
+### 3. Sem migration
+Nenhuma mudança de schema. O campo `duration_hours_per_day` continua existindo apenas como override.
 
 ## Detalhes técnicos
-- Substituição: `tpl.replace(/\{\{\s*([\w_]+)\s*\}\}/gi, (_,k) => vars[k.toLowerCase()] ?? '')`.
-- Word-wrap: split por espaço, acumular até exceder largura, emitir linha.
-- Sem mudança de layout do PDF além do bloco de corpo (nome permanece intacto).
+
+- Helper compartilhado (inline na edge function e replicado no preview do modal):
+  ```ts
+  function hoursBetween(start: string, end: string): number {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    return ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  }
+  ```
+- Formatar números: inteiros sem decimal (`8`), fracionários com `.toFixed(1).replace(/\.0$/, "")`.
+- Edge function: query `smartops_turma_days` passa a selecionar `date, start_time, end_time`.
 
 ## Fora de escopo
-- Não altera template.pdf do Canva.
-- Não muda posição do nome do aluno nem fontes.
+
+- Não remove o campo do banco nem da UI (mantém como override).
+- Não muda layout do certificado nem do template.
+- Não mexe em outras variáveis (`{{nome}}`, `{{local}}`, etc.).
