@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
@@ -210,6 +211,12 @@ export function SmartOpsFormBuilder() {
   const [metaButtonShadow, setMetaButtonShadow] = useState<"none" | "sm" | "md" | "glow">("sm");
   const [metaExtraSections, setMetaExtraSections] = useState<any[]>([]);
   const [metaCustomCss, setMetaCustomCss] = useState("");
+  // Tracking
+  const [metaTrackingGtm, setMetaTrackingGtm] = useState("");
+  const [metaTrackingGa4, setMetaTrackingGa4] = useState("");
+  const [metaTrackingMeta, setMetaTrackingMeta] = useState("");
+  const [metaTrackingTiktok, setMetaTrackingTiktok] = useState("");
+  const [metaTrackingExtra, setMetaTrackingExtra] = useState("");
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -387,6 +394,11 @@ export function SmartOpsFormBuilder() {
     setMetaButtonShadow((f.button_shadow as any) || "sm");
     setMetaExtraSections(Array.isArray(f.extra_sections) ? f.extra_sections : []);
     setMetaCustomCss(f.custom_css || "");
+    setMetaTrackingGtm(f.tracking_gtm_id ?? "GTM-NZ64Q899");
+    setMetaTrackingGa4(f.tracking_ga4_id ?? "G-1411Z6YVPY");
+    setMetaTrackingMeta(f.tracking_meta_pixel_id ?? "167413567155597");
+    setMetaTrackingTiktok(f.tracking_tiktok_pixel_id ?? "D05CI83C77UE5QUU9FR0");
+    setMetaTrackingExtra(f.tracking_extra_head ?? "");
     setEditingMeta(form);
   };
 
@@ -423,6 +435,11 @@ export function SmartOpsFormBuilder() {
         button_shadow: metaButtonShadow,
         extra_sections: metaExtraSections,
         custom_css: metaCustomCss || null,
+        tracking_gtm_id: metaTrackingGtm.trim() || null,
+        tracking_ga4_id: metaTrackingGa4.trim() || null,
+        tracking_meta_pixel_id: metaTrackingMeta.trim() || null,
+        tracking_tiktok_pixel_id: metaTrackingTiktok.trim() || null,
+        tracking_extra_head: metaTrackingExtra.trim() || null,
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
@@ -936,6 +953,70 @@ export function SmartOpsFormBuilder() {
                   className="font-mono text-xs"
                 />
                 <p className="text-xs text-muted-foreground">Aplicado no escopo .public-form-page. Use com cuidado.</p>
+              </div>
+
+              {/* Rastreadores & Pixels */}
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rastreadores & Pixels</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setMetaTrackingGtm("GTM-NZ64Q899");
+                      setMetaTrackingGa4("G-1411Z6YVPY");
+                      setMetaTrackingMeta("167413567155597");
+                      setMetaTrackingTiktok("D05CI83C77UE5QUU9FR0");
+                    }}
+                  >Restaurar padrão Smart Dent</Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Google Tag Manager ID</Label>
+                    <Input
+                      value={metaTrackingGtm}
+                      onChange={(e) => setMetaTrackingGtm(e.target.value)}
+                      placeholder="GTM-NZ64Q899"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Google Analytics 4 ID</Label>
+                    <Input
+                      value={metaTrackingGa4}
+                      onChange={(e) => setMetaTrackingGa4(e.target.value)}
+                      placeholder="G-1411Z6YVPY"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Meta Pixel ID</Label>
+                    <Input
+                      value={metaTrackingMeta}
+                      onChange={(e) => setMetaTrackingMeta(e.target.value)}
+                      placeholder="167413567155597"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">TikTok Pixel ID</Label>
+                    <Input
+                      value={metaTrackingTiktok}
+                      onChange={(e) => setMetaTrackingTiktok(e.target.value)}
+                      placeholder="D05CI83C77UE5QUU9FR0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Snippet livre (HTML/JS injetado no &lt;head&gt; deste formulário)</Label>
+                  <Textarea
+                    rows={3}
+                    value={metaTrackingExtra}
+                    onChange={(e) => setMetaTrackingExtra(e.target.value)}
+                    placeholder="<!-- Ex.: outro pixel ou tag de conversão -->"
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Pixels duplicados (já carregados no site) são ignorados automaticamente.</p>
               </div>
 
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>

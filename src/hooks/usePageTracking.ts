@@ -108,6 +108,30 @@ export function usePageTracking() {
         });
       }
 
+      // GA4 SPA page_view (gtag inicializa com send_page_view:false em index.html)
+      try {
+        const gtag = (window as any).gtag;
+        if (typeof gtag === 'function') {
+          gtag('event', 'page_view', {
+            page_path: path,
+            page_title: document.title,
+            page_location: window.location.href,
+          });
+        }
+      } catch {}
+
+      // Meta Pixel SPA PageView
+      try {
+        const fbq = (window as any).fbq;
+        if (typeof fbq === 'function') fbq('track', 'PageView');
+      } catch {}
+
+      // TikTok Pixel SPA page view
+      try {
+        const ttq = (window as any).ttq;
+        if (ttq && typeof ttq.page === 'function') ttq.page();
+      } catch {}
+
       const pageType = detectPageType(path);
       const paramSlugs = pageType === 'resin_params' ? extractParamSlugs(path) : null;
 
