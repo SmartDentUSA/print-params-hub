@@ -128,12 +128,22 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
       </div>
 
       {/* Footer */}
-      {turma.instructor_name && (
-        <div className="mt-3 pt-3 border-t flex items-center gap-1.5 text-xs text-muted-foreground">
-          <User className="w-3 h-3" />
-          {turma.instructor_name}
-        </div>
-      )}
+      <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
+        {turma.instructor_name ? (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <User className="w-3 h-3 shrink-0" />
+            {turma.instructor_name}
+          </span>
+        ) : <span />}
+        <Button
+          size="sm"
+          variant={lotado ? "secondary" : "default"}
+          disabled={lotado}
+          onClick={(e) => { e.stopPropagation(); onEnroll(); }}
+        >
+          {lotado ? "Sem vagas" : "Agendar"}
+        </Button>
+      </div>
     </div>
   );
 }
