@@ -828,6 +828,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                     value={durationHoursPerDay ?? ""}
                     onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Opcional — calculado automaticamente pelos horários da turma quando vazio.
+                  </p>
                 </div>
                 <div>
                   <Label>Pipeline PipeRun</Label>
