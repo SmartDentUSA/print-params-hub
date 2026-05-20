@@ -1157,15 +1157,48 @@ function PaginaPublicaTab() {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = `${origin}/embed/treinamentos`;
   const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>`;
-  const autoResizeSnippet = `<iframe id="smartdent-treinamentos" src="${publicUrl}" style="width:100%;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>
+  const autoResizeSnippet = `<iframe id="smartdent-treinamentos" src="${publicUrl}" style="width:100%;min-height:600px;border:0;display:block;" loading="lazy" title="Próximos Treinamentos"></iframe>
 <script>
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.type === 'smartdent:embed:treinamentos:height') {
-      var f = document.getElementById('smartdent-treinamentos');
-      if (f) f.style.height = (e.data.height + 20) + 'px';
-    }
-  });
+(function(){
+  function onMsg(e){
+    if(!e.data || e.data.type !== 'smartdent:embed:treinamentos:height') return;
+    var f = document.getElementById('smartdent-treinamentos');
+    if(f && e.data.height) f.style.height = (e.data.height + 20) + 'px';
+  }
+  window.addEventListener('message', onMsg);
+})();
 <\/script>`;
+
+  const fullHtmlSnippet = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Próximos Treinamentos | Smart Dent</title>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fff; }
+    .smartdent-wrap { max-width: 1200px; margin: 0 auto; }
+    #smartdent-treinamentos { width: 100%; min-height: 600px; border: 0; display: block; }
+  </style>
+</head>
+<body>
+  <div class="smartdent-wrap">
+    <iframe id="smartdent-treinamentos"
+      src="${publicUrl}"
+      loading="lazy"
+      title="Próximos Treinamentos"></iframe>
+  </div>
+  <script>
+    (function(){
+      window.addEventListener('message', function(e){
+        if(!e.data || e.data.type !== 'smartdent:embed:treinamentos:height') return;
+        var f = document.getElementById('smartdent-treinamentos');
+        if(f && e.data.height) f.style.height = (e.data.height + 20) + 'px';
+      });
+    })();
+  <\/script>
+</body>
+</html>`;
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(
@@ -1211,6 +1244,17 @@ function PaginaPublicaTab() {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               O iframe se ajusta automaticamente conforme o número de cursos exibidos.
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs">HTML puro completo (página pronta para o servidor)</Label>
+            <div className="flex gap-2 mt-1">
+              <Textarea value={fullHtmlSnippet} readOnly rows={12} className="font-mono text-xs" />
+              <Button variant="outline" onClick={() => copy(fullHtmlSnippet, "HTML")}>Copiar</Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Salve como <code>treinamentos.html</code> e hospede em qualquer servidor — já vem com o auto-ajuste embutido.
             </p>
           </div>
         </CardContent>
