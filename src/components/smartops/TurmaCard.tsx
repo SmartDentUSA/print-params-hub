@@ -9,6 +9,8 @@ import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
+import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
+import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -48,6 +50,7 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? 0) === 0;
   const isMuted = status?.variant === "muted";
+  const { group: waGroup, loading: waChecking, refetch: refetchWaGroup } = useTurmaWaGroup(turma.id);
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -139,7 +142,17 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         ) : <span />}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
-          <AddTurmaToWaGroupButton turmaId={turma.id} />
+          <CreateTurmaWaGroupButton
+            turmaId={turma.id}
+            group={waGroup}
+            checking={waChecking}
+            onCreated={refetchWaGroup}
+          />
+          <AddTurmaToWaGroupButton
+            turmaId={turma.id}
+            group={waGroup}
+            checking={waChecking}
+          />
           <Button
             size="sm"
             variant={lotado ? "secondary" : "default"}

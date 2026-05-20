@@ -1,34 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Users, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import type { TurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 
 interface Props {
   turmaId: string;
+  group: TurmaWaGroup | null;
+  checking: boolean;
 }
 
-export function AddTurmaToWaGroupButton({ turmaId }: Props) {
-  const [group, setGroup] = useState<{ id: string; nome: string | null } | null>(null);
-  const [checking, setChecking] = useState(true);
+export function AddTurmaToWaGroupButton({ turmaId, group, checking }: Props) {
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("wa_groups" as any)
-        .select("id, nome")
-        .eq("turma_id", turmaId)
-        .maybeSingle();
-      if (!cancelled) {
-        setGroup((data as any) ?? null);
-        setChecking(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [turmaId]);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -75,7 +60,7 @@ export function AddTurmaToWaGroupButton({ turmaId }: Props) {
       className="gap-1.5"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-      {loading ? "Adicionando..." : "👥 Grupo WA"}
+      {loading ? "Adicionando..." : "Add Participantes"}
     </Button>
   );
 
@@ -84,7 +69,7 @@ export function AddTurmaToWaGroupButton({ turmaId }: Props) {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild><span>{btn}</span></TooltipTrigger>
-          <TooltipContent>Nenhum grupo WA vinculado a esta turma</TooltipContent>
+          <TooltipContent>Crie o grupo WA primeiro</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );

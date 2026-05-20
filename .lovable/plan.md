@@ -1,50 +1,56 @@
 ## Escopo
 
-Adicionar um botão "👥 Grupo WA" ao lado do "Gerar Doc" em cada card de turma (`TurmaCard.tsx`), sem alterar mais nada da tela.
+Substituir o botão único "👥 Grupo WA" por **dois botões separados** no rodapé do `TurmaCard`, ao lado do "Gerar Doc":
 
-## Componente novo
+1. **"➕ Gerar Grupo"** — cria o grupo WhatsApp da turma
+2. **"👥 Add Participantes"** — adiciona os inscritos ao grupo já existente
 
-Criar `src/components/smartops/AddTurmaToWaGroupButton.tsx`:
+## Componentes
 
-- Props: `turmaId: string`.
-- Ao montar, consulta `wa_groups` filtrando por `turma_id` e guarda `{ id, nome }` (se houver).
-- Renderiza um `Button` outline pequeno com ícone `Users`:
-  - Sem grupo vinculado: botão desabilitado, envolto em `Tooltip` "Nenhum grupo WA vinculado a esta turma".
-  - Com grupo vinculado: clicável.
-- Loading: troca ícone por `Loader2` (spin) e texto "Adicionando...".
+### 1. `src/components/smartops/CreateTurmaWaGroupButton.tsx` (novo)
 
-## Ação
+- Props: `turmaId: string`, `turmaLabel: string`, `onCreated?: () => void`
+- Consulta `wa_groups` por `turma_id`:
+  - **Se já existir grupo:** botão desabilitado com tooltip "Grupo já criado: {nome}"
+  - **Se não existir:** botão habilitado "➕ Gerar Grupo"
+- Loading: "Criando..." com `Loader2`
+- Ao clicar: `supabase.functions.invoke('smartops-create-turma-wagroup', { body: { turma_id } })`
+- Resposta esperada: `{ ok, grupo?, group_id?, invite_link?, error? }`
+- Toast: `✅ Grupo '{grupo}' criado` ou `toast.error`
+- Após sucesso, refaz query (ou chama `onCreated`) para revelar o botão de adicionar participantes
 
-Ao clicar, chama `supabase.functions.invoke('smartops-add-turma-to-wagroup', { body: { turma_id } })`.
+### 2. `src/components/smartops/AddTurmaToWaGroupButton.tsx` (já existe — manter, ajustar label)
 
-Resposta esperada (contrato a confirmar):
+- Mudar label para **"👥 Add Participantes"** (loading: "Adicionando...")
+- Comportamento atual já está correto (consulta `wa_groups`, chama `smartops-add-turma-to-wagroup`, mostra toast com `adicionados`/`erros`)
+- Tooltip quando desabilitado: "Crie o grupo WA primeiro"
 
-```text
-{ ok: boolean, adicionados?: number, grupo?: string, erros?: number, erros_nomes?: string[], error?: string }
-```
+### 3. `src/components/smartops/TurmaCard.tsx`
 
-Toast com `sonner`:
-
-- `ok: true` e `erros = 0` → `toast.success("✅ {adicionados} participantes adicionados ao grupo '{grupo}'")`.
-- `ok: true` com `erros > 0` → `toast.success(...)` + segundo `toast.warning("⚠️ {erros} números com erro: nome1, nome2, …")`.
-- `ok: false` → `toast.error(error || "Falha ao adicionar ao grupo")`.
-
-## Integração
-
-Em `src/components/smartops/TurmaCard.tsx`, dentro da `div` do rodapé que já contém o `GerarDocButton`, inserir o novo botão imediatamente após ele:
+No rodapé, sequência:
 
 ```tsx
-<GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+<GerarDocButton ... />
+<CreateTurmaWaGroupButton turmaId={turma.id} turmaLabel={turma.label} />
 <AddTurmaToWaGroupButton turmaId={turma.id} />
+<Button>Agendar</Button>
 ```
 
-Nada mais é alterado.
+Os dois botões consultam `wa_groups` independentemente; o "Add Participantes" reage ao realtime/refetch quando o grupo passa a existir (refetch ao montar é suficiente — usuário recarrega o card se necessário, ou usamos `supabase.channel` se quiser reatividade — **decidir abaixo**).
 
-## Pendência (precisa confirmar antes de codar)
+## Pendências para confirmar
 
-A Edge Function `smartops-add-turma-to-wagroup` **não existe** no projeto (`supabase/functions/`). O frontend vai chamar mesmo assim, mas vai falhar até a função existir.
+1. **Reatividade entre os dois botões:** quando "Gerar Grupo" cria o grupo, o "Add Participantes" precisa habilitar automaticamente? Opções:
+   - (a) **Simples:** após criar, recarrega a página/aba (pior UX)
+   - (b) **Estado compartilhado via hook:** criar `useTurmaWaGroup(turmaId)` que ambos os botões usam, e o "Create" invalida o estado após sucesso (recomendado)
+   - (c) **Realtime Supabase** na tabela `wa_groups` (overkill para este caso)
 
-Você quer:
+2. **Edge functions:** **NENHUMA das duas existe** em `supabase/functions/`:
+   - `smartops-create-turma-wagroup` — precisa criar grupo via Evolution API
+   - `smartops-add-turma-to-wagroup` — precisa adicionar membros via Evolution API
+   
+   Opções:
+   - **A)** Só os botões agora (frontend), edge functions depois
+   - **B)** Crio as duas edge functions também — preciso saber: instância Evolution API a usar, secret name (`EVOLUTION_API_URL`, `EVOLUTION_API_KEY`?), e se o nome do grupo deve ser `{course_title} — {turma_label}` ou outro padrão.
 
-1. Só o botão agora (eu crio a função depois quando você pedir), ou
-2. Eu já crio também a edge function `smartops-add-turma-to-wagroup` nesta mesma iteração — nesse caso preciso saber qual provedor WhatsApp usar (Evolution API self-hosted, conforme a Core memory) e em qual instância adicionar membros.
+Confirme (1) e (2) para eu seguir.
