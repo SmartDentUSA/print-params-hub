@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
+import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
 import {
   Select,
   SelectContent,
