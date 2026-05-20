@@ -91,6 +91,9 @@ function useCountdown() {
 function AgendamentosTab() {
   const [enrollModal, setEnrollModal] = useState<{ course: SmartopsCourse; turmaId: string } | null>(null);
   const getCountdown = useCountdown();
+  const [search, setSearch] = useState("");
+  const [filterKey, setFilterKey] = useState<"todos" | "abertas" | "agora" | "encerrados">("todos");
+  const [sort, setSort] = useState<"date_asc" | "date_desc" | "occupancy_desc" | "title">("date_asc");
 
   const { data: turmas = [], isLoading } = useQuery({
     queryKey: ["v_turmas_com_vagas"],
@@ -126,191 +129,100 @@ function AgendamentosTab() {
     },
   });
 
-  // Group by course_id (memoized for stable reference)
-  const grouped = useMemo(() => {
-    return turmas.reduce<Record<string, { course: Partial<SmartopsCourse>; turmas: TurmaComVagas[] }>>((acc, t) => {
-      if (!acc[t.course_id]) {
-        acc[t.course_id] = {
-          course: {
-            id: t.course_id,
-            title: t.course_title || "Sem título",
-            modality: t.modality || "presencial",
-            instructor_name: t.instructor_name,
-            location: t.location,
-            meeting_link: t.meeting_link,
-            pipeline_id_kanban: t.pipeline_id_kanban || 83896,
-            stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
-          } as Partial<SmartopsCourse>,
-          turmas: [],
-        };
+  // Compute counters per filter
+  const counters = useMemo(() => {
+    const c = { todos: turmas.length, abertas: 0, agora: 0, encerrados: 0 };
+    for (const t of turmas) {
+      const cd = getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality);
+      if (!cd) continue;
+      if (cd.variant === "muted") c.encerrados++;
+      else if (cd.variant === "blue") c.agora++;
+      else c.abertas++;
+    }
+    return c;
+  }, [turmas, getCountdown]);
+
+  const filtered = useMemo(() => {
+    let arr = turmas.map((t) => ({ t, cd: getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality) }));
+    if (filterKey === "abertas") arr = arr.filter(x => x.cd && x.cd.variant !== "muted" && x.cd.variant !== "blue");
+    if (filterKey === "agora") arr = arr.filter(x => x.cd?.variant === "blue");
+    if (filterKey === "encerrados") arr = arr.filter(x => x.cd?.variant === "muted");
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      arr = arr.filter(x => (x.t.course_title || "").toLowerCase().includes(s) || (x.t.label || "").toLowerCase().includes(s));
+    }
+    arr.sort((a, b) => {
+      if (sort === "date_desc") return (b.t.start_date || "").localeCompare(a.t.start_date || "");
+      if (sort === "occupancy_desc") {
+        const oa = a.t.slots ? a.t.enrolled_count / a.t.slots : 0;
+        const ob = b.t.slots ? b.t.enrolled_count / b.t.slots : 0;
+        return ob - oa;
       }
-      acc[t.course_id].turmas.push(t);
-      return acc;
-    }, {});
-  }, [turmas]);
-
-  // Group by modality
-  const byModality = useMemo(() => {
-    const result: Record<string, Array<{ courseId: string; course: any; turmas: TurmaComVagas[] }>> = {};
-    Object.entries(grouped).forEach(([courseId, { course, turmas: courseTurmas }]) => {
-      const mod = (course.modality as string) || "presencial";
-      if (!result[mod]) result[mod] = [];
-      result[mod].push({ courseId, course, turmas: courseTurmas });
+      if (sort === "title") return (a.t.course_title || "").localeCompare(b.t.course_title || "");
+      return (a.t.start_date || "").localeCompare(b.t.start_date || "");
     });
-    return result;
-  }, [grouped]);
+    return arr;
+  }, [turmas, getCountdown, filterKey, search, sort]);
 
-  const modalityLabels: Record<string, string> = {
-    presencial: "Presencial",
-    online_ao_vivo: "Online ao Vivo",
-    hibrido: "Híbrido",
-    gravado: "Gravado",
-  };
+  const tabs: FilterTab[] = [
+    { key: "todos", label: "Todos", count: counters.todos },
+    { key: "abertas", label: "Inscrições Abertas", count: counters.abertas },
+    { key: "agora", label: "Acontecendo", count: counters.agora },
+    { key: "encerrados", label: "Encerrados", count: counters.encerrados },
+  ];
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando agendamentos...</div>;
 
-  if (Object.keys(grouped).length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p>Nenhum agendamento disponível.</p>
-        <p className="text-sm mt-1">Crie um curso na aba "Catálogo" para começar.</p>
-      </div>
-    );
-  }
-
-
   return (
     <>
-      <Accordion type="multiple" defaultValue={Object.keys(byModality)} className="space-y-4">
-        {Object.entries(byModality).map(([modKey, courses]) => (
-          <AccordionItem key={modKey} value={modKey} className="border rounded-lg">
-            <AccordionTrigger className="px-6 py-4 hover:no-underline">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-semibold">{modalityLabels[modKey] || modKey}</span>
-                <Badge variant="secondary">{courses.length} {courses.length === 1 ? "curso" : "cursos"}</Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-2 pb-4 space-y-4">
-              {courses.map(({ courseId, course, turmas: courseTurmas }) => {
-                const mod = MODALITY_CONFIG[course.modality as keyof typeof MODALITY_CONFIG];
-                return (
-                  <Card key={courseId}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-3">
-                          <CardTitle className="text-lg">{course.title}</CardTitle>
-                          {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          {course.instructor_name && (
-                            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {course.instructor_name}</span>
-                          )}
-                          {course.location && <span>{course.location}</span>}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="pl-6">Turma</TableHead>
-                            <TableHead><Clock className="w-3.5 h-3.5 inline mr-1" />Countdown</TableHead>
-                            <TableHead>Dias</TableHead>
-                            <TableHead className="text-center">Contratos</TableHead>
-                            <TableHead className="text-center"><UserPlus className="w-3.5 h-3.5 inline mr-1" />Acomp.</TableHead>
-                            <TableHead>Instrutor</TableHead>
-                            <TableHead className="text-center"><Star className="w-3.5 h-3.5 inline mr-1" />NPS</TableHead>
-                            <TableHead>Vagas</TableHead>
-                            <TableHead className="text-right pr-6">Ação</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {courseTurmas.map((turma) => {
-                            const pct = turma.slots > 0 ? ((turma.enrolled_count / turma.slots) * 100) : 0;
-                            const lotado = turma.vagas_disponiveis === 0;
-                            const countdown = getCountdown(turma.start_date, turma.start_time, turma.end_date, turma.end_time, course.modality);
-                            const isEncerrado = countdown?.variant === 'muted';
-                            const isInscricoesEncerradas = countdown?.variant === 'red';
-                            const cannotEnroll = isEncerrado || isInscricoesEncerradas;
+      <TreinamentosToolbar
+        tabs={tabs}
+        activeTab={filterKey}
+        onTabChange={(k) => setFilterKey(k as any)}
+        search={search}
+        onSearchChange={setSearch}
+        sort={sort}
+        onSortChange={(s) => setSort(s as any)}
+        sortOptions={[
+          { value: "date_asc", label: "Data (mais próximas)" },
+          { value: "date_desc", label: "Data (mais distantes)" },
+          { value: "occupancy_desc", label: "Ocupação (maior)" },
+          { value: "title", label: "Nome A–Z" },
+        ]}
+        searchPlaceholder="Buscar agendamentos…"
+      />
 
-                            const weekdays: string[] = [];
-                            if (turma.start_date) {
-                              const start = new Date(turma.start_date + "T12:00:00");
-                              const end = turma.end_date ? new Date(turma.end_date + "T12:00:00") : start;
-                              const d = new Date(start);
-                              while (d <= end) {
-                                weekdays.push(d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""));
-                                d.setDate(d.getDate() + 1);
-                              }
-                            }
-
-                            return (
-                              <TableRow key={turma.id} className={isEncerrado ? "opacity-50" : ""}>
-                                <TableCell className="pl-6 font-medium">
-                                  <div>
-                                    <span>{turma.label}</span>
-                                    {turma.start_date && (
-                                      <div className="text-xs text-muted-foreground">
-                                        {formatDatePtBr(turma.start_date)}
-                                        {turma.end_date && turma.end_date !== turma.start_date && (
-                                          <> – {formatDatePtBr(turma.end_date)}</>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  {countdown && (
-                                    <Badge
-                                      variant={isEncerrado ? "secondary" : "outline"}
-                                      className={`text-xs ${VARIANT_CLASSES[countdown.variant] || ''}`}
-                                    >
-                                      {countdown.label}
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                  {weekdays.length > 0 ? weekdays.slice(0, 5).join(", ") : "—"}
-                                </TableCell>
-                                <TableCell className="text-center font-medium">{turma.enrolled_count}</TableCell>
-                                <TableCell className="text-center text-muted-foreground">
-                                  {(companionCounts as Record<string, number>)[turma.id] || 0}
-                                </TableCell>
-                                <TableCell className="text-sm">{course.instructor_name || "—"}</TableCell>
-                                <TableCell className="text-center text-muted-foreground text-xs" title="Em breve">—</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2 min-w-[120px]">
-                                    <Progress value={pct} className="h-2 flex-1" />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                      {turma.enrolled_count}/{turma.slots}
-                                    </span>
-                                  </div>
-                                  {lotado && <Badge variant="destructive" className="mt-1 text-[10px]">Lotado</Badge>}
-                                </TableCell>
-                                <TableCell className="text-right pr-6">
-                                  <Button
-                                    size="sm"
-                                    variant={lotado ? "secondary" : "default"}
-                                    disabled={lotado}
-                                    onClick={() => setEnrollModal({ course: course as SmartopsCourse, turmaId: turma.id })}
-                                  >
-                                    {lotado ? "Sem vagas" : "Agendar"}
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                );
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
+          <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Nenhum agendamento encontrado.</p>
+          <p className="text-sm mt-1">Ajuste o filtro ou crie um curso na aba "Catálogo".</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map(({ t, cd }) => (
+            <TurmaCard
+              key={t.id}
+              turma={t}
+              companionCount={(companionCounts as Record<string, number>)[t.id] || 0}
+              status={cd}
+              onEnroll={() => setEnrollModal({
+                course: {
+                  id: t.course_id,
+                  title: t.course_title || "Sem título",
+                  modality: t.modality || "presencial",
+                  instructor_name: t.instructor_name,
+                  location: t.location,
+                  meeting_link: t.meeting_link,
+                  pipeline_id_kanban: t.pipeline_id_kanban || 83896,
+                  stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
+                } as SmartopsCourse,
+                turmaId: t.id,
               })}
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
+            />
+          ))}
+        </div>
+      )}
 
       {enrollModal && (
         <EnrollmentModal
