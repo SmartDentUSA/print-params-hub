@@ -172,6 +172,8 @@ const BASE_FORM_FIELDS = [
 export function SmartOpsFormBuilder() {
   const [forms, setForms] = useState<SmartOpsForm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [periodDays, setPeriodDays] = useState<number>(30);
+  const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -220,7 +222,29 @@ export function SmartOpsFormBuilder() {
     setLoading(false);
   };
 
+  const fetchMetrics = async (days: number) => {
+    const { data, error } = await (supabase as any).rpc("fn_form_metrics", {
+      p_period_days: days,
+    });
+    if (error) {
+      console.error("[fn_form_metrics]", error);
+      return;
+    }
+    const map: Record<string, FormMetrics> = {};
+    (data || []).forEach((row: any) => {
+      map[row.form_id] = {
+        visitors: Number(row.visitors) || 0,
+        unique_visitors: Number(row.unique_visitors) || 0,
+        leads: Number(row.leads) || 0,
+        deals_won: Number(row.deals_won) || 0,
+        daily_series: Array.isArray(row.daily_series) ? row.daily_series : [],
+      };
+    });
+    setMetricsByForm(map);
+  };
+
   useEffect(() => { fetchForms(); }, []);
+  useEffect(() => { fetchMetrics(periodDays); }, [periodDays, forms.length]);
 
   const generateSlug = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
