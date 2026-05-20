@@ -11694,6 +11694,7 @@ export type Database = {
           sellflux_tag: string | null
           slots: number
           sort_order: number
+          turma_number: number | null
           updated_at: string | null
           whatsapp_group_link: string | null
         }
@@ -11710,6 +11711,7 @@ export type Database = {
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
+          turma_number?: number | null
           updated_at?: string | null
           whatsapp_group_link?: string | null
         }
@@ -11726,6 +11728,7 @@ export type Database = {
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
+          turma_number?: number | null
           updated_at?: string | null
           whatsapp_group_link?: string | null
         }
@@ -12320,6 +12323,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      smartops_turma_counters: {
+        Row: {
+          last_number: number
+          modality: string
+          updated_at: string | null
+        }
+        Insert: {
+          last_number?: number
+          modality: string
+          updated_at?: string | null
+        }
+        Update: {
+          last_number?: number
+          modality?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       smartops_turma_days: {
         Row: {
