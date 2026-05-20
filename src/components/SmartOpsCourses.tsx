@@ -35,6 +35,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
 import { TreinamentosToolbar, type FilterTab } from "./smartops/TreinamentosToolbar";
 import { TurmaCard } from "./smartops/TurmaCard";
+import { TaxonomySelect } from "./smartops/TaxonomySelect";
+import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { CourseCard } from "./smartops/CourseCard";
 
 // ─── Countdown Hook ───
@@ -594,8 +596,8 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             <div><Label className="text-xs">Deal</Label><Input value={form.deal_title} onChange={(e) => uf('deal_title', e.target.value)} /></div>
             <div><Label className="text-xs">Participante</Label><Input value={form.person_name} onChange={(e) => uf('person_name', e.target.value)} /></div>
             <div><Label className="text-xs">ID PipeRun</Label><Input value={enrollment.person_piperun_id || ''} disabled /></div>
-            <div><Label className="text-xs">Especialidade</Label><Input value={form.especialidade} onChange={(e) => uf('especialidade', e.target.value)} /></div>
-            <div><Label className="text-xs">Área de atuação</Label><Input value={form.area_atuacao} onChange={(e) => uf('area_atuacao', e.target.value)} /></div>
+            <div><Label className="text-xs">Especialidade</Label><TaxonomySelect options={ESPECIALIDADE_OPTIONS} value={form.especialidade} onChange={(v) => uf('especialidade', v)} /></div>
+            <div><Label className="text-xs">Área de atuação</Label><TaxonomySelect options={AREA_ATUACAO_OPTIONS} value={form.area_atuacao} onChange={(v) => uf('area_atuacao', v)} /></div>
             <div><Label className="text-xs">Nº Contrato</Label><Input value={form.numero_contrato} onChange={(e) => uf('numero_contrato', e.target.value)} /></div>
             <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => uf('instagram', e.target.value)} placeholder="@usuario" /></div>
             <div><Label className="text-xs">Valor Deal (R$)</Label><Input type="number" value={form.deal_value} onChange={(e) => uf('deal_value', e.target.value)} /></div>
