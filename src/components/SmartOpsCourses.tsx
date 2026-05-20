@@ -558,12 +558,23 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
         changed.equipment_data = form.equipment_data;
       }
 
-      if (Object.keys(changed).length === 0) { toast({ title: "Nenhuma alteração" }); onClose(); return; }
+      const companionsDirty = delIds.length > 0 || companionsList.some((c) => !c.id && (c.name || '').trim()) ||
+        companionsList.some((c) => {
+          if (!c.id) return false;
+          const orig = (companions || []).find((o: any) => o.id === c.id) || {};
+          return ['name', 'especialidade', 'area_atuacao', 'email', 'phone'].some((f) => String(c[f] ?? '') !== String(orig[f] ?? ''));
+        });
 
-      const { error } = await (supabase as any).from('smartops_course_enrollments')
-        .update({ ...changed, updated_at: new Date().toISOString() })
-        .eq('id', enrollment.id);
-      if (error) throw error;
+      if (Object.keys(changed).length === 0 && !companionsDirty) {
+        toast({ title: "Nenhuma alteração" }); onClose(); return;
+      }
+
+      if (Object.keys(changed).length > 0) {
+        const { error } = await (supabase as any).from('smartops_course_enrollments')
+          .update({ ...changed, updated_at: new Date().toISOString() })
+          .eq('id', enrollment.id);
+        if (error) throw error;
+      }
 
       if (changed.instagram && enrollment.lead_id) {
         await (supabase as any).from('lia_attendances')
