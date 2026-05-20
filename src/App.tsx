@@ -12,6 +12,8 @@ import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
 import EmbedTrainings from "./pages/EmbedTrainings";
+import AgendaPublica from "./pages/AgendaPublica";
+import { Navigate } from "react-router-dom";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
@@ -75,7 +77,8 @@ const App = () => (
       
       {/* Dra. L.I.A. embed route (no header/footer for iframe) */}
       <Route path="/embed/dra-lia" element={<AgentEmbed />} />
-      <Route path="/embed/treinamentos" element={<EmbedTrainings />} />
+      <Route path="/embed/treinamentos" element={<Navigate to="/agenda" replace />} />
+      <Route path="/agenda" element={<AgendaPublica />} />
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
@@ -100,13 +103,13 @@ const App = () => (
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname === '/agenda') return null;
   return <DraLIA />;
 }
 
 function FooterGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname === '/agenda') return null;
   return <Footer />;
 }
 
