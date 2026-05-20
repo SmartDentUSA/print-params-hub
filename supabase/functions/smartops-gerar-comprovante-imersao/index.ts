@@ -550,6 +550,8 @@ Deno.serve(async (req: Request) => {
       contrato,
       startDD: start.dd, startMM: start.mm, startYY: start.yyyy,
       endDD: end.dd, endMM: end.mm, endYY: end.yyyy,
+      durationDays,
+      durationHoursTotal,
       participanteNome: part41Nome,
       participanteCpf: formatDoc(part41Cpf),
       participanteProfissao: part41Prof,
