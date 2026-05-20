@@ -277,8 +277,10 @@ function CatalogoTab() {
         .from("smartops_courses")
         .select(`
           id, title, slug, modality, category, instructor_name,
-          cover_image_url, max_capacity, duration_days, location,
-          meeting_link, active, public_visible,
+          cover_image_url, max_capacity, duration_days, duration_hours_per_day,
+          location, meeting_link, active, public_visible, description,
+          certificate_body_template, whatsapp_message_template,
+          pipeline_id_kanban, stage_after_enroll,
           recurrence_enabled, recurrence_type, recurrence_interval,
           recurrence_until, recurrence_time_start, recurrence_time_end,
           whatsapp_group_link,
