@@ -636,7 +636,19 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
           {/* ── Curso / Turma (readonly) ── */}
           <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
             <div><span className="text-muted-foreground">Curso: </span><strong>{enrollment.course?.title}</strong></div>
-            <div><span className="text-muted-foreground">Turma: </span><strong>{enrollment.turma?.label}</strong></div>
+            <div>
+              <span className="text-muted-foreground">Turma: </span>
+              <strong>
+                {enrollment.turma?.turma_number && (
+                  <span className="mr-1.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs">
+                    {enrollment.course?.modality === 'presencial'
+                      ? `#${enrollment.turma.turma_number}`
+                      : `#${String(enrollment.turma.turma_number).padStart(3, '0')}`}
+                  </span>
+                )}
+                {enrollment.turma?.label}
+              </strong>
+            </div>
             {turmaSnap?.days?.length > 0 && (
               <div className="text-xs text-muted-foreground">
                 {turmaSnap.days.map((d: any) => (
