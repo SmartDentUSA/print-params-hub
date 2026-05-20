@@ -403,15 +403,39 @@ Deno.serve(async (req) => {
       const rawFields = Object.fromEntries(
         Object.entries(payload).filter(([k, v]) => v != null && typeof v !== "object" && !META_KEYS.has(k))
       );
+      const bucketKey = formName || "_unnamed";
+      const newSnapshot = {
+        submitted_at: new Date().toISOString(),
+        source,
+        responses: payload.form_responses || [],
+        raw_fields: rawFields,
+      };
+      // Coerce existing bucket to array (back-compat with old single-object shape)
+      const prev = existingFormData[bucketKey];
+      const prevArr: unknown[] = Array.isArray(prev) ? prev : prev ? [prev] : [];
+      // Cap history at 20 snapshots per form to avoid row bloat
+      const nextArr = [...prevArr, newSnapshot].slice(-20);
       incomingData.form_data = {
         ...existingFormData,
-        [formName || "unknown"]: {
-          submitted_at: new Date().toISOString(),
-          responses: payload.form_responses || [],
-          raw_fields: rawFields,
-        },
+        [bucketKey]: nextArr,
       };
-      console.log(`[ingest-lead] form_data saved for form "${formName}" with ${Object.keys(rawFields).length} raw fields`);
+      console.log(`[ingest-lead] form_data appended for "${bucketKey}" (${nextArr.length} snapshot(s), ${Object.keys(rawFields).length} raw fields)`);
+      // Fire-and-forget instrumentation
+      try {
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-ingest-lead",
+          severity: "info",
+          event_type: "form_data_appended",
+          lead_email: email,
+          details: {
+            form_name: bucketKey,
+            source,
+            responses_count: (payload.form_responses || []).length,
+            raw_fields_count: Object.keys(rawFields).length,
+            history_size: nextArr.length,
+          },
+        }).then(() => {}, () => {});
+      } catch {}
     }
 
     let leadId: string;
