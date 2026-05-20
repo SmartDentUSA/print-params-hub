@@ -18841,23 +18841,21 @@ export type Database = {
         Returns: undefined
       }
       fn_faturamento_mes: {
-        Args: { p_ano?: number; p_mes?: number }
+        Args: { p_ano: number; p_mes: number }
         Returns: {
           deals_ganhos: number
-          faturado_marketplace: number
-          faturado_operacional: number
-          faturado_site: number
-          faturado_total: number
-          frete_total: number
-          gap_operacional: number
-          gap_pct: number
-          maior_gap_tipo: string
-          maior_gap_valor: number
-          maior_gap_vendedor: string
-          nfs_operacionais: number
+          meta_anual: number
+          pct_meta_anual: number
           periodo: string
           receita_crm: number
-          ticket_medio_crm: number
+          segundo_rec: number
+          segundo_vendedor: string
+          terceiro_rec: number
+          terceiro_vendedor: string
+          ticket_medio: number
+          top_vendedor: string
+          top_vendedor_dls: number
+          top_vendedor_rec: number
         }[]
       }
       fn_form_leads_sem_piperun: {
@@ -18872,20 +18870,6 @@ export type Database = {
           source: string
           telefone_raw: string
           ultima_atividade: string
-        }[]
-      }
-      fn_gap_faturamento: {
-        Args: { p_ano?: number; p_mes?: number }
-        Returns: {
-          canal: string
-          gap_pct: number
-          gap_valor: number
-          mensagem: string
-          receita_crm: number
-          severidade: string
-          status_gap: string
-          valor_faturado: number
-          vendedor: string
         }[]
       }
       fn_generate_recurrent_turmas: {
@@ -19000,6 +18984,17 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_pipeline_aberto: {
+        Args: never
+        Returns: {
+          deals_abertos: number
+          mais_antigo: string
+          ticket_medio: number
+          ultima_ativ: string
+          valor_pipeline: number
+          vendedor: string
+        }[]
+      }
       fn_query_bi_view: {
         Args: {
           p_descending?: boolean
@@ -19009,6 +19004,17 @@ export type Database = {
           p_view: string
         }
         Returns: Json
+      }
+      fn_ranking_vendedores: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          deals: number
+          pos: number
+          receita: number
+          share_pct: number
+          ticket_medio: number
+          vendedor: string
+        }[]
       }
       fn_record_lead_event: {
         Args: {
@@ -19186,6 +19192,19 @@ export type Database = {
         }[]
       }
       fn_vitality_gen_tick: { Args: never; Returns: undefined }
+      fn_ytd_piperun: {
+        Args: { p_ano?: number }
+        Returns: {
+          deals: number
+          mes: string
+          meta_anual: number
+          pct_executado: number
+          receita_acum: number
+          receita_mes: number
+          ticket_medio: number
+          vendedores: number
+        }[]
+      }
       get_brand_distribution: {
         Args: never
         Returns: {
