@@ -1,87 +1,33 @@
-# Página de Formulários — Cards com Indicadores
+# Corrigir contagem de Leads na RPC `fn_form_metrics`
 
-## Objetivo
+## Diagnóstico
 
-Substituir a tabela atual de formulários por **cards agrupados por finalidade** (NPS, SDR, ROI, CS, Captação, Evento), exibindo 3 indicadores principais por card + sparkline de tendência (estilo das imagens enviadas).
+A RPC atual conta leads a partir de `lead_form_submissions`, mas essa tabela está **vazia** (0 linhas). As submissões reais vivem em `smartops_form_field_responses`:
 
-## É possível? Sim
-
-Todos os dados necessários já existem no banco:
-
-| Indicador | Fonte | Como calcular |
-|---|---|---|
-| **Visitantes** (clicks) | `lead_page_views` | `count(*) where page_path = '/f/{slug}'` (total) + `count(distinct session_id)` (únicos) |
-| **Leads gerados** (preencheram) | `lead_form_submissions` | `count(*) where form_id = {id}` |
-| **Taxa de preenchimento** | derivado | `leads / visitantes únicos` |
-| **Oportunidades ganhas** | `lia_attendances.deals` (JSONB) | leads vindos do form → deals com `status_name='Ganha'` |
-| **Taxa de conversão** | derivado | `ganhas / leads` |
-| **Tendência 30d** (sparkline) | `lead_page_views.viewed_at` agrupado por dia | array dos últimos 30 dias |
-
-## Layout proposto
-
-```text
-┌─ NPS ─────────────────────────────────────────────────┐
-│  [card form A]    [card form B]    [card form C]      │
-└───────────────────────────────────────────────────────┘
-┌─ SDR ─────────────────────────────────────────────────┐
-│  [card form D]    [card form E]                       │
-└───────────────────────────────────────────────────────┘
-... (ROI, CS, Captação, Evento)
+```
+form fbe205b0  →  37 rows, 5 leads distintos (UI mostrava 0)
+form 63ecb106  →  10 rows, 1 lead distinto
 ```
 
-Cada **card** exibe:
+Cada submissão gera N linhas (1 por campo). Para contar "leads gerados" corretamente precisamos de `count(DISTINCT lead_id)` por `form_id`.
 
-```text
-┌──────────────────────────────────────┐
-│ 📋 Nome do Formulário      [Ativo] │
-│ slug · finalidade                    │
-│ ──────────────────────────────────── │
-│ Visitantes   Leads      Conversão    │
-│   844         240        28.4%       │
-│   ▁▃▅▂▆▃▅    +63% 30d   3 ganhas    │
-│ ──────────────────────────────────── │
-│ [Editar] [Link] [Embed] [Duplicar]  │
-└──────────────────────────────────────┘
-```
+## Mudança
 
-- Header: nome, slug, badge de finalidade, switch ativo/inativo
-- 3 KPIs grandes: Visitantes / Leads / Conversão (com % delta vs período anterior)
-- Sparkline 30d sob "Visitantes" (estilo da imagem 1)
-- Ações no rodapé (mesmas da tabela atual)
-- Vazio: card permanece, mas KPIs mostram "—"
+Reescrever `fn_form_metrics` trocando as CTEs `ld` (leads) e `wins` (deals_won) para usarem `smartops_form_field_responses`:
 
-## Filtro de período
+- **ld**: `SELECT form_id, count(DISTINCT lead_id) FROM smartops_form_field_responses WHERE created_at >= since`
+- **wins**: distinct lead_ids da mesma tabela → join em `lia_attendances` (canonical, `merged_into IS NULL`) → existência de deal com `status='ganha'` em `piperun_deals_history`.
 
-Header da página com botões: **24h · 7d · 30d · 90d · Tudo** (default: 30d). Reaplica todas as queries.
+`lead_id` em `smartops_form_field_responses` já é UUID (igual a `lia_attendances.id`), sem cast.
 
-## Implementação técnica
+## Validação esperada
 
-1. **RPC nova** `fn_form_metrics(p_period_days int)` → retorna 1 linha por form:
-   - `form_id, visitors, unique_visitors, leads, deals_won, daily_series jsonb`
-   - Faz JOIN: `smartops_forms` × `lead_page_views` (por `/f/{slug}`) × `lead_form_submissions` (por `form_id`) × `lia_attendances` (lead_id → deals JSONB com `status_name='Ganha'`).
-   - Calcula tudo server-side em 1 query para evitar N+1.
+- Formulário **exocad I.A.** (fbe205b0) — Visitantes 130 / Leads **5** (antes mostrava 0).
+- Formulário **exocad I.A. cópia** (63ecb106) — Visitantes 34 / Leads **1**.
+- Form base (sem respostas) — Leads 0.
 
-2. **Componente `FormMetricsCard`** (novo) em `src/components/smartops/FormMetricsCard.tsx`:
-   - Recebe `form` + `metrics`.
-   - Sparkline com `recharts` (já no projeto) ou SVG inline minimalista.
-   - Reutiliza as ações da tabela atual (editar meta, editar campos, duplicar, copiar link/embed, excluir).
+Sem mudanças no frontend; o componente `FormMetricsCard` já consome esses campos.
 
-3. **`SmartOpsFormBuilder.tsx`**:
-   - Substituir bloco da tabela (linhas 922-983) por:
-     - Filtro de período no topo da listagem
-     - `Object.entries(PURPOSE_CONFIG).map(...)` agrupando forms por `form_purpose`
-     - Para cada grupo: título da seção + grid responsivo `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` de `FormMetricsCard`
-   - Carregar `formMetrics` via RPC em paralelo com `loadForms()`.
+## Por que não usar `smartops_forms.submissions_count`?
 
-## Validação
-
-- Form "Formulário exocad I.A." (16 submissions, 130 page views) deve mostrar: Visitantes 130, Leads 16, taxa preenchimento ~12%.
-- Forms sem visitas mostram "0" + sparkline plana, sem quebrar.
-- Mudança de período (7d/30d/90d) recalcula KPIs e sparkline.
-- Agrupamento esconde seções vazias (ex: hoje só SDR-Captação e Captação têm forms; NPS/ROI/CS/Evento ficam ocultos ou exibem "Nenhum formulário desta categoria").
-
-## Pergunta antes de seguir
-
-1. **Seções vazias**: ocultar grupos sem forms, ou mostrar um placeholder "Nenhum formulário NPS ainda · [+ Criar]"?
-2. **Conversão**: usar `deals_won` (deals com status `Ganha`) ou `deals_open` (qualquer deal criado, mesmo em aberto)? A imagem sugere "Conversion Rate" + "Completion Rate" separados — quer os dois?
-3. **Sparkline**: visitantes (como na imagem 1) ou submissions (como na imagem 2)?
+Esse contador é incrementado por evento e pode estar inflado (16 vs 5 reais). A fonte da verdade é o `lead_id` único em `smartops_form_field_responses`. Mantemos a integridade da regra "1 lead canônico = 1 submissão" (`merged_into IS NULL` aplicado no join com `lia_attendances`).
