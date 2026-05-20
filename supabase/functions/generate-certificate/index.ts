@@ -318,18 +318,34 @@ Deno.serve(async (req: Request) => {
 
     for (const person of people) {
       try {
+        const vars: Record<string, string> = {
+          nome: person.name,
+          curso: courseTitle,
+          local: location,
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          periodo,
+          dias: String(durationDays),
+          horas_dia: hoursPerDay != null ? String(hoursPerDay) : "",
+          carga_horaria: hoursPerDay != null ? String(hoursPerDay * durationDays) : "",
+          instrutor: instructor,
+        };
+        const bodyText = renderTemplate(bodyTemplate, vars);
+
         const currentSnapshot = {
           course_title: courseTitle,
           location,
           date_text: dateText,
           student_name: person.name,
+          body_text: bodyText,
         };
         const snap = person.render_snapshot;
         const isStale = !snap
           || snap.course_title !== currentSnapshot.course_title
           || snap.location     !== currentSnapshot.location
           || snap.date_text    !== currentSnapshot.date_text
-          || snap.student_name !== currentSnapshot.student_name;
+          || snap.student_name !== currentSnapshot.student_name
+          || snap.body_text    !== currentSnapshot.body_text;
 
         if (person.existing_path && !regenerate && !isStale) {
           const { data: signed } = await supabase.storage
@@ -354,6 +370,7 @@ Deno.serve(async (req: Request) => {
           courseTitle,
           location,
           dateText,
+          bodyText,
         });
 
         const path = `generated/${turmaId}/${person.type}_${person.id}.pdf`;
