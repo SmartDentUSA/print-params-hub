@@ -65,6 +65,11 @@ const MERGE_ARRAY_FIELDS: Set<string> = new Set([
 const MERGE_JSONB_FIELDS: Set<string> = new Set([
   "sellflux_custom_fields",
   "raw_payload",
+  // form_data is shape `{ [form_name]: snapshot | snapshot[] }`. We treat as
+  // shallow JSONB merge — the ingest-lead caller pre-merges the new submission
+  // into an array under the form_name key, so a shallow merge here preserves
+  // history without dropping other form_name buckets.
+  "form_data",
 ]);
 
 // ─── Utility: Merge Tags CRM (append + dedup + sort) ───
