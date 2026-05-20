@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_courses ADD COLUMN IF NOT EXISTS certificate_body_template text;

@@ -11760,6 +11760,7 @@ export type Database = {
         Row: {
           active: boolean | null
           category: string | null
+          certificate_body_template: string | null
           cover_image_url: string | null
           created_at: string | null
           created_by: string | null
@@ -11792,6 +11793,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           category?: string | null
+          certificate_body_template?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -11824,6 +11826,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           category?: string | null
+          certificate_body_template?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null

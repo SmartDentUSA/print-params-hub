@@ -24,6 +24,23 @@ import {
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 
+// Default do texto do certificado (corpo após o nome do aluno)
+export const DEFAULT_CERTIFICATE_BODY = `concluiu com êxito o treinamento de {{curso}}.
+A imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}}, com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o treinamento técnico para operação e utilização das soluções adquiridas.`;
+
+export const CERTIFICATE_VARIABLES: { key: string; desc: string }[] = [
+  { key: "{{nome}}",         desc: "Nome do participante" },
+  { key: "{{curso}}",        desc: "Título do curso" },
+  { key: "{{local}}",        desc: "Local do treinamento" },
+  { key: "{{data_inicio}}",  desc: "Data do primeiro dia (ex.: 27 de maio de 2026)" },
+  { key: "{{data_fim}}",     desc: "Data do último dia" },
+  { key: "{{periodo}}",      desc: "Período completo (data_inicio a data_fim)" },
+  { key: "{{dias}}",         desc: "Número de dias" },
+  { key: "{{horas_dia}}",    desc: "Horas por dia" },
+  { key: "{{carga_horaria}}",desc: "Carga horária total (dias × horas/dia)" },
+  { key: "{{instrutor}}",    desc: "Nome do instrutor" },
+];
+
 interface LocalTurma {
   id?: string;
   label: string;
@@ -176,6 +193,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
+  const certificateRef = useRef<HTMLTextAreaElement>(null);
 
   // Course fields
   const [title, setTitle] = useState("");
@@ -193,6 +211,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [stageAfterEnroll, setStageAfterEnroll] = useState("treinamento_agendado");
   const [publicVisible, setPublicVisible] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
+  const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
   // Recurrence (online only)
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
@@ -229,6 +248,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
       setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
       setTurmas([]);
+      setCertificateBody(DEFAULT_CERTIFICATE_BODY);
       return;
     }
     setTitle(course.title);
@@ -246,6 +266,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setStageAfterEnroll(course.stage_after_enroll);
     setPublicVisible(course.public_visible);
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
+    setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRecurrenceEnabled(course.recurrence_enabled || false);
     setRecurrenceType((course.recurrence_type as any) || 'weeks');
     setRecurrenceInterval(course.recurrence_interval || 1);
@@ -413,6 +434,56 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     }, 0);
   };
 
+  // ─── Certificate template insert variable ───
+  const insertCertificateVariable = (key: string) => {
+    const ta = certificateRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = certificateBody.substring(0, start);
+    const after = certificateBody.substring(end);
+    setCertificateBody(before + key + after);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start + key.length, start + key.length);
+    }, 0);
+  };
+
+  // ─── Certificate preview ───
+  const certificatePreview = (() => {
+    const firstTurma = turmas[0];
+    const days = firstTurma?.days ?? [];
+    const sortedDates = days.map((d) => d.date).filter(Boolean).sort();
+    const meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    const fmt = (s: string) => {
+      if (!s) return "";
+      const [y, m, d] = s.split("-").map(Number);
+      return `${d} de ${meses[m - 1]} de ${y}`;
+    };
+    const dataInicio = fmt(sortedDates[0] || "");
+    const dataFim = fmt(sortedDates[sortedDates.length - 1] || "");
+    const periodo = dataInicio && dataFim
+      ? (dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`)
+      : "";
+    const horas = durationHoursPerDay ? String(durationHoursPerDay) : "8";
+    const cargaH = durationHoursPerDay ? String(durationHoursPerDay * durationDays) : "";
+    const vars: Record<string, string> = {
+      nome: "Dr. João Silva",
+      curso: title || "Curso",
+      local: modality === "presencial" ? (location || "Smart Dent") : (meetingLink || "Online"),
+      data_inicio: dataInicio || "27 de maio de 2026",
+      data_fim: dataFim || "29 de maio de 2026",
+      periodo: periodo || "27 de maio de 2026 a 29 de maio de 2026",
+      dias: String(durationDays),
+      horas_dia: horas,
+      carga_horaria: cargaH || String(durationDays * 8),
+      instrutor: instructorName || "Instrutor",
+    };
+    return certificateBody.replace(/\{\{\s*([\wÀ-ÿ_]+)\s*\}\}/gi, (_m, k) =>
+      vars[k.toLowerCase()] ?? `{{${k}}}`
+    );
+  })();
+
   // ─── WA preview ───
   const waPreview = (() => {
     const firstTurma = turmas[0];
@@ -487,6 +558,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         meeting_link: meetingLink || null,
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
+        certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
@@ -883,6 +955,54 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <Label className="text-xs mb-1 block">Preview</Label>
                 <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-48 overflow-auto">
                   {waPreview}
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Texto do Certificado ─── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Texto do Certificado</h3>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCertificateBody(DEFAULT_CERTIFICATE_BODY)}
+                  className="text-xs"
+                >
+                  Restaurar padrão
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Corpo que aparece abaixo do nome do aluno no PDF. Use as variáveis abaixo.
+              </p>
+
+              <div className="flex flex-wrap gap-1">
+                {CERTIFICATE_VARIABLES.map((v) => (
+                  <Badge
+                    key={v.key}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary/10"
+                    onClick={() => insertCertificateVariable(v.key)}
+                    title={v.desc}
+                  >
+                    {v.key}
+                  </Badge>
+                ))}
+              </div>
+
+              <Textarea
+                ref={certificateRef}
+                value={certificateBody}
+                onChange={(e) => setCertificateBody(e.target.value)}
+                rows={6}
+                className="font-mono text-sm"
+              />
+
+              <div>
+                <Label className="text-xs mb-1 block">Preview</Label>
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-48 overflow-auto">
+                  {certificatePreview}
                 </div>
               </div>
             </div>

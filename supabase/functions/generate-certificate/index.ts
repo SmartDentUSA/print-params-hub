@@ -44,6 +44,9 @@ const LINE2_BASELINE_Y = PAGE_H - 391;  // ~204 — "em [local], realizado de [d
 const NAME_BASE_SIZE = 75;  // tamanho inicial do nome (auto-fit reduz se necessário)
 const NAME_MIN_SIZE = 38;   // mínimo antes de aplicar escala forçada
 const TEXT_SIZE = 15;       // texto secundário (Alef)
+const BODY_LINE_HEIGHT = TEXT_SIZE * 1.35;
+const BODY_MAX_WIDTH = 620; // largura útil para o corpo (mais larga que o nome)
+const BODY_TOP_Y = PAGE_H - 370; // baseline da primeira linha do corpo
 
 let cachedTemplate: Uint8Array | null = null;
 let cachedItalianno: Uint8Array | null = null;
@@ -74,6 +77,34 @@ function formatDateRange(dates: string[]): string {
   return `${formatDateBR(first)} a ${formatDateBR(last)}`;
 }
 
+function renderTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{\s*([\wÀ-ÿ_]+)\s*\}\}/gi, (_m, k: string) => {
+    const key = k.toLowerCase();
+    return vars[key] ?? "";
+  });
+}
+
+function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of text.split(/\r?\n/)) {
+    if (!paragraph.trim()) { lines.push(""); continue; }
+    const words = paragraph.split(/\s+/);
+    let current = "";
+    for (const w of words) {
+      const candidate = current ? `${current} ${w}` : w;
+      const width = font.widthOfTextAtSize(candidate, size);
+      if (width <= maxWidth) {
+        current = candidate;
+      } else {
+        if (current) lines.push(current);
+        current = w;
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines;
+}
+
 async function loadAsset(supabase: any, file: string): Promise<Uint8Array> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
@@ -90,6 +121,7 @@ async function generateCertificatePdf(opts: {
   courseTitle: string;
   location: string;
   dateText: string;
+  bodyText: string;
 }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(opts.templateBytes);
   pdfDoc.registerFontkit(fontkit);
@@ -127,25 +159,22 @@ async function generateCertificatePdf(opts: {
     color: black,
   });
 
-  const line1 = `concluiu com êxito o treinamento de ${opts.courseTitle}`;
-  const line1Width = alef.widthOfTextAtSize(line1, TEXT_SIZE);
-  page.drawText(line1, {
-    x: CONTENT_CENTER_X - line1Width / 2,
-    y: LINE1_BASELINE_Y,
-    size: TEXT_SIZE,
-    font: alef,
-    color: black,
-  });
-
-  const line2 = `em ${opts.location}, realizado de ${opts.dateText}.`;
-  const line2Width = alef.widthOfTextAtSize(line2, TEXT_SIZE);
-  page.drawText(line2, {
-    x: CONTENT_CENTER_X - line2Width / 2,
-    y: LINE2_BASELINE_Y,
-    size: TEXT_SIZE,
-    font: alef,
-    color: black,
-  });
+  // Renderiza o corpo do certificado (template configurável) com word-wrap centralizado
+  const lines = wrapText(opts.bodyText, alef, TEXT_SIZE, BODY_MAX_WIDTH);
+  let y = BODY_TOP_Y;
+  for (const line of lines) {
+    if (line) {
+      const w = alef.widthOfTextAtSize(line, TEXT_SIZE);
+      page.drawText(line, {
+        x: CONTENT_CENTER_X - w / 2,
+        y,
+        size: TEXT_SIZE,
+        font: alef,
+        color: black,
+      });
+    }
+    y -= BODY_LINE_HEIGHT;
+  }
 
   return await pdfDoc.save();
 }
@@ -185,7 +214,7 @@ Deno.serve(async (req: Request) => {
       .select(`
         id, label, course_id,
         course:smartops_courses!course_id (
-          id, title, location, instructor_name
+          id, title, location, instructor_name, duration_days, duration_hours_per_day, certificate_body_template
         )
       `)
       .eq("id", turmaId)
@@ -201,6 +230,11 @@ Deno.serve(async (req: Request) => {
     const course = (turma as any).course;
     const courseTitle = course?.title || "Treinamento";
     const location = course?.location || "Smart Dent";
+    const instructor = course?.instructor_name || "";
+    const durationDays = Number(course?.duration_days || 1);
+    const hoursPerDay = course?.duration_hours_per_day ? Number(course.duration_hours_per_day) : null;
+    const bodyTemplate: string = course?.certificate_body_template
+      || `concluiu com êxito o treinamento de {{curso}}.\nA imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}}, com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o treinamento técnico para operação e utilização das soluções adquiridas.`;
 
     const { data: days } = await supabase
       .from("smartops_turma_days")
@@ -216,6 +250,10 @@ Deno.serve(async (req: Request) => {
       );
     }
     const dateText = formatDateRange(dateList);
+    const sortedDates = [...dateList].sort();
+    const dataInicio = formatDateBR(sortedDates[0]);
+    const dataFim = formatDateBR(sortedDates[sortedDates.length - 1]);
+    const periodo = dataInicio === dataFim ? dataInicio : `${dataInicio} a ${dataFim}`;
 
     let enrollQuery = supabase
       .from("smartops_course_enrollments")
@@ -280,18 +318,34 @@ Deno.serve(async (req: Request) => {
 
     for (const person of people) {
       try {
+        const vars: Record<string, string> = {
+          nome: person.name,
+          curso: courseTitle,
+          local: location,
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          periodo,
+          dias: String(durationDays),
+          horas_dia: hoursPerDay != null ? String(hoursPerDay) : "",
+          carga_horaria: hoursPerDay != null ? String(hoursPerDay * durationDays) : "",
+          instrutor: instructor,
+        };
+        const bodyText = renderTemplate(bodyTemplate, vars);
+
         const currentSnapshot = {
           course_title: courseTitle,
           location,
           date_text: dateText,
           student_name: person.name,
+          body_text: bodyText,
         };
         const snap = person.render_snapshot;
         const isStale = !snap
           || snap.course_title !== currentSnapshot.course_title
           || snap.location     !== currentSnapshot.location
           || snap.date_text    !== currentSnapshot.date_text
-          || snap.student_name !== currentSnapshot.student_name;
+          || snap.student_name !== currentSnapshot.student_name
+          || snap.body_text    !== currentSnapshot.body_text;
 
         if (person.existing_path && !regenerate && !isStale) {
           const { data: signed } = await supabase.storage
@@ -316,6 +370,7 @@ Deno.serve(async (req: Request) => {
           courseTitle,
           location,
           dateText,
+          bodyText,
         });
 
         const path = `generated/${turmaId}/${person.type}_${person.id}.pdf`;
