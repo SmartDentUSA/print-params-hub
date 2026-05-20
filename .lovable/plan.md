@@ -1,66 +1,80 @@
-## Objetivo
+# Redesign: Treinamentos → grid de cards (estilo workspace)
 
-Qualquer submissão de um formulário público ativo (`smartops_forms.active=true`) deve **sempre abrir um Deal NOVO no Funil de Vendas do PipeRun**, mesmo que o lead já tenha Deal aberto em Vendas ou Estagnado. Mesmo comportamento que hoje só existe para Loja Integrada "Sob Consulta".
+Substituir o layout atual (accordion + tabela densa em Agendamentos / lista em Catálogo) por um **grid de cards 3 colunas** idêntico ao da referência, adaptado aos dados de treinamento.
 
-## Mudança única (cirúrgica)
+## Estrutura compartilhada (header)
 
-**Arquivo:** `supabase/functions/smart-ops-ingest-lead/index.ts` (linhas 745–762)
+Acima do grid, em ambas as abas:
+- Sub-tabs filtro: `Todos (N) · Próximos · Ao Vivo · Encerrados · Arquivados` (Agendamentos) / `Todos · Ativos · Rascunho · Inativos` (Catálogo)
+- Campo de busca "Buscar treinamentos…"
+- Dropdown "Ordenação padrão" (data, ocupação, nome)
+- Botão principal à direita: `+ Novo Agendamento` / `+ Novo Curso`
 
-O dispatch para `smart-ops-lia-assign` já aceita `force_new_deal`. Hoje ele só é `true` para Loja Integrada. Vamos expandir para **toda submissão de formulário** (ou seja, sempre que o ingest está sendo disparado pelo `PublicFormPage` / formulário ativo — caracterizado pela presença de `form_name` no payload).
+## Card — Aba Agendamentos (uma turma por card)
 
-```ts
-force_new_deal:
-  payload.force_new_deal === true ||
-  // NOVO — toda submissão de formulário ativo abre Deal novo em Vendas
-  (typeof formName === "string" && formName.trim().length > 0) ||
-  (source === "loja_integrada" && (
-    formName === ECOM_QUOTE_LABEL ||
-    formName === "produto_sob_consulta"
-  )),
+```
+┌────────────────────────────────────────┐
+│ ● Ao Vivo            ⤴  ⋮             │
+│                                        │
+│ Imersão Smart Start — Turma Mai/26    │
+│ Presencial · 3 dias · São Paulo       │
+│                                        │
+│ VAGAS    INSCRITOS    OCUPAÇÃO        │
+│ 24       18           75,0%   (verde) │
+└────────────────────────────────────────┘
 ```
 
-Resultado:
+- **Badge status** (canto sup. esq.): mapeada do `countdown.variant` → `Próximo` (azul), `Inscrições abertas` (verde), `Em andamento` (âmbar), `Encerrado` (cinza).
+- **Ações** (canto sup. dir.): ícone compartilhar (copiar link público da turma) + menu `⋮` (Editar, Duplicar, Arquivar, Ver inscritos).
+- **Título**: `{course.title} — {turma.label}`.
+- **Subtítulo**: `{modality} · {duração} · {local|link}`.
+- **Métricas (3 colunas)**:
+  - `VAGAS` = `turma.slots`
+  - `INSCRITOS` = `turma.enrolled_count` (+ acompanhantes em badge pequeno)
+  - `OCUPAÇÃO` = `enrolled_count/slots` em % (verde ≥60%, âmbar 30-59%, vermelho <30%, "Lotado" se 100%).
+- **Footer mini** (linha sutil): countdown atual (`Faltam 12 dias`) + instrutor.
+- Click no card → abre `EnrollmentModal` (mantém comportamento atual).
 
-- `smart-ops-lia-assign` (linha 2106) já trata `force_new_deal === true`:
-  - Ignora preserve do Deal aberto em Vendas (Golden Rule é bypassada)
-  - Ignora reativação de Estagnado
-  - Zera `piperunId` cacheado pra não cair no dedupe-guard
-  - Cai em `createNewDeal(...)` direto no `PIPELINES.VENDAS`
-- Deal antigo permanece intocado (won/aberto/estagnado) — apenas se soma um novo na esteira de Vendas.
+## Card — Aba Catálogo (um curso por card)
 
-## O que NÃO muda
+```
+┌────────────────────────────────────────┐
+│ ● Ativo              ⤴  ⋮             │
+│                                        │
+│ Imersão Smart Start                   │
+│ Presencial · 3 dias · Recorrente      │
+│                                        │
+│ TURMAS   INSCRITOS    OCUPAÇÃO MÉDIA  │
+│ 6        84           71,2%   (verde) │
+└────────────────────────────────────────┘
+```
 
-- Person/Company continuam reutilizando o mesmo `pessoa_piperun_id` / `empresa_piperun_id` (não duplica pessoa).
-- Origem Person continua congelada no primeiro contato (Person Origin Frozen).
-- `origin_name` do Deal continua sendo o `form_name` exato (Piperun Deals Metadata).
-- Round-robin de owner volta a operar normalmente (sem herdar owner do Deal antigo, pois agora estamos criando Deal novo).
-- Webhooks Sellflux/cognitivo/Meta continuam idem.
-- Loja Integrada "Sob Consulta" continua disparando `force_new_deal` (já coberto pela condição existente).
-- Astron postback, e-commerce order sync, WA inbound puro etc. **não disparam** `force_new_deal` porque não têm `form_name` (continuam respeitando Commercial Intent Guard).
+- **Badge status**: `Ativo` (verde) / `Rascunho` (âmbar, `active=false`) / `Privado` (cinza, `public_visible=false`).
+- **Métricas**:
+  - `TURMAS` = `course.turmas.length` (ativas)
+  - `INSCRITOS` = soma de `enrolled_count` de todas as turmas
+  - `OCUPAÇÃO MÉDIA` = soma inscritos / soma slots em %
+- **Footer mini**: instrutor + `RecurrenceSummary` quando aplicável.
+- Click no card → expande edição (mantém `editCourse` atual) ou abre modal lateral.
 
-## Efeito colateral esperado
+## Detalhes visuais
 
-- Lead que preenche 3 formulários diferentes terá 3 Deals abertos em paralelo em Funil de Vendas.
-- Cada Deal carrega `origin_name` = nome do formulário que o originou → SDR distingue qual campanha gerou cada oportunidade.
-- Round-robin distribui cada Deal novo para um vendedor (potencialmente diferentes vendedores no mesmo lead — alinhado ao modelo "oportunidade por intenção").
+- Grid: `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4`.
+- Card: `bg-card border rounded-xl p-5 hover:shadow-md transition cursor-pointer`.
+- Métricas: label `text-xs uppercase tracking-wide text-muted-foreground`, valor `text-2xl font-semibold`. Coluna de % em `text-primary` quando ≥60%.
+- Badge status: pill compacta com bolinha colorida à esquerda (`● Live` da referência).
+- Tudo via tokens semânticos (`bg-card`, `text-foreground`, `text-primary`, `text-muted-foreground`) — sem cores hardcoded.
 
-## Memória a atualizar
+## Arquivos afetados
 
-- `mem://integration/piperun-deal-metadata-rules` → adicionar nota: "Toda submissão de formulário ativo cria Deal novo em Vendas (force_new_deal=true). Person é reutilizada."
-- Atualizar `mem://index.md` no item Commercial Intent Guard pra refletir que `form_name` agora também implica `force_new_deal`.
+- `src/components/SmartOpsCourses.tsx` — substituir `AgendamentosTab` e `CatalogoTab` (linhas 88-322 e 347+) pela nova grid. Manter queries, hooks e modais (`EnrollmentModal`, `CourseCreateModal`) intactos.
+- Extrair dois componentes novos para clareza:
+  - `src/components/smartops/TurmaCard.tsx`
+  - `src/components/smartops/CourseCard.tsx`
+- Pequeno header reutilizável `TreinamentosToolbar` (busca + filtros + CTA) inline ou em `src/components/smartops/TreinamentosToolbar.tsx`.
 
-## Validação pós-deploy
+## Fora do escopo
 
-1. Submeter `# - Formulário Padrão` no email `danilohen@gmail.com` (já tem Estagnado aberto).
-2. Conferir em `deals` que surge novo registro com `pipeline_name='Funil de vendas'` e `piperun_created_at` da submissão.
-3. Conferir que o Deal Estagnado antigo (58968895) permanece intocado.
-4. Submeter de novo o mesmo formulário → deve gerar **outro** Deal novo em Vendas (não atualizar o anterior).
-5. Conferir nos logs do `smart-ops-lia-assign`: `force_new_deal=true → bypassing vendaDeal/estagnDeal preserve`.
-
-## Fora de escopo
-
-- Sem alteração de schema.
-- Sem mudança no Commercial Intent Guard (que continua bloqueando astron/ecommerce sem form).
-- Sem mudança em PublicFormPage, ingest payload normalization, Sellflux ou cognitive analysis.
-
-Aprova?
+- Não altero schema, queries, lógica de inscrição, recorrência, ou envio de WhatsApp.
+- Modais existentes permanecem como estão.
+- Aba "Importar Inscritos" (se existir) não é tocada.
