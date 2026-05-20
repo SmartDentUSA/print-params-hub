@@ -1154,8 +1154,7 @@ export function SmartOpsCourses() {
 // ─── Aba Página Pública (embed) ───
 function PaginaPublicaTab() {
   const { toast } = useToast();
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const publicUrl = `${origin}/embed/treinamentos`;
+  const publicUrl = "https://parametros.smartdent.com.br/agenda";
   const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>`;
   const autoResizeSnippet = `<iframe id="smartdent-treinamentos" src="${publicUrl}" style="width:100%;min-height:600px;border:0;display:block;" loading="lazy" title="Próximos Treinamentos"></iframe>
 <script>
