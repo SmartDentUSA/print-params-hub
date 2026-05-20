@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
+import { GerarDocButton } from "@/components/GerarDocButton";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -135,14 +136,17 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
             {turma.instructor_name}
           </span>
         ) : <span />}
-        <Button
-          size="sm"
-          variant={lotado ? "secondary" : "default"}
-          disabled={lotado}
-          onClick={(e) => { e.stopPropagation(); onEnroll(); }}
-        >
-          {lotado ? "Sem vagas" : "Agendar"}
-        </Button>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <Button
+            size="sm"
+            variant={lotado ? "secondary" : "default"}
+            disabled={lotado}
+            onClick={(e) => { e.stopPropagation(); onEnroll(); }}
+          >
+            {lotado ? "Sem vagas" : "Agendar"}
+          </Button>
+        </div>
       </div>
     </div>
   );
