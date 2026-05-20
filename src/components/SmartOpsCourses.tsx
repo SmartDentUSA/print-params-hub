@@ -1047,11 +1047,15 @@ function InscricoesTab() {
           {(() => {
             const groups = new Map<string, { course: string; turma: string; startDate?: string; rows: any[] }>();
             for (const r of rows) {
-              const key = `${r.course?.title ?? '—'}__${r.turma?.label ?? '—'}`;
+              const tnum = r.turma?.turma_number;
+              const modality = r.course?.modality;
+              const tnumStr = tnum ? (modality === 'presencial' ? `#${tnum}` : `#${String(tnum).padStart(3, '0')}`) : '';
+              const turmaLabel = tnumStr ? `${tnumStr} ${r.turma?.label ?? '—'}` : (r.turma?.label ?? '—');
+              const key = `${r.course?.title ?? '—'}__${turmaLabel}`;
               if (!groups.has(key)) {
                 groups.set(key, {
                   course: r.course?.title ?? '—',
-                  turma: r.turma?.label ?? '—',
+                  turma: turmaLabel,
                   startDate: r.turma_snapshot?.days?.[0]?.date,
                   rows: [],
                 });
