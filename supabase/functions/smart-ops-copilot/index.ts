@@ -1676,6 +1676,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_opportunity_rules: executeQueryOpportunityRules,
   query_sales_summary: executeQuerySalesSummary,
   query_product_mix: executeQueryProductMix,
+  query_proposal_items_sold: executeQueryProposalItemsSold,
   query_product_sales: executeQueryProductSales,
   query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
