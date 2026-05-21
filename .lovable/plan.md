@@ -1,53 +1,58 @@
-# GA4 não enxerga `/f/-formulario-exocad-ia`
+## Diagnóstico
 
-## Diagnóstico (não é falta de UTM)
+Testei com o deal `60023435` (Fabio Teixeira, criado 19:56Z hoje). O form Meta entregou rico `form_data` (`produto_interesse=BLZ Ino200`, `tem_impressora=não`, `tem_scanner=não`, `area_atuacao=Clínica ou Consultório`, `como_digitaliza=Ainda não digitalizo`), mas:
 
-UTM não é requisito para o GA4 registrar a visita — UTM só classifica *de onde veio* o tráfego. O motivo real de você não ver o formulário é uma combinação destes pontos:
+- **Card da Pessoa no PipeRun**: ficou com **0 custom fields**. Log confirma: `Creating person: Fabio Teixeira | origin="BLZ- Smart Dent" | 0 custom fields`.
+- **Card do Deal no PipeRun**: o `lia-assign` ENVIA 6 CFs (`Enriching new deal 60023435 with 6 custom fields` → `PUT: true (200)`), mas a coluna espelho `lia_attendances.piperun_custom_fields` está `[]`, ou seja, não temos auditoria local do que foi para o CRM.
 
-1. **A tag GA4 ainda não está em produção.** `G-1411Z6YVPY` foi adicionado no `index.html` na iteração anterior, mas mudanças de frontend só vão pro ar com **Publish → Update**. Hoje, abrindo `parametros.smartdent.com.br` o script `gtag/js?id=G-1411Z6YVPY` **não está sendo carregado**.
-2. **Quando entrar no ar**, o `usePageTracking` dispara `gtag('event','page_view', { page_path, page_title, page_location })` em cada rota — porém **sem** repassar UTMs e sem `page_referrer`. Resultado: toda visita ao formulário aparece como **Direct / (none)** mesmo quando veio de Meta/Google Ads.
-3. O `usePageTracking` tem **debounce de 2s**; em Realtime do GA4 isso atrasa o card aparecer, mas não impede.
-4. Ad-blocker / Brave / extensões podem bloquear `googletagmanager.com` — testar em aba anônima limpa.
+### Causa raiz (3 bugs distintos)
 
-## Ações
+1. **Pessoa não recebe NENHUM custom field** — `smart-ops-lia-assign/index.ts` linhas 312–315 zeraram `personCustomFields` por uma rejeição 422 antiga (IDs 674001/674002). O array é hardcoded `[]`, então Área/Especialidade/Produto/WhatsApp nunca vão ao card da Pessoa. O `piperun-field-map.ts` (`buildPersonCustomFieldsHash`) existe e está validado, mas nunca é chamado no fluxo de criação.
 
-### 1. Publicar (você)
-Clicar **Publish → Update**. Validar:
-- DevTools → Network → filtrar `gtag/js?id=G-1411Z6YVPY` (deve aparecer 200).
-- GA4 → Admin → DebugView (com extensão *GA Debugger* ativa) → entrar em `/f/-formulario-exocad-ia` e ver `page_view` chegar.
-- GA4 → Realtime → ver a página listada em "Páginas e telas".
+2. **`updatePersonFields` também não envia CFs no fluxo principal** — após criar a Pessoa, o lia-assign atualiza nome/email/telefone/cargo (linha 2074 "Step 5b"), mas o payload de `custom_fields` está vazio pelo mesmo motivo. Confirmado nos logs: `Updating person 47146309: {...job_title...}` sem `custom_fields`.
 
-### 2. Enriquecer o `page_view` GA4 com UTM + referrer
-Em `src/hooks/usePageTracking.ts`, na chamada `gtag('event','page_view', …)`, passar também:
+3. **`createNewDeal` não persiste o snapshot local** — em `index.ts:715-766`, depois do PUT bem-sucedido com 6 CFs ao PipeRun, **falta** o `supabase.update({ piperun_custom_fields })` que existe no `updateExistingDeal` (linha 660). Resultado: o card do PipeRun fica certo, mas no nosso lado a coluna fica vazia — induz a achar que "não foi". Para deals atualizados (não criados) o snapshot é gravado normalmente.
+
+## Plano de correção
+
+### 1. Reabilitar custom fields na Pessoa (createPerson)
+Em `supabase/functions/smart-ops-lia-assign/index.ts` (linhas 311–317):
+
+- Remover o `personCustomFields = []` hardcoded.
+- Construir o array usando o resolver já existente (`buildPersonCustomFieldsHash` de `piperun-field-map.ts`), convertendo para o shape `[{ custom_field_id, value }]` que o `piperunPost(persons, ...)` espera (`{ custom_fields: [{id, value}] }`).
+- Mapear no mínimo: WhatsApp, Área de Atuação, Especialidade, Produto de Interesse, Tem Scanner, Tem Impressora, País.
+- Manter o fallback de 422 (linhas 328–339) que já remove `custom_fields` e reenvia — isso protege caso algum ID volte a quebrar; o deal continua sendo o ground-truth.
+
+### 2. Enviar custom fields na atualização da Pessoa
+No "Step 5b" (`index.ts` ~linha 2074, dentro de `updatePersonFields`):
+- Adicionar `custom_fields` derivados dos mesmos campos do passo 1 ao payload do PUT `/persons/{id}`. Isso garante que pessoas pré-existentes (cenário comum) também recebam os dados do form.
+
+### 3. Persistir snapshot `piperun_custom_fields` quando deal é CRIADO
+Em `createNewDeal` (`index.ts` ~linha 757, logo após o `enrichRes` retornar success):
+
 ```ts
-gtag('event','page_view', {
-  page_path: path,
-  page_title: document.title,
-  page_location: window.location.href,
-  page_referrer: document.referrer || undefined,
-  campaign_source: utms.utm_source || undefined,
-  campaign_medium: utms.utm_medium || undefined,
-  campaign_name: utms.utm_campaign || undefined,
-  campaign_content: utms.utm_content || undefined,
-  campaign_term: utms.utm_term || undefined,
-});
+if (enrichRes.success && cfPayload.length > 0) {
+  await supabase
+    .from("lia_attendances")
+    .update({ piperun_custom_fields: customFields })
+    .eq("id", lead.id as string);
+}
 ```
-Isso resolve a atribuição: tráfego de campanhas com `?utm_source=meta&utm_medium=cpc&utm_campaign=exocad_ia` passa a aparecer em **Acquisition → Traffic acquisition** corretamente.
 
-### 3. Disparar `page_view` imediato no formulário (sem esperar 2s)
-Em `PublicFormPage.tsx`, logo após carregar o `form`, fazer um `gtag('event','page_view',{ page_path: location.pathname, form_slug: form.slug, form_name: form.name })` adicional. O debounce de 2s do hook continua para gravar `lead_page_views`, mas o GA4 recebe o hit na hora.
+Espelhando exatamente o bloco que já existe em `updateExistingDeal` linhas 660–668.
 
-### 4. (Opcional) Garantir que campanhas usem UTM na URL pública do formulário
-Padrão sugerido para anúncios apontando para `/f/-formulario-exocad-ia`:
-`?utm_source={ad_platform}&utm_medium=paid&utm_campaign={campaign_name}&utm_content={ad_id}`.
-Sem isso, GA4 atribui a "Direct" — não é bug, é falta de marcação na campanha.
+### 4. Validação pós-deploy
+- Reprocessar o lead `cdb36864-399e-4578-a546-f1980234f72a` (Fabio Teixeira / deal 60023435) chamando `smart-ops-lia-assign` manualmente.
+- Conferir no card PipeRun:
+  - Pessoa 47146309: Área, Especialidade, Produto, WhatsApp preenchidos.
+  - Deal 60023435: CFs já estão lá; confirmar que `lia_attendances.piperun_custom_fields` agora reflete o que foi enviado.
+- Acompanhar logs por 422 em `persons` — se aparecer, o fallback strip já cobre.
 
-## Fora de escopo
-- Conversion API server-side (Meta/GA4 Measurement Protocol).
-- Banner de consentimento LGPD.
-- Trocar de gtag direto para GTM-only (hoje convivem; ok).
+### Detalhes técnicos
+- Nenhuma alteração de schema. Tudo no edge function `smart-ops-lia-assign`.
+- O resolver de `form_data` (`mapAttendanceToDealCustomFields`) trata a race condition entre `dynamic-lead-ingestion` e `lia-assign`; reuso a mesma lógica de fallback `form_data → top-level` para a Pessoa, criando helper compartilhado.
+- Não muda regras de Commercial Intent Guard, origem da Pessoa congelada, nem o sanitizador embed-update — apenas o conteúdo do payload `custom_fields`.
 
-## Detalhe técnico
-- O `gtag('config', …, { send_page_view:false })` em `index.html` está **correto** para SPA: evita pageview duplicado, deixando o hook controlar.
-- O bloco de injeção de GA4 dentro de `PublicFormPage` checa `html.includes(tracking_ga4_id)` — como o default do form é o mesmo `G-1411Z6YVPY` global, ele **não** reinjeta (correto, sem duplicidade).
-- `lead_page_views` continua independente e já está rico em UTM/device — não muda nada nele.
+### Fora de escopo
+- Erros de schema cache `piperun_person_mismatch` em `sync-piperun` / `piperun-full-sync` (column missing) — são outro bug, não estão bloqueando o card; trato em chamada separada se quiser.
+- Bug PostgREST de `embed-update` (já mitigado pelo sanitizer).
