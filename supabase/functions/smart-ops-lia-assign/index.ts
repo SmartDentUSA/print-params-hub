@@ -25,6 +25,7 @@ import {
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
+  buildPersonFormCustomFields,
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
