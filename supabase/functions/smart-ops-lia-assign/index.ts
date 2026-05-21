@@ -25,6 +25,7 @@ import {
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
+  buildPersonFormCustomFields,
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
@@ -309,10 +310,20 @@ async function createPerson(
   }
 
   // Include Pessoa custom fields
-  // NOTE: Pessoa custom field IDs 674001/674002 are rejected by Piperun (422). Disabled.
-  // Area/Especialidade are persisted at the Deal level via mapAttendanceToDealCustomFields.
+  // Verified Pessoa CF IDs (belongs=Pessoas, validated 2026-05):
+  //   772727 Scanner formulário (text) · 772728 Impressora formulário (text)
+  //   673900 ÁREA DE ATUAÇÃO (enum)    · 445631 Especialidade principal (multi)
+  // Old IDs 674001/674002 (PESSOA_CUSTOM_FIELDS) are rejected by Piperun (422)
+  // and intentionally NOT used here. The 422-strip fallback below covers any
+  // future ID rejection so person creation never blocks.
   void areaAtuacao; void especialidade;
-  const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
+  const personFormCFs = buildPersonFormCustomFields(lead); // [{ id, value }]
+  const personCustomFields: Array<{ custom_field_id: number; value: string | string[] }> =
+    personFormCFs.map((f) => ({ custom_field_id: f.id, value: f.value }));
+  if (personCustomFields.length > 0) {
+    // PipeRun POST /persons accepts the same shape as deals: [{ id, value }]
+    personPayload.custom_fields = personFormCFs;
+  }
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
 
@@ -470,13 +481,25 @@ async function updatePersonFields(
   const observation = lead.pessoa_observation as string | null;
   if (observation) updatePayload.observation = observation;
 
-  // Pessoa custom field IDs 674001/674002 are rejected by Piperun. Persisted at Deal level only.
+  // Person custom fields (form data) — verified IDs 772727/772728/673900/445631.
+  // Same shape used on Deal: [{ id, value }]. Old IDs 674001/674002 are NOT used.
+  const personFormCFs = buildPersonFormCustomFields(lead);
+  if (personFormCFs.length > 0) {
+    updatePayload.custom_fields = personFormCFs;
+  }
 
   if (Object.keys(updatePayload).length === 0) return;
 
   console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
   const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
   console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  // If PUT failed and we sent custom_fields, retry once without them so
+  // identity (name/email/phone/job_title) still publishes.
+  if (!res.success && updatePayload.custom_fields) {
+    const { custom_fields: _cf, ...withoutCF } = updatePayload;
+    const retryCF = await piperunPut(apiToken, `persons/${personId}`, withoutCF);
+    console.log(`[lia-assign] Person ${personId} retry w/o custom_fields: ${retryCF.success} (${retryCF.status})`);
+  }
   // Fallback: if PUT failed (often due to ONE problematic field rejected by
   // Piperun), retry with the bare-minimum identity payload so the card at
   // least keeps email + phone visible.
@@ -756,6 +779,19 @@ async function createNewDeal(
         console.log(`[lia-assign] Enriching new deal ${dealId} with ${cfPayload.length} custom fields`);
         const enrichRes = await piperunPut(apiToken, `deals/${dealId}`, enrichPayload);
         console.log(`[lia-assign] New deal custom-field PUT: ${enrichRes.success} (${enrichRes.status})${!enrichRes.success ? " body=" + JSON.stringify(enrichRes.data).slice(0, 500) : ""}`);
+        // Persist successfully sent custom fields locally for audit / dedupe.
+        // Mirrors the snapshot block in updateExistingDeal so newly-created
+        // deals do not leave lia_attendances.piperun_custom_fields as [].
+        if (enrichRes.success && cfPayload.length > 0) {
+          try {
+            await supabase
+              .from("lia_attendances")
+              .update({ piperun_custom_fields: customFields })
+              .eq("id", lead.id as string);
+          } catch (e) {
+            console.warn("[lia-assign] Failed to persist piperun_custom_fields snapshot (new deal):", e);
+          }
+        }
       }
       // Add structured HTML note for PipeRun
       const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
