@@ -533,6 +533,61 @@ Deno.serve(async (req) => {
         delete (merged as Record<string, unknown>).email;
       }
 
+      // ── PLATFORM_LEAD_ID SYNC (Identity-Collision Fix) ──
+      // When a Meta/SellFlux retry brings a NEW leadgen_id that we absorbed into
+      // an existing canonical lead (phone-match scenario), we must propagate the
+      // newest platform_lead_id to the canonical row. Otherwise:
+      //   1. HARD_DEDUPE by platform_lead_id never fires for the new id.
+      //   2. Only the lead_activity_log path can catch it, and that path used
+      //      to short-circuit even when identity didn't match (ORPHAN bug).
+      // Strategy: overwrite platform_lead_id with the newest value, but archive
+      // the previous id(s) in raw_payload.previous_platform_lead_ids so we keep
+      // the full origin history and the HARD_DEDUPE check above can fall back
+      // to that archive.
+      const incomingPlatformLeadId = (incomingData as Record<string, unknown>).platform_lead_id;
+      if (
+        incomingPlatformLeadId &&
+        String(incomingPlatformLeadId) !== String(existingLead.platform_lead_id || "")
+      ) {
+        const previousIds = new Set<string>([
+          ...((existingLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []),
+        ]);
+        if (existingLead.platform_lead_id) {
+          previousIds.add(String(existingLead.platform_lead_id));
+        }
+        (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        merged.raw_payload = {
+          ...(existingLead.raw_payload || {}),
+          ...(merged.raw_payload || {}),
+          previous_platform_lead_ids: Array.from(previousIds),
+        };
+        if (incomingEmailDiffersFromCanonical) {
+          console.warn(
+            `[ingest-lead] IDENTITY_COLLISION: canonical lead ${existingLead.id} (email=${existingLead.email}) ` +
+            `absorbed payload with different email (${email}) and new platform_lead_id ${incomingPlatformLeadId}. ` +
+            `Old platform_lead_id ${existingLead.platform_lead_id || "n/a"} archived.`,
+          );
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "warning",
+              event_type: "identity_collision_absorbed",
+              lead_email: email,
+              details: {
+                canonical_lead_id: existingLead.id,
+                canonical_email: existingLead.email,
+                incoming_email: email,
+                matched_via: matchedVia,
+                new_platform_lead_id: String(incomingPlatformLeadId),
+                previous_platform_lead_id: existingLead.platform_lead_id || null,
+                form_name: formName,
+                source,
+              },
+            });
+          } catch {}
+        }
+      }
+
       if (fieldsSkipped.length > 0) {
         console.log("[ingest-lead] Fields skipped (already filled):", fieldsSkipped.slice(0, 15));
       }
