@@ -113,20 +113,71 @@ Deno.serve(async (req) => {
           .order("event_timestamp", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (priorEvent) {
-          console.log(
-            `[ingest-lead] DUPLICATE_SKIPPED: leadgen_id=${dedupeId} already processed at ${priorEvent.event_timestamp} (lead ${priorEvent.lead_id})`,
+        if (priorEvent?.lead_id) {
+          // ── ORPHAN-EVENT GUARD ──
+          // Validate that the lead referenced by the prior activity event ACTUALLY
+          // represents this payload (same platform_lead_id OR same email OR same
+          // normalized phone). Otherwise the activity_log row is a ghost from a
+          // previous absorption (phone-match against a different email), and
+          // honouring it would lose every retry of the new lead forever.
+          const incomingEmail = String(payload.email || payload.user_email || "").toLowerCase().trim();
+          const incomingPhoneRaw = String(
+            payload.phone_number || payload.phone || payload.telefone || payload.celular || "",
           );
-          return new Response(
-            JSON.stringify({
-              success: true,
-              duplicate_skipped: true,
-              dedupe_id: String(dedupeId),
-              prior_event_at: priorEvent.event_timestamp,
-              lead_id: priorEvent.lead_id,
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          const incomingPhone = incomingPhoneRaw ? normalizePhone(incomingPhoneRaw) : null;
+          const { data: priorLeadRow } = await supabaseDedupe
+            .from("lia_attendances")
+            .select("id, email, telefone_normalized, platform_lead_id, raw_payload")
+            .eq("id", priorEvent.lead_id)
+            .maybeSingle();
+          const altIds: string[] = Array.isArray(
+            (priorLeadRow?.raw_payload as Record<string, unknown> | null)
+              ?.previous_platform_lead_ids,
+          )
+            ? ((priorLeadRow!.raw_payload as Record<string, unknown>).previous_platform_lead_ids as string[])
+            : [];
+          const identityMatches = !!priorLeadRow && (
+            String(priorLeadRow.platform_lead_id || "") === String(dedupeId) ||
+            altIds.includes(String(dedupeId)) ||
+            (incomingEmail && String(priorLeadRow.email || "").toLowerCase() === incomingEmail) ||
+            (incomingPhone && String(priorLeadRow.telefone_normalized || "") === incomingPhone)
           );
+          if (identityMatches) {
+            console.log(
+              `[ingest-lead] DUPLICATE_SKIPPED: leadgen_id=${dedupeId} already processed at ${priorEvent.event_timestamp} (lead ${priorEvent.lead_id})`,
+            );
+            return new Response(
+              JSON.stringify({
+                success: true,
+                duplicate_skipped: true,
+                dedupe_id: String(dedupeId),
+                prior_event_at: priorEvent.event_timestamp,
+                lead_id: priorEvent.lead_id,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          console.warn(
+            `[ingest-lead] IDENTITY_COLLISION_ORPHAN: activity_log entity_id=${dedupeId} points to lead ${priorEvent.lead_id} ` +
+            `(email=${priorLeadRow?.email ?? "n/a"}, platform_lead_id=${priorLeadRow?.platform_lead_id ?? "n/a"}) ` +
+            `but incoming payload (email=${incomingEmail || "n/a"}, phone=${incomingPhone || "n/a"}) does not match. ` +
+            `Proceeding with normal ingest.`,
+          );
+          try {
+            await supabaseDedupe.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "warning",
+              event_type: "identity_collision_orphan",
+              lead_email: incomingEmail || null,
+              details: {
+                dedupe_id: String(dedupeId),
+                prior_lead_id: priorEvent.lead_id,
+                prior_lead_email: priorLeadRow?.email ?? null,
+                prior_lead_platform_lead_id: priorLeadRow?.platform_lead_id ?? null,
+                incoming_phone: incomingPhone,
+              },
+            });
+          } catch {}
         }
       } catch (dedupeErr) {
         console.warn("[ingest-lead] dedupe check failed (non-blocking):", dedupeErr);
@@ -480,6 +531,61 @@ Deno.serve(async (req) => {
       // Never overwrite canonical email when matched via phone
       if (incomingEmailDiffersFromCanonical) {
         delete (merged as Record<string, unknown>).email;
+      }
+
+      // ── PLATFORM_LEAD_ID SYNC (Identity-Collision Fix) ──
+      // When a Meta/SellFlux retry brings a NEW leadgen_id that we absorbed into
+      // an existing canonical lead (phone-match scenario), we must propagate the
+      // newest platform_lead_id to the canonical row. Otherwise:
+      //   1. HARD_DEDUPE by platform_lead_id never fires for the new id.
+      //   2. Only the lead_activity_log path can catch it, and that path used
+      //      to short-circuit even when identity didn't match (ORPHAN bug).
+      // Strategy: overwrite platform_lead_id with the newest value, but archive
+      // the previous id(s) in raw_payload.previous_platform_lead_ids so we keep
+      // the full origin history and the HARD_DEDUPE check above can fall back
+      // to that archive.
+      const incomingPlatformLeadId = (incomingData as Record<string, unknown>).platform_lead_id;
+      if (
+        incomingPlatformLeadId &&
+        String(incomingPlatformLeadId) !== String(existingLead.platform_lead_id || "")
+      ) {
+        const previousIds = new Set<string>([
+          ...((existingLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []),
+        ]);
+        if (existingLead.platform_lead_id) {
+          previousIds.add(String(existingLead.platform_lead_id));
+        }
+        (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        merged.raw_payload = {
+          ...(existingLead.raw_payload || {}),
+          ...(merged.raw_payload || {}),
+          previous_platform_lead_ids: Array.from(previousIds),
+        };
+        if (incomingEmailDiffersFromCanonical) {
+          console.warn(
+            `[ingest-lead] IDENTITY_COLLISION: canonical lead ${existingLead.id} (email=${existingLead.email}) ` +
+            `absorbed payload with different email (${email}) and new platform_lead_id ${incomingPlatformLeadId}. ` +
+            `Old platform_lead_id ${existingLead.platform_lead_id || "n/a"} archived.`,
+          );
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "warning",
+              event_type: "identity_collision_absorbed",
+              lead_email: email,
+              details: {
+                canonical_lead_id: existingLead.id,
+                canonical_email: existingLead.email,
+                incoming_email: email,
+                matched_via: matchedVia,
+                new_platform_lead_id: String(incomingPlatformLeadId),
+                previous_platform_lead_id: existingLead.platform_lead_id || null,
+                form_name: formName,
+                source,
+              },
+            });
+          } catch {}
+        }
       }
 
       if (fieldsSkipped.length > 0) {
