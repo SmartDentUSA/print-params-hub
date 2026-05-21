@@ -108,11 +108,12 @@ Deno.serve(async (req) => {
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
-        // ─── FAMILY-KEY DEDUPE (Meta) ───
-        // Even when the leadgen_id is brand-new, if the SAME platform_form_id
-        // + email + phone already produced a lead in the last 24h, the Meta
-        // pull cron is re-emitting the same submission with a fresh id. Treat
-        // as duplicate and only archive the new id on the canonical lead.
+        // ─── FAMILY-KEY DEDUPE (Meta) — LIFETIME ───
+        // Business rule: a Meta Lead Ads respondent NEVER answers the same
+        // (platform_form_id + identity) combination more than once. Any
+        // re-delivery from Meta's pull cron with the same form_id + email/phone
+        // is a duplicate forever — no time window. Archive the new leadgen_id
+        // on the canonical lead and skip ingestion entirely.
         if (payload.source === "meta_lead_ads") {
           const famEmail = String(payload.email || "").toLowerCase().trim();
           const famPhoneRaw = String(payload.phone_number || payload.phone || payload.telefone || "");
@@ -129,7 +130,6 @@ Deno.serve(async (req) => {
               .eq("platform_form_id", String(famFormId))
               .or(identityFilter)
               .is("merged_into", null)
-              .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
               .order("created_at", { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -155,15 +155,29 @@ Deno.serve(async (req) => {
               } catch (e) {
                 console.warn("[ingest-lead] family-archive write failed:", e);
               }
+              try {
+                await supabaseDedupe.from("system_health_logs").insert({
+                  function_name: "smart-ops-ingest-lead",
+                  severity: "info",
+                  event_type: "meta_family_dedupe_lifetime",
+                  lead_email: famEmail || null,
+                  details: {
+                    form_id: String(famFormId),
+                    phone: famPhone,
+                    new_leadgen_id: String(dedupeId),
+                    canonical_lead_id: famLead.id,
+                  },
+                });
+              } catch {}
               console.log(
-                `[ingest-lead] FAMILY_DEDUPE_SKIPPED: form_id=${famFormId} email=${famEmail} phone=${famPhone} → lead ${famLead.id} (new leadgen_id ${dedupeId} archived)`,
+                `[ingest-lead] FAMILY_DEDUPE_LIFETIME_SKIPPED: form_id=${famFormId} email=${famEmail} phone=${famPhone} → lead ${famLead.id} (new leadgen_id ${dedupeId} archived)`,
               );
               return new Response(
                 JSON.stringify({
                   success: true,
                   duplicate_skipped: true,
                   dedupe_id: String(dedupeId),
-                  dedupe_via: "family_key",
+                  dedupe_via: "family_key_lifetime",
                   lead_id: famLead.id,
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
