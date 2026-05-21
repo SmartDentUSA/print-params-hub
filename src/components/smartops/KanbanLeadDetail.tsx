@@ -8,6 +8,8 @@ import { ChevronDown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
+import { useEquipmentProvenance, type ProvenanceEntry } from "@/hooks/useEquipmentProvenance";
+import { resolveLeadDisplayName } from "@/utils/leadDisplay";
 
 function formatCurrency(val: number): string {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -67,18 +69,53 @@ function TrackingRow({ label, value, emoji }: { label: string; value: string | n
   );
 }
 
-function EquipRow({ emoji, label, name, serial, date }: { emoji: string; label: string; name: string | null; serial: string | null; date: string | null }) {
+function ProvenanceBadge({ p }: { p?: ProvenanceEntry }) {
+  if (!p) {
+    return <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-400/50 text-amber-600">origem desconhecida</Badge>;
+  }
+  if (p.kind === "venda") {
+    return (
+      <Badge className="text-[9px] px-1 py-0 bg-green-100 text-green-800 hover:bg-green-100" title={`Detectado em ${p.source ?? ""}`}>
+        Smart Dent (venda)
+      </Badge>
+    );
+  }
+  if (p.kind === "declarado") {
+    const tip = p.formName ? `Declarado em "${p.formName}"` : `Declarado pelo lead (${p.source ?? "form"})`;
+    return (
+      <Badge variant="secondary" className="text-[9px] px-1 py-0" title={tip}>
+        declarado pelo lead
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-400/50 text-amber-600" title={p.source ?? undefined}>
+      origem desconhecida
+    </Badge>
+  );
+}
+
+function EquipRow({ emoji, label, name, serial, date, provenance }: { emoji: string; label: string; name: string | null; serial: string | null; date: string | null; provenance?: ProvenanceEntry }) {
   if (!name) return null;
   return (
     <div className="text-xs py-1 space-y-0.5">
       <div className="flex justify-between">
         <span className="text-muted-foreground">{emoji} {label}</span>
-        <span className="font-medium text-right max-w-[60%] truncate">{name}</span>
+        <span className="font-medium text-right max-w-[60%] truncate flex items-center gap-1 justify-end">
+          <ProvenanceBadge p={provenance} />
+          <span className="truncate">{name}</span>
+        </span>
       </div>
       <div className="flex gap-3 pl-5 text-[10px] text-muted-foreground">
         <span>Nº Série: {serial || "—"}</span>
         <span>Ativação: {date ? fmtDate(date) : "—"}</span>
       </div>
+      {provenance?.formName && provenance.kind === "declarado" && (
+        <div className="pl-5 text-[10px] text-muted-foreground italic">
+          Declarado em "{provenance.formName}"
+          {provenance.timestamp ? ` em ${fmtDate(provenance.timestamp)}` : ""}
+        </div>
+      )}
     </div>
   );
 }
@@ -397,6 +434,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const { provenance } = useEquipmentProvenance(open ? lead?.id : null);
 
   const handleSyncPipeRun = async () => {
     if (!lead?.id || syncing) return;
@@ -509,7 +547,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
         <SheetHeader>
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+            <SheetTitle className="text-lg">{resolveLeadDisplayName(lead as unknown as Record<string, unknown>)}</SheetTitle>
             <Button
               variant="ghost"
               size="icon"
@@ -676,10 +714,34 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           <Section title="Perfil" emoji="🧑‍⚕️">
             <DetailRow label="Área" value={lead.area_atuacao} />
             <DetailRow label="Especialidade" value={lead.especialidade} />
-            <DetailRow label="Impressora" value={lead.tem_impressora === "não" ? null : (lead.impressora_modelo || lead.tem_impressora)} emoji="🖨️" />
-            <DetailRow label="Scanner" value={lead.tem_scanner === "não" ? null : lead.tem_scanner} emoji="📷" />
+            {(lead.tem_impressora !== "não" && (lead.impressora_modelo || lead.tem_impressora)) && (
+              <div className="flex justify-between text-sm py-1 items-center gap-2">
+                <span className="text-muted-foreground">🖨️ Impressora</span>
+                <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1 justify-end">
+                  <ProvenanceBadge p={provenance.impressora_modelo ?? provenance.equip_impressora} />
+                  <span>{String(lead.impressora_modelo || lead.tem_impressora)}</span>
+                </span>
+              </div>
+            )}
+            {(lead.tem_scanner !== "não" && lead.tem_scanner) && (
+              <div className="flex justify-between text-sm py-1 items-center gap-2">
+                <span className="text-muted-foreground">📷 Scanner</span>
+                <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1 justify-end">
+                  <ProvenanceBadge p={provenance.equip_scanner} />
+                  <span>{String(lead.tem_scanner)}</span>
+                </span>
+              </div>
+            )}
             <DetailRow label="Digitalização" value={lead.como_digitaliza} emoji="🔍" />
-            <DetailRow label="Software CAD" value={lead.software_cad} emoji="💻" />
+            {lead.software_cad && (
+              <div className="flex justify-between text-sm py-1 items-center gap-2">
+                <span className="text-muted-foreground">💻 Software CAD</span>
+                <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1 justify-end">
+                  <ProvenanceBadge p={provenance.software_cad ?? provenance.equip_cad} />
+                  <span>{String(lead.software_cad)}</span>
+                </span>
+              </div>
+            )}
             <DetailRow label="Vol. Mensal" value={lead.volume_mensal_pecas} emoji="📦" />
             <DetailRow label="Aplicação" value={lead.principal_aplicacao} />
             <DetailRow label="Resina" value={lead.resina_interesse} emoji="🧪" />
@@ -898,11 +960,11 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           {(lead.equip_scanner || lead.equip_impressora || lead.equip_cad || lead.equip_pos_impressao || lead.equip_notebook || lead.insumos_adquiridos) && (
             <>
               <Section title="Equipamentos & Técnico" emoji="⚙️" defaultOpen>
-                <EquipRow emoji="📷" label="Scanner" name={lead.equip_scanner} serial={lead.equip_scanner_serial} date={lead.equip_scanner_ativacao} />
-                <EquipRow emoji="🖨️" label="Impressora" name={lead.equip_impressora} serial={lead.equip_impressora_serial} date={lead.equip_impressora_ativacao} />
-                <EquipRow emoji="💻" label="CAD" name={lead.equip_cad} serial={lead.equip_cad_serial} date={lead.equip_cad_ativacao} />
-                <EquipRow emoji="♨️" label="Pós-Impressão" name={lead.equip_pos_impressao} serial={lead.equip_pos_impressao_serial} date={lead.equip_pos_impressao_ativacao} />
-                <EquipRow emoji="💻" label="Notebook" name={lead.equip_notebook} serial={lead.equip_notebook_serial} date={lead.equip_notebook_ativacao} />
+                <EquipRow emoji="📷" label="Scanner" name={lead.equip_scanner} serial={lead.equip_scanner_serial} date={lead.equip_scanner_ativacao} provenance={provenance.equip_scanner} />
+                <EquipRow emoji="🖨️" label="Impressora" name={lead.equip_impressora} serial={lead.equip_impressora_serial} date={lead.equip_impressora_ativacao} provenance={provenance.equip_impressora ?? provenance.impressora_modelo} />
+                <EquipRow emoji="💻" label="CAD" name={lead.equip_cad} serial={lead.equip_cad_serial} date={lead.equip_cad_ativacao} provenance={provenance.equip_cad ?? provenance.software_cad} />
+                <EquipRow emoji="♨️" label="Pós-Impressão" name={lead.equip_pos_impressao} serial={lead.equip_pos_impressao_serial} date={lead.equip_pos_impressao_ativacao} provenance={provenance.equip_pos_impressao} />
+                <EquipRow emoji="💻" label="Notebook" name={lead.equip_notebook} serial={lead.equip_notebook_serial} date={lead.equip_notebook_ativacao} provenance={provenance.equip_notebook} />
                 {lead.insumos_adquiridos && (
                   <DetailRow label="Insumos" value={lead.insumos_adquiridos} emoji="🧪" />
                 )}

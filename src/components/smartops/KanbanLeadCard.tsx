@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
 
 export interface ParsedProposalItem {
   name: string;
@@ -100,6 +101,9 @@ interface KanbanLeadCardProps {
 
 export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, onClick }: KanbanLeadCardProps) {
   const isStale = Date.now() - new Date(lead.created_at).getTime() > 15 * 60 * 1000;
+  const displayName = resolveLeadDisplayName(lead as unknown as Record<string, unknown>);
+  const displayEmail = cleanLeadEmail(lead.email);
+  const displayPhone = cleanLeadPhone(lead.telefone_normalized);
 
   return (
     <Card
@@ -111,9 +115,9 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
       <CardContent className="p-2 space-y-0.5">
         <div className="flex items-center justify-between gap-1">
           {lead.piperun_link ? (
-            <a href={lead.piperun_link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-medium text-[11px] truncate text-primary hover:underline">{lead.nome}</a>
+            <a href={lead.piperun_link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-medium text-[11px] truncate text-primary hover:underline" title={displayName}>{displayName}</a>
           ) : (
-            <span className="font-medium text-[11px] truncate">{lead.nome}</span>
+            <span className="font-medium text-[11px] truncate" title={displayName}>{displayName}</span>
           )}
           <div className="flex items-center gap-0.5 shrink-0">
             {lead.lead_status === "sem_contato" && isStale && (
@@ -129,10 +133,10 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             )}
           </div>
         </div>
-        <div className="text-[10px] text-muted-foreground truncate">{lead.email}</div>
-        {lead.telefone_normalized && (
+        <div className="text-[10px] text-muted-foreground truncate">{displayEmail ?? "—"}</div>
+        {displayPhone && (
           <div className="text-[10px] text-muted-foreground truncate">
-            📱 {lead.telefone_normalized}
+            📱 {displayPhone}
           </div>
         )}
         {(lead.cidade || lead.uf) && (
