@@ -779,6 +779,19 @@ async function createNewDeal(
         console.log(`[lia-assign] Enriching new deal ${dealId} with ${cfPayload.length} custom fields`);
         const enrichRes = await piperunPut(apiToken, `deals/${dealId}`, enrichPayload);
         console.log(`[lia-assign] New deal custom-field PUT: ${enrichRes.success} (${enrichRes.status})${!enrichRes.success ? " body=" + JSON.stringify(enrichRes.data).slice(0, 500) : ""}`);
+        // Persist successfully sent custom fields locally for audit / dedupe.
+        // Mirrors the snapshot block in updateExistingDeal so newly-created
+        // deals do not leave lia_attendances.piperun_custom_fields as [].
+        if (enrichRes.success && cfPayload.length > 0) {
+          try {
+            await supabase
+              .from("lia_attendances")
+              .update({ piperun_custom_fields: customFields })
+              .eq("id", lead.id as string);
+          } catch (e) {
+            console.warn("[lia-assign] Failed to persist piperun_custom_fields snapshot (new deal):", e);
+          }
+        }
       }
       // Add structured HTML note for PipeRun
       const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
