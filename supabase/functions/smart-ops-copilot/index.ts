@@ -1420,6 +1420,31 @@ async function executeQueryProductMix(args: any) {
   }
 }
 
+async function executeQueryProposalItemsSold(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { periodo: `${mes}/${ano}`, itens: [], aviso: "Nenhum item de proposta ganha no período. NÃO invente produtos." };
+    }
+    const qtdGeral = data.reduce((s: number, r: any) => s + Number(r.qtd_total || 0), 0);
+    const receitaGeral = data.reduce((s: number, r: any) => s + Number(r.receita_total || 0), 0);
+    return {
+      periodo: `${mes}/${ano}`,
+      fonte: "Propostas ganhas no PipeRun (deals.status=ganha)",
+      total_produtos_distintos: data.length,
+      qtd_total_itens: qtdGeral,
+      receita_total_itens: Number(receitaGeral.toFixed(2)),
+      itens: data
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeGenerateCommercialReport(args: any) {
   try {
     const now = new Date();
@@ -1435,11 +1460,12 @@ async function executeGenerateCommercialReport(args: any) {
     const inicioMes = new Date(ano, mes - 1, 1).toISOString();
     const fimMes = new Date(ano, mes, 1).toISOString();
 
-    const [totalsCur, totalsPrev, ranking, mixProd, leadsNovos, pipelineRes] = await Promise.all([
+    const [totalsCur, totalsPrev, ranking, mixProd, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
       supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_total_vendas_mes", { p_ano: anoPrev, p_mes: mesPrev }),
       supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes }),
+      supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes }),
       supabase.from("lia_attendances")
         .select("id", { count: "exact", head: true })
         .is("merged_into", null)
@@ -1470,12 +1496,14 @@ async function executeGenerateCommercialReport(args: any) {
       delta_mom: delta,
       ranking_vendedores: ranking.data || [],
       mix_produtos: mixProd.data || [],
+      itens_propostas_ganhas: itensPropostas.data || [],
       pipeline: pipelineRes.data?.funil || null,
       pipeline_total_value: pipelineRes.data?.summary?.total_pipeline_atual_value || null,
       leads_novos_mes: leadsNovos.count ?? 0,
       avisos: {
         sem_vendas: !tCur || Number(tCur.total_deals || 0) === 0,
         sem_mix: !(mixProd.data && mixProd.data.length > 0),
+        sem_itens_propostas: !(itensPropostas.data && itensPropostas.data.length > 0),
         sem_pipeline: !pipelineRes.data
       },
       instrucao_render: "Renderize EXATAMENTE com os valores deste payload. NUNCA invente números, percentuais, produtos, vendedores ou deltas. Use o template oficial do relatório."
