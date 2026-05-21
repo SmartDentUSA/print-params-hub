@@ -580,6 +580,21 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_commercial_report",
+      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, mix de produtos (Omie), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie query_sales_summary + query_product_mix manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
