@@ -77,14 +77,18 @@ Deno.serve(async (req) => {
       try {
         const supabaseDedupe = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
         // ─── HARD-DEDUPE: by dedicated column platform_lead_id ───
-        // If we already persisted this Meta leadgen_id on a lead, the cron is
-        // re-delivering the same lead. Short-circuit immediately, regardless
-        // of when the original event was logged. This prevents the
-        // "Person criada repetidamente a cada cron do meta" loop.
+        // If we already persisted this Meta leadgen_id on a lead — either as
+        // the current platform_lead_id OR archived in
+        // raw_payload.previous_platform_lead_ids — the cron is re-delivering
+        // the same lead. Short-circuit immediately. Checking the archive
+        // closes the X↔Y alternation loop where two leadgen_ids ping-pong
+        // and keep overwriting platform_lead_id forever.
         const { data: priorLead } = await supabaseDedupe
           .from("lia_attendances")
           .select("id, pessoa_piperun_id, piperun_id, merged_into")
-          .eq("platform_lead_id", String(dedupeId))
+          .or(
+            `platform_lead_id.eq.${String(dedupeId)},raw_payload->previous_platform_lead_ids.cs.["${String(dedupeId)}"]`,
+          )
           .is("merged_into", null)
           .order("created_at", { ascending: true })
           .limit(1)
@@ -98,11 +102,74 @@ Deno.serve(async (req) => {
               success: true,
               duplicate_skipped: true,
               dedupe_id: String(dedupeId),
-              dedupe_via: "platform_lead_id_column",
+              dedupe_via: "platform_lead_id_or_archive",
               lead_id: priorLead.id,
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
+        }
+        // ─── FAMILY-KEY DEDUPE (Meta) ───
+        // Even when the leadgen_id is brand-new, if the SAME platform_form_id
+        // + email + phone already produced a lead in the last 24h, the Meta
+        // pull cron is re-emitting the same submission with a fresh id. Treat
+        // as duplicate and only archive the new id on the canonical lead.
+        if (payload.source === "meta_lead_ads") {
+          const famEmail = String(payload.email || "").toLowerCase().trim();
+          const famPhoneRaw = String(payload.phone_number || payload.phone || payload.telefone || "");
+          const famPhone = famPhoneRaw ? normalizePhone(famPhoneRaw) : null;
+          const famFormId = payload.platform_form_id || payload.meta_form_id || null;
+          if (famFormId && (famEmail || famPhone)) {
+            const identityFilter = [
+              famEmail ? `email.eq.${famEmail}` : null,
+              famPhone ? `telefone_normalized.eq.${famPhone}` : null,
+            ].filter(Boolean).join(",");
+            const { data: famLead } = await supabaseDedupe
+              .from("lia_attendances")
+              .select("id, platform_lead_id, raw_payload, created_at")
+              .eq("platform_form_id", String(famFormId))
+              .or(identityFilter)
+              .is("merged_into", null)
+              .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (famLead) {
+              // Archive the new leadgen_id so future HARD_DEDUPE catches it.
+              try {
+                const archive = new Set<string>([
+                  ...((famLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []),
+                  String(dedupeId),
+                ]);
+                if (famLead.platform_lead_id && famLead.platform_lead_id !== String(dedupeId)) {
+                  archive.add(String(famLead.platform_lead_id));
+                }
+                await supabaseDedupe
+                  .from("lia_attendances")
+                  .update({
+                    raw_payload: {
+                      ...(famLead.raw_payload || {}),
+                      previous_platform_lead_ids: Array.from(archive),
+                    },
+                  })
+                  .eq("id", famLead.id);
+              } catch (e) {
+                console.warn("[ingest-lead] family-archive write failed:", e);
+              }
+              console.log(
+                `[ingest-lead] FAMILY_DEDUPE_SKIPPED: form_id=${famFormId} email=${famEmail} phone=${famPhone} → lead ${famLead.id} (new leadgen_id ${dedupeId} archived)`,
+              );
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  duplicate_skipped: true,
+                  dedupe_id: String(dedupeId),
+                  dedupe_via: "family_key",
+                  lead_id: famLead.id,
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+          }
         }
         const { data: priorEvent } = await supabaseDedupe
           .from("lead_activity_log")
@@ -552,10 +619,22 @@ Deno.serve(async (req) => {
         const previousIds = new Set<string>([
           ...((existingLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []),
         ]);
+        // If the "new" id is already archived, this is the X↔Y ping-pong:
+        // do NOT overwrite the current platform_lead_id (which would just
+        // start the cycle over). Only ensure both ids are archived so the
+        // HARD_DEDUPE catches every future re-delivery.
+        const incomingAlreadyKnown =
+          previousIds.has(String(incomingPlatformLeadId)) ||
+          String(incomingPlatformLeadId) === String(existingLead.platform_lead_id || "");
         if (existingLead.platform_lead_id) {
           previousIds.add(String(existingLead.platform_lead_id));
         }
-        (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        previousIds.add(String(incomingPlatformLeadId));
+        if (!incomingAlreadyKnown) {
+          (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        } else {
+          delete (merged as Record<string, unknown>).platform_lead_id;
+        }
         merged.raw_payload = {
           ...(existingLead.raw_payload || {}),
           ...(merged.raw_payload || {}),
@@ -925,11 +1004,33 @@ Deno.serve(async (req) => {
       : formName ? "form_submission"
       : "lead_ingested";
 
-    await supabase.from("lead_activity_log").insert({
+    // ─── REDELIVERY GUARD ───
+    // For Meta re-pulls, do NOT spam lead_activity_log with the same
+    // (lead_id, entity_id) pair. One canonical event per leadgen_id per lead.
+    const entityIdForLog = payload.meta_leadgen_id || formName || source;
+    let skipActivityInsert = false;
+    if (source === "meta_lead_ads" && entityIdForLog) {
+      const { data: priorActivity } = await supabase
+        .from("lead_activity_log")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("entity_id", String(entityIdForLog))
+        .in("event_type", ["meta_ads_lead_entry", "form_submission"])
+        .limit(1)
+        .maybeSingle();
+      if (priorActivity) {
+        skipActivityInsert = true;
+        console.log(
+          `[ingest-lead] REDELIVERY_GUARD: skipping activity log for leadgen_id=${entityIdForLog} on lead ${leadId}`,
+        );
+      }
+    }
+
+    if (!skipActivityInsert) await supabase.from("lead_activity_log").insert({
       lead_id: leadId,
       event_type: timelineEventType,
       entity_type: source === "meta_lead_ads" ? "meta_ads" : source === "loja_integrada" ? "ecommerce" : "form",
-      entity_id: payload.meta_leadgen_id || formName || source,
+      entity_id: entityIdForLog,
       entity_name: sourceLabel,
       event_data: {
         label: sourceLabel,
