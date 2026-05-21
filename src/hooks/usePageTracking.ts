@@ -116,6 +116,12 @@ export function usePageTracking() {
             page_path: path,
             page_title: document.title,
             page_location: window.location.href,
+            page_referrer: document.referrer || undefined,
+            campaign_source: utms.utm_source || undefined,
+            campaign_medium: utms.utm_medium || undefined,
+            campaign_name: utms.utm_campaign || undefined,
+            campaign_content: utms.utm_content || undefined,
+            campaign_term: utms.utm_term || undefined,
           });
         }
       } catch {}
