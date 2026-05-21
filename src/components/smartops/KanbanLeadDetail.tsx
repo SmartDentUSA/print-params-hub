@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
 import { useEquipmentProvenance, type ProvenanceEntry, type EquipmentField } from "@/hooks/useEquipmentProvenance";
+import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
 
 function formatCurrency(val: number): string {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -546,7 +547,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
         <SheetHeader>
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+            <SheetTitle className="text-lg">{resolveLeadDisplayName(lead as unknown as Record<string, unknown>)}</SheetTitle>
             <Button
               variant="ghost"
               size="icon"
