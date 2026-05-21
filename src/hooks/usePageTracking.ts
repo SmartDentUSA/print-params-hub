@@ -94,13 +94,19 @@ export function usePageTracking() {
       const utms = getUtmParams();
       const pageType = detectPageType(path);
 
+      // Wait one frame so react-helmet-async can flush document.title before we
+      // report it to GA4. Without this delay, GA4 records the static index.html
+      // title for every SPA route.
+      const fire = () => {
+      const pageTitle = document.title;
+
       // GTM dataLayer
       try {
         if ((window as any).dataLayer) {
           (window as any).dataLayer.push({
             event: 'page_view',
             page_path: path,
-            page_title: document.title,
+            page_title: pageTitle,
             page_type: pageType,
             page_location: window.location.href,
             session_id: sessionId,
@@ -115,7 +121,7 @@ export function usePageTracking() {
         if (typeof gtag === 'function') {
           gtag('event', 'page_view', {
             page_path: path,
-            page_title: document.title,
+            page_title: pageTitle,
             page_location: window.location.href,
             page_referrer: document.referrer || undefined,
             page_type: pageType,
@@ -139,6 +145,9 @@ export function usePageTracking() {
         const ttq = (window as any).ttq;
         if (ttq && typeof ttq.page === 'function') ttq.page();
       } catch {}
+      };
+      // 250ms gives Helmet time to flush title for knowledge articles, products, etc.
+      setTimeout(fire, 250);
     }
 
     // Debounced supabase insert (avoids double-inserts on rapid nav)
