@@ -1004,11 +1004,33 @@ Deno.serve(async (req) => {
       : formName ? "form_submission"
       : "lead_ingested";
 
-    await supabase.from("lead_activity_log").insert({
+    // ─── REDELIVERY GUARD ───
+    // For Meta re-pulls, do NOT spam lead_activity_log with the same
+    // (lead_id, entity_id) pair. One canonical event per leadgen_id per lead.
+    const entityIdForLog = payload.meta_leadgen_id || formName || source;
+    let skipActivityInsert = false;
+    if (source === "meta_lead_ads" && entityIdForLog) {
+      const { data: priorActivity } = await supabase
+        .from("lead_activity_log")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("entity_id", String(entityIdForLog))
+        .in("event_type", ["meta_ads_lead_entry", "form_submission"])
+        .limit(1)
+        .maybeSingle();
+      if (priorActivity) {
+        skipActivityInsert = true;
+        console.log(
+          `[ingest-lead] REDELIVERY_GUARD: skipping activity log for leadgen_id=${entityIdForLog} on lead ${leadId}`,
+        );
+      }
+    }
+
+    if (!skipActivityInsert) await supabase.from("lead_activity_log").insert({
       lead_id: leadId,
       event_type: timelineEventType,
       entity_type: source === "meta_lead_ads" ? "meta_ads" : source === "loja_integrada" ? "ecommerce" : "form",
-      entity_id: payload.meta_leadgen_id || formName || source,
+      entity_id: entityIdForLog,
       entity_name: sourceLabel,
       event_data: {
         label: sourceLabel,
