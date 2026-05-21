@@ -10216,6 +10216,7 @@ export type Database = {
           gap_valor: number | null
           id: string
           lead_id: string | null
+          nf_direcao: string | null
           numero_nf: string | null
           omie_nf_id: number | null
           omie_pedido_id: number | null
@@ -10249,6 +10250,7 @@ export type Database = {
           gap_valor?: number | null
           id?: string
           lead_id?: string | null
+          nf_direcao?: string | null
           numero_nf?: string | null
           omie_nf_id?: number | null
           omie_pedido_id?: number | null
@@ -10282,6 +10284,7 @@ export type Database = {
           gap_valor?: number | null
           id?: string
           lead_id?: string | null
+          nf_direcao?: string | null
           numero_nf?: string | null
           omie_nf_id?: number | null
           omie_pedido_id?: number | null
@@ -21783,6 +21786,7 @@ export type Database = {
         Args: { p_category: string; p_product: string }
         Returns: string
       }
+      fn_classify_nf_direcao: { Args: { p_nf_id: string }; Returns: string }
       fn_close_reactivation_on_deal_won: {
         Args: { p_lead_id: string }
         Returns: undefined
