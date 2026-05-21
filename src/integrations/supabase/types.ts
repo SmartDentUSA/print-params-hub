@@ -21898,6 +21898,16 @@ export type Database = {
           novos: number
         }[]
       }
+      fn_itens_propostas_ganhas_mes: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          n_deals: number
+          produto: string
+          qtd_total: number
+          receita_total: number
+          ticket_medio: number
+        }[]
+      }
       fn_link_page_views_to_lead: {
         Args: { p_lead_id: string; p_session_id: string }
         Returns: number

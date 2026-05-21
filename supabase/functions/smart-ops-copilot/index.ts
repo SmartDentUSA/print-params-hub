@@ -516,7 +516,22 @@ const tools = [
     type: "function",
     function: {
       name: "query_product_mix",
-      description: "Retorna o MIX REAL de produtos vendidos no mês via fn_mix_produtos_mes (Omie ERP — fonte oficial). Lista produtos com quantidade, receita, ticket médio e categoria. USE SEMPRE para perguntas como 'quais produtos foram vendidos', 'top produtos do mês', 'mix de vendas', 'produtos mais vendidos'. NUNCA invente nomes de produtos — se a função retornar vazio, diga que não há dados.",
+      description: "Retorna o MIX de produtos FATURADOS no Omie ERP no mês (notas fiscais). Use APENAS quando o usuário pedir explicitamente 'faturamento Omie', 'NF', 'nota fiscal'. Para 'itens vendidos / quantidade vendida / mix de vendas / top produtos do mês' use `query_proposal_items_sold` (propostas ganhas no PipeRun — fonte de verdade comercial).",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_proposal_items_sold",
+      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial de itens vendidos — preferir sobre query_product_mix (Omie/NF).",
       parameters: {
         type: "object",
         properties: {
@@ -1405,6 +1420,31 @@ async function executeQueryProductMix(args: any) {
   }
 }
 
+async function executeQueryProposalItemsSold(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) {
+      return { periodo: `${mes}/${ano}`, itens: [], aviso: "Nenhum item de proposta ganha no período. NÃO invente produtos." };
+    }
+    const qtdGeral = data.reduce((s: number, r: any) => s + Number(r.qtd_total || 0), 0);
+    const receitaGeral = data.reduce((s: number, r: any) => s + Number(r.receita_total || 0), 0);
+    return {
+      periodo: `${mes}/${ano}`,
+      fonte: "Propostas ganhas no PipeRun (deals.status=ganha)",
+      total_produtos_distintos: data.length,
+      qtd_total_itens: qtdGeral,
+      receita_total_itens: Number(receitaGeral.toFixed(2)),
+      itens: data
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeGenerateCommercialReport(args: any) {
   try {
     const now = new Date();
@@ -1420,11 +1460,12 @@ async function executeGenerateCommercialReport(args: any) {
     const inicioMes = new Date(ano, mes - 1, 1).toISOString();
     const fimMes = new Date(ano, mes, 1).toISOString();
 
-    const [totalsCur, totalsPrev, ranking, mixProd, leadsNovos, pipelineRes] = await Promise.all([
+    const [totalsCur, totalsPrev, ranking, mixProd, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
       supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_total_vendas_mes", { p_ano: anoPrev, p_mes: mesPrev }),
       supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes }),
+      supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes }),
       supabase.from("lia_attendances")
         .select("id", { count: "exact", head: true })
         .is("merged_into", null)
@@ -1455,12 +1496,14 @@ async function executeGenerateCommercialReport(args: any) {
       delta_mom: delta,
       ranking_vendedores: ranking.data || [],
       mix_produtos: mixProd.data || [],
+      itens_propostas_ganhas: itensPropostas.data || [],
       pipeline: pipelineRes.data?.funil || null,
       pipeline_total_value: pipelineRes.data?.summary?.total_pipeline_atual_value || null,
       leads_novos_mes: leadsNovos.count ?? 0,
       avisos: {
         sem_vendas: !tCur || Number(tCur.total_deals || 0) === 0,
         sem_mix: !(mixProd.data && mixProd.data.length > 0),
+        sem_itens_propostas: !(itensPropostas.data && itensPropostas.data.length > 0),
         sem_pipeline: !pipelineRes.data
       },
       instrucao_render: "Renderize EXATAMENTE com os valores deste payload. NUNCA invente números, percentuais, produtos, vendedores ou deltas. Use o template oficial do relatório."
@@ -1633,6 +1676,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_opportunity_rules: executeQueryOpportunityRules,
   query_sales_summary: executeQuerySalesSummary,
   query_product_mix: executeQueryProductMix,
+  query_proposal_items_sold: executeQueryProposalItemsSold,
   query_product_sales: executeQueryProductSales,
   query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
@@ -1693,7 +1737,8 @@ Você executa 6 tipos de trabalho:
   Os campos vêm prontos do retorno: \`leads_recebidos\`, \`total_deals\`, \`taxa_conversao\` (já em %), \`receita_total\`, \`ticket_medio\`, \`pct_receita\`.
   Nunca omita \`leads_recebidos\` nem \`taxa_conversao\` — são obrigatórios.
   Nota: \`taxa_conversao\` pode ultrapassar 100% pois deals ganhos no mês podem vir de leads de meses anteriores; é um proxy de eficiência, não uma conversão estrita de coorte.
-- **MIX / TOP PRODUTOS VENDIDOS DO MÊS → SEMPRE use \`query_product_mix\`** (fonte: Omie ERP)
+- **MIX / TOP PRODUTOS VENDIDOS / QUANTIDADE DE ITENS VENDIDOS DO MÊS → SEMPRE use \`query_proposal_items_sold\`** (fonte: itens das propostas ganhas no PipeRun — é a fonte real do que foi vendido).
+- **Faturamento Omie / NF emitidas → use \`query_product_mix\`** (fonte: Omie ERP, NF). Use apenas se o usuário pedir explicitamente "Omie" ou "nota fiscal".
 - **Vendas de um produto específico → SEMPRE use \`query_product_sales\`** (ex: "quanto vendi de Vitality")
 - Filtros customizados de deals (status/vendedor) → use \`query_deal_history\`
 - **PROIBIDO**: consultar API do PipeRun para calcular receita
@@ -1722,8 +1767,11 @@ Você executa 6 tipos de trabalho:
 | Vendedor | Leads | Deals | Conversão | Receita | Ticket | % Receita |
 (uma linha por item de ranking_vendedores, ordem do array)
 
-## 3. Mix de Produtos (Omie ERP)
-(tabela com todos os itens de mix_produtos: produto, qtd, receita, ticket, categoria)
+## 3. Itens Vendidos (Propostas Ganhas — PipeRun)
+(tabela com TODOS os itens de \`itens_propostas_ganhas\`: produto | qtd_total | receita_total | n_deals | ticket_medio. Ordem do array, do maior para o menor receita_total. NUNCA invente itens — se vazio escreva "Sem propostas ganhas no período".)
+
+### 3.1 Faturamento Omie (NF emitidas no mês) — referência
+(tabela curta com até 10 primeiros itens de \`mix_produtos\`: produto, qtd_faturada, receita_omie, ticket_medio, categoria. Omitir seção se \`avisos.sem_mix=true\`.)
 
 ## 4. Pipeline Atual
 (tabela com as 4 bandas de pipeline: label | display | count | value)
