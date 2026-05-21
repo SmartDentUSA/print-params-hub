@@ -516,7 +516,22 @@ const tools = [
     type: "function",
     function: {
       name: "query_product_mix",
-      description: "Retorna o MIX REAL de produtos vendidos no mês via fn_mix_produtos_mes (Omie ERP — fonte oficial). Lista produtos com quantidade, receita, ticket médio e categoria. USE SEMPRE para perguntas como 'quais produtos foram vendidos', 'top produtos do mês', 'mix de vendas', 'produtos mais vendidos'. NUNCA invente nomes de produtos — se a função retornar vazio, diga que não há dados.",
+      description: "Retorna o MIX de produtos FATURADOS no Omie ERP no mês (notas fiscais). Use APENAS quando o usuário pedir explicitamente 'faturamento Omie', 'NF', 'nota fiscal'. Para 'itens vendidos / quantidade vendida / mix de vendas / top produtos do mês' use `query_proposal_items_sold` (propostas ganhas no PipeRun — fonte de verdade comercial).",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_proposal_items_sold",
+      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial de itens vendidos — preferir sobre query_product_mix (Omie/NF).",
       parameters: {
         type: "object",
         properties: {
