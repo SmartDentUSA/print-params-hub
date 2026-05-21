@@ -481,13 +481,25 @@ async function updatePersonFields(
   const observation = lead.pessoa_observation as string | null;
   if (observation) updatePayload.observation = observation;
 
-  // Pessoa custom field IDs 674001/674002 are rejected by Piperun. Persisted at Deal level only.
+  // Person custom fields (form data) — verified IDs 772727/772728/673900/445631.
+  // Same shape used on Deal: [{ id, value }]. Old IDs 674001/674002 are NOT used.
+  const personFormCFs = buildPersonFormCustomFields(lead);
+  if (personFormCFs.length > 0) {
+    updatePayload.custom_fields = personFormCFs;
+  }
 
   if (Object.keys(updatePayload).length === 0) return;
 
   console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
   const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
   console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  // If PUT failed and we sent custom_fields, retry once without them so
+  // identity (name/email/phone/job_title) still publishes.
+  if (!res.success && updatePayload.custom_fields) {
+    const { custom_fields: _cf, ...withoutCF } = updatePayload;
+    const retryCF = await piperunPut(apiToken, `persons/${personId}`, withoutCF);
+    console.log(`[lia-assign] Person ${personId} retry w/o custom_fields: ${retryCF.success} (${retryCF.status})`);
+  }
   // Fallback: if PUT failed (often due to ONE problematic field rejected by
   // Piperun), retry with the bare-minimum identity payload so the card at
   // least keeps email + phone visible.
