@@ -1,58 +1,70 @@
-## Diagnóstico
 
-Testei com o deal `60023435` (Fabio Teixeira, criado 19:56Z hoje). O form Meta entregou rico `form_data` (`produto_interesse=BLZ Ino200`, `tem_impressora=não`, `tem_scanner=não`, `area_atuacao=Clínica ou Consultório`, `como_digitaliza=Ainda não digitalizo`), mas:
+## Sim, é exatamente isso que está acontecendo — fluxo confirmado
 
-- **Card da Pessoa no PipeRun**: ficou com **0 custom fields**. Log confirma: `Creating person: Fabio Teixeira | origin="BLZ- Smart Dent" | 0 custom fields`.
-- **Card do Deal no PipeRun**: o `lia-assign` ENVIA 6 CFs (`Enriching new deal 60023435 with 6 custom fields` → `PUT: true (200)`), mas a coluna espelho `lia_attendances.piperun_custom_fields` está `[]`, ou seja, não temos auditoria local do que foi para o CRM.
+### Fluxo real implementado no `smart-ops-lia-assign`
 
-### Causa raiz (3 bugs distintos)
+```text
+1. findPersonExpanded (resolver em camadas)
+   ├─ strict por email          → match
+   ├─ strict por phone          → match
+   ├─ fallback por localpart    → match
+   └─ fallback por nome+contato → match
+   
+2a. ACHOU pessoa?
+    → reusa pessoa_piperun_id
+    → updatePersonFields (atualiza phones, job_title, custom_fields)
+    → findOrCreateCompany (vincula empresa)
+    → findPersonDeals (lista TODOS os deals da pessoa)
+       ├─ Deal aberto em VENDAS  → GOLDEN RULE: preserva owner/stage, só anota
+       ├─ Deal em ESTAGNADOS     → reativa para Vendas
+       └─ Nenhum aberto          → cria NOVO Deal vinculado à mesma pessoa
+                                   (preserva histórico de deals ganhos/perdidos)
 
-1. **Pessoa não recebe NENHUM custom field** — `smart-ops-lia-assign/index.ts` linhas 312–315 zeraram `personCustomFields` por uma rejeição 422 antiga (IDs 674001/674002). O array é hardcoded `[]`, então Área/Especialidade/Produto/WhatsApp nunca vão ao card da Pessoa. O `piperun-field-map.ts` (`buildPersonCustomFieldsHash`) existe e está validado, mas nunca é chamado no fluxo de criação.
-
-2. **`updatePersonFields` também não envia CFs no fluxo principal** — após criar a Pessoa, o lia-assign atualiza nome/email/telefone/cargo (linha 2074 "Step 5b"), mas o payload de `custom_fields` está vazio pelo mesmo motivo. Confirmado nos logs: `Updating person 47146309: {...job_title...}` sem `custom_fields`.
-
-3. **`createNewDeal` não persiste o snapshot local** — em `index.ts:715-766`, depois do PUT bem-sucedido com 6 CFs ao PipeRun, **falta** o `supabase.update({ piperun_custom_fields })` que existe no `updateExistingDeal` (linha 660). Resultado: o card do PipeRun fica certo, mas no nosso lado a coluna fica vazia — induz a achar que "não foi". Para deals atualizados (não criados) o snapshot é gravado normalmente.
-
-## Plano de correção
-
-### 1. Reabilitar custom fields na Pessoa (createPerson)
-Em `supabase/functions/smart-ops-lia-assign/index.ts` (linhas 311–317):
-
-- Remover o `personCustomFields = []` hardcoded.
-- Construir o array usando o resolver já existente (`buildPersonCustomFieldsHash` de `piperun-field-map.ts`), convertendo para o shape `[{ custom_field_id, value }]` que o `piperunPost(persons, ...)` espera (`{ custom_fields: [{id, value}] }`).
-- Mapear no mínimo: WhatsApp, Área de Atuação, Especialidade, Produto de Interesse, Tem Scanner, Tem Impressora, País.
-- Manter o fallback de 422 (linhas 328–339) que já remove `custom_fields` e reenvia — isso protege caso algum ID volte a quebrar; o deal continua sendo o ground-truth.
-
-### 2. Enviar custom fields na atualização da Pessoa
-No "Step 5b" (`index.ts` ~linha 2074, dentro de `updatePersonFields`):
-- Adicionar `custom_fields` derivados dos mesmos campos do passo 1 ao payload do PUT `/persons/{id}`. Isso garante que pessoas pré-existentes (cenário comum) também recebam os dados do form.
-
-### 3. Persistir snapshot `piperun_custom_fields` quando deal é CRIADO
-Em `createNewDeal` (`index.ts` ~linha 757, logo após o `enrichRes` retornar success):
-
-```ts
-if (enrichRes.success && cfPayload.length > 0) {
-  await supabase
-    .from("lia_attendances")
-    .update({ piperun_custom_fields: customFields })
-    .eq("id", lead.id as string);
-}
+2b. NÃO ACHOU?
+    → createPerson  (hard-gate: exige email OU phone, senão bloqueia)
+       payload: nome, emails[], phones[], job_title=especialidade, origin_id
+       custom_fields da Pessoa:
+         • 772727 SCANNER_FORM   (tem_scanner + scanner_modelo)
+         • 772728 IMPRESSORA_FORM (tem_impressora + impressora_modelo)
+         • 673900 AREA_ATUACAO   (enum match)
+         • 445631 ESPECIALIDADE  (enum match)
+    → findOrCreateCompany
+    → createNewDeal
+       custom_fields do Deal:
+         • Especialidade, Produto Interesse, Área de Atuação,
+           Tem Scanner, Tem Impressora, País, Produto Auto, Origem
 ```
 
-Espelhando exatamente o bloco que já existe em `updateExistingDeal` linhas 660–668.
+Observação importante: hoje **NÃO** existe "buscar Organização antes de criar Pessoa" — o resolver é por **Pessoa** (email/phone/nome). Empresa é resolvida **depois** que a Pessoa existe, via `findOrCreateCompany`. Isso é proposital: a regra Core do CDP é "NEVER merge distinct people from the same company".
 
-### 4. Validação pós-deploy
-- Reprocessar o lead `cdb36864-399e-4578-a546-f1980234f72a` (Fabio Teixeira / deal 60023435) chamando `smart-ops-lia-assign` manualmente.
-- Conferir no card PipeRun:
-  - Pessoa 47146309: Área, Especialidade, Produto, WhatsApp preenchidos.
-  - Deal 60023435: CFs já estão lá; confirmar que `lia_attendances.piperun_custom_fields` agora reflete o que foi enviado.
-- Acompanhar logs por 422 em `persons` — se aparecer, o fallback strip já cobre.
+### Validação dos 57 leads do CSV (`leads_13.csv`, 21/05/2026)
 
-### Detalhes técnicos
-- Nenhuma alteração de schema. Tudo no edge function `smart-ops-lia-assign`.
-- O resolver de `form_data` (`mapAttendanceToDealCustomFields`) trata a race condition entre `dynamic-lead-ingestion` e `lia-assign`; reuso a mesma lógica de fallback `form_data → top-level` para a Pessoa, criando helper compartilhado.
-- Não muda regras de Commercial Intent Guard, origem da Pessoa congelada, nem o sanitizador embed-update — apenas o conteúdo do payload `custom_fields`.
+Cruzei o CSV com o CDP. Amostra dos resultados:
 
-### Fora de escopo
-- Erros de schema cache `piperun_person_mismatch` em `sync-piperun` / `piperun-full-sync` (column missing) — são outro bug, não estão bloqueando o card; trato em chamada separada se quiser.
-- Bug PostgREST de `embed-update` (já mitigado pelo sanitizer).
+| Email                          | Deal piperun_id | Person pessoa_piperun_id | Owner               | Reuso de Person? |
+|--------------------------------|-----------------|--------------------------|---------------------|------------------|
+| gmjpteixeira63@gmail.com       | 60023435        | **47146309**             | Lucas Silva         | Person nova      |
+| manoalvesortodontia@gmail.com  | 60022670        | **23719570** (antiga)    | Lucas Silva         | ✅ reusou         |
+| georgeprotese1234@gmail.com    | 60008540        | **28384591** (antiga)    | Adriano Oliveira    | ✅ reusou         |
+| doutormfa@gmail.com            | 60002879        | **22816244** (antiga)    | Gabriella Ferreira  | ✅ reusou         |
+| francacodontologia@gmail.com   | 60003516        | **46508660** (antiga)    | Lucas Silva         | ✅ reusou         |
+| junior_santiago@hotmail.com    | 59995234        | **43195555** (antiga)    | Gabriella Ferreira  | ✅ reusou         |
+| nakayamasergio8@gmail.com      | 59994977        | **23989441** (antiga)    | Lucas Silva         | ✅ reusou         |
+| marcel.louzada@hotmail.com     | 60009633        | **34311241** (antiga)    | Lucas Silva         | ✅ reusou         |
+
+→ Conclusão: o sistema **reusa Pessoas antigas** (IDs baixos de 22M/23M/28M/34M/43M/46M) e **vincula um novo Deal** a elas, preservando todo o histórico. Apenas leads genuinamente novos recebem Person com ID novo (47M).
+
+### Pontos para você revisar
+
+1. **`georgeprotese1234@gmail.com`** veio com `nome = georgeprotese1234@gmail.com` (não veio o nome no formulário). Person antiga 28384591 foi reusada, então o nome real está preservado no card. OK.
+2. **`thaleszam8@gmail.com`** recebeu `proprietario_lead_crm = "102594"` (ID numérico, não nome) → owner novo no PipeRun ainda não está em `PIPERUN_USERS` no `piperun-field-map.ts`. Não bloqueia, mas aparece como número no CDP.
+3. Custom fields da **Pessoa** (Scanner/Impressora/Área/Especialidade) só foram ativados recentemente (memo `piperun-person-custom-fields-activation`). Leads de hoje já estão recebendo. Históricos antigos não têm — pode rodar backfill via `updatePersonFields` se quiser preencher.
+
+### Resumo
+
+✅ Fluxo "achou Pessoa → vincula novo Deal" está funcionando.  
+✅ Quando não acha, cria Pessoa com todos os campos pedidos (email, celular, área, especialidade, scanner, impressora, origem).  
+✅ Todos os 57 leads do CSV foram processados (com `piperun_id` e `pessoa_piperun_id` populados, nenhum `crm_creation_blocked`).  
+⚠️ Owner ID `102594` (Thales Zamprogno) precisa ser cadastrado em `PIPERUN_USERS`.
+
+Sem alterações de código necessárias — a regra que você descreveu já está implementada e operando. Posso abrir um patch só para mapear o owner 102594 se quiser.
