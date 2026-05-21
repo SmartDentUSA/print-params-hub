@@ -433,6 +433,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const { provenance } = useEquipmentProvenance(open ? lead?.id : null);
 
   const handleSyncPipeRun = async () => {
     if (!lead?.id || syncing) return;
