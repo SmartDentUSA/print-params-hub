@@ -1,52 +1,53 @@
-# Rastreadores unificados (site + formulários)
+# GA4 não enxerga `/f/-formulario-exocad-ia`
 
-## Diagnóstico
-- `index.html` hoje tem apenas **GTM-NZ64Q899** (duplicado, está injetado 2x) e **Meta Pixel 167413567155597**.
-- **Não há GA4** (`G-1411Z6YVPY`) instalado — por isso `/f/-formulario-exocad-ia` (e nenhuma outra página) aparece no Google Analytics.
-- **Não há TikTok Pixel** (`D05CI83C77UE5QUU9FR0`).
-- `PublicFormPage` só faz `dataLayer.push({event:'generate_lead'})`; não dispara `fbq('track','Lead')`, GA4 `generate_lead` direto, nem TikTok `SubmitForm`.
-- `usePageTracking` já roda em todas as rotas públicas (via `App.tsx`), então basta corrigir as tags base e os formulários herdarão.
+## Diagnóstico (não é falta de UTM)
 
-## Mudanças
+UTM não é requisito para o GA4 registrar a visita — UTM só classifica *de onde veio* o tráfego. O motivo real de você não ver o formulário é uma combinação destes pontos:
 
-### 1. `index.html` — base de rastreamento global
-- Remover o bloco GTM duplicado (está repetido no `<head>` e no fim do `<body>`).
-- Adicionar **GA4 gtag** (`G-1411Z6YVPY`) no fim do `<body>` (defer, sem bloquear LCP).
-- Adicionar **TikTok Pixel** (`D05CI83C77UE5QUU9FR0`) no fim do `<body>`.
-- Manter `<noscript>` dos pixels no `<body>` (regra do projeto: noscript-img não pode ficar no head).
+1. **A tag GA4 ainda não está em produção.** `G-1411Z6YVPY` foi adicionado no `index.html` na iteração anterior, mas mudanças de frontend só vão pro ar com **Publish → Update**. Hoje, abrindo `parametros.smartdent.com.br` o script `gtag/js?id=G-1411Z6YVPY` **não está sendo carregado**.
+2. **Quando entrar no ar**, o `usePageTracking` dispara `gtag('event','page_view', { page_path, page_title, page_location })` em cada rota — porém **sem** repassar UTMs e sem `page_referrer`. Resultado: toda visita ao formulário aparece como **Direct / (none)** mesmo quando veio de Meta/Google Ads.
+3. O `usePageTracking` tem **debounce de 2s**; em Realtime do GA4 isso atrasa o card aparecer, mas não impede.
+4. Ad-blocker / Brave / extensões podem bloquear `googletagmanager.com` — testar em aba anônima limpa.
 
-### 2. Migration — defaults editáveis por formulário
-Adicionar à `smartops_forms`:
+## Ações
+
+### 1. Publicar (você)
+Clicar **Publish → Update**. Validar:
+- DevTools → Network → filtrar `gtag/js?id=G-1411Z6YVPY` (deve aparecer 200).
+- GA4 → Admin → DebugView (com extensão *GA Debugger* ativa) → entrar em `/f/-formulario-exocad-ia` e ver `page_view` chegar.
+- GA4 → Realtime → ver a página listada em "Páginas e telas".
+
+### 2. Enriquecer o `page_view` GA4 com UTM + referrer
+Em `src/hooks/usePageTracking.ts`, na chamada `gtag('event','page_view', …)`, passar também:
+```ts
+gtag('event','page_view', {
+  page_path: path,
+  page_title: document.title,
+  page_location: window.location.href,
+  page_referrer: document.referrer || undefined,
+  campaign_source: utms.utm_source || undefined,
+  campaign_medium: utms.utm_medium || undefined,
+  campaign_name: utms.utm_campaign || undefined,
+  campaign_content: utms.utm_content || undefined,
+  campaign_term: utms.utm_term || undefined,
+});
 ```
-tracking_gtm_id          text default 'GTM-NZ64Q899'
-tracking_ga4_id          text default 'G-1411Z6YVPY'
-tracking_meta_pixel_id   text default '167413567155597'
-tracking_tiktok_pixel_id text default 'D05CI83C77UE5QUU9FR0'
-tracking_extra_head      text  -- opcional, snippet livre
-```
-Backfill nas linhas existentes com os mesmos defaults para que TODOS os formulários atuais já saiam rastreados.
+Isso resolve a atribuição: tráfego de campanhas com `?utm_source=meta&utm_medium=cpc&utm_campaign=exocad_ia` passa a aparecer em **Acquisition → Traffic acquisition** corretamente.
 
-### 3. `SmartOpsFormEditor` — nova seção "Rastreadores"
-Bloco colapsável "Rastreadores & Pixels" com 4 inputs (placeholder mostrando o default Smart Dent) + textarea opcional `tracking_extra_head`. Botão "Restaurar padrão Smart Dent" repopula com os IDs oficiais.
+### 3. Disparar `page_view` imediato no formulário (sem esperar 2s)
+Em `PublicFormPage.tsx`, logo após carregar o `form`, fazer um `gtag('event','page_view',{ page_path: location.pathname, form_slug: form.slug, form_name: form.name })` adicional. O debounce de 2s do hook continua para gravar `lead_page_views`, mas o GA4 recebe o hit na hora.
 
-### 4. `PublicFormPage.tsx`
-- Após carregar `form`, injetar dinamicamente (apenas se IDs diferirem dos já presentes em `index.html`, deduplicando por ID) os scripts de GTM/GA4/Meta/TikTok específicos do formulário. Isso permite que uma campanha use um pixel próprio sem perder o global.
-- No `handleSubmit` (success) disparar em paralelo aos eventos existentes:
-  - `fbq('track','Lead',{ content_name: form.name })`
-  - `ttq.track('SubmitForm',{ content_name: form.name })`
-  - `gtag('event','generate_lead',{ form_name: form.name })`
-  - manter `dataLayer.push('generate_lead', …)` atual.
-- Envolver tudo em `try/catch` (silencioso se o pixel não estiver carregado).
-
-### 5. Páginas de conteúdo
-Nada a fazer no código das páginas — `usePageTracking` já registra page_view em `lead_page_views` e empurra `page_view` no `dataLayer`. Com GA4 e TikTok agora carregados em `index.html`, todas as rotas (`/base-conhecimento/...`, `/produtos/...`, `/depoimentos/...`, `/f/...`, etc.) passam a aparecer no GA4 e TikTok automaticamente.
-
-## Detalhe técnico
-- IDs publicáveis (pixel/GA/GTM) podem ficar no código e no DB sem risco.
-- TikTok Pixel ID `D05CI83C77UE5QUU9FR0` — usar snippet oficial `ttq.load(...)`.
-- Para evitar conflito de SPA, o GA4 será inicializado com `send_page_view: false` e `usePageTracking` chamará `gtag('event','page_view',{page_path})` em cada mudança de rota (forma correta com React Router).
-- Nenhuma alteração em `usePageTracking` além de adicionar a chamada gtag.
+### 4. (Opcional) Garantir que campanhas usem UTM na URL pública do formulário
+Padrão sugerido para anúncios apontando para `/f/-formulario-exocad-ia`:
+`?utm_source={ad_platform}&utm_medium=paid&utm_campaign={campaign_name}&utm_content={ad_id}`.
+Sem isso, GA4 atribui a "Direct" — não é bug, é falta de marcação na campanha.
 
 ## Fora de escopo
-- Server-side tracking / Conversion API.
-- Consent banner (LGPD) — pode ser próximo passo se desejado.
+- Conversion API server-side (Meta/GA4 Measurement Protocol).
+- Banner de consentimento LGPD.
+- Trocar de gtag direto para GTM-only (hoje convivem; ok).
+
+## Detalhe técnico
+- O `gtag('config', …, { send_page_view:false })` em `index.html` está **correto** para SPA: evita pageview duplicado, deixando o hook controlar.
+- O bloco de injeção de GA4 dentro de `PublicFormPage` checa `html.includes(tracking_ga4_id)` — como o default do form é o mesmo `G-1411Z6YVPY` global, ele **não** reinjeta (correto, sem duplicidade).
+- `lead_page_views` continua independente e já está rico em UTM/device — não muda nada nele.

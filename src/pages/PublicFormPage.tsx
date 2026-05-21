@@ -240,6 +240,33 @@ export default function PublicFormPage() {
     return () => { created.forEach((el) => el.remove()); };
   }, [form]);
 
+  // Immediate GA4/Meta/TikTok page_view for the form (bypass hook debounce of 2s)
+  useEffect(() => {
+    if (!form) return;
+    const f: any = form;
+    const sp = new URLSearchParams(window.location.search);
+    try {
+      const gtag = (window as any).gtag;
+      if (typeof gtag === 'function') {
+        gtag('event', 'page_view', {
+          page_path: window.location.pathname,
+          page_title: document.title,
+          page_location: window.location.href,
+          page_referrer: document.referrer || undefined,
+          form_slug: f.slug,
+          form_name: f.name,
+          campaign_source: sp.get('utm_source') || undefined,
+          campaign_medium: sp.get('utm_medium') || undefined,
+          campaign_name: sp.get('utm_campaign') || undefined,
+          campaign_content: sp.get('utm_content') || undefined,
+          campaign_term: sp.get('utm_term') || undefined,
+        });
+      }
+    } catch {}
+    try { (window as any).fbq?.('track', 'ViewContent', { content_name: f.name, content_category: 'form' }); } catch {}
+    try { (window as any).ttq?.page?.(); } catch {}
+  }, [form]);
+
   // Extract vibrant color from hero image/thumbnail and override CSS vars
   const handleHeroImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     try {
