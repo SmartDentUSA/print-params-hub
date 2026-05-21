@@ -310,10 +310,20 @@ async function createPerson(
   }
 
   // Include Pessoa custom fields
-  // NOTE: Pessoa custom field IDs 674001/674002 are rejected by Piperun (422). Disabled.
-  // Area/Especialidade are persisted at the Deal level via mapAttendanceToDealCustomFields.
+  // Verified Pessoa CF IDs (belongs=Pessoas, validated 2026-05):
+  //   772727 Scanner formulário (text) · 772728 Impressora formulário (text)
+  //   673900 ÁREA DE ATUAÇÃO (enum)    · 445631 Especialidade principal (multi)
+  // Old IDs 674001/674002 (PESSOA_CUSTOM_FIELDS) are rejected by Piperun (422)
+  // and intentionally NOT used here. The 422-strip fallback below covers any
+  // future ID rejection so person creation never blocks.
   void areaAtuacao; void especialidade;
-  const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
+  const personFormCFs = buildPersonFormCustomFields(lead); // [{ id, value }]
+  const personCustomFields: Array<{ custom_field_id: number; value: string | string[] }> =
+    personFormCFs.map((f) => ({ custom_field_id: f.id, value: f.value }));
+  if (personCustomFields.length > 0) {
+    // PipeRun POST /persons accepts the same shape as deals: [{ id, value }]
+    personPayload.custom_fields = personFormCFs;
+  }
 
   console.log(`[lia-assign] Creating person: ${nome} | origin="${firstTouchOrigin || "(none)"}" | ${personCustomFields.length} custom fields`);
 
