@@ -580,6 +580,21 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_commercial_report",
+      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, mix de produtos (Omie), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie query_sales_summary + query_product_mix manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -1390,6 +1405,71 @@ async function executeQueryProductMix(args: any) {
   }
 }
 
+async function executeGenerateCommercialReport(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+
+    // Mês anterior
+    const prevDate = new Date(ano, mes - 2, 1);
+    const anoPrev = prevDate.getFullYear();
+    const mesPrev = prevDate.getMonth() + 1;
+
+    // Janela do mês para leads novos
+    const inicioMes = new Date(ano, mes - 1, 1).toISOString();
+    const fimMes = new Date(ano, mes, 1).toISOString();
+
+    const [totalsCur, totalsPrev, ranking, mixProd, leadsNovos, pipelineRes] = await Promise.all([
+      supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes }),
+      supabase.rpc("fn_total_vendas_mes", { p_ano: anoPrev, p_mes: mesPrev }),
+      supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes }),
+      supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes }),
+      supabase.from("lia_attendances")
+        .select("id", { count: "exact", head: true })
+        .is("merged_into", null)
+        .gte("created_at", inicioMes)
+        .lt("created_at", fimMes),
+      supabase.functions.invoke("pipeline-funnel-data", { body: {} })
+    ]);
+
+    const tCur = totalsCur.data?.[0] || null;
+    const tPrev = totalsPrev.data?.[0] || null;
+
+    const calcDelta = (cur: number | null, prev: number | null) => {
+      if (!cur || !prev) return null;
+      return Number((((cur - prev) / prev) * 100).toFixed(1));
+    };
+
+    const delta = tCur && tPrev ? {
+      receita_pct: calcDelta(Number(tCur.receita_total), Number(tPrev.receita_total)),
+      deals_pct: calcDelta(Number(tCur.total_deals), Number(tPrev.total_deals)),
+      ticket_pct: calcDelta(Number(tCur.ticket_medio), Number(tPrev.ticket_medio))
+    } : null;
+
+    return {
+      periodo: `${String(mes).padStart(2, "0")}/${ano}`,
+      periodo_anterior: `${String(mesPrev).padStart(2, "0")}/${anoPrev}`,
+      totals_mes: tCur,
+      totals_mes_anterior: tPrev,
+      delta_mom: delta,
+      ranking_vendedores: ranking.data || [],
+      mix_produtos: mixProd.data || [],
+      pipeline: pipelineRes.data?.funil || null,
+      pipeline_total_value: pipelineRes.data?.summary?.total_pipeline_atual_value || null,
+      leads_novos_mes: leadsNovos.count ?? 0,
+      avisos: {
+        sem_vendas: !tCur || Number(tCur.total_deals || 0) === 0,
+        sem_mix: !(mixProd.data && mixProd.data.length > 0),
+        sem_pipeline: !pipelineRes.data
+      },
+      instrucao_render: "Renderize EXATAMENTE com os valores deste payload. NUNCA invente números, percentuais, produtos, vendedores ou deltas. Use o template oficial do relatório."
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeQueryProductSales(args: any) {
   try {
     const now = new Date();
@@ -1557,6 +1637,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
   get_lead_card: executeGetLeadCard,
+  generate_commercial_report: executeGenerateCommercialReport,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -1618,6 +1699,41 @@ Você executa 6 tipos de trabalho:
 - **PROIBIDO**: consultar API do PipeRun para calcular receita
 - **PROIBIDO**: somar valores direto da tabela deal_items sem usar view de dedup
 - **PROIBIDO**: usar query_leads ou query_leads_advanced para responder perguntas de vendas/faturamento
+
+🚨 **REGRA ABSOLUTA — RELATÓRIO DE PERFORMANCE COMERCIAL:**
+- Quando o usuário pedir **"relatório", "report", "relatório de performance comercial", "fechamento do mês", "panorama do mês", "como foi o mês X", "resumo do mês"** → SEMPRE use \`generate_commercial_report({ ano, mes })\`.
+- **PROIBIDO** montar relatório encadeando \`query_sales_summary\` + \`query_product_mix\` manualmente.
+- **PROIBIDO** calcular delta % entre meses na sua cabeça — use \`delta_mom\` do payload.
+- **PROIBIDO** inventar produtos, vendedores, percentuais, pipeline ou comparativos. Se um campo vier null/vazio, escreva "Não disponível".
+
+**TEMPLATE OBRIGATÓRIO do RELATÓRIO DE PERFORMANCE COMERCIAL** (renderize EXATAMENTE com os valores do payload de \`generate_commercial_report\`):
+
+\`\`\`
+# 📊 RELATÓRIO DE PERFORMANCE COMERCIAL — {periodo}
+
+## 1. Resumo Executivo
+- **Receita total:** R$ {totals_mes.receita_total} ({delta_mom.receita_pct}% vs {periodo_anterior})
+- **Deals ganhos:** {totals_mes.total_deals} ({delta_mom.deals_pct}% vs mês anterior)
+- **Ticket médio:** R$ {totals_mes.ticket_medio} ({delta_mom.ticket_pct}%)
+- **Top vendedor:** {totals_mes.top_vendedor} (R$ {totals_mes.receita_top})
+- **Leads novos no mês:** {leads_novos_mes}
+
+## 2. Ranking de Vendedores
+| Vendedor | Leads | Deals | Conversão | Receita | Ticket | % Receita |
+(uma linha por item de ranking_vendedores, ordem do array)
+
+## 3. Mix de Produtos (Omie ERP)
+(tabela com todos os itens de mix_produtos: produto, qtd, receita, ticket, categoria)
+
+## 4. Pipeline Atual
+(tabela com as 4 bandas de pipeline: label | display | count | value)
+- **Pipeline total:** R$ {pipeline_total_value}
+
+## 5. Insights e Recomendações
+(2-4 bullets curtos baseados ESTRITAMENTE nos números do payload — quem subiu/caiu, gargalo no pipeline, produto em alta/baixa)
+\`\`\`
+
+Se algum campo vier null no payload, escreva "Não disponível" naquela linha. NUNCA preencha com chute.
 
 🚨 **REGRA ABSOLUTA — EQUIPAMENTOS DOS LEADS (anti-alucinação):**
 - "Quantos leads usam scanner X", "marcas de scanner", "distribuição por scanner" → SEMPRE use \`query_scanner_brand_distribution\`
