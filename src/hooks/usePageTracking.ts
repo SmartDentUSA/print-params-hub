@@ -74,6 +74,7 @@ function extractParamSlugs(path: string): { brand: string; model: string; resin:
 export function usePageTracking() {
   const location = useLocation();
   const lastTracked = useRef<string>("");
+  const lastPixelKey = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -84,31 +85,31 @@ export function usePageTracking() {
       return;
     }
 
-    // Debounce same path
     const key = path + location.search;
-    if (key === lastTracked.current) return;
 
-    if (timerRef.current) clearTimeout(timerRef.current);
-
-    timerRef.current = setTimeout(() => {
-      lastTracked.current = key;
+    // Fire analytics pixels IMMEDIATELY (no debounce) so quick visits register.
+    if (key !== lastPixelKey.current) {
+      lastPixelKey.current = key;
       const sessionId = getOrCreateSessionId();
       const utms = getUtmParams();
+      const pageType = detectPageType(path);
 
-      // Push virtual pageview to GTM/GA
-      if (typeof window !== 'undefined' && (window as any).dataLayer) {
-        (window as any).dataLayer.push({
-          event: 'page_view',
-          page_path: path,
-          page_title: document.title,
-          page_type: detectPageType(path),
-          page_location: window.location.href,
-          session_id: sessionId,
-          ...utms,
-        });
-      }
+      // GTM dataLayer
+      try {
+        if ((window as any).dataLayer) {
+          (window as any).dataLayer.push({
+            event: 'page_view',
+            page_path: path,
+            page_title: document.title,
+            page_type: pageType,
+            page_location: window.location.href,
+            session_id: sessionId,
+            ...utms,
+          });
+        }
+      } catch {}
 
-      // GA4 SPA page_view (gtag inicializa com send_page_view:false em index.html)
+      // GA4 (gtag) — config has send_page_view:false, so we must fire manually
       try {
         const gtag = (window as any).gtag;
         if (typeof gtag === 'function') {
@@ -117,6 +118,7 @@ export function usePageTracking() {
             page_title: document.title,
             page_location: window.location.href,
             page_referrer: document.referrer || undefined,
+            page_type: pageType,
             campaign_source: utms.utm_source || undefined,
             campaign_medium: utms.utm_medium || undefined,
             campaign_name: utms.utm_campaign || undefined,
@@ -126,17 +128,28 @@ export function usePageTracking() {
         }
       } catch {}
 
-      // Meta Pixel SPA PageView
+      // Meta Pixel
       try {
         const fbq = (window as any).fbq;
         if (typeof fbq === 'function') fbq('track', 'PageView');
       } catch {}
 
-      // TikTok Pixel SPA page view
+      // TikTok Pixel
       try {
         const ttq = (window as any).ttq;
         if (ttq && typeof ttq.page === 'function') ttq.page();
       } catch {}
+    }
+
+    // Debounced supabase insert (avoids double-inserts on rapid nav)
+    if (key === lastTracked.current) return;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    timerRef.current = setTimeout(() => {
+      lastTracked.current = key;
+      const sessionId = getOrCreateSessionId();
+      const utms = getUtmParams();
 
       const pageType = detectPageType(path);
       const paramSlugs = pageType === 'resin_params' ? extractParamSlugs(path) : null;
