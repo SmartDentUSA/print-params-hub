@@ -619,10 +619,22 @@ Deno.serve(async (req) => {
         const previousIds = new Set<string>([
           ...((existingLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []),
         ]);
+        // If the "new" id is already archived, this is the X↔Y ping-pong:
+        // do NOT overwrite the current platform_lead_id (which would just
+        // start the cycle over). Only ensure both ids are archived so the
+        // HARD_DEDUPE catches every future re-delivery.
+        const incomingAlreadyKnown =
+          previousIds.has(String(incomingPlatformLeadId)) ||
+          String(incomingPlatformLeadId) === String(existingLead.platform_lead_id || "");
         if (existingLead.platform_lead_id) {
           previousIds.add(String(existingLead.platform_lead_id));
         }
-        (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        previousIds.add(String(incomingPlatformLeadId));
+        if (!incomingAlreadyKnown) {
+          (merged as Record<string, unknown>).platform_lead_id = String(incomingPlatformLeadId);
+        } else {
+          delete (merged as Record<string, unknown>).platform_lead_id;
+        }
         merged.raw_payload = {
           ...(existingLead.raw_payload || {}),
           ...(merged.raw_payload || {}),
