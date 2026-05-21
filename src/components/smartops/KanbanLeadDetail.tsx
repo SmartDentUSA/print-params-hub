@@ -8,8 +8,8 @@ import { ChevronDown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
-import { useEquipmentProvenance, type ProvenanceEntry, type EquipmentField } from "@/hooks/useEquipmentProvenance";
-import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
+import { useEquipmentProvenance, type ProvenanceEntry } from "@/hooks/useEquipmentProvenance";
+import { resolveLeadDisplayName } from "@/utils/leadDisplay";
 
 function formatCurrency(val: number): string {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
