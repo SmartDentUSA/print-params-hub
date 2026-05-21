@@ -245,12 +245,15 @@ export default function PublicFormPage() {
     if (!form) return;
     const f: any = form;
     const sp = new URLSearchParams(window.location.search);
+    // Set document.title BEFORE firing page_view so GA4 records the form name
+    const formTitle = `${f.name} | Smart Dent`;
+    document.title = formTitle;
     try {
       const gtag = (window as any).gtag;
       if (typeof gtag === 'function') {
         gtag('event', 'page_view', {
           page_path: window.location.pathname,
-          page_title: document.title,
+          page_title: formTitle,
           page_location: window.location.href,
           page_referrer: document.referrer || undefined,
           form_slug: f.slug,
