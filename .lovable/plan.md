@@ -1,63 +1,52 @@
-## Diagnóstico confirmado
+## Regra de negócio (nova)
 
-O loop do Miguel não é apenas visual no frontend. O banco está recebendo eventos repetidos em `lead_activity_log`:
+Um lead **nunca** responde duas vezes à mesma combinação `(meta_form_id + identidade)` no Lead Ads. Toda reentrega do cron Meta com mesmo `form_id` + (`email` ou `phone`) deve ser **descartada de forma definitiva**, sem janela de tempo, sem novo evento na timeline, sem update em `lia_attendances`.
 
-- Lead canônico: `543af551-93a1-4b9f-803b-1a4ce3cdc1a2`
-- Repetições encontradas:
-  - `BLZ- Smart Dent`: 663 eventos
-  - `# - Impresoras - Smart Dent`: 661 eventos
-  - `# - FACE - INTRAORAL MEDIT`: 76 eventos
-- Total no lead: 1.401 eventos `form_submission` vindos de `meta_lead_ads`
-- O padrão continua ativo: 3 novos eventos a cada ~2 minutos.
+## Diagnóstico
 
-Causa provável:
+Hoje `smart-ops-ingest-lead` tem 3 camadas de dedupe:
 
-1. O trigger `trg_log_lead_timeline` em `lia_attendances` grava `form_submission` sempre que `form_name` muda.
-2. O `form_name` do lead está alternando entre campanhas/forms da Meta.
-3. A função `fn_log_form_submission_to_timeline()` grava esses eventos sem `entity_id`, então o `ON CONFLICT DO NOTHING` não deduplica nada.
-4. O guard atual em `smart-ops-ingest-lead` protege bem `meta_ads_lead_entry`, mas não bloqueia esse log gerado pelo trigger quando o `form_name` oscila.
+1. **HARD_DEDUPE** por `platform_lead_id` (leadgen_id) — funciona, mas Meta entrega leadgen_id novo a cada ciclo.
+2. **FAMILY_DEDUPE** por `(platform_form_id + email/phone)` — correto, mas tem **janela de 24h** (`created_at >= now() - 24h`). Após 24h o mesmo form volta a criar evento.
+3. **ACTIVITY_LOG dedupe** por `entity_id` — janela 6h.
 
-## Plano de correção
+O caso Miguel Monte mostra 3 form_ids alternando a cada 2 min: cada par `(form_id, email)` cai no FAMILY_DEDUPE dentro de 24h, mas após esse período o ciclo "reabre" e gera novos `form_submission`. Além disso, em UPDATEs subsequentes o trigger antigo registrava timeline a cada troca de `form_name`. O patch de timeline já cobriu o sintoma — agora precisamos cortar o **vetor raiz**.
 
-### 1. Travar o loop na origem do timeline
+## Mudanças propostas
 
-Atualizar a função SQL `public.fn_log_form_submission_to_timeline()` para:
+### 1. `supabase/functions/smart-ops-ingest-lead/index.ts` — FAMILY_DEDUPE vitalício
 
-- Não gravar `form_submission` repetido para o mesmo `lead_id + source_channel + form_name` dentro de uma janela curta, inicialmente 24h.
-- Preencher `entity_id` com uma chave determinística quando possível:
-  - `platform_lead_id` ou `raw_payload.latest_payload.meta_leadgen_id` quando existir.
-  - fallback seguro baseado em `lead_id + source + form_name`.
-- Manter os logs legítimos de `deal_created` e `seller_assigned` intactos.
-- Adicionar `SET search_path = public` na função por segurança, já que ela é `SECURITY DEFINER`.
+- Remover o filtro `.gte("created_at", now-24h)` na consulta de FAMILY_DEDUPE.
+- Manter `merged_into IS NULL` e `platform_form_id = X` + OR(email, phone).
+- Comentar claramente: "lead Meta nunca responde a mesma combinação form+identidade mais de uma vez — dedupe lifetime".
+- Continuar arquivando o novo `leadgen_id` em `raw_payload.previous_platform_lead_ids` para o HARD_DEDUPE pegar nas próximas reentregas.
+- Retornar `dedupe_via: "family_key_lifetime"` para auditoria.
 
-### 2. Reforçar idempotência na ingestão Meta
+### 2. Mesmo arquivo — HARD_DEDUPE também vitalício
 
-Atualizar `supabase/functions/smart-ops-ingest-lead/index.ts` para adicionar um segundo guard antes do merge:
+- A query atual em `platform_lead_id` já não tem janela temporal — confirmar e manter.
 
-- Para `source='meta_lead_ads'`, se já existir um evento recente do mesmo lead, mesmo formulário/campanha e mesma identidade por email/telefone, retornar `duplicate_skipped` sem atualizar `form_name`.
-- Cobrir casos onde o `leadgen_id` vem ausente, falso, alternando ou genérico.
-- Não alterar a Golden Rule do PipeRun nem sobrescrever owner/stage.
+### 3. Telemetria
 
-### 3. Limpar o spam já criado no Log de Chegada
+- Adicionar `system_health_logs` insert (severity `info`, event_type `meta_family_dedupe_lifetime`) quando o lifetime guard rejeitar, para conseguirmos medir reduções no log de "Entrada".
 
-Criar uma migration de limpeza controlada para `lead_activity_log`:
+### 4. Validação
 
-- Remover duplicatas de `form_submission` do lead Miguel, mantendo o primeiro evento de cada formulário por dia.
-- Antes/depois, registrar a contagem afetada para validação.
-- Não alterar o schema de `lead_activity_log`.
+- Após deploy, monitorar `system_health_logs` por 30 min: esperar zero novos `form_submission` para Miguel Monte (lead `543af551-…`) e Ubiratan Araujo (exemplo do usuário) mesmo com o cron Meta rodando a cada 2 min.
+- Consulta de verificação:
+  ```sql
+  SELECT lead_id, count(*) 
+  FROM lead_activity_log 
+  WHERE event_type='form_submission' 
+    AND source_channel='meta_lead_ads' 
+    AND event_timestamp > now() - interval '1 hour'
+  GROUP BY 1 ORDER BY 2 DESC;
+  ```
 
-### 4. Melhorar a visualização do log
+## Fora de escopo
 
-Atualizar `SmartOpsLogs.tsx` para evitar que qualquer resíduo polua a tela:
+- Não mexer no trigger SQL `fn_log_form_submission_to_timeline` (já corrigido na migração anterior com janela 24h — agora vira segunda linha de defesa).
+- Não tocar em frontend `SmartOpsLogs`.
+- Não alterar fluxo de leads orgânicos / formulário site.
 
-- Agrupar eventos idênticos recentes no frontend como uma linha única quando vierem do mesmo `lead + form_name + fonte` em janela curta.
-- Opcionalmente mostrar contador discreto, por exemplo `repetido 12x`, sem ocultar eventos únicos legítimos.
-
-### 5. Validação
-
-Depois de implementar:
-
-- Consultar Miguel novamente e confirmar que novos eventos pararam.
-- Verificar `lead_activity_log` nos últimos 10 minutos para garantir que não chegam mais 3 eventos a cada 2 minutos.
-- Conferir logs da Edge Function `smart-ops-ingest-lead` para respostas `duplicate_skipped`.
-- Validar que formulários reais continuam criando lead/deal normalmente.
+Posso aplicar?
