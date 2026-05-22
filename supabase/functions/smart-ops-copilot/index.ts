@@ -1896,6 +1896,23 @@ function buildBrainSystemMessage(brain: any, updatedAt: string | null): string {
   ].join("\n");
 }
 
+// Apenas ferramentas de AÇÃO continuam disponíveis. Leitura é feita pelo Cérebro.
+const ACTION_TOOLS_ALLOWLIST = new Set<string>([
+  "send_whatsapp",
+  "send_sms",
+  "notify_seller",
+  "send_to_sellflux",
+  "bulk_campaign",
+  "move_crm_stage",
+  "update_lead",
+  "add_tags",
+  "unify_leads",
+  "create_audience",
+  "generate_commercial_report",
+  "get_lead_card", // visão 360 individual continua disponível para drill-down
+]);
+const actionTools = tools.filter((t: any) => ACTION_TOOLS_ALLOWLIST.has(t?.function?.name));
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
