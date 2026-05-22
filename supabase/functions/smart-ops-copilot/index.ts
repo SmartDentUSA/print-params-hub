@@ -1660,6 +1660,44 @@ async function executeGetLeadCard(args: any) {
   }
 }
 
+async function executeQueryProductOwners(args: any) {
+  const busca = String(args?.busca || "").trim();
+  if (!busca) return { error: "Parâmetro 'busca' obrigatório (ex: 'edge mini')." };
+  const { data, error } = await supabase.rpc("fn_product_owners", { _busca: busca });
+  if (error) return { error: error.message };
+  const rows = (data || []) as any[];
+  const total = rows.length;
+  const ativos = rows.filter(r => r.status_recompra === "ativo").length;
+  const alerta = rows.filter(r => r.status_recompra === "alerta").length;
+  const inativos = rows.filter(r => r.status_recompra === "inativo").length;
+  const sem = rows.filter(r => r.status_recompra === "sem_recompra").length;
+  const unidades = rows.reduce((s, r) => s + Number(r.qtd_unidades || 0), 0);
+  const receita = rows.reduce((s, r) => s + Number(r.receita_total || 0), 0);
+
+  const porMes: Record<string, { mes: string; clientes: number; unidades: number; receita: number }> = {};
+  for (const r of rows) {
+    if (!r.data_primeira_compra) continue;
+    const mes = String(r.data_primeira_compra).slice(0, 7);
+    if (!porMes[mes]) porMes[mes] = { mes, clientes: 0, unidades: 0, receita: 0 };
+    porMes[mes].clientes += 1;
+    porMes[mes].unidades += Number(r.qtd_unidades || 0);
+    porMes[mes].receita += Number(r.receita_total || 0);
+  }
+  const por_mes = Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes));
+
+  return {
+    busca,
+    fonte: "deals.status='ganha' + deal_items (PipeRun) cruzado com lia_attendances.data_ultima_compra_insumos",
+    total_clientes: total,
+    total_unidades: unidades,
+    receita_total: Math.round(receita * 100) / 100,
+    resumo_recompra: { ativo: ativos, alerta, inativo: inativos, sem_recompra: sem },
+    por_mes,
+    clientes: rows,
+    aviso: total === 0 ? "Nenhum cliente encontrado para essa busca em propostas ganhas." : null,
+  };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
