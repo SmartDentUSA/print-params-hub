@@ -22004,6 +22004,25 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_product_owners: {
+        Args: { _busca: string }
+        Returns: {
+          cidade: string
+          data_primeira_compra: string
+          data_ultima_compra: string
+          data_ultima_compra_insumos: string
+          dias_desde_insumo: number
+          email: string
+          lead_id: string
+          n_deals: number
+          nome: string
+          qtd_unidades: number
+          receita_total: number
+          status_recompra: string
+          telefone: string
+          uf: string
+        }[]
+      }
       fn_query_bi_view: {
         Args: {
           p_descending?: boolean
