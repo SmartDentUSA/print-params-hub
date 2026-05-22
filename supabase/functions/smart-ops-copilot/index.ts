@@ -820,7 +820,7 @@ async function executeSendSms(args: any) {
     let phone = args.phone;
     let leadName: string | null = null;
     if (!leadId && (args.lead_name || phone)) {
-      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").eq("merged_into", null as any).is("merged_into", null).limit(1);
+      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").is("merged_into", null).limit(1);
       if (args.lead_name) q = q.ilike("nome", `%${args.lead_name}%`);
       else if (phone) q = q.or(`telefone_normalized.eq.${phone},telefone.eq.${phone}`);
       const { data } = await q;
