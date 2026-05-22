@@ -1685,16 +1685,25 @@ async function executeQueryProductOwners(args: any) {
   }
   const por_mes = Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes));
 
+  const fontes = {
+    piperun: rows.filter(r => r.fonte === "piperun").length,
+    omie: rows.filter(r => r.fonte === "omie").length,
+    piperun_omie: rows.filter(r => r.fonte === "piperun+omie").length,
+  };
+
   return {
     busca,
-    fonte: "deals.status='ganha' + deal_items (PipeRun) cruzado com lia_attendances.data_ultima_compra_insumos",
+    fonte: "UNION de PipeRun (deals ganhos + deal_items) e Omie (notas fiscais de saída + omie_nf_items), cruzado com lia_attendances para insumos.",
+    fontes_breakdown: fontes,
     total_clientes: total,
     total_unidades: unidades,
     receita_total: Math.round(receita * 100) / 100,
     resumo_recompra: { ativo: ativos, alerta, inativo: inativos, sem_recompra: sem },
     por_mes,
     clientes: rows,
-    aviso: total === 0 ? "Nenhum cliente encontrado para essa busca em propostas ganhas." : null,
+    aviso: total === 0
+      ? "Nenhum cliente encontrado em PipeRun (ganhos) nem em Omie (NF saída). Tente um termo mais curto, ex: 'edge mini' ou 'rayshape'."
+      : null,
   };
 }
 
