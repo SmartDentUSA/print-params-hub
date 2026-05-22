@@ -813,6 +813,81 @@ async function executeNotifySeller(args: any) {
   return { success: true, seller: { nome: seller.nome, email: seller.email }, notification_sent: !!seller.telefone };
 }
 
+async function executeSendSms(args: any) {
+  try {
+    // 1. Resolve lead
+    let leadId = args.lead_id;
+    let phone = args.phone;
+    let leadName: string | null = null;
+    if (!leadId && (args.lead_name || phone)) {
+      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").eq("merged_into", null as any).is("merged_into", null).limit(1);
+      if (args.lead_name) q = q.ilike("nome", `%${args.lead_name}%`);
+      else if (phone) q = q.or(`telefone_normalized.eq.${phone},telefone.eq.${phone}`);
+      const { data } = await q;
+      if (data && data.length > 0) {
+        leadId = data[0].id;
+        leadName = data[0].nome;
+        phone = phone || data[0].telefone_normalized || data[0].telefone;
+      }
+    }
+    if (!leadId) return { error: "Lead não encontrado. Informe lead_id, lead_name ou phone válido." };
+    if (!phone) {
+      const { data: l } = await supabase.from("lia_attendances").select("nome,telefone_normalized,telefone").eq("id", leadId).maybeSingle();
+      phone = l?.telefone_normalized || l?.telefone || null;
+      leadName = leadName || l?.nome || null;
+      if (!phone) return { error: `Lead ${leadName || leadId} não tem telefone cadastrado.` };
+    }
+
+    const msg = String(args.message || "").trim();
+    if (!msg) return { error: "Mensagem vazia." };
+    const codificacao = args.codificacao === "8" ? "8" : "0";
+    const maxLen = codificacao === "0" ? 160 : 70;
+    if (msg.length > maxLen) {
+      return { error: `Mensagem com ${msg.length} chars excede o limite de ${maxLen} para codificação ${codificacao}. Reduza ou troque codificação.` };
+    }
+
+    // 2. Create one-off campaign_session
+    const { data: camp, error: campErr } = await supabase.from("campaign_sessions").insert({
+      name: (args.campaign_name || `Copilot SMS — ${leadName || leadId}`).slice(0, 200),
+      description: "Disparo SMS individual via Copilot",
+      channel: "sms",
+      status: "running",
+      lead_ids: [leadId],
+      lead_count: 1,
+      results: {
+        sms_message: msg,
+        sms_codificacao: codificacao,
+        source: "copilot_send_sms",
+      },
+    }).select("id").single();
+    if (campErr || !camp) return { error: `Erro criando campaign_session: ${campErr?.message || "sem id"}` };
+
+    // 3. Invoke disparopro processor
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-sms-disparopro`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({ campaign_id: camp.id, sms_message: msg, sms_codificacao: codificacao }),
+    });
+    const ct = response.headers.get("content-type") || "";
+    let result: any;
+    if (ct.includes("application/json")) result = await response.json();
+    else result = { raw: (await response.text()).slice(0, 300) };
+
+    return {
+      success: response.ok,
+      campaign_id: camp.id,
+      lead_id: leadId,
+      lead_name: leadName,
+      phone,
+      sent: result?.sent ?? 0,
+      failed: result?.failed ?? 0,
+      provider_response: result,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeSearchVideos(args: any) {
   const limit = Math.min(args.limit || 10, 30);
   const { data, error } = await supabase.from("knowledge_videos")
