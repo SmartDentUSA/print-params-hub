@@ -1656,6 +1656,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   get_lead_card: executeGetLeadCard,
   generate_commercial_report: executeGenerateCommercialReport,
   query_product_owners: executeQueryProductOwners,
+  query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
