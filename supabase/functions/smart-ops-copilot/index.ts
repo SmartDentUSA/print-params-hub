@@ -610,6 +610,20 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_owners",
+      description: "Retorna a LISTA REAL e COMPLETA de clientes (leads canônicos) que COMPRARAM um produto específico (busca ILIKE em deal_items.product_name + nome_produto, apenas deals com status='ganha'). Para cada cliente devolve: nome, email, telefone, cidade/uf, data_primeira_compra, data_ultima_compra, qtd_unidades, receita_total, n_deals, data_ultima_compra_insumos, dias_desde_insumo e status_recompra ('ativo' ≤45d / 'alerta' ≤90d / 'inativo' >90d / 'sem_recompra'). USE SEMPRE que o usuário pedir 'lista de quem comprou X', 'proprietários do X', 'clientes que adquiriram X', 'base instalada de X', 'recompra de insumos por proprietário', 'quem tem o equipamento Y'. NUNCA estime, NUNCA invente número de unidades, NUNCA fabrique nomes ou datas — o array retornado é a verdade absoluta. Se vier vazio responda 'Nenhum cliente encontrado com esse produto no histórico de propostas ganhas'.",
+      parameters: {
+        type: "object",
+        properties: {
+          busca: { type: "string", description: "Termo de busca no nome do produto (ex: 'Rayshape Edge Mini', 'BLZ INO200', 'Vitality'). Use o termo MAIS CURTO e único possível (ex: 'edge mini' já basta)." }
+        },
+        required: ["busca"]
+      }
+    }
   }
 ];
 
@@ -1646,6 +1660,44 @@ async function executeGetLeadCard(args: any) {
   }
 }
 
+async function executeQueryProductOwners(args: any) {
+  const busca = String(args?.busca || "").trim();
+  if (!busca) return { error: "Parâmetro 'busca' obrigatório (ex: 'edge mini')." };
+  const { data, error } = await supabase.rpc("fn_product_owners", { _busca: busca });
+  if (error) return { error: error.message };
+  const rows = (data || []) as any[];
+  const total = rows.length;
+  const ativos = rows.filter(r => r.status_recompra === "ativo").length;
+  const alerta = rows.filter(r => r.status_recompra === "alerta").length;
+  const inativos = rows.filter(r => r.status_recompra === "inativo").length;
+  const sem = rows.filter(r => r.status_recompra === "sem_recompra").length;
+  const unidades = rows.reduce((s, r) => s + Number(r.qtd_unidades || 0), 0);
+  const receita = rows.reduce((s, r) => s + Number(r.receita_total || 0), 0);
+
+  const porMes: Record<string, { mes: string; clientes: number; unidades: number; receita: number }> = {};
+  for (const r of rows) {
+    if (!r.data_primeira_compra) continue;
+    const mes = String(r.data_primeira_compra).slice(0, 7);
+    if (!porMes[mes]) porMes[mes] = { mes, clientes: 0, unidades: 0, receita: 0 };
+    porMes[mes].clientes += 1;
+    porMes[mes].unidades += Number(r.qtd_unidades || 0);
+    porMes[mes].receita += Number(r.receita_total || 0);
+  }
+  const por_mes = Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes));
+
+  return {
+    busca,
+    fonte: "deals.status='ganha' + deal_items (PipeRun) cruzado com lia_attendances.data_ultima_compra_insumos",
+    total_clientes: total,
+    total_unidades: unidades,
+    receita_total: Math.round(receita * 100) / 100,
+    resumo_recompra: { ativo: ativos, alerta, inativo: inativos, sem_recompra: sem },
+    por_mes,
+    clientes: rows,
+    aviso: total === 0 ? "Nenhum cliente encontrado para essa busca em propostas ganhas." : null,
+  };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1682,6 +1734,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
   get_lead_card: executeGetLeadCard,
   generate_commercial_report: executeGenerateCommercialReport,
+  query_product_owners: executeQueryProductOwners,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -1795,6 +1848,14 @@ Se algum campo vier null no payload, escreva "Não disponível" naquela linha. N
 - **Catálogo SmartDent (produtos REAIS vendidos):** Scanner BLZ INO200, BLZ INO100, BLZ LS100, Scanner I600, Scanner I700, Impressora Rayshape Edge Mini, Smart Print Vitality, Smart Print Bite Splint Flex, Smart Print Modelo DLP, NanoClean, Smartmake, SmartGum, Wash & Cure Elegoo, Cura Rayshape ShapeCure, Notebook Avell A50.
 - **Marcas CONCORRENTES (NUNCA listar como vendidas):** Formlabs (Form 3B+), Asiga (MAX UV), iTero (Element 5D), Exocad (DentalCAD), Medit (i700/i900/T310), 3Shape, Phrozen, Anycubic. Estas aparecem nos campos \`equip_*\` apenas para detectar oportunidades de migração — NÃO são produtos do portfólio SmartDent.
 - Se \`query_product_mix\` retornar vazio/aviso → responda **"Não há dados de vendas no período"**. NÃO invente, NÃO complete com produtos do catálogo, NÃO use conhecimento prévio.
+
+🚨 **REGRA ABSOLUTA — LISTA DE PROPRIETÁRIOS / BASE INSTALADA:**
+- Quando o usuário pedir **"lista de quem comprou X"**, **"proprietários do X"**, **"clientes que adquiriram X"**, **"base instalada"**, **"quem tem o equipamento Y"**, **"relatório de proprietários"**, **"recompra de insumos dos donos do X"** → SEMPRE chame \`query_product_owners({ busca: "<termo curto>" })\`.
+- Use o termo MAIS CURTO e único possível (ex: \`"edge mini"\`, \`"INO200"\`, \`"Vitality"\`). Se a primeira busca vier vazia, tente um termo ainda mais curto antes de declarar vazio.
+- **PROIBIDO** estimar, arredondar ou "achar" quantos clientes existem. O \`total_clientes\` do payload é a verdade ABSOLUTA. Se o usuário disser "tem 100", "tem mais", "vasculhe melhor" — NÃO invente um número maior. Reafirme o total real do payload e explique a fonte (\`deals.status='ganha'\`).
+- **PROIBIDO** fabricar nomes de clientes, datas de compra, datas de recompra, ciclos médios ou status. Renderize EXATAMENTE os registros do array \`clientes\`.
+- Renderização padrão: tabela markdown com colunas \`| Nome | Cidade/UF | 1ª Compra | Unid. | Última Recompra Insumo | Dias | Status |\`. Acima da tabela, mostrar contadores \`total_clientes\`, \`total_unidades\`, \`receita_total\` e \`resumo_recompra\`. Abaixo, tabela \`por_mes\`.
+- Se \`total_clientes === 0\` → responda literalmente "Nenhum cliente encontrado para '<busca>' em propostas ganhas." e PARE. Não complete com listas fictícias.
 
 **Dado de referência (conferir consistência):**
 - Abril 2026 até 09/04: R$ 440.329,19 em 84 deals
