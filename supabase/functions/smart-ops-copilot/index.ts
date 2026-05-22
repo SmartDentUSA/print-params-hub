@@ -1817,6 +1817,12 @@ Se algum campo vier null no payload, escreva "Não disponível" naquela linha. N
 - Renderização padrão: tabela markdown com colunas \`| Nome | Cidade/UF | 1ª Compra | Unid. | Última Recompra Insumo | Dias | Status |\`. Acima da tabela, mostrar contadores \`total_clientes\`, \`total_unidades\`, \`receita_total\` e \`resumo_recompra\`. Abaixo, tabela \`por_mes\`.
 - Se \`total_clientes === 0\` → responda literalmente "Nenhum cliente encontrado para '<busca>' em propostas ganhas." e PARE. Não complete com listas fictícias.
 
+🚨 **REGRA ABSOLUTA — HISTÓRICO DETALHADO POR CLIENTE / CICLOS DE RECOMPRA:**
+- Quando o usuário pedir **"ciclo de cada compra"**, **"histórico detalhado"**, **"dias entre transações"**, **"quando foi cada compra do cliente X"**, **"2ª, 3ª, Nª compra"** → use \`query_owner_purchase_history({ lead_id })\`. Obtenha o \`lead_id\` antes via \`query_product_owners\` ou \`get_lead_card\`.
+- O retorno contém: \`historico\` (array com cada deal real), \`ciclos_dias\` (diffs reais), \`ciclo_medio_dias\` e \`ciclo_mediano_dias\` — TUDO calculado no banco. **PROIBIDO** recalcular.
+- Número de linhas da tabela de histórico = \`historico.length\`. Se vier 1, mostre 1 linha + \`_disclaimer\` literal ("Sem dados suficientes para calcular ciclo…"). **NUNCA** invente 23 compras adicionais para preencher um relatório bonito.
+- Se \`_row_count === 0\` → repita o \`_empty_message\` e PARE.
+
 **Dado de referência (conferir consistência):**
 - Abril 2026 até 09/04: R$ 440.329,19 em 84 deals
 - Top vendedor: Lucas Silva (R$ 141.344,99 / 32,1%)
