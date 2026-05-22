@@ -444,7 +444,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_deal_history",
-      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_product_mix. NUNCA invente nomes de produtos.",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_proposal_items_sold. NUNCA invente nomes de produtos.",
       parameters: {
         type: "object",
         properties: {
@@ -500,7 +500,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_sales_summary",
-      description: "Retorna total de vendas e ranking COMPLETO de vendedores de um mês. Cada item do ranking inclui: vendedor, total_deals (deals ganhos), receita_total, ticket_medio, pct_receita, leads_recebidos (no mês), taxa_conversao (% deals ganhos / leads recebidos). USE SEMPRE para faturamento, receita, total de vendas, ranking, performance e taxa de conversão por vendedor. NUNCA use query_deal_history ou PipeRun API para calcular totais. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
+      description: "Retorna total de vendas e ranking COMPLETO de vendedores de um mês. Cada item do ranking inclui: vendedor, total_deals (deals ganhos), receita_total, ticket_medio, pct_receita, leads_recebidos (no mês), taxa_conversao (% deals ganhos / leads recebidos). USE SEMPRE para faturamento, receita, total de vendas, ranking, performance e taxa de conversão por vendedor. NUNCA use query_deal_history ou PipeRun API para calcular totais. ⚠️ Para LISTAR produtos vendidos use query_proposal_items_sold.",
       parameters: {
         type: "object",
         properties: {
@@ -515,23 +515,8 @@ const tools = [
   {
     type: "function",
     function: {
-      name: "query_product_mix",
-      description: "Retorna o MIX de produtos FATURADOS no Omie ERP no mês (notas fiscais). Use APENAS quando o usuário pedir explicitamente 'faturamento Omie', 'NF', 'nota fiscal'. Para 'itens vendidos / quantidade vendida / mix de vendas / top produtos do mês' use `query_proposal_items_sold` (propostas ganhas no PipeRun — fonte de verdade comercial).",
-      parameters: {
-        type: "object",
-        properties: {
-          ano: { type: "number", description: "Ano (padrão: ano atual)" },
-          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
-        },
-        required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
       name: "query_proposal_items_sold",
-      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial de itens vendidos — preferir sobre query_product_mix (Omie/NF).",
+      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial CRM — Omie está bloqueado para o Copilot.",
       parameters: {
         type: "object",
         properties: {
@@ -539,22 +524,6 @@ const tools = [
           mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
         },
         required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "query_product_sales",
-      description: "Busca vendas de um produto ou família específica via fn_vendas_produto. Use para 'quanto vendi de Vitality', 'vendas de scanners INO200', 'histórico do Rayshape'. Retorna vendas reais do Omie ERP no período.",
-      parameters: {
-        type: "object",
-        properties: {
-          busca: { type: "string", description: "Termo de busca do produto (ex: 'Vitality', 'INO200', 'Rayshape')" },
-          inicio: { type: "string", description: "Data inicial YYYY-MM-DD (padrão: início do ano atual)" },
-          fim: { type: "string", description: "Data final YYYY-MM-DD (padrão: hoje)" }
-        },
-        required: ["busca"]
       }
     }
   },
@@ -578,7 +547,7 @@ const tools = [
     type: "function",
     function: {
       name: "get_lead_card",
-      description: "Retorna a VISÃO 360° COMPLETA de um lead — mesma informação que aparece no card do operador. Inclui: todos os campos de lia_attendances (perfil, equipamentos, tags, score, propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, deals PipeRun history em JSONB), últimas mensagens WhatsApp, interações de IA, log de atividades, eventos de funil e page views. USE SEMPRE que o usuário pedir 'me mostra o lead X', 'card completo', 'ficha do lead', 'tudo sobre <nome/email>', 'resume esse lead', 'contexto do <nome>'. Resolve identidade na ordem: lead_id > piperun_id > email > telefone. Sempre filtra merged_into IS NULL.",
+      description: "Retorna a VISÃO 360° COMPLETA de um lead — mesma informação que aparece no card do operador. Inclui: todos os campos de lia_attendances (perfil, equipamentos, tags, score, propostas, cognitive_analysis, dados Sellflux, deals PipeRun history em JSONB), últimas mensagens WhatsApp, interações de IA, log de atividades, eventos de funil e page views. Dados Omie estão BLOQUEADOS e NÃO são retornados. USE SEMPRE que o usuário pedir 'me mostra o lead X', 'card completo', 'ficha do lead', 'tudo sobre <nome/email>', 'resume esse lead', 'contexto do <nome>'. Resolve identidade na ordem: lead_id > piperun_id > email > telefone. Sempre filtra merged_into IS NULL.",
       parameters: {
         type: "object",
         properties: {
@@ -600,7 +569,7 @@ const tools = [
     type: "function",
     function: {
       name: "generate_commercial_report",
-      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, mix de produtos (Omie), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie query_sales_summary + query_product_mix manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload.",
+      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, itens de propostas ganhas (PipeRun), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie tools manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload. Dados Omie estão BLOQUEADOS.",
       parameters: {
         type: "object",
         properties: {
@@ -1418,22 +1387,6 @@ async function executeQuerySalesSummary(args: any) {
   }
 }
 
-async function executeQueryProductMix(args: any) {
-  try {
-    const now = new Date();
-    const ano = args.ano || now.getFullYear();
-    const mes = args.mes || (now.getMonth() + 1);
-    const { data, error } = await supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes });
-    if (error) return { error: error.message };
-    if (!data || data.length === 0) {
-      return { periodo: `${mes}/${ano}`, produtos: [], aviso: "Nenhuma venda registrada no período. NÃO invente produtos." };
-    }
-    return { periodo: `${mes}/${ano}`, total_produtos: data.length, produtos: data };
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
 async function executeQueryProposalItemsSold(args: any) {
   try {
     const now = new Date();
@@ -1474,11 +1427,10 @@ async function executeGenerateCommercialReport(args: any) {
     const inicioMes = new Date(ano, mes - 1, 1).toISOString();
     const fimMes = new Date(ano, mes, 1).toISOString();
 
-    const [totalsCur, totalsPrev, ranking, mixProd, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
+    const [totalsCur, totalsPrev, ranking, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
       supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_total_vendas_mes", { p_ano: anoPrev, p_mes: mesPrev }),
       supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes }),
-      supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes }),
       supabase.from("lia_attendances")
         .select("id", { count: "exact", head: true })
@@ -1509,14 +1461,12 @@ async function executeGenerateCommercialReport(args: any) {
       totals_mes_anterior: tPrev,
       delta_mom: delta,
       ranking_vendedores: ranking.data || [],
-      mix_produtos: mixProd.data || [],
       itens_propostas_ganhas: itensPropostas.data || [],
       pipeline: pipelineRes.data?.funil || null,
       pipeline_total_value: pipelineRes.data?.summary?.total_pipeline_atual_value || null,
       leads_novos_mes: leadsNovos.count ?? 0,
       avisos: {
         sem_vendas: !tCur || Number(tCur.total_deals || 0) === 0,
-        sem_mix: !(mixProd.data && mixProd.data.length > 0),
         sem_itens_propostas: !(itensPropostas.data && itensPropostas.data.length > 0),
         sem_pipeline: !pipelineRes.data
       },
@@ -1524,26 +1474,6 @@ async function executeGenerateCommercialReport(args: any) {
     };
   } catch (e) {
     return { error: (e as Error).message };
-  }
-}
-
-async function executeQueryProductSales(args: any) {
-  try {
-    const now = new Date();
-    const inicio = args.inicio || `${now.getFullYear()}-01-01`;
-    const fim = args.fim || now.toISOString().slice(0, 10);
-    const { data, error } = await supabase.rpc("fn_vendas_produto", {
-      p_busca: args.busca,
-      p_inicio: inicio,
-      p_fim: fim
-    });
-    if (error) return { error: error.message };
-    if (!data || data.length === 0) {
-      return { busca: args.busca, periodo: `${inicio} a ${fim}`, vendas: [], aviso: "Nenhuma venda encontrada para este produto no período." };
-    }
-    return { busca: args.busca, periodo: `${inicio} a ${fim}`, total_registros: data.length, vendas: data };
-  } catch (e) {
-    return { error: e.message };
   }
 }
 
@@ -1629,29 +1559,6 @@ async function executeGetLeadCard(args: any) {
       deals: leadClean.piperun_deals_history || [],
       proposals: leadClean.proposals_data || leadClean.itens_proposta_parsed || [],
       cognitive_analysis: leadClean.cognitive_analysis || null,
-      omie: {
-        codigo_cliente: leadClean.omie_codigo_cliente,
-        razao_social: leadClean.omie_razao_social,
-        tipo_pessoa: leadClean.omie_tipo_pessoa,
-        segmento: leadClean.omie_segmento,
-        score: leadClean.omie_score,
-        classificacao: leadClean.omie_classificacao,
-        faturamento_total: leadClean.omie_faturamento_total,
-        valor_pago: leadClean.omie_valor_pago,
-        valor_em_aberto: leadClean.omie_valor_em_aberto,
-        valor_vencido: leadClean.omie_valor_vencido,
-        percentual_pago: leadClean.omie_percentual_pago,
-        ticket_medio: leadClean.omie_ticket_medio,
-        total_pedidos: leadClean.omie_total_pedidos,
-        nf_count: leadClean.omie_nf_count,
-        ultima_compra: leadClean.omie_ultima_compra,
-        ultima_nf_emitida: leadClean.omie_ultima_nf_emitida,
-        dias_sem_comprar: leadClean.omie_dias_sem_comprar,
-        dias_atraso_max: leadClean.omie_dias_atraso_max,
-        frequencia_compra: leadClean.omie_frequencia_compra,
-        inadimplente: leadClean.omie_inadimplente,
-        last_sync: leadClean.omie_last_sync,
-      },
       sellflux: leadClean.sellflux_custom_fields || null,
       ...related,
     };
@@ -1685,16 +1592,9 @@ async function executeQueryProductOwners(args: any) {
   }
   const por_mes = Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes));
 
-  const fontes = {
-    piperun: rows.filter(r => r.fonte === "piperun").length,
-    omie: rows.filter(r => r.fonte === "omie").length,
-    piperun_omie: rows.filter(r => r.fonte === "piperun+omie").length,
-  };
-
   return {
     busca,
-    fonte: "UNION de PipeRun (deals ganhos + deal_items) e Omie (notas fiscais de saída + omie_nf_items), cruzado com lia_attendances para insumos.",
-    fontes_breakdown: fontes,
+    fonte: "PipeRun (deals.status='ganha' + deal_items), cruzado com lia_attendances para insumos. Dados Omie estão BLOQUEADOS para o Copilot.",
     total_clientes: total,
     total_unidades: unidades,
     receita_total: Math.round(receita * 100) / 100,
@@ -1702,7 +1602,7 @@ async function executeQueryProductOwners(args: any) {
     por_mes,
     clientes: rows,
     aviso: total === 0
-      ? "Nenhum cliente encontrado em PipeRun (ganhos) nem em Omie (NF saída). Tente um termo mais curto, ex: 'edge mini' ou 'rayshape'."
+      ? "Nenhum cliente encontrado em PipeRun (deals ganhos). Tente um termo mais curto, ex: 'edge mini' ou 'rayshape'."
       : null,
   };
 }
@@ -1736,9 +1636,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_enrollments: executeQueryEnrollments,
   query_opportunity_rules: executeQueryOpportunityRules,
   query_sales_summary: executeQuerySalesSummary,
-  query_product_mix: executeQueryProductMix,
   query_proposal_items_sold: executeQueryProposalItemsSold,
-  query_product_sales: executeQueryProductSales,
   query_scanner_brand_distribution: executeQueryScannerBrandDistribution,
   query_printer_brand_distribution: executeQueryPrinterBrandDistribution,
   get_lead_card: executeGetLeadCard,
@@ -1780,7 +1678,7 @@ Você executa 6 tipos de trabalho:
 **Comportamento SDR:** sdr_scanner_interesse, sdr_impressora_interesse, sdr_software_cad_interesse, sdr_cursos_interesse, sdr_smartmake_interesse, sdr_smartgum_interesse, produto_interesse, produto_interesse_auto, como_digitaliza, tem_impressora, impressora_modelo, principal_aplicacao, volume_mensal_pecas, software_cad
 **Scoring e inteligência:** intelligence_score_total, workflow_score, opportunity_score, next_upsell_stage, next_upsell_product, next_upsell_date_est, next_upsell_score, churn_risk_score, recompra_alert, recompra_days_overdue
 **Análise cognitiva (IA):** lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach
-**LTV e financeiro:** ltv_total, avg_ticket, total_deals, last_deal_date, last_deal_value, ltv_projected_12m, ltv_projected_24m, omie_faturamento_total, omie_valor_em_aberto, omie_inadimplente, omie_valor_vencido, omie_dias_sem_comprar
+**LTV e financeiro:** ltv_total, avg_ticket, total_deals, last_deal_date, last_deal_value, ltv_projected_12m, ltv_projected_24m _(campos omie_* estão BLOQUEADOS — não consultar)_
 **Hits por categoria:** hits_scanner, hits_cad, hits_impressao3d, hits_pos_impressao, hits_insumos_cursos, hits_fresagem, hits_e7_insumos
 **Academy:** academy_progresso_pct, academy_ultimo_modulo_acessado, academy_curso_concluido, astron_courses_total, astron_courses_completed
 **Mídia e origem:** utm_source, utm_medium, utm_campaign, utm_term, platform, platform_cpl, origem_campanha, wa_group_origem
@@ -1800,16 +1698,16 @@ Você executa 6 tipos de trabalho:
   Nunca omita \`leads_recebidos\` nem \`taxa_conversao\` — são obrigatórios.
   Nota: \`taxa_conversao\` pode ultrapassar 100% pois deals ganhos no mês podem vir de leads de meses anteriores; é um proxy de eficiência, não uma conversão estrita de coorte.
 - **MIX / TOP PRODUTOS VENDIDOS / QUANTIDADE DE ITENS VENDIDOS DO MÊS → SEMPRE use \`query_proposal_items_sold\`** (fonte: itens das propostas ganhas no PipeRun — é a fonte real do que foi vendido).
-- **Faturamento Omie / NF emitidas → use \`query_product_mix\`** (fonte: Omie ERP, NF). Use apenas se o usuário pedir explicitamente "Omie" ou "nota fiscal".
-- **Vendas de um produto específico → SEMPRE use \`query_product_sales\`** (ex: "quanto vendi de Vitality")
+- **Vendas de um produto específico → use \`query_deal_history\` filtrando por produto** (ex: "quanto vendi de Vitality").
 - Filtros customizados de deals (status/vendedor) → use \`query_deal_history\`
 - **PROIBIDO**: consultar API do PipeRun para calcular receita
 - **PROIBIDO**: somar valores direto da tabela deal_items sem usar view de dedup
 - **PROIBIDO**: usar query_leads ou query_leads_advanced para responder perguntas de vendas/faturamento
+- 🚫 **PROIBIDO USAR DADOS DO OMIE (ERP / NF)**. As tools \`query_product_mix\`, \`query_product_sales\` e os campos \`omie_*\` em lia_attendances foram **DESCONTINUADOS no Copilot**. Toda análise comercial deve usar EXCLUSIVAMENTE dados do CRM (PipeRun: deals, deal_items, propostas). Se o usuário pedir "Omie", "NF" ou "faturamento Omie" → responda: "Os dados do Omie estão bloqueados para o Copilot. Trabalho apenas com dados do CRM (PipeRun)."
 
 🚨 **REGRA ABSOLUTA — RELATÓRIO DE PERFORMANCE COMERCIAL:**
 - Quando o usuário pedir **"relatório", "report", "relatório de performance comercial", "fechamento do mês", "panorama do mês", "como foi o mês X", "resumo do mês"** → SEMPRE use \`generate_commercial_report({ ano, mes })\`.
-- **PROIBIDO** montar relatório encadeando \`query_sales_summary\` + \`query_product_mix\` manualmente.
+- **PROIBIDO** montar relatório encadeando tools manualmente.
 - **PROIBIDO** calcular delta % entre meses na sua cabeça — use \`delta_mom\` do payload.
 - **PROIBIDO** inventar produtos, vendedores, percentuais, pipeline ou comparativos. Se um campo vier null/vazio, escreva "Não disponível".
 
@@ -1832,9 +1730,6 @@ Você executa 6 tipos de trabalho:
 ## 3. Itens Vendidos (Propostas Ganhas — PipeRun)
 (tabela com TODOS os itens de \`itens_propostas_ganhas\`: produto | qtd_total | receita_total | n_deals | ticket_medio. Ordem do array, do maior para o menor receita_total. NUNCA invente itens — se vazio escreva "Sem propostas ganhas no período".)
 
-### 3.1 Faturamento Omie (NF emitidas no mês) — referência
-(tabela curta com até 10 primeiros itens de \`mix_produtos\`: produto, qtd_faturada, receita_omie, ticket_medio, categoria. Omitir seção se \`avisos.sem_mix=true\`.)
-
 ## 4. Pipeline Atual
 (tabela com as 4 bandas de pipeline: label | display | count | value)
 - **Pipeline total:** R$ {pipeline_total_value}
@@ -1853,10 +1748,10 @@ Se algum campo vier null no payload, escreva "Não disponível" naquela linha. N
 - **PROIBIDO** sugerir ALTER TABLE para criar \`scanner_marca\`/\`scanner_modelo\` — a normalização já existe via \`fn_normalize_scanner_brand\`.
 
 🚨 **REGRA CRÍTICA — PRODUTOS (ANTI-ALUCINAÇÃO):**
-- **NUNCA invente nomes de produtos.** Sempre consulte \`query_product_mix\` ou \`query_product_sales\` antes de listar produtos vendidos.
+- **NUNCA invente nomes de produtos.** Sempre consulte \`query_proposal_items_sold\` ou \`query_deal_history\` antes de listar produtos vendidos.
 - **Catálogo SmartDent (produtos REAIS vendidos):** Scanner BLZ INO200, BLZ INO100, BLZ LS100, Scanner I600, Scanner I700, Impressora Rayshape Edge Mini, Smart Print Vitality, Smart Print Bite Splint Flex, Smart Print Modelo DLP, NanoClean, Smartmake, SmartGum, Wash & Cure Elegoo, Cura Rayshape ShapeCure, Notebook Avell A50.
 - **Marcas CONCORRENTES (NUNCA listar como vendidas):** Formlabs (Form 3B+), Asiga (MAX UV), iTero (Element 5D), Exocad (DentalCAD), Medit (i700/i900/T310), 3Shape, Phrozen, Anycubic. Estas aparecem nos campos \`equip_*\` apenas para detectar oportunidades de migração — NÃO são produtos do portfólio SmartDent.
-- Se \`query_product_mix\` retornar vazio/aviso → responda **"Não há dados de vendas no período"**. NÃO invente, NÃO complete com produtos do catálogo, NÃO use conhecimento prévio.
+- Se \`query_proposal_items_sold\` retornar vazio/aviso → responda **"Não há dados de vendas no período"**. NÃO invente, NÃO complete com produtos do catálogo, NÃO use conhecimento prévio.
 
 🚨 **REGRA ABSOLUTA — LISTA DE PROPRIETÁRIOS / BASE INSTALADA:**
 - Quando o usuário pedir **"lista de quem comprou X"**, **"proprietários do X"**, **"clientes que adquiriram X"**, **"base instalada"**, **"quem tem o equipamento Y"**, **"relatório de proprietários"**, **"recompra de insumos dos donos do X"** → SEMPRE chame \`query_product_owners({ busca: "<termo curto>" })\`.
@@ -1934,7 +1829,7 @@ Se ao buscar dados você detectar:
 - Vendedor com queda > 40% vs média últimos 30 dias → mencionar
 - Total de deals = 0 em algum dia útil → mencionar
 - Leads com recompra_alert = true > 50 → mencionar
-- Inadimplência (omie_inadimplente = true) em clientes ativos → sinalizar
+- (Sinal de inadimplência via Omie foi DESCONTINUADO — não usar)
 
 ### ANTES DE QUALQUER AÇÃO DE ESCRITA (INSERT/UPDATE em campaigns, campaign_send_log, message_logs)
 SEMPRE mostre o que vai fazer e peça confirmação. Nunca execute INSERT em campaigns sem confirmação explícita.
@@ -1996,11 +1891,11 @@ Leads com equip_upgrade_signal = true e equipamento com mais de 18 meses têm al
 | Templates WA aprovados | query_table (whatsapp_templates, status=approved) |
 | Catálogo e workflow | query_table (product_taxonomy / system_a_catalog) |
 | Comportamento e jornada | query_table (lead_activity_log / lead_page_views) |
-| Card / ficha completa do lead | get_lead_card (one-shot 360°: perfil + Omie + deals + mensagens + atividade) |
+| Card / ficha completa do lead | get_lead_card (one-shot 360°: perfil + deals + mensagens + atividade — sem Omie) |
 
 ## ACESSO 360° AO LEAD (get_lead_card)
 
-Quando o usuário pedir "me mostra o lead X", "card completo", "ficha do <nome>", "tudo sobre o <email>", "resume esse lead", "contexto do <nome>" → use **get_lead_card** com lead_id, piperun_id, email ou telefone. Uma única chamada já retorna: todos os campos de lia_attendances, deals PipeRun (history JSONB), propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, últimas 30 mensagens WhatsApp, 20 interações de IA, 50 entradas do activity log, page views e state events. NÃO encadeie query_deal_history / query_ecommerce_orders depois — já vem tudo.
+Quando o usuário pedir "me mostra o lead X", "card completo", "ficha do <nome>", "tudo sobre o <email>", "resume esse lead", "contexto do <nome>" → use **get_lead_card** com lead_id, piperun_id, email ou telefone. Uma única chamada já retorna: todos os campos de lia_attendances, deals PipeRun (history JSONB), propostas, cognitive_analysis, dados Sellflux, últimas 30 mensagens WhatsApp, 20 interações de IA, 50 entradas do activity log, page views e state events. Dados Omie estão BLOQUEADOS. NÃO encadeie query_deal_history / query_ecommerce_orders depois — já vem tudo.
 
 ## CURADORIA DE CONTEÚDO
 
@@ -2320,7 +2215,7 @@ esta lógica de camadas:
    → 3.048 leads prontos para impressora
 4. Estagnados com intelligence_score_total > 60
    → alta qualidade, nunca converteram
-5. omie_inadimplente = true → gestão de risco 
+5. (Risco de inadimplência via Omie está BLOQUEADO — use apenas sinais do CRM/PipeRun)
    antes de nova oferta
 
 ---
