@@ -2538,8 +2538,18 @@ serve(async (req) => {
       totalCompletionTokens += usage.completion_tokens;
 
       if (!choice) {
-        return new Response(JSON.stringify({ error: "Sem resposta do modelo" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        // Model retornou sem candidates (safety filter, MAX_TOKENS sem texto,
+        // erro interno). Loga o payload bruto e devolve 200 + fallback para
+        // o frontend não cair em blank screen.
+        console.error(`[Copilot] No choice in response from ${config.label}:`, JSON.stringify(result).slice(0, 1000));
+        const finishReason = result?.choices?.[0]?.finish_reason || result?.error?.message || "unknown";
+        return new Response(JSON.stringify({
+          error: "MODEL_NO_RESPONSE",
+          fallback: true,
+          message: "O modelo não retornou resposta. Reformule a pergunta ou tente novamente em instantes.",
+          finish_reason: finishReason,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
 
