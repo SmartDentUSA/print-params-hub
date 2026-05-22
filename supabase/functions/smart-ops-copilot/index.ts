@@ -102,11 +102,12 @@ const tools = [
     type: "function",
     function: {
       name: "send_whatsapp",
-      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um vendedor específico. Pode resolver vendedor e lead por nome automaticamente.",
+      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um membro da equipe (vendedor OU CS). Pode resolver membro e lead por nome automaticamente. Use role='cs' quando o usuário pedir 'enviar pelo CS', 'pelo pós-venda', 'pelo customer success'.",
       parameters: {
         type: "object",
         properties: {
-          seller_name: { type: "string", description: "Nome do vendedor (busca em team_members para encontrar o team_member_id e waleads_api_key)" },
+          seller_name: { type: "string", description: "Nome do membro da equipe (busca em team_members para encontrar o team_member_id e waleads_api_key). Pode ser vendedor OU CS." },
+          role: { type: "string", description: "Papel do remetente: 'cs' (Customer Success/pós-venda), 'vendedor', 'sdr'. Quando informado sem seller_name, pega automaticamente o primeiro membro ativo com esse role e waleads_api_key configurado." },
           lead_name: { type: "string", description: "Nome do lead (alternativa ao phone — busca em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
           phone: { type: "string", description: "Telefone do lead com DDD (se não informar, busca pelo lead_name ou lead_id)" },
@@ -114,6 +115,25 @@ const tools = [
           tipo: { type: "string", description: "Tipo de mensagem: text, image, audio, video, document (padrão: text)" },
           media_url: { type: "string", description: "URL da mídia (para tipos image/audio/video/document)" },
           caption: { type: "string", description: "Legenda da mídia" }
+        },
+        required: ["message"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_sms",
+      description: "Envia SMS para 1 lead via DisparoPro (API já configurada). Cria uma micro-campanha (canal=sms, lead_ids=[lead]) e dispara via smart-ops-sms-disparopro. Use quando o usuário pedir 'manda SMS para X', 'dispara SMS de cobrança', 'envia SMS para o cliente Y'. Mensagem deve ter no máx 160 caracteres (codificação 7-bit) ou 70 (codificação 8-bit/acentos).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Nome do lead (busca ILIKE em lia_attendances)" },
+          lead_id: { type: "string", description: "UUID do lead" },
+          phone: { type: "string", description: "Telefone alternativo (se não houver lead_id/lead_name)" },
+          message: { type: "string", description: "Texto do SMS (até 160 chars 7-bit, 70 chars com acentos)" },
+          codificacao: { type: "string", description: "'0' = 7-bit (sem acentos, 160 chars/PDU), '8' = 8-bit (com acentos, 70 chars/PDU). Default: '0'" },
+          campaign_name: { type: "string", description: "Nome opcional da campanha (default: 'Copilot SMS one-off')" }
         },
         required: ["message"]
       }
