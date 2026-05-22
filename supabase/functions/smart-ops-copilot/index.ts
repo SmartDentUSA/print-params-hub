@@ -593,6 +593,20 @@ const tools = [
         required: ["busca"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_owner_purchase_history",
+      description: "Retorna o HISTÓRICO CRONOLÓGICO REAL e COMPLETO de compras (deals com status='ganha') de UM lead canônico específico, com ciclos REAIS pré-calculados no banco (dias entre compras consecutivas). Use SEMPRE que o usuário pedir 'ciclo de cada compra do cliente X', 'histórico detalhado', 'dias entre transações', 'quando foi cada compra'. NUNCA invente compras adicionais para 'completar' a lista. NUNCA calcule ciclos de cabeça — use o campo ciclo_medio_dias/ciclo_mediano_dias do retorno. Se historico tiver apenas 1 deal, ciclos_dias=[] e _disclaimer explica — repita literalmente. Renderize EXATAMENTE os deals retornados, nada mais.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead canônico (de lia_attendances)" }
+        },
+        required: ["lead_id"]
+      }
+    }
   }
 ];
 
