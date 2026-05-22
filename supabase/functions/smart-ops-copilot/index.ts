@@ -1837,6 +1837,65 @@ function createSSEFromText(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+// --- BRAIN CONTEXT LOADER ---
+// Lê snapshots do schema copilot_brain e devolve um JSON compacto que vira
+// a única fonte de verdade do Copilot. Refresh é feito por triggers/cron;
+// aqui apenas leitura.
+async function loadBrainContext(): Promise<{ json: any; updatedAt: string | null }> {
+  const tryFetch = async (table: string, opts: any = {}) => {
+    try {
+      const q = supabase.schema("copilot_brain" as any).from(table).select("*");
+      if (opts.eq) q.eq(opts.eq[0], opts.eq[1]);
+      if (opts.order) q.order(opts.order[0], { ascending: !!opts.order[1] });
+      if (opts.limit) q.limit(opts.limit);
+      const { data, error } = await q;
+      if (error) { console.error(`[Brain] ${table} error:`, error.message); return []; }
+      return data || [];
+    } catch (e) { console.error(`[Brain] ${table} fail:`, e); return []; }
+  };
+
+  const [meta, overviewArr, salesMonth, salesRanking, pipeline, productsSold, equipment, alerts] = await Promise.all([
+    tryFetch("brain_meta"),
+    tryFetch("brain_overview", { eq: ["id", 1] }),
+    tryFetch("brain_sales_month", { order: ["ano", false], limit: 13 }),
+    tryFetch("brain_sales_ranking", { order: ["ano", false], limit: 60 }),
+    tryFetch("brain_pipeline"),
+    tryFetch("brain_products_sold", { order: ["ano", false], limit: 60 }),
+    tryFetch("brain_equipment", { limit: 80 }),
+    tryFetch("brain_alerts", { order: ["severity", true] }),
+  ]);
+
+  const overview = (overviewArr as any[])[0] || null;
+  const updatedAt = overview?.updated_at || (meta as any[])[0]?.updated_at || null;
+
+  return {
+    json: {
+      meta,
+      overview,
+      sales_month: salesMonth,
+      sales_ranking: salesRanking,
+      pipeline,
+      products_sold: productsSold,
+      equipment,
+      alerts,
+    },
+    updatedAt,
+  };
+}
+
+function buildBrainSystemMessage(brain: any, updatedAt: string | null): string {
+  return [
+    "# BRAIN CONTEXT — FONTE ÚNICA DE VERDADE",
+    `Atualizado em: ${updatedAt || "desconhecido"}`,
+    "Este JSON é o estado real do negócio. Não invente nada fora dele.",
+    "Schema: { meta, overview, sales_month, sales_ranking, pipeline, products_sold, equipment, alerts }",
+    "",
+    "```json",
+    JSON.stringify(brain).slice(0, 60000),
+    "```",
+  ].join("\n");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
