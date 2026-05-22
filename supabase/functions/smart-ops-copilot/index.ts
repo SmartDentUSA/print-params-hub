@@ -1916,8 +1916,13 @@ serve(async (req) => {
       });
     }
 
+    // Carrega o Cérebro Comercial uma vez por turno e injeta como contexto.
+    const brain = await loadBrainContext();
+    const brainSystemMsg = buildBrainSystemMessage(brain.json, brain.updatedAt);
+
     const allMessages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: brainSystemMsg },
       ...messages
     ];
 
