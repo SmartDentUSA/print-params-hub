@@ -1,0 +1,26 @@
+---
+name: Copilot Brain Architecture v1
+description: Copilot reads from copilot_brain schema (real-time snapshots) instead of querying raw tables; data-read tools removed, only action tools remain
+type: feature
+---
+Cérebro Comercial (`copilot_brain` schema): tabelas pré-computadas atualizadas em tempo real que substituem queries diretas do Copilot.
+
+Tabelas:
+- `brain_overview` (singleton) — KPIs do mês + deltas MoM
+- `brain_sales_month` (24m) — receita/deals/ticket por mês + deltas
+- `brain_sales_ranking` (12m) — ranking de vendedores por mês
+- `brain_pipeline` — 4 bandas (em_processo/boas_chances/comprometido/conquistado)
+- `brain_products_sold` (12m) — itens de propostas ganhas
+- `brain_equipment` — distribuição de scanners/impressoras
+- `brain_alerts` — alertas executivos (queda de receita, baixa conversão)
+- `brain_meta` — auditoria de atualização por bloco
+
+Refresh: `copilot_brain.refresh_all()` reconstrói tudo. Funções por bloco existem. Triggers em `deals` e `lia_attendances` emitem `pg_notify('copilot_brain_dirty')`.
+
+Leitura: `public.get_copilot_brain()` RPC SECURITY DEFINER devolve JSON único.
+
+Copilot (`smart-ops-copilot/index.ts`):
+- Carrega Cérebro a cada turno e injeta como system message `BRAIN CONTEXT`.
+- SYSTEM_PROMPT: persona CEO/CCO/CMO sênior, zero alucinação, fonte única = Cérebro.
+- Tools filtradas via `ACTION_TOOLS_ALLOWLIST`: apenas send_whatsapp, send_sms, notify_seller, send_to_sellflux, bulk_campaign, move_crm_stage, update_lead, add_tags, unify_leads, create_audience, generate_commercial_report, get_lead_card. Demais tools de leitura genérica (query_leads, query_table, query_stats, query_deal_history, etc.) removidas do schema enviado ao LLM.
+- Se faltar dado no Cérebro: "Não tenho esse dado no Cérebro. Posso confirmar apenas: [campos reais]".
