@@ -1631,16 +1631,9 @@ async function executeQueryProductOwners(args: any) {
   }
   const por_mes = Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes));
 
-  const fontes = {
-    piperun: rows.filter(r => r.fonte === "piperun").length,
-    omie: rows.filter(r => r.fonte === "omie").length,
-    piperun_omie: rows.filter(r => r.fonte === "piperun+omie").length,
-  };
-
   return {
     busca,
-    fonte: "UNION de PipeRun (deals ganhos + deal_items) e Omie (notas fiscais de saída + omie_nf_items), cruzado com lia_attendances para insumos.",
-    fontes_breakdown: fontes,
+    fonte: "PipeRun (deals.status='ganha' + deal_items), cruzado com lia_attendances para insumos. Dados Omie estão BLOQUEADOS para o Copilot.",
     total_clientes: total,
     total_unidades: unidades,
     receita_total: Math.round(receita * 100) / 100,
@@ -1648,7 +1641,7 @@ async function executeQueryProductOwners(args: any) {
     por_mes,
     clientes: rows,
     aviso: total === 0
-      ? "Nenhum cliente encontrado em PipeRun (ganhos) nem em Omie (NF saída). Tente um termo mais curto, ex: 'edge mini' ou 'rayshape'."
+      ? "Nenhum cliente encontrado em PipeRun (deals ganhos). Tente um termo mais curto, ex: 'edge mini' ou 'rayshape'."
       : null,
   };
 }
