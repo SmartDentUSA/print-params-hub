@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 import { ErpDataTab } from "../leads/tabs/ErpDataTab";
 import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
+import { RayshapePanel } from "./RayshapePanel";
 import LeadFieldsInventory from "./LeadFieldsInventory";
 
 // ─── Constants ───
@@ -92,7 +93,7 @@ interface DetailResponse {
   activity_log: ActivityLogEvent[];
 }
 
-type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro";
+type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro" | "rayshape";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "historico", label: "📋 Histórico Completo" },
@@ -102,6 +103,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "lis", label: "📊 LIS Breakdown" },
   { key: "acoes", label: "⚡ Ações Recomendadas" },
   { key: "cs", label: "🎓 CS" },
+  { key: "rayshape", label: "🖨 Rayshape" },
   { key: "erp", label: "🏭 Dados do ERP" },
   { key: "financeiro", label: "💰 Financeiro" },
 ];
@@ -1995,6 +1997,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       {/* ── Financeiro — Parcelas ── */}
       {activeTab === "financeiro" && (
         <FinanceiroTab leadId={lead.id} />
+      )}
+      {activeTab === "rayshape" && (
+        <div className="tab-content">
+          <RayshapePanel leadId={lead.id} />
+        </div>
       )}
     </div>
   );
