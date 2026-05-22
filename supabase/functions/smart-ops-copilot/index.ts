@@ -515,21 +515,6 @@ const tools = [
   {
     type: "function",
     function: {
-      name: "query_product_mix",
-      description: "Retorna o MIX de produtos FATURADOS no Omie ERP no mês (notas fiscais). Use APENAS quando o usuário pedir explicitamente 'faturamento Omie', 'NF', 'nota fiscal'. Para 'itens vendidos / quantidade vendida / mix de vendas / top produtos do mês' use `query_proposal_items_sold` (propostas ganhas no PipeRun — fonte de verdade comercial).",
-      parameters: {
-        type: "object",
-        properties: {
-          ano: { type: "number", description: "Ano (padrão: ano atual)" },
-          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
-        },
-        required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
       name: "query_proposal_items_sold",
       description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial de itens vendidos — preferir sobre query_product_mix (Omie/NF).",
       parameters: {
@@ -539,22 +524,6 @@ const tools = [
           mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
         },
         required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "query_product_sales",
-      description: "Busca vendas de um produto ou família específica via fn_vendas_produto. Use para 'quanto vendi de Vitality', 'vendas de scanners INO200', 'histórico do Rayshape'. Retorna vendas reais do Omie ERP no período.",
-      parameters: {
-        type: "object",
-        properties: {
-          busca: { type: "string", description: "Termo de busca do produto (ex: 'Vitality', 'INO200', 'Rayshape')" },
-          inicio: { type: "string", description: "Data inicial YYYY-MM-DD (padrão: início do ano atual)" },
-          fim: { type: "string", description: "Data final YYYY-MM-DD (padrão: hoje)" }
-        },
-        required: ["busca"]
       }
     }
   },

@@ -22016,7 +22016,6 @@ export type Database = {
           fonte: string
           lead_id: string
           n_deals: number
-          n_nfs: number
           nome: string
           qtd_unidades: number
           receita_total: number
