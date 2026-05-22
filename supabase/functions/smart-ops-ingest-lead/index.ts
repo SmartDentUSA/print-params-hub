@@ -954,10 +954,12 @@ Deno.serve(async (req) => {
       // a distinct revenue opportunity for that product.
       force_new_deal:
         payload.force_new_deal === true ||
-        // NOVO — toda submissão de formulário ativo (qualquer form_name)
-        // abre Deal novo em Funil de Vendas. Person é reutilizada; Deals
-        // anteriores (aberto/estagnado/perdido) permanecem intocados.
-        (typeof formName === "string" && formName.trim().length > 0) ||
+        // Anteriormente: "toda submissão de formulário ativo abria Deal
+        // novo". Removido — provocava loop infinito de deal_created/
+        // seller_assigned para leads já vinculados em Funil de Vendas
+        // (Meta re-entrega o mesmo lead a cada ~2 min). A lógica
+        // shouldForceNewDeal em ingest-lead (~L583) + GOLDEN RULE em
+        // lia-assign já cuidam de abrir Deal novo quando faz sentido.
         (source === "loja_integrada" && (
           formName === ECOM_QUOTE_LABEL ||
           formName === "produto_sob_consulta"
