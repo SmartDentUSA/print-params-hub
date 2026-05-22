@@ -1387,22 +1387,6 @@ async function executeQuerySalesSummary(args: any) {
   }
 }
 
-async function executeQueryProductMix(args: any) {
-  try {
-    const now = new Date();
-    const ano = args.ano || now.getFullYear();
-    const mes = args.mes || (now.getMonth() + 1);
-    const { data, error } = await supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes });
-    if (error) return { error: error.message };
-    if (!data || data.length === 0) {
-      return { periodo: `${mes}/${ano}`, produtos: [], aviso: "Nenhuma venda registrada no período. NÃO invente produtos." };
-    }
-    return { periodo: `${mes}/${ano}`, total_produtos: data.length, produtos: data };
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
 async function executeQueryProposalItemsSold(args: any) {
   try {
     const now = new Date();
