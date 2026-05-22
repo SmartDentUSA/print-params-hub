@@ -1965,7 +1965,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: config.model,
           messages: currentMessages,
-          tools,
+          tools: actionTools,
           tool_choice: "auto",
           stream: false
         })
