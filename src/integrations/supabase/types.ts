@@ -22046,6 +22046,7 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_rayshape_status: { Args: { p_lead_id: string }; Returns: Json }
       fn_record_lead_event: {
         Args: {
           p_entity_id?: string
