@@ -1842,45 +1842,21 @@ function createSSEFromText(text: string): ReadableStream<Uint8Array> {
 // a única fonte de verdade do Copilot. Refresh é feito por triggers/cron;
 // aqui apenas leitura.
 async function loadBrainContext(): Promise<{ json: any; updatedAt: string | null }> {
-  const tryFetch = async (table: string, opts: any = {}) => {
-    try {
-      const q = supabase.schema("copilot_brain" as any).from(table).select("*");
-      if (opts.eq) q.eq(opts.eq[0], opts.eq[1]);
-      if (opts.order) q.order(opts.order[0], { ascending: !!opts.order[1] });
-      if (opts.limit) q.limit(opts.limit);
-      const { data, error } = await q;
-      if (error) { console.error(`[Brain] ${table} error:`, error.message); return []; }
-      return data || [];
-    } catch (e) { console.error(`[Brain] ${table} fail:`, e); return []; }
-  };
-
-  const [meta, overviewArr, salesMonth, salesRanking, pipeline, productsSold, equipment, alerts] = await Promise.all([
-    tryFetch("brain_meta"),
-    tryFetch("brain_overview", { eq: ["id", 1] }),
-    tryFetch("brain_sales_month", { order: ["ano", false], limit: 13 }),
-    tryFetch("brain_sales_ranking", { order: ["ano", false], limit: 60 }),
-    tryFetch("brain_pipeline"),
-    tryFetch("brain_products_sold", { order: ["ano", false], limit: 60 }),
-    tryFetch("brain_equipment", { limit: 80 }),
-    tryFetch("brain_alerts", { order: ["severity", true] }),
-  ]);
-
-  const overview = (overviewArr as any[])[0] || null;
-  const updatedAt = overview?.updated_at || (meta as any[])[0]?.updated_at || null;
-
-  return {
-    json: {
-      meta,
-      overview,
-      sales_month: salesMonth,
-      sales_ranking: salesRanking,
-      pipeline,
-      products_sold: productsSold,
-      equipment,
-      alerts,
-    },
-    updatedAt,
-  };
+  try {
+    const { data, error } = await supabase.rpc("get_copilot_brain");
+    if (error) {
+      console.error("[Brain] rpc error:", error.message);
+      return { json: { error: error.message }, updatedAt: null };
+    }
+    const brain = data || {};
+    const updatedAt = brain?.overview?.updated_at
+      || (Array.isArray(brain?.meta) && brain.meta[0]?.updated_at)
+      || null;
+    return { json: brain, updatedAt };
+  } catch (e: any) {
+    console.error("[Brain] load fail:", e?.message || e);
+    return { json: { error: String(e?.message || e) }, updatedAt: null };
+  }
 }
 
 function buildBrainSystemMessage(brain: any, updatedAt: string | null): string {
