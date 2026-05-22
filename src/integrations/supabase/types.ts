@@ -22013,8 +22013,10 @@ export type Database = {
           data_ultima_compra_insumos: string
           dias_desde_insumo: number
           email: string
+          fonte: string
           lead_id: string
           n_deals: number
+          n_nfs: number
           nome: string
           qtd_unidades: number
           receita_total: number
