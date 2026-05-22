@@ -3665,6 +3665,7 @@ export type Database = {
           id: string
           is_deleted: boolean | null
           items_text: string | null
+          last_stage_updated_at: string | null
           lead_id: string | null
           loss_comment: string | null
           loss_reason: string | null
@@ -3678,12 +3679,16 @@ export type Database = {
           pipeline_name: string | null
           piperun_created_at: string | null
           piperun_deal_id: string | null
+          piperun_origin_id: number | null
+          piperun_origin_name: string | null
           product: string | null
           product_category: string | null
           proposals: Json | null
           stage_id: number | null
           stage_name: string | null
+          started_in_stage_id: number | null
           status: string | null
+          temperature: string | null
           updated_at: string | null
           value: number | null
           value_freight: number | null
@@ -3701,6 +3706,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean | null
           items_text?: string | null
+          last_stage_updated_at?: string | null
           lead_id?: string | null
           loss_comment?: string | null
           loss_reason?: string | null
@@ -3714,12 +3720,16 @@ export type Database = {
           pipeline_name?: string | null
           piperun_created_at?: string | null
           piperun_deal_id?: string | null
+          piperun_origin_id?: number | null
+          piperun_origin_name?: string | null
           product?: string | null
           product_category?: string | null
           proposals?: Json | null
           stage_id?: number | null
           stage_name?: string | null
+          started_in_stage_id?: number | null
           status?: string | null
+          temperature?: string | null
           updated_at?: string | null
           value?: number | null
           value_freight?: number | null
@@ -3737,6 +3747,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean | null
           items_text?: string | null
+          last_stage_updated_at?: string | null
           lead_id?: string | null
           loss_comment?: string | null
           loss_reason?: string | null
@@ -3750,12 +3761,16 @@ export type Database = {
           pipeline_name?: string | null
           piperun_created_at?: string | null
           piperun_deal_id?: string | null
+          piperun_origin_id?: number | null
+          piperun_origin_name?: string | null
           product?: string | null
           product_category?: string | null
           proposals?: Json | null
           stage_id?: number | null
           stage_name?: string | null
+          started_in_stage_id?: number | null
           status?: string | null
+          temperature?: string | null
           updated_at?: string | null
           value?: number | null
           value_freight?: number | null
@@ -7657,6 +7672,27 @@ export type Database = {
         }
         Relationships: []
       }
+      lia_assign_note_dedup: {
+        Row: {
+          expires_at: string
+          lead_id: string
+          note_type: string
+          sent_at: string
+        }
+        Insert: {
+          expires_at?: string
+          lead_id: string
+          note_type?: string
+          sent_at?: string
+        }
+        Update: {
+          expires_at?: string
+          lead_id?: string
+          note_type?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       lia_attendances: {
         Row: {
           academy_curso_concluido: string[] | null
@@ -7739,6 +7775,7 @@ export type Database = {
           empresa_email_nf: string | null
           empresa_endereco: Json | null
           empresa_facebook: string | null
+          empresa_grupos_economicos: Json | null
           empresa_hash: string | null
           empresa_ie: string | null
           empresa_linkedin: string | null
@@ -7889,6 +7926,8 @@ export type Database = {
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
+          lia_assign_completed_at: string | null
+          lia_assign_lock_at: string | null
           lia_briefing_sent_at: string | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
@@ -8296,6 +8335,7 @@ export type Database = {
           empresa_email_nf?: string | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
+          empresa_grupos_economicos?: Json | null
           empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
@@ -8446,6 +8486,8 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lia_assign_completed_at?: string | null
+          lia_assign_lock_at?: string | null
           lia_briefing_sent_at?: string | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
@@ -8853,6 +8895,7 @@ export type Database = {
           empresa_email_nf?: string | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
+          empresa_grupos_economicos?: Json | null
           empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
@@ -9003,6 +9046,8 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lia_assign_completed_at?: string | null
+          lia_assign_lock_at?: string | null
           lia_briefing_sent_at?: string | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
@@ -22093,6 +22138,10 @@ export type Database = {
         }
         Returns: string
       }
+      fn_release_lia_assign_lock: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       fn_requeue_form_leads_for_piperun: {
         Args: never
         Returns: {
@@ -22226,6 +22275,10 @@ export type Database = {
         }[]
       }
       fn_trigger_activities_backfill: { Args: never; Returns: undefined }
+      fn_try_lia_assign_lock: {
+        Args: { p_lead_id: string; p_lock_ttl_minutes?: number }
+        Returns: boolean
+      }
       fn_upsert_omie_snapshot: {
         Args: {
           p_ano: number
@@ -22361,6 +22414,7 @@ export type Database = {
           empresa_email_nf: string | null
           empresa_endereco: Json | null
           empresa_facebook: string | null
+          empresa_grupos_economicos: Json | null
           empresa_hash: string | null
           empresa_ie: string | null
           empresa_linkedin: string | null
@@ -22511,6 +22565,8 @@ export type Database = {
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
+          lia_assign_completed_at: string | null
+          lia_assign_lock_at: string | null
           lia_briefing_sent_at: string | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
@@ -22974,6 +23030,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      try_claim_lia_note: {
+        Args: { p_lead_id: string; p_note_type?: string }
+        Returns: boolean
+      }
       try_lock_cognitive_analysis: {
         Args: { target_lead_id: string }
         Returns: boolean
