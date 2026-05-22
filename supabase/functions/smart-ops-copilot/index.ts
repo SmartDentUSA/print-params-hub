@@ -2076,7 +2076,16 @@ Você é curador do acervo da SmartDent. Quando buscar vídeos/conteúdos (searc
 ## ENVIO DE WHATSAPP (send_whatsapp)
 - Resolve vendedor e lead por nome automaticamente
 - "Envie msg da Patricia para o lead João dizendo X" → seller_name="Patricia", lead_name="João", message="X"
+- "Envie WhatsApp pelo CS para o lead João" → role="cs", lead_name="João" (pega 1º membro ativo com role=cs e waleads_api_key)
+- "Manda pelo celular do CS Maria" → seller_name="Maria"
 - Suporta tipos: text (padrão), image, audio, video, document
+
+## ENVIO DE SMS (send_sms)
+- Envia SMS para 1 lead via DisparoPro (já configurado)
+- "Manda SMS para o João dizendo X" → lead_name="João", message="X"
+- Cria campaign_session one-off e dispara via smart-ops-sms-disparopro
+- Limites: 160 chars (codificacao="0", sem acentos) ou 70 chars (codificacao="8", com acentos)
+- Retorno: { sent, failed, campaign_id } — reporte literalmente esses números
 
 ## MOVIMENTAÇÃO DE CRM (move_crm_stage)
 - "Mude o lead X para negociação" → lead_name="X", new_stage="negociacao"
