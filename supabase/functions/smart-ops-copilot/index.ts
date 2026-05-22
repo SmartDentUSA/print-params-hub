@@ -725,6 +725,20 @@ async function executeSendWhatsapp(args: any) {
       }
     }
 
+    // 1b. If no seller_name but role provided → pick first active team_member with that role + waleads_api_key
+    if (!teamMemberId && args.role) {
+      const { data: roleMember } = await supabase.from("team_members")
+        .select("id,nome_completo,role")
+        .eq("role", args.role)
+        .eq("ativo", true)
+        .not("waleads_api_key", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (!roleMember) return { error: `Nenhum membro ativo com role='${args.role}' e WaLeads configurado encontrado.` };
+      teamMemberId = roleMember.id;
+      console.log(`[Copilot] Resolved by role=${args.role} → ${roleMember.nome_completo} (${roleMember.id})`);
+    }
+
     // 2. Resolve lead phone by name or lead_id
     let phone = args.phone;
     let leadId = args.lead_id;
