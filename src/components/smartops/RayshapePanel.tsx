@@ -27,23 +27,23 @@ interface PostPurchase {
   items: { name: string; qty: number; value: number }[] | null
 }
 
-interface RayshapeStatus {
-  has_printer: false
-} | {
-  has_printer: true
-  printer_date: string
-  printer_date_iso: string
-  printer_price: number
-  printer_qty: number
-  printer_deal_id: string
-  vendor: string
-  days_since: number
-  n_post: number
-  total_post: number
-  first_repurchase_days: number | null
-  category: 'recomprou' | 'critico' | 'atencao' | 'cedo'
-  post_purchases: PostPurchase[]
-}
+type RayshapeStatus =
+  | { has_printer: false }
+  | {
+      has_printer: true
+      printer_date: string
+      printer_date_iso: string
+      printer_price: number
+      printer_qty: number
+      printer_deal_id: string
+      vendor: string
+      days_since: number
+      n_post: number
+      total_post: number
+      first_repurchase_days: number | null
+      category: 'recomprou' | 'critico' | 'atencao' | 'cedo'
+      post_purchases: PostPurchase[]
+    }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
