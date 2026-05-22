@@ -610,6 +610,20 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_product_owners",
+      description: "Retorna a LISTA REAL e COMPLETA de clientes (leads canônicos) que COMPRARAM um produto específico (busca ILIKE em deal_items.product_name + nome_produto, apenas deals com status='ganha'). Para cada cliente devolve: nome, email, telefone, cidade/uf, data_primeira_compra, data_ultima_compra, qtd_unidades, receita_total, n_deals, data_ultima_compra_insumos, dias_desde_insumo e status_recompra ('ativo' ≤45d / 'alerta' ≤90d / 'inativo' >90d / 'sem_recompra'). USE SEMPRE que o usuário pedir 'lista de quem comprou X', 'proprietários do X', 'clientes que adquiriram X', 'base instalada de X', 'recompra de insumos por proprietário', 'quem tem o equipamento Y'. NUNCA estime, NUNCA invente número de unidades, NUNCA fabrique nomes ou datas — o array retornado é a verdade absoluta. Se vier vazio responda 'Nenhum cliente encontrado com esse produto no histórico de propostas ganhas'.",
+      parameters: {
+        type: "object",
+        properties: {
+          busca: { type: "string", description: "Termo de busca no nome do produto (ex: 'Rayshape Edge Mini', 'BLZ INO200', 'Vitality'). Use o termo MAIS CURTO e único possível (ex: 'edge mini' já basta)." }
+        },
+        required: ["busca"]
+      }
+    }
   }
 ];
 
