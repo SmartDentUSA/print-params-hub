@@ -1477,26 +1477,6 @@ async function executeGenerateCommercialReport(args: any) {
   }
 }
 
-async function executeQueryProductSales(args: any) {
-  try {
-    const now = new Date();
-    const inicio = args.inicio || `${now.getFullYear()}-01-01`;
-    const fim = args.fim || now.toISOString().slice(0, 10);
-    const { data, error } = await supabase.rpc("fn_vendas_produto", {
-      p_busca: args.busca,
-      p_inicio: inicio,
-      p_fim: fim
-    });
-    if (error) return { error: error.message };
-    if (!data || data.length === 0) {
-      return { busca: args.busca, periodo: `${inicio} a ${fim}`, vendas: [], aviso: "Nenhuma venda encontrada para este produto no período." };
-    }
-    return { busca: args.busca, periodo: `${inicio} a ${fim}`, total_registros: data.length, vendas: data };
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
 async function executeQueryScannerBrandDistribution(_args: any) {
   try {
     const { data, error } = await supabase.rpc("query_scanner_brand_distribution");
