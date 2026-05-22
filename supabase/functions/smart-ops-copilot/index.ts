@@ -547,7 +547,7 @@ const tools = [
     type: "function",
     function: {
       name: "get_lead_card",
-      description: "Retorna a VISÃO 360° COMPLETA de um lead — mesma informação que aparece no card do operador. Inclui: todos os campos de lia_attendances (perfil, equipamentos, tags, score, propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, deals PipeRun history em JSONB), últimas mensagens WhatsApp, interações de IA, log de atividades, eventos de funil e page views. USE SEMPRE que o usuário pedir 'me mostra o lead X', 'card completo', 'ficha do lead', 'tudo sobre <nome/email>', 'resume esse lead', 'contexto do <nome>'. Resolve identidade na ordem: lead_id > piperun_id > email > telefone. Sempre filtra merged_into IS NULL.",
+      description: "Retorna a VISÃO 360° COMPLETA de um lead — mesma informação que aparece no card do operador. Inclui: todos os campos de lia_attendances (perfil, equipamentos, tags, score, propostas, cognitive_analysis, dados Sellflux, deals PipeRun history em JSONB), últimas mensagens WhatsApp, interações de IA, log de atividades, eventos de funil e page views. Dados Omie estão BLOQUEADOS e NÃO são retornados. USE SEMPRE que o usuário pedir 'me mostra o lead X', 'card completo', 'ficha do lead', 'tudo sobre <nome/email>', 'resume esse lead', 'contexto do <nome>'. Resolve identidade na ordem: lead_id > piperun_id > email > telefone. Sempre filtra merged_into IS NULL.",
       parameters: {
         type: "object",
         properties: {
@@ -1678,7 +1678,7 @@ Você executa 6 tipos de trabalho:
 **Comportamento SDR:** sdr_scanner_interesse, sdr_impressora_interesse, sdr_software_cad_interesse, sdr_cursos_interesse, sdr_smartmake_interesse, sdr_smartgum_interesse, produto_interesse, produto_interesse_auto, como_digitaliza, tem_impressora, impressora_modelo, principal_aplicacao, volume_mensal_pecas, software_cad
 **Scoring e inteligência:** intelligence_score_total, workflow_score, opportunity_score, next_upsell_stage, next_upsell_product, next_upsell_date_est, next_upsell_score, churn_risk_score, recompra_alert, recompra_days_overdue
 **Análise cognitiva (IA):** lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach
-**LTV e financeiro:** ltv_total, avg_ticket, total_deals, last_deal_date, last_deal_value, ltv_projected_12m, ltv_projected_24m, omie_faturamento_total, omie_valor_em_aberto, omie_inadimplente, omie_valor_vencido, omie_dias_sem_comprar
+**LTV e financeiro:** ltv_total, avg_ticket, total_deals, last_deal_date, last_deal_value, ltv_projected_12m, ltv_projected_24m _(campos omie_* estão BLOQUEADOS — não consultar)_
 **Hits por categoria:** hits_scanner, hits_cad, hits_impressao3d, hits_pos_impressao, hits_insumos_cursos, hits_fresagem, hits_e7_insumos
 **Academy:** academy_progresso_pct, academy_ultimo_modulo_acessado, academy_curso_concluido, astron_courses_total, astron_courses_completed
 **Mídia e origem:** utm_source, utm_medium, utm_campaign, utm_term, platform, platform_cpl, origem_campanha, wa_group_origem
@@ -1829,7 +1829,7 @@ Se ao buscar dados você detectar:
 - Vendedor com queda > 40% vs média últimos 30 dias → mencionar
 - Total de deals = 0 em algum dia útil → mencionar
 - Leads com recompra_alert = true > 50 → mencionar
-- Inadimplência (omie_inadimplente = true) em clientes ativos → sinalizar
+- (Sinal de inadimplência via Omie foi DESCONTINUADO — não usar)
 
 ### ANTES DE QUALQUER AÇÃO DE ESCRITA (INSERT/UPDATE em campaigns, campaign_send_log, message_logs)
 SEMPRE mostre o que vai fazer e peça confirmação. Nunca execute INSERT em campaigns sem confirmação explícita.
@@ -1891,11 +1891,11 @@ Leads com equip_upgrade_signal = true e equipamento com mais de 18 meses têm al
 | Templates WA aprovados | query_table (whatsapp_templates, status=approved) |
 | Catálogo e workflow | query_table (product_taxonomy / system_a_catalog) |
 | Comportamento e jornada | query_table (lead_activity_log / lead_page_views) |
-| Card / ficha completa do lead | get_lead_card (one-shot 360°: perfil + Omie + deals + mensagens + atividade) |
+| Card / ficha completa do lead | get_lead_card (one-shot 360°: perfil + deals + mensagens + atividade — sem Omie) |
 
 ## ACESSO 360° AO LEAD (get_lead_card)
 
-Quando o usuário pedir "me mostra o lead X", "card completo", "ficha do <nome>", "tudo sobre o <email>", "resume esse lead", "contexto do <nome>" → use **get_lead_card** com lead_id, piperun_id, email ou telefone. Uma única chamada já retorna: todos os campos de lia_attendances, deals PipeRun (history JSONB), propostas, cognitive_analysis, dados Omie ERP, dados Sellflux, últimas 30 mensagens WhatsApp, 20 interações de IA, 50 entradas do activity log, page views e state events. NÃO encadeie query_deal_history / query_ecommerce_orders depois — já vem tudo.
+Quando o usuário pedir "me mostra o lead X", "card completo", "ficha do <nome>", "tudo sobre o <email>", "resume esse lead", "contexto do <nome>" → use **get_lead_card** com lead_id, piperun_id, email ou telefone. Uma única chamada já retorna: todos os campos de lia_attendances, deals PipeRun (history JSONB), propostas, cognitive_analysis, dados Sellflux, últimas 30 mensagens WhatsApp, 20 interações de IA, 50 entradas do activity log, page views e state events. Dados Omie estão BLOQUEADOS. NÃO encadeie query_deal_history / query_ecommerce_orders depois — já vem tudo.
 
 ## CURADORIA DE CONTEÚDO
 
@@ -2215,7 +2215,7 @@ esta lógica de camadas:
    → 3.048 leads prontos para impressora
 4. Estagnados com intelligence_score_total > 60
    → alta qualidade, nunca converteram
-5. omie_inadimplente = true → gestão de risco 
+5. (Risco de inadimplência via Omie está BLOQUEADO — use apenas sinais do CRM/PipeRun)
    antes de nova oferta
 
 ---
