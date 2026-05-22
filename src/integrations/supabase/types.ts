@@ -22331,6 +22331,7 @@ export type Database = {
           percentage: number
         }[]
       }
+      get_copilot_brain: { Args: never; Returns: Json }
       get_leads_for_opportunity_engine: {
         Args: { p_cols?: string; p_cutoff: string; p_limit?: number }
         Returns: {
