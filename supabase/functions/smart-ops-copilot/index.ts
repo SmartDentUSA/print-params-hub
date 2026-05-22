@@ -102,11 +102,12 @@ const tools = [
     type: "function",
     function: {
       name: "send_whatsapp",
-      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um vendedor específico. Pode resolver vendedor e lead por nome automaticamente.",
+      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um membro da equipe (vendedor OU CS). Pode resolver membro e lead por nome automaticamente. Use role='cs' quando o usuário pedir 'enviar pelo CS', 'pelo pós-venda', 'pelo customer success'.",
       parameters: {
         type: "object",
         properties: {
-          seller_name: { type: "string", description: "Nome do vendedor (busca em team_members para encontrar o team_member_id e waleads_api_key)" },
+          seller_name: { type: "string", description: "Nome do membro da equipe (busca em team_members para encontrar o team_member_id e waleads_api_key). Pode ser vendedor OU CS." },
+          role: { type: "string", description: "Papel do remetente: 'cs' (Customer Success/pós-venda), 'vendedor', 'sdr'. Quando informado sem seller_name, pega automaticamente o primeiro membro ativo com esse role e waleads_api_key configurado." },
           lead_name: { type: "string", description: "Nome do lead (alternativa ao phone — busca em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
           phone: { type: "string", description: "Telefone do lead com DDD (se não informar, busca pelo lead_name ou lead_id)" },
@@ -114,6 +115,25 @@ const tools = [
           tipo: { type: "string", description: "Tipo de mensagem: text, image, audio, video, document (padrão: text)" },
           media_url: { type: "string", description: "URL da mídia (para tipos image/audio/video/document)" },
           caption: { type: "string", description: "Legenda da mídia" }
+        },
+        required: ["message"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_sms",
+      description: "Envia SMS para 1 lead via DisparoPro (API já configurada). Cria uma micro-campanha (canal=sms, lead_ids=[lead]) e dispara via smart-ops-sms-disparopro. Use quando o usuário pedir 'manda SMS para X', 'dispara SMS de cobrança', 'envia SMS para o cliente Y'. Mensagem deve ter no máx 160 caracteres (codificação 7-bit) ou 70 (codificação 8-bit/acentos).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Nome do lead (busca ILIKE em lia_attendances)" },
+          lead_id: { type: "string", description: "UUID do lead" },
+          phone: { type: "string", description: "Telefone alternativo (se não houver lead_id/lead_name)" },
+          message: { type: "string", description: "Texto do SMS (até 160 chars 7-bit, 70 chars com acentos)" },
+          codificacao: { type: "string", description: "'0' = 7-bit (sem acentos, 160 chars/PDU), '8' = 8-bit (com acentos, 70 chars/PDU). Default: '0'" },
+          campaign_name: { type: "string", description: "Nome opcional da campanha (default: 'Copilot SMS one-off')" }
         },
         required: ["message"]
       }
@@ -705,6 +725,20 @@ async function executeSendWhatsapp(args: any) {
       }
     }
 
+    // 1b. If no seller_name but role provided → pick first active team_member with that role + waleads_api_key
+    if (!teamMemberId && args.role) {
+      const { data: roleMember } = await supabase.from("team_members")
+        .select("id,nome_completo,role")
+        .eq("role", args.role)
+        .eq("ativo", true)
+        .not("waleads_api_key", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (!roleMember) return { error: `Nenhum membro ativo com role='${args.role}' e WaLeads configurado encontrado.` };
+      teamMemberId = roleMember.id;
+      console.log(`[Copilot] Resolved by role=${args.role} → ${roleMember.nome_completo} (${roleMember.id})`);
+    }
+
     // 2. Resolve lead phone by name or lead_id
     let phone = args.phone;
     let leadId = args.lead_id;
@@ -777,6 +811,81 @@ async function executeNotifySeller(args: any) {
     await executeSendWhatsapp({ phone: seller.telefone, message: msg });
   }
   return { success: true, seller: { nome: seller.nome, email: seller.email }, notification_sent: !!seller.telefone };
+}
+
+async function executeSendSms(args: any) {
+  try {
+    // 1. Resolve lead
+    let leadId = args.lead_id;
+    let phone = args.phone;
+    let leadName: string | null = null;
+    if (!leadId && (args.lead_name || phone)) {
+      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").is("merged_into", null).limit(1);
+      if (args.lead_name) q = q.ilike("nome", `%${args.lead_name}%`);
+      else if (phone) q = q.or(`telefone_normalized.eq.${phone},telefone.eq.${phone}`);
+      const { data } = await q;
+      if (data && data.length > 0) {
+        leadId = data[0].id;
+        leadName = data[0].nome;
+        phone = phone || data[0].telefone_normalized || data[0].telefone;
+      }
+    }
+    if (!leadId) return { error: "Lead não encontrado. Informe lead_id, lead_name ou phone válido." };
+    if (!phone) {
+      const { data: l } = await supabase.from("lia_attendances").select("nome,telefone_normalized,telefone").eq("id", leadId).maybeSingle();
+      phone = l?.telefone_normalized || l?.telefone || null;
+      leadName = leadName || l?.nome || null;
+      if (!phone) return { error: `Lead ${leadName || leadId} não tem telefone cadastrado.` };
+    }
+
+    const msg = String(args.message || "").trim();
+    if (!msg) return { error: "Mensagem vazia." };
+    const codificacao = args.codificacao === "8" ? "8" : "0";
+    const maxLen = codificacao === "0" ? 160 : 70;
+    if (msg.length > maxLen) {
+      return { error: `Mensagem com ${msg.length} chars excede o limite de ${maxLen} para codificação ${codificacao}. Reduza ou troque codificação.` };
+    }
+
+    // 2. Create one-off campaign_session
+    const { data: camp, error: campErr } = await supabase.from("campaign_sessions").insert({
+      name: (args.campaign_name || `Copilot SMS — ${leadName || leadId}`).slice(0, 200),
+      description: "Disparo SMS individual via Copilot",
+      channel: "sms",
+      status: "running",
+      lead_ids: [leadId],
+      lead_count: 1,
+      results: {
+        sms_message: msg,
+        sms_codificacao: codificacao,
+        source: "copilot_send_sms",
+      },
+    }).select("id").single();
+    if (campErr || !camp) return { error: `Erro criando campaign_session: ${campErr?.message || "sem id"}` };
+
+    // 3. Invoke disparopro processor
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-sms-disparopro`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({ campaign_id: camp.id, sms_message: msg, sms_codificacao: codificacao }),
+    });
+    const ct = response.headers.get("content-type") || "";
+    let result: any;
+    if (ct.includes("application/json")) result = await response.json();
+    else result = { raw: (await response.text()).slice(0, 300) };
+
+    return {
+      success: response.ok,
+      campaign_id: camp.id,
+      lead_id: leadId,
+      lead_name: leadName,
+      phone,
+      sent: result?.sent ?? 0,
+      failed: result?.failed ?? 0,
+      provider_response: result,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 async function executeSearchVideos(args: any) {
@@ -1649,6 +1758,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   add_tags: executeAddTags,
   create_audience: executeCreateAudience,
   send_whatsapp: executeSendWhatsapp,
+  send_sms: executeSendSms,
   notify_seller: executeNotifySeller,
   search_videos: executeSearchVideos,
   search_content: executeSearchContent,
@@ -1966,7 +2076,16 @@ Você é curador do acervo da SmartDent. Quando buscar vídeos/conteúdos (searc
 ## ENVIO DE WHATSAPP (send_whatsapp)
 - Resolve vendedor e lead por nome automaticamente
 - "Envie msg da Patricia para o lead João dizendo X" → seller_name="Patricia", lead_name="João", message="X"
+- "Envie WhatsApp pelo CS para o lead João" → role="cs", lead_name="João" (pega 1º membro ativo com role=cs e waleads_api_key)
+- "Manda pelo celular do CS Maria" → seller_name="Maria"
 - Suporta tipos: text (padrão), image, audio, video, document
+
+## ENVIO DE SMS (send_sms)
+- Envia SMS para 1 lead via DisparoPro (já configurado)
+- "Manda SMS para o João dizendo X" → lead_name="João", message="X"
+- Cria campaign_session one-off e dispara via smart-ops-sms-disparopro
+- Limites: 160 chars (codificacao="0", sem acentos) ou 70 chars (codificacao="8", com acentos)
+- Retorno: { sent, failed, campaign_id } — reporte literalmente esses números
 
 ## MOVIMENTAÇÃO DE CRM (move_crm_stage)
 - "Mude o lead X para negociação" → lead_name="X", new_stage="negociacao"
