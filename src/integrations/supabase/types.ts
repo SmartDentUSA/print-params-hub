@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      _ab_enrich_staging: {
+        Row: {
+          ab_area: string | null
+          ab_espec: string | null
+          ab_impressora: string | null
+          ab_nome: string | null
+          ab_scanner: string | null
+          ab_telefone: string | null
+          match_key: string | null
+          match_type: string | null
+        }
+        Insert: {
+          ab_area?: string | null
+          ab_espec?: string | null
+          ab_impressora?: string | null
+          ab_nome?: string | null
+          ab_scanner?: string | null
+          ab_telefone?: string | null
+          match_key?: string | null
+          match_type?: string | null
+        }
+        Update: {
+          ab_area?: string | null
+          ab_espec?: string | null
+          ab_impressora?: string | null
+          ab_nome?: string | null
+          ab_scanner?: string | null
+          ab_telefone?: string | null
+          match_key?: string | null
+          match_type?: string | null
+        }
+        Relationships: []
+      }
       _csv_leads_check: {
         Row: {
           email: string | null
