@@ -1,67 +1,94 @@
+## Objetivo
 
-## Diagnóstico
+**Zero alucinações no Copilot.** Toda resposta deve ser rastreável a um valor que veio de uma tool. Se a tool não trouxe, o Copilot diz "não tenho esse dado" — nunca inventa, nunca extrapola, nunca interpola.
 
-Sim, o Copilot **tem acesso total** à base. As RPCs já existem e retornam dados corretos para Maio/2026 (validado agora):
+## Causa raiz das alucinações atuais
 
-- `fn_total_vendas_mes(2026,5)` → **212 deals, R$ 1.025.179,10, ticket médio R$ 4.835,75, top: Lucas Silva**
-- `fn_resumo_vendas_mes(2026,5)` → ranking completo (Lucas 57 deals / R$ 301k, Paulo Sérgio 37 / R$ 260k, Janaina 56 / R$ 144k, etc.)
-- `fn_mix_produtos_mes`, `query_product_mix`, `query_scanner_brand_distribution`, `query_printer_brand_distribution`, `query_deal_history`, `query_sales_summary` — todas ligadas e funcionando
-
-**Por que o relatório vem errado então?**
-
-Olhando os logs do edge function `smart-ops-copilot`, as respostas terminam em **1–2 iterações**. Um "Relatório de Performance Comercial" exige no mínimo 4–6 tool calls encadeados (totais, ranking, mix de produtos, pipeline, metas, comparativo mês anterior). O modelo (Gemini Flash) está:
-
-1. Chamando **apenas 1 tool** (geralmente `query_sales_summary`) e **inventando** o resto das seções (mix de produtos, scanners, impressoras, comparativos).
-2. Quando pergunta é "relatório", não há instrução determinística que force a sequência de tools.
-3. Não há comparativo automático com mês anterior — o modelo "estima" a variação.
-4. `taxa_conversao` da RPC tem bug (Alexandre = 200%, porque divide deals ganhos por leads_recebidos do mês, ignorando deals de leads antigos) — propaga confusão no relatório.
+1. **Granularidade insuficiente nas tools** — `query_product_owners` devolve só agregados (1ª/última compra, total). Quando o usuário pede ciclos detalhados, o LLM preenche com números fictícios.
+2. **System prompt permissivo** — proíbe inventar "nomes e datas" mas não proíbe inventar ciclos, dias entre compras, listas de N transações, percentuais, tendências, projeções.
+3. **Sem contrato de renderização** — o LLM monta tabelas livremente; nada o obriga a só renderizar campos que existem no JSON da tool.
+4. **Sem auditoria** — não há log de "este número veio desta tool", então alucinações passam silenciosas.
 
 ## Plano
 
-### 1. Criar tool dedicada `generate_commercial_report(ano, mes)` no Copilot
-Edge function: `supabase/functions/smart-ops-copilot/index.ts`
+### 1. Política global anti-alucinação no system prompt
 
-Em vez de depender do LLM encadear tools, criar **uma única tool server-side** que monta o pacote completo do relatório chamando em paralelo:
+Adicionar bloco **`# REGRA DE OURO — ZERO ALUCINAÇÃO`** no topo do system prompt do `smart-ops-copilot`:
 
-- `fn_total_vendas_mes(ano, mes)` + mês anterior (delta % automático)
-- `fn_resumo_vendas_mes(ano, mes)` (ranking vendedores)
-- `fn_mix_produtos_mes(ano, mes)` (top produtos)
-- Pipeline atual via `pipeline-funnel-data` (4 bandas)
-- Metas vs realizado (se houver `smart_ops_goals` para o mês)
-- Contagem de leads novos no mês (lia_attendances WHERE merged_into IS NULL + created_at no mês)
+- Toda métrica, número, data, nome, valor, ranking, percentual, status, tendência, projeção, ciclo, média, mediana → **DEVE** ter origem direta em um campo de retorno de tool desta conversa.
+- **PROIBIDO** calcular de cabeça, estimar, extrapolar, "preencher lacunas", projetar para o futuro, inferir ciclos a partir de 2 pontos, somar/dividir mentalmente quando há ferramenta que faz isso.
+- **PROIBIDO** inventar registros adicionais para "completar" uma lista (ex.: se a tool devolveu 3 compras, NÃO renderizar 24).
+- **PROIBIDO** termos vagos que mascarem invenção: "aproximadamente", "em média X dias" (a menos que venha calculado da tool), "geralmente", "tendência indica".
+- Se a informação pedida não estiver em nenhum retorno de tool → resposta obrigatória: **"Não tenho esse dado no sistema. O que posso confirmar é: [campos reais]."**
+- Antes de cada número/data/nome → mentalmente identificar a tool de origem. Se não conseguir → não escrever.
 
-Retorna JSON estruturado com **todos os números prontos**, eliminando espaço para alucinação.
+### 2. Contrato de renderização (output schema)
 
-### 2. Forçar uso da nova tool no SYSTEM_PROMPT
-Adicionar regra:
-> Quando o usuário pedir "relatório", "report", "performance comercial", "fechamento do mês", "como foi o mês" → SEMPRE use `generate_commercial_report`. NUNCA construa o relatório com tools individuais. NUNCA invente números, percentuais ou comparativos.
+Instruir o LLM a tratar o JSON retornado pela tool como **fonte única de verdade**:
 
-### 3. Template determinístico de renderização
-Após receber o JSON da tool, o LLM apenas **formata em markdown** seguindo template fixo embutido no prompt (cabeçalho, totais, ranking, mix, pipeline, metas, insights). Sem cálculos.
+- Renderizar tabelas/listas apenas a partir de arrays explícitos do retorno.
+- Nº de linhas da tabela = `array.length`. Sem exceções.
+- Colunas = subconjunto das chaves do objeto. Nenhuma coluna calculada que não venha da tool.
+- Cálculos derivados (soma, média, diff de datas) só se a própria tool já trouxer pré-calculado em um campo `derived_*`.
 
-### 4. Corrigir bug de `taxa_conversao` na `fn_resumo_vendas_mes`
-Nova migration: numerador = deals ganhos do vendedor no mês; denominador = leads atribuídos ao vendedor com `assigned_at` no mês (não `leads_recebidos` cru). Cap em 100% e tratar divisão por zero.
+### 3. Server-side pre-compute (mover cálculo das tools, não do LLM)
 
-### 5. Validação
-Após deploy, testar no Copilot: "Me gera o relatório de performance comercial de maio/2026". Conferir que:
-- Totais batem com `fn_total_vendas_mes`
-- Ranking idêntico à RPC
-- Mix de produtos idêntico ao `fn_mix_produtos_mes`
-- Comparativo Abr→Mai com delta calculado server-side
+Para qualquer agregação que o usuário costuma pedir, o cálculo é feito em SQL/TS dentro do executor, não pelo LLM:
 
-### Detalhes técnicos
-```text
-generate_commercial_report (Promise.all)
- ├── fn_total_vendas_mes(ano, mes)
- ├── fn_total_vendas_mes(ano_prev, mes_prev)   ← delta
- ├── fn_resumo_vendas_mes(ano, mes)
- ├── fn_mix_produtos_mes(ano, mes)
- ├── pipeline-funnel-data (invoke)
- ├── supabase.from("smart_ops_goals").select() WHERE periodo=YYYY-MM
- └── count(lia_attendances) WHERE merged_into IS NULL AND created_at no mês
-```
+- **`fn_product_owners`** → adicionar opcionalmente `historico_resumo` por cliente: array com até N deals reais (data, valor, itens) já ordenado, mais campo `ciclo_medio_dias` calculado server-side (`null` se < 2 deals). LLM nunca calcula ciclo.
+- **Nova `fn_owner_purchase_history(_lead_id)`** → devolve histórico completo cronológico real + `ciclos_dias[]` (diffs reais entre `won_at` consecutivos) + `ciclo_medio_dias`, `ciclo_mediano_dias`. Tudo do banco, zero inferência.
+- **`query_deal_history`, `query_sales_summary`, `query_leads_advanced`** → revisar para garantir que somatórios, médias e contagens venham do SQL, não do LLM agregando linhas.
 
-### Fora de escopo
-- Não mexer em outras tools (`query_deal_history`, `get_lead_card`, etc.)
-- Não trocar modelo (Gemini Flash fica) — fix é estrutural, não de modelo
-- Frontend do Copilot (SmartOpsCopilot.tsx) não muda
+### 4. Tool dispatcher com fallback explícito
+
+No dispatcher (`toolExecutors`):
+
+- Toda tool retorna obrigatoriamente os campos `_source`, `_query_executed`, `_row_count`, `_truncated` (boolean), `_disclaimer` (string vazia ou aviso).
+- Se `_row_count === 0` → o retorno inclui `_empty_message` que o LLM **deve** repetir literalmente, sem complementar com "mas geralmente…".
+
+### 5. Reforço por tool no schema (`description` de cada function)
+
+Reescrever a `description` de TODAS as tools do schema com o sufixo padronizado:
+
+> "Renderize EXATAMENTE os campos retornados. Não invente registros, não extrapole valores, não calcule ciclos/médias/projeções fora dos campos `derived_*`. Se vier vazio, repita o `_empty_message`."
+
+### 6. Guard-rail de saída (post-processing leve)
+
+No executor da rota de chat, antes de devolver a resposta do LLM ao usuário:
+
+- Logar em `system_health_logs` (event `copilot_response_audit`) o par `{tools_chamadas, campos_retornados, resposta_final_chars}` para auditoria posterior de alucinação.
+- (Opcional fase 2) Heurística simples: se a resposta contém tabela com > N linhas e nenhuma tool retornou array com esse tamanho → flag `suspected_hallucination=true` no log. Não bloqueia, apenas marca.
+
+### 7. Persona update
+
+Alterar a definição da persona do Copilot:
+- De "Senior Commercial Manager — Never ask, always execute" 
+- Para "Senior Commercial Manager — **Never invent**, always execute com base em dados reais. Prefere dizer 'não tenho esse dado' a fabricar."
+
+Manter a mentalidade executiva, mas honestidade absoluta sobre o que existe ou não no sistema.
+
+### 8. Memórias
+
+- Atualizar **`mem://Core`** adicionando: *"Copilot Zero-Hallucination: toda métrica deve vir de uma tool. Proibido extrapolar, inventar registros ou calcular ciclos sem campo `derived_*` da tool."*
+- Criar **`mem://smart-ops/copilot-zero-hallucination-policy`** com a política completa, lista de tools auditadas e contrato de renderização.
+- Atualizar **`mem://smart-ops/copilot-product-owners-tool`** com a divisão agregado (`fn_product_owners`) vs. detalhado (`fn_owner_purchase_history`) e proibição explícita de ciclos inventados.
+
+## Arquivos afetados
+
+- `supabase/migrations/<novo>.sql` — cria `fn_owner_purchase_history`, atualiza `fn_product_owners` com `historico_resumo` + `ciclo_medio_dias`.
+- `supabase/functions/smart-ops-copilot/index.ts` — bloco REGRA DE OURO no system prompt; reescrita das `description` das tools; novo executor + schema da tool de histórico; campos `_source/_row_count/_empty_message` em todos os executors; log de auditoria; persona atualizada.
+- `mem/index.md`, `mem/smart-ops/copilot-zero-hallucination-policy.md`, `mem/smart-ops/copilot-product-owners-tool.md`.
+
+## Não muda
+
+- Bloqueio Omie permanece.
+- Frontend do Copilot não muda.
+- Tools que já são honestas (`get_lead_card`, `query_sales_summary`) ganham apenas os campos meta `_source/_row_count`, sem mudar lógica.
+
+## Resultado esperado
+
+Ao pedir "relatório com ciclo de cada compra dos donos do Edge Mini":
+1. Copilot chama `query_product_owners` → tabela agregada honesta.
+2. Para detalhar ciclos, chama `query_owner_purchase_history` por cliente.
+3. Se cliente tem 1 deal: tabela mostra 1 linha + nota "sem ciclo (apenas 1 compra)". **Nunca** inventa 23 compras adicionais.
+4. Se usuário insistir em projeções futuras: "Não tenho previsão estatística no sistema. Posso mostrar histórico real."
