@@ -1621,6 +1621,28 @@ async function executeQueryProductOwners(args: any) {
   };
 }
 
+async function executeQueryOwnerPurchaseHistory(args: any) {
+  const leadId = String(args?.lead_id || "").trim();
+  if (!leadId) {
+    return {
+      _source: "executor_validation",
+      _row_count: 0,
+      _empty_message: "Parâmetro 'lead_id' (UUID) é obrigatório. Use query_product_owners ou get_lead_card antes para obter o lead_id.",
+      error: "lead_id obrigatório",
+    };
+  }
+  const { data, error } = await supabase.rpc("fn_owner_purchase_history", { _lead_id: leadId });
+  if (error) {
+    return {
+      _source: "fn_owner_purchase_history",
+      _row_count: 0,
+      _empty_message: `Erro ao consultar histórico: ${error.message}`,
+      error: error.message,
+    };
+  }
+  return data;
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
