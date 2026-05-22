@@ -444,7 +444,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_deal_history",
-      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_product_mix. NUNCA invente nomes de produtos.",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use para consultar deals individuais por status. ⚠️ Para LISTAR produtos vendidos / mix de produtos / top produtos do mês, use SEMPRE query_proposal_items_sold. NUNCA invente nomes de produtos.",
       parameters: {
         type: "object",
         properties: {
@@ -500,7 +500,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_sales_summary",
-      description: "Retorna total de vendas e ranking COMPLETO de vendedores de um mês. Cada item do ranking inclui: vendedor, total_deals (deals ganhos), receita_total, ticket_medio, pct_receita, leads_recebidos (no mês), taxa_conversao (% deals ganhos / leads recebidos). USE SEMPRE para faturamento, receita, total de vendas, ranking, performance e taxa de conversão por vendedor. NUNCA use query_deal_history ou PipeRun API para calcular totais. ⚠️ Para LISTAR produtos vendidos use query_product_mix.",
+      description: "Retorna total de vendas e ranking COMPLETO de vendedores de um mês. Cada item do ranking inclui: vendedor, total_deals (deals ganhos), receita_total, ticket_medio, pct_receita, leads_recebidos (no mês), taxa_conversao (% deals ganhos / leads recebidos). USE SEMPRE para faturamento, receita, total de vendas, ranking, performance e taxa de conversão por vendedor. NUNCA use query_deal_history ou PipeRun API para calcular totais. ⚠️ Para LISTAR produtos vendidos use query_proposal_items_sold.",
       parameters: {
         type: "object",
         properties: {
@@ -516,7 +516,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_proposal_items_sold",
-      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial de itens vendidos — preferir sobre query_product_mix (Omie/NF).",
+      description: "Retorna a QUANTIDADE REAL DE ITENS VENDIDOS no mês a partir dos itens das PROPOSTAS GANHAS no PipeRun (deals.status='ganha' + closed_at no mês), via fn_itens_propostas_ganhas_mes. Para cada produto retorna: produto, qtd_total (soma de qtd), receita_total (soma de total), n_deals (deals distintos) e ticket_medio. USE SEMPRE para 'quantos itens foram vendidos', 'top produtos vendidos', 'quantidade de Vitality vendida', 'mix de vendas do mês'. Fonte oficial CRM — Omie está bloqueado para o Copilot.",
       parameters: {
         type: "object",
         properties: {
@@ -569,7 +569,7 @@ const tools = [
     type: "function",
     function: {
       name: "generate_commercial_report",
-      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, mix de produtos (Omie), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie query_sales_summary + query_product_mix manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload.",
+      description: "Monta o PACOTE COMPLETO de dados para o RELATÓRIO DE PERFORMANCE COMERCIAL de um mês em UMA ÚNICA chamada. Retorna JSON com: totals (mês atual + mês anterior + delta %), ranking de vendedores, itens de propostas ganhas (PipeRun), pipeline atual em 4 bandas e leads novos do mês. USE SEMPRE que o usuário pedir 'relatório', 'report', 'performance comercial', 'fechamento do mês', 'como foi o mês X', 'panorama do mês'. NUNCA encadeie tools manualmente para montar relatório — use esta tool. NUNCA invente percentuais, deltas ou comparativos: todos vêm calculados no payload. Dados Omie estão BLOQUEADOS.",
       parameters: {
         type: "object",
         properties: {
