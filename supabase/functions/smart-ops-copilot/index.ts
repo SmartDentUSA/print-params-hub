@@ -1443,11 +1443,10 @@ async function executeGenerateCommercialReport(args: any) {
     const inicioMes = new Date(ano, mes - 1, 1).toISOString();
     const fimMes = new Date(ano, mes, 1).toISOString();
 
-    const [totalsCur, totalsPrev, ranking, mixProd, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
+    const [totalsCur, totalsPrev, ranking, itensPropostas, leadsNovos, pipelineRes] = await Promise.all([
       supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_total_vendas_mes", { p_ano: anoPrev, p_mes: mesPrev }),
       supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes }),
-      supabase.rpc("fn_mix_produtos_mes", { p_ano: ano, p_mes: mes }),
       supabase.rpc("fn_itens_propostas_ganhas_mes", { p_ano: ano, p_mes: mes }),
       supabase.from("lia_attendances")
         .select("id", { count: "exact", head: true })
@@ -1478,14 +1477,12 @@ async function executeGenerateCommercialReport(args: any) {
       totals_mes_anterior: tPrev,
       delta_mom: delta,
       ranking_vendedores: ranking.data || [],
-      mix_produtos: mixProd.data || [],
       itens_propostas_ganhas: itensPropostas.data || [],
       pipeline: pipelineRes.data?.funil || null,
       pipeline_total_value: pipelineRes.data?.summary?.total_pipeline_atual_value || null,
       leads_novos_mes: leadsNovos.count ?? 0,
       avisos: {
         sem_vendas: !tCur || Number(tCur.total_deals || 0) === 0,
-        sem_mix: !(mixProd.data && mixProd.data.length > 0),
         sem_itens_propostas: !(itensPropostas.data && itensPropostas.data.length > 0),
         sem_pipeline: !pipelineRes.data
       },
