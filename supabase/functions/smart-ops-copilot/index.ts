@@ -1758,6 +1758,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   add_tags: executeAddTags,
   create_audience: executeCreateAudience,
   send_whatsapp: executeSendWhatsapp,
+  send_sms: executeSendSms,
   notify_seller: executeNotifySeller,
   search_videos: executeSearchVideos,
   search_content: executeSearchContent,
