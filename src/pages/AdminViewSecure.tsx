@@ -47,6 +47,7 @@ import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalyt
 import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "@/components/smartops/SmartOpsWorkflowMapper";
 import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
+import { SmartOpsRayshape } from "@/components/SmartOpsRayshape";
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -320,6 +321,7 @@ export default function AdminViewSecure() {
       case 'so-intelligence': return <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />;
       case 'so-roi': return <SmartOpsSmartFlowAnalytics />;
       case 'so-copilot': return <SmartOpsCopilot />;
+      case 'so-rayshape': return <SmartOpsRayshape key={`rayshape-${refreshKey}`} />;
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       case 'so-campanhas': return <SmartOpsCampaigns />;
       default: return <AdminModels />;
