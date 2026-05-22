@@ -1661,6 +1661,8 @@ async function executeGetLeadCard(args: any) {
 }
 
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
+
+
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
   add_tags: executeAddTags,
