@@ -1600,7 +1600,8 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data, source: requestSource } = await req.json();
+    const isInstagramChannel = requestSource === "manychat_instagram" || requestSource === "dra-lia-whatsapp";
     const session_id = rawSessionId || crypto.randomUUID();
 
     // ── IMAGE GATEKEEPER — classify image intent before expensive processing ──
@@ -2126,15 +2127,24 @@ REGRAS:
               .filter((h: { date?: string; summary?: string }) => h?.summary)
               .map((h: { date?: string; summary?: string }) => ({ date: h.date || "", summary: h.summary || "" }));
 
-            responseText = await generateDynamicGreeting({
-              name: existingLead.name,
-              lang,
-              lastDate,
-              summary: returningLeadSummary,
-              historico: historicoForGreeting,
-              profile: profileFields.join(" | "),
-              archetype: leadArchetype,
-            });
+            if (isInstagramChannel) {
+              const simpleGreet: Record<string, string> = {
+                "pt-BR": `Olá, ${existingLead.name}! Como posso te ajudar? 😊`,
+                "en-US": `Hi, ${existingLead.name}! How can I help you? 😊`,
+                "es-ES": `¡Hola, ${existingLead.name}! ¿Cómo puedo ayudarte? 😊`,
+              };
+              responseText = simpleGreet[lang] || simpleGreet["pt-BR"];
+            } else {
+              responseText = await generateDynamicGreeting({
+                name: existingLead.name,
+                lang,
+                lastDate,
+                summary: returningLeadSummary,
+                historico: historicoForGreeting,
+                profile: profileFields.join(" | "),
+                archetype: leadArchetype,
+              });
+            }
             console.log(`[lead-collection] Returning lead (dynamic greeting): ${existingLead.name} (${leadState.email}) → ${leadId}`);
           }
         } else {
