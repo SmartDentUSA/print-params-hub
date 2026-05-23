@@ -103,7 +103,84 @@ interface LeadRecord {
   merged_into: string | null;
 }
 
-const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into, pessoa_hash, pessoa_piperun_id, telefone_normalized";
+// Fetch full row to enable column-level diff (skips no-op UPDATEs that
+// otherwise cause write amplification: realtime fanout, trigger storms,
+// pg_wal bloat and 504/546 timeouts on full syncs).
+const SELECT_COLS = "*";
+
+// Columns that must NEVER block an UPDATE (always volatile, derived, or
+// internal bookkeeping). They are also stripped from the diff comparison
+// to avoid spurious writes.
+const DIFF_IGNORE_KEYS = new Set<string>([
+  "id",
+  "updated_at",
+  "created_at",
+  "crm_lock_until",
+  "last_synced_at",
+]);
+
+function signatureOf(deal: PipeRunDealData): string {
+  return [
+    deal.id ?? "",
+    deal.stage_id ?? "",
+    deal.status ?? "",
+    (deal as any).value ?? "",
+    (deal as any).updated_at ?? "",
+    deal.pipeline_id ?? "",
+    (deal as any).owner_id ?? "",
+  ].join("|");
+}
+
+function lastSnapshotSignature(history: unknown[] | null | undefined, dealId: string): string | null {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const snap = history[i] as Record<string, unknown> | null;
+    if (!snap || typeof snap !== "object") continue;
+    if (String((snap as any).deal_id ?? (snap as any).id ?? "") !== dealId) continue;
+    return [
+      (snap as any).deal_id ?? (snap as any).id ?? "",
+      (snap as any).stage_id ?? "",
+      (snap as any).status ?? "",
+      (snap as any).value ?? "",
+      (snap as any).updated_at ?? "",
+      (snap as any).pipeline_id ?? "",
+      (snap as any).owner_id ?? "",
+    ].join("|");
+  }
+  return null;
+}
+
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (typeof a !== typeof b) {
+    // Allow numeric/string equivalence (Piperun mixes types frequently).
+    if ((typeof a === "number" || typeof a === "string") &&
+        (typeof b === "number" || typeof b === "string")) {
+      return String(a) === String(b);
+    }
+    return false;
+  }
+  if (typeof a === "object") {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return false;
+}
+
+function diffPayload(
+  next: Record<string, unknown>,
+  current: Record<string, unknown>,
+): Record<string, unknown> {
+  const diff: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(next)) {
+    if (DIFF_IGNORE_KEYS.has(k)) continue;
+    if (!shallowEqual(v, current[k])) {
+      diff[k] = v;
+    }
+  }
+  return diff;
+}
 
 async function findLeadByCascade(
   supabase: ReturnType<typeof createClient>,
@@ -377,7 +454,7 @@ async function countDealsForPipeline(
 async function processDeal(
   supabase: ReturnType<typeof createClient>,
   rawDeal: PipeRunDealData,
-  counters: { updated: number; created: number; skippedNoData: number; stagnantStarted: number; stagnantRescued: number },
+  counters: { updated: number; created: number; skippedNoData: number; stagnantStarted: number; stagnantRescued: number; skippedUnchanged: number },
 ) {
   // GAP 1 FIX: Deep parse stringified fields before mapping
   const deal = deepParseStringifiedFields(rawDeal as unknown as Record<string, unknown>) as unknown as PipeRunDealData;
@@ -401,6 +478,19 @@ async function processDeal(
   const initialEmail = remoteEmail?.includes(",") ? remoteEmail.split(",")[0].trim() : remoteEmail;
 
   const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, initialEmail);
+
+  // ── EARLY EXIT: skip if PipeRun's deal signature matches the last
+  // snapshot we already stored. Avoids re-running the whole map+merge
+  // pipeline for deals that haven't moved — the dominant case in cron
+  // syncs and the root cause of write-amplification timeouts.
+  if (currentLead) {
+    const remoteSig = signatureOf(deal);
+    const localSig = lastSnapshotSignature((currentLead as any).piperun_deals_history, dealId);
+    if (localSig && remoteSig === localSig) {
+      counters.skippedUnchanged++;
+      return;
+    }
+  }
 
   const updatePayload = mapDealToAttendance(deal, currentLead as any);
 
@@ -493,9 +583,19 @@ async function processDeal(
       console.log(`[sync-piperun] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → lead_status=${isWon ? "CLIENTE_ativo" : "kept"}, tags updated`);
     }
 
+    // ── Column-level diff: only send fields that actually changed.
+    // Always preserve piperun_deals_history (we just merged) and any
+    // tags_crm/lead_status mutations from the won/lost/stagnant branches.
+    const diff = diffPayload(smartPayload, currentLead as unknown as Record<string, unknown>);
+    if (Object.keys(diff).length === 0) {
+      counters.skippedUnchanged++;
+      return;
+    }
+    diff.updated_at = new Date().toISOString();
+
     const { error } = await supabase
       .from("lia_attendances")
-      .update(smartPayload)
+      .update(diff)
       .eq("id", currentLead.id);
 
     if (!error) {
@@ -685,7 +785,7 @@ Deno.serve(async (req) => {
     const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages, offset, chunkSize);
     console.log(`[sync-piperun] Pipeline ${pipelineId} offset=${offset} chunk=${chunkSize}: ${allDeals.length} deals fetched`);
 
-    const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0 };
+    const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0, skippedUnchanged: 0 };
 
     for (const deal of allDeals) {
       try {
@@ -695,12 +795,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[sync-piperun] Pipeline ${pipelineId}: updated=${counters.updated}, created=${counters.created}, skipped=${counters.skippedNoData}`);
+    console.log(`[sync-piperun] Pipeline ${pipelineId}: updated=${counters.updated}, created=${counters.created}, skipped_no_email=${counters.skippedNoData}, skipped_unchanged=${counters.skippedUnchanged}`);
     return new Response(JSON.stringify({
       success: true,
       synced: counters.updated,
       created: counters.created,
       skipped_no_email: counters.skippedNoData,
+      skipped_unchanged: counters.skippedUnchanged,
       total_deals: allDeals.length,
       pipeline_id: pipelineId,
       stagnant_started: counters.stagnantStarted,
