@@ -1834,15 +1834,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Idempotency: skip if assigned in last 5 min (unless force=true) ──
+    // ── Idempotency: skip if processed in last 3 min (unless force=true) ──
     // NOTE: sdr_captacao_reativacao no longer bypasses this guard. The Meta
     // webhook re-delivers the same leadgen_id every ~2 min and previously
     // looped through lia-assign continuously. Reactivation should only fire
     // for *genuinely new* form submissions (already deduped at ingest-lead).
-    if (!force && force_new_deal !== true && lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at) {
+    //
+    // RACE-PROOF: we do NOT require `proprietario_lead_crm` to be present —
+    // the GOLDEN RULE path temporarily clears it during re-assignment and a
+    // concurrent invocation would observe a momentary NULL, bypass the guard,
+    // and fully re-process the lead. Anchor only on `piperun_id` (presence
+    // means the Deal already exists) + recent `updated_at`.
+    if (!force && force_new_deal !== true && lead.piperun_id && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
-      if (Date.now() - lastUpdate < 5 * 60 * 1000) {
-        console.log("[lia-assign] Already assigned recently, skipping");
+      if (Date.now() - lastUpdate < 3 * 60 * 1000) {
+        console.log(`[lia-assign] Idempotency skip: lead ${lead.id} updated ${Math.round((Date.now() - lastUpdate)/1000)}s ago (piperun_id=${lead.piperun_id})`);
         return new Response(JSON.stringify({ skipped: true, reason: "recently_assigned" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
