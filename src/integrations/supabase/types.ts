@@ -7913,6 +7913,7 @@ export type Database = {
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
           last_form_scanner: string | null
+          last_message_at: string | null
           last_seller_note_at: string | null
           last_seller_note_hash: string | null
           last_sync_at: string | null
@@ -7970,6 +7971,9 @@ export type Database = {
           ltv_projected_12m: number | null
           ltv_projected_24m: number | null
           ltv_total: number | null
+          manychat_collected_at: string | null
+          manychat_conversation_step: string | null
+          manychat_subscriber_id: string | null
           map_fresadora_date: string | null
           map_fresadora_marca: string | null
           map_fresadora_modelo: string | null
@@ -8473,6 +8477,7 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_message_at?: string | null
           last_seller_note_at?: string | null
           last_seller_note_hash?: string | null
           last_sync_at?: string | null
@@ -8530,6 +8535,9 @@ export type Database = {
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
+          manychat_collected_at?: string | null
+          manychat_conversation_step?: string | null
+          manychat_subscriber_id?: string | null
           map_fresadora_date?: string | null
           map_fresadora_marca?: string | null
           map_fresadora_modelo?: string | null
@@ -9033,6 +9041,7 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_message_at?: string | null
           last_seller_note_at?: string | null
           last_seller_note_hash?: string | null
           last_sync_at?: string | null
@@ -9090,6 +9099,9 @@ export type Database = {
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
+          manychat_collected_at?: string | null
+          manychat_conversation_step?: string | null
+          manychat_subscriber_id?: string | null
           map_fresadora_date?: string | null
           map_fresadora_marca?: string | null
           map_fresadora_modelo?: string | null
@@ -22553,6 +22565,7 @@ export type Database = {
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
           last_form_scanner: string | null
+          last_message_at: string | null
           last_seller_note_at: string | null
           last_seller_note_hash: string | null
           last_sync_at: string | null
@@ -22610,6 +22623,9 @@ export type Database = {
           ltv_projected_12m: number | null
           ltv_projected_24m: number | null
           ltv_total: number | null
+          manychat_collected_at: string | null
+          manychat_conversation_step: string | null
+          manychat_subscriber_id: string | null
           map_fresadora_date: string | null
           map_fresadora_marca: string | null
           map_fresadora_modelo: string | null
