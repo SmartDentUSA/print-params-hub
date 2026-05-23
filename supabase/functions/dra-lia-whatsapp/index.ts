@@ -516,6 +516,7 @@ Deno.serve(async (req) => {
           session_id: sessionId,
           topic_context: topicContext,
           image_data: imageData,
+          source: "dra-lia-whatsapp",
         }),
         signal: AbortSignal.timeout(45000),
       });
