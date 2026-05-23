@@ -402,6 +402,102 @@ Deno.serve(async (req) => {
       console.log(`[ingest-lead] Lead matched via ${matchedVia}; incoming email "${email}" differs from canonical "${existingLead.email}". Preserving canonical email.`);
     }
 
+    // ─── 4ª CAMADA DE DEDUPE — META RE-DELIVERY POR HISTÓRICO DE FORM ───
+    // Leads canônicos antigos não têm `platform_lead_id`/`platform_form_id`
+    // persistidos, então HARD_DEDUPE e FAMILY_KEY (mais acima) não casam, e a
+    // checagem por `lead_activity_log.entity_id` também falha porque
+    // `form_submission` grava entity_id como string sintética
+    // (`lead:UUID|source:...|form:...`), não como leadgen_id. Resultado: Meta
+    // re-entrega o mesmo lead a cada ~2 min e dispara lia-assign em loop.
+    //
+    // Fechamos o buraco com uma checagem direta: se o lead canônico já tem
+    // um `form_submission` para o MESMO form_name nas últimas 12h, é
+    // re-entrega. Arquivamos o novo leadgen_id, fazemos backfill dos
+    // identificadores Meta no lead canônico (para as próximas camadas
+    // funcionarem) e abortamos antes de qualquer dispatch downstream.
+    if (
+      existingLead &&
+      source === "meta_lead_ads" &&
+      formName &&
+      (dedupeId || payload.platform_form_id || payload.meta_form_id)
+    ) {
+      try {
+        const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+        const { data: priorForm } = await supabase
+          .from("lead_activity_log")
+          .select("id, event_timestamp")
+          .eq("lead_id", existingLead.id)
+          .eq("event_type", "form_submission")
+          .eq("entity_name", formName)
+          .gte("event_timestamp", since)
+          .order("event_timestamp", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (priorForm) {
+          const newFormId = payload.platform_form_id || payload.meta_form_id || null;
+          const archive = new Set<string>([
+            ...(((existingLead.raw_payload as Record<string, unknown> | null)
+              ?.previous_platform_lead_ids as string[] | undefined) || []),
+          ]);
+          if (dedupeId) archive.add(String(dedupeId));
+          if (existingLead.platform_lead_id && (!dedupeId || existingLead.platform_lead_id !== String(dedupeId))) {
+            archive.add(String(existingLead.platform_lead_id));
+          }
+          const updates: Record<string, unknown> = {
+            raw_payload: {
+              ...(existingLead.raw_payload || {}),
+              previous_platform_lead_ids: Array.from(archive),
+            },
+          };
+          // Backfill identifiers so future deliveries hit HARD/FAMILY dedupe.
+          if (!existingLead.platform_lead_id && dedupeId) {
+            updates.platform_lead_id = String(dedupeId);
+          }
+          if (!existingLead.platform_form_id && newFormId) {
+            updates.platform_form_id = String(newFormId);
+          }
+          try {
+            await supabase
+              .from("lia_attendances")
+              .update(updates)
+              .eq("id", existingLead.id);
+          } catch (e) {
+            console.warn("[ingest-lead] form-history backfill failed:", e);
+          }
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "info",
+              error_type: "meta_form_history_dedupe",
+              lead_id: existingLead.id,
+              lead_email: existingLead.email || email,
+              details: {
+                form_name: formName,
+                new_leadgen_id: dedupeId ? String(dedupeId) : null,
+                new_form_id: newFormId ? String(newFormId) : null,
+                prior_event_at: priorForm.event_timestamp,
+              },
+            });
+          } catch {}
+          console.log(
+            `[ingest-lead] FORM_HISTORY_DEDUPE_SKIPPED: lead=${existingLead.id} form="${formName}" leadgen_id=${dedupeId ?? "n/a"} (prior at ${priorForm.event_timestamp})`,
+          );
+          return new Response(
+            JSON.stringify({
+              success: true,
+              duplicate_skipped: true,
+              dedupe_id: dedupeId ? String(dedupeId) : null,
+              dedupe_via: "meta_form_history_12h",
+              lead_id: existingLead.id,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] form-history dedupe check failed (non-blocking):", e);
+      }
+    }
+
     // --- Step 2: Detect PQL (existing customer re-entering) ---
     let detectedStage: string | null = null;
     const isSellerDirect = source === "vendedor_direto";
