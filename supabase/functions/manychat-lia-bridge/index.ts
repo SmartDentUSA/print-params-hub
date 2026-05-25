@@ -1,10 +1,15 @@
-// ManyChat → dra-lia bridge (síncrono).
-// ManyChat External Request tem timeout ~10s. Bridge chama dra-lia com
-// AbortController de 8s e devolve a resposta direto no JSON do External
-// Request (sem Send API, sem token). Se estourar timeout, devolve
-// EMPTY_REPLY e ManyChat aciona o fallback do bloco.
+// ManyChat → bridge de qualificação síncrona.
+// Fluxo:
+//   1. Procura lead por manychat_subscriber_id em lia_attendances
+//      (merged_into IS NULL).
+//   2. Se faltar nome/email/telefone, coleta nessa ordem antes de qualquer
+//      coisa, respondendo direto no JSON do External Request do ManyChat.
+//   3. Quando o perfil mínimo estiver completo, envia mensagem
+//      "Como posso te ajudar?" com quick replies das rotas da LIA.
+//   4. NUNCA usa Send API nem MANYCHAT_API_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,8 +25,17 @@ const EMPTY_REPLY = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const MAX_CHUNK = 900; // ManyChat IG ~1000 chars/msg, margem de segurança.
-const DRA_LIA_TIMEOUT_MS = 8000; // < 10s do External Request do ManyChat.
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+
+// Rotas da LIA oferecidas após a qualificação.
+const LIA_ROUTES: Array<{ title: string; payload: string }> = [
+  { title: "🌐 Visitar o site", payload: "rota_site" },
+  { title: "🛒 Ver produtos", payload: "rota_produtos" },
+  { title: "🎓 Cursos", payload: "rota_cursos" },
+  { title: "💬 Falar com especialista", payload: "rota_especialista" },
+];
+
+const SITE_URL = "https://www.smartdent.com.br";
 
 function textReply(text: string) {
   return {
@@ -34,13 +48,30 @@ function textReply(text: string) {
   };
 }
 
-function multiTextReply(chunks: string[]) {
+function replyWithRoutes(text: string) {
   return {
     version: "v2",
     content: {
-      messages: chunks.map((text) => ({ type: "text", text })),
+      messages: [
+        {
+          type: "text",
+          text,
+          buttons: [
+            { type: "url", caption: "🌐 Visitar o site", url: SITE_URL },
+          ],
+          quick_replies: LIA_ROUTES.map((r) => ({
+            type: "node",
+            caption: r.title,
+            target: r.payload,
+          })),
+        },
+      ],
       actions: [],
-      quick_replies: [],
+      quick_replies: LIA_ROUTES.map((r) => ({
+        type: "node",
+        caption: r.title,
+        target: r.payload,
+      })),
     },
   };
 }
@@ -50,83 +81,6 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-const GREETING_RE = /^\s*(oi+|ol[áa]|hello|hi|hey|bom dia|boa tarde|boa noite|e ?a[ií]|tudo bem)\s*[!.?]*\s*$/i;
-const EMOJI_ONLY_RE = /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}\p{P}\p{S}]+$/u;
-const URL_ONLY_RE = /^\s*https?:\/\/\S+\s*$/i;
-
-// Consome o SSE do dra-lia e retorna o texto completo concatenado.
-async function consumeSSE(response: Response): Promise<string> {
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  let full = "";
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buf.indexOf("\n")) !== -1) {
-        let line = buf.slice(0, idx);
-        buf = buf.slice(idx + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (!line.startsWith("data: ")) continue;
-        const payload = line.slice(6).trim();
-        if (payload === "[DONE]") return full;
-        try {
-          const parsed = JSON.parse(payload);
-          if (parsed.type === "meta") continue;
-          const c = parsed.choices?.[0]?.delta?.content;
-          if (c) full += c;
-        } catch { /* partial */ }
-      }
-    }
-  } catch {
-    // Stream abortado (timeout): retorna o que já temos.
-  }
-  return full;
-}
-
-// Quebra texto em chunks <= MAX_CHUNK respeitando parágrafos/quebras.
-function chunkText(text: string, max = MAX_CHUNK): string[] {
-  const clean = text.trim();
-  if (clean.length <= max) return [clean];
-  const out: string[] = [];
-  const paragraphs = clean.split(/\n{2,}/);
-  let cur = "";
-  for (const p of paragraphs) {
-    if (!p.trim()) continue;
-    if ((cur + "\n\n" + p).trim().length <= max) {
-      cur = cur ? cur + "\n\n" + p : p;
-    } else {
-      if (cur) { out.push(cur); cur = ""; }
-      if (p.length <= max) {
-        cur = p;
-      } else {
-        // quebra um parágrafo muito grande por sentença
-        const sentences = p.split(/(?<=[.!?])\s+/);
-        for (const s of sentences) {
-          if ((cur + " " + s).trim().length <= max) {
-            cur = (cur ? cur + " " : "") + s;
-          } else {
-            if (cur) { out.push(cur); cur = ""; }
-            if (s.length <= max) cur = s;
-            else {
-              // último recurso: corte hard
-              for (let i = 0; i < s.length; i += max) {
-                out.push(s.slice(i, i + max));
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  if (cur) out.push(cur);
-  return out;
 }
 
 async function logHealth(
@@ -145,65 +99,86 @@ async function logHealth(
   } catch (_) { /* noop */ }
 }
 
-// Chama dra-lia síncrono com timeout. Retorna o texto da resposta
-// (ou string vazia em caso de timeout/erro — o caller decide o fallback).
-async function callDraLiaSync(
+function isValidName(s: string): boolean {
+  const n = s.trim();
+  if (n.length < 2) return false;
+  const alpha = n.replace(/[^A-Za-zÀ-ÿ]/g, "");
+  return alpha.length >= 2;
+}
+
+function extractEmail(s: string): string | null {
+  const m = s.replace(/\s*@\s*/g, "@").match(EMAIL_REGEX);
+  return m ? m[0].toLowerCase() : null;
+}
+
+type LeadRow = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  telefone_normalized: string | null;
+  manychat_subscriber_id: string | null;
+};
+
+async function findOrCreateLead(
   supabase: ReturnType<typeof createClient>,
   subscriberId: string,
-  sessionId: string,
-  message: string,
-  name: string,
-): Promise<{ reply: string; elapsedMs: number; timedOut: boolean }> {
-  const started = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DRA_LIA_TIMEOUT_MS);
-  try {
-    const draLiaUrl = `${SUPABASE_URL}/functions/v1/dra-lia`;
-    const resp = await fetch(draLiaUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-        "apikey": SERVICE_ROLE_KEY,
-      },
-      body: JSON.stringify({
-        message,
-        session_id: sessionId,
-        source: "manychat_instagram",
-        manychat_subscriber_id: subscriberId,
-        manychat_name: name || null,
-        lang: "pt-BR",
-      }),
-      signal: controller.signal,
-    });
+  fallbackName: string,
+): Promise<LeadRow> {
+  const { data: existing } = await supabase
+    .from("lia_attendances")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .eq("manychat_subscriber_id", subscriberId)
+    .is("merged_into", null)
+    .limit(1)
+    .maybeSingle();
 
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => "");
-      await logHealth(supabase, "error", "dra_lia_http_error_sync", {
-        subscriberId,
-        status: resp.status,
-        body: errText.slice(0, 500),
-      });
-      return { reply: "", elapsedMs: Date.now() - started, timedOut: false };
-    }
+  if (existing?.id) return existing as LeadRow;
 
-    const reply = (await consumeSSE(resp)).trim();
-    const elapsedMs = Date.now() - started;
-    const timedOut = controller.signal.aborted;
-    return { reply, elapsedMs, timedOut };
-  } catch (err) {
-    const elapsedMs = Date.now() - started;
-    const timedOut = controller.signal.aborted;
-    await logHealth(supabase, timedOut ? "warn" : "error",
-      timedOut ? "dra_lia_timeout" : "dra_lia_error_sync", {
-      subscriberId,
-      error: (err as Error).message,
-      elapsed_ms: elapsedMs,
-    });
-    return { reply: "", elapsedMs, timedOut };
-  } finally {
-    clearTimeout(timer);
+  const syntheticEmail = `mc_${subscriberId}@manychat.internal`;
+  const initialName = fallbackName && fallbackName.trim().length >= 2
+    ? fallbackName.trim()
+    : "Lead Instagram";
+
+  const { data: created, error } = await supabase
+    .from("lia_attendances")
+    .insert({
+      nome: initialName,
+      email: syntheticEmail,
+      manychat_subscriber_id: subscriberId,
+      manychat_collected_at: new Date().toISOString(),
+      instagram: initialName,
+      origem_primeiro_contato: "instagram_manychat",
+      lead_status: "novo",
+      crm_creation_blocked: true,
+      source: "manychat_instagram",
+    })
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .maybeSingle();
+
+  if (error || !created) {
+    throw new Error(`failed to create lead: ${error?.message || "unknown"}`);
   }
+  return created as LeadRow;
+}
+
+function hasRealName(nome: string | null): boolean {
+  if (!nome) return false;
+  const n = nome.trim();
+  if (n.length < 2) return false;
+  if (/^lead\s+instagram$/i.test(n)) return false;
+  return isValidName(n);
+}
+
+function hasRealEmail(email: string | null): boolean {
+  if (!email) return false;
+  if (email.endsWith("@manychat.internal")) return false;
+  return EMAIL_REGEX.test(email);
+}
+
+function hasRealPhone(phone: string | null): boolean {
+  if (!phone) return false;
+  const d = phone.replace(/\D/g, "");
+  return d.length >= 10 && d.length <= 15;
 }
 
 Deno.serve(async (req) => {
@@ -230,70 +205,197 @@ Deno.serve(async (req) => {
 
   const sessionId = `mc_${subscriberId}`;
 
-  // No-op se vier mensagem vazia
-  if (!message) {
-    await logHealth(supabase, "info", "empty_message_skip", { subscriberId });
-    return jsonResponse(EMPTY_REPLY, 200);
-  }
+  try {
+    // 1. Carrega/cria lead canônico para este subscriber
+    const lead = await findOrCreateLead(supabase, subscriberId, name);
 
-  // SHORT-CIRCUIT 1: anti-loop curto (< 3 chars dentro de 20s)
-  if (message.length < 3) {
-    const since = new Date(Date.now() - 20_000).toISOString();
-    const { data: recent } = await supabase
-      .from("agent_interactions")
-      .select("id")
+    // 2. Carrega estado da sessão (qual campo estamos coletando)
+    const { data: sess } = await supabase
+      .from("agent_sessions")
+      .select("extracted_entities")
       .eq("session_id", sessionId)
-      .gte("created_at", since)
-      .limit(1);
-    if (recent && recent.length > 0) {
-      await logHealth(supabase, "info", "shortcircuit_loop_guard", { subscriberId, message });
-      return jsonResponse(EMPTY_REPLY, 200);
-    }
-  }
-
-  // SHORT-CIRCUIT 2: só emoji / URL / pontuação
-  if (EMOJI_ONLY_RE.test(message) || URL_ONLY_RE.test(message)) {
-    await logHealth(supabase, "info", "shortcircuit_emoji_or_url", { subscriberId, message });
-    return jsonResponse(EMPTY_REPLY, 200);
-  }
-
-  // SHORT-CIRCUIT 3: saudação de lead já identificado
-  if (GREETING_RE.test(message)) {
-    const { data: lead } = await supabase
-      .from("lia_attendances")
-      .select("nome")
-      .eq("manychat_subscriber_id", subscriberId)
-      .is("merged_into", null)
-      .limit(1)
       .maybeSingle();
-    if (lead?.nome) {
-      const firstName = String(lead.nome).split(/\s+/)[0];
-      await logHealth(supabase, "info", "shortcircuit_greeting_known", { subscriberId });
-      return jsonResponse(textReply(`Oi, ${firstName}! 👋 Como posso te ajudar?`), 200);
+    const entities = (sess?.extracted_entities as Record<string, unknown>) || {};
+
+    // Fonte de verdade combinada: DB + entidades da sessão (em caso de
+    // conflito de email único no DB, mantemos o valor coletado em sessão).
+    let nomeAtual = (entities.collected_name as string | undefined) || lead.nome;
+    let emailAtual = (entities.collected_email as string | undefined) || lead.email;
+    let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
+
+    // 3. Se mensagem é resposta a uma pergunta pendente, processa
+    if (message) {
+      if (entities.awaiting_manychat_name && !hasRealName(nomeAtual)) {
+        if (isValidName(message)) {
+          nomeAtual = message.trim();
+          entities.collected_name = nomeAtual;
+          await supabase.from("lia_attendances")
+            .update({ nome: nomeAtual, instagram: nomeAtual, updated_at: new Date().toISOString() })
+            .eq("id", lead.id);
+        }
+      } else if (entities.awaiting_manychat_email && !hasRealEmail(emailAtual)) {
+        const ext = extractEmail(message);
+        if (ext) {
+          emailAtual = ext;
+          entities.collected_email = emailAtual;
+          // Tenta atualizar; se conflito de unique, mantém o sintético
+          const { error: upErr } = await supabase.from("lia_attendances")
+            .update({ email: emailAtual, updated_at: new Date().toISOString() })
+            .eq("id", lead.id);
+          if (upErr) {
+            await logHealth(supabase, "warn", "manychat_email_update_conflict", {
+              subscriberId, error: upErr.message, attempted_email: emailAtual,
+            });
+            // mantém leitura local mesmo se DB não atualizou (provável duplicidade)
+          }
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_email", { subscriberId, message });
+          const retry = "Não consegui identificar um e-mail válido. Pode me enviar seu **e-mail** novamente? (ex: nome@exemplo.com)";
+          await supabase.from("agent_sessions").upsert({
+            session_id: sessionId,
+            lead_id: lead.id,
+            extracted_entities: { ...entities, awaiting_manychat_email: true },
+            current_state: "qualifying",
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+          return jsonResponse(textReply(retry), 200);
+        }
+      } else if (entities.awaiting_manychat_phone && !hasRealPhone(phoneAtual)) {
+        const normalized = normalizeBrazilianPhone(message);
+        if (normalized) {
+          phoneAtual = normalized;
+          entities.collected_phone = phoneAtual;
+          const { error: phErr } = await supabase.from("lia_attendances").update({
+            telefone_normalized: phoneAtual,
+            telefone_raw: message.trim(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (phErr) {
+            await logHealth(supabase, "warn", "manychat_phone_update_conflict", {
+              subscriberId, error: phErr.message,
+            });
+          }
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_phone", { subscriberId, message });
+          const retry = "Não consegui identificar o número. Pode me enviar seu **celular com DDD**? (ex: 11 99999-8888)";
+          await supabase.from("agent_sessions").upsert({
+            session_id: sessionId,
+            lead_id: lead.id,
+            extracted_entities: { ...entities, awaiting_manychat_phone: true },
+            current_state: "qualifying",
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+          return jsonResponse(textReply(retry), 200);
+        }
+      }
     }
-  }
 
-  // Caminho LLM: responde JÁ ao ManyChat (evita timeout 10s) e processa
-  // Caminho LLM síncrono: aguarda dra-lia até 8s e devolve direto.
-  await logHealth(supabase, "info", "sync_dispatch", { subscriberId, msg_len: message.length });
-  const { reply, elapsedMs, timedOut } = await callDraLiaSync(
-    supabase, subscriberId, sessionId, message, name,
-  );
+    // 4. Determina próxima pergunta com base no que ainda falta
+    const missingName = !hasRealName(nomeAtual);
+    const missingEmail = !hasRealEmail(emailAtual);
+    const missingPhone = !hasRealPhone(phoneAtual);
 
-  if (timedOut || !reply || reply.length < 2) {
-    await logHealth(supabase, "warn",
-      timedOut ? "dra_lia_timeout" : "dra_lia_empty_reply", {
-      subscriberId, elapsed_ms: elapsedMs, reply_len: reply.length,
+    if (missingName) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: true,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_name", { subscriberId });
+      return jsonResponse(textReply(
+        "Olá! 👋 Sou a Dra. LIA da Smart Dent.\nPara te atender melhor, qual é o seu **nome completo**?",
+      ), 200);
+    }
+
+    if (missingEmail) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: true,
+          awaiting_manychat_phone: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_email", { subscriberId });
+      const firstName = (nomeAtual || "").split(/\s+/)[0];
+      return jsonResponse(textReply(
+        `Obrigado, ${firstName}! Qual é o seu **melhor e-mail**?`,
+      ), 200);
+    }
+
+    if (missingPhone) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: true,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_phone", { subscriberId });
+      return jsonResponse(textReply(
+        "Perfeito! Agora me envie seu **celular com DDD** (ex: 11 99999-8888).",
+      ), 200);
+    }
+
+    // 5. Perfil completo → limpa flags de coleta e envia rotas
+    await supabase.from("agent_sessions").upsert({
+      session_id: sessionId,
+      lead_id: lead.id,
+      extracted_entities: {
+        ...entities,
+        lead_id: lead.id,
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        manychat_subscriber_id: subscriberId,
+        channel: "manychat_instagram",
+        awaiting_manychat_name: false,
+        awaiting_manychat_email: false,
+        awaiting_manychat_phone: false,
+      },
+      current_state: "idle",
+      last_activity_at: new Date().toISOString(),
+    }, { onConflict: "session_id" });
+
+    const firstName = (nomeAtual || "").split(/\s+/)[0];
+    const justCompleted = entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
+    const greeting = justCompleted
+      ? `Cadastro confirmado, ${firstName}! ✅\nComo posso te ajudar hoje?`
+      : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
+
+    await logHealth(supabase, "info",
+      justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
+      { subscriberId, lead_id: lead.id },
+    );
+    return jsonResponse(replyWithRoutes(greeting), 200);
+  } catch (err) {
+    await logHealth(supabase, "error", "manychat_bridge_error", {
+      subscriberId,
+      error: (err as Error).message,
     });
-    return jsonResponse(EMPTY_REPLY, 200);
+    return jsonResponse(textReply(
+      "Tive um probleminha agora. Pode me chamar novamente em instantes?",
+    ), 200);
   }
-
-  const chunks = chunkText(reply);
-  await logHealth(supabase, "info", "sync_reply_ok", {
-    subscriberId,
-    reply_len: reply.length,
-    chunks: chunks.length,
-    elapsed_ms: elapsedMs,
-  });
-  return jsonResponse(multiTextReply(chunks), 200);
 });
