@@ -18,4 +18,8 @@ type: feature
 
 - **Idempotency race-proof** (~L1842): guarda agora exige apenas `piperun_id && updated_at < 3min`, NÃO `proprietario_lead_crm`. Motivo: GOLDEN RULE zera `proprietario_lead_crm` transitoriamente durante re-atribuição; uma invocação concorrente lia uma NULL momentânea e burlava o skip, rodando o pipeline completo (Round Robin → preserve Vendas → update CRM) a cada delivery do Meta. `piperun_id` presente significa que o Deal já existe; basta isso + updated_at recente para skip.
 
+- **META_REDELIVERY_KILL_SWITCH (camada universal)** (~L início do pipeline): antes de qualquer side-effect, consulta `lead_activity_log` para `event_type='seller_assigned' AND lead_id=canonical AND event_timestamp > now()-10min`. Se existe, skip imediato com `skipReason='meta_redelivery_kill_switch'` e log em `system_health_logs`. Funciona independente de `piperun_id`/`proprietario_lead_crm` (que podem flipar transitoriamente durante GOLDEN RULE). Chokepoint final que mata qualquer loop de reentrega, mesmo se bypassar ingest-lead (ex.: `meta-lead-ads-pull` chamando lia-assign direto no branch REATIVADO).
+
+**Solução no trigger `fn_log_form_submission_to_timeline`:** dedup por `(lead_id, seller_name)` em `seller_assigned` numa janela de 1h. Protege contra meta-pull resetar `proprietario_lead_crm=NULL` e re-atribuir o mesmo vendedor a cada 2min (caso Tatianna/Celisvaldo/Miguel, ~6 inserts/2min cada).
+
 **Validação:** payload com leadgen_id já registrado → `HARD_DEDUPE_SKIPPED` em <50ms. Leadgen_id novo mas mesmo form+email → `FAMILY_DEDUPE_SKIPPED`. Sem chamadas downstream (lia-assign, cognitive, SellFlux) em nenhum dos casos.
