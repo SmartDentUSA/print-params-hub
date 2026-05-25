@@ -19,6 +19,8 @@ const corsHeaders = {
 
 const EMPTY_REPLY = {
   version: "v2",
+  reply: "",
+  qualification_state: "idle",
   content: { messages: [], actions: [], quick_replies: [] },
 };
 
@@ -37,9 +39,21 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 
 const SITE_URL = "https://www.smartdent.com.br";
 
-function textReply(text: string) {
+type ReplyMeta = {
+  state: "ask_name" | "ask_email" | "ask_phone" | "completed" | "error" | "idle";
+  lead_name?: string | null;
+  lead_email?: string | null;
+  lead_phone?: string | null;
+};
+
+function buildReply(text: string, meta: ReplyMeta) {
   return {
     version: "v2",
+    reply: text || "",
+    lead_name: meta.lead_name || "",
+    lead_email: meta.lead_email || "",
+    lead_phone: meta.lead_phone || "",
+    qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
       actions: [],
@@ -48,32 +62,38 @@ function textReply(text: string) {
   };
 }
 
-function replyWithRoutes(text: string) {
-  return {
-    version: "v2",
-    content: {
-      messages: [
-        {
-          type: "text",
-          text,
-          buttons: [
-            { type: "url", caption: "🌐 Visitar o site", url: SITE_URL },
-          ],
-          quick_replies: LIA_ROUTES.map((r) => ({
-            type: "node",
-            caption: r.title,
-            target: r.payload,
-          })),
-        },
-      ],
-      actions: [],
+function textReply(text: string, meta: ReplyMeta = { state: "idle" }) {
+  return buildReply(text, meta);
+}
+
+function replyWithRoutes(greeting: string, meta: ReplyMeta) {
+  const routesText = [
+    "",
+    "Escolha uma opção respondendo o número:",
+    `1) 🌐 Site: ${SITE_URL}`,
+    "2) 🛒 Ver produtos",
+    "3) 🎓 Cursos",
+    "4) 💬 Falar com especialista",
+  ].join("\n");
+  const fullText = `${greeting}\n${routesText}`;
+  const payload = buildReply(fullText, { ...meta, state: "completed" });
+  // Mantém quick_replies/buttons para clientes Dynamic Block (não usados pelo
+  // "Enviar Mensagem" simples, mas inofensivos).
+  payload.content.messages = [
+    {
+      type: "text",
+      text: fullText,
+      // @ts-ignore - extra fields aceitos pelo Dynamic Block
+      buttons: [{ type: "url", caption: "🌐 Visitar o site", url: SITE_URL }],
       quick_replies: LIA_ROUTES.map((r) => ({
-        type: "node",
-        caption: r.title,
-        target: r.payload,
+        type: "node", caption: r.title, target: r.payload,
       })),
     },
-  };
+  ];
+  payload.content.quick_replies = LIA_ROUTES.map((r) => ({
+    type: "node", caption: r.title, target: r.payload,
+  })) as any;
+  return payload;
 }
 
 function jsonResponse(body: unknown, status = 200) {
