@@ -154,7 +154,7 @@ async function findOrCreateLead(
 
   if (existing?.id) return existing as LeadRow;
 
-  const syntheticEmail = `mc_${subscriberId}@manychat.internal`;
+  const syntheticEmail = `mc_${subscriberId}@instagram.lead`;
   const initialName = fallbackName && fallbackName.trim().length >= 2
     ? fallbackName.trim()
     : "Lead Instagram";
@@ -167,10 +167,10 @@ async function findOrCreateLead(
       manychat_subscriber_id: subscriberId,
       manychat_collected_at: new Date().toISOString(),
       instagram: initialName,
-      origem_primeiro_contato: "instagram_manychat",
+      origem_primeiro_contato: "Instagram - autoatendimento",
       lead_status: "novo",
       crm_creation_blocked: true,
-      source: "manychat_instagram",
+      source: "Instagram - autoatendimento",
     })
     .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
     .maybeSingle();
@@ -192,6 +192,7 @@ function hasRealName(nome: string | null): boolean {
 function hasRealEmail(email: string | null): boolean {
   if (!email) return false;
   if (email.endsWith("@manychat.internal")) return false;
+  if (email.endsWith("@instagram.lead")) return false;
   return EMAIL_REGEX.test(email);
 }
 
@@ -396,7 +397,7 @@ Deno.serve(async (req) => {
         lead_name: nomeAtual,
         lead_email: emailAtual,
         manychat_subscriber_id: subscriberId,
-        channel: "manychat_instagram",
+        channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
