@@ -106,24 +106,20 @@ Deno.serve(async (req) => {
     }));
 
     let triggered = false;
-    let triggerStatus: number | null = null;
     if (gaps.length > 0) {
-      // Kick the chunked sync to backfill. Use orchestrate so it self-chunks.
+      // Fire-and-forget chunked sync to backfill. We do not await so the
+      // reconciler returns its audit log promptly even on heavy backfills.
       const syncUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun`
         + `?orchestrate=true&pipeline_id=${VENDAS_PIPELINE_ID}&since_hours=${hours}`;
-      try {
-        const res = await fetch(syncUrl, {
-          headers: {
-            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-          },
-        });
-        triggered = true;
-        triggerStatus = res.status;
-      } catch (e) {
-        console.error("[reconciler] sync invoke failed:", e);
-      }
+      fetch(syncUrl, {
+        headers: {
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }).catch((e) => console.error("[reconciler] sync invoke failed:", e));
+      triggered = true;
     }
+    const triggerStatus = null;
 
     const severity = gaps.length === 0 ? "info" : gaps.length > 10 ? "critical" : "warning";
     const elapsedMs = Date.now() - startedAt;
