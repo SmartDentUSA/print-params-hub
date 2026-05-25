@@ -1,72 +1,82 @@
-## Diagnóstico
 
-A lead **marcy** (`subscriber 695289048`) ficou no card com email sintético `mc_695289048@instagram.lead` porque, quando ela respondeu no Instagram com o e-mail real `marcelaalbuquerque.ma88@gmail.com`, o `UPDATE` no `lia_attendances` falhou com:
+# Plano: recuperar leads + nunca mais perder
 
-```
-duplicate key value violates unique constraint "lia_attendances_email_ci_key"
-```
+## Parte 1 — Correção imediata (8 leads do CSV)
 
-Já existia o lead canônico **Marcela Albiquerque** (`b7d20a3e-1a10-4147-81bb-191e4c4507c0`, criado em 2026-05-13 via PipeRun, mesmo telefone `+5516992445679`, com `piperun_id=59752994`).
+### 1a. Ingerir 4 leads ausentes
+Estão no PipeRun (vieram pela integração nativa PipeRun↔Meta) mas nunca chegaram ao nosso CDP.
 
-O bridge hoje apenas loga `manychat_email_update_conflict` e **mantém o sintético no card**, criando uma duplicata órfã. Pior: o handoff posterior dispararia `smart-ops-ingest-lead` apontando para a duplicata, não para o lead canônico já existente no PipeRun.
+| Lead | Telefone | Form |
+|------|----------|------|
+| benhurlanna@yahoo.com | +553184028095 | GlazeON |
+| evelynbarra@gmail.com | +5511942501031 | GlazeON |
+| jeffersondelcarlo@gmail.com | +5511984410064 | GlazeON |
+| poliana2lopes@gmail.com | +556299980101 | Impresoras |
 
-## Correção
+**Ação:** invocar `smart-ops-sync-piperun?pipeline_id=18784&since=2026-05-23` (Funil de Vendas, janela 72h). O sync já tem `insert` em `lia_attendances` (linha 637) → vai criar os 4 com `piperun_id` correto, snapshot completo do deal e `funil_entrada_crm='Funil de vendas'`.
 
-Tratar conflito de e-mail (e, por simetria, conflito de telefone) como **sinal de identidade** e fazer **merge no canônico** em vez de descartar o dado.
+### 1b. Reabrir 4 reincidentes presos em "Estagnados"
+| Lead | Deal antigo |
+|------|-------------|
+| andrefmastermind@gmail.com | 56441081 |
+| ricardochinen64@gmail.com | 38218921 |
+| fernandobrasil75@hotmail.com | 58674961 |
+| elopes710.el@gmail.com | 47902052 |
 
-### Mudança única em `supabase/functions/manychat-lia-bridge/index.ts`
+PipeRun já tem deal novo "Em análise" pra cada um (CSV confirma). O `sync-piperun-vendas-1h` ao rodar com `since` recente vai puxar esses deals novos e o `pickPrimaryDeal` (open > closed) substitui o snapshot → eles passam pra "Funil de vendas" automaticamente. Mesma chamada do 1a resolve.
 
-Criar helper `mergeIntoCanonical(supabase, manychatLead, identifier)` que:
+---
 
-1. Busca o lead canônico dono do e-mail/telefone (`WHERE email ILIKE ? AND merged_into IS NULL` ou `WHERE telefone_normalized = ? AND merged_into IS NULL`), preferindo o mais antigo com `piperun_id` preenchido.
-2. Se encontrar e for diferente do lead atual do ManyChat:
-   - Copia `manychat_subscriber_id`, `manychat_collected_at`, `instagram`, e quaisquer campos novos (`area_atuacao`, `especialidade`, `produto_interesse_auto/raw`, `telefone_normalized/raw`) para o canônico (UPDATE só onde estiver NULL — Smart Merge / append-only).
-   - Marca o lead duplicado: `merged_into = canonical.id`, `manychat_subscriber_id = NULL` (libera o índice único, se houver), `updated_at = now()`.
-   - Retorna o lead canônico atualizado para o restante do fluxo usar.
-3. Loga `manychat_merged_into_canonical` com `from_lead_id`, `to_lead_id`, `matched_by`.
+## Parte 2 — Solução permanente (blindagem)
 
-Aplicar o helper em três pontos:
+### Causa-raiz dos 4 perdidos
+- **Não vieram pelo nosso `meta-lead-ads-pull`**: ad account/page fora do escopo monitorado OU forms GlazeON sem `form_id` cadastrado.
+- **Sync PipeRun usa filtro `updated_since`**: se entre 2 execuções o deal foi criado E movido sem batida com nossa janela, escapa.
+- **Sem watchdog reativo**: hoje só temos `watchdog-leads-orfaos` semanal (segunda 11h) — perda fica invisível por até 7 dias.
 
-**a) Após capturar e-mail válido** (linha ~398):
-- Tenta `UPDATE email=?`.
-- Se erro `lia_attendances_email_ci_key` → chama `mergeIntoCanonical` por email; substitui `lead` local pelo canônico e continua o fluxo (próximas perguntas, handoff) já gravando no canônico.
+### Defesa em 3 camadas
 
-**b) Após capturar telefone normalizado** (linha ~429):
-- Mesmo padrão: se `UPDATE telefone_normalized=?` falhar por unique (`lia_attendances_telefone_normalized_key` ou similar) → `mergeIntoCanonical` por telefone.
-- Também: mesmo sem erro de UPDATE, antes de gravar, verificar se já existe canônico com esse telefone e merge se sim (telefone é identificador forte, evita criar duplicatas silenciosas como aconteceu com marcy).
+**Camada 1 — Webhook PipeRun como source-of-truth (preventivo)**
+`smart-ops-piperun-webhook` já existe. Verificar no painel PipeRun se eventos `deal.created` / `person.created` do **Funil de Vendas (18784)** estão ativos e apontando pra nossa URL. Se sim → confirmar `system_health_logs` registra invocações. Se não → ativar. Isso captura todo deal novo em <5s.
 
-**c) Em `findOrCreateLead` permanece igual** — a deduplicação só faz sentido depois que temos email ou telefone real; o lookup inicial continua por `manychat_subscriber_id`.
+**Camada 2 — Reconciliador diário CSV-style (detectivo)**
+Nova edge function `smart-ops-piperun-funnel-reconciler` (rodar 1×/dia, 7h):
+1. `GET /deals?pipeline_id=18784&updated_since=last_24h&show=200` (paginado)
+2. Pra cada deal: `LEFT JOIN lia_attendances ON piperun_id = deal.id`
+3. Se sem match → `INSERT` em `lia_attendances` com snapshot completo (mesma lógica do `sync-piperun` linha 637)
+4. Se match em outro pipeline (Estagnados) → reaplica `pickPrimaryDeal` e atualiza snapshot
+5. Loga `piperun_funnel_reconciler` com `inserted_count`, `refreshed_count`, `gap_emails[]` em `system_health_logs`
 
-### Backfill manual (uma vez)
-
-Após deploy, executar via migration uma vez para corrigir a marcy:
-
+**Camada 3 — Alerta proativo (corretivo)**
+Estender `watchdog-leads-orfaos` para rodar a cada 1h (não semanal) com query:
 ```sql
-UPDATE lia_attendances SET
-  manychat_subscriber_id = '695289048',
-  manychat_collected_at = (SELECT manychat_collected_at FROM lia_attendances WHERE id='00d0f892-c2bc-48f2-8355-035a4dd12719'),
-  area_atuacao = COALESCE(area_atuacao, 'CLÍNICA OU CONSULTÓRIO'),
-  especialidade = COALESCE(especialidade, 'ENDODONTISTA'),
-  produto_interesse_auto = COALESCE(produto_interesse_auto, 'impressora_3d'),
-  produto_interesse_raw  = COALESCE(produto_interesse_raw, 'impressora_3d | RayShape Edge Mini'),
-  instagram = COALESCE(instagram, 'marcy')
-WHERE id = 'b7d20a3e-1a10-4147-81bb-191e4c4507c0';
+SELECT count(*) FROM piperun_deals_history pdh
+LEFT JOIN lia_attendances l ON l.piperun_id = pdh.deal_id::text
+WHERE pdh.pipeline_id=18784 
+  AND pdh.created_at > now() - interval '6h'
+  AND l.id IS NULL;
+```
+Se `count > 0` → INSERT em `system_health_logs` com `severity='critical'` + dispara WhatsApp pro admin via Evolution API.
 
-UPDATE lia_attendances SET
-  merged_into = 'b7d20a3e-1a10-4147-81bb-191e4c4507c0',
-  manychat_subscriber_id = NULL
-WHERE id = '00d0f892-c2bc-48f2-8355-035a4dd12719';
+---
+
+## Arquivos a alterar
+
+```text
+supabase/functions/smart-ops-piperun-funnel-reconciler/index.ts   (NEW)
+supabase/migrations/{ts}_piperun_reconciler_cron.sql              (NEW — cron job 1×/dia)
+supabase/migrations/{ts}_watchdog_hourly.sql                      (NEW — reagenda watchdog 1h)
+mem/architecture/piperun-funnel-reconciler.md                     (NEW — doc rule)
 ```
 
-## Validação
+Nenhuma alteração em código de frontend. Nenhuma alteração no `sync-piperun` existente.
 
-1. Repetir simulação: subscriber novo + email já existente no CDP → bridge deve marcar duplicata como `merged_into` e atualizar canônico com `manychat_subscriber_id` e campos novos.
-2. Log `manychat_merged_into_canonical` presente.
-3. Card do lead canônico (Marcela) passa a mostrar timeline ManyChat, produto, área, especialidade — sem perder histórico PipeRun.
-4. Handoff (`smart-ops-ingest-lead`) dispara com `lia_attendance_id` = canônico, evitando criar Person/Deal duplicados no PipeRun.
+---
 
-## Não muda
+## Validação pós-deploy
+1. Invocar reconciler manualmente — esperar 4 inserts + 4 refreshes.
+2. Re-rodar a consulta de auditoria do CSV → todos os 30 com `piperun_pipeline_name='Funil de vendas'`.
+3. Confirmar cron job ativo via `SELECT * FROM cron.job WHERE jobname LIKE '%reconciler%'`.
+4. Inspecionar `system_health_logs WHERE function_name='piperun_funnel_reconciler'` próximas 24h.
 
-- Fluxo de qualificação, formato das mensagens, idempotência do handoff.
-- `smart-ops-ingest-lead` (já trata `lia_attendance_id` como força-merge).
-- Schema do banco (apenas usa `merged_into` que já existe).
+Aprova pra implementar?
