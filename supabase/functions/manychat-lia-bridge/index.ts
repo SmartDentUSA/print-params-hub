@@ -776,7 +776,61 @@ Deno.serve(async (req) => {
       }), 200);
     }
 
-    // 5. Perfil completo → limpa flags de coleta e envia rotas
+    // 5. Perfil completo → dispara mesmo pipeline dos forms (ingest → PipeRun)
+    //    e responde mensagem única de handoff. Idempotente: só dispara 1x.
+    const firstName = (nomeAtual || "").split(/\s+/)[0];
+    const handoffMessage = [
+      `Perfeito, ${firstName}! ✅`,
+      "Recebi suas informações.",
+      "Em instantes alguém do nosso time vai te chamar no WhatsApp. 📱",
+    ].join("\n");
+
+    const alreadyDispatched = entities.handoff_dispatched === true;
+    if (!alreadyDispatched) {
+      const ingestPayload = {
+        source: "instagram_manychat_autoatendimento",
+        form_name: "Instagram - Autoatendimento ManyChat",
+        form_purpose: "qualificacao_inbound",
+        commercial_override: true,
+        origem_primeiro_contato: "Instagram - autoatendimento",
+        nome: nomeAtual,
+        email: emailAtual,
+        telefone: phoneAtual,
+        whatsapp: phoneAtual,
+        area_atuacao: areaAtual,
+        especialidade: especialidadeAtual,
+        produto_interesse_auto: productCanonNow,
+        produto_interesse_raw: lead.produto_interesse_raw,
+        modelo_interesse: modeloAtual,
+        manychat_subscriber_id: subscriberId,
+        lia_attendance_id: lead.id,
+        platform_lead_id: `mc_${subscriberId}`,
+      };
+      try {
+        const { error: ingErr } = await supabase.functions.invoke(
+          "smart-ops-ingest-lead",
+          { body: ingestPayload },
+        );
+        if (ingErr) {
+          await logHealth(supabase, "error", "manychat_handoff_error", {
+            subscriberId, lead_id: lead.id, error: ingErr.message,
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_handoff_dispatched", {
+            subscriberId, lead_id: lead.id, product: productCanonNow,
+          });
+        }
+      } catch (e) {
+        await logHealth(supabase, "error", "manychat_handoff_error", {
+          subscriberId, lead_id: lead.id, error: (e as Error).message,
+        });
+      }
+    } else {
+      await logHealth(supabase, "info", "manychat_handoff_replay", {
+        subscriberId, lead_id: lead.id,
+      });
+    }
+
     await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
       lead_id: lead.id,
@@ -798,41 +852,17 @@ Deno.serve(async (req) => {
         awaiting_manychat_product_model: false,
         awaiting_manychat_area: false,
         awaiting_manychat_specialty: false,
+        handoff_dispatched: true,
+        handoff_at: alreadyDispatched
+          ? (entities.handoff_at as string | undefined) || new Date().toISOString()
+          : new Date().toISOString(),
       },
-      current_state: "idle",
+      current_state: "handoff",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
-    const firstName = (nomeAtual || "").split(/\s+/)[0];
-    const justCompleted = entities.awaiting_manychat_product
-      || entities.awaiting_manychat_product_model
-      || entities.awaiting_manychat_area
-      || entities.awaiting_manychat_specialty
-      || entities.awaiting_manychat_phone
-      || entities.awaiting_manychat_email
-      || entities.awaiting_manychat_name;
-    let confirmLine = "";
-    if (justCompleted) {
-      if (entities.awaiting_manychat_specialty && especialidadeAtual) {
-        confirmLine = `Anotado: ${especialidadeAtual} ✅\n`;
-      } else if (entities.awaiting_manychat_area && areaAtual) {
-        confirmLine = `Anotado: ${areaAtual} ✅\n`;
-      } else if (entities.awaiting_manychat_product_model && modeloAtual) {
-        confirmLine = `Anotado: ${modeloAtual} ✅\n`;
-      } else if (entities.awaiting_manychat_product && productCanonNow) {
-        confirmLine = `Anotado: ${PRODUCT_DISPLAY[productCanonNow]} ✅\n`;
-      }
-    }
-    const greeting = justCompleted
-      ? `${confirmLine}Tudo certo, ${firstName}! ✅\nComo posso te ajudar agora?`
-      : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
-
-    await logHealth(supabase, "info",
-      justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
-      { subscriberId, lead_id: lead.id, product: produtoAtual },
-    );
-    return jsonResponse(replyWithRoutes(greeting, {
-      state: "completed",
+    return jsonResponse(textReply(handoffMessage, {
+      state: "handoff",
       lead_name: nomeAtual,
       lead_email: emailAtual,
       lead_phone: phoneAtual,

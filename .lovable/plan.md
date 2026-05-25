@@ -1,103 +1,83 @@
 ## Objetivo
-Após capturar o produto, (1) confirmar visualmente a escolha com sub-opções específicas quando aplicável, e (2) coletar **área de atuação** e **especialidade** caso o lead ainda não tenha esses campos preenchidos.
 
-## Novo fluxo
+Quando o lead do ManyChat termina a qualificação (nome → email → telefone → produto → modelo → área → especialidade), o bridge deve **dispará-lo no mesmo pipeline de criação de lead usado pelos formulários** (`smart-ops-ingest-lead` → SellFlux → `smart-ops-lia-assign` → PipeRun Person+Deal) e responder **uma única mensagem final de handoff**:
 
+> "Em instantes alguém do nosso time vai te chamar no WhatsApp."
+
+Sem mais menu de 4 rotas (1–4), sem loop.
+
+## Mudanças
+
+### 1. `supabase/functions/manychat-lia-bridge/index.ts`
+
+**a) Substituir o "passo 5" (perfil completo)** pelo handoff:
+- Remover o `replyWithRoutes(...)` e qualquer reenvio do menu 1–4.
+- Quando todos os campos estiverem preenchidos:
+  1. Verificar flag `entities.handoff_dispatched === true` na sessão → se já enviado antes, apenas re-emite a mensagem final (idempotente, evita loop em re-deliveries do ManyChat).
+  2. Caso contrário, montar payload e chamar `smart-ops-ingest-lead` via `supabase.functions.invoke("smart-ops-ingest-lead", { body: payload })`.
+  3. Marcar `handoff_dispatched=true`, `handoff_at=now`, `current_state="handoff"` em `agent_sessions`.
+  4. Logar `manychat_handoff_dispatched` (sucesso) ou `manychat_handoff_error` (falha — não bloqueia resposta).
+- Responder com `textReply` único:
+  ```
+  Perfeito, {firstName}! ✅
+  Recebi suas informações.
+  Em instantes alguém do nosso time vai te chamar no WhatsApp. 📱
+  ```
+
+**b) Payload enviado a `smart-ops-ingest-lead`** (mesma forma de um form):
+```ts
+{
+  source: "instagram_manychat_autoatendimento",
+  form_name: "Instagram - Autoatendimento ManyChat",
+  form_purpose: "qualificacao_inbound",
+  commercial_override: true,            // habilita criação de Deal no PipeRun
+  origem_primeiro_contato: "Instagram - autoatendimento",
+
+  nome: nomeAtual,
+  email: emailAtual,
+  telefone: phoneAtual,                 // ingest aceita "telefone"/"phone"
+  whatsapp: phoneAtual,
+
+  area_atuacao: areaAtual,
+  especialidade: especialidadeAtual,
+  produto_interesse_auto: productCanonNow,
+  produto_interesse_raw: lead.produto_interesse_raw, // já "canonical | modelo"
+  modelo_interesse: modeloAtual,
+
+  manychat_subscriber_id: subscriberId,
+  lia_attendance_id: lead.id,           // permite ao ingest fazer merge no canônico
+  platform_lead_id: `mc_${subscriberId}`,
+}
 ```
-ask_name → ask_email → ask_phone → ask_product
-  → ask_product_model (se impressora_3d ou scanner_intraoral)
-  → ask_area        (se lia_attendances.area_atuacao vazio)
-  → ask_specialty   (se lia_attendances.especialidade vazio)
-  → completed (rotas)
-```
 
-## 1. Confirmação + sub-opção por produto
+**c) Limpeza do menu de rotas legado**: deletar/desabilitar `replyWithRoutes` no fluxo principal. Manter helper apenas se outras chamadas dependerem; senão remover do arquivo.
 
-Quando o produto for capturado, responder com **uma única mensagem** que confirma e já oferece a próxima pergunta.
+**d) Tratamento de mensagens depois do handoff**: se `handoff_dispatched=true` e o usuário continuar mandando mensagens livres, o bridge responde a mesma mensagem final (não dispara ingest de novo). Não há mais menu para parsear.
 
-### Sub-listas
-- `impressora_3d` → "🖨️ Impressora 3D"
-  - 1) RayShape Edge Mini
-  - 2) Elegoo Mars 5 Ultra
-  - 3) Outra (descreva)
-- `scanner_intraoral` → "📷 Scanner intraoral"
-  - 1) Scanner Medit
-  - 2) Scanner BLZ
-  - 3) Outro (descreva)
-- `resinas` → "🧪 Resinas e consumíveis" — sem sub-lista, segue direto.
-- `cursos` → "🎓 Cursos e treinamentos" — sem sub-lista, segue direto.
-- texto livre → usa o texto capitalizado, sem sub-lista.
+### 2. `smart-ops-ingest-lead` — verificação de compatibilidade
 
-Mensagem exemplo (impressora):
-```
-Anotado: 🖨️ Impressora 3D ✅
-Qual modelo te interessa mais?
-1) RayShape Edge Mini
-2) Elegoo Mars 5 Ultra
-3) Outro (descreva)
-```
+Já aceita:
+- `form_name` / `commercial_override` (Commercial Intent Guard liberará Deal).
+- Identidade por email + telefone → vai resolver com o lead canônico criado pelo bridge (mesmo `manychat_subscriber_id`).
+- Campos extras (area, especialidade, modelo) caem em `form_data` JSONB (Form Catch-All) sem precisar de migration.
 
-Estado: `qualification_state = "ask_product_model"`, `entities.awaiting_manychat_product_model = true`.
+**Nenhuma alteração no ingest é necessária**. Caso o merge no canônico não aconteça pelo email sintético `mc_{id}@instagram.lead`, o `lia_attendance_id` enviado no payload força o ingest a atualizar o lead existente em vez de criar duplicado (já é comportamento do `mergeSmartLead`/`validateLeadIdentity`).
 
-Resposta do modelo é persistida em `lia_attendances.produto_interesse_raw` (concatenando: `"{canonical} | {modelo escolhido}"`) — `produto_interesse_auto` continua sendo o canonical do produto-mãe. Loga `manychat_product_model_captured`.
+### 3. Sem migration de banco
 
-## 2. Área de atuação (condicional)
-
-Disparada se, após product/model, `lia_attendances.area_atuacao` estiver nulo/vazio.
-
-Lista numerada usando `AREA_ATUACAO_OPTIONS` de `src/lib/dentalTaxonomy.ts` (replicada no edge function — import direto não é possível em Deno, então copia o array em `_shared/dental-taxonomy.ts` para reuso):
-```
-Para te direcionar melhor, qual é a sua área de atuação?
-1) Clínica ou Consultório
-2) Laboratório de Prótese
-3) Radiologia Odontológica
-4) Planning Center
-5) Empresa de Alinhadores
-6) Gestor de Rede de Clínicas
-7) Gestor de Franquias
-8) Central de Impressões
-9) Educação
-```
-- Aceita número (1-9) ou texto (matching via `canonicalize`).
-- Persiste em `lia_attendances.area_atuacao` (valor canônico em MAIÚSCULA).
-- Estado: `ask_area`, `entities.awaiting_manychat_area = true`.
-- Log: `manychat_area_captured`. Inválido → retry com lista novamente.
-
-## 3. Especialidade (condicional)
-
-Mesmo padrão, disparada se `lia_attendances.especialidade` estiver vazio. Lista numerada 1-13 usando `ESPECIALIDADE_OPTIONS`. Persiste em `lia_attendances.especialidade`. Estado `ask_specialty`. Log `manychat_specialty_captured`.
-
-## 4. Mensagem final
-
-Após tudo coletado:
-```
-Tudo certo, {firstName}! ✅
-Como posso te ajudar agora?
-```
-Segue com as 4 rotas atuais (sem mudança no menu).
-
-## Implementação técnica
-
-**Arquivos:**
-- `supabase/functions/_shared/dental-taxonomy.ts` (novo) — exporta `AREA_ATUACAO_OPTIONS`, `ESPECIALIDADE_OPTIONS`, `findOptionByIndex`, `normalize`, `canonicalize`. Espelha `src/lib/dentalTaxonomy.ts`.
-- `supabase/functions/manychat-lia-bridge/index.ts`:
-  - Estender `ReplyMeta.state` com `"ask_product_model" | "ask_area" | "ask_specialty"`.
-  - Estender `LeadRow` para incluir `area_atuacao`, `especialidade`, `produto_interesse_raw`.
-  - Adicionar `PRODUCT_MODELS: Record<canonical, string[]>` com as listas acima.
-  - Estender `nextMissing` na ordem: name → email → phone → product → product_model (condicional) → area (condicional) → specialty (condicional) → null.
-  - Helpers `needsProductModel(canonical, raw)`, `needsArea(lead)`, `needsSpecialty(lead)`.
-  - Cada novo estado: bloco `else if (nextMissing === "x" && entities.awaiting_manychat_x)` para captura + bloco `if (missingX)` para pergunta + upsert na `agent_sessions`.
-  - Para `ask_area`/`ask_specialty`: parse numérico OU `canonicalize(...)`. Inválido → retry com lista.
-  - Mensagem final unificada já com "✅ Tudo certo".
-- **Sem migration**: colunas `area_atuacao`, `especialidade`, `produto_interesse_raw` já existem em `lia_attendances` (confirmar; se faltar `area_atuacao`/`especialidade`, criar migration mínima).
+Todos os campos já existem em `lia_attendances`. `agent_sessions.extracted_entities` é JSONB livre — novos flags entram direto.
 
 ## Validação
-1. Curl com subscriber novo, responder `1` em product → resposta deve trazer `Anotado: 🖨️ Impressora 3D` + sub-lista de modelos.
-2. Responder `2` no modelo → grava `produto_interesse_raw = "impressora_3d | Elegoo Mars 5 Ultra"`, segue para área (se vazia).
-3. Responder `1` em área → grava `CLÍNICA OU CONSULTÓRIO`, segue para especialidade.
-4. Lead que **já tem** `area_atuacao` e `especialidade` preenchidos → pula direto para rotas após product/model.
-5. Resposta inválida em área/especialidade → bot repete a lista.
+
+1. `curl` no bridge simulando subscriber novo: responde nome → email → telefone → "1" → "2" → "1" → "1" → handoff.
+2. Conferir nos logs `manychat_handoff_dispatched` + log do `smart-ops-ingest-lead` com `form_name="Instagram - Autoatendimento ManyChat"`.
+3. Conferir em `lia_attendances`: lead com `piperun_id`, `pessoa_piperun_id`, `crm_creation_blocked=false`, e Deal criado no funil de vendas (via lia-assign).
+4. Re-enviar mensagem após handoff → bridge responde a frase final sem chamar ingest de novo (idempotência).
+5. Lead com perfil já completo desde o início (re-engajado) → também dispara handoff uma única vez.
 
 ## Não muda
-- Persistência/criação do lead, mapeamento ManyChat (`$.reply → chatgpt_resposta`), 4 rotas finais, logs de produto já existentes.
-- Sub-lista mostrada apenas para impressora/scanner; resinas/cursos seguem direto.
+
+- Sequência de qualificação (já implementada).
+- Persistência incremental campo a campo.
+- Mapeamento ManyChat (`$.reply → chatgpt_resposta`).
+- Lógica de PipeRun, SellFlux, lia-assign (reusados via ingest).
