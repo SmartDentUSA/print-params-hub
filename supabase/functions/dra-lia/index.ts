@@ -1792,7 +1792,6 @@ Campos:
                 manychat_collected_at: new Date().toISOString(),
                 instagram: nameFromManychat,
                 origem_primeiro_contato: "instagram_manychat",
-                origem_ultimo_contato: "instagram_manychat",
                 lead_status: "novo",
                 crm_creation_blocked: "instagram_no_real_email",
               })
