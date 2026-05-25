@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return jsonResponse(textReply(""), 200);
+    return jsonResponse(textReply("", { state: "idle" }), 200);
   }
 
   const subscriberId = String(body.subscriber_id ?? "").trim();
@@ -278,7 +278,9 @@ Deno.serve(async (req) => {
             current_state: "qualifying",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
-          return jsonResponse(textReply(retry), 200);
+          return jsonResponse(textReply(retry, {
+            state: "ask_email", lead_name: nomeAtual, lead_email: null, lead_phone: phoneAtual,
+          }), 200);
         }
       } else if (entities.awaiting_manychat_phone && !hasRealPhone(phoneAtual)) {
         const normalized = normalizeBrazilianPhone(message);
@@ -305,7 +307,9 @@ Deno.serve(async (req) => {
             current_state: "qualifying",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
-          return jsonResponse(textReply(retry), 200);
+          return jsonResponse(textReply(retry, {
+            state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual, lead_phone: null,
+          }), 200);
         }
       }
     }
@@ -332,6 +336,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_name", { subscriberId });
       return jsonResponse(textReply(
         "Olá! 👋 Sou a Dra. LIA da Smart Dent.\nPara te atender melhor, qual é o seu **nome completo**?",
+        { state: "ask_name" },
       ), 200);
     }
 
@@ -354,6 +359,7 @@ Deno.serve(async (req) => {
       const firstName = (nomeAtual || "").split(/\s+/)[0];
       return jsonResponse(textReply(
         `Obrigado, ${firstName}! Qual é o seu **melhor e-mail**?`,
+        { state: "ask_email", lead_name: nomeAtual },
       ), 200);
     }
 
@@ -376,6 +382,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_phone", { subscriberId });
       return jsonResponse(textReply(
         "Perfeito! Agora me envie seu **celular com DDD** (ex: 11 99999-8888).",
+        { state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual },
       ), 200);
     }
 
@@ -408,7 +415,12 @@ Deno.serve(async (req) => {
       justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
       { subscriberId, lead_id: lead.id },
     );
-    return jsonResponse(replyWithRoutes(greeting), 200);
+    return jsonResponse(replyWithRoutes(greeting, {
+      state: "completed",
+      lead_name: nomeAtual,
+      lead_email: emailAtual,
+      lead_phone: phoneAtual,
+    }), 200);
   } catch (err) {
     await logHealth(supabase, "error", "manychat_bridge_error", {
       subscriberId,
@@ -416,6 +428,7 @@ Deno.serve(async (req) => {
     });
     return jsonResponse(textReply(
       "Tive um probleminha agora. Pode me chamar novamente em instantes?",
+      { state: "error" },
     ), 200);
   }
 });
