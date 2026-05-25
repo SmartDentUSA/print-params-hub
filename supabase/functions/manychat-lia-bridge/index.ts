@@ -1,7 +1,8 @@
-// ManyChat → dra-lia bridge (async).
-// ManyChat External Request tem timeout ~10s. Bridge responde imediatamente
-// (short-circuits ou EMPTY_REPLY) e processa dra-lia em background,
-// entregando a resposta via ManyChat Send API.
+// ManyChat → dra-lia bridge (síncrono).
+// ManyChat External Request tem timeout ~10s. Bridge chama dra-lia com
+// AbortController de 8s e devolve a resposta direto no JSON do External
+// Request (sem Send API, sem token). Se estourar timeout, devolve
+// EMPTY_REPLY e ManyChat aciona o fallback do bloco.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -16,17 +17,28 @@ const EMPTY_REPLY = {
   content: { messages: [], actions: [], quick_replies: [] },
 };
 
-const MANYCHAT_API_KEY = Deno.env.get("MANYCHAT_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const MAX_CHUNK = 900; // ManyChat IG ~1000 chars/msg, margem de segurança.
+const DRA_LIA_TIMEOUT_MS = 8000; // < 10s do External Request do ManyChat.
 
 function textReply(text: string) {
   return {
     version: "v2",
     content: {
       messages: text ? [{ type: "text", text }] : [],
+      actions: [],
+      quick_replies: [],
+    },
+  };
+}
+
+function multiTextReply(chunks: string[]) {
+  return {
+    version: "v2",
+    content: {
+      messages: chunks.map((text) => ({ type: "text", text })),
       actions: [],
       quick_replies: [],
     },
@@ -51,25 +63,29 @@ async function consumeSSE(response: Response): Promise<string> {
   const decoder = new TextDecoder();
   let buf = "";
   let full = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buf.indexOf("\n")) !== -1) {
-      let line = buf.slice(0, idx);
-      buf = buf.slice(idx + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (!line.startsWith("data: ")) continue;
-      const payload = line.slice(6).trim();
-      if (payload === "[DONE]") return full;
-      try {
-        const parsed = JSON.parse(payload);
-        if (parsed.type === "meta") continue;
-        const c = parsed.choices?.[0]?.delta?.content;
-        if (c) full += c;
-      } catch { /* partial */ }
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n")) !== -1) {
+        let line = buf.slice(0, idx);
+        buf = buf.slice(idx + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return full;
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed.type === "meta") continue;
+          const c = parsed.choices?.[0]?.delta?.content;
+          if (c) full += c;
+        } catch { /* partial */ }
+      }
     }
+  } catch {
+    // Stream abortado (timeout): retorna o que já temos.
   }
   return full;
 }
@@ -129,72 +145,18 @@ async function logHealth(
   } catch (_) { /* noop */ }
 }
 
-// Envia mensagem(ens) ao subscriber via ManyChat Send API.
-async function sendToManychat(
-  supabase: ReturnType<typeof createClient>,
-  subscriberId: string,
-  text: string,
-): Promise<void> {
-  if (!MANYCHAT_API_KEY) {
-    await logHealth(supabase, "error", "missing_manychat_api_key", { subscriberId });
-    return;
-  }
-  const chunks = chunkText(text);
-  for (const chunk of chunks) {
-    const payload = {
-      subscriber_id: subscriberId,
-      data: {
-        version: "v2",
-        content: {
-          type: "instagram",
-          messages: [{ type: "text", text: chunk }],
-          actions: [],
-          quick_replies: [],
-        },
-      },
-      message_tag: "ACCOUNT_UPDATE",
-    };
-    try {
-      const resp = await fetch("https://api.manychat.com/fb/sending/sendContent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${MANYCHAT_API_KEY}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        await logHealth(supabase, "error", "manychat_send_failed", {
-          subscriberId,
-          status: resp.status,
-          body: errText.slice(0, 500),
-          chunk_len: chunk.length,
-        });
-      } else {
-        await logHealth(supabase, "info", "manychat_send_ok", {
-          subscriberId,
-          chunk_len: chunk.length,
-          total_chunks: chunks.length,
-        });
-      }
-    } catch (err) {
-      await logHealth(supabase, "error", "manychat_send_exception", {
-        subscriberId,
-        error: (err as Error).message,
-      });
-    }
-  }
-}
-
-// Processamento async: chama dra-lia, consome SSE, envia ao ManyChat.
-async function processAsync(
+// Chama dra-lia síncrono com timeout. Retorna o texto da resposta
+// (ou string vazia em caso de timeout/erro — o caller decide o fallback).
+async function callDraLiaSync(
   supabase: ReturnType<typeof createClient>,
   subscriberId: string,
   sessionId: string,
   message: string,
   name: string,
-): Promise<void> {
+): Promise<{ reply: string; elapsedMs: number; timedOut: boolean }> {
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DRA_LIA_TIMEOUT_MS);
   try {
     const draLiaUrl = `${SUPABASE_URL}/functions/v1/dra-lia`;
     const resp = await fetch(draLiaUrl, {
@@ -212,29 +174,35 @@ async function processAsync(
         manychat_name: name || null,
         lang: "pt-BR",
       }),
+      signal: controller.signal,
     });
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
-      await logHealth(supabase, "error", "dra_lia_http_error", {
+      await logHealth(supabase, "error", "dra_lia_http_error_sync", {
         subscriberId,
         status: resp.status,
         body: errText.slice(0, 500),
       });
-      return;
+      return { reply: "", elapsedMs: Date.now() - started, timedOut: false };
     }
 
     const reply = (await consumeSSE(resp)).trim();
-    if (!reply) {
-      await logHealth(supabase, "warn", "dra_lia_empty_reply", { subscriberId });
-      return;
-    }
-    await sendToManychat(supabase, subscriberId, reply);
+    const elapsedMs = Date.now() - started;
+    const timedOut = controller.signal.aborted;
+    return { reply, elapsedMs, timedOut };
   } catch (err) {
-    await logHealth(supabase, "error", "async_exception", {
+    const elapsedMs = Date.now() - started;
+    const timedOut = controller.signal.aborted;
+    await logHealth(supabase, timedOut ? "warn" : "error",
+      timedOut ? "dra_lia_timeout" : "dra_lia_error_sync", {
       subscriberId,
       error: (err as Error).message,
+      elapsed_ms: elapsedMs,
     });
+    return { reply: "", elapsedMs, timedOut };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -306,9 +274,26 @@ Deno.serve(async (req) => {
   }
 
   // Caminho LLM: responde JÁ ao ManyChat (evita timeout 10s) e processa
-  // dra-lia em background. Resposta real chega via Send API.
-  await logHealth(supabase, "info", "async_dispatch", { subscriberId, msg_len: message.length });
-  // @ts-ignore EdgeRuntime é global no Supabase Edge Runtime
-  EdgeRuntime.waitUntil(processAsync(supabase, subscriberId, sessionId, message, name));
-  return jsonResponse(EMPTY_REPLY, 200);
+  // Caminho LLM síncrono: aguarda dra-lia até 8s e devolve direto.
+  await logHealth(supabase, "info", "sync_dispatch", { subscriberId, msg_len: message.length });
+  const { reply, elapsedMs, timedOut } = await callDraLiaSync(
+    supabase, subscriberId, sessionId, message, name,
+  );
+
+  if (timedOut || !reply || reply.length < 2) {
+    await logHealth(supabase, "warn",
+      timedOut ? "dra_lia_timeout" : "dra_lia_empty_reply", {
+      subscriberId, elapsed_ms: elapsedMs, reply_len: reply.length,
+    });
+    return jsonResponse(EMPTY_REPLY, 200);
+  }
+
+  const chunks = chunkText(reply);
+  await logHealth(supabase, "info", "sync_reply_ok", {
+    subscriberId,
+    reply_len: reply.length,
+    chunks: chunks.length,
+    elapsed_ms: elapsedMs,
+  });
+  return jsonResponse(multiTextReply(chunks), 200);
 });

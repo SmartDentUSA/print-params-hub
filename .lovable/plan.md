@@ -1,44 +1,43 @@
 ## Diagnóstico
 
-O código do `manychat-lia-bridge` está chamando o endpoint correto (`/fb/sending/sendContent`) e usando `Authorization: Bearer`, mas o payload está no formato de Messenger/Facebook e não declara o canal Instagram.
+O sintoma visível ("só fica mensagem fallback") tem causa direta no código:
 
-Para Instagram, a documentação/respostas de suporte do ManyChat indicam que o bloco `data.content` precisa incluir:
+1. Hoje a bridge responde **imediatamente** com `EMPTY_REPLY` (`messages: []`) e processa `dra-lia` em background, mandando a resposta depois via **ManyChat Send API**.
+2. Quando o ManyChat recebe `content.messages = []`, ele dispara o **fallback** do bloco (mensagem padrão).
+3. A entrega "real" depois via Send API está falhando com `401 "Wrong token"` (confirmado nos `system_health_logs` e em teste curl direto contra `api.manychat.com`). Por isso o lead **nunca** vê a resposta da Dra. LIA — só o fallback.
 
-```json
-{
-  "type": "instagram",
-  "messages": [...],
-  "actions": [],
-  "quick_replies": []
-}
-```
+Conclusão: o caminho `async + Send API` depende de um token que a API rejeita. A versão que "estava funcionando" era a **síncrona** — bridge devolvia o texto da Dra. LIA direto no JSON de resposta do External Request, e o ManyChat exibia. Sem Send API, sem token, sem fallback.
 
-Hoje o código envia apenas:
+## Mudança
 
-```json
-{
-  "messages": [...]
-}
-```
+Reverter `supabase/functions/manychat-lia-bridge/index.ts` para o modelo **síncrono com timeout defensivo**:
 
-Isso explica o comportamento de fallback/erro no canal Instagram, mesmo com token atualizado.
+1. Remover `EdgeRuntime.waitUntil(processAsync(...))` e a função `sendToManychat`.
+2. No caminho LLM, chamar `dra-lia` e aguardar a resposta SSE com `AbortController` de **8s** (margem segura abaixo dos ~10s do ManyChat).
+3. Se a resposta chegar a tempo → retornar `textReply(reply)` com os chunks em `messages: [{type:"text", text:chunk1}, {type:"text", text:chunk2}, ...]` (ManyChat aceita múltiplas mensagens no mesmo `content`).
+4. Se estourar timeout ou erro → retornar `EMPTY_REPLY` (fallback do ManyChat assume) e logar em `system_health_logs` como `dra_lia_timeout` para monitorar.
+5. Manter intactos os short-circuits existentes (greeting conhecido, emoji, URL, loop guard) — eles já eram síncronos.
 
-## Plano de implementação
+## O que NÃO muda
 
-1. Ajustar `supabase/functions/manychat-lia-bridge/index.ts`:
-   - Incluir `type: "instagram"` dentro de `payload.data.content` no `sendToManychat`.
-   - Manter `messages`, `actions` e `quick_replies` no mesmo bloco para compatibilidade com dynamic response v2.
-   - Manter o padrão assíncrono atual: resposta imediata vazia ao ManyChat + envio real pela Send API.
+- Endpoint público (`/manychat-lia-bridge`) e contrato de entrada (`subscriber_id`, `message`, `name`).
+- `dra-lia` e toda a lógica de qualificação progressiva.
+- Sessão `mc_<subscriber_id>` e short-circuits.
 
-2. Melhorar o log de falha do envio sem expor segredo:
-   - Registrar endpoint/canal e tamanho do chunk.
-   - Não registrar token completo.
+## Detalhes técnicos
 
-3. Deploy e validação:
-   - Fazer deploy da Edge Function `manychat-lia-bridge`.
-   - Testar novamente com o `subscriber_id` real `888640279`.
-   - Confirmar em `system_health_logs` se aparece `manychat_send_ok` ou, se houver erro, capturar a nova resposta do ManyChat.
+- `consumeSSE` recebe um `signal` do AbortController; ao abortar, captura o que já foi acumulado (best-effort — descarta se < 20 chars).
+- `chunkText` continua igual; resultado vira array de `{type:"text", text}` em `content.messages`.
+- Logs novos: `sync_dispatch`, `sync_reply_ok` (com `reply_len`, `chunks`, `elapsed_ms`), `dra_lia_timeout`, `dra_lia_error_sync`.
+- `MANYCHAT_API_KEY` deixa de ser usado pela bridge (pode ficar como secret órfão; não removo agora).
 
-## Resultado esperado
+## Validação
 
-A resposta da Dra. LIA deixa de cair no fallback do ManyChat e passa a ser entregue como DM Instagram pelo próprio ManyChat após o processamento assíncrono.
+1. Deploy da função.
+2. Mandar DM do `888640279` para o Instagram da SmartDent.
+3. Conferir em `system_health_logs`:
+   - `sync_dispatch` → `sync_reply_ok` com `elapsed_ms < 8000`.
+   - Sem `manychat_send_failed`.
+4. Mensagem da Dra. LIA aparece no Instagram **sem** o fallback.
+
+Se `dra_lia_timeout` aparecer com frequência, próximo passo é encurtar o prompt/SSE da `dra-lia`, não voltar para Send API.
