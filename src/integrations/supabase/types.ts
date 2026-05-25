@@ -23027,6 +23027,20 @@ export type Database = {
           model: string
         }[]
       }
+      query_seller_performance: {
+        Args: never
+        Returns: {
+          avg_ticket: number
+          conversion_rate: number
+          last_lead_at: string
+          name: string
+          open_deals: number
+          revenue: number
+          total_leads: number
+          whatsapp: string
+          won_deals: number
+        }[]
+      }
       release_cognitive_analysis_lock: {
         Args: { target_lead_id: string }
         Returns: boolean
