@@ -356,15 +356,31 @@ Deno.serve(async (req) => {
     let emailAtual = (entities.collected_email as string | undefined) || lead.email;
     let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
     let produtoAtual = (entities.collected_product as string | undefined) || lead.produto_interesse_auto;
+    let modeloAtual = (entities.collected_product_model as string | undefined) || null;
+    let areaAtual = (entities.collected_area as string | undefined) || lead.area_atuacao;
+    let especialidadeAtual = (entities.collected_specialty as string | undefined) || lead.especialidade;
+
+    // Deriva canonical do produto + necessidade de submodelo
+    const productCanon = productCanonical(produtoAtual);
+    const productNeedsModel = needsProductModel(productCanon);
+    // Se já houver "raw" salvo no formato "canonical | modelo", extrai
+    if (!modeloAtual && lead.produto_interesse_raw && lead.produto_interesse_raw.includes("|")) {
+      const parts = lead.produto_interesse_raw.split("|").map((p) => p.trim());
+      if (parts.length >= 2 && parts[1].length >= 2) modeloAtual = parts[1];
+    }
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
       // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone→produto.
-      const nextMissing: "name" | "email" | "phone" | "product" | null =
+      const nextMissing:
+        | "name" | "email" | "phone" | "product" | "product_model" | "area" | "specialty" | null =
         !hasRealName(nomeAtual) ? "name"
         : !hasRealEmail(emailAtual) ? "email"
         : !hasRealPhone(phoneAtual) ? "phone"
         : !hasProduct(produtoAtual) ? "product"
+        : (productNeedsModel && !hasNonEmpty(modeloAtual)) ? "product_model"
+        : !hasNonEmpty(areaAtual) ? "area"
+        : !hasNonEmpty(especialidadeAtual) ? "specialty"
         : null;
 
       if (nextMissing === "name" && entities.awaiting_manychat_name) {
@@ -454,6 +470,68 @@ Deno.serve(async (req) => {
         } else {
           await logHealth(supabase, "info", "manychat_invalid_product", { subscriberId, message });
         }
+      } else if (nextMissing === "product_model" && entities.awaiting_manychat_product_model) {
+        const canon = productCanonical(produtoAtual);
+        const modelo = canon ? resolveProductModel(canon, message) : null;
+        if (modelo) {
+          modeloAtual = modelo;
+          entities.collected_product_model = modelo;
+          const rawCombined = `${canon} | ${modelo}`;
+          const { error: mdErr } = await supabase.from("lia_attendances").update({
+            produto_interesse_raw: rawCombined,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (mdErr) {
+            await logHealth(supabase, "warn", "manychat_product_model_update_conflict", {
+              subscriberId, error: mdErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_product_model_captured", {
+            subscriberId, canonical: canon, modelo, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_product_model", { subscriberId, message });
+        }
+      } else if (nextMissing === "area" && entities.awaiting_manychat_area) {
+        const opt = resolveTaxonomyAnswer(AREA_ATUACAO_OPTIONS, message);
+        if (opt) {
+          areaAtual = opt.value;
+          entities.collected_area = areaAtual;
+          const { error: arErr } = await supabase.from("lia_attendances").update({
+            area_atuacao: areaAtual,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (arErr) {
+            await logHealth(supabase, "warn", "manychat_area_update_conflict", {
+              subscriberId, error: arErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_area_captured", {
+            subscriberId, value: areaAtual, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_area", { subscriberId, message });
+        }
+      } else if (nextMissing === "specialty" && entities.awaiting_manychat_specialty) {
+        const opt = resolveTaxonomyAnswer(ESPECIALIDADE_OPTIONS, message);
+        if (opt) {
+          especialidadeAtual = opt.value;
+          entities.collected_specialty = especialidadeAtual;
+          const { error: spErr } = await supabase.from("lia_attendances").update({
+            especialidade: especialidadeAtual,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (spErr) {
+            await logHealth(supabase, "warn", "manychat_specialty_update_conflict", {
+              subscriberId, error: spErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_specialty_captured", {
+            subscriberId, value: especialidadeAtual, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_specialty", { subscriberId, message });
+        }
       }
       // Se a flag não bate com o nextMissing (sessão obsoleta), apenas cai
       // para o passo 4, que vai perguntar o campo correto.
@@ -464,6 +542,10 @@ Deno.serve(async (req) => {
     const missingEmail = !hasRealEmail(emailAtual);
     const missingPhone = !hasRealPhone(phoneAtual);
     const missingProduct = !hasProduct(produtoAtual);
+    const productCanonNow = productCanonical(produtoAtual);
+    const missingProductModel = needsProductModel(productCanonNow) && !hasNonEmpty(modeloAtual);
+    const missingArea = !hasNonEmpty(areaAtual);
+    const missingSpecialty = !hasNonEmpty(especialidadeAtual);
 
     if (missingName) {
       await supabase.from("agent_sessions").upsert({
