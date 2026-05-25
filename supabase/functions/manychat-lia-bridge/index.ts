@@ -149,7 +149,7 @@ async function findOrCreateLead(
 ): Promise<LeadRow> {
   const { data: existing } = await supabase
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
     .eq("manychat_subscriber_id", subscriberId)
     .is("merged_into", null)
     .limit(1)
@@ -175,7 +175,7 @@ async function findOrCreateLead(
       crm_creation_blocked: true,
       source: "Instagram - autoatendimento",
     })
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
     .maybeSingle();
 
   if (error || !created) {
@@ -203,6 +203,38 @@ function hasRealPhone(phone: string | null): boolean {
   if (!phone) return false;
   const d = phone.replace(/\D/g, "");
   return d.length >= 10 && d.length <= 15;
+}
+
+const PRODUCT_LABELS: Record<string, string> = {
+  "1": "impressora_3d",
+  "2": "scanner_intraoral",
+  "3": "resinas",
+  "4": "cursos",
+};
+
+function detectProductKeyword(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/\b(scanner|medit|3shape|trios|itero|i700|i900)\b/.test(t)) return "scanner_intraoral";
+  if (/\b(impressora|printer|anycubic|phrozen|sonic|miicraft|asiga|formlabs)\b/.test(t)) return "impressora_3d";
+  if (/\b(resina|consum|wash|cure|lavadora|fotopolim)/.test(t)) return "resinas";
+  if (/\b(curso|treinamento|aula|workshop|imers[aã]o)/.test(t)) return "cursos";
+  return null;
+}
+
+function normalizeProductAnswer(raw: string): { label: string; canonical: string | null } {
+  const trimmed = raw.trim();
+  const numMatch = trimmed.match(/^\s*([1-5])\b/);
+  if (numMatch) {
+    const n = numMatch[1];
+    if (n === "5") return { label: trimmed, canonical: null };
+    return { label: PRODUCT_LABELS[n], canonical: PRODUCT_LABELS[n] };
+  }
+  const kw = detectProductKeyword(trimmed);
+  return { label: kw || trimmed, canonical: kw };
+}
+
+function hasProduct(p: string | null | undefined): boolean {
+  return !!(p && p.trim().length >= 2);
 }
 
 Deno.serve(async (req) => {
