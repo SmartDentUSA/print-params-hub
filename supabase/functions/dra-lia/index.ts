@@ -1600,8 +1600,9 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data, source: requestSource } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data, source: requestSource, manychat_subscriber_id: bodySubscriberId, manychat_name: bodyManychatName } = await req.json();
     const isInstagramChannel = requestSource === "manychat_instagram" || requestSource === "dra-lia-whatsapp";
+    const isManychat = requestSource === "manychat_instagram";
     const session_id = rawSessionId || crypto.randomUUID();
 
     // ── IMAGE GATEKEEPER — classify image intent before expensive processing ──
@@ -1744,7 +1745,84 @@ Campos:
 
     // Include current message in history for lead detection
     const historyWithCurrent = [...history, { role: "user", content: message }];
-    const leadState = detectLeadCollectionState(historyWithCurrent, sessionEntities);
+    let leadState = detectLeadCollectionState(historyWithCurrent, sessionEntities);
+
+    // ── MANYCHAT/INSTAGRAM IDENTITY RESOLUTION ─────────────────────────────
+    // The Instagram channel cannot collect email up-front. Resolve identity by
+    // manychat_subscriber_id (from body or session_id `mc_*` prefix). If found,
+    // override leadState to flow through the returning-lead path. If not found,
+    // create a minimal lia_attendances record on the fly so future messages
+    // recognize the user, and skip the email gate.
+    if (isManychat && leadState.state !== "from_session") {
+      const subscriberId = (bodySubscriberId ? String(bodySubscriberId) : "") ||
+        (typeof session_id === "string" && session_id.startsWith("mc_") ? session_id.slice(3) : "");
+      if (subscriberId) {
+        try {
+          const { data: mcLead } = await supabase
+            .from("lia_attendances")
+            .select("id, nome, email")
+            .eq("manychat_subscriber_id", subscriberId)
+            .is("merged_into", null)
+            .maybeSingle();
+
+          if (mcLead && mcLead.id) {
+            // Known ManyChat lead → flow as returning lead. If email exists, use it;
+            // otherwise synthesize a stable internal key so the returning-lead
+            // branch can fetch the attendance row (it looks up by email).
+            const resolvedEmail = mcLead.email || `mc_${subscriberId}@manychat.internal`;
+            // Ensure the synthetic email is persisted so the lookup-by-email path works
+            if (!mcLead.email) {
+              await supabase
+                .from("lia_attendances")
+                .update({ email: resolvedEmail, updated_at: new Date().toISOString() })
+                .eq("id", mcLead.id);
+            }
+            leadState = { state: "needs_name", email: resolvedEmail };
+            console.log(`[manychat-identity] Recognized subscriber ${subscriberId} → lead ${mcLead.id} (${resolvedEmail})`);
+          } else {
+            // First contact via ManyChat — create minimal record so next msg is recognized
+            const nameFromManychat = (bodyManychatName ? String(bodyManychatName).trim() : "") || "Lead Instagram";
+            const syntheticEmail = `mc_${subscriberId}@manychat.internal`;
+            const { data: created, error: createErr } = await supabase
+              .from("lia_attendances")
+              .insert({
+                nome: nameFromManychat,
+                email: syntheticEmail,
+                manychat_subscriber_id: subscriberId,
+                manychat_collected_at: new Date().toISOString(),
+                instagram: nameFromManychat,
+                origem_primeiro_contato: "instagram_manychat",
+                lead_status: "novo",
+                crm_creation_blocked: true,
+              })
+              .select("id")
+              .maybeSingle();
+            if (createErr) {
+              console.warn("[manychat-identity] Create lead failed:", createErr.message);
+            } else if (created?.id) {
+              leadState = { state: "from_session", name: nameFromManychat, email: syntheticEmail, leadId: created.id };
+              // Pre-seed the agent_session so subsequent turns skip the gate
+              await supabase.from("agent_sessions").upsert({
+                session_id,
+                lead_id: created.id,
+                extracted_entities: {
+                  lead_id: created.id,
+                  lead_name: nameFromManychat,
+                  lead_email: syntheticEmail,
+                  channel: "manychat_instagram",
+                  manychat_subscriber_id: subscriberId,
+                },
+                current_state: "idle",
+                last_activity_at: new Date().toISOString(),
+              }, { onConflict: "session_id" });
+              console.log(`[manychat-identity] Created Instagram lead ${created.id} for subscriber ${subscriberId}`);
+            }
+          }
+        } catch (mcErr) {
+          console.warn("[manychat-identity] Resolution error:", mcErr);
+        }
+      }
+    }
 
     // 0. Intent Guard — SEMPRE pedir e-mail antes de qualquer coisa (ETAPA 0)
     if (leadState.state === "needs_email_first") {

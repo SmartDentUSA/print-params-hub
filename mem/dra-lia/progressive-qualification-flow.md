@@ -13,3 +13,12 @@ type: feature
 6. Só depois desse gate o RAG / DeepSeek é acionado. Sem qualificação mínima → sem resposta de conteúdo.
 
 Flags de sessão em `agent_sessions.extracted_entities`: `awaiting_phone`, `awaiting_area`, `awaiting_specialty`, `lead_area`.
+
+## Exceção — Canal ManyChat / Instagram (`source: "manychat_instagram"`)
+
+Instagram DM não fornece email. Para esse canal, a chave primária de identidade é `manychat_subscriber_id` (não email):
+
+1. dra-lia extrai `subscriberId` de `body.manychat_subscriber_id` ou do prefixo `mc_` em `session_id`.
+2. Lookup em `lia_attendances` por `manychat_subscriber_id` (filtro `merged_into IS NULL`). Se achar → trata como returning lead (passa pelo fluxo existente de saudação curta).
+3. Se NÃO achar → cria registro mínimo (`nome` vinda do ManyChat, `email = mc_{subscriberId}@manychat.internal` apenas como chave interna, `manychat_subscriber_id`, `origem_primeiro_contato = 'instagram_manychat'`, `crm_creation_blocked = 'instagram_no_real_email'`) e pré-popula `agent_sessions` para que a próxima mensagem caia em `from_session`.
+4. O email sintético `@manychat.internal` NUNCA é enviado para PipeRun/CRM (bloqueado por `crm_creation_blocked`). Email real só é coletado quando o lead manifestar intent comercial.
