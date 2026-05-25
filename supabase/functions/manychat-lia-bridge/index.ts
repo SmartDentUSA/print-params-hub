@@ -627,6 +627,9 @@ Deno.serve(async (req) => {
           awaiting_manychat_email: false,
           awaiting_manychat_phone: false,
           awaiting_manychat_product: true,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: false,
         },
         current_state: "qualifying",
         last_activity_at: new Date().toISOString(),
@@ -634,7 +637,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_product", { subscriberId });
       const firstName = (nomeAtual || "").split(/\s+/)[0];
       const askProductText = [
-        `Última pergunta, ${firstName}! Qual produto/tema te interessa mais agora?`,
+        `Para te ajudar melhor, ${firstName}, qual produto/tema te interessa mais agora?`,
         "",
         "1) 🖨️ Impressora 3D",
         "2) 📷 Scanner intraoral",
@@ -650,6 +653,129 @@ Deno.serve(async (req) => {
       }), 200);
     }
 
+    if (missingProductModel && productCanonNow) {
+      const list = PRODUCT_MODELS[productCanonNow];
+      const display = PRODUCT_DISPLAY[productCanonNow];
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: true,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_product_model", {
+        subscriberId, canonical: productCanonNow,
+      });
+      const askModelText = [
+        `Anotado: ${display} ✅`,
+        "Qual modelo te interessa mais?",
+        ...list.map((m, i) => `${i + 1}) ${m}`),
+      ].join("\n");
+      return jsonResponse(textReply(askModelText, {
+        state: "ask_product_model",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+      }), 200);
+    }
+
+    if (missingArea) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: true,
+          awaiting_manychat_specialty: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_area", { subscriberId });
+      const justChoseModel = !!entities.awaiting_manychat_product_model;
+      const justChoseProduct = !!entities.awaiting_manychat_product && !justChoseModel;
+      const prefix = justChoseModel && modeloAtual
+        ? `Anotado: ${modeloAtual} ✅\n`
+        : justChoseProduct && productCanonNow
+          ? `Anotado: ${PRODUCT_DISPLAY[productCanonNow]} ✅\n`
+          : "";
+      const askAreaText = [
+        `${prefix}Para te direcionar melhor, qual é a sua **área de atuação**?`,
+        "",
+        renderNumberedList(AREA_ATUACAO_OPTIONS),
+      ].join("\n");
+      return jsonResponse(textReply(askAreaText, {
+        state: "ask_area",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+      }), 200);
+    }
+
+    if (missingSpecialty) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          lead_area: areaAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: true,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_specialty", { subscriberId });
+      const justChoseArea = !!entities.awaiting_manychat_area;
+      const prefix = justChoseArea && areaAtual ? `Anotado: ${areaAtual} ✅\n` : "";
+      const askSpecText = [
+        `${prefix}E qual é a sua **especialidade**?`,
+        "",
+        renderNumberedList(ESPECIALIDADE_OPTIONS),
+      ].join("\n");
+      return jsonResponse(textReply(askSpecText, {
+        state: "ask_specialty",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+        lead_area: areaAtual,
+      }), 200);
+    }
+
     // 5. Perfil completo → limpa flags de coleta e envia rotas
     await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
@@ -660,21 +786,45 @@ Deno.serve(async (req) => {
         lead_name: nomeAtual,
         lead_email: emailAtual,
         lead_product: produtoAtual,
+        lead_product_model: modeloAtual,
+        lead_area: areaAtual,
+        lead_specialty: especialidadeAtual,
         manychat_subscriber_id: subscriberId,
         channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
         awaiting_manychat_product: false,
+        awaiting_manychat_product_model: false,
+        awaiting_manychat_area: false,
+        awaiting_manychat_specialty: false,
       },
       current_state: "idle",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
     const firstName = (nomeAtual || "").split(/\s+/)[0];
-    const justCompleted = entities.awaiting_manychat_product || entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
+    const justCompleted = entities.awaiting_manychat_product
+      || entities.awaiting_manychat_product_model
+      || entities.awaiting_manychat_area
+      || entities.awaiting_manychat_specialty
+      || entities.awaiting_manychat_phone
+      || entities.awaiting_manychat_email
+      || entities.awaiting_manychat_name;
+    let confirmLine = "";
+    if (justCompleted) {
+      if (entities.awaiting_manychat_specialty && especialidadeAtual) {
+        confirmLine = `Anotado: ${especialidadeAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_area && areaAtual) {
+        confirmLine = `Anotado: ${areaAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_product_model && modeloAtual) {
+        confirmLine = `Anotado: ${modeloAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_product && productCanonNow) {
+        confirmLine = `Anotado: ${PRODUCT_DISPLAY[productCanonNow]} ✅\n`;
+      }
+    }
     const greeting = justCompleted
-      ? `Cadastro confirmado, ${firstName}! ✅\nComo posso te ajudar hoje?`
+      ? `${confirmLine}Tudo certo, ${firstName}! ✅\nComo posso te ajudar agora?`
       : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
 
     await logHealth(supabase, "info",
