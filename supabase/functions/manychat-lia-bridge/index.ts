@@ -356,6 +356,27 @@ Deno.serve(async (req) => {
             state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual, lead_phone: null,
           }), 200);
         }
+      } else if (nextMissing === "product" && entities.awaiting_manychat_product) {
+        const { label, canonical } = normalizeProductAnswer(message);
+        if (label && label.trim().length >= 2) {
+          produtoAtual = label;
+          entities.collected_product = produtoAtual;
+          const { error: prErr } = await supabase.from("lia_attendances").update({
+            produto_interesse_auto: canonical || label,
+            produto_interesse_raw: message.trim(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (prErr) {
+            await logHealth(supabase, "warn", "manychat_product_update_conflict", {
+              subscriberId, error: prErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_product_captured", {
+            subscriberId, label, canonical, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_product", { subscriberId, message });
+        }
       }
       // Se a flag não bate com o nextMissing (sessão obsoleta), apenas cai
       // para o passo 4, que vai perguntar o campo correto.
@@ -365,6 +386,7 @@ Deno.serve(async (req) => {
     const missingName = !hasRealName(nomeAtual);
     const missingEmail = !hasRealEmail(emailAtual);
     const missingPhone = !hasRealPhone(phoneAtual);
+    const missingProduct = !hasProduct(produtoAtual);
 
     if (missingName) {
       await supabase.from("agent_sessions").upsert({
