@@ -1,75 +1,103 @@
-## Mudança
+## Objetivo
+Após capturar o produto, (1) confirmar visualmente a escolha com sub-opções específicas quando aplicável, e (2) coletar **área de atuação** e **especialidade** caso o lead ainda não tenha esses campos preenchidos.
 
-Adicionar **5º passo de qualificação** no `manychat-lia-bridge`: após coletar nome → email → telefone, perguntar **produto de interesse** antes de enviar as rotas finais.
-
-## Fluxo novo
+## Novo fluxo
 
 ```
-ask_name → ask_email → ask_phone → ask_product → completed (rotas)
+ask_name → ask_email → ask_phone → ask_product
+  → ask_product_model (se impressora_3d ou scanner_intraoral)
+  → ask_area        (se lia_attendances.area_atuacao vazio)
+  → ask_specialty   (se lia_attendances.especialidade vazio)
+  → completed (rotas)
 ```
 
-## Detalhes
+## 1. Confirmação + sub-opção por produto
 
-### 1. Pergunta
-Após telefone confirmado, retorna:
-> "Última pergunta, {firstName}! Qual produto/tema te interessa mais agora?
-> 1) 🖨️ Impressora 3D
-> 2) 📷 Scanner intraoral
-> 3) 🧪 Resinas e consumíveis
-> 4) 🎓 Cursos e treinamentos
-> 5) 💬 Outro (descreva)"
+Quando o produto for capturado, responder com **uma única mensagem** que confirma e já oferece a próxima pergunta.
 
-`qualification_state = "ask_product"`.
+### Sub-listas
+- `impressora_3d` → "🖨️ Impressora 3D"
+  - 1) RayShape Edge Mini
+  - 2) Elegoo Mars 5 Ultra
+  - 3) Outra (descreva)
+- `scanner_intraoral` → "📷 Scanner intraoral"
+  - 1) Scanner Medit
+  - 2) Scanner BLZ
+  - 3) Outro (descreva)
+- `resinas` → "🧪 Resinas e consumíveis" — sem sub-lista, segue direto.
+- `cursos` → "🎓 Cursos e treinamentos" — sem sub-lista, segue direto.
+- texto livre → usa o texto capitalizado, sem sub-lista.
 
-### 2. Captura da resposta
-- Aceita número (1-5) OU texto livre.
-- Mapeia número → label canônica:
-  - 1 → `impressora_3d`
-  - 2 → `scanner_intraoral`
-  - 3 → `resinas`
-  - 4 → `cursos`
-  - 5 → texto livre do usuário
-- Reaproveita lógica de keyword existente (`anycubic`, `phrozen`, `scanner`, `medit`, etc.) para enriquecer quando vier texto livre — referência: `mem://smart-ops/behavioral-form-ingestion`.
+Mensagem exemplo (impressora):
+```
+Anotado: 🖨️ Impressora 3D ✅
+Qual modelo te interessa mais?
+1) RayShape Edge Mini
+2) Elegoo Mars 5 Ultra
+3) Outro (descreva)
+```
 
-### 3. Persistência em `lia_attendances`
-- `produto_interesse_auto` = label canônica (ou texto livre cru).
-- `produto_interesse_raw` = mensagem original do usuário (para auditoria).
-- `updated_at = now()`.
-- Em caso de coluna inexistente, fallback grava em `form_data` JSONB (`form_data.produto_interesse_manychat`).
+Estado: `qualification_state = "ask_product_model"`, `entities.awaiting_manychat_product_model = true`.
 
-### 4. Sessão
-- `entities.awaiting_manychat_product = true` quando perguntando.
-- `entities.collected_product` armazenado após resposta.
-- Após captura: `current_state = "idle"` e segue para rotas.
+Resposta do modelo é persistida em `lia_attendances.produto_interesse_raw` (concatenando: `"{canonical} | {modelo escolhido}"`) — `produto_interesse_auto` continua sendo o canonical do produto-mãe. Loga `manychat_product_model_captured`.
 
-### 5. Rotas finais
-Mensagem de fechamento personalizada conforme produto escolhido:
-- Impressora/Scanner/Resinas → realça rota "Ver produtos" + link de catálogo.
-- Cursos → realça rota "Cursos".
-- Outro → mantém as 4 rotas padrão.
+## 2. Área de atuação (condicional)
 
-`qualification_state = "completed"`, `lead_product` adicionado ao envelope JSON (para ManyChat mapear em Custom Field se quiser).
+Disparada se, após product/model, `lia_attendances.area_atuacao` estiver nulo/vazio.
 
-### 6. `nextMissing` atualizado
-Cascade vira: name → email → phone → **product** → null. Sessões antigas sem product param em `ask_product`.
+Lista numerada usando `AREA_ATUACAO_OPTIONS` de `src/lib/dentalTaxonomy.ts` (replicada no edge function — import direto não é possível em Deno, então copia o array em `_shared/dental-taxonomy.ts` para reuso):
+```
+Para te direcionar melhor, qual é a sua área de atuação?
+1) Clínica ou Consultório
+2) Laboratório de Prótese
+3) Radiologia Odontológica
+4) Planning Center
+5) Empresa de Alinhadores
+6) Gestor de Rede de Clínicas
+7) Gestor de Franquias
+8) Central de Impressões
+9) Educação
+```
+- Aceita número (1-9) ou texto (matching via `canonicalize`).
+- Persiste em `lia_attendances.area_atuacao` (valor canônico em MAIÚSCULA).
+- Estado: `ask_area`, `entities.awaiting_manychat_area = true`.
+- Log: `manychat_area_captured`. Inválido → retry com lista novamente.
 
-### 7. Logs
-- `manychat_ask_product` (info)
-- `manychat_invalid_product` (info, se vazio)
-- `manychat_product_captured` (info, com label final)
+## 3. Especialidade (condicional)
 
-## Arquivos
-- `supabase/functions/manychat-lia-bridge/index.ts` (única mudança de código)
-- Sem migration: colunas `produto_interesse_auto` e `produto_interesse_raw` já existem em `lia_attendances` (confirmar no schema; senão, criar migration mínima adicionando-as como `text NULL`).
+Mesmo padrão, disparada se `lia_attendances.especialidade` estiver vazio. Lista numerada 1-13 usando `ESPECIALIDADE_OPTIONS`. Persiste em `lia_attendances.especialidade`. Estado `ask_specialty`. Log `manychat_specialty_captured`.
+
+## 4. Mensagem final
+
+Após tudo coletado:
+```
+Tudo certo, {firstName}! ✅
+Como posso te ajudar agora?
+```
+Segue com as 4 rotas atuais (sem mudança no menu).
+
+## Implementação técnica
+
+**Arquivos:**
+- `supabase/functions/_shared/dental-taxonomy.ts` (novo) — exporta `AREA_ATUACAO_OPTIONS`, `ESPECIALIDADE_OPTIONS`, `findOptionByIndex`, `normalize`, `canonicalize`. Espelha `src/lib/dentalTaxonomy.ts`.
+- `supabase/functions/manychat-lia-bridge/index.ts`:
+  - Estender `ReplyMeta.state` com `"ask_product_model" | "ask_area" | "ask_specialty"`.
+  - Estender `LeadRow` para incluir `area_atuacao`, `especialidade`, `produto_interesse_raw`.
+  - Adicionar `PRODUCT_MODELS: Record<canonical, string[]>` com as listas acima.
+  - Estender `nextMissing` na ordem: name → email → phone → product → product_model (condicional) → area (condicional) → specialty (condicional) → null.
+  - Helpers `needsProductModel(canonical, raw)`, `needsArea(lead)`, `needsSpecialty(lead)`.
+  - Cada novo estado: bloco `else if (nextMissing === "x" && entities.awaiting_manychat_x)` para captura + bloco `if (missingX)` para pergunta + upsert na `agent_sessions`.
+  - Para `ask_area`/`ask_specialty`: parse numérico OU `canonicalize(...)`. Inválido → retry com lista.
+  - Mensagem final unificada já com "✅ Tudo certo".
+- **Sem migration**: colunas `area_atuacao`, `especialidade`, `produto_interesse_raw` já existem em `lia_attendances` (confirmar; se faltar `area_atuacao`/`especialidade`, criar migration mínima).
 
 ## Validação
-1. Curl 5 passos com subscriber novo → última resposta antes de `completed` deve ser `ask_product`.
-2. Enviar "1" → `produto_interesse_auto = 'impressora_3d'`, segue para rotas.
-3. Enviar "tenho interesse em scanner Medit" → texto livre salvo cru + keyword detecta `scanner`.
-4. Conferir `lia_attendances.produto_interesse_auto` populado.
-5. `system_health_logs` mostra sequência `ask_name → ask_email → ask_phone → ask_product → manychat_profile_completed`.
+1. Curl com subscriber novo, responder `1` em product → resposta deve trazer `Anotado: 🖨️ Impressora 3D` + sub-lista de modelos.
+2. Responder `2` no modelo → grava `produto_interesse_raw = "impressora_3d | Elegoo Mars 5 Ultra"`, segue para área (se vazia).
+3. Responder `1` em área → grava `CLÍNICA OU CONSULTÓRIO`, segue para especialidade.
+4. Lead que **já tem** `area_atuacao` e `especialidade` preenchidos → pula direto para rotas após product/model.
+5. Resposta inválida em área/especialidade → bot repete a lista.
 
 ## Não muda
-- ManyChat mapping continua `$.reply → chatgpt_resposta`.
-- Email sintético, origem Instagram, channel — intocados.
-- Async / Send API — fora deste escopo (bridge segue síncrona).
+- Persistência/criação do lead, mapeamento ManyChat (`$.reply → chatgpt_resposta`), 4 rotas finais, logs de produto já existentes.
+- Sub-lista mostrada apenas para impressora/scanner; resinas/cursos seguem direto.
