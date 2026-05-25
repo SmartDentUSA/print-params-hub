@@ -1,66 +1,56 @@
-## Objetivo
-Fazer a `manychat-lia-bridge` responder diretamente no External Request, sem depender da resposta lenta da LIA nem da Send API, seguindo este fluxo:
+## Diagnóstico
 
-1. Recebe `subscriber_id`, `name` e `message` do ManyChat.
-2. Procura em `lia_attendances` por `manychat_subscriber_id = subscriber_id` com `merged_into IS NULL`.
-3. Se o lead não existe ou está incompleto, coleta nesta ordem:
-   - nome
-   - e-mail
-   - celular com DDD
-4. Após completar nome + e-mail + celular, salva/atualiza o lead na base.
-5. Responde: “Como posso te ajudar?” e envia opções/quick replies das rotas da LIA, incluindo `site`.
-6. Só depois do cadastro completo a conversa pode seguir para a Dra. LIA/RAG.
+O bloco "Solicitação externa" do ManyChat está em **modo External Request com Mapeamento de Resposta**: JSONPath `reply` → Custom Field `chatgpt_resposta`. O passo seguinte ("Enviar Mensagem") só renderiza `{{chatgpt_resposta}}`.
 
-## O que vou alterar
+A função hoje retorna apenas `{ version, content: { messages: [...] } }` — não existe a chave `reply` no topo, então o ManyChat grava string vazia em `chatgpt_resposta` e o envio cai no texto-fallback do bloco. Isso explica os **88 envios sem nenhum e-mail/telefone capturado**.
+
+## Mudanças
 
 ### 1. `supabase/functions/manychat-lia-bridge/index.ts`
-Substituir o caminho atual que chama `dra-lia` por um fluxo próprio de qualificação rápida:
 
-- Buscar o lead por `manychat_subscriber_id`.
-- Criar/atualizar lead mínimo quando necessário.
-- Usar `agent_sessions.extracted_entities` para guardar o estado da coleta:
-  - `awaiting_manychat_name`
-  - `awaiting_manychat_email`
-  - `awaiting_manychat_phone`
-  - `lead_name`
-  - `lead_email`
-  - `manychat_subscriber_id`
-- Retornar sempre uma mensagem útil ao ManyChat, evitando `{ messages: [] }` no fluxo normal.
-- Validar e-mail e telefone antes de salvar.
-- Normalizar telefone para BR quando possível.
-- Incluir quick replies/rotas, por exemplo:
-  - `Site`
-  - `Falar com especialista`
-  - `Produtos`
-  - `Cursos`
+Adicionar campos planos no topo do JSON de resposta para serem consumidos pelo Mapeamento de Resposta do ManyChat. Manter `content.messages` por compatibilidade com Dynamic Block.
 
-### 2. Manter segurança e integridade
-- Todas as consultas em `lia_attendances` terão `merged_into IS NULL`.
-- Não criar PipeRun/CRM automaticamente para lead sem dados reais.
-- Manter `crm_creation_blocked` para leads vindos do Instagram/ManyChat até ter identificação mínima.
-- Não usar `MANYCHAT_API_KEY` nem Send API.
+Novo shape de toda resposta:
 
-### 3. Logs para diagnóstico
-Adicionar logs em `system_health_logs`:
-
-- `manychat_qualification_start`
-- `manychat_ask_name`
-- `manychat_ask_email`
-- `manychat_ask_phone`
-- `manychat_profile_completed`
-- `manychat_routes_sent`
-- `manychat_invalid_email`
-- `manychat_invalid_phone`
-
-## Resultado esperado
-Quando chegar mensagem no Instagram via ManyChat:
-
-```text
-Lead sem cadastro → “Olá! Para começar, qual é seu nome?”
-Nome recebido → “Obrigado, {nome}. Qual é seu melhor e-mail?”
-E-mail recebido → “Perfeito. Agora me envie seu celular com DDD.”
-Telefone recebido → “Cadastro atualizado. Como posso te ajudar?” + opções de rota
-Lead já completo → “Olá, {nome}! Como posso te ajudar?” + opções de rota
+```json
+{
+  "version": "v2",
+  "reply": "texto final que vai para chatgpt_resposta",
+  "lead_name": "Fulano da Silva",
+  "lead_email": "fulano@x.com",
+  "lead_phone": "+5511999998888",
+  "qualification_state": "ask_name | ask_email | ask_phone | completed",
+  "content": { "messages": [{ "type": "text", "text": "<mesmo texto>" }] }
+}
 ```
 
-Assim o bloco do ManyChat não cai mais no fallback durante a qualificação, porque a bridge responde imediatamente com texto próprio.
+Detalhes:
+- `reply` sempre preenchida (string única, com `\n` para quebras de linha) — é o que alimenta `chatgpt_resposta`.
+- Quando `qualification_state = "completed"`, o `reply` já inclui as 4 rotas numeradas em texto (ex.: `1) 🌐 Site: https://www.smartdent.com.br …`) porque o bloco "Enviar Mensagem" do ManyChat não renderiza quick_replies dinâmicos vindos do External Request.
+- `lead_name / lead_email / lead_phone` ficam disponíveis caso o usuário queira mapear depois nos System Fields (Email, Phone, Full Name) — opcional, não muda o fluxo atual dele.
+- Não envia `messages: []` vazio em nenhum caminho de erro — sempre devolve uma `reply` textual.
+
+Pontos a refatorar dentro do arquivo:
+- `textReply(text)` → retornar `{ version:"v2", reply:text, content:{ messages:[{type:"text",text}] } }`.
+- `replyWithRoutes(greeting)` → montar `reply` = `greeting + "\n\n" + lista de rotas em texto` (com URL do site), e popular `lead_*` no envelope.
+- `EMPTY_REPLY` → garantir `reply:""` no shape para nunca quebrar o JSONPath.
+- Em todos os `return jsonResponse(...)` (perguntar nome/email/telefone, retry inválido, perfil completo, erro), passar também `lead_name/email/phone` quando já conhecidos e `qualification_state` correspondente.
+- Mensagem de erro do `catch` também usa o novo formato.
+
+### 2. Sem mudanças de DB e sem novos secrets.
+
+### 3. Sem mudanças no ManyChat
+O mapeamento atual `reply → chatgpt_resposta` continua válido. Opcionalmente o usuário pode adicionar depois:
+- `lead_email` → System Field Email
+- `lead_phone` → System Field Phone
+- `qualification_state` → Custom Field (para ramificar o fluxo)
+
+## Validação
+
+1. `curl` na função com `subscriber_id` novo → conferir que o JSON tem `reply` não-vazio.
+2. Disparar pelo Instagram com subscriber novo → `system_health_logs` registra `manychat_ask_name`, depois `_email`, `_phone`, `manychat_profile_completed`.
+3. No painel do ManyChat, abrir o contato de teste e confirmar que `chatgpt_resposta` agora vem preenchido a cada interação (o texto enviado deixa de ser o fallback).
+4. Após qualificação, conferir que a mensagem enviada contém a lista de rotas numeradas + URL do site.
+
+## Arquivo afetado
+- `supabase/functions/manychat-lia-bridge/index.ts`
