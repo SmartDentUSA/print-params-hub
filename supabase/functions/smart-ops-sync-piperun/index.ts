@@ -675,7 +675,16 @@ Deno.serve(async (req) => {
     const fullSync = url.searchParams.get("full") === "true";
     const singlePipeline = url.searchParams.get("pipeline_id");
     const orchestrate = url.searchParams.get("orchestrate") === "true";
-    const since = fullSync ? null : new Date(Date.now() - 35 * 60 * 1000).toISOString();
+    // `since_hours` override lets the reconciler / manual backfill widen the
+    // updated_since window beyond the default 35min incremental sweep without
+    // doing a full pipeline pull.
+    const sinceHoursParam = url.searchParams.get("since_hours");
+    const sinceHours = sinceHoursParam ? Math.max(1, Math.min(168, Number(sinceHoursParam))) : null;
+    const since = fullSync
+      ? null
+      : sinceHours
+        ? new Date(Date.now() - sinceHours * 60 * 60 * 1000).toISOString()
+        : new Date(Date.now() - 35 * 60 * 1000).toISOString();
 
     // ── Orchestrator mode: call self once per pipeline sequentially ──
     if (orchestrate) {
@@ -710,7 +719,7 @@ Deno.serve(async (req) => {
 
           const pipelineResults: unknown[] = [];
           for (const chunkOffset of chunks) {
-            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
+            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}${sinceHours ? `&since_hours=${sinceHours}` : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
             const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?${chunkParams}`;
             try {
               const res = await fetch(fnUrl, {
