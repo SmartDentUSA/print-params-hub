@@ -139,11 +139,6 @@ async function sendToManychat(
     await logHealth(supabase, "error", "missing_manychat_api_key", { subscriberId });
     return;
   }
-  const tokenLen = MANYCHAT_API_KEY.length;
-  const tokenPrefix = MANYCHAT_API_KEY.slice(0, 8);
-  const tokenSuffix = MANYCHAT_API_KEY.slice(-4);
-  const hasColon = MANYCHAT_API_KEY.includes(":");
-  const hasWhitespace = /\s/.test(MANYCHAT_API_KEY);
   const chunks = chunkText(text);
   for (const chunk of chunks) {
     const payload = {
@@ -175,11 +170,6 @@ async function sendToManychat(
           status: resp.status,
           body: errText.slice(0, 500),
           chunk_len: chunk.length,
-          token_len: tokenLen,
-          token_prefix: tokenPrefix,
-          token_suffix: tokenSuffix,
-          token_has_colon: hasColon,
-          token_has_whitespace: hasWhitespace,
         });
       } else {
         await logHealth(supabase, "info", "manychat_send_ok", {
