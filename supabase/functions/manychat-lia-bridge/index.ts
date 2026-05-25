@@ -278,16 +278,16 @@ Deno.serve(async (req) => {
     let nomeAtual = (entities.collected_name as string | undefined) || lead.nome;
     let emailAtual = (entities.collected_email as string | undefined) || lead.email;
     let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
+    let produtoAtual = (entities.collected_product as string | undefined) || lead.produto_interesse_auto;
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
-      // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone.
-      // Isso evita responder "telefone inválido" quando na verdade ainda falta email
-      // (caso de sessões antigas criadas antes do email sintético virar inválido).
-      const nextMissing: "name" | "email" | "phone" | null =
+      // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone→produto.
+      const nextMissing: "name" | "email" | "phone" | "product" | null =
         !hasRealName(nomeAtual) ? "name"
         : !hasRealEmail(emailAtual) ? "email"
         : !hasRealPhone(phoneAtual) ? "phone"
+        : !hasProduct(produtoAtual) ? "product"
         : null;
 
       if (nextMissing === "name" && entities.awaiting_manychat_name) {
