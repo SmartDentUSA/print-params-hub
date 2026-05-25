@@ -1,83 +1,72 @@
-## Objetivo
+## Diagnóstico
 
-Quando o lead do ManyChat termina a qualificação (nome → email → telefone → produto → modelo → área → especialidade), o bridge deve **dispará-lo no mesmo pipeline de criação de lead usado pelos formulários** (`smart-ops-ingest-lead` → SellFlux → `smart-ops-lia-assign` → PipeRun Person+Deal) e responder **uma única mensagem final de handoff**:
+A lead **marcy** (`subscriber 695289048`) ficou no card com email sintético `mc_695289048@instagram.lead` porque, quando ela respondeu no Instagram com o e-mail real `marcelaalbuquerque.ma88@gmail.com`, o `UPDATE` no `lia_attendances` falhou com:
 
-> "Em instantes alguém do nosso time vai te chamar no WhatsApp."
-
-Sem mais menu de 4 rotas (1–4), sem loop.
-
-## Mudanças
-
-### 1. `supabase/functions/manychat-lia-bridge/index.ts`
-
-**a) Substituir o "passo 5" (perfil completo)** pelo handoff:
-- Remover o `replyWithRoutes(...)` e qualquer reenvio do menu 1–4.
-- Quando todos os campos estiverem preenchidos:
-  1. Verificar flag `entities.handoff_dispatched === true` na sessão → se já enviado antes, apenas re-emite a mensagem final (idempotente, evita loop em re-deliveries do ManyChat).
-  2. Caso contrário, montar payload e chamar `smart-ops-ingest-lead` via `supabase.functions.invoke("smart-ops-ingest-lead", { body: payload })`.
-  3. Marcar `handoff_dispatched=true`, `handoff_at=now`, `current_state="handoff"` em `agent_sessions`.
-  4. Logar `manychat_handoff_dispatched` (sucesso) ou `manychat_handoff_error` (falha — não bloqueia resposta).
-- Responder com `textReply` único:
-  ```
-  Perfeito, {firstName}! ✅
-  Recebi suas informações.
-  Em instantes alguém do nosso time vai te chamar no WhatsApp. 📱
-  ```
-
-**b) Payload enviado a `smart-ops-ingest-lead`** (mesma forma de um form):
-```ts
-{
-  source: "instagram_manychat_autoatendimento",
-  form_name: "Instagram - Autoatendimento ManyChat",
-  form_purpose: "qualificacao_inbound",
-  commercial_override: true,            // habilita criação de Deal no PipeRun
-  origem_primeiro_contato: "Instagram - autoatendimento",
-
-  nome: nomeAtual,
-  email: emailAtual,
-  telefone: phoneAtual,                 // ingest aceita "telefone"/"phone"
-  whatsapp: phoneAtual,
-
-  area_atuacao: areaAtual,
-  especialidade: especialidadeAtual,
-  produto_interesse_auto: productCanonNow,
-  produto_interesse_raw: lead.produto_interesse_raw, // já "canonical | modelo"
-  modelo_interesse: modeloAtual,
-
-  manychat_subscriber_id: subscriberId,
-  lia_attendance_id: lead.id,           // permite ao ingest fazer merge no canônico
-  platform_lead_id: `mc_${subscriberId}`,
-}
+```
+duplicate key value violates unique constraint "lia_attendances_email_ci_key"
 ```
 
-**c) Limpeza do menu de rotas legado**: deletar/desabilitar `replyWithRoutes` no fluxo principal. Manter helper apenas se outras chamadas dependerem; senão remover do arquivo.
+Já existia o lead canônico **Marcela Albiquerque** (`b7d20a3e-1a10-4147-81bb-191e4c4507c0`, criado em 2026-05-13 via PipeRun, mesmo telefone `+5516992445679`, com `piperun_id=59752994`).
 
-**d) Tratamento de mensagens depois do handoff**: se `handoff_dispatched=true` e o usuário continuar mandando mensagens livres, o bridge responde a mesma mensagem final (não dispara ingest de novo). Não há mais menu para parsear.
+O bridge hoje apenas loga `manychat_email_update_conflict` e **mantém o sintético no card**, criando uma duplicata órfã. Pior: o handoff posterior dispararia `smart-ops-ingest-lead` apontando para a duplicata, não para o lead canônico já existente no PipeRun.
 
-### 2. `smart-ops-ingest-lead` — verificação de compatibilidade
+## Correção
 
-Já aceita:
-- `form_name` / `commercial_override` (Commercial Intent Guard liberará Deal).
-- Identidade por email + telefone → vai resolver com o lead canônico criado pelo bridge (mesmo `manychat_subscriber_id`).
-- Campos extras (area, especialidade, modelo) caem em `form_data` JSONB (Form Catch-All) sem precisar de migration.
+Tratar conflito de e-mail (e, por simetria, conflito de telefone) como **sinal de identidade** e fazer **merge no canônico** em vez de descartar o dado.
 
-**Nenhuma alteração no ingest é necessária**. Caso o merge no canônico não aconteça pelo email sintético `mc_{id}@instagram.lead`, o `lia_attendance_id` enviado no payload força o ingest a atualizar o lead existente em vez de criar duplicado (já é comportamento do `mergeSmartLead`/`validateLeadIdentity`).
+### Mudança única em `supabase/functions/manychat-lia-bridge/index.ts`
 
-### 3. Sem migration de banco
+Criar helper `mergeIntoCanonical(supabase, manychatLead, identifier)` que:
 
-Todos os campos já existem em `lia_attendances`. `agent_sessions.extracted_entities` é JSONB livre — novos flags entram direto.
+1. Busca o lead canônico dono do e-mail/telefone (`WHERE email ILIKE ? AND merged_into IS NULL` ou `WHERE telefone_normalized = ? AND merged_into IS NULL`), preferindo o mais antigo com `piperun_id` preenchido.
+2. Se encontrar e for diferente do lead atual do ManyChat:
+   - Copia `manychat_subscriber_id`, `manychat_collected_at`, `instagram`, e quaisquer campos novos (`area_atuacao`, `especialidade`, `produto_interesse_auto/raw`, `telefone_normalized/raw`) para o canônico (UPDATE só onde estiver NULL — Smart Merge / append-only).
+   - Marca o lead duplicado: `merged_into = canonical.id`, `manychat_subscriber_id = NULL` (libera o índice único, se houver), `updated_at = now()`.
+   - Retorna o lead canônico atualizado para o restante do fluxo usar.
+3. Loga `manychat_merged_into_canonical` com `from_lead_id`, `to_lead_id`, `matched_by`.
+
+Aplicar o helper em três pontos:
+
+**a) Após capturar e-mail válido** (linha ~398):
+- Tenta `UPDATE email=?`.
+- Se erro `lia_attendances_email_ci_key` → chama `mergeIntoCanonical` por email; substitui `lead` local pelo canônico e continua o fluxo (próximas perguntas, handoff) já gravando no canônico.
+
+**b) Após capturar telefone normalizado** (linha ~429):
+- Mesmo padrão: se `UPDATE telefone_normalized=?` falhar por unique (`lia_attendances_telefone_normalized_key` ou similar) → `mergeIntoCanonical` por telefone.
+- Também: mesmo sem erro de UPDATE, antes de gravar, verificar se já existe canônico com esse telefone e merge se sim (telefone é identificador forte, evita criar duplicatas silenciosas como aconteceu com marcy).
+
+**c) Em `findOrCreateLead` permanece igual** — a deduplicação só faz sentido depois que temos email ou telefone real; o lookup inicial continua por `manychat_subscriber_id`.
+
+### Backfill manual (uma vez)
+
+Após deploy, executar via migration uma vez para corrigir a marcy:
+
+```sql
+UPDATE lia_attendances SET
+  manychat_subscriber_id = '695289048',
+  manychat_collected_at = (SELECT manychat_collected_at FROM lia_attendances WHERE id='00d0f892-c2bc-48f2-8355-035a4dd12719'),
+  area_atuacao = COALESCE(area_atuacao, 'CLÍNICA OU CONSULTÓRIO'),
+  especialidade = COALESCE(especialidade, 'ENDODONTISTA'),
+  produto_interesse_auto = COALESCE(produto_interesse_auto, 'impressora_3d'),
+  produto_interesse_raw  = COALESCE(produto_interesse_raw, 'impressora_3d | RayShape Edge Mini'),
+  instagram = COALESCE(instagram, 'marcy')
+WHERE id = 'b7d20a3e-1a10-4147-81bb-191e4c4507c0';
+
+UPDATE lia_attendances SET
+  merged_into = 'b7d20a3e-1a10-4147-81bb-191e4c4507c0',
+  manychat_subscriber_id = NULL
+WHERE id = '00d0f892-c2bc-48f2-8355-035a4dd12719';
+```
 
 ## Validação
 
-1. `curl` no bridge simulando subscriber novo: responde nome → email → telefone → "1" → "2" → "1" → "1" → handoff.
-2. Conferir nos logs `manychat_handoff_dispatched` + log do `smart-ops-ingest-lead` com `form_name="Instagram - Autoatendimento ManyChat"`.
-3. Conferir em `lia_attendances`: lead com `piperun_id`, `pessoa_piperun_id`, `crm_creation_blocked=false`, e Deal criado no funil de vendas (via lia-assign).
-4. Re-enviar mensagem após handoff → bridge responde a frase final sem chamar ingest de novo (idempotência).
-5. Lead com perfil já completo desde o início (re-engajado) → também dispara handoff uma única vez.
+1. Repetir simulação: subscriber novo + email já existente no CDP → bridge deve marcar duplicata como `merged_into` e atualizar canônico com `manychat_subscriber_id` e campos novos.
+2. Log `manychat_merged_into_canonical` presente.
+3. Card do lead canônico (Marcela) passa a mostrar timeline ManyChat, produto, área, especialidade — sem perder histórico PipeRun.
+4. Handoff (`smart-ops-ingest-lead`) dispara com `lia_attendance_id` = canônico, evitando criar Person/Deal duplicados no PipeRun.
 
 ## Não muda
 
-- Sequência de qualificação (já implementada).
-- Persistência incremental campo a campo.
-- Mapeamento ManyChat (`$.reply → chatgpt_resposta`).
-- Lógica de PipeRun, SellFlux, lia-assign (reusados via ingest).
+- Fluxo de qualificação, formato das mensagens, idempotência do handoff.
+- `smart-ops-ingest-lead` (já trata `lia_attendance_id` como força-merge).
+- Schema do banco (apenas usa `merged_into` que já existe).

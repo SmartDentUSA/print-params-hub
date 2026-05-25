@@ -208,6 +208,84 @@ async function findOrCreateLead(
   return created as LeadRow;
 }
 
+const LEAD_COLS = "id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade";
+
+/**
+ * Quando o e-mail/telefone capturado no ManyChat já pertence a outro lead
+ * canônico (CDP), fundimos a duplicata gerada pelo bridge no canônico para
+ * preservar histórico PipeRun/Omie/Ecommerce. Smart Merge append-only:
+ * só preenche campos vazios no canônico; nunca sobrescreve dados existentes.
+ */
+async function mergeIntoCanonical(
+  supabase: ReturnType<typeof createClient>,
+  duplicate: LeadRow,
+  matchedBy: "email" | "phone",
+  value: string,
+): Promise<LeadRow | null> {
+  let query = supabase
+    .from("lia_attendances")
+    .select(LEAD_COLS + ", piperun_id, manychat_subscriber_id, instagram, manychat_collected_at")
+    .is("merged_into", null)
+    .neq("id", duplicate.id)
+    .limit(5);
+  query = matchedBy === "email"
+    ? query.ilike("email", value)
+    : query.eq("telefone_normalized", value);
+  const { data: candidates } = await query;
+  if (!candidates || candidates.length === 0) return null;
+
+  // Prefer o canônico com piperun_id (mais antigo primeiro).
+  const canonical = (candidates as Array<Record<string, unknown>>)
+    .sort((a, b) => (b.piperun_id ? 1 : 0) - (a.piperun_id ? 1 : 0))[0];
+  const canonicalId = canonical.id as string;
+
+  // Smart Merge: só preenche campos NULL no canônico.
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fillIfEmpty = (col: string, val: unknown) => {
+    if (val == null || val === "") return;
+    if (canonical[col] == null || canonical[col] === "") patch[col] = val;
+  };
+  fillIfEmpty("manychat_subscriber_id", duplicate.manychat_subscriber_id);
+  fillIfEmpty("manychat_collected_at", new Date().toISOString());
+  fillIfEmpty("instagram", duplicate.nome);
+  fillIfEmpty("telefone_normalized", duplicate.telefone_normalized);
+  fillIfEmpty("produto_interesse_auto", duplicate.produto_interesse_auto);
+  fillIfEmpty("produto_interesse_raw", duplicate.produto_interesse_raw);
+  fillIfEmpty("area_atuacao", duplicate.area_atuacao);
+  fillIfEmpty("especialidade", duplicate.especialidade);
+
+  await supabase.from("lia_attendances").update(patch).eq("id", canonicalId);
+
+  // Marca duplicata como merged e libera o índice único do subscriber_id.
+  await supabase.from("lia_attendances").update({
+    merged_into: canonicalId,
+    manychat_subscriber_id: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", duplicate.id);
+
+  const { data: updated } = await supabase
+    .from("lia_attendances")
+    .select(LEAD_COLS)
+    .eq("id", canonicalId)
+    .maybeSingle();
+
+  await supabase.from("system_health_logs").insert({
+    function_name: "manychat-lia-bridge",
+    severity: "info",
+    error_type: "manychat_merged_into_canonical",
+    lead_id: canonicalId,
+    details: {
+      from_lead_id: duplicate.id,
+      to_lead_id: canonicalId,
+      matched_by: matchedBy,
+      value,
+      subscriber_id: duplicate.manychat_subscriber_id,
+    },
+  });
+
+  return (updated as LeadRow) || null;
+}
+
 function hasRealName(nome: string | null): boolean {
   if (!nome) return false;
   const n = nome.trim();
@@ -341,7 +419,7 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Carrega/cria lead canônico para este subscriber
-    const lead = await findOrCreateLead(supabase, subscriberId, name);
+    let lead = await findOrCreateLead(supabase, subscriberId, name);
 
     // 2. Carrega estado da sessão (qual campo estamos coletando)
     const { data: sess } = await supabase
@@ -405,7 +483,16 @@ Deno.serve(async (req) => {
             await logHealth(supabase, "warn", "manychat_email_update_conflict", {
               subscriberId, error: upErr.message, attempted_email: emailAtual,
             });
-            // mantém leitura local mesmo se DB não atualizou (provável duplicidade)
+            // E-mail já pertence a outro lead canônico → funde a duplicata ManyChat no canônico.
+            const canonical = await mergeIntoCanonical(supabase, lead, "email", emailAtual);
+            if (canonical) {
+              lead = canonical;
+              nomeAtual = canonical.nome || nomeAtual;
+              phoneAtual = canonical.telefone_normalized || phoneAtual;
+              produtoAtual = canonical.produto_interesse_auto || produtoAtual;
+              areaAtual = canonical.area_atuacao || areaAtual;
+              especialidadeAtual = canonical.especialidade || especialidadeAtual;
+            }
           }
         } else {
           await logHealth(supabase, "info", "manychat_invalid_email", { subscriberId, message });
@@ -426,6 +513,26 @@ Deno.serve(async (req) => {
         if (normalized) {
           phoneAtual = normalized;
           entities.collected_phone = phoneAtual;
+          // Antes de UPDATE, checa se telefone pertence a outro canônico (CDP).
+          const { data: phoneOwner } = await supabase
+            .from("lia_attendances")
+            .select("id")
+            .eq("telefone_normalized", phoneAtual)
+            .is("merged_into", null)
+            .neq("id", lead.id)
+            .limit(1)
+            .maybeSingle();
+          if (phoneOwner?.id) {
+            const canonical = await mergeIntoCanonical(supabase, lead, "phone", phoneAtual);
+            if (canonical) {
+              lead = canonical;
+              nomeAtual = canonical.nome || nomeAtual;
+              emailAtual = canonical.email || emailAtual;
+              produtoAtual = canonical.produto_interesse_auto || produtoAtual;
+              areaAtual = canonical.area_atuacao || areaAtual;
+              especialidadeAtual = canonical.especialidade || especialidadeAtual;
+            }
+          }
           const { error: phErr } = await supabase.from("lia_attendances").update({
             telefone_normalized: phoneAtual,
             telefone_raw: message.trim(),
@@ -435,6 +542,15 @@ Deno.serve(async (req) => {
             await logHealth(supabase, "warn", "manychat_phone_update_conflict", {
               subscriberId, error: phErr.message,
             });
+            const canonical = await mergeIntoCanonical(supabase, lead, "phone", phoneAtual);
+            if (canonical) {
+              lead = canonical;
+              nomeAtual = canonical.nome || nomeAtual;
+              emailAtual = canonical.email || emailAtual;
+              produtoAtual = canonical.produto_interesse_auto || produtoAtual;
+              areaAtual = canonical.area_atuacao || areaAtual;
+              especialidadeAtual = canonical.especialidade || especialidadeAtual;
+            }
           }
         } else {
           await logHealth(supabase, "info", "manychat_invalid_phone", { subscriberId, message });
