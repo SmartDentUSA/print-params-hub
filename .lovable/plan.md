@@ -1,54 +1,85 @@
-## Estado real verificado
+## Diagnóstico
 
-**O que NÃO existe (apesar da narrativa):**
-- ❌ Não há função `manychat-lia-bridge` no repositório. Funções LIA existentes: `dra-lia`, `dra-lia-whatsapp`, `dra-lia-export`, `automacoes-lia`, `backfill-lia-leads`, `smart-ops-lia-assign`.
-- ❌ Não há os "3 atalhos antes do LLM" (curto-em-20s, só-emoji/URL, saudação-de-lead-identificado) implementados em lugar nenhum no fluxo ManyChat.
-- ❌ Não há "resolução de identidade em 4 camadas". Em `dra-lia/index.ts` **nenhuma busca por `manychat_subscriber_id`** existe (`rg` retorna zero matches).
+ManyChat envia POST para `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/manychat-lia-bridge` com:
 
-**O que existe:**
-- ✅ Coluna `manychat_subscriber_id` em `lia_attendances` (4 leads populados, 0 com `instagram`).
-- ✅ Guard `isInstagramChannel` (linha 1604) — mas só troca a saudação de returning lead por uma versão curta; **não resolve identidade**.
-- ✅ `agent_interactions` confirma o sintoma: 11 sessões `mc_*`, **todas** `lead_id=null`, **todas** respondem "informe seu e-mail".
-
-**Causa raiz:** o ManyChat envia `session_id = mc_{subscriber_id}` + `name`, mas o dra-lia só sabe identificar lead por **email**. Como Instagram DM não traz email, todo usuário cai em `ASK_EMAIL` para sempre. O `manychat_subscriber_id` salvo na tabela nunca é consultado.
-
----
-
-## Plano de correção
-
-### 1. Resolver identidade por `manychat_subscriber_id` no dra-lia
-No bloco de lead lookup (antes de cair em `ASK_NAME`/`ASK_EMAIL`), quando `session_id` começa com `mc_`:
-- Extrair `subscriberId = session_id.replace(/^mc_/, "")`.
-- `SELECT ... FROM lia_attendances WHERE manychat_subscriber_id = $1 AND merged_into IS NULL LIMIT 1`.
-- Se achar → tratar como returning lead identificado (popula `currentLeadId`, `leadState.email`, segue para greeting curto que já existe atrás de `isInstagramChannel`).
-- Se não achar → seguir fluxo de novo lead, **mas** persistir `manychat_subscriber_id` + `instagram` (nome do ManyChat) no momento em que o lead for criado, para que a próxima mensagem já reconheça.
-
-### 2. Aceitar `subscriber_id` e `name` no payload do dra-lia
-Adicionar ao destructuring de `req.json()`:
-```ts
-const { ..., source: requestSource, manychat_subscriber_id, manychat_name } = await req.json();
+```json
+{ "subscriber_id": "888640279", "name": "Danilo", "message": "Oi" }
 ```
-Quando `requestSource === "manychat_instagram"` e `manychat_subscriber_id` vier no body, usar como chave de lookup mesmo que `session_id` não tenha prefixo `mc_`.
 
-### 3. Ao criar/atualizar lead vindo do Instagram
-No `upsertLead`/equivalente, quando `isInstagramChannel` e há `manychat_subscriber_id`:
-- Gravar `manychat_subscriber_id`, `manychat_collected_at = now()`, `instagram = manychat_name` (se vazio), `origem_primeiro_contato = 'instagram_manychat'` (apenas no insert — origem é frozen).
+**A função `manychat-lia-bridge` não existe** (confirmado via `ls supabase/functions/`). O `200 OK` com `{"reply":"","content":{"messages":[]}}` é apenas o fallback do gateway Supabase respondendo vazio — nada é processado, nada é gravado, LIA nunca é chamada.
 
-### 4. Aliviar o gate de email para canal Instagram
-Hoje, sem email confirmado a LIA bloqueia tudo. Para `isInstagramChannel`:
-- Se o lead foi reconhecido por `manychat_subscriber_id` → não pedir email; seguir conversa normal (RAG/SDR).
-- Se é primeiro contato → pedir **nome** (uma vez, usando `manychat_name` como sugestão) e seguir; pedir email só na qualificação progressiva quando houver intent comercial (preço/proposta), conforme a regra `progressive-qualification-flow`.
+Os 11 registros `mc_*` em `agent_interactions` com `lead_id=null` e resposta "informe seu e-mail" são de tentativas antigas que iam direto pra `dra-lia` sem `source` nem `manychat_subscriber_id` — então a lógica Instagram já implementada no `dra-lia` nunca disparou.
 
-### 5. Atualizar memória
-Atualizar `mem://dra-lia/progressive-qualification-flow` documentando que no canal Instagram a chave primária é `manychat_subscriber_id` (não email) e email vira opcional até intent comercial.
+## Plano
+
+### 1. Criar `supabase/functions/manychat-lia-bridge/index.ts`
+
+Função pública (sem JWT) que:
+
+a. **Valida payload**: `subscriber_id` (obrigatório), `name` e `message` (opcionais).
+
+b. **Aplica 3 short-circuits ANTES do LLM** (retorna resposta vazia no formato ManyChat para o fluxo não enviar nada):
+   - Mensagem `< 3` chars recebida dentro de 20s da última inbound do mesmo `subscriber_id` (consulta `agent_interactions` por `session_id = mc_{subscriber_id}`) → ignora (anti-loop "oi/ok").
+   - Mensagem só com emoji / URL / pontuação (regex) → ignora.
+   - Saudação curta (`/^(oi|olá|ola|hi|hello|bom dia|boa tarde|boa noite)\b/i`) **e** lead já existe com `manychat_subscriber_id` correspondente → responde saudação curta personalizada (`Oi, {nome}! 👋 Como posso te ajudar?`) sem chamar LLM.
+
+c. **Chama `dra-lia`** via `fetch` interno (service role) com:
+   ```json
+   {
+     "message": "<texto>",
+     "session_id": "mc_<subscriber_id>",
+     "source": "manychat_instagram",
+     "manychat_subscriber_id": "<subscriber_id>",
+     "manychat_name": "<name>",
+     "lang": "pt-BR"
+   }
+   ```
+
+d. **Traduz resposta do `dra-lia`** para formato ManyChat External Request v2:
+   ```json
+   {
+     "version": "v2",
+     "content": {
+       "messages": [{ "type": "text", "text": "<resposta>" }],
+       "actions": [],
+       "quick_replies": []
+     }
+   }
+   ```
+   Se `dra-lia` retornar `quick_replies`, mapeia para `content.quick_replies`. Em erro, retorna mensagens vazias (não trava o fluxo do ManyChat).
+
+e. **CORS + `verify_jwt = false`** em `supabase/config.toml`.
+
+f. **Logging** em `system_health_logs` (`source = "manychat_bridge"`) para cada short-circuit / erro.
+
+### 2. Atualizar `supabase/config.toml`
+
+Adicionar:
+```toml
+[functions.manychat-lia-bridge]
+verify_jwt = false
+```
+
+### 3. Atualizar memória
+
+`mem/dra-lia/progressive-qualification-flow.md`: documentar o bridge como ponto de entrada único do canal Instagram/ManyChat (hoje a memória só fala do lado `dra-lia`).
+
+### 4. Deploy + validação
+
+- Deploy `manychat-lia-bridge`.
+- `curl` com `{"subscriber_id":"888640279","name":"Danilo","message":"Oi"}` e validar:
+  1. resposta no formato v2;
+  2. registro em `lia_attendances` com `manychat_subscriber_id = "888640279"`;
+  3. `agent_interactions` com `lead_id` preenchido;
+  4. segunda mensagem (`"Quero saber sobre resinas"`) é reconhecida como returning lead.
 
 ### Arquivos afetados
-- `supabase/functions/dra-lia/index.ts` (resolução de identidade + persistência ManyChat + gate de email condicional ao canal)
-- `mem/dra-lia/progressive-qualification-flow.md` (atualização da regra)
 
-### Validação após deploy
-- Curl em `dra-lia` com `{ source:"manychat_instagram", session_id:"mc_888640279", manychat_subscriber_id:"888640279", manychat_name:"Teste", message:"Olá" }` 2x: primeira cria lead, segunda já cai em saudação curta com `lead_id` populado.
-- `SELECT lead_id FROM agent_interactions WHERE session_id LIKE 'mc_%' ORDER BY created_at DESC LIMIT 5;` — não deve mais haver `null` para sessões repetidas.
+- **Novo:** `supabase/functions/manychat-lia-bridge/index.ts`
+- **Editado:** `supabase/config.toml`
+- **Editado:** `mem/dra-lia/progressive-qualification-flow.md`
 
-### Fora do escopo
-- Criar a função `manychat-lia-bridge` com os "3 atalhos antes do LLM" (curto-em-20s, só-emoji, saudação-direta). Posso fazer numa segunda etapa se quiser — não é necessário para destravar a identificação.
+### Fora de escopo
+
+- Mexer em `dra-lia/index.ts` (a lógica Instagram já está pronta lá).
+- Alterar a configuração no ManyChat (URL e payload atuais já bastam).
