@@ -217,15 +217,18 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const entities = (sess?.extracted_entities as Record<string, unknown>) || {};
 
-    let nomeAtual = lead.nome;
-    let emailAtual = lead.email;
-    let phoneAtual = lead.telefone_normalized;
+    // Fonte de verdade combinada: DB + entidades da sessão (em caso de
+    // conflito de email único no DB, mantemos o valor coletado em sessão).
+    let nomeAtual = (entities.collected_name as string | undefined) || lead.nome;
+    let emailAtual = (entities.collected_email as string | undefined) || lead.email;
+    let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
       if (entities.awaiting_manychat_name && !hasRealName(nomeAtual)) {
         if (isValidName(message)) {
           nomeAtual = message.trim();
+          entities.collected_name = nomeAtual;
           await supabase.from("lia_attendances")
             .update({ nome: nomeAtual, instagram: nomeAtual, updated_at: new Date().toISOString() })
             .eq("id", lead.id);
@@ -234,6 +237,7 @@ Deno.serve(async (req) => {
         const ext = extractEmail(message);
         if (ext) {
           emailAtual = ext;
+          entities.collected_email = emailAtual;
           // Tenta atualizar; se conflito de unique, mantém o sintético
           const { error: upErr } = await supabase.from("lia_attendances")
             .update({ email: emailAtual, updated_at: new Date().toISOString() })
@@ -260,11 +264,17 @@ Deno.serve(async (req) => {
         const normalized = normalizeBrazilianPhone(message);
         if (normalized) {
           phoneAtual = normalized;
-          await supabase.from("lia_attendances").update({
+          entities.collected_phone = phoneAtual;
+          const { error: phErr } = await supabase.from("lia_attendances").update({
             telefone_normalized: phoneAtual,
             telefone_raw: message.trim(),
             updated_at: new Date().toISOString(),
           }).eq("id", lead.id);
+          if (phErr) {
+            await logHealth(supabase, "warn", "manychat_phone_update_conflict", {
+              subscriberId, error: phErr.message,
+            });
+          }
         } else {
           await logHealth(supabase, "info", "manychat_invalid_phone", { subscriberId, message });
           const retry = "Não consegui identificar o número. Pode me enviar seu **celular com DDD**? (ex: 11 99999-8888)";
