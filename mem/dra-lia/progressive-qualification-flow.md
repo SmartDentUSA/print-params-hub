@@ -23,7 +23,14 @@ Instagram DM não fornece email. Para esse canal, a chave primária de identidad
 2. Mensagem só com emoji / URL / pontuação → idem.
 3. Saudação curta + lead já existe com `manychat_subscriber_id` correspondente → resposta hardcoded `"Oi, {primeiro_nome}! 👋 Como posso te ajudar?"` (sem LLM).
 
-Se nenhum short-circuit dispara, bridge chama `dra-lia` com `{ message, session_id:"mc_{subscriber_id}", source:"manychat_instagram", manychat_subscriber_id, manychat_name, lang:"pt-BR" }`, consome o SSE, e devolve no formato ManyChat v2: `{ version:"v2", content:{ messages:[{type:"text",text}], actions:[], quick_replies:[] } }`. Em erro/resposta vazia, retorna messages vazias para não travar o flow.
+**Padrão ASYNC (obrigatório — ManyChat External Request tem timeout ~10s)**: se nenhum short-circuit dispara, a bridge:
+1. Retorna **imediatamente** `EMPTY_REPLY` (`{version:"v2",content:{messages:[]}}`) ao ManyChat (<2s, evita disparar o fallback do flow).
+2. Dispara `processAsync` via `EdgeRuntime.waitUntil`: chama `dra-lia` com `{ message, session_id:"mc_{subscriber_id}", source:"manychat_instagram", manychat_subscriber_id, manychat_name, lang:"pt-BR" }`, consome o SSE.
+3. Entrega a resposta real via **ManyChat Send API**: `POST https://api.manychat.com/fb/sending/sendContent` com `Authorization: Bearer ${MANYCHAT_API_KEY}` e payload `{ subscriber_id, data:{version:"v2",content:{messages:[{type:"text",text}]}}, message_tag:"ACCOUNT_UPDATE" }`.
+4. **Chunking**: respostas longas são divididas em mensagens de até 900 chars respeitando parágrafos/sentenças (limite IG via ManyChat ~1000 chars/msg).
+5. Logging em `system_health_logs` usa colunas corretas: `function_name='manychat-lia-bridge'`, `severity`, `error_type`, `details`.
+
+Secret necessário: `MANYCHAT_API_KEY` (ManyChat Settings → API → Your API Token, formato `xxx:xxxxxxx`).
 
 Lógica de identidade dentro do `dra-lia`:
 
