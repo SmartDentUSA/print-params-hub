@@ -40,10 +40,11 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 const SITE_URL = "https://www.smartdent.com.br";
 
 type ReplyMeta = {
-  state: "ask_name" | "ask_email" | "ask_phone" | "completed" | "error" | "idle";
+  state: "ask_name" | "ask_email" | "ask_phone" | "ask_product" | "completed" | "error" | "idle";
   lead_name?: string | null;
   lead_email?: string | null;
   lead_phone?: string | null;
+  lead_product?: string | null;
 };
 
 function buildReply(text: string, meta: ReplyMeta) {
@@ -53,6 +54,7 @@ function buildReply(text: string, meta: ReplyMeta) {
     lead_name: meta.lead_name || "",
     lead_email: meta.lead_email || "",
     lead_phone: meta.lead_phone || "",
+    lead_product: meta.lead_product || "",
     qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
@@ -137,6 +139,7 @@ type LeadRow = {
   email: string | null;
   telefone_normalized: string | null;
   manychat_subscriber_id: string | null;
+  produto_interesse_auto: string | null;
 };
 
 async function findOrCreateLead(
@@ -146,7 +149,7 @@ async function findOrCreateLead(
 ): Promise<LeadRow> {
   const { data: existing } = await supabase
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
     .eq("manychat_subscriber_id", subscriberId)
     .is("merged_into", null)
     .limit(1)
@@ -172,7 +175,7 @@ async function findOrCreateLead(
       crm_creation_blocked: true,
       source: "Instagram - autoatendimento",
     })
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
     .maybeSingle();
 
   if (error || !created) {
@@ -200,6 +203,38 @@ function hasRealPhone(phone: string | null): boolean {
   if (!phone) return false;
   const d = phone.replace(/\D/g, "");
   return d.length >= 10 && d.length <= 15;
+}
+
+const PRODUCT_LABELS: Record<string, string> = {
+  "1": "impressora_3d",
+  "2": "scanner_intraoral",
+  "3": "resinas",
+  "4": "cursos",
+};
+
+function detectProductKeyword(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/\b(scanner|medit|3shape|trios|itero|i700|i900)\b/.test(t)) return "scanner_intraoral";
+  if (/\b(impressora|printer|anycubic|phrozen|sonic|miicraft|asiga|formlabs)\b/.test(t)) return "impressora_3d";
+  if (/\b(resina|consum|wash|cure|lavadora|fotopolim)/.test(t)) return "resinas";
+  if (/\b(curso|treinamento|aula|workshop|imers[aã]o)/.test(t)) return "cursos";
+  return null;
+}
+
+function normalizeProductAnswer(raw: string): { label: string; canonical: string | null } {
+  const trimmed = raw.trim();
+  const numMatch = trimmed.match(/^\s*([1-5])\b/);
+  if (numMatch) {
+    const n = numMatch[1];
+    if (n === "5") return { label: trimmed, canonical: null };
+    return { label: PRODUCT_LABELS[n], canonical: PRODUCT_LABELS[n] };
+  }
+  const kw = detectProductKeyword(trimmed);
+  return { label: kw || trimmed, canonical: kw };
+}
+
+function hasProduct(p: string | null | undefined): boolean {
+  return !!(p && p.trim().length >= 2);
 }
 
 Deno.serve(async (req) => {
@@ -243,16 +278,16 @@ Deno.serve(async (req) => {
     let nomeAtual = (entities.collected_name as string | undefined) || lead.nome;
     let emailAtual = (entities.collected_email as string | undefined) || lead.email;
     let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
+    let produtoAtual = (entities.collected_product as string | undefined) || lead.produto_interesse_auto;
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
-      // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone.
-      // Isso evita responder "telefone inválido" quando na verdade ainda falta email
-      // (caso de sessões antigas criadas antes do email sintético virar inválido).
-      const nextMissing: "name" | "email" | "phone" | null =
+      // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone→produto.
+      const nextMissing: "name" | "email" | "phone" | "product" | null =
         !hasRealName(nomeAtual) ? "name"
         : !hasRealEmail(emailAtual) ? "email"
         : !hasRealPhone(phoneAtual) ? "phone"
+        : !hasProduct(produtoAtual) ? "product"
         : null;
 
       if (nextMissing === "name" && entities.awaiting_manychat_name) {
@@ -321,6 +356,27 @@ Deno.serve(async (req) => {
             state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual, lead_phone: null,
           }), 200);
         }
+      } else if (nextMissing === "product" && entities.awaiting_manychat_product) {
+        const { label, canonical } = normalizeProductAnswer(message);
+        if (label && label.trim().length >= 2) {
+          produtoAtual = label;
+          entities.collected_product = produtoAtual;
+          const { error: prErr } = await supabase.from("lia_attendances").update({
+            produto_interesse_auto: canonical || label,
+            produto_interesse_raw: message.trim(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (prErr) {
+            await logHealth(supabase, "warn", "manychat_product_update_conflict", {
+              subscriberId, error: prErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_product_captured", {
+            subscriberId, label, canonical, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_product", { subscriberId, message });
+        }
       }
       // Se a flag não bate com o nextMissing (sessão obsoleta), apenas cai
       // para o passo 4, que vai perguntar o campo correto.
@@ -330,6 +386,7 @@ Deno.serve(async (req) => {
     const missingName = !hasRealName(nomeAtual);
     const missingEmail = !hasRealEmail(emailAtual);
     const missingPhone = !hasRealPhone(phoneAtual);
+    const missingProduct = !hasProduct(produtoAtual);
 
     if (missingName) {
       await supabase.from("agent_sessions").upsert({
@@ -398,6 +455,42 @@ Deno.serve(async (req) => {
       ), 200);
     }
 
+    if (missingProduct) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: true,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_product", { subscriberId });
+      const firstName = (nomeAtual || "").split(/\s+/)[0];
+      const askProductText = [
+        `Última pergunta, ${firstName}! Qual produto/tema te interessa mais agora?`,
+        "",
+        "1) 🖨️ Impressora 3D",
+        "2) 📷 Scanner intraoral",
+        "3) 🧪 Resinas e consumíveis",
+        "4) 🎓 Cursos e treinamentos",
+        "5) 💬 Outro (descreva em uma frase)",
+      ].join("\n");
+      return jsonResponse(textReply(askProductText, {
+        state: "ask_product",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+      }), 200);
+    }
+
     // 5. Perfil completo → limpa flags de coleta e envia rotas
     await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
@@ -407,31 +500,34 @@ Deno.serve(async (req) => {
         lead_id: lead.id,
         lead_name: nomeAtual,
         lead_email: emailAtual,
+        lead_product: produtoAtual,
         manychat_subscriber_id: subscriberId,
         channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
+        awaiting_manychat_product: false,
       },
       current_state: "idle",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
     const firstName = (nomeAtual || "").split(/\s+/)[0];
-    const justCompleted = entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
+    const justCompleted = entities.awaiting_manychat_product || entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
     const greeting = justCompleted
       ? `Cadastro confirmado, ${firstName}! ✅\nComo posso te ajudar hoje?`
       : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
 
     await logHealth(supabase, "info",
       justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
-      { subscriberId, lead_id: lead.id },
+      { subscriberId, lead_id: lead.id, product: produtoAtual },
     );
     return jsonResponse(replyWithRoutes(greeting, {
       state: "completed",
       lead_name: nomeAtual,
       lead_email: emailAtual,
       lead_phone: phoneAtual,
+      lead_product: produtoAtual,
     }), 200);
   } catch (err) {
     await logHealth(supabase, "error", "manychat_bridge_error", {
