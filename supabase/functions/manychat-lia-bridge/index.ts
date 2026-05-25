@@ -455,6 +455,42 @@ Deno.serve(async (req) => {
       ), 200);
     }
 
+    if (missingProduct) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: true,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_product", { subscriberId });
+      const firstName = (nomeAtual || "").split(/\s+/)[0];
+      const askProductText = [
+        `Última pergunta, ${firstName}! Qual produto/tema te interessa mais agora?`,
+        "",
+        "1) 🖨️ Impressora 3D",
+        "2) 📷 Scanner intraoral",
+        "3) 🧪 Resinas e consumíveis",
+        "4) 🎓 Cursos e treinamentos",
+        "5) 💬 Outro (descreva em uma frase)",
+      ].join("\n");
+      return jsonResponse(textReply(askProductText, {
+        state: "ask_product",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+      }), 200);
+    }
+
     // 5. Perfil completo → limpa flags de coleta e envia rotas
     await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
