@@ -246,7 +246,16 @@ Deno.serve(async (req) => {
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
-      if (entities.awaiting_manychat_name && !hasRealName(nomeAtual)) {
+      // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone.
+      // Isso evita responder "telefone inválido" quando na verdade ainda falta email
+      // (caso de sessões antigas criadas antes do email sintético virar inválido).
+      const nextMissing: "name" | "email" | "phone" | null =
+        !hasRealName(nomeAtual) ? "name"
+        : !hasRealEmail(emailAtual) ? "email"
+        : !hasRealPhone(phoneAtual) ? "phone"
+        : null;
+
+      if (nextMissing === "name" && entities.awaiting_manychat_name) {
         if (isValidName(message)) {
           nomeAtual = message.trim();
           entities.collected_name = nomeAtual;
@@ -254,7 +263,7 @@ Deno.serve(async (req) => {
             .update({ nome: nomeAtual, instagram: nomeAtual, updated_at: new Date().toISOString() })
             .eq("id", lead.id);
         }
-      } else if (entities.awaiting_manychat_email && !hasRealEmail(emailAtual)) {
+      } else if (nextMissing === "email" && entities.awaiting_manychat_email) {
         const ext = extractEmail(message);
         if (ext) {
           emailAtual = ext;
@@ -283,7 +292,7 @@ Deno.serve(async (req) => {
             state: "ask_email", lead_name: nomeAtual, lead_email: null, lead_phone: phoneAtual,
           }), 200);
         }
-      } else if (entities.awaiting_manychat_phone && !hasRealPhone(phoneAtual)) {
+      } else if (nextMissing === "phone" && entities.awaiting_manychat_phone) {
         const normalized = normalizeBrazilianPhone(message);
         if (normalized) {
           phoneAtual = normalized;
@@ -313,6 +322,8 @@ Deno.serve(async (req) => {
           }), 200);
         }
       }
+      // Se a flag não bate com o nextMissing (sessão obsoleta), apenas cai
+      // para o passo 4, que vai perguntar o campo correto.
     }
 
     // 4. Determina próxima pergunta com base no que ainda falta
