@@ -1855,6 +1855,54 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── META RE-DELIVERY KILL-SWITCH (universal) ──
+    // Independent of piperun_id state (which can transiently flip to NULL
+    // during force_new_deal / GOLDEN RULE re-assignment). If ANY
+    // `seller_assigned` event was logged for this lead in the last 10 min,
+    // we are inside a meta-pull re-delivery cycle — skip the whole pipeline.
+    // This protects against the case where `meta-lead-ads-pull` invokes
+    // lia-assign directly (bypassing ingest-lead's HARD_DEDUPE) for leads
+    // already in Funil de Vendas.
+    if (!force && force_new_deal !== true && lead.id) {
+      try {
+        const { data: recentAssign } = await supabase
+          .from("lead_activity_log")
+          .select("id, event_timestamp")
+          .eq("lead_id", lead.id)
+          .eq("event_type", "seller_assigned")
+          .gte("event_timestamp", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+          .order("event_timestamp", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (recentAssign?.id) {
+          console.log(`[lia-assign] META_REDELIVERY_KILL: lead ${lead.id} had seller_assigned at ${recentAssign.event_timestamp}, skipping (trigger=${trigger})`);
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-lia-assign",
+              severity: "info",
+              error_type: "meta_redelivery_kill_switch",
+              lead_email: (lead as Record<string, unknown>).email as string | null ?? null,
+              details: {
+                lead_id: lead.id,
+                trigger,
+                source,
+                last_seller_assigned_at: recentAssign.event_timestamp,
+                piperun_id: lead.piperun_id ?? null,
+                piperun_pipeline_id: (lead as Record<string, unknown>).piperun_pipeline_id ?? null,
+              },
+            });
+          } catch {}
+          return new Response(JSON.stringify({
+            skipped: true,
+            reason: "meta_redelivery_kill_switch",
+            last_seller_assigned_at: recentAssign.event_timestamp,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      } catch (e) {
+        console.warn("[lia-assign] kill-switch lookup failed:", e);
+      }
+    }
+
     // ── §4.5 SDR-CAPTAÇÃO Reativação ──
     if (trigger === "sdr_captacao_reativacao") {
       let reativacaoOk = false;
