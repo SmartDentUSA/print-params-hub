@@ -500,31 +500,34 @@ Deno.serve(async (req) => {
         lead_id: lead.id,
         lead_name: nomeAtual,
         lead_email: emailAtual,
+        lead_product: produtoAtual,
         manychat_subscriber_id: subscriberId,
         channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
+        awaiting_manychat_product: false,
       },
       current_state: "idle",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
     const firstName = (nomeAtual || "").split(/\s+/)[0];
-    const justCompleted = entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
+    const justCompleted = entities.awaiting_manychat_product || entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
     const greeting = justCompleted
       ? `Cadastro confirmado, ${firstName}! ✅\nComo posso te ajudar hoje?`
       : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
 
     await logHealth(supabase, "info",
       justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
-      { subscriberId, lead_id: lead.id },
+      { subscriberId, lead_id: lead.id, product: produtoAtual },
     );
     return jsonResponse(replyWithRoutes(greeting, {
       state: "completed",
       lead_name: nomeAtual,
       lead_email: emailAtual,
       lead_phone: phoneAtual,
+      lead_product: produtoAtual,
     }), 200);
   } catch (err) {
     await logHealth(supabase, "error", "manychat_bridge_error", {
