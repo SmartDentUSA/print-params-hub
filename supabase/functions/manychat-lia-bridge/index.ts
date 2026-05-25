@@ -146,7 +146,10 @@ async function sendToManychat(
       data: {
         version: "v2",
         content: {
+          type: "instagram",
           messages: [{ type: "text", text: chunk }],
+          actions: [],
+          quick_replies: [],
         },
       },
       message_tag: "ACCOUNT_UPDATE",
