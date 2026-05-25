@@ -10,6 +10,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import {
+  AREA_ATUACAO_OPTIONS,
+  ESPECIALIDADE_OPTIONS,
+  renderNumberedList,
+  resolveTaxonomyAnswer,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,11 +46,23 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 const SITE_URL = "https://www.smartdent.com.br";
 
 type ReplyMeta = {
-  state: "ask_name" | "ask_email" | "ask_phone" | "ask_product" | "completed" | "error" | "idle";
+  state:
+    | "ask_name"
+    | "ask_email"
+    | "ask_phone"
+    | "ask_product"
+    | "ask_product_model"
+    | "ask_area"
+    | "ask_specialty"
+    | "completed"
+    | "error"
+    | "idle";
   lead_name?: string | null;
   lead_email?: string | null;
   lead_phone?: string | null;
   lead_product?: string | null;
+  lead_area?: string | null;
+  lead_specialty?: string | null;
 };
 
 function buildReply(text: string, meta: ReplyMeta) {
@@ -55,6 +73,8 @@ function buildReply(text: string, meta: ReplyMeta) {
     lead_email: meta.lead_email || "",
     lead_phone: meta.lead_phone || "",
     lead_product: meta.lead_product || "",
+    lead_area: meta.lead_area || "",
+    lead_specialty: meta.lead_specialty || "",
     qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
@@ -140,6 +160,9 @@ type LeadRow = {
   telefone_normalized: string | null;
   manychat_subscriber_id: string | null;
   produto_interesse_auto: string | null;
+  produto_interesse_raw: string | null;
+  area_atuacao: string | null;
+  especialidade: string | null;
 };
 
 async function findOrCreateLead(
@@ -149,7 +172,7 @@ async function findOrCreateLead(
 ): Promise<LeadRow> {
   const { data: existing } = await supabase
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade")
     .eq("manychat_subscriber_id", subscriberId)
     .is("merged_into", null)
     .limit(1)
@@ -175,7 +198,7 @@ async function findOrCreateLead(
       crm_creation_blocked: true,
       source: "Instagram - autoatendimento",
     })
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade")
     .maybeSingle();
 
   if (error || !created) {
@@ -235,6 +258,60 @@ function normalizeProductAnswer(raw: string): { label: string; canonical: string
 
 function hasProduct(p: string | null | undefined): boolean {
   return !!(p && p.trim().length >= 2);
+}
+
+function hasNonEmpty(v: string | null | undefined): boolean {
+  return !!(v && v.trim().length >= 2);
+}
+
+const PRODUCT_DISPLAY: Record<string, string> = {
+  impressora_3d: "🖨️ Impressora 3D",
+  scanner_intraoral: "📷 Scanner intraoral",
+  resinas: "🧪 Resinas e consumíveis",
+  cursos: "🎓 Cursos e treinamentos",
+};
+
+const PRODUCT_MODELS: Record<string, string[]> = {
+  impressora_3d: ["RayShape Edge Mini", "Elegoo Mars 5 Ultra", "Outra (descreva)"],
+  scanner_intraoral: ["Scanner Medit", "Scanner BLZ", "Outro (descreva)"],
+};
+
+function productDisplayLabel(canonical: string | null | undefined, raw: string | null | undefined): string {
+  if (canonical && PRODUCT_DISPLAY[canonical]) return PRODUCT_DISPLAY[canonical];
+  const txt = (raw || canonical || "").trim();
+  if (!txt) return "";
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function productCanonical(produtoAtual: string | null | undefined): string | null {
+  if (!produtoAtual) return null;
+  const v = produtoAtual.trim().toLowerCase();
+  if (PRODUCT_DISPLAY[v]) return v;
+  return null;
+}
+
+function needsProductModel(canonical: string | null): boolean {
+  return !!(canonical && PRODUCT_MODELS[canonical]);
+}
+
+function resolveProductModel(canonical: string, raw: string): string | null {
+  const list = PRODUCT_MODELS[canonical];
+  if (!list) return null;
+  const trimmed = raw.trim();
+  const numMatch = trimmed.match(/^\s*(\d{1,2})\b/);
+  if (numMatch) {
+    const idx = parseInt(numMatch[1], 10) - 1;
+    if (idx >= 0 && idx < list.length) {
+      // Última opção é sempre "Outro (descreva)" → exige texto livre adicional
+      if (idx === list.length - 1) {
+        const extra = trimmed.replace(/^\s*\d{1,2}[\)\.\-:\s]*/, "").trim();
+        return extra.length >= 2 ? extra : null;
+      }
+      return list[idx];
+    }
+  }
+  // Texto livre ≥ 2 chars conta como modelo descrito
+  return trimmed.length >= 2 ? trimmed : null;
 }
 
 Deno.serve(async (req) => {
