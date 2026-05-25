@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
         lead_name: nomeAtual,
         lead_email: emailAtual,
         manychat_subscriber_id: subscriberId,
-        channel: "manychat_instagram",
+        channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
