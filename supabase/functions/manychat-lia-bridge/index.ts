@@ -10,6 +10,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import {
+  AREA_ATUACAO_OPTIONS,
+  ESPECIALIDADE_OPTIONS,
+  renderNumberedList,
+  resolveTaxonomyAnswer,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,11 +46,23 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 const SITE_URL = "https://www.smartdent.com.br";
 
 type ReplyMeta = {
-  state: "ask_name" | "ask_email" | "ask_phone" | "ask_product" | "completed" | "error" | "idle";
+  state:
+    | "ask_name"
+    | "ask_email"
+    | "ask_phone"
+    | "ask_product"
+    | "ask_product_model"
+    | "ask_area"
+    | "ask_specialty"
+    | "completed"
+    | "error"
+    | "idle";
   lead_name?: string | null;
   lead_email?: string | null;
   lead_phone?: string | null;
   lead_product?: string | null;
+  lead_area?: string | null;
+  lead_specialty?: string | null;
 };
 
 function buildReply(text: string, meta: ReplyMeta) {
@@ -55,6 +73,8 @@ function buildReply(text: string, meta: ReplyMeta) {
     lead_email: meta.lead_email || "",
     lead_phone: meta.lead_phone || "",
     lead_product: meta.lead_product || "",
+    lead_area: meta.lead_area || "",
+    lead_specialty: meta.lead_specialty || "",
     qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
@@ -140,6 +160,9 @@ type LeadRow = {
   telefone_normalized: string | null;
   manychat_subscriber_id: string | null;
   produto_interesse_auto: string | null;
+  produto_interesse_raw: string | null;
+  area_atuacao: string | null;
+  especialidade: string | null;
 };
 
 async function findOrCreateLead(
@@ -149,7 +172,7 @@ async function findOrCreateLead(
 ): Promise<LeadRow> {
   const { data: existing } = await supabase
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade")
     .eq("manychat_subscriber_id", subscriberId)
     .is("merged_into", null)
     .limit(1)
@@ -175,7 +198,7 @@ async function findOrCreateLead(
       crm_creation_blocked: true,
       source: "Instagram - autoatendimento",
     })
-    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto")
+    .select("id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade")
     .maybeSingle();
 
   if (error || !created) {
@@ -237,6 +260,60 @@ function hasProduct(p: string | null | undefined): boolean {
   return !!(p && p.trim().length >= 2);
 }
 
+function hasNonEmpty(v: string | null | undefined): boolean {
+  return !!(v && v.trim().length >= 2);
+}
+
+const PRODUCT_DISPLAY: Record<string, string> = {
+  impressora_3d: "🖨️ Impressora 3D",
+  scanner_intraoral: "📷 Scanner intraoral",
+  resinas: "🧪 Resinas e consumíveis",
+  cursos: "🎓 Cursos e treinamentos",
+};
+
+const PRODUCT_MODELS: Record<string, string[]> = {
+  impressora_3d: ["RayShape Edge Mini", "Elegoo Mars 5 Ultra", "Outra (descreva)"],
+  scanner_intraoral: ["Scanner Medit", "Scanner BLZ", "Outro (descreva)"],
+};
+
+function productDisplayLabel(canonical: string | null | undefined, raw: string | null | undefined): string {
+  if (canonical && PRODUCT_DISPLAY[canonical]) return PRODUCT_DISPLAY[canonical];
+  const txt = (raw || canonical || "").trim();
+  if (!txt) return "";
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function productCanonical(produtoAtual: string | null | undefined): string | null {
+  if (!produtoAtual) return null;
+  const v = produtoAtual.trim().toLowerCase();
+  if (PRODUCT_DISPLAY[v]) return v;
+  return null;
+}
+
+function needsProductModel(canonical: string | null): boolean {
+  return !!(canonical && PRODUCT_MODELS[canonical]);
+}
+
+function resolveProductModel(canonical: string, raw: string): string | null {
+  const list = PRODUCT_MODELS[canonical];
+  if (!list) return null;
+  const trimmed = raw.trim();
+  const numMatch = trimmed.match(/^\s*(\d{1,2})\b/);
+  if (numMatch) {
+    const idx = parseInt(numMatch[1], 10) - 1;
+    if (idx >= 0 && idx < list.length) {
+      // Última opção é sempre "Outro (descreva)" → exige texto livre adicional
+      if (idx === list.length - 1) {
+        const extra = trimmed.replace(/^\s*\d{1,2}[\)\.\-:\s]*/, "").trim();
+        return extra.length >= 2 ? extra : null;
+      }
+      return list[idx];
+    }
+  }
+  // Texto livre ≥ 2 chars conta como modelo descrito
+  return trimmed.length >= 2 ? trimmed : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
@@ -279,15 +356,31 @@ Deno.serve(async (req) => {
     let emailAtual = (entities.collected_email as string | undefined) || lead.email;
     let phoneAtual = (entities.collected_phone as string | undefined) || lead.telefone_normalized;
     let produtoAtual = (entities.collected_product as string | undefined) || lead.produto_interesse_auto;
+    let modeloAtual = (entities.collected_product_model as string | undefined) || null;
+    let areaAtual = (entities.collected_area as string | undefined) || lead.area_atuacao;
+    let especialidadeAtual = (entities.collected_specialty as string | undefined) || lead.especialidade;
+
+    // Deriva canonical do produto + necessidade de submodelo
+    const productCanon = productCanonical(produtoAtual);
+    const productNeedsModel = needsProductModel(productCanon);
+    // Se já houver "raw" salvo no formato "canonical | modelo", extrai
+    if (!modeloAtual && lead.produto_interesse_raw && lead.produto_interesse_raw.includes("|")) {
+      const parts = lead.produto_interesse_raw.split("|").map((p) => p.trim());
+      if (parts.length >= 2 && parts[1].length >= 2) modeloAtual = parts[1];
+    }
 
     // 3. Se mensagem é resposta a uma pergunta pendente, processa
     if (message) {
       // Só honra a flag se for o PRÓXIMO campo faltante na ordem nome→email→telefone→produto.
-      const nextMissing: "name" | "email" | "phone" | "product" | null =
+      const nextMissing:
+        | "name" | "email" | "phone" | "product" | "product_model" | "area" | "specialty" | null =
         !hasRealName(nomeAtual) ? "name"
         : !hasRealEmail(emailAtual) ? "email"
         : !hasRealPhone(phoneAtual) ? "phone"
         : !hasProduct(produtoAtual) ? "product"
+        : (productNeedsModel && !hasNonEmpty(modeloAtual)) ? "product_model"
+        : !hasNonEmpty(areaAtual) ? "area"
+        : !hasNonEmpty(especialidadeAtual) ? "specialty"
         : null;
 
       if (nextMissing === "name" && entities.awaiting_manychat_name) {
@@ -377,6 +470,68 @@ Deno.serve(async (req) => {
         } else {
           await logHealth(supabase, "info", "manychat_invalid_product", { subscriberId, message });
         }
+      } else if (nextMissing === "product_model" && entities.awaiting_manychat_product_model) {
+        const canon = productCanonical(produtoAtual);
+        const modelo = canon ? resolveProductModel(canon, message) : null;
+        if (modelo) {
+          modeloAtual = modelo;
+          entities.collected_product_model = modelo;
+          const rawCombined = `${canon} | ${modelo}`;
+          const { error: mdErr } = await supabase.from("lia_attendances").update({
+            produto_interesse_raw: rawCombined,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (mdErr) {
+            await logHealth(supabase, "warn", "manychat_product_model_update_conflict", {
+              subscriberId, error: mdErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_product_model_captured", {
+            subscriberId, canonical: canon, modelo, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_product_model", { subscriberId, message });
+        }
+      } else if (nextMissing === "area" && entities.awaiting_manychat_area) {
+        const opt = resolveTaxonomyAnswer(AREA_ATUACAO_OPTIONS, message);
+        if (opt) {
+          areaAtual = opt.value;
+          entities.collected_area = areaAtual;
+          const { error: arErr } = await supabase.from("lia_attendances").update({
+            area_atuacao: areaAtual,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (arErr) {
+            await logHealth(supabase, "warn", "manychat_area_update_conflict", {
+              subscriberId, error: arErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_area_captured", {
+            subscriberId, value: areaAtual, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_area", { subscriberId, message });
+        }
+      } else if (nextMissing === "specialty" && entities.awaiting_manychat_specialty) {
+        const opt = resolveTaxonomyAnswer(ESPECIALIDADE_OPTIONS, message);
+        if (opt) {
+          especialidadeAtual = opt.value;
+          entities.collected_specialty = especialidadeAtual;
+          const { error: spErr } = await supabase.from("lia_attendances").update({
+            especialidade: especialidadeAtual,
+            updated_at: new Date().toISOString(),
+          }).eq("id", lead.id);
+          if (spErr) {
+            await logHealth(supabase, "warn", "manychat_specialty_update_conflict", {
+              subscriberId, error: spErr.message,
+            });
+          }
+          await logHealth(supabase, "info", "manychat_specialty_captured", {
+            subscriberId, value: especialidadeAtual, raw: message.trim(),
+          });
+        } else {
+          await logHealth(supabase, "info", "manychat_invalid_specialty", { subscriberId, message });
+        }
       }
       // Se a flag não bate com o nextMissing (sessão obsoleta), apenas cai
       // para o passo 4, que vai perguntar o campo correto.
@@ -387,6 +542,10 @@ Deno.serve(async (req) => {
     const missingEmail = !hasRealEmail(emailAtual);
     const missingPhone = !hasRealPhone(phoneAtual);
     const missingProduct = !hasProduct(produtoAtual);
+    const productCanonNow = productCanonical(produtoAtual);
+    const missingProductModel = needsProductModel(productCanonNow) && !hasNonEmpty(modeloAtual);
+    const missingArea = !hasNonEmpty(areaAtual);
+    const missingSpecialty = !hasNonEmpty(especialidadeAtual);
 
     if (missingName) {
       await supabase.from("agent_sessions").upsert({
@@ -468,6 +627,9 @@ Deno.serve(async (req) => {
           awaiting_manychat_email: false,
           awaiting_manychat_phone: false,
           awaiting_manychat_product: true,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: false,
         },
         current_state: "qualifying",
         last_activity_at: new Date().toISOString(),
@@ -475,7 +637,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_product", { subscriberId });
       const firstName = (nomeAtual || "").split(/\s+/)[0];
       const askProductText = [
-        `Última pergunta, ${firstName}! Qual produto/tema te interessa mais agora?`,
+        `Para te ajudar melhor, ${firstName}, qual produto/tema te interessa mais agora?`,
         "",
         "1) 🖨️ Impressora 3D",
         "2) 📷 Scanner intraoral",
@@ -491,6 +653,129 @@ Deno.serve(async (req) => {
       }), 200);
     }
 
+    if (missingProductModel && productCanonNow) {
+      const list = PRODUCT_MODELS[productCanonNow];
+      const display = PRODUCT_DISPLAY[productCanonNow];
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: true,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_product_model", {
+        subscriberId, canonical: productCanonNow,
+      });
+      const askModelText = [
+        `Anotado: ${display} ✅`,
+        "Qual modelo te interessa mais?",
+        ...list.map((m, i) => `${i + 1}) ${m}`),
+      ].join("\n");
+      return jsonResponse(textReply(askModelText, {
+        state: "ask_product_model",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+      }), 200);
+    }
+
+    if (missingArea) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: true,
+          awaiting_manychat_specialty: false,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_area", { subscriberId });
+      const justChoseModel = !!entities.awaiting_manychat_product_model;
+      const justChoseProduct = !!entities.awaiting_manychat_product && !justChoseModel;
+      const prefix = justChoseModel && modeloAtual
+        ? `Anotado: ${modeloAtual} ✅\n`
+        : justChoseProduct && productCanonNow
+          ? `Anotado: ${PRODUCT_DISPLAY[productCanonNow]} ✅\n`
+          : "";
+      const askAreaText = [
+        `${prefix}Para te direcionar melhor, qual é a sua **área de atuação**?`,
+        "",
+        renderNumberedList(AREA_ATUACAO_OPTIONS),
+      ].join("\n");
+      return jsonResponse(textReply(askAreaText, {
+        state: "ask_area",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+      }), 200);
+    }
+
+    if (missingSpecialty) {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: lead.id,
+        extracted_entities: {
+          ...entities,
+          lead_name: nomeAtual,
+          lead_email: emailAtual,
+          lead_product: produtoAtual,
+          lead_area: areaAtual,
+          manychat_subscriber_id: subscriberId,
+          awaiting_manychat_name: false,
+          awaiting_manychat_email: false,
+          awaiting_manychat_phone: false,
+          awaiting_manychat_product: false,
+          awaiting_manychat_product_model: false,
+          awaiting_manychat_area: false,
+          awaiting_manychat_specialty: true,
+        },
+        current_state: "qualifying",
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+      await logHealth(supabase, "info", "manychat_ask_specialty", { subscriberId });
+      const justChoseArea = !!entities.awaiting_manychat_area;
+      const prefix = justChoseArea && areaAtual ? `Anotado: ${areaAtual} ✅\n` : "";
+      const askSpecText = [
+        `${prefix}E qual é a sua **especialidade**?`,
+        "",
+        renderNumberedList(ESPECIALIDADE_OPTIONS),
+      ].join("\n");
+      return jsonResponse(textReply(askSpecText, {
+        state: "ask_specialty",
+        lead_name: nomeAtual,
+        lead_email: emailAtual,
+        lead_phone: phoneAtual,
+        lead_product: produtoAtual,
+        lead_area: areaAtual,
+      }), 200);
+    }
+
     // 5. Perfil completo → limpa flags de coleta e envia rotas
     await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
@@ -501,21 +786,45 @@ Deno.serve(async (req) => {
         lead_name: nomeAtual,
         lead_email: emailAtual,
         lead_product: produtoAtual,
+        lead_product_model: modeloAtual,
+        lead_area: areaAtual,
+        lead_specialty: especialidadeAtual,
         manychat_subscriber_id: subscriberId,
         channel: "Instagram - autoatendimento",
         awaiting_manychat_name: false,
         awaiting_manychat_email: false,
         awaiting_manychat_phone: false,
         awaiting_manychat_product: false,
+        awaiting_manychat_product_model: false,
+        awaiting_manychat_area: false,
+        awaiting_manychat_specialty: false,
       },
       current_state: "idle",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
     const firstName = (nomeAtual || "").split(/\s+/)[0];
-    const justCompleted = entities.awaiting_manychat_product || entities.awaiting_manychat_phone || entities.awaiting_manychat_email || entities.awaiting_manychat_name;
+    const justCompleted = entities.awaiting_manychat_product
+      || entities.awaiting_manychat_product_model
+      || entities.awaiting_manychat_area
+      || entities.awaiting_manychat_specialty
+      || entities.awaiting_manychat_phone
+      || entities.awaiting_manychat_email
+      || entities.awaiting_manychat_name;
+    let confirmLine = "";
+    if (justCompleted) {
+      if (entities.awaiting_manychat_specialty && especialidadeAtual) {
+        confirmLine = `Anotado: ${especialidadeAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_area && areaAtual) {
+        confirmLine = `Anotado: ${areaAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_product_model && modeloAtual) {
+        confirmLine = `Anotado: ${modeloAtual} ✅\n`;
+      } else if (entities.awaiting_manychat_product && productCanonNow) {
+        confirmLine = `Anotado: ${PRODUCT_DISPLAY[productCanonNow]} ✅\n`;
+      }
+    }
     const greeting = justCompleted
-      ? `Cadastro confirmado, ${firstName}! ✅\nComo posso te ajudar hoje?`
+      ? `${confirmLine}Tudo certo, ${firstName}! ✅\nComo posso te ajudar agora?`
       : `Olá, ${firstName}! 👋\nComo posso te ajudar hoje?`;
 
     await logHealth(supabase, "info",
