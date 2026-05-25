@@ -1,82 +1,113 @@
 
-# Plano: recuperar leads + nunca mais perder
+## Diagnóstico
 
-## Parte 1 — Correção imediata (8 leads do CSV)
+A função cron **`meta-lead-ads-pull`** (`*/2 * * * *`, `since_minutes=3`) está reentregando os mesmos `leadgen_id`s do Meta a cada execução e, para 3 leads já existentes em "Funil de vendas", entra no branch **REATIVADO** e chama `smart-ops-lia-assign` de novo. Logs (22:38→22:48):
 
-### 1a. Ingerir 4 leads ausentes
-Estão no PipeRun (vieram pela integração nativa PipeRun↔Meta) mas nunca chegaram ao nosso CDP.
+```
+REATIVADO: tatitessarini17@gmail.com estava em pipeline=Funil de vendas
+REATIVADO: celiosousa2@hotmail.com  estava em pipeline=Funil de vendas
+REATIVADO: miguel.alm34@hotmail.com estava em pipeline=Funil de vendas
+```
 
-| Lead | Telefone | Form |
-|------|----------|------|
-| benhurlanna@yahoo.com | +553184028095 | GlazeON |
-| evelynbarra@gmail.com | +5511942501031 | GlazeON |
-| jeffersondelcarlo@gmail.com | +5511984410064 | GlazeON |
-| poliana2lopes@gmail.com | +556299980101 | Impresoras |
+Cada lead aparece com **2 leadgen_ids ping-pong** (formulários gêmeos "BLZ- Smart Dent" e "# - FACE - INTRAORAL MEDIT") → 6 invocações de lia-assign a cada 2 min → 6 inserts em `lead_activity_log (event_type='seller_assigned')`. Em 10 h são ~1.800 eventos de ruído.
 
-**Ação:** invocar `smart-ops-sync-piperun?pipeline_id=18784&since=2026-05-23` (Funil de Vendas, janela 72h). O sync já tem `insert` em `lia_attendances` (linha 637) → vai criar os 4 com `piperun_id` correto, snapshot completo do deal e `funil_entrada_crm='Funil de vendas'`.
+Por que os guards existentes não pegam:
+- `smart-ops-ingest-lead` HARD_DEDUPE + FAMILY_KEY + REDELIVERY_GUARD funcionam, mas **`meta-lead-ads-pull` NÃO passa por ingest-lead** no caminho "reativado" — chama lia-assign direto.
+- Idempotency em lia-assign (`piperun_id && updated_at < 3min`) falha porque a re-execução leva 10 s e a janela de 3 min nunca expira, mas o `updated_at` é re-escrito pelo próprio pipeline (GOLDEN RULE limpa `proprietario_lead_crm` transitoriamente), então a guard sempre vê o lead "antigo" e roda o pipeline inteiro.
+- Tatianna está com `platform_lead_id=NULL` e `platform_form_id=NULL` no CDP → mesmo se ingest-lead fosse chamado, nenhum dos dedupes funcionaria.
 
-### 1b. Reabrir 4 reincidentes presos em "Estagnados"
-| Lead | Deal antigo |
-|------|-------------|
-| andrefmastermind@gmail.com | 56441081 |
-| ricardochinen64@gmail.com | 38218921 |
-| fernandobrasil75@hotmail.com | 58674961 |
-| elopes710.el@gmail.com | 47902052 |
+## Plano
 
-PipeRun já tem deal novo "Em análise" pra cada um (CSV confirma). O `sync-piperun-vendas-1h` ao rodar com `since` recente vai puxar esses deals novos e o `pickPrimaryDeal` (open > closed) substitui o snapshot → eles passam pra "Funil de vendas" automaticamente. Mesma chamada do 1a resolve.
+### Parte 1 — Recuperar `meta-lead-ads-pull` para o repo
 
----
+A função está deployada como `v13` mas não existe em `supabase/functions/`. Vou recriar o arquivo a partir do contrato observado (logs + tabela `lia_attendances` columns) e aplicar os patches diretamente.
 
-## Parte 2 — Solução permanente (blindagem)
+### Parte 2 — Guard novo em `meta-lead-ads-pull` (branch REATIVADO)
 
-### Causa-raiz dos 4 perdidos
-- **Não vieram pelo nosso `meta-lead-ads-pull`**: ad account/page fora do escopo monitorado OU forms GlazeON sem `form_id` cadastrado.
-- **Sync PipeRun usa filtro `updated_since`**: se entre 2 execuções o deal foi criado E movido sem batida com nossa janela, escapa.
-- **Sem watchdog reativo**: hoje só temos `watchdog-leads-orfaos` semanal (segunda 11h) — perda fica invisível por até 7 dias.
+Antes de despachar lia-assign:
 
-### Defesa em 3 camadas
+```ts
+// Skip total se o lead canônico já está em Funil de Vendas (18784)
+// e foi atualizado nas últimas 24h. Re-entregas Meta NUNCA reativam
+// um lead que já está num funil comercial ativo.
+if (canonicalLead.piperun_pipeline_id === 18784
+    && new Date(canonicalLead.updated_at) > Date.now() - 24*3600*1000) {
+  // arquivar novo leadgen_id em previous_platform_lead_ids e sair
+  await archiveLeadgenId(canonicalLead.id, leadgenId);
+  log("META_PULL_SKIP_ACTIVE_VENDAS", { email, leadgenId, lead_id: canonicalLead.id });
+  continue;
+}
+```
 
-**Camada 1 — Webhook PipeRun como source-of-truth (preventivo)**
-`smart-ops-piperun-webhook` já existe. Verificar no painel PipeRun se eventos `deal.created` / `person.created` do **Funil de Vendas (18784)** estão ativos e apontando pra nossa URL. Se sim → confirmar `system_health_logs` registra invocações. Se não → ativar. Isso captura todo deal novo em <5s.
+Também aplicar **HARD_DEDUPE por leadgen_id** (mesma query usada em ingest-lead L86) antes de qualquer side-effect.
 
-**Camada 2 — Reconciliador diário CSV-style (detectivo)**
-Nova edge function `smart-ops-piperun-funnel-reconciler` (rodar 1×/dia, 7h):
-1. `GET /deals?pipeline_id=18784&updated_since=last_24h&show=200` (paginado)
-2. Pra cada deal: `LEFT JOIN lia_attendances ON piperun_id = deal.id`
-3. Se sem match → `INSERT` em `lia_attendances` com snapshot completo (mesma lógica do `sync-piperun` linha 637)
-4. Se match em outro pipeline (Estagnados) → reaplica `pickPrimaryDeal` e atualiza snapshot
-5. Loga `piperun_funnel_reconciler` com `inserted_count`, `refreshed_count`, `gap_emails[]` em `system_health_logs`
+### Parte 3 — Reforçar idempotency em `smart-ops-lia-assign`
 
-**Camada 3 — Alerta proativo (corretivo)**
-Estender `watchdog-leads-orfaos` para rodar a cada 1h (não semanal) com query:
+Em `~L1842`, mudar a guarda de:
+- `piperun_id && updated_at < 3min`
+
+para também aceitar:
+- `piperun_pipeline_id = 18784 && trigger ∈ ['meta_pull','meta_pull_reactivation'] && exists seller_assigned event nas últimas 6h`
+
+Isso protege independentemente de quem chamou (meta-pull, retry-cron, etc).
+
+### Parte 4 — Backfill defensivo dos 3 leads
+
 ```sql
-SELECT count(*) FROM piperun_deals_history pdh
-LEFT JOIN lia_attendances l ON l.piperun_id = pdh.deal_id::text
-WHERE pdh.pipeline_id=18784 
-  AND pdh.created_at > now() - interval '6h'
-  AND l.id IS NULL;
+-- 1. Arquivar todos os leadgen_ids vistos em previous_platform_lead_ids
+UPDATE lia_attendances
+SET raw_payload = jsonb_set(
+  COALESCE(raw_payload,'{}'::jsonb),
+  '{previous_platform_lead_ids}',
+  to_jsonb(ARRAY[
+    '1309468353919888','1852019002160386','994460442184175',
+    '2074883396422916','2221100968425819','9999999999999999','7777777777777777','1853424102139156',
+    '1695326341666157','2212633665940663'
+  ])
+)
+WHERE id IN ('33c5006c-...','543af551-...','42dcab5c-...');
+
+-- 2. Preencher platform_form_id em Tatianna (estava NULL)
+UPDATE lia_attendances
+SET platform_form_id = '1853424102139156',  -- inferir do log mais comum
+    platform_lead_id  = COALESCE(platform_lead_id, '2212633665940663')
+WHERE id = '33c5006c-...';
 ```
-Se `count > 0` → INSERT em `system_health_logs` com `severity='critical'` + dispara WhatsApp pro admin via Evolution API.
 
----
+### Parte 5 — Limpeza dos eventos-ruído
 
-## Arquivos a alterar
-
-```text
-supabase/functions/smart-ops-piperun-funnel-reconciler/index.ts   (NEW)
-supabase/migrations/{ts}_piperun_reconciler_cron.sql              (NEW — cron job 1×/dia)
-supabase/migrations/{ts}_watchdog_hourly.sql                      (NEW — reagenda watchdog 1h)
-mem/architecture/piperun-funnel-reconciler.md                     (NEW — doc rule)
+```sql
+-- Apagar seller_assigned redundantes (>1 por lead nas últimas 24h)
+DELETE FROM lead_activity_log
+WHERE event_type = 'seller_assigned'
+  AND lead_id IN ('33c5006c-...','543af551-...','42dcab5c-...')
+  AND event_timestamp > now() - interval '24 hours'
+  AND id NOT IN (
+    SELECT DISTINCT ON (lead_id) id FROM lead_activity_log
+    WHERE event_type='seller_assigned'
+      AND lead_id IN ('33c5006c-...','543af551-...','42dcab5c-...')
+      AND event_timestamp > now() - interval '24 hours'
+    ORDER BY lead_id, event_timestamp ASC
+  );
 ```
 
-Nenhuma alteração em código de frontend. Nenhuma alteração no `sync-piperun` existente.
+### Parte 6 — Memória nova
 
----
+Atualizar `mem/architecture/meta-redelivery-loop-fix.md` com a 5ª camada (`META_PULL_SKIP_ACTIVE_VENDAS`) e adicionar regra **Core** no `mem/index.md`:
+
+> Leads em `piperun_pipeline_id=18784` (Vendas) NUNCA são reativados por `meta-lead-ads-pull` — re-entrega Meta apenas arquiva o novo leadgen_id.
+
+## Arquivos a tocar
+
+- `supabase/functions/meta-lead-ads-pull/index.ts` *(recriar a partir do deploy + adicionar guards)*
+- `supabase/functions/smart-ops-lia-assign/index.ts` *(reforçar idempotency ~L1842)*
+- `supabase/migrations/{ts}_kill_meta_redelivery_loop.sql` *(backfill + limpeza)*
+- `mem/architecture/meta-redelivery-loop-fix.md` *(adicionar 5ª camada)*
+- `mem/index.md` *(regra Core nova)*
 
 ## Validação pós-deploy
-1. Invocar reconciler manualmente — esperar 4 inserts + 4 refreshes.
-2. Re-rodar a consulta de auditoria do CSV → todos os 30 com `piperun_pipeline_name='Funil de vendas'`.
-3. Confirmar cron job ativo via `SELECT * FROM cron.job WHERE jobname LIKE '%reconciler%'`.
-4. Inspecionar `system_health_logs WHERE function_name='piperun_funnel_reconciler'` próximas 24h.
 
-Aprova pra implementar?
+1. Aguardar próximo tick de meta-lead-ads-pull (≤2 min).
+2. Verificar logs: deve aparecer `META_PULL_SKIP_ACTIVE_VENDAS` para tatitessarini/celiosousa/miguel.alm34.
+3. SQL: `select count(*) from lead_activity_log where event_type='seller_assigned' and event_timestamp > now() - interval '5 min'` deve ser ≈ 0 (apenas novos leads reais).
+4. `SmartOpsLogs › Log de Chegada` no /admin deve parar de mostrar a sequência repetida.
