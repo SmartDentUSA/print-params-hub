@@ -208,6 +208,84 @@ async function findOrCreateLead(
   return created as LeadRow;
 }
 
+const LEAD_COLS = "id, nome, email, telefone_normalized, manychat_subscriber_id, produto_interesse_auto, produto_interesse_raw, area_atuacao, especialidade";
+
+/**
+ * Quando o e-mail/telefone capturado no ManyChat já pertence a outro lead
+ * canônico (CDP), fundimos a duplicata gerada pelo bridge no canônico para
+ * preservar histórico PipeRun/Omie/Ecommerce. Smart Merge append-only:
+ * só preenche campos vazios no canônico; nunca sobrescreve dados existentes.
+ */
+async function mergeIntoCanonical(
+  supabase: ReturnType<typeof createClient>,
+  duplicate: LeadRow,
+  matchedBy: "email" | "phone",
+  value: string,
+): Promise<LeadRow | null> {
+  let query = supabase
+    .from("lia_attendances")
+    .select(LEAD_COLS + ", piperun_id, manychat_subscriber_id, instagram, manychat_collected_at")
+    .is("merged_into", null)
+    .neq("id", duplicate.id)
+    .limit(5);
+  query = matchedBy === "email"
+    ? query.ilike("email", value)
+    : query.eq("telefone_normalized", value);
+  const { data: candidates } = await query;
+  if (!candidates || candidates.length === 0) return null;
+
+  // Prefer o canônico com piperun_id (mais antigo primeiro).
+  const canonical = (candidates as Array<Record<string, unknown>>)
+    .sort((a, b) => (b.piperun_id ? 1 : 0) - (a.piperun_id ? 1 : 0))[0];
+  const canonicalId = canonical.id as string;
+
+  // Smart Merge: só preenche campos NULL no canônico.
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fillIfEmpty = (col: string, val: unknown) => {
+    if (val == null || val === "") return;
+    if (canonical[col] == null || canonical[col] === "") patch[col] = val;
+  };
+  fillIfEmpty("manychat_subscriber_id", duplicate.manychat_subscriber_id);
+  fillIfEmpty("manychat_collected_at", new Date().toISOString());
+  fillIfEmpty("instagram", duplicate.nome);
+  fillIfEmpty("telefone_normalized", duplicate.telefone_normalized);
+  fillIfEmpty("produto_interesse_auto", duplicate.produto_interesse_auto);
+  fillIfEmpty("produto_interesse_raw", duplicate.produto_interesse_raw);
+  fillIfEmpty("area_atuacao", duplicate.area_atuacao);
+  fillIfEmpty("especialidade", duplicate.especialidade);
+
+  await supabase.from("lia_attendances").update(patch).eq("id", canonicalId);
+
+  // Marca duplicata como merged e libera o índice único do subscriber_id.
+  await supabase.from("lia_attendances").update({
+    merged_into: canonicalId,
+    manychat_subscriber_id: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", duplicate.id);
+
+  const { data: updated } = await supabase
+    .from("lia_attendances")
+    .select(LEAD_COLS)
+    .eq("id", canonicalId)
+    .maybeSingle();
+
+  await supabase.from("system_health_logs").insert({
+    function_name: "manychat-lia-bridge",
+    severity: "info",
+    error_type: "manychat_merged_into_canonical",
+    lead_id: canonicalId,
+    details: {
+      from_lead_id: duplicate.id,
+      to_lead_id: canonicalId,
+      matched_by: matchedBy,
+      value,
+      subscriber_id: duplicate.manychat_subscriber_id,
+    },
+  });
+
+  return (updated as LeadRow) || null;
+}
+
 function hasRealName(nome: string | null): boolean {
   if (!nome) return false;
   const n = nome.trim();
