@@ -1,43 +1,66 @@
-## Diagnóstico
+## Objetivo
+Fazer a `manychat-lia-bridge` responder diretamente no External Request, sem depender da resposta lenta da LIA nem da Send API, seguindo este fluxo:
 
-O sintoma visível ("só fica mensagem fallback") tem causa direta no código:
+1. Recebe `subscriber_id`, `name` e `message` do ManyChat.
+2. Procura em `lia_attendances` por `manychat_subscriber_id = subscriber_id` com `merged_into IS NULL`.
+3. Se o lead não existe ou está incompleto, coleta nesta ordem:
+   - nome
+   - e-mail
+   - celular com DDD
+4. Após completar nome + e-mail + celular, salva/atualiza o lead na base.
+5. Responde: “Como posso te ajudar?” e envia opções/quick replies das rotas da LIA, incluindo `site`.
+6. Só depois do cadastro completo a conversa pode seguir para a Dra. LIA/RAG.
 
-1. Hoje a bridge responde **imediatamente** com `EMPTY_REPLY` (`messages: []`) e processa `dra-lia` em background, mandando a resposta depois via **ManyChat Send API**.
-2. Quando o ManyChat recebe `content.messages = []`, ele dispara o **fallback** do bloco (mensagem padrão).
-3. A entrega "real" depois via Send API está falhando com `401 "Wrong token"` (confirmado nos `system_health_logs` e em teste curl direto contra `api.manychat.com`). Por isso o lead **nunca** vê a resposta da Dra. LIA — só o fallback.
+## O que vou alterar
 
-Conclusão: o caminho `async + Send API` depende de um token que a API rejeita. A versão que "estava funcionando" era a **síncrona** — bridge devolvia o texto da Dra. LIA direto no JSON de resposta do External Request, e o ManyChat exibia. Sem Send API, sem token, sem fallback.
+### 1. `supabase/functions/manychat-lia-bridge/index.ts`
+Substituir o caminho atual que chama `dra-lia` por um fluxo próprio de qualificação rápida:
 
-## Mudança
+- Buscar o lead por `manychat_subscriber_id`.
+- Criar/atualizar lead mínimo quando necessário.
+- Usar `agent_sessions.extracted_entities` para guardar o estado da coleta:
+  - `awaiting_manychat_name`
+  - `awaiting_manychat_email`
+  - `awaiting_manychat_phone`
+  - `lead_name`
+  - `lead_email`
+  - `manychat_subscriber_id`
+- Retornar sempre uma mensagem útil ao ManyChat, evitando `{ messages: [] }` no fluxo normal.
+- Validar e-mail e telefone antes de salvar.
+- Normalizar telefone para BR quando possível.
+- Incluir quick replies/rotas, por exemplo:
+  - `Site`
+  - `Falar com especialista`
+  - `Produtos`
+  - `Cursos`
 
-Reverter `supabase/functions/manychat-lia-bridge/index.ts` para o modelo **síncrono com timeout defensivo**:
+### 2. Manter segurança e integridade
+- Todas as consultas em `lia_attendances` terão `merged_into IS NULL`.
+- Não criar PipeRun/CRM automaticamente para lead sem dados reais.
+- Manter `crm_creation_blocked` para leads vindos do Instagram/ManyChat até ter identificação mínima.
+- Não usar `MANYCHAT_API_KEY` nem Send API.
 
-1. Remover `EdgeRuntime.waitUntil(processAsync(...))` e a função `sendToManychat`.
-2. No caminho LLM, chamar `dra-lia` e aguardar a resposta SSE com `AbortController` de **8s** (margem segura abaixo dos ~10s do ManyChat).
-3. Se a resposta chegar a tempo → retornar `textReply(reply)` com os chunks em `messages: [{type:"text", text:chunk1}, {type:"text", text:chunk2}, ...]` (ManyChat aceita múltiplas mensagens no mesmo `content`).
-4. Se estourar timeout ou erro → retornar `EMPTY_REPLY` (fallback do ManyChat assume) e logar em `system_health_logs` como `dra_lia_timeout` para monitorar.
-5. Manter intactos os short-circuits existentes (greeting conhecido, emoji, URL, loop guard) — eles já eram síncronos.
+### 3. Logs para diagnóstico
+Adicionar logs em `system_health_logs`:
 
-## O que NÃO muda
+- `manychat_qualification_start`
+- `manychat_ask_name`
+- `manychat_ask_email`
+- `manychat_ask_phone`
+- `manychat_profile_completed`
+- `manychat_routes_sent`
+- `manychat_invalid_email`
+- `manychat_invalid_phone`
 
-- Endpoint público (`/manychat-lia-bridge`) e contrato de entrada (`subscriber_id`, `message`, `name`).
-- `dra-lia` e toda a lógica de qualificação progressiva.
-- Sessão `mc_<subscriber_id>` e short-circuits.
+## Resultado esperado
+Quando chegar mensagem no Instagram via ManyChat:
 
-## Detalhes técnicos
+```text
+Lead sem cadastro → “Olá! Para começar, qual é seu nome?”
+Nome recebido → “Obrigado, {nome}. Qual é seu melhor e-mail?”
+E-mail recebido → “Perfeito. Agora me envie seu celular com DDD.”
+Telefone recebido → “Cadastro atualizado. Como posso te ajudar?” + opções de rota
+Lead já completo → “Olá, {nome}! Como posso te ajudar?” + opções de rota
+```
 
-- `consumeSSE` recebe um `signal` do AbortController; ao abortar, captura o que já foi acumulado (best-effort — descarta se < 20 chars).
-- `chunkText` continua igual; resultado vira array de `{type:"text", text}` em `content.messages`.
-- Logs novos: `sync_dispatch`, `sync_reply_ok` (com `reply_len`, `chunks`, `elapsed_ms`), `dra_lia_timeout`, `dra_lia_error_sync`.
-- `MANYCHAT_API_KEY` deixa de ser usado pela bridge (pode ficar como secret órfão; não removo agora).
-
-## Validação
-
-1. Deploy da função.
-2. Mandar DM do `888640279` para o Instagram da SmartDent.
-3. Conferir em `system_health_logs`:
-   - `sync_dispatch` → `sync_reply_ok` com `elapsed_ms < 8000`.
-   - Sem `manychat_send_failed`.
-4. Mensagem da Dra. LIA aparece no Instagram **sem** o fallback.
-
-Se `dra_lia_timeout` aparecer com frequência, próximo passo é encurtar o prompt/SSE da `dra-lia`, não voltar para Send API.
+Assim o bloco do ManyChat não cai mais no fallback durante a qualificação, porque a bridge responde imediatamente com texto próprio.
