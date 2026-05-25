@@ -719,7 +719,7 @@ Deno.serve(async (req) => {
 
           const pipelineResults: unknown[] = [];
           for (const chunkOffset of chunks) {
-            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
+            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}${sinceHours ? `&since_hours=${sinceHours}` : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
             const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?${chunkParams}`;
             try {
               const res = await fetch(fnUrl, {
