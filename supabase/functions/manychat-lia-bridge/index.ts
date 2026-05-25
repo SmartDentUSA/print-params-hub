@@ -55,6 +55,7 @@ type ReplyMeta = {
     | "ask_area"
     | "ask_specialty"
     | "completed"
+    | "handoff"
     | "error"
     | "idle";
   lead_name?: string | null;
