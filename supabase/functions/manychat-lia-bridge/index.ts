@@ -139,6 +139,7 @@ type LeadRow = {
   email: string | null;
   telefone_normalized: string | null;
   manychat_subscriber_id: string | null;
+  produto_interesse_auto: string | null;
 };
 
 async function findOrCreateLead(
