@@ -1,52 +1,56 @@
-# Performance por Vendedor — dados reais
-
 ## Diagnóstico
 
-`src/components/SmartOpsSellerAutomations.tsx` tem 3 bugs que tornam os números irreais:
+Lead `04f7e07e... Luciana Boggian` recebe `seller_assigned` a cada ~1.5 min (mesmo dado, sem novo formulário desde 22:18). Confirmado em `lead_activity_log` + edge logs.
 
-1. **Limite de 1000 linhas** em `lia_attendances` (tabela tem ~31k). Amostra enviesada.
-2. **Falta `WHERE merged_into IS NULL`** — viola a regra Core do CDP (conta duplicatas merged).
-3. **`status_atual_lead_crm === "Ganha"` nunca casa.** Os status reais são `cliente_ativo`, `Etapa 0X - Reativação`, `Fechamento`, etc. Resultado: **todos os vendedores aparecem com 0 ganhos e 0% de conversão** (confirmado via query).
+**Cadeia:**
+1. Meta re-entrega o mesmo `leadgen_id` a cada ~2 min para 2 formulários (`# - FACE - SCAN BANCADA MEDIT` e `# - Impresoras - Smart Dent`).
+2. `smart-ops-ingest-lead` tem 3 camadas de dedupe (HARD/FAMILY/activity-log), mas **todas falham** para este lead:
+   - `platform_lead_id = NULL` na linha → HARD_DEDUPE não casa.
+   - `platform_form_id = NULL` → FAMILY_KEY não casa.
+   - `lead_activity_log.entity_id` é a string sintética `lead:UUID|source:...|form:...`, não o `leadgen_id` → 3ª camada não casa.
+3. `ingest-lead` então dispara `smart-ops-lia-assign` com `trigger="sdr_captacao_reativacao"`.
+4. Em `lia-assign` a guarda de idempotência (≤5 min) exige `proprietario_lead_crm && piperun_id && updated_at`. Os edge logs mostram "Round Robin assigned: Adriano" → no momento da leitura `proprietario_lead_crm` está **vazio** (re-setado para Marcela pelo GOLDEN RULE só no final), então a guarda não dispara e o fluxo completo roda toda vez.
 
-Vendedor verdadeiro = quem fechou deals (tabela `deals`, `status_id = 2` = Ganha), não quem é proprietário do lead no CDP.
+Resultado: 2 invocações por ciclo, ~30 por hora, escrevendo `seller_assigned`, atualizando PipeRun, publicando contato, etc.
 
-## Solução
+## Correções
 
-Criar RPC `query_seller_performance()` em SQL que agrega tudo server-side a partir de fontes corretas, e refatorar o componente para consumi-la.
+### 1. `smart-ops-ingest-lead` — dedupe robusto para leads Meta sem `platform_lead_id`/`platform_form_id`
 
-### 1. Migration: RPC `query_seller_performance`
+Adicionar uma 4ª camada de dedupe **antes** do dispatch para lia-assign, específica para `source='meta_lead_ads'`:
 
-Retorna uma linha por vendedor ativo (`team_members` onde `ativo=true AND role='vendedor'`), com:
+- Resolver o lead canônico por email/telefone (já existe).
+- Se existir, consultar `lead_activity_log` por `(lead_id = canonical, event_type='form_submission', entity_name = form_name, event_timestamp > now() - 12h)`.
+- Se houver hit → tratar como re-entrega: arquivar `meta_leadgen_id` em `raw_payload.previous_platform_lead_ids`, gravar `platform_lead_id`/`platform_form_id` no lead canônico (backfill) e retornar `duplicate_skipped:true`. **Não** dispara lia-assign nem registra novo `form_submission`.
 
-- `name`, `whatsapp`
-- `total_leads` — contagem em `lia_attendances` com `proprietario_lead_crm = nome_completo` **AND `merged_into IS NULL`**
-- `won_deals` — `COUNT(*)` em `deals` com `owner_name = nome_completo AND status_id = 2`
-- `revenue` — `SUM(value)` dos deals ganhos (últimos 12m)
-- `open_deals` — deals com `status_id = 1`
-- `last_lead_at` — `MAX(created_at)` de leads do CDP
-- `conversion_rate` — `won_deals / NULLIF(total_leads,0) * 100`
+Isso fecha o loop sem depender de campos nulos legados.
 
-`SECURITY DEFINER`, search_path travado, grant para `authenticated`.
+### 2. `smart-ops-ingest-lead` — backfill obrigatório de identificadores Meta
 
-### 2. Refatorar `SmartOpsSellerAutomations.tsx`
+Sempre que processar um payload Meta e o lead canônico estiver com `platform_lead_id` ou `platform_form_id` nulos, preencher imediatamente com os valores do payload atual. Garante que, a partir da próxima entrega, HARD_DEDUPE/FAMILY_KEY funcionem normalmente.
 
-- Substituir as 2 queries client-side por `supabase.rpc('query_seller_performance')`.
-- Remover o cálculo client-side em memória.
-- Manter UI (ranking por conversão, badges, ícone Trophy no topo).
-- Trocar o badge "by status" (que dependia da varredura client) por **ticket médio** (`revenue / won_deals`) — informação mais útil e já vem do RPC.
+### 3. `smart-ops-lia-assign` — guarda de idempotência à prova de race
 
-## Detalhes técnicos
+Substituir a condição `lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at` por uma checagem mais resiliente:
 
-- Patrícia Gastaldi continua excluída via memória existente (`patricia-gastaldi-blocked-seller`) — o filtro `ativo=true` em `team_members` já cuida disso se ela estiver inativa; caso contrário, adicionar `AND nome_completo <> 'Patricia Gastaldi'` no RPC.
-- Janela de receita: últimos 365 dias (`closed_at >= now() - interval '365 days'`).
-- Performance: agregação 100% no Postgres, sem 1000-row cap, sem write amplification.
+- Se `piperun_id` existir **e** `updated_at` for < 3 min → SKIP (independente de `proprietario_lead_crm`, que pode estar transitoriamente vazio durante o GOLDEN RULE).
+- Manter o bypass por `force=true` / `force_new_deal=true`.
 
-## Arquivos afetados
+Isso impede que uma janela momentânea sem `proprietario_lead_crm` (re-atribuição em andamento) abra brecha para reprocessamento.
 
-- `supabase/migrations/<timestamp>_seller_performance_rpc.sql` (novo)
-- `src/components/SmartOpsSellerAutomations.tsx` (refator)
+### 4. Limpeza one-shot do lead Luciana (e similares)
 
-## O que NÃO muda
+Backfill imediato em `lia_attendances` para o lead `04f7e07e-…`: setar `platform_lead_id`, `platform_form_id` e arquivar o `leadgen_id` em `raw_payload.previous_platform_lead_ids` para parar a entrega corrente. Mesmo processo via SQL para qualquer outro lead Meta canônico que tenha `platform_lead_id IS NULL` e mais de 1 `form_submission` nas últimas 24h.
 
-- Layout/UI, tokens de design, posicionamento na aba Equipe.
-- Demais componentes Smart Ops.
+## Entregáveis
+
+1. Patch em `supabase/functions/smart-ops-ingest-lead/index.ts` (camada 4 + backfill).
+2. Patch em `supabase/functions/smart-ops-lia-assign/index.ts` (idempotency).
+3. Migration de limpeza one-shot para os leads em loop ativo.
+4. Memória `mem://architecture/meta-redelivery-loop-fix.md` atualizada com a 4ª camada e o ajuste da guarda.
+
+## Validação
+
+- Edge logs de `smart-ops-lia-assign` filtrando por `04f7e07e` devem parar de mostrar novas execuções após o deploy.
+- Novo evento `meta_family_dedupe_by_form_history` em `system_health_logs` confirma a 4ª camada funcionando.
+- `lead_activity_log` para a Luciana não deve receber novos `seller_assigned` sem novo `form_submission` real.

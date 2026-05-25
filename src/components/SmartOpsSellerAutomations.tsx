@@ -9,9 +9,7 @@ interface SellerStats {
   whatsapp: string;
   total: number;
   ganhos: number;
-  openDeals: number;
-  revenue: number;
-  avgTicket: number;
+  byStatus: Record<string, number>;
   lastLeadDate: string | null;
   conversionRate: number;
 }
@@ -22,24 +20,35 @@ export function SmartOpsSellerAutomations() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data, error } = await supabase.rpc("query_seller_performance");
-      if (error) {
-        console.error("[SellerPerformance]", error);
-        setSellers([]);
-        setLoading(false);
-        return;
-      }
-      const stats: SellerStats[] = (data || []).map((r: any) => ({
-        name: r.name,
-        whatsapp: r.whatsapp || "",
-        total: Number(r.total_leads || 0),
-        ganhos: Number(r.won_deals || 0),
-        openDeals: Number(r.open_deals || 0),
-        revenue: Number(r.revenue || 0),
-        avgTicket: Number(r.avg_ticket || 0),
-        conversionRate: Number(r.conversion_rate || 0),
-        lastLeadDate: r.last_lead_at,
-      }));
+      const [teamRes, leadsRes] = await Promise.all([
+        supabase.from("team_members").select("nome_completo, whatsapp_number").eq("ativo", true).eq("role", "vendedor"),
+        supabase.from("lia_attendances").select("proprietario_lead_crm, lead_status, status_atual_lead_crm, created_at").limit(1000),
+      ]);
+
+      const team = teamRes.data || [];
+      const leads = leadsRes.data || [];
+
+      const stats: SellerStats[] = team.map((t) => {
+        const myLeads = leads.filter((l) => l.proprietario_lead_crm === t.nome_completo);
+        const byStatus: Record<string, number> = {};
+        myLeads.forEach((l) => {
+          byStatus[l.lead_status] = (byStatus[l.lead_status] || 0) + 1;
+        });
+        const ganhos = myLeads.filter((l) => l.status_atual_lead_crm === "Ganha").length;
+        const dates = myLeads.map((l) => l.created_at).sort().reverse();
+
+        return {
+          name: t.nome_completo,
+          whatsapp: t.whatsapp_number,
+          total: myLeads.length,
+          ganhos,
+          byStatus,
+          lastLeadDate: dates[0] || null,
+          conversionRate: myLeads.length > 0 ? (ganhos / myLeads.length) * 100 : 0,
+        };
+      });
+
+      stats.sort((a, b) => b.conversionRate - a.conversionRate);
       setSellers(stats);
       setLoading(false);
     };
@@ -48,9 +57,6 @@ export function SmartOpsSellerAutomations() {
 
   if (loading) return <div className="text-center py-6 text-muted-foreground text-sm">Carregando performance...</div>;
   if (sellers.length === 0) return <div className="text-center py-6 text-muted-foreground text-sm">Nenhum vendedor ativo cadastrado</div>;
-
-  const fmtBRL = (n: number) =>
-    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   return (
     <Card className="mt-4">
@@ -87,15 +93,11 @@ export function SmartOpsSellerAutomations() {
               </div>
 
               <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary" className="text-[10px]">
-                  Receita 12m: {fmtBRL(s.revenue)}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px]">
-                  Ticket médio: {fmtBRL(s.avgTicket)}
-                </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  Abertos: {s.openDeals}
-                </Badge>
+                {Object.entries(s.byStatus).map(([status, count]) => (
+                  <Badge key={status} variant="secondary" className="text-[9px]">
+                    {status}: {count}
+                  </Badge>
+                ))}
               </div>
 
               {s.lastLeadDate && (
