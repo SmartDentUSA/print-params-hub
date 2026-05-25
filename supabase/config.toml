@@ -326,3 +326,6 @@ verify_jwt = false
 
 [functions.backfill-primary-deal]
 verify_jwt = false
+
+[functions.manychat-lia-bridge]
+verify_jwt = false

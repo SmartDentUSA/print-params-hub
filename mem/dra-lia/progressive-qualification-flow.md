@@ -16,7 +16,16 @@ Flags de sessão em `agent_sessions.extracted_entities`: `awaiting_phone`, `awai
 
 ## Exceção — Canal ManyChat / Instagram (`source: "manychat_instagram"`)
 
-Instagram DM não fornece email. Para esse canal, a chave primária de identidade é `manychat_subscriber_id` (não email):
+Instagram DM não fornece email. Para esse canal, a chave primária de identidade é `manychat_subscriber_id` (não email).
+
+**Ponto de entrada único**: `manychat-lia-bridge` (`/functions/v1/manychat-lia-bridge`, `verify_jwt=false`). ManyChat External Request envia `{ subscriber_id, name, message }`. Bridge aplica 3 short-circuits antes de chamar dra-lia:
+1. Mensagem `< 3` chars dentro de 20s da última inbound do mesmo `session_id = mc_{subscriber_id}` → retorna `{messages:[]}` (anti-loop "oi/ok").
+2. Mensagem só com emoji / URL / pontuação → idem.
+3. Saudação curta + lead já existe com `manychat_subscriber_id` correspondente → resposta hardcoded `"Oi, {primeiro_nome}! 👋 Como posso te ajudar?"` (sem LLM).
+
+Se nenhum short-circuit dispara, bridge chama `dra-lia` com `{ message, session_id:"mc_{subscriber_id}", source:"manychat_instagram", manychat_subscriber_id, manychat_name, lang:"pt-BR" }`, consome o SSE, e devolve no formato ManyChat v2: `{ version:"v2", content:{ messages:[{type:"text",text}], actions:[], quick_replies:[] } }`. Em erro/resposta vazia, retorna messages vazias para não travar o flow.
+
+Lógica de identidade dentro do `dra-lia`:
 
 1. dra-lia extrai `subscriberId` de `body.manychat_subscriber_id` ou do prefixo `mc_` em `session_id`.
 2. Lookup em `lia_attendances` por `manychat_subscriber_id` (filtro `merged_into IS NULL`). Se achar → trata como returning lead (passa pelo fluxo existente de saudação curta).
