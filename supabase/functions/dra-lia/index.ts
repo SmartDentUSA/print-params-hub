@@ -1600,8 +1600,9 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data, source: requestSource } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data, source: requestSource, manychat_subscriber_id: bodySubscriberId, manychat_name: bodyManychatName } = await req.json();
     const isInstagramChannel = requestSource === "manychat_instagram" || requestSource === "dra-lia-whatsapp";
+    const isManychat = requestSource === "manychat_instagram";
     const session_id = rawSessionId || crypto.randomUUID();
 
     // ── IMAGE GATEKEEPER — classify image intent before expensive processing ──
