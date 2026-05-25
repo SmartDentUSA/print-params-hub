@@ -1793,7 +1793,7 @@ Campos:
                 instagram: nameFromManychat,
                 origem_primeiro_contato: "instagram_manychat",
                 lead_status: "novo",
-                crm_creation_blocked: "instagram_no_real_email",
+                crm_creation_blocked: true,
               })
               .select("id")
               .maybeSingle();
