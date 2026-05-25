@@ -1,85 +1,50 @@
-## Diagnóstico
+## Problema
 
-ManyChat envia POST para `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/manychat-lia-bridge` com:
+ManyChat External Request tem timeout de ~10 segundos. A bridge atual chama `dra-lia` síncronamente e consome o stream SSE inteiro antes de responder. Em qualquer mensagem que requer LLM + RAG, a resposta volta com 12-25s — o ManyChat já fechou a conexão e dispara o fallback do flow, mesmo a LIA tendo gerado resposta correta (evidência: usuário viu "Olá, da! Que bom te ver…" gerada mas flow caiu em fallback).
 
-```json
-{ "subscriber_id": "888640279", "name": "Danilo", "message": "Oi" }
-```
+Os 3 short-circuits atuais (anti-loop, emoji/URL, saudação de lead conhecido) já respondem em <1s e funcionam. O problema é o caminho LLM.
 
-**A função `manychat-lia-bridge` não existe** (confirmado via `ls supabase/functions/`). O `200 OK` com `{"reply":"","content":{"messages":[]}}` é apenas o fallback do gateway Supabase respondendo vazio — nada é processado, nada é gravado, LIA nunca é chamada.
+## Solução: padrão assíncrono via ManyChat Send API
 
-Os 11 registros `mc_*` em `agent_interactions` com `lead_id=null` e resposta "informe seu e-mail" são de tentativas antigas que iam direto pra `dra-lia` sem `source` nem `manychat_subscriber_id` — então a lógica Instagram já implementada no `dra-lia` nunca disparou.
+Bridge passa a:
+1. Responder **imediatamente** (<2s) ao ManyChat com `messages: []` (não trava o flow, não dispara fallback) ou com um "typing indicator" leve quando apropriado.
+2. Disparar processamento `dra-lia` em background (`EdgeRuntime.waitUntil`).
+3. Quando `dra-lia` retornar, fazer POST para `https://api.manychat.com/fb/sending/sendContent` com `subscriber_id` + texto, entregando a resposta real no DM do Instagram.
 
-## Plano
+## Mudanças
 
-### 1. Criar `supabase/functions/manychat-lia-bridge/index.ts`
+### 1. Bridge async (`supabase/functions/manychat-lia-bridge/index.ts`)
 
-Função pública (sem JWT) que:
+- Mantém short-circuits 1/2/3 como estão (já são rápidos).
+- Para o caminho LLM:
+  - Retorna `EMPTY_REPLY` em <2s.
+  - `EdgeRuntime.waitUntil(processAsync(...))` executa: chama `dra-lia`, consome SSE, e faz POST para ManyChat Send API.
+  - Implementa **chunking**: divide resposta em mensagens de até ~900 chars (limite IG via ManyChat) preservando quebras de parágrafo.
+  - Trata `links` markdown — ManyChat aceita texto puro em IG; mantém URL inline.
+- Adiciona dedup leve: chave `mc_inflight:{subscriber_id}` em `agent_internal_lookups` (TTL 30s) para evitar reentrância se ManyChat reenviar.
 
-a. **Valida payload**: `subscriber_id` (obrigatório), `name` e `message` (opcionais).
+### 2. Secret novo: `MANYCHAT_API_TOKEN`
 
-b. **Aplica 3 short-circuits ANTES do LLM** (retorna resposta vazia no formato ManyChat para o fluxo não enviar nada):
-   - Mensagem `< 3` chars recebida dentro de 20s da última inbound do mesmo `subscriber_id` (consulta `agent_interactions` por `session_id = mc_{subscriber_id}`) → ignora (anti-loop "oi/ok").
-   - Mensagem só com emoji / URL / pontuação (regex) → ignora.
-   - Saudação curta (`/^(oi|olá|ola|hi|hello|bom dia|boa tarde|boa noite)\b/i`) **e** lead já existe com `manychat_subscriber_id` correspondente → responde saudação curta personalizada (`Oi, {nome}! 👋 Como posso te ajudar?`) sem chamar LLM.
+Page token do ManyChat (Settings → API). Necessário para o Send API. Vou pedir antes de codar.
 
-c. **Chama `dra-lia`** via `fetch` interno (service role) com:
-   ```json
-   {
-     "message": "<texto>",
-     "session_id": "mc_<subscriber_id>",
-     "source": "manychat_instagram",
-     "manychat_subscriber_id": "<subscriber_id>",
-     "manychat_name": "<name>",
-     "lang": "pt-BR"
-   }
-   ```
+### 3. Corrige logging (`system_health_logs`)
 
-d. **Traduz resposta do `dra-lia`** para formato ManyChat External Request v2:
-   ```json
-   {
-     "version": "v2",
-     "content": {
-       "messages": [{ "type": "text", "text": "<resposta>" }],
-       "actions": [],
-       "quick_replies": []
-     }
-   }
-   ```
-   Se `dra-lia` retornar `quick_replies`, mapeia para `content.quick_replies`. Em erro, retorna mensagens vazias (não trava o fluxo do ManyChat).
+Helper `logHealth` da bridge usa colunas corretas: `function_name='manychat-lia-bridge'`, `severity` ('info'|'warn'|'error'), `error_type` (curto, ex: `shortcircuit_loop_guard`), `details` (jsonb com payload). Aplica em todos os pontos da bridge.
 
-e. **CORS + `verify_jwt = false`** em `supabase/config.toml`.
+### 4. Documentação
 
-f. **Logging** em `system_health_logs` (`source = "manychat_bridge"`) para cada short-circuit / erro.
+- Atualiza `mem/dra-lia/progressive-qualification-flow.md` na seção "Canal ManyChat / Instagram" para descrever o novo padrão async + Send API + chunking.
+- Cria `mem/integration/manychat-async-send-api.md` resumindo: timeout 10s, padrão fire-and-forget, chunk 900 chars.
 
-### 2. Atualizar `supabase/config.toml`
+## Fora de escopo
 
-Adicionar:
-```toml
-[functions.manychat-lia-bridge]
-verify_jwt = false
-```
+- `dra-lia/index.ts`: já reconhece subscribers Instagram, não precisa mudar.
+- Investigação do nome "da" do Danilo — tratado depois (problema cosmético separado, provavelmente parsing de nome com vírgula).
+- ManyChat flow no painel: nenhuma mudança necessária; ele já está configurado para External Request → permanecer no flow após resposta vazia.
 
-### 3. Atualizar memória
+## Validação
 
-`mem/dra-lia/progressive-qualification-flow.md`: documentar o bridge como ponto de entrada único do canal Instagram/ManyChat (hoje a memória só fala do lado `dra-lia`).
-
-### 4. Deploy + validação
-
-- Deploy `manychat-lia-bridge`.
-- `curl` com `{"subscriber_id":"888640279","name":"Danilo","message":"Oi"}` e validar:
-  1. resposta no formato v2;
-  2. registro em `lia_attendances` com `manychat_subscriber_id = "888640279"`;
-  3. `agent_interactions` com `lead_id` preenchido;
-  4. segunda mensagem (`"Quero saber sobre resinas"`) é reconhecida como returning lead.
-
-### Arquivos afetados
-
-- **Novo:** `supabase/functions/manychat-lia-bridge/index.ts`
-- **Editado:** `supabase/config.toml`
-- **Editado:** `mem/dra-lia/progressive-qualification-flow.md`
-
-### Fora de escopo
-
-- Mexer em `dra-lia/index.ts` (a lógica Instagram já está pronta lá).
-- Alterar a configuração no ManyChat (URL e payload atuais já bastam).
+1. Curl bridge com lead conhecido + pergunta longa → confirma retorno `<2s` com `EMPTY_REPLY`.
+2. Aguarda ~15s, query em `agent_interactions` confirmando que `dra-lia` rodou e gerou resposta para `mc_{subscriberId}`.
+3. Consulta `system_health_logs` filtrando `function_name='manychat-lia-bridge'` confirmando logs persistidos (e a chamada `sendContent` retornou 200).
+4. Teste real no Instagram com a conta de teste — confirma que a resposta aparece no DM e o flow NÃO dispara fallback.
