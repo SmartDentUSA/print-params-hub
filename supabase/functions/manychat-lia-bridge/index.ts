@@ -19,6 +19,8 @@ const corsHeaders = {
 
 const EMPTY_REPLY = {
   version: "v2",
+  reply: "",
+  qualification_state: "idle",
   content: { messages: [], actions: [], quick_replies: [] },
 };
 
@@ -37,9 +39,21 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 
 const SITE_URL = "https://www.smartdent.com.br";
 
-function textReply(text: string) {
+type ReplyMeta = {
+  state: "ask_name" | "ask_email" | "ask_phone" | "completed" | "error" | "idle";
+  lead_name?: string | null;
+  lead_email?: string | null;
+  lead_phone?: string | null;
+};
+
+function buildReply(text: string, meta: ReplyMeta) {
   return {
     version: "v2",
+    reply: text || "",
+    lead_name: meta.lead_name || "",
+    lead_email: meta.lead_email || "",
+    lead_phone: meta.lead_phone || "",
+    qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
       actions: [],
@@ -48,32 +62,38 @@ function textReply(text: string) {
   };
 }
 
-function replyWithRoutes(text: string) {
-  return {
-    version: "v2",
-    content: {
-      messages: [
-        {
-          type: "text",
-          text,
-          buttons: [
-            { type: "url", caption: "🌐 Visitar o site", url: SITE_URL },
-          ],
-          quick_replies: LIA_ROUTES.map((r) => ({
-            type: "node",
-            caption: r.title,
-            target: r.payload,
-          })),
-        },
-      ],
-      actions: [],
+function textReply(text: string, meta: ReplyMeta = { state: "idle" }) {
+  return buildReply(text, meta);
+}
+
+function replyWithRoutes(greeting: string, meta: ReplyMeta) {
+  const routesText = [
+    "",
+    "Escolha uma opção respondendo o número:",
+    `1) 🌐 Site: ${SITE_URL}`,
+    "2) 🛒 Ver produtos",
+    "3) 🎓 Cursos",
+    "4) 💬 Falar com especialista",
+  ].join("\n");
+  const fullText = `${greeting}\n${routesText}`;
+  const payload = buildReply(fullText, { ...meta, state: "completed" });
+  // Mantém quick_replies/buttons para clientes Dynamic Block (não usados pelo
+  // "Enviar Mensagem" simples, mas inofensivos).
+  payload.content.messages = [
+    {
+      type: "text",
+      text: fullText,
+      // @ts-ignore - extra fields aceitos pelo Dynamic Block
+      buttons: [{ type: "url", caption: "🌐 Visitar o site", url: SITE_URL }],
       quick_replies: LIA_ROUTES.map((r) => ({
-        type: "node",
-        caption: r.title,
-        target: r.payload,
+        type: "node", caption: r.title, target: r.payload,
       })),
     },
-  };
+  ];
+  payload.content.quick_replies = LIA_ROUTES.map((r) => ({
+    type: "node", caption: r.title, target: r.payload,
+  })) as any;
+  return payload;
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -191,7 +211,7 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return jsonResponse(textReply(""), 200);
+    return jsonResponse(textReply("", { state: "idle" }), 200);
   }
 
   const subscriberId = String(body.subscriber_id ?? "").trim();
@@ -258,7 +278,9 @@ Deno.serve(async (req) => {
             current_state: "qualifying",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
-          return jsonResponse(textReply(retry), 200);
+          return jsonResponse(textReply(retry, {
+            state: "ask_email", lead_name: nomeAtual, lead_email: null, lead_phone: phoneAtual,
+          }), 200);
         }
       } else if (entities.awaiting_manychat_phone && !hasRealPhone(phoneAtual)) {
         const normalized = normalizeBrazilianPhone(message);
@@ -285,7 +307,9 @@ Deno.serve(async (req) => {
             current_state: "qualifying",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
-          return jsonResponse(textReply(retry), 200);
+          return jsonResponse(textReply(retry, {
+            state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual, lead_phone: null,
+          }), 200);
         }
       }
     }
@@ -312,6 +336,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_name", { subscriberId });
       return jsonResponse(textReply(
         "Olá! 👋 Sou a Dra. LIA da Smart Dent.\nPara te atender melhor, qual é o seu **nome completo**?",
+        { state: "ask_name" },
       ), 200);
     }
 
@@ -334,6 +359,7 @@ Deno.serve(async (req) => {
       const firstName = (nomeAtual || "").split(/\s+/)[0];
       return jsonResponse(textReply(
         `Obrigado, ${firstName}! Qual é o seu **melhor e-mail**?`,
+        { state: "ask_email", lead_name: nomeAtual },
       ), 200);
     }
 
@@ -356,6 +382,7 @@ Deno.serve(async (req) => {
       await logHealth(supabase, "info", "manychat_ask_phone", { subscriberId });
       return jsonResponse(textReply(
         "Perfeito! Agora me envie seu **celular com DDD** (ex: 11 99999-8888).",
+        { state: "ask_phone", lead_name: nomeAtual, lead_email: emailAtual },
       ), 200);
     }
 
@@ -388,7 +415,12 @@ Deno.serve(async (req) => {
       justCompleted ? "manychat_profile_completed" : "manychat_routes_sent",
       { subscriberId, lead_id: lead.id },
     );
-    return jsonResponse(replyWithRoutes(greeting), 200);
+    return jsonResponse(replyWithRoutes(greeting, {
+      state: "completed",
+      lead_name: nomeAtual,
+      lead_email: emailAtual,
+      lead_phone: phoneAtual,
+    }), 200);
   } catch (err) {
     await logHealth(supabase, "error", "manychat_bridge_error", {
       subscriberId,
@@ -396,6 +428,7 @@ Deno.serve(async (req) => {
     });
     return jsonResponse(textReply(
       "Tive um probleminha agora. Pode me chamar novamente em instantes?",
+      { state: "error" },
     ), 200);
   }
 });
