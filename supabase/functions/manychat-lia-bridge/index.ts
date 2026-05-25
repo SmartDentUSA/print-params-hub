@@ -40,10 +40,11 @@ const LIA_ROUTES: Array<{ title: string; payload: string }> = [
 const SITE_URL = "https://www.smartdent.com.br";
 
 type ReplyMeta = {
-  state: "ask_name" | "ask_email" | "ask_phone" | "completed" | "error" | "idle";
+  state: "ask_name" | "ask_email" | "ask_phone" | "ask_product" | "completed" | "error" | "idle";
   lead_name?: string | null;
   lead_email?: string | null;
   lead_phone?: string | null;
+  lead_product?: string | null;
 };
 
 function buildReply(text: string, meta: ReplyMeta) {
@@ -53,6 +54,7 @@ function buildReply(text: string, meta: ReplyMeta) {
     lead_name: meta.lead_name || "",
     lead_email: meta.lead_email || "",
     lead_phone: meta.lead_phone || "",
+    lead_product: meta.lead_product || "",
     qualification_state: meta.state,
     content: {
       messages: text ? [{ type: "text", text }] : [],
