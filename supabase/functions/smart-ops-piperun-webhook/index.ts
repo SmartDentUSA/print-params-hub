@@ -708,6 +708,7 @@ Deno.serve(async (req) => {
 
       if (insertError || !newLead) {
         console.error("[piperun-webhook] Erro ao criar lead:", insertError);
+        await auditEvent("error_insert", null, insertError?.message || "insert_failed");
         return new Response(JSON.stringify({ error: insertError?.message || "Erro ao criar lead" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
