@@ -784,8 +784,13 @@ Deno.serve(async (req) => {
     }
     if (ids.dealClosedAt) updateData.piperun_closed_at = ids.dealClosedAt;
     if (ids.dealProbablyClosedAt) updateData.piperun_probably_closed_at = ids.dealProbablyClosedAt;
-    if (deal.custom_fields) updateData.piperun_custom_fields = deal.custom_fields;
-    if (ids.dealInvolvedUsers) updateData.piperun_involved_users = ids.dealInvolvedUsers;
+    // JSONB no-overwrite-with-empty: só grava se chegou array com itens.
+    if (Array.isArray(deal.custom_fields) && (deal.custom_fields as unknown[]).length > 0) {
+      updateData.piperun_custom_fields = deal.custom_fields;
+    }
+    if (Array.isArray(ids.dealInvolvedUsers) && ids.dealInvolvedUsers.length > 0) {
+      updateData.piperun_involved_users = ids.dealInvolvedUsers;
+    }
 
     // ─── NEW: 4 campos bugados corrigidos (Passo 3b) ───
     if (ids.dealHash) updateData.piperun_hash = ids.dealHash;
@@ -796,9 +801,15 @@ Deno.serve(async (req) => {
     // ─── NEW: Campos JSONB e metadados (Passo 3c) ───
     // Deal-level extras
     if (deal.updated_at) updateData.piperun_updated_at = String(deal.updated_at);
-    if (deal.activities) updateData.piperun_activities = deal.activities;
-    if (deal.files) updateData.piperun_files = deal.files;
-    if (deal.forms) updateData.piperun_forms = deal.forms;
+    if (Array.isArray(deal.activities) && (deal.activities as unknown[]).length > 0) {
+      updateData.piperun_activities = deal.activities;
+    }
+    if (Array.isArray(deal.files) && (deal.files as unknown[]).length > 0) {
+      updateData.piperun_files = deal.files;
+    }
+    if (Array.isArray(deal.forms) && (deal.forms as unknown[]).length > 0) {
+      updateData.piperun_forms = deal.forms;
+    }
     if (deal.action) updateData.piperun_action = deal.action;
     if (deal.order != null) updateData.piperun_deal_order = Number(deal.order);
     const dealCity = deal.city as Record<string, unknown> | undefined;
@@ -860,7 +871,9 @@ Deno.serve(async (req) => {
     if (ids.companyCity) updateData.empresa_cidade = ids.companyCity;
     if (ids.companyState) updateData.empresa_uf = ids.companyState;
     if (ids.companyAddress) updateData.empresa_endereco = ids.companyAddress;
-    if (ids.companyCustomFields) updateData.empresa_custom_fields = ids.companyCustomFields;
+    if (Array.isArray(ids.companyCustomFields) && ids.companyCustomFields.length > 0) {
+      updateData.empresa_custom_fields = ids.companyCustomFields;
+    }
     if (ids.companySegment) updateData.empresa_segmento = ids.companySegment;
 
     // Custom fields from shared mapping
