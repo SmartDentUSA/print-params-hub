@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Users, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import RelatorioMensalComercial from "@/components/admin/RelatorioMensalComercial";
 
 // CORREÇÃO 5: Use stage_name instead of stage_id
 interface DealRow {
