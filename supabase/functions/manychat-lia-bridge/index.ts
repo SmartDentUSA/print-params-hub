@@ -904,6 +904,52 @@ Deno.serve(async (req) => {
 
     const alreadyDispatched = entities.handoff_dispatched === true;
     if (!alreadyDispatched) {
+      // ── PRE-HANDOFF CANONICAL MERGE BY PHONE ──
+      // Garante que se o telefone capturado já pertence a um lead canônico
+      // existente (CDP), funde a duplicata ManyChat antes do handoff —
+      // independente de o ramo `nextMissing === "phone"` ter rodado.
+      if (phoneAtual && lead.telefone_normalized === phoneAtual) {
+        try {
+          const { data: phoneOwner } = await supabase
+            .from("lia_attendances")
+            .select("id")
+            .eq("telefone_normalized", phoneAtual)
+            .is("merged_into", null)
+            .neq("id", lead.id)
+            .limit(1)
+            .maybeSingle();
+          if (phoneOwner?.id) {
+            const canonical = await mergeIntoCanonical(supabase, lead, "phone", phoneAtual);
+            if (canonical) {
+              lead = canonical;
+              nomeAtual = canonical.nome || nomeAtual;
+              emailAtual = canonical.email || emailAtual;
+              produtoAtual = canonical.produto_interesse_auto || produtoAtual;
+              areaAtual = canonical.area_atuacao || areaAtual;
+              especialidadeAtual = canonical.especialidade || especialidadeAtual;
+            }
+          }
+        } catch (mergeErr) {
+          await logHealth(supabase, "warn", "manychat_prehandoff_merge_failed", {
+            subscriberId, lead_id: lead.id, error: (mergeErr as Error).message,
+          });
+        }
+      }
+
+      // Strip synthetic email — never enviar `mc_<id>@instagram.lead` ao ingest:
+      // ele tenta criar Person no PipeRun com esse e-mail e/ou faz insert
+      // duplicado no `lia_attendances` (unique violation).
+      const handoffEmail = hasRealEmail(emailAtual) ? emailAtual : null;
+
+      // Libera bloqueio de CRM agora que temos identidade real (telefone OU email).
+      if (phoneAtual || handoffEmail) {
+        try {
+          await supabase.from("lia_attendances")
+            .update({ crm_creation_blocked: false, updated_at: new Date().toISOString() })
+            .eq("id", lead.id);
+        } catch (_) { /* non-blocking */ }
+      }
+
       const ingestPayload = {
         source: "instagram_manychat_autoatendimento",
         form_name: "Instagram - Autoatendimento ManyChat",
@@ -911,7 +957,7 @@ Deno.serve(async (req) => {
         commercial_override: true,
         origem_primeiro_contato: "Instagram - autoatendimento",
         nome: nomeAtual,
-        email: emailAtual,
+        email: handoffEmail,
         telefone: phoneAtual,
         whatsapp: phoneAtual,
         area_atuacao: areaAtual,
