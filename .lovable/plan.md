@@ -1,56 +1,61 @@
-## Achados sobre combos INO 200
+## Contexto
 
-Levantei 174 deals **Ganhos** que contêm `INO 200 - BLZ` na proposta:
-- **33 listam `RayShape - Edge Mini` como item separado** → já contam no `fn_rayshape_owners` ✅
-- **141 NÃO listam Edge Mini explicitamente** → atualmente **não contam** ❌
+Você confirmou: `INO 200 - BLZ` **às vezes** embute Rayshape Edge Mini, não sempre. Logo não dá pra whitelistar o SKU. A regra fica: **toda proposta ganha que menciona explicitamente Edge Mini entra; combos sem menção entram apenas via marcação manual**.
 
-A função `fn_rayshape_owners` filtra apenas por `item.nome ILIKE '%Edge Mini%'`. Se o combo `INO 200 - BLZ` embute a impressora Rayshape mas não a desmembra como linha separada, esses donos ficam invisíveis na lista Edge Mini.
+Hoje `fn_rayshape_owners` tem 2 limitações:
 
-**Precisa de decisão de negócio antes de mexer no matcher:**
-- O combo `INO 200 - BLZ` (item_id/SKU específico) sempre inclui a Rayshape Edge Mini? Ou só algumas versões?
-- Existem outros combos (`KIT CHAIRSIDE`, etc.) que também embutem Edge Mini?
+1. **`DISTINCT ON (d.id)`** escolhe **uma única proposta por deal** (preferindo aprovada/maior valor) e depois filtra por Edge Mini nessa proposta. Se o Edge Mini está em outra proposta do mesmo deal (ex.: proposta v1 tinha Edge Mini, v2 aprovada só tem insumos), o deal é perdido.
+2. Não há porta de entrada para os combos INO 200 que embutiram Rayshape sem desmembrar — operação fica sem ferramenta para corrigir caso a caso.
 
-## Plano
+## Mudanças propostas
 
-### Parte 1 — Pull cirúrgico de deals (param `deal_ids`)
+### 1. Reescrever `fn_rayshape_owners` (migration)
 
-Atualizar `supabase/functions/smart-ops-sync-piperun/index.ts`:
+- Trocar `DISTINCT ON (d.id)` por varredura completa: para cada deal ganho, percorrer **todas as proposals × todos os items** e marcar o deal como "tem Edge Mini" se **qualquer** item bater `ILIKE '%Edge Mini%'`.
+- `printer_date` = `deals.closed_at` (mais confiável que data da proposta).
+- `printer_price` = soma dos `(item->>'total')` Edge Mini de **todas** as proposals do deal (evita duplo-conta usando o item key).
+- Manter `DISTINCT ON (la.id)` por `closed_at ASC` para fixar a "primeira compra".
 
-1. Adicionar leitura de `url.searchParams.get("deal_ids")` (CSV de IDs, ex.: `47317858,51852538,51909112,56643646`).
-2. Quando presente, **pular** o loop de paginação por `pipeline_id`/`updated_since` e fazer `GET /deals/{id}?with[]=person,person.emails,person.phones,...` para cada ID, alimentando o mesmo pipeline de upsert/normalização.
-3. Manter `orchestrate=true` válido (cada deal_id vira um "snapshot" individual no chunked pipeline).
-4. Logar em `system_health_logs` com `function_name=piperun_sync_targeted`.
+### 2. Nova tabela `rayshape_manual_owners` (migration)
 
-Após deploy, invocar:
-```
-GET /smart-ops-sync-piperun?deal_ids=47317858,51852538,51909112,56643646
-```
-e validar:
 ```sql
-SELECT piperun_deal_id, lead_id, status, is_deleted
-FROM deals WHERE piperun_deal_id IN ('47317858','51852538','51909112','56643646');
+CREATE TABLE public.rayshape_manual_owners (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id uuid NOT NULL REFERENCES public.lia_attendances(id) ON DELETE CASCADE,
+  piperun_deal_id text,           -- opcional, vincula a um deal específico
+  printer_date date NOT NULL,     -- data informada manualmente
+  note text,                       -- ex.: "INO 200 + Edge Mini embutido (confirmado por Sicilia)"
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now()
+);
 ```
 
-### Parte 2 — Cobertura combos INO 200 com Rayshape
+Com GRANT para `authenticated`/`service_role` e RLS permitindo leitura a todos autenticados + INSERT/DELETE apenas para admins (`has_role(auth.uid(),'admin')`).
 
-Sugestão (aguardando confirmação): estender o matcher de `fn_rayshape_owners` para reconhecer combos que embutem a Rayshape. Caminhos possíveis (escolher 1):
+### 3. UNION na `fn_rayshape_owners`
 
-**Opção A — Lista branca de SKUs/nomes de combo** (preferida, determinística):
-- Criar tabela `rayshape_bundle_skus(sku text PRIMARY KEY, label text, includes_edge_mini boolean)`.
-- Popular com SKUs/nomes confirmados pelo time (ex.: `INO 200 - BLZ` quando vendido com Rayshape).
-- Ajustar `fn_rayshape_owners` para também aceitar quando algum item da proposta bater nessa lista.
+Após calcular `printers` via proposta, fazer `UNION` com leads de `rayshape_manual_owners` (que ainda não estejam em `printers`). Esses leads aparecem com `vendor='manual'`, `printer_price=0`, `printer_deal_id=NULL`, e mesma lógica de categoria/recompra.
 
-**Opção B — Regex amplo** (`%INO 200%` OU `%Edge Mini%`):
-- Mais simples mas pode contar falsos positivos (deals que pegaram só o scanner INO 200 sem impressora).
+### 4. UI — `SmartOpsRayshape.tsx`
 
-**Opção C — Status quo + ação operacional**:
-- Pedir ao time comercial para sempre desmembrar `RayShape - Edge Mini` como item próprio na proposta, mesmo dentro de combos. Sem mudança de código.
+- Botão **"+ Adicionar manualmente"** abre dialog com busca de lead (autocomplete por nome/email/phone via `lia_attendances`), campo data e nota.
+- Inserção via `supabase.from('rayshape_manual_owners').insert(...)` → realtime já dispara reload via canal `deals` (adiciono canal extra para a tabela nova).
+- Badge "manual" na linha quando `vendor === 'manual'`.
 
-### Parte 3 — Memória
+### 5. Memória
 
-Atualizar `mem://smart-ops/copilot-product-owners-tool` (ou criar `mem://smart-ops/rayshape-owners-matcher-v2`) documentando a regra final de inclusão (apenas Edge Mini explícito vs combos embutidos).
+Atualizar `mem://smart-ops/copilot-product-owners-tool` (ou criar `mem://smart-ops/rayshape-owners-matcher-v2`) com a regra final:
+- Inclui automaticamente quem tem `%Edge Mini%` explícito em qualquer proposta de qualquer deal ganho.
+- Combos `INO 200 - BLZ` **não** são incluídos automaticamente (regra de negócio: só às vezes embutem).
+- Override manual via `rayshape_manual_owners` para casos confirmados pela operação.
 
-## Perguntas para você
+## Detalhes técnicos
 
-1. Confirmo que adiciono o `deal_ids` ao `smart-ops-sync-piperun` (Parte 1) — ok?
-2. Qual opção para combos INO 200: **A (whitelist de SKUs)**, **B (regex amplo)** ou **C (status quo)**? Se A, qual lista de combos sabidamente embutem a Rayshape Edge Mini?
+- Migration única cria a tabela + RLS + GRANTs + recria a função.
+- Sem mudança em `deals`/`lia_attendances`.
+- A função continua `SECURITY DEFINER STABLE` retornando `jsonb`.
+- Realtime: adicionar `ALTER PUBLICATION supabase_realtime ADD TABLE rayshape_manual_owners;` e canal correspondente no componente.
+
+## Perguntas pendentes (não bloqueiam o plano)
+
+- Você quer que a UI já mostre uma seção separada listando os 141 deals "INO 200 sem Edge Mini explícito" como **candidatos** a triagem manual? (1 click = adicionar à `rayshape_manual_owners`). Se sim, adiciono isso na mesma PR.
