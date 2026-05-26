@@ -20,6 +20,7 @@ import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import { hydrateDealPayload, needsHydration } from "../_shared/piperun-deal-hydrate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -251,6 +252,12 @@ async function findLeadByCascade(
   personHash: string | null,
   personId: number | undefined,
   email: string | null,
+  opts?: {
+    companyId?: number | undefined;
+    companyCnpj?: string | null;
+    phoneNormalized?: string | null;
+    dealHash?: string | null;
+  },
 ): Promise<LeadRecord | null> {
   const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history";
 
@@ -259,6 +266,7 @@ async function findLeadByCascade(
     .from("lia_attendances")
     .select(selectCols)
     .eq("piperun_id", dealId)
+    .is("merged_into", null)
     .maybeSingle();
   if (byDeal) return byDeal as LeadRecord;
 
@@ -268,6 +276,7 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("pessoa_hash", personHash)
+      .is("merged_into", null)
       .maybeSingle();
     if (byHash) return byHash as LeadRecord;
   }
@@ -278,6 +287,7 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("pessoa_piperun_id", personId)
+      .is("merged_into", null)
       .maybeSingle();
     if (byPersonId) return byPersonId as LeadRecord;
   }
@@ -288,8 +298,62 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("email", email.toLowerCase().trim())
+      .is("merged_into", null)
       .maybeSingle();
     if (byEmail) return byEmail as LeadRecord;
+  }
+
+  // 5. By deal hash (deals never change hash, mesmo se piperun_id mudar)
+  if (opts?.dealHash) {
+    const { data: byDealHash } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("piperun_hash", opts.dealHash)
+      .is("merged_into", null)
+      .maybeSingle();
+    if (byDealHash) return byDealHash as LeadRecord;
+  }
+
+  // 6. By empresa_piperun_id (recupera leads cuja Person veio sem identidade)
+  if (opts?.companyId) {
+    const { data: byCompany } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("empresa_piperun_id", opts.companyId)
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byCompany) return byCompany as LeadRecord;
+  }
+
+  // 7. By empresa_cnpj (normalizado)
+  if (opts?.companyCnpj) {
+    const cnpjDigits = String(opts.companyCnpj).replace(/\D/g, "");
+    if (cnpjDigits.length >= 11) {
+      const { data: byCnpj } = await supabase
+        .from("lia_attendances")
+        .select(selectCols)
+        .eq("empresa_cnpj", opts.companyCnpj)
+        .is("merged_into", null)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (byCnpj) return byCnpj as LeadRecord;
+    }
+  }
+
+  // 8. By telefone_normalized
+  if (opts?.phoneNormalized) {
+    const { data: byPhone } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("telefone_normalized", opts.phoneNormalized)
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byPhone) return byPhone as LeadRecord;
   }
 
   return null;
@@ -362,10 +426,9 @@ Deno.serve(async (req) => {
     console.log("[piperun-webhook] Payload:", JSON.stringify(payload).slice(0, 500));
 
     // ─── Deep Parse + Deal extraction (Passo 2c) ───
-    const deal = deepParseStringifiedFields((payload.deal || payload) as Record<string, unknown>);
+    let deal = deepParseStringifiedFields((payload.deal || payload) as Record<string, unknown>);
     const dealId = String(deal.id || payload.deal_id || "");
-    const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
-    const tags = deal.tags as Array<{ name?: string }> | undefined;
+    const rawPayloadForAudit = payload;
 
     // ─── Handle null/template dealId (Passo 2c) ───
     if (!dealId || dealId === "null" || dealId === "undefined" || dealId.startsWith("{{")) {
@@ -374,14 +437,62 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── Hidratação via GET /deals/{id} para evitar perda de dados em
+    //     eventos parciais (stage-change, owner-change vêm sem person/company)
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+    const hydrationCheck = needsHydration(deal);
+    let hydrated = false;
+    if (hydrationCheck.needs && PIPERUN_API_KEY) {
+      console.log(`[piperun-webhook] Hidratando deal ${dealId} — motivo: ${hydrationCheck.reason}`);
+      const h = await hydrateDealPayload(PIPERUN_API_KEY, dealId, deal);
+      if (h.hydrated) {
+        deal = deepParseStringifiedFields(h.deal);
+        hydrated = true;
+      } else {
+        console.warn(`[piperun-webhook] Hidratação falhou (${h.error}); seguindo com payload original`);
+      }
+    }
+
+    const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
+    const tags = deal.tags as Array<{ name?: string }> | undefined;
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
 
-    // ─── Identity Resolution (cascading search) ───
+    // ─── Identity Resolution (cascading search expandido) ───
     const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const currentLead = await findLeadByCascade(supabase, dealId, ids.personHash, ids.personId, personEmail);
+    const phoneNormalizedForCascade = normalizeBrazilianPhone(ids.personPhone);
+    const currentLead = await findLeadByCascade(
+      supabase, dealId, ids.personHash, ids.personId, personEmail,
+      {
+        companyId: ids.companyId,
+        companyCnpj: ids.companyCnpj,
+        phoneNormalized: phoneNormalizedForCascade,
+        dealHash: ids.dealHash,
+      },
+    );
+
+    // ─── Audit trail: registra TODO evento recebido (sucesso ou skip) ───
+    const auditEvent = async (outcome: string, leadIdForAudit: string | null, errMsg?: string) => {
+      try {
+        await supabase.from("piperun_webhook_events").insert({
+          deal_id: dealId,
+          lead_id: leadIdForAudit,
+          event_action: (deal.action as string) || null,
+          stage_id: ids.stageId || null,
+          stage_name: ids.stageName,
+          pipeline_id: ids.pipelineId || null,
+          owner_id: ids.ownerId || null,
+          raw_payload: rawPayloadForAudit,
+          hydrated,
+          outcome,
+          error: errMsg || null,
+        });
+      } catch (e) {
+        console.warn("[piperun-webhook] audit insert failed:", e);
+      }
+    };
 
     let leadId: string;
     let leadNome: string;
@@ -398,10 +509,12 @@ Deno.serve(async (req) => {
       const personName = ids.personName || (deal.title ? String(deal.title).split(" - ")[0] : "Lead PipeRun");
 
       if (!personEmail) {
-        console.warn("[piperun-webhook] Deal sem email:", dealId);
-        return new Response(JSON.stringify({ error: "Deal sem email" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        console.warn(`[piperun-webhook] Deal sem email após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
+        await auditEvent("skipped_no_email", null, "deal_without_email_after_hydration");
+        return new Response(
+          JSON.stringify({ ok: true, skipped: true, reason: "no_email_after_hydration", deal_id: dealId }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       const phoneNormalized: string | null = normalizeBrazilianPhone(ids.personPhone);
@@ -595,6 +708,7 @@ Deno.serve(async (req) => {
 
       if (insertError || !newLead) {
         console.error("[piperun-webhook] Erro ao criar lead:", insertError);
+        await auditEvent("error_insert", null, insertError?.message || "insert_failed");
         return new Response(JSON.stringify({ error: insertError?.message || "Erro ao criar lead" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -671,8 +785,13 @@ Deno.serve(async (req) => {
     }
     if (ids.dealClosedAt) updateData.piperun_closed_at = ids.dealClosedAt;
     if (ids.dealProbablyClosedAt) updateData.piperun_probably_closed_at = ids.dealProbablyClosedAt;
-    if (deal.custom_fields) updateData.piperun_custom_fields = deal.custom_fields;
-    if (ids.dealInvolvedUsers) updateData.piperun_involved_users = ids.dealInvolvedUsers;
+    // JSONB no-overwrite-with-empty: só grava se chegou array com itens.
+    if (Array.isArray(deal.custom_fields) && (deal.custom_fields as unknown[]).length > 0) {
+      updateData.piperun_custom_fields = deal.custom_fields;
+    }
+    if (Array.isArray(ids.dealInvolvedUsers) && ids.dealInvolvedUsers.length > 0) {
+      updateData.piperun_involved_users = ids.dealInvolvedUsers;
+    }
 
     // ─── NEW: 4 campos bugados corrigidos (Passo 3b) ───
     if (ids.dealHash) updateData.piperun_hash = ids.dealHash;
@@ -683,9 +802,15 @@ Deno.serve(async (req) => {
     // ─── NEW: Campos JSONB e metadados (Passo 3c) ───
     // Deal-level extras
     if (deal.updated_at) updateData.piperun_updated_at = String(deal.updated_at);
-    if (deal.activities) updateData.piperun_activities = deal.activities;
-    if (deal.files) updateData.piperun_files = deal.files;
-    if (deal.forms) updateData.piperun_forms = deal.forms;
+    if (Array.isArray(deal.activities) && (deal.activities as unknown[]).length > 0) {
+      updateData.piperun_activities = deal.activities;
+    }
+    if (Array.isArray(deal.files) && (deal.files as unknown[]).length > 0) {
+      updateData.piperun_files = deal.files;
+    }
+    if (Array.isArray(deal.forms) && (deal.forms as unknown[]).length > 0) {
+      updateData.piperun_forms = deal.forms;
+    }
     if (deal.action) updateData.piperun_action = deal.action;
     if (deal.order != null) updateData.piperun_deal_order = Number(deal.order);
     const dealCity = deal.city as Record<string, unknown> | undefined;
@@ -747,7 +872,9 @@ Deno.serve(async (req) => {
     if (ids.companyCity) updateData.empresa_cidade = ids.companyCity;
     if (ids.companyState) updateData.empresa_uf = ids.companyState;
     if (ids.companyAddress) updateData.empresa_endereco = ids.companyAddress;
-    if (ids.companyCustomFields) updateData.empresa_custom_fields = ids.companyCustomFields;
+    if (Array.isArray(ids.companyCustomFields) && ids.companyCustomFields.length > 0) {
+      updateData.empresa_custom_fields = ids.companyCustomFields;
+    }
     if (ids.companySegment) updateData.empresa_segmento = ids.companySegment;
 
     // Custom fields from shared mapping
@@ -987,10 +1114,14 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error("[piperun-webhook] Update error:", updateError);
+      await auditEvent("error_update", leadId, updateError.message);
       return new Response(JSON.stringify({ error: updateError.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Sucesso: registra audit do evento processado
+    await auditEvent(isNewLead ? "created" : "updated", leadId);
 
     // Normalize to relational tables (people/companies/deals)
     callNormalizeFromLead(supabase, leadId).catch(() => {});
