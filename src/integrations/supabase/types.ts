@@ -22195,8 +22195,9 @@ export type Database = {
           ordem: number
           qtd: number
           taxa_passagem: number
-          tempo_medio_dias: number
-          valor_estimado: number
+          valor_equipamento: number
+          valor_insumo: number
+          valor_total: number
         }[]
       }
       fn_generate_recurrent_turmas: {
