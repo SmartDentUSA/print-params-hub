@@ -21,7 +21,7 @@ const BUYER_FILTERS = [
 const PIPELINE_GROUPS: Record<string, { label: string; emoji: string; statuses: string[] }> = {
   vendas: {
     label: "Vendas", emoji: "🎯",
-    statuses: ["novo", "sem_contato", "contato_feito", "em_contato", "apresentacao", "proposta_enviada", "negociacao", "fechamento"],
+    statuses: ["novo", "sem_contato", "c1", "c2", "c3", "sdr_nutricao", "apresentacao", "proposta_enviada", "negociacao", "ltv", "fechamento", "contato_feito", "em_contato"],
   },
   estagnados: {
     label: "Estagnados", emoji: "🔄",
