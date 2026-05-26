@@ -13,6 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 
 interface Kpis {
@@ -37,6 +44,12 @@ interface FunilRow {
   funil: string | null;
   etapa: string | null;
   qtd: number | null;
+}
+interface EstagnadoRow {
+  vendedor: string | null;
+  qtd: number | null;
+  total_deals_mes: number | null;
+  pct: number | null;
 }
 interface OrigemRow {
   origem: string | null;
@@ -78,9 +91,16 @@ const barColor = (pct: number) => {
 };
 
 export default function RelatorioMensalComercial() {
+  const nowSP = useMemo(() => {
+    const s = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    return new Date(s);
+  }, []);
+  const [ano, setAno] = useState<number>(nowSP.getFullYear());
+  const [mes, setMes] = useState<number>(nowSP.getMonth() + 1);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [vendedores, setVendedores] = useState<VendedorRow[]>([]);
-  const [funil, setFunil] = useState<FunilRow[]>([]);
+  const [funilAtual, setFunilAtual] = useState<FunilRow[]>([]);
+  const [estagnados, setEstagnados] = useState<EstagnadoRow[]>([]);
   const [origens, setOrigens] = useState<OrigemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,19 +110,24 @@ export default function RelatorioMensalComercial() {
     setLoading(true);
     setError(null);
     try {
-      const [kRes, vRes, fRes, oRes] = await Promise.all([
-        supabase.from("v_relatorio_mes_kpis" as any).select("*").maybeSingle(),
-        supabase.from("v_relatorio_mes_vendedor" as any).select("*"),
-        supabase.from("v_relatorio_mes_funil" as any).select("*"),
-        supabase.from("v_relatorio_mes_origem" as any).select("*"),
+      const params = { p_ano: ano, p_mes: mes } as any;
+      const [kRes, vRes, fRes, eRes, oRes] = await Promise.all([
+        supabase.rpc("fn_relatorio_mes_kpis" as any, params),
+        supabase.rpc("fn_relatorio_mes_vendedor" as any, params),
+        supabase.rpc("fn_relatorio_mes_funil_atual" as any, params),
+        supabase.rpc("fn_relatorio_mes_funil_estagnados" as any, params),
+        supabase.rpc("fn_relatorio_mes_origem" as any, params),
       ]);
       if (kRes.error) throw kRes.error;
       if (vRes.error) throw vRes.error;
       if (fRes.error) throw fRes.error;
+      if (eRes.error) throw eRes.error;
       if (oRes.error) throw oRes.error;
-      setKpis((kRes.data as any) ?? null);
+      const kArr = (kRes.data as any[]) ?? [];
+      setKpis((Array.isArray(kArr) ? kArr[0] : kArr) ?? null);
       setVendedores(((vRes.data as any[]) ?? []) as VendedorRow[]);
-      setFunil(((fRes.data as any[]) ?? []) as FunilRow[]);
+      setFunilAtual(((fRes.data as any[]) ?? []) as FunilRow[]);
+      setEstagnados(((eRes.data as any[]) ?? []) as EstagnadoRow[]);
       setOrigens(((oRes.data as any[]) ?? []) as OrigemRow[]);
       setLastUpdated(new Date());
     } catch (e: any) {
@@ -110,7 +135,7 @@ export default function RelatorioMensalComercial() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ano, mes]);
 
   useEffect(() => {
     fetchAll();
@@ -136,34 +161,46 @@ export default function RelatorioMensalComercial() {
     );
   }, [vendedoresSorted]);
 
-  // Estagnados por vendedor: soma qtd onde funil contém "Estagnados"
-  const estagnadosPorVendedor = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const f of funil) {
-      if (!f.funil || !/Estagnados/i.test(f.funil)) continue;
+  const estagnadosPorVendedor = useMemo(
+    () =>
+      estagnados.map((e) => ({
+        vendedor: e.vendedor || "—",
+        qtd: Number(e.qtd ?? 0),
+        pct: Number(e.pct ?? 0),
+      })),
+    [estagnados],
+  );
+
+  // Snapshot atual de etapas por vendedor (agrupado)
+  const etapasPorVendedor = useMemo(() => {
+    const map = new Map<string, { funil: string; etapa: string; qtd: number }[]>();
+    for (const f of funilAtual) {
       const v = f.vendedor || "—";
-      map.set(v, (map.get(v) ?? 0) + Number(f.qtd ?? 0));
+      const arr = map.get(v) ?? [];
+      arr.push({ funil: f.funil || "—", etapa: f.etapa || "—", qtd: Number(f.qtd ?? 0) });
+      map.set(v, arr);
     }
-    // total de deals do vendedor no mês (abertos+ganhos+perdidos como proxy via funil total ou via vendedores)
-    const totalPorVendedor = new Map<string, number>();
-    for (const f of funil) {
-      const v = f.vendedor || "—";
-      totalPorVendedor.set(v, (totalPorVendedor.get(v) ?? 0) + Number(f.qtd ?? 0));
+    return Array.from(map.entries())
+      .map(([vendedor, rows]) => ({
+        vendedor,
+        rows: rows.sort((a, b) => b.qtd - a.qtd),
+        total: rows.reduce((s, r) => s + r.qtd, 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [funilAtual]);
+
+  // Opções de mês/ano (últimos 24 meses)
+  const monthOptions = useMemo(() => {
+    const opts: { ano: number; mes: number; label: string }[] = [];
+    const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const base = new Date(nowSP.getFullYear(), nowSP.getMonth(), 1);
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      opts.push({ ano: d.getFullYear(), mes: d.getMonth() + 1, label: `${meses[d.getMonth()]}/${d.getFullYear()}` });
     }
-    // soma ganhos+perdidos do mês também conta como deals do vendedor
-    for (const v of vendedores) {
-      const name = v.vendedor || "—";
-      const extra = Number(v.deals_ganhos ?? 0) + Number(v.perdidos ?? 0);
-      totalPorVendedor.set(name, (totalPorVendedor.get(name) ?? 0) + extra);
-    }
-    const rows = Array.from(map.entries()).map(([vendedor, qtd]) => {
-      const total = totalPorVendedor.get(vendedor) ?? qtd;
-      const pct = total > 0 ? (qtd / total) * 100 : 0;
-      return { vendedor, qtd, pct };
-    });
-    rows.sort((a, b) => b.qtd - a.qtd);
-    return rows;
-  }, [funil, vendedores]);
+    return opts;
+  }, [nowSP]);
+  const selectedKey = `${ano}-${String(mes).padStart(2, "0")}`;
 
   const origensFiltradas = useMemo(
     () =>
@@ -201,6 +238,25 @@ export default function RelatorioMensalComercial() {
             Relatório Comercial · {fmtMes(kpis?.mes_ref)}
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Select
+              value={selectedKey}
+              onValueChange={(val) => {
+                const [y, m] = val.split("-").map(Number);
+                setAno(y);
+                setMes(m);
+              }}
+            >
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((o) => (
+                  <SelectItem key={`${o.ano}-${o.mes}`} value={`${o.ano}-${String(o.mes).padStart(2, "0")}`}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Badge variant="outline" className="text-xs">
               Atualizado às {fmtTime(lastUpdated)}
             </Badge>
@@ -332,6 +388,51 @@ export default function RelatorioMensalComercial() {
                       style={{ width: `${Math.min(100, Math.max(0, r.pct))}%` }}
                     />
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Status atual de leads por vendedor */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground text-base">
+            Status Atual de Leads por Vendedor (etapas abertas)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading && etapasPorVendedor.length === 0 ? (
+            <Skeleton className="h-40 w-full" />
+          ) : etapasPorVendedor.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Nenhum lead aberto para vendedores ativos no mês.</div>
+          ) : (
+            <div className="space-y-6">
+              {etapasPorVendedor.map((g) => (
+                <div key={g.vendedor}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-foreground">{g.vendedor}</div>
+                    <Badge variant="outline" className="text-xs font-mono">{g.total} abertos</Badge>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Funil</TableHead>
+                        <TableHead>Etapa</TableHead>
+                        <TableHead className="text-right">Qtd</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {g.rows.map((r, i) => (
+                        <TableRow key={`${g.vendedor}-${i}`}>
+                          <TableCell className="text-foreground">{r.funil}</TableCell>
+                          <TableCell className="text-muted-foreground">{r.etapa}</TableCell>
+                          <TableCell className="text-right font-mono">{r.qtd}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               ))}
             </div>

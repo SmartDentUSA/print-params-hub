@@ -22392,6 +22392,63 @@ export type Database = {
         }
         Returns: string
       }
+      fn_relatorio_mes_funil_atual: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          etapa: string
+          funil: string
+          qtd: number
+          vendedor: string
+        }[]
+      }
+      fn_relatorio_mes_funil_estagnados: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          pct: number
+          qtd: number
+          total_deals_mes: number
+          vendedor: string
+        }[]
+      }
+      fn_relatorio_mes_kpis: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          gerado_em: string
+          leads_criados_mes: number
+          mes_ref: string
+          receita_total: number
+          ticket_medio: number
+          total_deals: number
+          vendedores_ativos: number
+        }[]
+      }
+      fn_relatorio_mes_origem: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          deals_ganhos: number
+          origem: string
+          receita: number
+          taxa_pct: number
+          total_leads: number
+        }[]
+      }
+      fn_relatorio_mes_vendedor: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          deals_ganhos: number
+          leads_mes: number
+          perdidos: number
+          receita: number
+          ticket_medio: number
+          vendedor: string
+        }[]
+      }
+      fn_relatorio_mes_vendedores_ativos: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          vendedor: string
+        }[]
+      }
       fn_release_lia_assign_lock: {
         Args: { p_lead_id: string }
         Returns: undefined
