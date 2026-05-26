@@ -1,67 +1,54 @@
-## Diagnóstico
+## Substituir "Detalhamento por Cliente (Deals Recentes)" por Relatório Mensal Comercial
 
-Baixei o CSV (`oportunidades-26-05-2026.csv`, 115 MB, encoding Latin-1, 129 colunas, 71.120 linhas).
+### Escopo
+Em `src/components/SmartOpsReports.tsx` (Painel Admin → Smart Ops → Reports), o card "Detalhamento por Cliente (Deals Recentes)" (linhas 215–282) é substituído por `<RelatorioMensalComercial />`. O card "Detalhamento por Cliente (Ativos)" (linha 287+) permanece intacto; o botão "Exportar CSV Completo" é movido para o header desse card "Ativos" para preservar a funcionalidade.
 
-Gap encontrado vs. nossa base:
+### Views Supabase (confirmadas no banco)
+`v_relatorio_mes_kpis`, `v_relatorio_mes_vendedor`, `v_relatorio_mes_funil`, `v_relatorio_mes_origem`.
 
-| Métrica | PipeRun export | Banco hoje | Faltando |
-|---|---:|---:|---:|
-| Deals totais | 71.120 | 32.700 | **38.420** |
-| Won/Ganha | 16.639 | 4.150 | **12.489** |
-| Perdida | 896 | 117 | 779 |
-| Aberta | 53.039 | 28.433 | 24.606 |
+### Migration (pré-requisito de permissão)
+Rodar antes do código:
+```sql
+GRANT SELECT ON
+  public.v_relatorio_mes_kpis,
+  public.v_relatorio_mes_vendedor,
+  public.v_relatorio_mes_funil,
+  public.v_relatorio_mes_origem
+TO anon, authenticated;
+```
 
-A maior parte do gap está no funil **"Funil Estagnados"** (53.659 deals, etapa "Etapa 00 - Novos") — leads antigos que o webhook nunca trouxe.
+### Novo componente: `src/components/admin/RelatorioMensalComercial.tsx`
 
-## Plano
+**Imports**: `supabase` de `@/integrations/supabase/client`; shadcn `Card`, `Badge`, `Button`, `Skeleton`, `Table*`, `Separator`; ícones `RefreshCw`, `AlertTriangle` (lucide).
 
-### 1. Subir o CSV para Storage privado
-- Bucket `piperun-imports` (privado), upload do arquivo via SQL `storage.objects` ou via dashboard.
-- Manter rastreabilidade (data, hash, contagem).
+**Estado/efeitos**
+- Estados: `kpis`, `vendedores`, `funil`, `origens`, `loading`, `error`, `lastUpdated`
+- `fetchAll()` faz `Promise.all` das 4 queries (`v_relatorio_mes_kpis` com `.single()`; demais com `.select('*')`)
+- `useEffect` chama no mount + `setInterval(fetchAll, 15*60*1000)` com cleanup
+- Botão refresh chama `fetchAll()` imediato
 
-### 2. Criar tabela de staging `piperun_deals_import`
-- Espelha as 129 colunas do CSV como `text` + colunas de controle (`import_batch_id`, `imported_at`, `processed`, `error`).
-- Carregar via Edge Function `piperun-import-csv` que faz streaming (CSV é grande, processar em chunks de 1.000 linhas).
+**Layout (dark theme, tokens semânticos)**
+1. **Header** — Título `Relatório Comercial · {fmtMes(kpis.mes_ref)}` + Badge "Atualizado às HH:MM" + botão `RefreshCw` (anima durante loading)
+2. **KPIs** — grid 4 colunas (`Card` cada): Receita CRM, Deals ganhos, Ticket médio, Leads criados (valores em `font-mono`)
+3. **Vendas por Vendedor** — `Table` ordenada por `receita DESC`; coluna Conversão `(deals_ganhos/leads_mes)*100` com `Badge` colorido (verde ≥30, azul 15–29, âmbar 5–14, vermelho <5); linha "Total" no rodapé
+4. **Estagnados por Vendedor** — derivado de `funil.filter(f => /Estagnados/i.test(f.funil))` agrupado por vendedor; para cada um: nome, qtd, % sobre total de deals do vendedor no mês (cruza com `vendedores`), barra de progresso via `div` com `style={{width: pct+'%'}}` colorida (vermelho >70, âmbar 50–70, verde <50) — conforme nota do usuário, evita limitações do `<Progress>` shadcn
+5. **Conversão por Origem** — `Table` filtrada `total_leads >= 3`, ordenada por `receita DESC`; dividida em "Alta conversão (≥50%)" e "Baixa conversão (<50%)" com `<Separator />` entre os blocos
 
-### 3. Edge Function `piperun-deals-bulk-upsert`
-Para cada linha do staging, aplicar a mesma lógica do webhook `smart-ops-piperun-webhook` (reuso de `_shared/piperun-deal-hydrate.ts` e `findLeadByCascade`):
+**Helpers**
+- `fmtBRL(v)` via `Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' })`
+- `fmtMes('2026-05' → 'Mai/2026')`
+- Loading: `<Skeleton />` nas 4 seções
+- Erro: card com mensagem + botão "Tentar novamente"
 
-**a. Resolver lead canônico** (cascata já existente):
-`piperun_id` → `email` → `phone` → `cnpj` → cria novo lead se não achar e tiver email/telefone.
+**Estilo** — apenas tokens (`bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`); cores semânticas `text-green-500/amber-500/red-500/blue-500` (padrão atual do SmartOpsReports).
 
-**b. Upsert em `deals`** por `piperun_deal_id`:
-- Campos diretos: status (mapeando Aberta→aberta, Ganha→ganha, Perdida→perdida, Cancelada→cancelada), funil, etapa, owner, origem, valor P&S, MRR, datas, motivo de perda, temperatura, probabilidade, freight, payment.
-- Campos JSONB: `proposals` (parse de "Itens da proposta"), `piperun_custom_fields` (todas colunas 105-128 — especialidade, scanner, impressora, área de atuação etc.).
-- **Regra anti-perda já memorizada**: nunca sobrescrever JSONB com vazio; merge incremental.
-- Timestamps: usar `Data de cadastro` (col 10) como `piperun_created_at`, `Data de fechamento` (col 11) como `closed_at` — nunca `now()`.
+### Alterações em `src/components/SmartOpsReports.tsx`
+- `import RelatorioMensalComercial from '@/components/admin/RelatorioMensalComercial'`
+- Remover bloco linhas 215–282 (`<Card>` "Deals Recentes")
+- Inserir `<RelatorioMensalComercial />` no lugar
+- Mover botão "Exportar CSV Completo" para o `CardHeader` do card "Ativos"
 
-**c. Enriquecer `lia_attendances`** (apenas canônicos, `merged_into IS NULL`):
-- Empresa: CNPJ, razão social, cidade/UF, segmento, porte, situação cadastral.
-- Pessoa: CPF, cargo, endereço, instagram, especialidade, equipamentos (scanner/impressora).
-- Estratégia ALWAYS_UPDATE para equipamentos (memória `lead-form-enrichment-v3`); demais campos só preenchem se nulos.
-
-**d. Auditoria**: gravar em `piperun_webhook_events` (outcome=`bulk_import`) para manter trilha.
-
-### 4. UI mínima em `/admin`
-Card "Importação PipeRun" com:
-- Botão **Selecionar CSV** (multipart upload, valida cabeçalho).
-- Tabela de batches: data, linhas, processadas, criadas, atualizadas, erros, link p/ baixar relatório.
-- Botão **Reprocessar batch** (idempotente).
-
-### 5. Execução do batch atual
-- Rodar o upload do CSV já baixado.
-- Processar em background (cron `process-piperun-import-queue` a cada 1 min, lote de 500).
-- Estimativa: ~71k linhas / 500 por minuto ≈ 2-3 horas até completar.
-- Relatório final: criados vs. atualizados vs. leads novos vs. erros.
-
-### 6. Salvaguardas
-- **Idempotente**: upsert por `piperun_deal_id`, batch reprocessável.
-- **Não duplica leads**: cascata de identidade respeitada; deals órfãos (sem identificador) ficam com `lead_id NULL` e flag `needs_review`.
-- **Custom fields preservados**: regra no-overwrite-with-empty já implementada no webhook.
-- **Auditoria completa** em `piperun_webhook_events`.
-
-## Confirmação necessária
-
-1. Pode criar o bucket `piperun-imports` e a tabela `piperun_deals_import`?
-2. Pode rodar o import deste CSV imediatamente após a UI ficar pronta, ou prefere validar primeiro com um subset (ex.: só "Funil Estagnados")?
-3. Para deals "Aberta" no funil "Funil Estagnados" (53k), devo marcar `real_status` como reativação ou manter neutro?
+### Fora do escopo
+- Não mexer no card "Ativos" (conteúdo) nem nas correções 1–4 anteriores
+- Não criar tab nova (`so-reports` já existe em `AdminViewSecure`)
+- Sem cache local, sem CSV PipeRun, sem outras mudanças de schema
