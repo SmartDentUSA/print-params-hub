@@ -20121,7 +20121,9 @@ export type Database = {
       }
       v_relatorio_mes_kpis: {
         Row: {
+          gerado_em: string | null
           leads_criados_mes: number | null
+          mes_ref: string | null
           receita_total: number | null
           ticket_medio: number | null
           total_deals: number | null
@@ -21921,6 +21923,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
       fn_deduplicate_proposal_csv: {
         Args: { p_csv_rows: Json }
         Returns: {
