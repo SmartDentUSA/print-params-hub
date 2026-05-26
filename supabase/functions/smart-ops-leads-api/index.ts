@@ -219,7 +219,28 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
   }
 
   // 7b. Portfolio from individual lead columns (workflow_portfolio JSONB is mostly null)
-  const portfolio = transformPortfolioFromLead(lead, taxonomyMap);
+  // Prefer authoritative portfolio built from workflow_cell_mappings (223 curated rules).
+  // Fallback to legacy heuristic when RPC returns nothing.
+  let portfolio: any = null;
+  try {
+    const { data: portfolioFromMappings } = await supabase
+      .rpc("compute_lead_portfolio_from_mappings", { p_lead_id: lead.id });
+    if (portfolioFromMappings && typeof portfolioFromMappings === "object") {
+      const normalized = normalizePortfolioCellKeys(portfolioFromMappings);
+      const stageKeys = Object.keys(normalized).filter((k) => k !== "summary");
+      const hasAny = stageKeys.some((k) => {
+        const stg = normalized[k];
+        return stg && typeof stg === "object" && Object.keys(stg).length > 0;
+      });
+      if (hasAny) {
+        // Fill empty subcategories with vazio placeholders so the UI renders the full grid
+        portfolio = fillEmptyCells(normalized);
+      }
+    }
+  } catch (e) {
+    console.warn("[leads-api] compute_lead_portfolio_from_mappings failed:", e);
+  }
+  if (!portfolio) portfolio = transformPortfolioFromLead(lead, taxonomyMap);
   const portfolio_embed_url = null;
 
   const response = {

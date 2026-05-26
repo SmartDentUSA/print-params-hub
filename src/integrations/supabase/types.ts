@@ -22268,6 +22268,10 @@ export type Database = {
         Returns: undefined
       }
       cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
+      compute_lead_portfolio_from_mappings: {
+        Args: { p_lead_id: string }
+        Returns: Json
+      }
       compute_workflow_timeline: {
         Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
         Returns: Json
