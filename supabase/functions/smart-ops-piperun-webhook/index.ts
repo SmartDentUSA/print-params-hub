@@ -1114,10 +1114,14 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error("[piperun-webhook] Update error:", updateError);
+      await auditEvent("error_update", leadId, updateError.message);
       return new Response(JSON.stringify({ error: updateError.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Sucesso: registra audit do evento processado
+    await auditEvent(isNewLead ? "created" : "updated", leadId);
 
     // Normalize to relational tables (people/companies/deals)
     callNormalizeFromLead(supabase, leadId).catch(() => {});
