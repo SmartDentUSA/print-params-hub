@@ -509,10 +509,12 @@ Deno.serve(async (req) => {
       const personName = ids.personName || (deal.title ? String(deal.title).split(" - ")[0] : "Lead PipeRun");
 
       if (!personEmail) {
-        console.warn("[piperun-webhook] Deal sem email:", dealId);
-        return new Response(JSON.stringify({ error: "Deal sem email" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        console.warn(`[piperun-webhook] Deal sem email após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
+        await auditEvent("skipped_no_email", null, "deal_without_email_after_hydration");
+        return new Response(
+          JSON.stringify({ ok: true, skipped: true, reason: "no_email_after_hydration", deal_id: dealId }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       const phoneNormalized: string | null = normalizeBrazilianPhone(ids.personPhone);
