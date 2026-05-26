@@ -1,43 +1,56 @@
-## Diagnóstico
+## Achados sobre combos INO 200
 
-Comparei o CSV exportado do PipeRun (110 oportunidades, filtradas por `Status=Ganha` + `Tags contém RAYSHAPE`) contra `fn_rayshape_owners()` do sistema.
+Levantei 174 deals **Ganhos** que contêm `INO 200 - BLZ` na proposta:
+- **33 listam `RayShape - Edge Mini` como item separado** → já contam no `fn_rayshape_owners` ✅
+- **141 NÃO listam Edge Mini explicitamente** → atualmente **não contam** ❌
 
-- **CRM (CSV)**: 59 deals Ganha com tag RAYSHAPE
-- **Sistema (Rayshape Donos Edge Mini)**: 88 donos (inclui histórico anterior ao recorte do CSV)
-- **Faltando no sistema**: **7 deals**
+A função `fn_rayshape_owners` filtra apenas por `item.nome ILIKE '%Edge Mini%'`. Se o combo `INO 200 - BLZ` embute a impressora Rayshape mas não a desmembra como linha separada, esses donos ficam invisíveis na lista Edge Mini.
 
-## Os 7 deals ausentes
+**Precisa de decisão de negócio antes de mexer no matcher:**
+- O combo `INO 200 - BLZ` (item_id/SKU específico) sempre inclui a Rayshape Edge Mini? Ou só algumas versões?
+- Existem outros combos (`KIT CHAIRSIDE`, etc.) que também embutem Edge Mini?
 
-| Deal ID | Lead | Fechamento | Vendedor | Valor | Status no CDP |
-|---|---|---|---|---|---|
-| 47317858 | Fabiano Rocha Pereira e Cia LTDA | 24/10/2025 | Patricia Gastaldi | R$ 27.000 | lead existe, sem etapa |
-| 51852538 | GABRIELA CE | 11/09/2025 | Daniele Oliveira | R$ 26.000 | **lead não existe** |
-| 51909112 | M Veraldi Odontologia Especializada Ltda | 15/09/2025 | Paulo Sérgio | R$ 79.500 | lead existe, sem etapa |
-| 52559870 | Sergio Antonio Cardoso | 30/09/2025 | Patricia Gastaldi | R$ 28.617 | **lead não existe** |
-| 56643646 | Ivan Contreras | 03/03/2026 | Lucas Silva | R$ 28.000 | lead existe, sem etapa |
-| 58513700 | Clinica kignel associados Ltda | 08/04/2026 | Gabriella Ferreira | R$ 30.000 | lead existe (cs_em_espera) |
-| 59311370 | COELHO E VILAROUCA LTDA | 27/04/2026 | Lucas Silva | R$ 18.690 | lead existe, sem etapa |
+## Plano
 
-## Causa raiz provável
+### Parte 1 — Pull cirúrgico de deals (param `deal_ids`)
 
-- **2 leads ausentes do CDP** (51852538, 52559870): sync do PipeRun não trouxe esses deals para `lia_attendances`. Provavelmente foram criados manualmente no PipeRun em pipeline não monitorado pelo orquestrador, ou ficaram fora da janela `updated_since` do reconciler.
-- **5 leads existem mas não aparecem em `fn_rayshape_owners`**: a função filtra por SKU/produto da Rayshape (Edge Mini) dentro do `deals.items_jsonb`. Esses deals estão no CDP mas o item não foi normalizado como Rayshape — provavelmente o nome do produto na proposta do PipeRun não bate com o matcher SKU.
+Atualizar `supabase/functions/smart-ops-sync-piperun/index.ts`:
 
-## Plano de correção
+1. Adicionar leitura de `url.searchParams.get("deal_ids")` (CSV de IDs, ex.: `47317858,51852538,51909112,56643646`).
+2. Quando presente, **pular** o loop de paginação por `pipeline_id`/`updated_since` e fazer `GET /deals/{id}?with[]=person,person.emails,person.phones,...` para cada ID, alimentando o mesmo pipeline de upsert/normalização.
+3. Manter `orchestrate=true` válido (cada deal_id vira um "snapshot" individual no chunked pipeline).
+4. Logar em `system_health_logs` com `function_name=piperun_sync_targeted`.
 
-1. **Backfill dos 2 leads ausentes** (51852538, 52559870):
-   - Invocar `smart-ops-piperun-funnel-reconciler?hours=168` (7 dias não cobre — usar `smart-ops-sync-piperun?orchestrate=true&pipeline_id=18784&deal_ids=51852538,52559870` para forçar pull pontual).
-   - Alternativa: adicionar suporte ao parâmetro `deal_ids` no `smart-ops-sync-piperun` se ainda não existir.
+Após deploy, invocar:
+```
+GET /smart-ops-sync-piperun?deal_ids=47317858,51852538,51909112,56643646
+```
+e validar:
+```sql
+SELECT piperun_deal_id, lead_id, status, is_deleted
+FROM deals WHERE piperun_deal_id IN ('47317858','51852538','51909112','56643646');
+```
 
-2. **Investigar os 5 leads sem match Rayshape**:
-   - Inspecionar `deals.items_jsonb` desses 5 `piperun_id` para ver o `product_name`/`sku` exato.
-   - Ajustar o matcher em `fn_rayshape_owners` (ou no normalizador de itens) para reconhecer as variações de nome ("Rayshape Edge Mini", "EDGE MINI", "Edge-Mini", etc.).
+### Parte 2 — Cobertura combos INO 200 com Rayshape
 
-3. **Verificação pós-fix**:
-   - Rodar `fn_rayshape_owners()` e confirmar que os 7 IDs apareceram.
-   - Conferir no painel SmartOps → Rayshape se contagem total bate com CRM (59 no recorte + histórico).
+Sugestão (aguardando confirmação): estender o matcher de `fn_rayshape_owners` para reconhecer combos que embutem a Rayshape. Caminhos possíveis (escolher 1):
 
-## Não muda
+**Opção A — Lista branca de SKUs/nomes de combo** (preferida, determinística):
+- Criar tabela `rayshape_bundle_skus(sku text PRIMARY KEY, label text, includes_edge_mini boolean)`.
+- Popular com SKUs/nomes confirmados pelo time (ex.: `INO 200 - BLZ` quando vendido com Rayshape).
+- Ajustar `fn_rayshape_owners` para também aceitar quando algum item da proposta bater nessa lista.
 
-- Lógica do funil 18784 recém-atualizada.
-- Outras views/RPCs do SmartOps.
+**Opção B — Regex amplo** (`%INO 200%` OU `%Edge Mini%`):
+- Mais simples mas pode contar falsos positivos (deals que pegaram só o scanner INO 200 sem impressora).
+
+**Opção C — Status quo + ação operacional**:
+- Pedir ao time comercial para sempre desmembrar `RayShape - Edge Mini` como item próprio na proposta, mesmo dentro de combos. Sem mudança de código.
+
+### Parte 3 — Memória
+
+Atualizar `mem://smart-ops/copilot-product-owners-tool` (ou criar `mem://smart-ops/rayshape-owners-matcher-v2`) documentando a regra final de inclusão (apenas Edge Mini explícito vs combos embutidos).
+
+## Perguntas para você
+
+1. Confirmo que adiciono o `deal_ids` ao `smart-ops-sync-piperun` (Parte 1) — ok?
+2. Qual opção para combos INO 200: **A (whitelist de SKUs)**, **B (regex amplo)** ou **C (status quo)**? Se A, qual lista de combos sabidamente embutem a Rayshape Edge Mini?
