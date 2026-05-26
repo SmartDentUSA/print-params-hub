@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
+import "@/styles/intelligence-dark.css";
 import { Printer, Search, RefreshCw, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
