@@ -20110,6 +20110,46 @@ export type Database = {
         }
         Relationships: []
       }
+      v_relatorio_mes_funil: {
+        Row: {
+          etapa: string | null
+          funil: string | null
+          qtd: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_relatorio_mes_kpis: {
+        Row: {
+          leads_criados_mes: number | null
+          receita_total: number | null
+          ticket_medio: number | null
+          total_deals: number | null
+          vendedores_ativos: number | null
+        }
+        Relationships: []
+      }
+      v_relatorio_mes_origem: {
+        Row: {
+          deals_ganhos: number | null
+          origem: string | null
+          receita: number | null
+          taxa_pct: number | null
+          total_leads: number | null
+        }
+        Relationships: []
+      }
+      v_relatorio_mes_vendedor: {
+        Row: {
+          deals_ganhos: number | null
+          leads_mes: number | null
+          perdidos: number | null
+          receita: number | null
+          ticket_medio: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
       v_short_links_analytics: {
         Row: {
           click_count: number | null
