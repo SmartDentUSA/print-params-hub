@@ -536,7 +536,7 @@ export default function RelatorioMensalComercial() {
         {/* Funil por Vendedor */}
         <div className="section">
           <div className="sl">
-            Funil por Vendedor — Deals Abertos da Coorte · Enviados para Estagnados este mês
+            Funil por Vendedor — Abertos (snapshot do mês) · Estagnados (criados no mês) · Perdidas/Ganhas (fechadas no mês)
           </div>
           {cardsFunil.length === 0 && (
             <div className="tw" style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Sem dados de funil para o período.</div>

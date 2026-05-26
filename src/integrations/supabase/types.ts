@@ -22464,16 +22464,15 @@ export type Database = {
         Args: { p_ano: number; p_mes: number }
         Returns: {
           clientes_unicos: number
+          deals_criados: number
+          deals_ganhos: number
           enviados_estagnados: number
           funil_ativo: number
-          gerado_em: string
-          leads_criados_mes: number
-          mes_ref: string
           perdidas_mes: number
-          receita_total: number
+          receita_meta: number
+          receita_won: number
+          taxa_conversao: number
           ticket_medio: number
-          total_deals: number
-          vendedores_ativos: number
         }[]
       }
       fn_relatorio_mes_origem: {
@@ -22509,12 +22508,10 @@ export type Database = {
       fn_relatorio_mes_vendedor_detalhe: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
-          abertas: number
+          abertos: number
           estagnados: number
-          estagnados_pct: number
           ganhas: number
           perdidas: number
-          total_criados: number
           vendedor: string
         }[]
       }
