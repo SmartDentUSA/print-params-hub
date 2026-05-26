@@ -2,11 +2,20 @@ export const config = { runtime: 'edge' };
 
 const BOTS = [
   'googlebot', 'bingbot', 'slurp', 'duckduckbot',
-  'gptbot', 'chatgpt-user', 'claudebot', 'anthropic-ai',
-  'perplexitybot', 'ccbot', 'bytespider', 'applebot',
-  'yandexbot', 'semrushbot', 'ahrefsbot', 'prerender',
+  'gptbot', 'chatgpt-user', 'oai-searchbot',
+  'claudebot', 'anthropic-ai', 'anthropic',
+  'perplexitybot', 'ccbot', 'bytespider',
+  'applebot', 'applebot-extended',
+  'yandexbot', 'baiduspider', 'petalbot',
+  'semrushbot', 'ahrefsbot', 'dotbot', 'mj12bot', 'rogerbot', 'serpstatbot',
+  'prerender', 'lighthouse',
   'facebookexternalhit', 'twitterbot', 'linkedinbot',
-  'whatsapp', 'telegrambot', 'lighthouse'
+  'whatsapp', 'telegrambot',
+  'meta-externalagent', 'meta-externalfetcher',
+  'amazonbot', 'youbot', 'diffbot', 'mistralai-user',
+  'google-extended', 'google-cloudvertexbot',
+  'duckassistbot', 'kagibot', 'phindbot', 'timpibot', 'iaskbot',
+  'cohere-ai'
 ];
 
 export default async function handler(request: Request) {

@@ -67,7 +67,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot|gptbot|chatgpt-user|perplexitybot|claudebot|anthropic|anthropic-ai|bytespider|ccbot|cohere-ai|google-extended).*"
+          "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|applebot-extended|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot|gptbot|chatgpt-user|oai-searchbot|perplexitybot|claudebot|anthropic|anthropic-ai|bytespider|ccbot|cohere-ai|google-extended|google-cloudvertexbot|meta-externalagent|meta-externalfetcher|amazonbot|youbot|diffbot|mistralai-user|duckassistbot|kagibot|phindbot|timpibot|iaskbot).*"
         }
       ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=/:path*"
