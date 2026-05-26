@@ -219,7 +219,28 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
   }
 
   // 7b. Portfolio from individual lead columns (workflow_portfolio JSONB is mostly null)
-  const portfolio = transformPortfolioFromLead(lead, taxonomyMap);
+  // Prefer authoritative portfolio built from workflow_cell_mappings (223 curated rules).
+  // Fallback to legacy heuristic when RPC returns nothing.
+  let portfolio: any = null;
+  try {
+    const { data: portfolioFromMappings } = await supabase
+      .rpc("compute_lead_portfolio_from_mappings", { p_lead_id: lead.id });
+    if (portfolioFromMappings && typeof portfolioFromMappings === "object") {
+      const normalized = normalizePortfolioCellKeys(portfolioFromMappings);
+      const stageKeys = Object.keys(normalized).filter((k) => k !== "summary");
+      const hasAny = stageKeys.some((k) => {
+        const stg = normalized[k];
+        return stg && typeof stg === "object" && Object.keys(stg).length > 0;
+      });
+      if (hasAny) {
+        // Fill empty subcategories with vazio placeholders so the UI renders the full grid
+        portfolio = fillEmptyCells(normalized);
+      }
+    }
+  } catch (e) {
+    console.warn("[leads-api] compute_lead_portfolio_from_mappings failed:", e);
+  }
+  if (!portfolio) portfolio = transformPortfolioFromLead(lead, taxonomyMap);
   const portfolio_embed_url = null;
 
   const response = {
@@ -249,6 +270,40 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_6_cursos:        ['presencial', 'online'],
   etapa_7_fresagem:      ['equipamentos', 'software', 'insumos', 'servico', 'acessorios', 'pecas_partes'],
 };
+
+// Cell-key aliases between workflow_cell_mappings (DB) and UI (WorkflowPortfolio.tsx)
+const CELL_KEY_ALIASES: Record<string, string> = {
+  credito_ia: 'creditos_ia',
+  software_impressao: 'software_imp',
+};
+
+function normalizePortfolioCellKeys(raw: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [stageKey, stageVal] of Object.entries(raw)) {
+    if (stageKey === 'summary') { out.summary = stageVal; continue; }
+    if (!stageVal || typeof stageVal !== 'object') { out[stageKey] = stageVal; continue; }
+    const normStage: Record<string, any> = {};
+    for (const [cellKey, cellVal] of Object.entries(stageVal as Record<string, any>)) {
+      const aliased = CELL_KEY_ALIASES[cellKey] || cellKey;
+      normStage[aliased] = cellVal;
+    }
+    out[stageKey] = normStage;
+  }
+  return out;
+}
+
+function fillEmptyCells(portfolio: Record<string, any>): Record<string, any> {
+  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+    if (!portfolio[stageKey] || typeof portfolio[stageKey] !== 'object') portfolio[stageKey] = {};
+    for (const sub of subcats) {
+      if (!portfolio[stageKey][sub]) {
+        portfolio[stageKey][sub] = { label: '—', layer: 'vazio' };
+      }
+    }
+  }
+  if (!portfolio.summary) portfolio.summary = { n_ativo: 0, n_conc: 0, n_sdr: 0, n_mapeamento: 0 };
+  return portfolio;
+}
 
 // ─── Layer priority: higher number wins ───
 // ativo (4) > conc (3) > sdr (2) > mapeamento (1) > vazio (0)
