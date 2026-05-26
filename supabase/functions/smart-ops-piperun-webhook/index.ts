@@ -252,6 +252,12 @@ async function findLeadByCascade(
   personHash: string | null,
   personId: number | undefined,
   email: string | null,
+  opts?: {
+    companyId?: number | undefined;
+    companyCnpj?: string | null;
+    phoneNormalized?: string | null;
+    dealHash?: string | null;
+  },
 ): Promise<LeadRecord | null> {
   const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history";
 
@@ -260,6 +266,7 @@ async function findLeadByCascade(
     .from("lia_attendances")
     .select(selectCols)
     .eq("piperun_id", dealId)
+    .is("merged_into", null)
     .maybeSingle();
   if (byDeal) return byDeal as LeadRecord;
 
@@ -269,6 +276,7 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("pessoa_hash", personHash)
+      .is("merged_into", null)
       .maybeSingle();
     if (byHash) return byHash as LeadRecord;
   }
@@ -279,6 +287,7 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("pessoa_piperun_id", personId)
+      .is("merged_into", null)
       .maybeSingle();
     if (byPersonId) return byPersonId as LeadRecord;
   }
@@ -289,8 +298,62 @@ async function findLeadByCascade(
       .from("lia_attendances")
       .select(selectCols)
       .eq("email", email.toLowerCase().trim())
+      .is("merged_into", null)
       .maybeSingle();
     if (byEmail) return byEmail as LeadRecord;
+  }
+
+  // 5. By deal hash (deals never change hash, mesmo se piperun_id mudar)
+  if (opts?.dealHash) {
+    const { data: byDealHash } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("piperun_hash", opts.dealHash)
+      .is("merged_into", null)
+      .maybeSingle();
+    if (byDealHash) return byDealHash as LeadRecord;
+  }
+
+  // 6. By empresa_piperun_id (recupera leads cuja Person veio sem identidade)
+  if (opts?.companyId) {
+    const { data: byCompany } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("empresa_piperun_id", opts.companyId)
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byCompany) return byCompany as LeadRecord;
+  }
+
+  // 7. By empresa_cnpj (normalizado)
+  if (opts?.companyCnpj) {
+    const cnpjDigits = String(opts.companyCnpj).replace(/\D/g, "");
+    if (cnpjDigits.length >= 11) {
+      const { data: byCnpj } = await supabase
+        .from("lia_attendances")
+        .select(selectCols)
+        .eq("empresa_cnpj", opts.companyCnpj)
+        .is("merged_into", null)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (byCnpj) return byCnpj as LeadRecord;
+    }
+  }
+
+  // 8. By telefone_normalized
+  if (opts?.phoneNormalized) {
+    const { data: byPhone } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("telefone_normalized", opts.phoneNormalized)
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byPhone) return byPhone as LeadRecord;
   }
 
   return null;
