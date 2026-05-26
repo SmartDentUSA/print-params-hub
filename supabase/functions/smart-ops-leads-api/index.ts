@@ -271,6 +271,40 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_7_fresagem:      ['equipamentos', 'software', 'insumos', 'servico', 'acessorios', 'pecas_partes'],
 };
 
+// Cell-key aliases between workflow_cell_mappings (DB) and UI (WorkflowPortfolio.tsx)
+const CELL_KEY_ALIASES: Record<string, string> = {
+  credito_ia: 'creditos_ia',
+  software_impressao: 'software_imp',
+};
+
+function normalizePortfolioCellKeys(raw: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [stageKey, stageVal] of Object.entries(raw)) {
+    if (stageKey === 'summary') { out.summary = stageVal; continue; }
+    if (!stageVal || typeof stageVal !== 'object') { out[stageKey] = stageVal; continue; }
+    const normStage: Record<string, any> = {};
+    for (const [cellKey, cellVal] of Object.entries(stageVal as Record<string, any>)) {
+      const aliased = CELL_KEY_ALIASES[cellKey] || cellKey;
+      normStage[aliased] = cellVal;
+    }
+    out[stageKey] = normStage;
+  }
+  return out;
+}
+
+function fillEmptyCells(portfolio: Record<string, any>): Record<string, any> {
+  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+    if (!portfolio[stageKey] || typeof portfolio[stageKey] !== 'object') portfolio[stageKey] = {};
+    for (const sub of subcats) {
+      if (!portfolio[stageKey][sub]) {
+        portfolio[stageKey][sub] = { label: '—', layer: 'vazio' };
+      }
+    }
+  }
+  if (!portfolio.summary) portfolio.summary = { n_ativo: 0, n_conc: 0, n_sdr: 0, n_mapeamento: 0 };
+  return portfolio;
+}
+
 // ─── Layer priority: higher number wins ───
 // ativo (4) > conc (3) > sdr (2) > mapeamento (1) > vazio (0)
 const LAYER_PRIORITY: Record<string, number> = {
