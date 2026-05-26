@@ -1,37 +1,33 @@
-## Causa raiz
+## Objetivo
+1. Permitir seleção de mês/ano no Relatório Comercial (hoje fixo no mês atual).
+2. Mostrar status atual de leads (etapas abertas) por vendedor.
+3. "Deals Enviados para Estagnados por Vendedor" considerar somente vendedores ativos no mês selecionado.
 
-`LeadDetailPanel` depende inteiramente de classes definidas em `src/styles/intelligence-dark.css` (`.intel-detail`, `.hero`, `.avatar`, `.ctx-badge`, `.ltv-block`, `.timeline-event`, etc.).
+## Backend (migration)
+Substituir as 4 views fixas por funções SQL parametrizadas `(p_ano int, p_mes int)`:
 
-Esse CSS hoje é importado **apenas** em `src/components/SmartOpsLeadsList.tsx`:
+- `fn_relatorio_mes_kpis(p_ano, p_mes)` → mesmos campos da view atual, com `mes_ref = to_char(make_date(p_ano,p_mes,1),'YYYY-MM')`.
+- `fn_relatorio_mes_vendedor(p_ano, p_mes)` → mesmas colunas.
+- `fn_relatorio_mes_origem(p_ano, p_mes)` → mesmas colunas.
+- `fn_relatorio_mes_funil_estagnados(p_ano, p_mes)` → retorna `(vendedor, qtd, total_deals_mes, pct)` já filtrado para vendedores ativos no mês (vendedores com ≥1 deal ganho/perdido/criado no mês).
+- `fn_relatorio_mes_funil_atual(p_ano, p_mes)` → snapshot atual de deals abertos por vendedor/funil/etapa, restrito aos vendedores ativos no mês (status atual dos leads em cada etapa de cada vendedor).
 
-```ts
-import "@/styles/intelligence-dark.css";
-```
+GRANT EXECUTE para `authenticated` e `service_role`. Views antigas podem ser mantidas (compat) ou dropadas — vou manter por segurança.
 
-Quando o usuário entra pela aba **Rayshape — Donos Edge Mini** (`SmartOpsRayshape.tsx`) sem antes passar pela aba "Leads", o módulo de CSS nunca é carregado. Ao clicar num card, o painel renderiza, mas sem nenhuma das classes — fica aquela "tela quebrada" que você colou: textos empilhados, sem grid, sem cards, sem tabs estilizadas.
+## Frontend (`RelatorioMensalComercial.tsx`)
+- Estado `ano`/`mes` (default = mês corrente em America/Sao_Paulo).
+- Header: dois `Select` (mês + ano, últimos 24 meses) + botão refresh.
+- `fetchAll` passa a usar `supabase.rpc('fn_relatorio_mes_*', { p_ano, p_mes })`.
+- Refazer fetch quando `ano/mes` mudam.
+- Nova seção "Status atual dos leads por vendedor" agrupando `fn_relatorio_mes_funil_atual` por vendedor → tabela colapsável por funil/etapa com qtd.
+- Card de Estagnados usa direto `fn_relatorio_mes_funil_estagnados` (já filtrado a vendedores ativos), removendo o cálculo client-side atual.
 
-Quando você abre primeiro a aba Leads, o CSS é injetado globalmente e depois disso o painel via Rayshape funciona normal. Por isso o bug é "às vezes".
+## Detalhes técnicos
+- "Vendedor ativo no mês" = aparece em `fn_relatorio_mes_vendedor` (tem deals ganhos, perdidos ou leads atribuídos no mês).
+- Estagnados: deals com status `aberta` cujo `pipeline_name ILIKE '%Estagnados%'`, agrupado por owner_name, mas só linhas onde owner_name ∈ ativos do mês.
+- Snapshot atual ignora o mês na contagem (são deals abertos hoje), mas usa o mês apenas para filtrar quais vendedores aparecer.
+- Mês default e label continuam usando timezone `America/Sao_Paulo`.
 
-## Correção
-
-Adicionar o mesmo import no topo do `SmartOpsRayshape.tsx`:
-
-```ts
-import "@/styles/intelligence-dark.css";
-```
-
-Como reforço para qualquer ponto futuro que renderize o painel isoladamente, mover o import também para dentro de `src/components/smartops/LeadDetailPanel.tsx` (uma única vez — Vite deduplica) garante que o CSS acompanha o componente onde quer que seja usado.
-
-## Arquivos alterados
-
-- `src/components/smartops/LeadDetailPanel.tsx` — adicionar `import "@/styles/intelligence-dark.css";` no topo
-- `src/components/SmartOpsRayshape.tsx` — adicionar o mesmo import (defesa em profundidade)
-
-## Validação
-
-- Recarregar `/admin`, ir direto em Rayshape (sem passar por Leads), clicar num card → painel deve renderizar com hero, tabs, timeline e tabelas estilizados, igual ao acesso via "Leads".
-
-## Fora de escopo
-
-- Nenhuma mudança de lógica, dados, queries ou views SQL.
-- Nenhuma mudança no `RayshapePanel` interno (que usa estilos inline próprios).
+## Arquivos tocados
+- Nova migration `supabase/migrations/<ts>_relatorio_mensal_param.sql`
+- `src/components/admin/RelatorioMensalComercial.tsx`
