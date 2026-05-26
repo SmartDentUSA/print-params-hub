@@ -52,6 +52,8 @@ function detectProductFromFormName(formName: string | null): string | null {
   if (upper.includes("EXOCAD")) return "exocad";
   if (upper.includes("MEDIT")) return "Medit";
   if (upper.includes("MIICRAFT") || upper.includes("MII CRAFT")) return "MiiCraft";
+  // "Impresoras - Smart Dent" (form Meta Ads em espanhol) → RayShape Edge mini
+  if (upper.includes("IMPRESORAS")) return "RayShape Edge mini";
   if (upper.includes("SCANNER")) return "Scanner Intraoral";
   if (upper.includes("IMPRESSORA") || upper.includes("PRINTER")) return "Impressora 3D";
   if (upper.includes("RESINA") || upper.includes("RESIN")) return "Resinas";
