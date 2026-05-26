@@ -1,38 +1,27 @@
-## Context
-The function `triggerOutboundMessages` in `supabase/functions/_shared/waleads-messaging.ts` sends a seller briefing via WhatsApp (Evolution API) every time it runs. This can result in duplicate notifications to the same seller for the same lead on the same day.
+## Objetivo
+Adicionar verificação de deduplicação (dedup) no início do bloco `try{}` da função `triggerOutboundMessages` no edge function `smart-ops-lia-assign`, garantindo que o briefing só seja enviado 1x por lead por dia.
 
-## Goal
-Add a deduplication check against `message_logs` before the `sendWaLeadsMessage` call that delivers the seller briefing.
+## Local
+`supabase/functions/smart-ops-lia-assign/index.ts`, linha ~1565 (início do bloco try dentro de `triggerOutboundMessages`)
 
-## Implementation
-
-### File: `supabase/functions/_shared/waleads-messaging.ts`
-
-1. Inside `triggerOutboundMessages`, after building the `briefing` string (line ~535) and before calling `sendWaLeadsMessage` for the seller (line ~537), insert:
+## Alteração
+Inserir como **primeira linha dentro do `try{}`**, antes de qualquer outra operação:
 
 ```typescript
-const hoje = new Date().toISOString().split('T')[0];
-const hojeStart = `${hoje}T00:00:00.000Z`;
-const hojeEnd = `${hoje}T23:59:59.999Z`;
-
-const { count } = await supabase
-  .from('message_logs')
-  .select('*', { count: 'exact', head: true })
-  .eq('lead_id', leadId)
-  .in('tipo', ['briefing_vendedor', 'briefing_vendedor_block'])
-  .gte('created_at', hojeStart)
-  .lte('created_at', hojeEnd);
-
-if (count && count > 0) {
-  console.log('[notifySeller] dedup blocked - already sent today');
-  return { skipped: true, reason: 'already_notified_today' };
-}
+    // DEDUP: garantir que briefing seja enviado apenas 1x por lead por dia
+    const leadId = lead.id as string;
+    const { data: lockAcquired } = await supabase
+      .rpc('try_acquire_briefing_lock', { p_lead_id: leadId });
+    if (!lockAcquired) {
+      console.log(`[lia-assign] Briefing já enviado hoje para ${leadId}, bloqueado`);
+      return;
+    }
 ```
 
-2. Because `triggerOutboundMessages` currently returns `Promise<void>`, change its signature to return `Promise<{ skipped?: boolean; reason?: string } | void>` so the caller can optionally react to the skip.
+## Contexto
+- A função PostgreSQL `try_acquire_briefing_lock(p_lead_id uuid)` já existe no banco e executa `INSERT INTO briefing_locks (lead_id, lock_date) VALUES (p_lead_id, CURRENT_DATE) ON CONFLICT (lead_id, lock_date) DO NOTHING;` retornando `FOUND` (boolean).
+- A função `triggerOutboundMessages` está nas linhas 1549-1603.
+- O bloco `try{}` inicia na linha 1565. O lock deve ser a **primeira** operação dentro do try, antes do fetch em `team_members` (linha 1567).
 
-3. The `sendWaLeadsMessage` call at line 537 should only execute when the dedup check passes.
-
-## Notes
-- The table `message_logs` does not have a `data_envio_dia` column. Use `created_at` range-filtered to the current UTC day instead.
-- No database migration is required because `message_logs` already exists and `tipo` is a free text field.
+## Deploy
+Após a alteração, deploy automático do edge function `smart-ops-lia-assign`.
