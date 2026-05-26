@@ -1563,6 +1563,15 @@ async function triggerOutboundMessages(
   }
 
   try {
+    // DEDUP: garantir que briefing seja enviado apenas 1x por lead por dia
+    const leadId = lead.id as string;
+    const { data: lockAcquired } = await supabase
+      .rpc('try_acquire_briefing_lock', { p_lead_id: leadId });
+    if (!lockAcquired) {
+      console.log(`[lia-assign] Briefing já enviado hoje para ${leadId}, bloqueado`);
+      return;
+    }
+
     // Fetch team member with WaLeads config
     const { data: member } = await supabase
       .from("team_members")
@@ -1576,7 +1585,6 @@ async function triggerOutboundMessages(
     }
 
     const isLiaSource = LIA_SOURCES.includes(lead.source as string);
-    const leadId = lead.id as string;
 
     // ── A. Message seller → lead ──
     if (isLiaSource) {
