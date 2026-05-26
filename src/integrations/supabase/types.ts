@@ -22366,6 +22366,7 @@ export type Database = {
         Args: never
         Returns: {
           compra_date: string
+          deal_id: string
           dias_desde_compra: number
           dias_primeira: number
           email: string
