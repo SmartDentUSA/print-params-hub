@@ -1,60 +1,93 @@
-## Problema
+## Contexto
 
-A RPC `fn_relatorio_mes_vendedor_detalhe` está usando a coorte de criação (`piperun_created_at no mês`) como base para todas as colunas — abertas, perdidas, ganhas e estagnados. Isso filtra demais e os números ficam errados.
+Você reestruturou o Funil de Vendas (pipeline 18784) no PipeRun. Busquei as etapas atuais via `GET /stages?pipeline_id=18784` e confirmei a estrutura nova:
 
-## Definições corretas (confirmadas)
+| Ordem | Nome no PipeRun | stage_id numérico | Status anterior |
+|---|---|---|---|
+| 0 | Sem contato | 99293 | igual |
+| 1 | C1 | 99294 | renomeado (era "Contato Feito") |
+| 2 | C2 | **675815** | NOVO |
+| 3 | C3 | **675813** | NOVO |
+| 4 | SDR / Nutrição | 379942 | renomeado (era "Em Contato") |
+| 5 | Apresentação/Visita | 99295 | igual |
+| 6 | Proposta enviada (TEMP) | 99296 | igual |
+| 7 | Negociação | 448526 | igual |
+| 8 | LTV | **674146** | NOVO |
+| 9 | Fechamento | 99818 | igual |
 
-- **Abertos da Coorte** → snapshot: deals que estavam abertos em **algum momento do mês selecionado** (criados antes do fim do mês E ainda sem fechamento OU fechados após o início do mês).
-- **Enviados para Estagnados** → deals **criados no mês** que **hoje** estão em `stage_name ILIKE '%estagnad%'`.
-- **Perdidas / Ganhas** → filtradas pela **data de fechamento (`closed_at`) no mês**, independente da data de criação.
+Etapas antigas que sumiram do funil: nenhuma — só houve renomeação e inserção. Vamos preservar os IDs numéricos e atualizar nomes/novas etapas.
 
 ## Mudanças
 
-### 1. Migration: substituir `fn_relatorio_mes_vendedor_detalhe`
+### 1. `supabase/functions/_shared/piperun-field-map.ts`
 
-Recriar a função com 4 CTEs independentes (uma por coluna), todas agrupadas por `owner_name`:
+- Atualizar `STAGES_VENDAS`:
+  ```ts
+  SEM_CONTATO: 99293,
+  C1: 99294,           // antes CONTATO_FEITO
+  C2: 675815,          // NOVO
+  C3: 675813,          // NOVO
+  SDR_NUTRICAO: 379942, // antes EM_CONTATO
+  APRESENTACAO_VISITA: 99295,
+  PROPOSTA_ENVIADA: 99296,
+  NEGOCIACAO: 448526,
+  LTV: 674146,         // NOVO
+  FECHAMENTO: 99818,
+  ```
+- Manter aliases legacy (`CONTATO_FEITO = 99294`, `EM_CONTATO = 379942`) com `@deprecated` para não quebrar imports existentes (`piperun-hierarchy.ts` etc).
+- Atualizar `STAGE_TO_ETAPA`:
+  ```
+  99293 → "sem_contato"
+  99294 → "c1"             (era "contato_feito")
+  675815 → "c2"            (novo)
+  675813 → "c3"            (novo)
+  379942 → "sdr_nutricao"  (era "em_contato")
+  99295 → "apresentacao"
+  99296 → "proposta_enviada"
+  448526 → "negociacao"
+  674146 → "ltv"           (novo)
+  99818 → "fechamento"
+  ```
 
-```text
-abertos_snapshot:
-  WHERE is_deleted=false
-    AND piperun_created_at < (mes + 1)
-    AND (closed_at IS NULL OR closed_at >= mes)
-    AND status NOT IN ('won','lost')  -- opcional; snapshot pura ignora status
+### 2. `supabase/functions/pipeline-funnel-data/index.ts` (bandas do funil agregado)
 
-estagnados_coorte:
-  WHERE is_deleted=false
-    AND piperun_created_at >= mes AND piperun_created_at < mes+1
-    AND stage_name ILIKE '%estagnad%'
+Atualizar `STAGE_BANDS` por nome:
+- `"Sem contato"`, `"C1"`, `"C2"`, `"C3"`, `"SDR / Nutrição"` → `em_processo` (<60)
+- `"Apresentação/Visita"` → `boas_chances` (60-80)
+- `"Proposta enviada (TEMP)"`, `"Negociação"` → `comprometido` (90)
+- `"LTV"`, `"Fechamento"` → `conquistado` (100)
+- Manter chaves antigas (`"Contato Feito"`, `"Em Contato"`, `"Proposta enviada"`) como aliases para deals históricos cujo `stage_name` foi snapshotado antes da renomeação.
 
-perdidas_mes:
-  WHERE is_deleted=false
-    AND status='lost'
-    AND closed_at >= mes AND closed_at < mes+1
+### 3. Frontend Kanban / Audience / Leads
 
-ganhas_mes:
-  WHERE is_deleted=false
-    AND status='won'
-    AND closed_at >= mes AND closed_at < mes+1
-```
+- `src/components/SmartOpsKanban.tsx`: substituir colunas `contato_feito`/`em_contato` por `c1`, `c2`, `c3`, `sdr_nutricao`, adicionar `ltv`. Manter rótulos amigáveis e cores na mesma paleta atual (semantic tokens).
+- `src/components/SmartOpsLeadsList.tsx` e `src/components/SmartOpsAudienceBuilder.tsx`: atualizar arrays `statuses` do Vendas para o novo conjunto, mantendo `novo` e `sem_contato` no início e `fechamento` no fim.
 
-FULL OUTER JOIN por `owner_name`, retornando `(vendedor, abertos, estagnados, perdidas, ganhas)`. Excluir owners nulos/numéricos.
+### 4. `supabase/functions/_shared/sellflux-field-map.ts`
 
-### 2. Ajustar `fn_relatorio_mes_kpis` e `fn_relatorio_mes_funil_estagnados`
+Adicionar entradas de tag para os novos status (`c1`, `c2`, `c3`, `sdr_nutricao`, `ltv`) — espelhando a mesma jornada (`J02_CONSIDERACAO` para C1/C2/C3/SDR; `J03+` para LTV, alinhado a Fechamento). Manter `contato_feito` e `em_contato` como aliases para histórico.
 
-Aplicar a mesma semântica consistente:
-- `funil_ativo` (KPI global) = abertos snapshot do mês (não só coorte criada no mês).
-- `enviados_estagnados` (KPI global) = criados no mês + hoje em Estagnados (mantém).
-- `perdidas_mes` (KPI global) = `status='lost' AND closed_at no mês` (mantém).
+### 5. Backfill de dados existentes (migration)
 
-### 3. Frontend (`RelatorioMensalComercial.tsx`)
+Atualizar leads/deals que já estão no banco com os labels antigos para os novos:
+- `UPDATE lia_attendances SET ultima_etapa_comercial='c1' WHERE ultima_etapa_comercial='contato_feito';`
+- `UPDATE lia_attendances SET ultima_etapa_comercial='sdr_nutricao' WHERE ultima_etapa_comercial='em_contato';`
+- Idem em `deals.stage_name` se necessário (a sync incremental do PipeRun já vai sobrescrever, mas faço o UPDATE explícito por segurança).
 
-Atualizar o subtítulo do card para refletir a nova definição:
-> "Abertos (snapshot do mês) · Enviados para Estagnados (criados no mês) · Perdidas/Ganhas (fechadas no mês)"
+### 6. Reconciliação / verificação
 
-Sem mudança de layout — só labels e os números virão corrigidos pela RPC.
+Após deploy:
+1. Disparar `smart-ops-sync-piperun?orchestrate=true&pipeline_id=18784&since_hours=72` para puxar todos os deals movidos hoje.
+2. Disparar `smart-ops-piperun-funnel-reconciler?hours=72` para confirmar gap=0.
+3. Conferir no painel admin → SmartOpsReports / Relatório Mensal Comercial se os novos bandas/etapas aparecem corretamente.
+
+### 7. Memória
+
+Criar `mem://integration/piperun-funil-vendas-v2` documentando o novo layout (10 etapas, 3 novas: C2/C3/LTV; 2 renomeadas: C1/SDR-Nutrição).
 
 ## Não muda
 
-- Estrutura visual dos cards por vendedor.
-- Demais seções (Produtos, Recorrência, Astron, KPIs gerais de receita).
-- Tipos do Supabase só serão regenerados se a assinatura da RPC mudar (vamos manter as colunas: `vendedor, abertos, estagnados, perdidas, ganhas`).
+- IDs de pipelines (18784 segue).
+- Outros funis (Estagnados, CS, Insumos, E-commerce).
+- Lógica de bandas / RPCs do Relatório Mensal.
+- RLS, schema de tabelas, edge functions de WhatsApp/Omie.

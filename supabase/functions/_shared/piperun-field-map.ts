@@ -51,12 +51,20 @@ export const PIPELINE_NAMES: Record<number, string> = {
 // Funil de Vendas (18784) — order-sorted
 export const STAGES_VENDAS = {
   SEM_CONTATO: 99293,
-  CONTATO_FEITO: 99294,
-  EM_CONTATO: 379942,
+  C1: 99294,
+  C2: 675815,
+  C3: 675813,
+  SDR_NUTRICAO: 379942,
   APRESENTACAO_VISITA: 99295,
   PROPOSTA_ENVIADA: 99296,
   NEGOCIACAO: 448526,
+  LTV: 674146,
   FECHAMENTO: 99818,
+  // Legacy aliases (mesmo stage_id, nome antigo) — mantidos para imports antigos
+  /** @deprecated renomeado para C1 */
+  CONTATO_FEITO: 99294,
+  /** @deprecated renomeado para SDR_NUTRICAO */
+  EM_CONTATO: 379942,
 } as const;
 
 // Funil Estagnados (72938) — order-sorted
@@ -132,11 +140,14 @@ export const STAGES_DISTRIBUIDOR = {
 export const STAGE_TO_ETAPA: Record<number, string> = {
   // Vendas
   [STAGES_VENDAS.SEM_CONTATO]: "sem_contato",
-  [STAGES_VENDAS.CONTATO_FEITO]: "contato_feito",
-  [STAGES_VENDAS.EM_CONTATO]: "em_contato",
+  [STAGES_VENDAS.C1]: "c1",
+  [STAGES_VENDAS.C2]: "c2",
+  [STAGES_VENDAS.C3]: "c3",
+  [STAGES_VENDAS.SDR_NUTRICAO]: "sdr_nutricao",
   [STAGES_VENDAS.APRESENTACAO_VISITA]: "apresentacao",
   [STAGES_VENDAS.PROPOSTA_ENVIADA]: "proposta_enviada",
   [STAGES_VENDAS.NEGOCIACAO]: "negociacao",
+  [STAGES_VENDAS.LTV]: "ltv",
   [STAGES_VENDAS.FECHAMENTO]: "fechamento",
   // Estagnados
   [STAGES_ESTAGNADOS.ETAPA_00_NOVOS]: "est_etapa1",

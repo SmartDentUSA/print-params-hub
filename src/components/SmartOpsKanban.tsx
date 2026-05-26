@@ -13,11 +13,14 @@ import { Button } from "@/components/ui/button";
 const COLUMNS: ColumnDef[] = [
   { key: "novo", label: "Novo", color: "bg-emerald-50 border-emerald-300" },
   { key: "sem_contato", label: "Sem Contato", color: "bg-sky-50 border-sky-300" },
-  { key: "contato_feito", label: "Contato Feito", color: "bg-blue-50 border-blue-300" },
-  { key: "em_contato", label: "Em Contato", color: "bg-yellow-50 border-yellow-300" },
+  { key: "c1", label: "C1", color: "bg-blue-50 border-blue-300" },
+  { key: "c2", label: "C2", color: "bg-blue-100 border-blue-400" },
+  { key: "c3", label: "C3", color: "bg-indigo-50 border-indigo-300" },
+  { key: "sdr_nutricao", label: "SDR / Nutrição", color: "bg-yellow-50 border-yellow-300" },
   { key: "apresentacao", label: "Apresentação/Visita", color: "bg-orange-50 border-orange-300" },
   { key: "proposta_enviada", label: "Proposta Enviada", color: "bg-purple-50 border-purple-300" },
   { key: "negociacao", label: "Negociação", color: "bg-indigo-50 border-indigo-300" },
+  { key: "ltv", label: "LTV", color: "bg-teal-50 border-teal-300" },
   { key: "fechamento", label: "Fechamento", color: "bg-green-50 border-green-300" },
 ];
 
