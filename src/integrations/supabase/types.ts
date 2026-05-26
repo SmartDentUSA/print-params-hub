@@ -12959,6 +12959,170 @@ export type Database = {
           },
         ]
       }
+      rayshape_manual_owners: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string
+          note: string | null
+          piperun_deal_id: string | null
+          printer_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id: string
+          note?: string | null
+          piperun_deal_id?: string | null
+          printer_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string
+          note?: string | null
+          piperun_deal_id?: string | null
+          printer_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reactivation_rules: {
         Row: {
           active: boolean
