@@ -22362,6 +22362,22 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_rayshape_donos: {
+        Args: never
+        Returns: {
+          compra_date: string
+          dias_desde_compra: number
+          dias_primeira: number
+          email: string
+          empresa_nome: string
+          n_recompras: number
+          nome: string
+          recompras_json: Json
+          total_recompra: number
+          valor_proposta: number
+          vendedor: string
+        }[]
+      }
       fn_rayshape_owners: { Args: never; Returns: Json }
       fn_rayshape_status: { Args: { p_lead_id: string }; Returns: Json }
       fn_record_lead_event: {
