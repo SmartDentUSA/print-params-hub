@@ -290,7 +290,45 @@ Deno.serve(async (req) => {
       [payload.first_name, payload.last_name].filter(Boolean).join(" ").trim() || "Sem nome";
 
     const emailRaw = extractField(payload, "email", "user_email") || "";
-    const email = emailRaw.toLowerCase().trim();
+    let email = emailRaw.toLowerCase().trim();
+
+    // ── ManyChat / Instagram handoff fallback ──
+    // Bridge envia `lia_attendance_id` quando o lead não tem e-mail real
+    // (subscriber Instagram). Resolvemos o canônico e usamos o e-mail
+    // dele (sintético `@instagram.lead` ou real) como chave de identidade
+    // para o resto do pipeline. Sem isso, falha com 400 "Email obrigatório"
+    // e o handoff inteiro é abortado.
+    if (!email && payload.lia_attendance_id) {
+      try {
+        let { data: anchor } = await supabase
+          .from("lia_attendances")
+          .select("id, email, merged_into")
+          .eq("id", String(payload.lia_attendance_id))
+          .maybeSingle();
+        // Follow merge chain to canonical
+        let hops = 0;
+        while (anchor?.merged_into && hops < 5) {
+          const { data: parent } = await supabase
+            .from("lia_attendances")
+            .select("id, email, merged_into")
+            .eq("id", anchor.merged_into)
+            .maybeSingle();
+          if (!parent) break;
+          anchor = parent;
+          hops++;
+        }
+        if (anchor?.email) {
+          email = anchor.email.toLowerCase().trim();
+          payload.email = email;
+          console.log(
+            `[ingest-lead] Resolved email via lia_attendance_id=${payload.lia_attendance_id} → ${email} (canonical ${anchor.id})`,
+          );
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] lia_attendance_id resolve failed:", e);
+      }
+    }
+
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
