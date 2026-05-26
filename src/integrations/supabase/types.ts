@@ -1229,6 +1229,24 @@ export type Database = {
         }
         Relationships: []
       }
+      briefing_locks: {
+        Row: {
+          lead_id: string
+          lock_date: string
+          sent_at: string | null
+        }
+        Insert: {
+          lead_id: string
+          lock_date?: string
+          sent_at?: string | null
+        }
+        Update: {
+          lead_id?: string
+          lock_date?: string
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
       cad_cadista_profiles: {
         Row: {
           anos_experiencia: number | null
@@ -23610,6 +23628,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      try_acquire_briefing_lock: {
+        Args: { p_lead_id: string }
+        Returns: boolean
+      }
       try_claim_lia_note: {
         Args: { p_lead_id: string; p_note_type?: string }
         Returns: boolean
