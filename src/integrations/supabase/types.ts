@@ -22186,6 +22186,19 @@ export type Database = {
           visitors: number
         }[]
       }
+      fn_funil_jornada_cliente: {
+        Args: { p_mes_fim?: string; p_mes_inicio?: string }
+        Returns: {
+          bloco: string
+          etapa: string
+          meta_descricao: string
+          ordem: number
+          qtd: number
+          taxa_passagem: number
+          tempo_medio_dias: number
+          valor_estimado: number
+        }[]
+      }
       fn_generate_recurrent_turmas: {
         Args: {
           p_base_date: string
