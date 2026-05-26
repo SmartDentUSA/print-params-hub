@@ -68,8 +68,9 @@ function detectProduct(formName: string | null): string | null {
   if (u.includes("POSCURA") || u.includes("PÓSCURA")) return "ShapeCure V";
   if (/(^|[^A-Z])BLZ([\s-]|$)/i.test(formName)) return "BLZ INO200";
   if (u.includes("MEDIT")) return "Medit";
+  if (u.includes("IMPRESORAS")) return "RayShape Edge mini";
   if (u.includes("SCANNER")) return "Scanner Intraoral";
-  if (u.includes("IMPRESSORA") || u.includes("PRINTER") || u.includes("IMPRESORAS")) return "Impressora 3D";
+  if (u.includes("IMPRESSORA") || u.includes("PRINTER")) return "Impressora 3D";
   return null;
 }
 
