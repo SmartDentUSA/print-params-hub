@@ -1,41 +1,37 @@
-## Corrigir dados do Relatório Mensal — usar `public.deals` como verdade do CRM
+## Causa raiz
 
-### Diagnóstico
-As 4 views (`v_relatorio_mes_kpis`, `v_relatorio_mes_vendedor`, `v_relatorio_mes_funil`, `v_relatorio_mes_origem`) leem de `lia_attendances.piperun_deals_history` (JSONB snapshot). Comparado a `public.deals` (canônico, alimentado pelo webhook + full sync), no mês corrente:
+`LeadDetailPanel` depende inteiramente de classes definidas em `src/styles/intelligence-dark.css` (`.intel-detail`, `.hero`, `.avatar`, `.ctx-badge`, `.ltv-block`, `.timeline-event`, etc.).
 
-- Ganhos: **273 (deals) vs 338 (view)** → +24%
-- Receita: **R$ 1.480.796,36 vs R$ 1.719.672,08** → +R$ 238 mil
+Esse CSS hoje é importado **apenas** em `src/components/SmartOpsLeadsList.tsx`:
 
-Razões: duplicação por merges, status defasado, `is_deleted` ignorado e timezone UTC.
+```ts
+import "@/styles/intelligence-dark.css";
+```
 
-### Solução
-Migration `CREATE OR REPLACE VIEW` nas 4 views, lendo de `public.deals` JOIN `public.lia_attendances` (apenas canônicos `merged_into IS NULL`), com:
+Quando o usuário entra pela aba **Rayshape — Donos Edge Mini** (`SmartOpsRayshape.tsx`) sem antes passar pela aba "Leads", o módulo de CSS nunca é carregado. Ao clicar num card, o painel renderiza, mas sem nenhuma das classes — fica aquela "tela quebrada" que você colou: textos empilhados, sem grid, sem cards, sem tabs estilizadas.
 
-- **Mês de referência**: `to_char((now() AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM')`
-- **Ganhos do mês**: `deals.status='ganha' AND COALESCE(is_deleted,false)=false AND to_char(closed_at AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') = mes_ref`
-- **Abertos para funil**: `deals.status='aberta' AND COALESCE(is_deleted,false)=false`
-- **Vendedor**: `deals.owner_name` (verdade atual) — fallback `'Sem atribuição'`
-- **Origem**: `lia_attendances.origem_campanha` (origem da pessoa, não do deal — mantém compatibilidade com o card atual)
-- **Leads criados no mês**: `lia_attendances.created_at` no mês (timezone SP), com `merged_into IS NULL`
+Quando você abre primeiro a aba Leads, o CSS é injetado globalmente e depois disso o painel via Rayshape funciona normal. Por isso o bug é "às vezes".
 
-### Novas definições
+## Correção
 
-**`v_relatorio_mes_kpis`** — `SELECT count(*) total_deals, sum(value) receita_total, avg(NULLIF(value,0)) ticket_medio, count(DISTINCT owner_name) vendedores_ativos, (subselect leads canônicos mês) leads_criados_mes, mes_ref, now() gerado_em FROM deals WHERE ganhas_mes`.
+Adicionar o mesmo import no topo do `SmartOpsRayshape.tsx`:
 
-**`v_relatorio_mes_vendedor`** — CTEs `ganhos` e `perdidos` de `deals` (mês SP, `is_deleted=false`) agregadas por `owner_name`; `leads_mes` por `proprietario_lead_crm` de `lia_attendances`. LEFT JOIN para preservar vendedores com leads mas sem ganhos.
+```ts
+import "@/styles/intelligence-dark.css";
+```
 
-**`v_relatorio_mes_funil`** — `deals` com `status='aberta'`, `is_deleted=false`, agrupados por `owner_name`, `pipeline_name`, `stage_name`. Sem filtro de `created_at` da `lia_attendances` (estagnados antigos devem aparecer).
+Como reforço para qualquer ponto futuro que renderize o painel isoladamente, mover o import também para dentro de `src/components/smartops/LeadDetailPanel.tsx` (uma única vez — Vite deduplica) garante que o CSS acompanha o componente onde quer que seja usado.
 
-**`v_relatorio_mes_origem`** — `leads_orig` por `origem_campanha`; `ganhos_orig` JOIN `deals d ON d.lead_id = la.id` no mês. Mantém `HAVING total_leads >= 3`.
+## Arquivos alterados
 
-### Resultado esperado
-- Números batem com a tabela `deals` (verdade do CRM, atualizada pelo webhook em tempo real e pelo Full Sync)
-- Sem duplicação por merges, sem deals deletados, sem deals estados antigos
-- Timezone correto (mês corrente em Brasília)
-- Componente frontend (`RelatorioMensalComercial.tsx`) não muda — mesmas colunas/contratos
+- `src/components/smartops/LeadDetailPanel.tsx` — adicionar `import "@/styles/intelligence-dark.css";` no topo
+- `src/components/SmartOpsRayshape.tsx` — adicionar o mesmo import (defesa em profundidade)
 
-### Validação pós-migration
-Rodar comparação `SELECT * FROM v_relatorio_mes_kpis` vs query direta em `deals` para o mês — devem coincidir.
+## Validação
 
-### Memória a registrar
-Nova regra core: "Relatórios Mensais Comerciais leem de `public.deals` (verdade canônica), não de `lia_attendances.piperun_deals_history`. JSONB é histórico/snapshot, sujeito a duplicação por merges."
+- Recarregar `/admin`, ir direto em Rayshape (sem passar por Leads), clicar num card → painel deve renderizar com hero, tabs, timeline e tabelas estilizados, igual ao acesso via "Leads".
+
+## Fora de escopo
+
+- Nenhuma mudança de lógica, dados, queries ou views SQL.
+- Nenhuma mudança no `RayshapePanel` interno (que usa estilos inline próprios).
