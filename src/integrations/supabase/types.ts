@@ -20303,11 +20303,10 @@ export type Database = {
       }
       v_relatorio_mes_kpis: {
         Row: {
-          deals_criados_mes: number | null
           gerado_em: string | null
+          leads_criados_mes: number | null
           mes_ref: string | null
           receita_total: number | null
-          taxa_conversao_pct: number | null
           ticket_medio: number | null
           total_deals: number | null
           vendedores_ativos: number | null
@@ -20320,17 +20319,16 @@ export type Database = {
           origem: string | null
           receita: number | null
           taxa_pct: number | null
-          total_deals: number | null
+          total_leads: number | null
         }
         Relationships: []
       }
       v_relatorio_mes_vendedor: {
         Row: {
-          deals_criados_mes: number | null
           deals_ganhos: number | null
+          leads_mes: number | null
           perdidos: number | null
           receita: number | null
-          taxa_conversao_pct: number | null
           ticket_medio: number | null
           vendedor: string | null
         }
