@@ -22392,6 +22392,17 @@ export type Database = {
         }
         Returns: string
       }
+      fn_relatorio_mes_astron: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          clientes_sd: number
+          media_concluidos: number
+          nao_clientes: number
+          novos_mes: number
+          pct_clientes: number
+          total_inscritos: number
+        }[]
+      }
       fn_relatorio_mes_funil_atual: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
@@ -22410,12 +22421,54 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_relatorio_mes_itens_categoria: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          categoria: string
+          deals: number
+          unidades: number
+        }[]
+      }
+      fn_relatorio_mes_itens_kpis: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          skus_distintos: number
+          top_deals_count: number
+          top_deals_nome: string
+          top_volume_nome: string
+          top_volume_qtd: number
+          total_deals: number
+          total_linhas: number
+          total_unidades: number
+        }[]
+      }
+      fn_relatorio_mes_itens_top: {
+        Args: { p_ano: number; p_limit?: number; p_mes: number }
+        Returns: {
+          deals: number
+          nome: string
+          unidades: number
+        }[]
+      }
+      fn_relatorio_mes_itens_vendedor: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          linhas: number
+          skus: number
+          unidades: number
+          vendedor: string
+        }[]
+      }
       fn_relatorio_mes_kpis: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
+          clientes_unicos: number
+          enviados_estagnados: number
+          funil_ativo: number
           gerado_em: string
           leads_criados_mes: number
           mes_ref: string
+          perdidas_mes: number
           receita_total: number
           ticket_medio: number
           total_deals: number
@@ -22432,6 +22485,15 @@ export type Database = {
           total_leads: number
         }[]
       }
+      fn_relatorio_mes_recorrencia: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          clientes_unicos: number
+          novos: number
+          recorrentes: number
+          taxa_pct: number
+        }[]
+      }
       fn_relatorio_mes_vendedor: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
@@ -22440,6 +22502,18 @@ export type Database = {
           perdidos: number
           receita: number
           ticket_medio: number
+          vendedor: string
+        }[]
+      }
+      fn_relatorio_mes_vendedor_detalhe: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          abertas: number
+          estagnados: number
+          estagnados_pct: number
+          ganhas: number
+          perdidas: number
+          total_criados: number
           vendedor: string
         }[]
       }
