@@ -35,6 +35,16 @@ function extractField(payload: Record<string, unknown>, ...keys: string[]): stri
 function detectProductFromFormName(formName: string | null): string | null {
   if (!formName) return null;
   const upper = formName.toUpperCase();
+  // Forms específicos Meta Ads — checados ANTES das regras genéricas para
+  // evitar que "IMPRESSORA"/"SCANNER" capturem incorretamente.
+  // Obs.: form_name no Piperun usa "INO110" por nomenclatura legada,
+  // mas o produto vendido é "BLZ INO100 PLUS + NOTEBOOK".
+  if (upper.includes("INO110") || upper.includes("INO100")) return "BLZ INO100 PLUS + NOTEBOOK";
+  if (upper.includes("INO200") || upper.includes("INO 200")) return "BLZ INO200";
+  if (upper.includes("GLAZEON")) return "GlazeON";
+  if (upper.includes("POSCURA") || upper.includes("PÓSCURA") || upper.includes("PÓS-CURA")) return "ShapeCure V";
+  // BLZ- Smart Dent (form histórico genérico) → BLZ INO200 (decisão comercial)
+  if (/(^|[^A-Z])BLZ([\s-]|$)/i.test(formName) && !upper.includes("INO110") && !upper.includes("INO100")) return "BLZ INO200";
   if (upper.includes("VITALITY")) return "Vitality";
   if (upper.includes("EDGEMINI") || upper.includes("EDGE MINI")) return "EdgeMini";
   if (upper.includes("IOCONNECT") || upper.includes("IO CONNECT")) return "IoConnect";
