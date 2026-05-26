@@ -1,48 +1,96 @@
-## Objetivo
-Garantir que `fn_rayshape_owners` (tela Rayshape — Donos Edge Mini) use **somente itens de propostas ganhas** do CRM PipeRun para calcular preço da impressora e total de recompra — nunca `deals.value` bruto nem qualquer dado Omie.
+## Contexto
 
-## Diagnóstico atual
-`fn_rayshape_owners` hoje:
-- `printer_price`: lê o primeiro item "Edge Mini" de `d.proposals` sem checar se a proposta foi a **ganha**. Em deals com várias propostas (rascunhos + aceita), pode pegar uma proposta abandonada.
-- `total_post`: soma `d.value` dos deals `status='ganha'` posteriores. Esse `value` pode divergir do total real da proposta aceita (frete, descontos, troca de itens).
-- Filtro do dono: `d.proposals::text ILIKE '%Edge Mini%'` — também não exige proposta ganha.
+A pasta do Drive contém 2 exports completos do PipeRun (`oportunidades-*.csv`) com **129 colunas por Deal**. Comparando com o webhook `smart-ops-piperun-webhook` hoje:
 
-## Mudanças
+- O webhook **já mapeia ~60 campos** (person, company, deal, custom_fields, proposals, tags, frozen, origin, etc.) e salva `piperun_raw_payload` completo.
+- Mas existem **3 buracos reais** que causam perda de informação nas atualizações:
 
-Recriar `fn_rayshape_owners` com a regra "proposta ganha":
+### Buraco 1 — Webhooks com payload incompleto sobrescrevem com nulo (silencioso)
+PipeRun dispara eventos parciais (ex.: mudança de stage envia só `deal + stage + owner`, sem `person`/`company` aninhados). Como o código faz "smart-merge" (`if (ids.companyCnpj) update.empresa_cnpj = ...`), campos ausentes ficam intactos — bom — **MAS** colunas JSONB como `piperun_raw_payload`, `piperun_custom_fields`, `piperun_involved_users` são gravadas com o payload reduzido, **apagando** dados que vieram em payloads anteriores.
 
-1. **Identificar a proposta ganha de cada deal**
-   - Considerar apenas elementos de `d.proposals` cujo `status`/`situation` indique aceita/ganha (campos comuns no payload PipeRun: `status_id`, `situation`, `aceita`, `accepted_at`). Aplicar match case-insensitive em `('aceita','ganha','accepted','won')` e/ou `accepted_at IS NOT NULL`.
-   - Se houver mais de uma, usar a mais recente por `updated_at`/`accepted_at`.
+### Buraco 2 — Cascade miss devolve HTTP 400 e perde o evento
+Quando `findLeadByCascade` não acha o lead E o payload não traz email, o webhook devolve 400 → PipeRun **re-tenta 5×** o mesmo evento (visto nos logs das últimas horas: 11 de 20 chamadas em 10min foram 400). O evento é descartado e o deal nunca é vinculado ao CDP.
 
-2. **CTE `printers` (donos da Edge Mini)**
-   - Exigir `d.status = 'ganha'` E que a proposta ganha contenha um item "Edge Mini".
-   - `printer_price` = `SUM(item.total)` dos itens "Edge Mini" **dentro da proposta ganha** (não o primeiro item solto).
-   - `printer_date` = `d.closed_at` (mantém).
+Hoje o cascade só usa: `piperun_id → pessoa_hash → pessoa_piperun_id → email`. Mesmo quando o lead já existe no CDP (caso WILLIAN PARREIRA, CLINICA BRUNA NEGREIROS) o cascade não acha porque o payload do PipeRun nem sempre carrega esses 4 identificadores.
 
-3. **CTE `post` (recompras posteriores)**
-   - Para cada dono, somar **itens da proposta ganha** dos deals `status='ganha'` posteriores a `printer_date`, em vez de `d.value`.
-   - `total_post` = `SUM(item.total)` de todos os itens da proposta ganha de cada deal posterior.
-   - `n_post` = quantidade de deals ganha posteriores com proposta ganha válida.
-   - `first_repurchase_days` segue por `closed_at`.
+### Buraco 3 — Sem histórico de payloads brutos
+`piperun_raw_payload` é **sobrescrito** a cada webhook. Se um update vier corrompido (ex.: PipeRun zerou `custom_fields`), não dá pra reconstruir o estado anterior. Não temos audit trail dos eventos.
 
-4. **Helper inline (sem nova função)**
-   - Resolver tudo com `LATERAL jsonb_array_elements(d.proposals)` + filtro de proposta ganha + `LATERAL jsonb_array_elements(prop->'items')` para somar `(item->>'total')::numeric`.
+---
 
-5. **KPI frontend**
-   - `SmartOpsRayshape.tsx` não muda: já consome `total_post` e calcula `Ticket médio recompra = total_post / recompradores`. Com a nova fonte, o ticket reflete itens da proposta ganha.
+## Plano (3 fixes cirúrgicos no webhook + 1 tabela nova)
 
-6. **Sem Omie**
-   - Nenhuma leitura de `omie_*`, `faturamento_*`, `lia_attendances.faturamento_total` etc.
+### 1. Hidratar payload via GET `/deals/{id}` em 3 cenários
+Em `smart-ops-piperun-webhook` antes do `findLeadByCascade`, se o payload tem `dealId` mas falta `person.email + person.id + person.hash`, OU se o payload veio sem `person`/`company` aninhados (evento de stage só), buscar via PipeRun API:
 
-## Detalhes técnicos
+```
+GET /deals/{dealId}?with[]=person&with[]=person.contact_emails&with[]=person.contact_phones&with[]=company&with[]=company.contact_emails&with[]=proposals&with[]=proposals.items&with[]=custom_fields&with[]=activities&with[]=files
+```
 
-- Migração: novo arquivo timestamped substituindo `CREATE OR REPLACE FUNCTION public.fn_rayshape_owners()`.
-- Manter assinatura `RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public` para não quebrar o RPC chamado em `SmartOpsRayshape.tsx`.
-- Manter `WHERE la.merged_into IS NULL` (CDP Integrity).
-- Validação pós-deploy: rodar `SELECT fn_rayshape_owners();` e comparar `printer_price` / `total_post` de 3 donos conhecidos com a proposta ganha no PipeRun.
+Mesclar o resultado em cima do `deal` original (preservando campos que só o webhook traz, ex.: `action`, `stage_changed_at`). Resultado: praticamente **todos os 129 campos do CSV** sempre disponíveis em cada update.
 
-## Fora de escopo
-- LeadDetailPanel, KPIs do dashboard, outros componentes.
-- Lógica de Omie em qualquer outro lugar.
-- Mudanças visuais.
+### 2. Expandir o cascade + nunca devolver 400
+
+Adicionar 4 chaves ao `findLeadByCascade`:
+- `pessoa_hash` (já tem)
+- `pessoa_piperun_id` (já tem)
+- **`empresa_piperun_id`** (novo) — recupera leads cuja Person veio sem email mas a Company já está no CDP
+- **`empresa_cnpj`** normalizado (novo)
+- **`telefone_normalized`** a partir de `person.contact_phones[0].number` ou enriquecido via GET (novo)
+- **`piperun_hash`** do deal (novo)
+
+Se mesmo após a hidratação (passo 1) o cascade falhar **e** ainda faltar email+telefone, retornar **HTTP 200** com `{ skipped: true, reason: "no_identifiers" }` em vez de 400 — silencia o loop de retry do PipeRun e libera o slot.
+
+### 3. Append-only em campos JSONB sensíveis (no-overwrite-with-empty)
+
+Para os 5 campos JSONB de alto risco — `piperun_custom_fields`, `piperun_involved_users`, `piperun_activities`, `piperun_files`, `empresa_custom_fields` — só gravar quando o array do payload **tem itens**. Se vier `[]` ou `undefined`, preservar o valor anterior do banco (já fazemos para escalares, falta para esses 5 JSONB).
+
+### 4. Nova tabela `piperun_webhook_events` (audit trail imutável)
+
+Migration nova:
+
+```sql
+CREATE TABLE public.piperun_webhook_events (
+  id bigint generated by default as identity primary key,
+  deal_id text not null,
+  lead_id uuid references public.lia_attendances(id) on delete set null,
+  event_action text,            -- create | update | stage_changed | won | lost
+  stage_id int, stage_name text,
+  pipeline_id int, owner_id int,
+  raw_payload jsonb not null,
+  hydrated boolean default false,
+  outcome text,                 -- created | updated | skipped_no_identity | error
+  error text,
+  received_at timestamptz default now()
+);
+GRANT SELECT, INSERT ON public.piperun_webhook_events TO service_role;
+ALTER TABLE public.piperun_webhook_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admins read events" ON public.piperun_webhook_events
+  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE INDEX ON public.piperun_webhook_events (deal_id, received_at desc);
+CREATE INDEX ON public.piperun_webhook_events (lead_id, received_at desc);
+```
+
+O webhook insere 1 linha por evento recebido (sucesso ou falha). Permite:
+- Diff entre versões do payload de um mesmo deal
+- Reprocessar deals que foram skipped
+- Auditar quando/qual campo mudou no PipeRun
+
+Retenção: deixar crescer livre por enquanto (volume ~30k/mês).
+
+---
+
+## Arquivos a tocar
+
+- `supabase/functions/smart-ops-piperun-webhook/index.ts` — passos 1, 2, 3 (single file, ~80 linhas adicionadas)
+- `supabase/functions/_shared/piperun-deal-hydrate.ts` — **novo**, helper isolado do GET enriquecido (reutilizável por `retry-cron`)
+- Migration nova para `piperun_webhook_events`
+- Memória nova `mem/architecture/piperun-webhook-no-loss.md` documentando as 3 regras
+
+## Garantias após o fix
+
+- **Zero 400** salvo erro real de servidor → fim do loop de retry de 5×
+- **Todos os 129 campos do CSV PipeRun** disponíveis em cada update (via hidratação)
+- **Histórico imutável** de cada webhook recebido por deal
+- **Sem sobrescrita de JSONB com vazio** → custom_fields/activities/files nunca somem
+- Cascade encontra ~95% dos leads existentes (vs ~55% hoje) sem precisar de email no payload
