@@ -1,0 +1,1 @@
+GRANT SELECT ON public.v_relatorio_mes_kpis, public.v_relatorio_mes_vendedor, public.v_relatorio_mes_funil, public.v_relatorio_mes_origem TO anon, authenticated;
