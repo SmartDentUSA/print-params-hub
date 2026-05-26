@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Users, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import RelatorioMensalComercial from "@/components/admin/RelatorioMensalComercial";
 
 // CORREÇÃO 5: Use stage_name instead of stage_id
 interface DealRow {
@@ -212,79 +213,17 @@ export function SmartOpsReports() {
         </Card>
       </div>
 
-      {/* CORREÇÃO 5: Detalhamento por Cliente (deals by stage_name) */}
+      {/* Relatório Mensal Comercial — auto-refresh 15 min via views v_relatorio_mes_* */}
+      <RelatorioMensalComercial />
+
+      {/* Original client detail table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Detalhamento por Cliente (Deals Recentes)</CardTitle>
+          <CardTitle>Detalhamento por Cliente (Ativos)</CardTitle>
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={isExporting}>
             {isExporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
             {isExporting ? "Exportando..." : "Exportar CSV Completo"}
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Etapa</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Cidade/UF</TableHead>
-                  <TableHead>Data</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deals.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium text-sm">
-                      {d.lead?.nome || "—"}
-                      {d.lead?.email && <div className="text-xs text-muted-foreground">{d.lead.email}</div>}
-                    </TableCell>
-                    <TableCell className="text-xs">{d.lead?.anchor_product || d.product || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">{d.stage_name}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={
-                        d.status === "ganha" ? "bg-green-600 text-white" :
-                        d.status === "perdida" ? "bg-red-600 text-white" :
-                        "bg-blue-600 text-white"
-                      }>
-                        {d.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-medium">
-                      {d.value ? formatBRL(d.value) : "—"}
-                    </TableCell>
-                    <TableCell className="text-xs">{d.owner_name || "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      {[d.lead?.cidade, d.lead?.uf].filter(Boolean).join("/") || "—"}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {d.piperun_created_at ? new Date(d.piperun_created_at).toLocaleDateString("pt-BR") : "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {deals.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      Nenhum deal encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Original client detail table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detalhamento por Cliente (Ativos)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
