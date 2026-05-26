@@ -1,35 +1,32 @@
-## Contexto
-O avatar da Dra. L.I.A. está atualmente em `src/assets/dra-lia-avatar.gif` com **11MB**. Ele é renderizado em dois locais no componente `DraLIA.tsx` em tamanhos pequenos (24px e 32px de largura, circular). Um GIF de 11MB para um avatar de 32px é extremamente ineficiente em banda.
+## Expandir Whitelist de Crawlers de IA
 
-## Objetivo
-Reduzir o peso do avatar de 11MB para **menos de 500KB**, mantendo a identidade visual da Dra. L.I.A.
+### Escopo
+Atualizar as duas fontes de whitelist de bots no projeto para capturar crawlers de IA emergentes (SearchGPT, Meta AI, Apple Intelligence, Amazon, Mistral, Perplexity/Phind, etc.).
 
-## Plano
+### Arquivos a modificar
 
-### 1. Gerar nova imagem estática otimizada
-- Criar um avatar da Dra. L.I.A. (personagem assistente IA dental) como PNG, dimensões adequadas para exibição em 32px (ex: 128x128 ou 256x256)
-- Estilo: profissional, amigável, alinhado à identidade da marca SmartDent
-- Salvar em `src/assets/dra-lia-avatar.png`
+1. **`vercel.json`** (linha 70)
+   - Expandir regex do rewrite bot-catcher para incluir:
+     - `oai-searchbot` (OpenAI SearchGPT)
+     - `meta-externalagent`, `meta-externalfetcher` (Meta AI)
+     - `amazonbot` (Amazon Alexa/AI)
+     - `applebot-extended` (Apple Intelligence)
+     - `youbot` (You.com)
+     - `diffbot` (Diffbot)
+     - `mistralai-user` (Mistral AI Le Chat)
+     - `google-cloudvertexbot` (Vertex AI)
+     - `duckassistbot` (DuckDuckGo AI)
+     - `kagibot`, `phindbot`, `timpibot`, `iaskbot` (Perplexity/Phind/iAsk)
+   - Validar regex com teste Node.js local antes de commit
 
-### 2. Atualizar importação no componente
-- Em `src/components/DraLIA.tsx`, trocar:
-  ```
-  import draLiaGif from '@/assets/dra-lia-avatar.gif';
-  ```
-  por:
-  ```
-  import draLiaAvatar from '@/assets/dra-lia-avatar.png';
-  ```
-- Atualizar as duas referências (`<img src={draLiaGif}...`) para usar a nova variável `draLiaAvatar`
+2. **`api/middleware-bot.ts`** (linhas 3-10)
+   - Sincronizar array `BOTS` com os mesmos novos identificadores
+   - Garantir que ambas as listas (Vercel rewrite + Edge middleware) estejam consistentes
 
-### 3. Remover arquivo antigo
-- Remover `src/assets/dra-lia-avatar.gif` do repositório
+### Mitigações aplicadas
+- Regex validada offline com script Node.js contra UAs reais antes do merge
+- Se malformada, preview Vercel falha com 404 — revert via branch
+- `middleware-bot.ts` tem fallback natural: se não match, serve SPA (não quebra)
 
-## Resultado Esperado
-- Avatar carregado em menos de 500KB (redução de ~95%+ no peso)
-- Nenhuma mudança visual perceptível para o usuário final
-- Melhora imediata no LCP (Largest Contentful Paint) e consumo de dados móveis
-
-## Notas
-- O arquivo gerado será inspecionado para confirmar qualidade e tamanho antes de aplicar.
-- Se o PNG gerado ainda estiver acima de 500KB, será comprimido/adotado WebP automaticamente.
+### Pós-deploy
+- Curl com 3 UAs (Googlebot, GPTBot, OAI-SearchBot) para confirmar que `seo-proxy` responde com 200 + HTML
