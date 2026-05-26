@@ -675,6 +675,10 @@ Deno.serve(async (req) => {
     const fullSync = url.searchParams.get("full") === "true";
     const singlePipeline = url.searchParams.get("pipeline_id");
     const orchestrate = url.searchParams.get("orchestrate") === "true";
+    // `deal_ids` (CSV) lets us do a surgical pull of specific deals by ID,
+    // bypassing pipeline pagination and updated_since windows. Used by the
+    // reconciler and manual backfills for deals older than 168h.
+    const dealIdsParam = url.searchParams.get("deal_ids");
     // `since_hours` override lets the reconciler / manual backfill widen the
     // updated_since window beyond the default 35min incremental sweep without
     // doing a full pipeline pull.
@@ -685,6 +689,63 @@ Deno.serve(async (req) => {
       : sinceHours
         ? new Date(Date.now() - sinceHours * 60 * 60 * 1000).toISOString()
         : new Date(Date.now() - 35 * 60 * 1000).toISOString();
+
+    // ── Targeted pull by deal_ids (surgical backfill) ──
+    if (dealIdsParam) {
+      const dealIds = dealIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => /^\d+$/.test(s))
+        .slice(0, 50); // hard cap to avoid abuse
+      const startedAt = Date.now();
+      const arrayParams = { "with[]": ["person", "person.phones", "person.emails", "person.company", "company", "company.phones", "company.emails", "origin", "stage", "proposals", "activities", "tags"] };
+      const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0, skippedUnchanged: 0 };
+      const perDeal: Array<{ deal_id: string; ok: boolean; status?: number; error?: string }> = [];
+      for (const id of dealIds) {
+        try {
+          const res = await piperunGet(PIPERUN_API_KEY, `deals/${id}`, undefined, arrayParams);
+          if (!res.success) {
+            perDeal.push({ deal_id: id, ok: false, status: res.status });
+            continue;
+          }
+          const payload = res.data as { data?: PipeRunDealData | PipeRunDealData[] };
+          const deal = Array.isArray(payload?.data) ? payload?.data?.[0] : payload?.data;
+          if (!deal) {
+            perDeal.push({ deal_id: id, ok: false, error: "no_data" });
+            continue;
+          }
+          await processDeal(supabase, deal as PipeRunDealData, counters);
+          perDeal.push({ deal_id: id, ok: true });
+        } catch (e) {
+          perDeal.push({ deal_id: id, ok: false, error: String(e) });
+        }
+      }
+      await supabase.from("system_health_logs").insert({
+        function_name: "piperun_sync_targeted",
+        severity: perDeal.some((d) => !d.ok) ? "warning" : "info",
+        error_type: "targeted_pull",
+        details: {
+          requested: dealIds.length,
+          ok: perDeal.filter((d) => d.ok).length,
+          failed: perDeal.filter((d) => !d.ok).length,
+          counters,
+          per_deal: perDeal,
+          elapsed_ms: Date.now() - startedAt,
+        },
+      });
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "targeted",
+        requested: dealIds.length,
+        updated: counters.updated,
+        created: counters.created,
+        skipped_unchanged: counters.skippedUnchanged,
+        per_deal: perDeal,
+        elapsed_ms: Date.now() - startedAt,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ── Orchestrator mode: call self once per pipeline sequentially ──
     if (orchestrate) {
