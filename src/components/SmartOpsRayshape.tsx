@@ -2,12 +2,22 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
 import "@/styles/intelligence-dark.css";
-import { Printer, Search, RefreshCw, Loader2 } from "lucide-react";
+import { Printer, Search, RefreshCw, Loader2, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type Category = "recomprou" | "critico" | "atencao" | "cedo";
 
@@ -25,6 +35,7 @@ interface Owner {
   total_post: number;
   first_repurchase_days: number | null;
   category: Category;
+  source?: "auto" | "manual";
 }
 
 const CATEGORY_META: Record<Category, { label: string; classes: string }> = {
@@ -53,6 +64,17 @@ export function SmartOpsRayshape() {
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [opening, setOpening] = useState(false);
 
+  // Manual add
+  const [addOpen, setAddOpen] = useState(false);
+  const [leadQuery, setLeadQuery] = useState("");
+  const [leadResults, setLeadResults] = useState<any[]>([]);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedLeadLabel, setSelectedLeadLabel] = useState<string>("");
+  const [printerDate, setPrinterDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [dealId, setDealId] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
@@ -76,6 +98,10 @@ export function SmartOpsRayshape() {
       .on("postgres_changes", { event: "*", schema: "public", table: "deals" }, () => {
         clearTimeout(t);
         t = setTimeout(() => load(true), 1500);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "rayshape_manual_owners" }, () => {
+        clearTimeout(t);
+        t = setTimeout(() => load(true), 800);
       })
       .subscribe();
     return () => { clearTimeout(t); supabase.removeChannel(ch); };
@@ -116,6 +142,66 @@ export function SmartOpsRayshape() {
     setSelectedLead(data);
   };
 
+  // Debounced lead search for manual add
+  useEffect(() => {
+    if (!addOpen) return;
+    const q = leadQuery.trim();
+    if (q.length < 2) { setLeadResults([]); return; }
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("lia_attendances")
+        .select("id, nome, email, telefone_normalized")
+        .is("merged_into", null)
+        .or(`nome.ilike.%${q}%,email.ilike.%${q}%,telefone_normalized.ilike.%${q}%`)
+        .limit(10);
+      setLeadResults((data as any[]) || []);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [leadQuery, addOpen]);
+
+  const resetAddForm = () => {
+    setLeadQuery(""); setLeadResults([]); setSelectedLeadId(null); setSelectedLeadLabel("");
+    setPrinterDate(new Date().toISOString().slice(0, 10)); setDealId(""); setNote("");
+  };
+
+  const saveManual = async () => {
+    if (!selectedLeadId || !printerDate) {
+      toast({ title: "Selecione um lead e a data", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("rayshape_manual_owners" as any).insert({
+      lead_id: selectedLeadId,
+      printer_date: printerDate,
+      piperun_deal_id: dealId.trim() || null,
+      note: note.trim() || null,
+      created_by: user?.id || null,
+    });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Dono adicionado", description: selectedLeadLabel });
+    setAddOpen(false);
+    resetAddForm();
+    load(true);
+  };
+
+  const removeManual = async (leadId: string) => {
+    if (!confirm("Remover este dono manual da lista?")) return;
+    const { error } = await supabase
+      .from("rayshape_manual_owners" as any)
+      .delete()
+      .eq("lead_id", leadId);
+    if (error) {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      return;
+    }
+    load(true);
+  };
+
   if (selectedLead) {
     return <LeadDetailPanel lead={selectedLead as any} onClose={() => setSelectedLead(null)} />;
   }
@@ -128,10 +214,15 @@ export function SmartOpsRayshape() {
           <Printer className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">Rayshape — Donos Edge Mini</h2>
         </div>
-        <Button size="sm" variant="outline" onClick={() => load(true)} disabled={refreshing}>
-          {refreshing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="default" onClick={() => setAddOpen(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Adicionar manualmente
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => load(true)} disabled={refreshing}>
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -207,7 +298,12 @@ export function SmartOpsRayshape() {
                     className="border-t border-border hover:bg-muted/30 cursor-pointer transition-colors"
                   >
                     <td className="p-3">
-                      <div className="font-medium text-foreground">{o.lead_name || "—"}</div>
+                      <div className="font-medium text-foreground flex items-center gap-2">
+                        {o.lead_name || "—"}
+                        {o.source === "manual" && (
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-300 border-purple-500/30 text-[10px]">manual</Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{o.lead_email || o.lead_phone || ""}</div>
                     </td>
                     <td className="p-3 text-foreground/80">{o.vendor || "—"}</td>
@@ -216,9 +312,20 @@ export function SmartOpsRayshape() {
                     <td className="p-3 text-right text-foreground/80">{o.n_post}</td>
                     <td className="p-3 text-right text-foreground/80">{fmtBRL(o.total_post)}</td>
                     <td className="p-3">
-                      <Badge variant="outline" className={CATEGORY_META[o.category].classes}>
-                        {CATEGORY_META[o.category].label}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={CATEGORY_META[o.category].classes}>
+                          {CATEGORY_META[o.category].label}
+                        </Badge>
+                        {o.source === "manual" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeManual(o.lead_id); }}
+                            className="text-muted-foreground hover:text-red-400 transition-colors"
+                            title="Remover dono manual"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -232,6 +339,85 @@ export function SmartOpsRayshape() {
           </div>
         )}
       </Card>
+
+      {/* Add manual owner dialog */}
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) resetAddForm(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar dono Rayshape Edge Mini</DialogTitle>
+            <DialogDescription>
+              Use para registrar combos (ex.: INO 200) que incluem a impressora Rayshape mas não a desmembram na proposta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Lead</Label>
+              {selectedLeadId ? (
+                <div className="flex items-center justify-between rounded border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="text-foreground">{selectedLeadLabel}</span>
+                  <Button size="sm" variant="ghost" onClick={() => { setSelectedLeadId(null); setSelectedLeadLabel(""); }}>Trocar</Button>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Buscar por nome, e-mail ou telefone…"
+                    value={leadQuery}
+                    onChange={(e) => setLeadQuery(e.target.value)}
+                  />
+                  {leadResults.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto rounded border border-border divide-y divide-border">
+                      {leadResults.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => {
+                            setSelectedLeadId(r.id);
+                            setSelectedLeadLabel(`${r.nome || "(sem nome)"} — ${r.email || r.telefone_normalized || ""}`);
+                            setLeadResults([]);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted/30"
+                        >
+                          <div className="text-foreground">{r.nome || "—"}</div>
+                          <div className="text-xs text-muted-foreground">{r.email || r.telefone_normalized || ""}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Data da impressora</Label>
+                <Input type="date" value={printerDate} onChange={(e) => setPrinterDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Deal PipeRun (opcional)</Label>
+                <Input placeholder="Ex.: 47317858" value={dealId} onChange={(e) => setDealId(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Nota</Label>
+              <Textarea
+                placeholder="Ex.: combo INO 200 + Edge Mini embutida (confirmado por Sicilia)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={saveManual} disabled={saving || !selectedLeadId}>
+              {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
