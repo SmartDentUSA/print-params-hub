@@ -426,10 +426,9 @@ Deno.serve(async (req) => {
     console.log("[piperun-webhook] Payload:", JSON.stringify(payload).slice(0, 500));
 
     // ─── Deep Parse + Deal extraction (Passo 2c) ───
-    const deal = deepParseStringifiedFields((payload.deal || payload) as Record<string, unknown>);
+    let deal = deepParseStringifiedFields((payload.deal || payload) as Record<string, unknown>);
     const dealId = String(deal.id || payload.deal_id || "");
-    const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
-    const tags = deal.tags as Array<{ name?: string }> | undefined;
+    const rawPayloadForAudit = payload;
 
     // ─── Handle null/template dealId (Passo 2c) ───
     if (!dealId || dealId === "null" || dealId === "undefined" || dealId.startsWith("{{")) {
@@ -438,14 +437,62 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── Hidratação via GET /deals/{id} para evitar perda de dados em
+    //     eventos parciais (stage-change, owner-change vêm sem person/company)
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+    const hydrationCheck = needsHydration(deal);
+    let hydrated = false;
+    if (hydrationCheck.needs && PIPERUN_API_KEY) {
+      console.log(`[piperun-webhook] Hidratando deal ${dealId} — motivo: ${hydrationCheck.reason}`);
+      const h = await hydrateDealPayload(PIPERUN_API_KEY, dealId, deal);
+      if (h.hydrated) {
+        deal = deepParseStringifiedFields(h.deal);
+        hydrated = true;
+      } else {
+        console.warn(`[piperun-webhook] Hidratação falhou (${h.error}); seguindo com payload original`);
+      }
+    }
+
+    const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
+    const tags = deal.tags as Array<{ name?: string }> | undefined;
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
 
-    // ─── Identity Resolution (cascading search) ───
+    // ─── Identity Resolution (cascading search expandido) ───
     const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const currentLead = await findLeadByCascade(supabase, dealId, ids.personHash, ids.personId, personEmail);
+    const phoneNormalizedForCascade = normalizeBrazilianPhone(ids.personPhone);
+    const currentLead = await findLeadByCascade(
+      supabase, dealId, ids.personHash, ids.personId, personEmail,
+      {
+        companyId: ids.companyId,
+        companyCnpj: ids.companyCnpj,
+        phoneNormalized: phoneNormalizedForCascade,
+        dealHash: ids.dealHash,
+      },
+    );
+
+    // ─── Audit trail: registra TODO evento recebido (sucesso ou skip) ───
+    const auditEvent = async (outcome: string, leadIdForAudit: string | null, errMsg?: string) => {
+      try {
+        await supabase.from("piperun_webhook_events").insert({
+          deal_id: dealId,
+          lead_id: leadIdForAudit,
+          event_action: (deal.action as string) || null,
+          stage_id: ids.stageId || null,
+          stage_name: ids.stageName,
+          pipeline_id: ids.pipelineId || null,
+          owner_id: ids.ownerId || null,
+          raw_payload: rawPayloadForAudit,
+          hydrated,
+          outcome,
+          error: errMsg || null,
+        });
+      } catch (e) {
+        console.warn("[piperun-webhook] audit insert failed:", e);
+      }
+    };
 
     let leadId: string;
     let leadNome: string;
