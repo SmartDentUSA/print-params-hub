@@ -507,7 +507,7 @@ export async function triggerOutboundMessages(
   lead: Record<string, unknown>,
   teamMemberId: string | null,
   teamMemberName: string
-) {
+): Promise<{ skipped?: boolean; reason?: string } | void> {
   if (!teamMemberId || teamMemberId === "fallback-admin") return;
 
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
@@ -534,6 +534,21 @@ export async function triggerOutboundMessages(
 
     const briefing = await buildSellerNotification(lead, supabase);
     if (member.whatsapp_number) {
+      // Dedup: skip if a seller briefing was already logged today for this lead
+      const hoje = new Date().toISOString().split('T')[0];
+      const hojeStart = `${hoje}T00:00:00.000Z`;
+      const hojeEnd = `${hoje}T23:59:59.999Z`;
+      const { count } = await supabase
+        .from('message_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('lead_id', leadId)
+        .in('tipo', ['briefing_vendedor', 'briefing_vendedor_block'])
+        .gte('created_at', hojeStart)
+        .lte('created_at', hojeEnd);
+      if (count && count > 0) {
+        console.log('[notifySeller] dedup blocked - already sent today');
+        return { skipped: true, reason: 'already_notified_today' };
+      }
       await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
     }
   } catch (e) {
