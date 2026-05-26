@@ -1,96 +1,67 @@
-## Contexto
+## Diagnóstico
 
-A pasta do Drive contém 2 exports completos do PipeRun (`oportunidades-*.csv`) com **129 colunas por Deal**. Comparando com o webhook `smart-ops-piperun-webhook` hoje:
+Baixei o CSV (`oportunidades-26-05-2026.csv`, 115 MB, encoding Latin-1, 129 colunas, 71.120 linhas).
 
-- O webhook **já mapeia ~60 campos** (person, company, deal, custom_fields, proposals, tags, frozen, origin, etc.) e salva `piperun_raw_payload` completo.
-- Mas existem **3 buracos reais** que causam perda de informação nas atualizações:
+Gap encontrado vs. nossa base:
 
-### Buraco 1 — Webhooks com payload incompleto sobrescrevem com nulo (silencioso)
-PipeRun dispara eventos parciais (ex.: mudança de stage envia só `deal + stage + owner`, sem `person`/`company` aninhados). Como o código faz "smart-merge" (`if (ids.companyCnpj) update.empresa_cnpj = ...`), campos ausentes ficam intactos — bom — **MAS** colunas JSONB como `piperun_raw_payload`, `piperun_custom_fields`, `piperun_involved_users` são gravadas com o payload reduzido, **apagando** dados que vieram em payloads anteriores.
+| Métrica | PipeRun export | Banco hoje | Faltando |
+|---|---:|---:|---:|
+| Deals totais | 71.120 | 32.700 | **38.420** |
+| Won/Ganha | 16.639 | 4.150 | **12.489** |
+| Perdida | 896 | 117 | 779 |
+| Aberta | 53.039 | 28.433 | 24.606 |
 
-### Buraco 2 — Cascade miss devolve HTTP 400 e perde o evento
-Quando `findLeadByCascade` não acha o lead E o payload não traz email, o webhook devolve 400 → PipeRun **re-tenta 5×** o mesmo evento (visto nos logs das últimas horas: 11 de 20 chamadas em 10min foram 400). O evento é descartado e o deal nunca é vinculado ao CDP.
+A maior parte do gap está no funil **"Funil Estagnados"** (53.659 deals, etapa "Etapa 00 - Novos") — leads antigos que o webhook nunca trouxe.
 
-Hoje o cascade só usa: `piperun_id → pessoa_hash → pessoa_piperun_id → email`. Mesmo quando o lead já existe no CDP (caso WILLIAN PARREIRA, CLINICA BRUNA NEGREIROS) o cascade não acha porque o payload do PipeRun nem sempre carrega esses 4 identificadores.
+## Plano
 
-### Buraco 3 — Sem histórico de payloads brutos
-`piperun_raw_payload` é **sobrescrito** a cada webhook. Se um update vier corrompido (ex.: PipeRun zerou `custom_fields`), não dá pra reconstruir o estado anterior. Não temos audit trail dos eventos.
+### 1. Subir o CSV para Storage privado
+- Bucket `piperun-imports` (privado), upload do arquivo via SQL `storage.objects` ou via dashboard.
+- Manter rastreabilidade (data, hash, contagem).
 
----
+### 2. Criar tabela de staging `piperun_deals_import`
+- Espelha as 129 colunas do CSV como `text` + colunas de controle (`import_batch_id`, `imported_at`, `processed`, `error`).
+- Carregar via Edge Function `piperun-import-csv` que faz streaming (CSV é grande, processar em chunks de 1.000 linhas).
 
-## Plano (3 fixes cirúrgicos no webhook + 1 tabela nova)
+### 3. Edge Function `piperun-deals-bulk-upsert`
+Para cada linha do staging, aplicar a mesma lógica do webhook `smart-ops-piperun-webhook` (reuso de `_shared/piperun-deal-hydrate.ts` e `findLeadByCascade`):
 
-### 1. Hidratar payload via GET `/deals/{id}` em 3 cenários
-Em `smart-ops-piperun-webhook` antes do `findLeadByCascade`, se o payload tem `dealId` mas falta `person.email + person.id + person.hash`, OU se o payload veio sem `person`/`company` aninhados (evento de stage só), buscar via PipeRun API:
+**a. Resolver lead canônico** (cascata já existente):
+`piperun_id` → `email` → `phone` → `cnpj` → cria novo lead se não achar e tiver email/telefone.
 
-```
-GET /deals/{dealId}?with[]=person&with[]=person.contact_emails&with[]=person.contact_phones&with[]=company&with[]=company.contact_emails&with[]=proposals&with[]=proposals.items&with[]=custom_fields&with[]=activities&with[]=files
-```
+**b. Upsert em `deals`** por `piperun_deal_id`:
+- Campos diretos: status (mapeando Aberta→aberta, Ganha→ganha, Perdida→perdida, Cancelada→cancelada), funil, etapa, owner, origem, valor P&S, MRR, datas, motivo de perda, temperatura, probabilidade, freight, payment.
+- Campos JSONB: `proposals` (parse de "Itens da proposta"), `piperun_custom_fields` (todas colunas 105-128 — especialidade, scanner, impressora, área de atuação etc.).
+- **Regra anti-perda já memorizada**: nunca sobrescrever JSONB com vazio; merge incremental.
+- Timestamps: usar `Data de cadastro` (col 10) como `piperun_created_at`, `Data de fechamento` (col 11) como `closed_at` — nunca `now()`.
 
-Mesclar o resultado em cima do `deal` original (preservando campos que só o webhook traz, ex.: `action`, `stage_changed_at`). Resultado: praticamente **todos os 129 campos do CSV** sempre disponíveis em cada update.
+**c. Enriquecer `lia_attendances`** (apenas canônicos, `merged_into IS NULL`):
+- Empresa: CNPJ, razão social, cidade/UF, segmento, porte, situação cadastral.
+- Pessoa: CPF, cargo, endereço, instagram, especialidade, equipamentos (scanner/impressora).
+- Estratégia ALWAYS_UPDATE para equipamentos (memória `lead-form-enrichment-v3`); demais campos só preenchem se nulos.
 
-### 2. Expandir o cascade + nunca devolver 400
+**d. Auditoria**: gravar em `piperun_webhook_events` (outcome=`bulk_import`) para manter trilha.
 
-Adicionar 4 chaves ao `findLeadByCascade`:
-- `pessoa_hash` (já tem)
-- `pessoa_piperun_id` (já tem)
-- **`empresa_piperun_id`** (novo) — recupera leads cuja Person veio sem email mas a Company já está no CDP
-- **`empresa_cnpj`** normalizado (novo)
-- **`telefone_normalized`** a partir de `person.contact_phones[0].number` ou enriquecido via GET (novo)
-- **`piperun_hash`** do deal (novo)
+### 4. UI mínima em `/admin`
+Card "Importação PipeRun" com:
+- Botão **Selecionar CSV** (multipart upload, valida cabeçalho).
+- Tabela de batches: data, linhas, processadas, criadas, atualizadas, erros, link p/ baixar relatório.
+- Botão **Reprocessar batch** (idempotente).
 
-Se mesmo após a hidratação (passo 1) o cascade falhar **e** ainda faltar email+telefone, retornar **HTTP 200** com `{ skipped: true, reason: "no_identifiers" }` em vez de 400 — silencia o loop de retry do PipeRun e libera o slot.
+### 5. Execução do batch atual
+- Rodar o upload do CSV já baixado.
+- Processar em background (cron `process-piperun-import-queue` a cada 1 min, lote de 500).
+- Estimativa: ~71k linhas / 500 por minuto ≈ 2-3 horas até completar.
+- Relatório final: criados vs. atualizados vs. leads novos vs. erros.
 
-### 3. Append-only em campos JSONB sensíveis (no-overwrite-with-empty)
+### 6. Salvaguardas
+- **Idempotente**: upsert por `piperun_deal_id`, batch reprocessável.
+- **Não duplica leads**: cascata de identidade respeitada; deals órfãos (sem identificador) ficam com `lead_id NULL` e flag `needs_review`.
+- **Custom fields preservados**: regra no-overwrite-with-empty já implementada no webhook.
+- **Auditoria completa** em `piperun_webhook_events`.
 
-Para os 5 campos JSONB de alto risco — `piperun_custom_fields`, `piperun_involved_users`, `piperun_activities`, `piperun_files`, `empresa_custom_fields` — só gravar quando o array do payload **tem itens**. Se vier `[]` ou `undefined`, preservar o valor anterior do banco (já fazemos para escalares, falta para esses 5 JSONB).
+## Confirmação necessária
 
-### 4. Nova tabela `piperun_webhook_events` (audit trail imutável)
-
-Migration nova:
-
-```sql
-CREATE TABLE public.piperun_webhook_events (
-  id bigint generated by default as identity primary key,
-  deal_id text not null,
-  lead_id uuid references public.lia_attendances(id) on delete set null,
-  event_action text,            -- create | update | stage_changed | won | lost
-  stage_id int, stage_name text,
-  pipeline_id int, owner_id int,
-  raw_payload jsonb not null,
-  hydrated boolean default false,
-  outcome text,                 -- created | updated | skipped_no_identity | error
-  error text,
-  received_at timestamptz default now()
-);
-GRANT SELECT, INSERT ON public.piperun_webhook_events TO service_role;
-ALTER TABLE public.piperun_webhook_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "admins read events" ON public.piperun_webhook_events
-  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-CREATE INDEX ON public.piperun_webhook_events (deal_id, received_at desc);
-CREATE INDEX ON public.piperun_webhook_events (lead_id, received_at desc);
-```
-
-O webhook insere 1 linha por evento recebido (sucesso ou falha). Permite:
-- Diff entre versões do payload de um mesmo deal
-- Reprocessar deals que foram skipped
-- Auditar quando/qual campo mudou no PipeRun
-
-Retenção: deixar crescer livre por enquanto (volume ~30k/mês).
-
----
-
-## Arquivos a tocar
-
-- `supabase/functions/smart-ops-piperun-webhook/index.ts` — passos 1, 2, 3 (single file, ~80 linhas adicionadas)
-- `supabase/functions/_shared/piperun-deal-hydrate.ts` — **novo**, helper isolado do GET enriquecido (reutilizável por `retry-cron`)
-- Migration nova para `piperun_webhook_events`
-- Memória nova `mem/architecture/piperun-webhook-no-loss.md` documentando as 3 regras
-
-## Garantias após o fix
-
-- **Zero 400** salvo erro real de servidor → fim do loop de retry de 5×
-- **Todos os 129 campos do CSV PipeRun** disponíveis em cada update (via hidratação)
-- **Histórico imutável** de cada webhook recebido por deal
-- **Sem sobrescrita de JSONB com vazio** → custom_fields/activities/files nunca somem
-- Cascade encontra ~95% dos leads existentes (vs ~55% hoje) sem precisar de email no payload
+1. Pode criar o bucket `piperun-imports` e a tabela `piperun_deals_import`?
+2. Pode rodar o import deste CSV imediatamente após a UI ficar pronta, ou prefere validar primeiro com um subset (ex.: só "Funil Estagnados")?
+3. Para deals "Aberta" no funil "Funil Estagnados" (53k), devo marcar `real_status` como reativação ou manter neutro?
