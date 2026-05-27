@@ -5,6 +5,12 @@ import { isCompanyLikeName } from "../_shared/identity-utils.ts";
 import { isFakeEmail } from "../_shared/lead-identity-guard.ts";
 import { fetchDealsContext, type DealsContext } from "../_shared/waleads-messaging.ts";
 import {
+  enrichLeadFromIdentity,
+  buildDeterministicCognitiveFallback,
+  logBriefingAudit,
+  type EnrichmentMeta,
+} from "../_shared/lead-enrichment.ts";
+import {
   PIPELINES,
   PIPELINE_NAMES,
   STAGES_VENDAS,
