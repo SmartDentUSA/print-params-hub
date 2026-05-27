@@ -888,8 +888,7 @@ async function createNewDeal(
         }
       }
       // Add structured HTML note for PipeRun
-      const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
-      await addDealNote(apiToken, Number(dealId), noteText);
+      await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
       return dealId;
     }
   }
