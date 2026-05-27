@@ -10,6 +10,11 @@
  * smartops_form_field_responses + raw_payload.custom_fields. No writes.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  fetchProductDossier,
+  fetchRayshapeDossier,
+  renderDossierForPrompt,
+} from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -344,7 +349,7 @@ export async function diagnoseLead(
   // ── LLM positioning script (best-effort, soft-fail) ──
   if (opts.enableLLM !== false) {
     try {
-      diag.llm_script = await generatePositioningScript(diag, lead);
+      diag.llm_script = await generatePositioningScript(supabase, diag, lead);
     } catch (e) {
       console.warn("[workflow-diagnosis] LLM script failed:", e);
     }
@@ -412,6 +417,7 @@ function resolveIntent(
 // DeepSeek positioning script (short, capped, soft-fail)
 // ────────────────────────────────────────────────────────────────
 async function generatePositioningScript(
+  supabase: SupabaseClient,
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
 ): Promise<string> {
@@ -428,6 +434,43 @@ async function generatePositioningScript(
     ...diag.combo_sugerido.cursos,
   ];
 
+  // ── RAG dossiers from system_a_catalog (soft-fail) ──
+  const intentLabel = diag.intent?.matched_product_label || diag.intent?.produto || null;
+  const comboTop = diag.combo_sugerido.mesma_celula.slice(0, 2);
+  const printerInvolved =
+    diag.concorrentes_detectados.some(c =>
+      /\b(impress|printer|anycubic|phrozen|elegoo|formlabs|asiga|sprintray|creality)\b/i.test(c.label),
+    ) ||
+    diag.stack_atual.some(s => s.stage === "etapa_3_impressao") ||
+    ["etapa_3_impressao", "etapa_4_pos_impressao", "etapa_5_finalizacao"].includes(diag.intent?.target_stage || "");
+
+  const [intentDossier, comboDossiers, rayshapeDossier] = await Promise.all([
+    fetchProductDossier(supabase, intentLabel),
+    Promise.all(comboTop.map(p => fetchProductDossier(supabase, p))),
+    printerInvolved ? fetchRayshapeDossier(supabase) : Promise.resolve(null),
+  ]);
+
+  const ragBlocks: string[] = [];
+  const intentBlock = renderDossierForPrompt(intentDossier, "DOSSIÊ PRODUTO DE INTENÇÃO");
+  if (intentBlock) ragBlocks.push(intentBlock);
+  comboDossiers.forEach((d, i) => {
+    const block = renderDossierForPrompt(d, `DOSSIÊ COMBO ${i + 1}`);
+    if (block) ragBlocks.push(block);
+  });
+  let rayshapeRule = "";
+  if (printerInvolved && rayshapeDossier) {
+    ragBlocks.push(renderDossierForPrompt(rayshapeDossier, "DOSSIÊ RAYSHAPE"));
+    rayshapeRule =
+      "\nREGRA RAYSHAPE: Impressoras 3D genéricas (Anycubic, Phrozen, Elegoo, Creality, etc.) têm limitações operacionais reais — curva de calibração, perfis não validados para resinas odontológicas, perda de produtividade clínica. A Rayshape elimina essas dificuldades e é sempre superior em facilidade de uso no fluxo digital odontológico. Use isso como gancho de upgrade, citando APENAS specs/benefícios presentes no DOSSIÊ RAYSHAPE acima.";
+  } else if (printerInvolved) {
+    rayshapeRule =
+      "\nREGRA RAYSHAPE: quando lead usa impressora genérica, mencione brevemente que a Rayshape elimina dificuldades operacionais comuns de impressoras genéricas no fluxo odontológico (sem inventar specs).";
+  }
+
+  const ragSection = ragBlocks.length
+    ? "\n\n=== RAG OFICIAL SMART DENT (use SOMENTE estes fatos) ===\n" + ragBlocks.join("\n\n") + rayshapeRule + "\n========================================================="
+    : "";
+
   const prompt = `Você é consultor técnico Smart Dent (odontologia digital).
 Lead:
   Especialidade: ${lead.especialidade || lead.area_atuacao || "N/I"}
@@ -436,13 +479,14 @@ Lead:
   Intenção declarada: ${diag.intent?.produto || "—"} (${diag.intent?.matched_product_label || "sem match no portfólio"})
   Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
   Lacunas: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}
-  Combo sugerido pelo motor: ${comboList.join(" | ") || "nenhum"}
+  Combo sugerido pelo motor: ${comboList.join(" | ") || "nenhum"}${ragSection}
 
-Escreva em PT-BR, no MÁXIMO 5 bullets curtos (uma linha cada, começando com "•"):
-1) Como conectar a intenção com o equipamento que ele JÁ tem (compatibilidade real)
-2) 1 gancho contra cada concorrente detectado (specs reais, sem mentir)
-3) Um alerta de risco para o vendedor (não empurrar, respeitar ordem do fluxo digital)
-REGRAS: NÃO invente produtos. Use apenas os listados no "Combo sugerido". Sem preços. Sem promessas absolutas. Direto ao ponto.`;
+Escreva em PT-BR, no MÁXIMO 5 bullets curtos (uma linha cada, começando com "• "):
+1) Como o PRODUTO DE INTENÇÃO se conecta ao stack atual — cite 1 benefício/spec do DOSSIÊ DE INTENÇÃO (compatibilidade real, sem inventar)
+2) 1 gancho contra cada concorrente detectado, apoiado em spec/benefício do dossiê RAG
+3) Se impressora estiver envolvida: 1 bullet de posicionamento Rayshape baseado no DOSSIÊ RAYSHAPE
+4) 1 alerta de risco — respeitar ordem do fluxo digital, não empurrar fora de etapa
+REGRAS: NÃO invente produtos nem specs. Use APENAS produtos do "Combo sugerido" e fatos dos dossiês RAG acima. Sem preços. Sem promessas absolutas. Direto ao ponto.`;
 
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 12000);
@@ -454,7 +498,7 @@ REGRAS: NÃO invente produtos. Use apenas os listados no "Combo sugerido". Sem p
         model: "deepseek-chat",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
-        max_tokens: 400,
+        max_tokens: 450,
       }),
       signal: ctrl.signal,
     });

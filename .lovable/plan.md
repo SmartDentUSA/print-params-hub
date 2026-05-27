@@ -1,138 +1,99 @@
 ## Objetivo
 
-A nota PipeRun e o briefing WhatsApp do vendedor passam a ter um **bloco de inteligência contextual** que cruza o que o lead **já tem** (equipamentos, software, especialidade) com o que ele **busca** (produto de interesse / formulário de entrada) usando o **Motor de Regras 7×3** (`workflow_cell_mappings` — products, sdr_fields, competitors por célula).
+A camada LLM do `workflow-diagnosis.ts` hoje gera o "Como posicionar" a partir só do nome do produto-intenção + combo. Vamos passar a **alimentar o prompt com o RAG real da Smart Dent** (mesma base que a apostila/Dra. LIA usam) para que o argumento seja construído sobre **specs, benefícios, indicações clínicas e diferenciais reais do produto que o lead pediu**, mais um **dossiê Rayshape obrigatório** sempre que o lead tem (ou demonstra interesse em) impressora 3D.
 
-O output não é uma lista crua de produtos — é um **script de abordagem pronto** que diz ao vendedor:
-1. **O que perguntar** sobre o setup atual do lead (para validar compatibilidade)
-2. **Como conectar** o produto de interesse ao stack existente (benefício específico)
-3. **O que oferecer junto** (cross-sell coerente com o fluxo digital dele)
-4. **Como posicionar** contra o concorrente que ele já usa
+Premissa do usuário codificada no prompt: *"Impressoras genéricas têm limitações operacionais; a Rayshape elimina essas dificuldades e é sempre superior em facilidade de uso no fluxo digital odontológico."* — usar como âncora narrativa, sem inventar specs.
 
-### Exemplo do output esperado
+## Como funciona
 
-Lead: CS 3600 (Carestream), implantodontista, impressora Anycubic, interesse declarado **GlazeON**.
+### 1. Novo módulo `_shared/product-rag.ts`
 
-```
-🧭 Diagnóstico Fluxo Digital
-Etapa atual do lead: 1→3 (digitaliza + imprime). Lacuna em 4 (pós) e 2 (CAD próprio?).
-Concorrência detectada: Carestream CS 3600 (scanner), Anycubic (impressora desktop).
+Função `fetchProductDossier(supabase, productLabel)`:
+- Resolve o produto contra `system_a_catalog` (match por `name` ILIKE + tokens, fallback `slug`, depois `keywords`).
+- Devolve dossiê compacto (≤ 1.2 KB) montado a partir de:
+  - `name`, `product_category`, `product_subcategory`
+  - `description` (truncado 600 chars)
+  - `extra_data.benefits` (top 5)
+  - `extra_data.technical_specifications` (top 6 label:value)
+  - `extra_data.faq` (top 3 P/R)
+  - `clinical_indications`, `compatibility_list`, `contraindications` (top 3 cada)
+- Cache em memória 5 min (mesmo padrão do mapping cache).
 
-🎯 Intenção declarada: GlazeON  →  célula 4 / Limpeza & Acabamento (pós-impressão de splints/placas)
+Função `fetchRayshapeDossier(supabase)` — atalho fixo: busca pelo slug `rayshape` / nome `Rayshape` e devolve o mesmo formato. Cacheado.
 
-📋 Pergunte ao lead:
-  1. Quantas placas/mês você imprime hoje? Qual resina (Bio Splint? concorrente)?
-  2. Como faz o pós-cura e brilho hoje? Lixa manual? Verniz?
-  3. Já testou ciclo completo Smart Print + GlazeON na Anycubic?
-  4. Usa exocad/Blue Sky/3Shape no CAD? (não está claro no cadastro)
+### 2. Enriquecer `generatePositioningScript`
 
-💡 Como posicionar GlazeON com o setup dele:
-  • CS 3600 → exporta STL aberto, 100% compatível com nossas resinas Bio Splint.
-  • Anycubic Mono → roda nossas resinas, mas perda de produtividade vs Rayshape
-    (3× mais rápida, perfil validado). Use isso como gancho de upgrade futuro.
-  • GlazeON entrega acabamento clínico em <2min sem polimento manual — ganho
-    direto no tempo-cadeira do implantodontista.
+Antes do prompt DeepSeek:
+- Resolver dossiê do produto de intenção (`diag.intent.matched_product_label` ou `diag.intent.produto`).
+- Resolver dossiês dos itens do `combo_sugerido.mesma_celula` (top 2, paralelo).
+- Se `concorrentes_detectados` contém impressora **ou** `stack_atual` tem `etapa_3_impressao` com competitor **ou** intent cai em etapa 3/4/5 → anexar dossiê Rayshape.
 
-🛒 Combo recomendado (mesma etapa + adjacentes):
-  • Etapa 4: GlazeON Splint + Smart Cure XL
-  • Etapa 3: Resina Bio Splint Clear (compatível Anycubic)
-  • Etapa 6: Curso "Splints no Fluxo Digital" (alta conversão p/ implanto)
-
-⚠️ Risco: lead já tem stack funcional → não empurrar Rayshape no 1º contato.
-   Próxima etapa natural é Pós (GlazeON) e Resina nossa. Rayshape vira upsell em D+30.
-```
-
-## Como funciona (motor determinístico + 1 chamada LLM curta)
-
-### Camada 1 — `_shared/workflow-diagnosis.ts` (determinístico)
-
-Função `diagnoseLead(supabase, lead)` retorna:
-
-```ts
-{
-  stack_atual: [
-    { stage, cell, value, is_competitor, competitor_label }
-  ],
-  intent: {
-    produto: "GlazeON",
-    target_stage: "etapa_4_pos_impressao",
-    target_cell: "limpeza_acabamento",
-    source: "produto_interesse | form_name | sdr_*_interesse"
-  },
-  lacunas: [stage/cell sem dados que são pré-requisito da intent],
-  combo_sugerido: {
-    mesma_celula: [...top 3 produtos],
-    celula_adjacente: [...top 2],
-    cursos: [...top 1 se etapa 6 vazia]
-  },
-  perguntas_qualificacao: [...derivadas dos sdr_fields da intent + lacunas]
-}
-```
-
-**Algoritmo:**
-1. Carregar `workflow_cell_mappings` (cache em memória, ~150 linhas, 1 SELECT).
-2. **Stack atual** — iterar células × `sdr_field`. Para cada campo do lead (`equip_*`, `software_cad`, `sdr_*_modelo`, `raw_payload.custom_fields`, último `smartops_form_field_responses` por field_name), checar se valor casa com a lista `competitor` da célula → flagar.
-3. **Intent** — resolver alvo cruzando: `produto_interesse` / `form_name` / `sdr_*_interesse` / `last_form_submitted` contra `mapped_label` de `mapping_type='product'`. Match por substring case-insensitive + sinônimos curtos (glazeon→Smart Seal Glaze / GlazeON Splint).
-4. **Lacunas** — pré-requisitos por etapa: alvo na etapa 4 exige presença em 3 (impressora) e 2 (CAD); alvo em 5 exige 4; etc. Tabela de pré-req hardcoded curta (7 entradas).
-5. **Combo** — mesma célula (top 3 products), célula adjacente da próxima etapa (top 2), curso da etapa 6 se etapa 6 vazia.
-6. **Perguntas** — para cada `sdr_field` da célula-alvo e das lacunas que está vazio no lead, gerar pergunta no template `"<label_humano>?"` (mapa label→pergunta curto, ~25 entradas).
-
-Zero LLM até aqui. Tudo derivado de `workflow_cell_mappings` + `lia_attendances` + `smartops_form_field_responses`.
-
-### Camada 2 — script de abordagem (1 chamada DeepSeek curta, ~600 tokens)
-
-Apenas a parte **"Como posicionar X com o setup dele"** e o **"Risco / próxima etapa"** vão para DeepSeek com prompt **enxuto e fechado**:
+Prompt atualizado (estrutura, em PT-BR, mantém soft-fail e cap de 400 tokens):
 
 ```
-Você é consultor técnico Smart Dent. Lead tem:
-  Stack: <stack_atual JSON>
-  Concorrentes detectados: <lista>
-  Intent: <produto X — etapa Y/célula Z>
-  Lacunas: <lista>
-  Combo sugerido pelo motor: <lista fixa>
+Você é consultor técnico Smart Dent. NÃO invente specs nem preços.
+Use SOMENTE os fatos abaixo (RAG oficial Smart Dent).
 
-Escreva, em PT-BR, máximo 5 bullets:
-- Compatibilidade do scanner/impressora/CAD atual com o produto X
-- 1 gancho de upgrade contra cada concorrente (sem mentir, usar specs reais)
-- 1 alerta de risco (não empurrar, ordem natural do fluxo)
-NÃO invente produtos. Use só os listados em "combo".
+LEAD: <especialidade>, stack=<…>, concorrentes=<…>
+INTENÇÃO: <produto + etapa/célula>
+LACUNAS: <…>
+COMBO (motor 7×3): <…>
+
+DOSSIÊ DO PRODUTO DE INTENÇÃO (RAG):
+<bloco compacto: descrição, benefícios, specs, indicações, compatibilidade>
+
+DOSSIÊS DOS PRODUTOS DO COMBO (RAG):
+<até 2 blocos curtos>
+
+[se aplicável]
+DOSSIÊ RAYSHAPE (RAG) — usar como referência quando impressora aparecer:
+<bloco>
+REGRA RAYSHAPE: Impressoras genéricas (Anycubic, Phrozen, Elegoo, etc.) têm
+limitações operacionais (curva de calibração, perda de produtividade, perfis
+não validados). A Rayshape elimina essas dificuldades e é sempre superior em
+facilidade no fluxo digital odontológico. Use isso como gancho de upgrade,
+sem mentir sobre specs — cite só o que estiver no DOSSIÊ RAYSHAPE.
+
+ESCREVA, em PT-BR, MÁXIMO 5 bullets ("• "):
+1) Como o produto de intenção se conecta ao stack atual (compatibilidade real do dossiê)
+2) 1 gancho contra cada concorrente detectado, apoiado em specs do dossiê
+3) Quando impressora estiver envolvida: 1 bullet de posicionamento Rayshape
+4) 1 alerta de risco (não empurrar fora da ordem do fluxo digital)
 ```
 
-Reaproveita o cliente DeepSeek que já existe em `smart-ops-lia-assign`. Custo marginal (~$0.0005/lead). Determinístico falha-suave: se DeepSeek falhar, o bloco "Como posicionar" é omitido — perguntas e combo continuam.
+DeepSeek continua sendo o motor; só o **contexto** vira RAG real em vez de só rótulos.
 
-### Camada 3 — render
+### 3. Falha-suave
 
-Helpers `renderDiagnosisHTML(diag, llmScript)` e `renderDiagnosisWhatsApp(diag, llmScript)`:
-- **PipeRun (HTML)**: bloco completo com as 5 seções do exemplo acima.
-- **WhatsApp (texto)**: versão enxuta — etapa atual, intent, top 3 perguntas, top 3 combo, 1 linha de posicionamento.
+- Se `fetchProductDossier` não acha o produto → segue só com nome (comportamento atual).
+- Se `fetchRayshapeDossier` falha → omite a seção Rayshape (regra/bullet some).
+- Se DeepSeek timeout → `llm_script` undefined, perguntas + combo continuam (igual hoje).
 
-Inserido **antes do bloco 🧠 Inteligência** em `buildSellerDealSummaryHTML` e logo após o cabeçalho do lead em `buildSellerNotification`.
+### 4. Render
 
-### Camada 4 — prompt cognitivo
+Sem mudanças na assinatura dos renderers. O conteúdo dos bullets fica mais técnico/ancorado, mas o layout HTML/WhatsApp/prompt cognitivo permanece igual.
 
-`cognitive-lead-analysis/index.ts` recebe `diag.stack_atual` + `diag.intent` no bloco "Perfil técnico (SDR Qualificação)" para classificar `lead_stage_detected` e `recommended_approach` ancorado na régua 7×3 oficial (deixa de inferir do zero).
+### 5. Cognitive prompt
+
+`renderDiagnosisForPrompt` ganha 1 linha extra no fim: `produto_intencao_resumo`= 1ª frase da `description` do dossiê (quando existir) — ajuda o DeepSeek do `cognitive-lead-analysis` a classificar `recommended_approach` ancorado no produto real.
 
 ## Arquivos
 
-- `supabase/functions/_shared/workflow-diagnosis.ts` (**novo**, ~280 linhas determinísticas + 1 helper LLM)
-- `supabase/functions/_shared/workflow-prereq-rules.ts` (**novo**, tabela curta de pré-req entre etapas + mapa label→pergunta)
-- `supabase/functions/_shared/seller-summary.ts` (chama `diagnoseLead` + `renderDiagnosisHTML`, ~25 linhas adicionadas)
-- `supabase/functions/smart-ops-lia-assign/index.ts` (chama `diagnoseLead` + `renderDiagnosisWhatsApp` em `buildSellerNotification`; injeta `stack_atual`/`intent` no prompt cognitivo)
-- `supabase/functions/cognitive-lead-analysis/index.ts` (recebe e usa o diagnóstico)
-- `supabase/functions/smart-ops-preview-seller-note/index.ts` (já planejado — passa a renderizar o novo bloco automaticamente)
-- `mem/smart-ops/seller-note-workflow-diagnosis.md` (memória nova documentando a régua e o contrato)
+- `supabase/functions/_shared/product-rag.ts` (**novo**, ~140 linhas — fetch + cache + formatter)
+- `supabase/functions/_shared/workflow-diagnosis.ts` (substitui o corpo de `generatePositioningScript` para injetar dossiês; adiciona linha no `renderDiagnosisForPrompt`)
+- `mem/smart-ops/seller-note-workflow-diagnosis.md` (atualiza: agora consome RAG `system_a_catalog` + Rayshape rule)
 
-## Validação
+## Validação (via `smart-ops-preview-seller-note`)
 
-Rodar o preview function contra:
-1. `criatianobrazodonto@gmail.com` (caso real do usuário)
-2. Caso GlazeON sintético: lead com `equip_scanner='CS 3600'`, `equip_impressora='Anycubic'`, `especialidade='implantodontia'`, `produto_interesse='GlazeON'` → esperar saída próxima do exemplo acima.
-3. Lead "pesado" (já tem Rayshape + exocad + GlazeON) → esperar combo focar em etapa 6 (cursos) e etapa 7 (fresagem), sem re-ofertar o que ele tem.
-4. Lead "vazio" (só nome + email) → diagnóstico devolve só as perguntas-base, sem alucinar combo.
+1. `criatianobrazodonto@gmail.com` (real) — confirmar que bullets citam specs reais dos produtos do combo.
+2. Lead sintético GlazeON + CS 3600 + Anycubic → esperar bullet Rayshape com gancho de produtividade citando spec real do dossiê.
+3. Lead com produto-intenção que **não existe** no catálogo (ex: "Bio Splint XL") → soft-fail, bullets continuam (sem dossiê).
+4. Lead sem impressora declarada e intent em etapa 1 (scanner) → sem bullet Rayshape (regra não aciona).
 
 ## O que NÃO muda
 
-- `workflow_cell_mappings` continua editável só pelo `SmartOpsMappingFieldsEditor` (read-only para esse recurso).
-- Nenhuma migration. Nenhuma coluna nova em `lia_attendances`.
-- Sem postar nada em produção até preview aprovado pelo usuário (rota `smart-ops-preview-seller-note`).
-- `[🤖 SmartOps]` / `[Dra. L.I.A.]` permanecem como assunto separado.
-- `ingest-lead`, `deal-form-note`, hierarchy e RR não são tocados.
+- `workflow_cell_mappings` continua read-only para esse fluxo.
+- Sem migration. Sem coluna nova.
+- `system_a_catalog` é só leitura.
+- WhatsApp/PipeRun/cognitive prompt — mesmas seções, mesma ordem, mesmo hash de dedupe.
+- Sem postar em produção até preview aprovado.
