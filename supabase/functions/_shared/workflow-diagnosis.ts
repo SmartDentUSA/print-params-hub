@@ -10,6 +10,12 @@
  * smartops_form_field_responses + raw_payload.custom_fields. No writes.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  fetchProductDossier,
+  fetchRayshapeDossier,
+  renderDossierForPrompt,
+  firstSentence,
+} from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
