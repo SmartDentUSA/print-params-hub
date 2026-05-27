@@ -1,181 +1,47 @@
-## Objetivo
+## Contexto
 
-Aplicar a régua do Funil de Vendas no dedupe `meta_form_history_12h` (`smart-ops-ingest-lead/index.ts`), espelhando exatamente o comportamento de **SDR-CAPTAÇÃO reativação** (`smart-ops-lia-assign/index.ts:1700-1760`):
+- **Daniel Ferreira (PipeRun 102594)**: ativo no `team_members` — porém 101 leads estão com `proprietario_lead_crm = "102594"` (ID cru) em vez do nome. Apenas problema de resolução de nome.
+- **Danilo Pereira (PipeRun 102595)**: **saiu da empresa**, não está no `team_members`. Tem 72 leads ativos atribuídos a ele no banco e nos deals do PipeRun.
 
-1. **Open deal em VENDAS (18784)** → apenas `updateExistingDeal` (custom fields + nota de re-entrega). Owner intacto (GOLDEN RULE).
-2. **Open deals em qualquer outro funil** (Estagnados, Distribuidor, Insumos, Atos, E-book, etc.) → fechar cada um como **Perdido** (`status=2, lost_reason="reativacao_redelivery_meta"`) + **Fresh Round Robin** + `createNewDeal` em VENDAS / SEM_CONTATO.
-3. **Nenhum deal aberto** → Fresh Round Robin + `createNewDeal` em VENDAS / SEM_CONTATO.
-4. **Won deals** → NUNCA tocar (alinha com linha 2244).
-5. **Sem `pessoa_piperun_id`** → abortar route, log `route_skipped: missing_person`.
+## Regra de negócio (consolidada)
 
-Histórico preservado: deals antigos viram "Perdido por reativação" em vez de sumirem; `piperun_deals_history` e contagem total intactos.
-
-## Por que muda
-
-Hoje o dedupe `meta_form_history_12h` retorna `duplicate_skipped` antes de qualquer chamada PipeRun. Resultado: redelivery Meta de lead reaquecido **nunca** dispara régua comercial → vendedor perde a oportunidade fresca.
-
-## Arquitetura — invocar lia-assign em modo restrito
-
-Reusar toda a régua que já vive em `smart-ops-lia-assign` via nova flag `enrichment_only_route_deal: true`. Evita duplicar 150+ linhas (owner resolution, blocked-seller fallback, deal-note, snapshot, sanitizer, etc.).
+**Toda atribuição de owner — em qualquer fluxo (Meta webhook, ingest, lia-assign, re-delivery, reativação SDR-CAPTAÇÃO, cron retry) — deve resolver o owner contra `team_members` onde `ativo = true` e `role = 'vendedor'`. Se o owner recebido não estiver ativo, deve cair em Round Robin entre vendedores ativos.**
 
 ## Mudanças
 
-### 1. `supabase/functions/smart-ops-ingest-lead/index.ts` (~25 linhas)
+### 1. `smart-ops-lia-assign/index.ts` — Endurecer validação de owner
 
-No bloco `if (priorForm)`, **depois** do `update(updates)` e **antes** do `return duplicate_skipped`:
+- Criar helper `resolveActiveTeamMember(supabase, ownerHint)` que aceita: `piperun_owner_id` numérico OU nome, e retorna `{ id, nome_completo, piperun_owner_id }` somente se `ativo = true AND role = 'vendedor'`. Caso contrário retorna `null`.
+- No bloco "Check if current owner exists and is active" (linhas ~2248-2275), trocar o `ilike` por `resolveActiveTeamMember`. Se vier numérico (como "102595"), match por `piperun_owner_id::text`; se vier string, `ilike` por `nome_completo`.
+- Se não resolver para vendedor ativo → `pickRandomActiveVendedor` (já filtra `ativo = true` corretamente).
+- **Normalizar gravação**: sempre escrever `proprietario_lead_crm = nome_completo` (nunca o ID numérico), eliminando o problema dos 101 leads com "102594".
 
-```ts
-let dealRouteResult: Record<string, unknown> | null = null;
-if (existingLead.pessoa_piperun_id && source === "meta_lead_ads" && formName) {
-  try {
-    const { data } = await supabase.functions.invoke("smart-ops-lia-assign", {
-      body: {
-        lead_id: existingLead.id,
-        enrichment_only_route_deal: true,
-        trigger_source: "meta_form_history_dedupe",
-        form_name: formName,
-        enriched_fields: enrichedFields,
-      },
-    });
-    dealRouteResult = data ?? null;
-  } catch (e) {
-    console.warn("[ingest-lead] deal-route invoke failed:", e);
-  }
-}
-```
+### 2. `smart-ops-ingest-lead/index.ts` — Sanitizar owner recebido
 
-Incluir `deal_route_result` no `system_health_logs.details` e no response JSON.
+- Antes de gravar `proprietario_lead_crm` no insert/update do lead, passar pelo mesmo `resolveActiveTeamMember`. Se o owner vindo do payload (webhook Meta, CSV import, etc.) for inativo ou desconhecido, gravar `null` e deixar o lia-assign sortear.
 
-### 2. `supabase/functions/smart-ops-lia-assign/index.ts` (~80 linhas)
+### 3. Migration de saneamento (one-off)
 
-**No parse do body:**
-```ts
-const enrichmentOnlyRouteDeal = payload.enrichment_only_route_deal === true;
-const enrichmentFormName = payload.form_name as string | null;
-const enrichmentFields = (payload.enriched_fields as string[]) || [];
-```
+- **Backfill de nomes**: `UPDATE lia_attendances SET proprietario_lead_crm = 'Daniel Ferreira' WHERE merged_into IS NULL AND proprietario_lead_crm = '102594'` (101 linhas).
+- **Reatribuir leads do Danilo Pereira**:
+  - Marcar os 72 leads (`proprietario_lead_crm = '102595'` ou `ILIKE '%danilo pereira%'`) com `proprietario_lead_crm = NULL` e `lia_assigned_at = NULL`.
+  - Criar fila de reprocessamento via edge function `smart-ops-reassign-orphaned-leads` (nova) que itera nesses leads e invoca `lia-assign` com flag `reassign_inactive_owner: true` — o lia-assign executa Round Robin entre ativos, atualiza o owner do deal aberto no PipeRun (via `PATCH /deals/{id}` com novo `user_id`) e grava `proprietario_lead_crm` com o nome novo.
+  - Logar cada reatribuição em `lead_activity_log` com `event_type = 'owner_reassigned_inactive_seller'` (antigo → novo).
 
-**Antes do bloco principal de Round Robin**, branch dedicado:
+### 4. Bloquear futuras criações de team_members ID-only
 
-```ts
-if (enrichmentOnlyRouteDeal) {
-  // 1. Resolver lead, personId, companyId direto do banco (sem findPersonByEmail)
-  const personId = lead.pessoa_piperun_id;
-  const companyId = lead.empresa_piperun_id ?? null;
-  if (!personId) {
-    return json({ flow_type: "route_skipped", reason: "missing_person" });
-  }
+- Em qualquer fluxo que sincronize owner do PipeRun (ex.: `piperun-sync`), **não auto-cadastrar** novos vendedores no `team_members`. Se o `user_id` vindo do PipeRun não existir em `team_members ativo`, logar warning em `system_health_logs` (`error_type = 'unknown_piperun_owner'`) e cair em Round Robin.
 
-  // 2. Buscar TODOS deals da pessoa
-  const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
-  const openDeals = allDeals.filter(d => Number(d.status) === 0);
-  const vendaDeal = openDeals.find(d => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed);
-  const otherOpenDeals = openDeals.filter(d => Number(d.pipeline_id) !== PIPELINES.VENDAS);
+## Arquivos afetados
 
-  const customFields = mapAttendanceToDealCustomFields(lead);
-  // (fallback WHATSAPP idêntico ao SDR-CAPTAÇÃO)
+- `supabase/functions/smart-ops-lia-assign/index.ts` (helper + validação no Round Robin)
+- `supabase/functions/smart-ops-ingest-lead/index.ts` (sanitização do owner do payload)
+- `supabase/functions/smart-ops-reassign-orphaned-leads/index.ts` (novo, one-off invocável manualmente pelo admin)
+- Migration SQL: backfill nome do Daniel + nullify owner do Danilo
+- `mem://smart-ops/active-seller-enforcement` (nova memória de regra)
 
-  // 3a. VENDAS aberto → preservar + nota curta
-  if (vendaDeal) {
-    const dealOwnerId = Number(vendaDeal.owner_id);
-    if (isBlockedSeller({ ownerId: dealOwnerId, ownerName: PIPERUN_USERS[dealOwnerId]?.name })) {
-      // mover pra Distribuidor (reusa bloco 2289-2304)
-    } else {
-      await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead, companyId, supabase, []);
-      await addDealNote(PIPERUN_API_KEY, Number(vendaDeal.id),
-        `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName}") enriqueceu: ${enrichmentFields.join(", ")}.`);
-    }
-    // atualizar lia_attendances.piperun_id = vendaDeal.id
-    return json({ flow_type: "preserve_vendas", piperun_id: String(vendaDeal.id), created_new: false });
-  }
+## Confirmações necessárias antes de implementar
 
-  // 3b. Outros funis abertos → fechar todos como Perdido (espelha SDR-CAPTAÇÃO)
-  for (const deal of otherOpenDeals) {
-    await piperunPut(PIPERUN_API_KEY, `deals/${deal.id}`, {
-      status: 2,
-      lost_reason: "reativacao_redelivery_meta",
-    });
-    console.log(`[lia-assign] enrichment-route: deal ${deal.id} (pipeline ${deal.pipeline_id}) fechado como Perdido`);
-  }
-
-  // 3c. Fresh Round Robin (NUNCA herda owner anterior)
-  const newOwner = await pickRandomActiveVendedor(supabase);
-  const newDealId = await createNewDeal(
-    PIPERUN_API_KEY, personId, companyId, lead,
-    PIPELINES.VENDAS, STAGES_VENDAS.SEM_CONTATO,
-    newOwner.piperun_owner_id, customFields, leadEmail, supabase, []
-  );
-
-  if (newDealId) {
-    await addDealNote(PIPERUN_API_KEY, Number(newDealId),
-      `📩 [Dra. L.I.A.] Deal aberto a partir de re-entrega Meta (form "${enrichmentFormName}").\n` +
-      `Deals anteriores fechados como Perdido (reativação): ${otherOpenDeals.length}.\n` +
-      `Campos enriquecidos: ${enrichmentFields.join(", ")}.`);
-
-    // atualizar lia_attendances: piperun_id, proprietario_lead_crm, owner_team_member_id
-    await supabase.from("lia_attendances").update({
-      piperun_id: newDealId,
-      proprietario_lead_crm: newOwner.nome_completo,
-      // ...
-    }).eq("id", lead.id);
-  }
-
-  return json({
-    flow_type: "new_deal_after_loss",
-    piperun_id: newDealId,
-    created_new: true,
-    closed_deals: otherOpenDeals.map(d => ({ id: d.id, pipeline_id: d.pipeline_id })),
-    new_owner: newOwner.nome_completo,
-  });
-}
-```
-
-**Skip explícito** dentro do branch: `cognitive-lead-analysis`, `buildSellerNotification`, `sendCampaignViaSellFlux`, WhatsApp summary, `createPerson`, `updatePersonFields`, `findOrCreateCompany`. Re-entrega não deve spammar vendedor — só renovar funil.
-
-## Respeitando políticas existentes
-
-| Política | Como respeitamos |
-|---|---|
-| **Commercial Intent Guard** | Só invoca se `source==meta_lead_ads && formName`; nunca cria Person |
-| **Person Origin Frozen** | Não toca em `origin_id` (não chama `updatePersonFields` no modo restrito) |
-| **GOLDEN RULE** | VENDAS aberto preserva owner intacto |
-| **Blocked Seller** | Reusa fallback Patricia → Distribuidor |
-| **Won deals NEVER TOUCH** | Filtro só pega `status === 0` |
-| **Cognitive Lock TTL** | Não dispara análise → lock não tocado |
-| **Sanitizer / PostgREST Embed** | Updates passam pelo sanitizer existente |
-| **Histórico de deals** | Closes como Perdido (não delete) → contagem e `piperun_deals_history` preservados |
-
-## Validação pós-deploy
-
-**Caso Itamar (`b60f2c18`)** — `piperun_id=19241281`:
-
-| Estado do deal 19241281 | Resultado esperado |
-|---|---|
-| Aberto em VENDAS | `flow_type=preserve_vendas`, nota curta no deal, custom fields atualizados |
-| Aberto em ESTAGNADOS | Fecha 19241281 como Perdido, cria novo em VENDAS com Round Robin, `flow_type=new_deal_after_loss` |
-| Perdido/Ganho | Cria novo em VENDAS sem fechar nada, `flow_type=new_deal_after_loss` (com `closed_deals=[]`) |
-
-**SQL 7d:**
-```sql
-SELECT details->'deal_route_result'->>'flow_type' AS flow,
-       count(*),
-       sum(jsonb_array_length(coalesce(details->'deal_route_result'->'closed_deals','[]'::jsonb))) AS total_closed
-FROM system_health_logs
-WHERE error_type='meta_form_history_dedupe'
-  AND created_at > now() - interval '7 days'
-GROUP BY 1;
-```
-
-**Sanity:** `total_deals_all` do lead deve subir em 1 quando `flow_type=new_deal_after_loss` — confirma histórico preservado.
-
-## Memória a atualizar (build mode)
-
-Nova entrada: `mem://architecture/dedupe-redelivery-deal-route` — descrevendo régua aplicada após enrichment incremental.
-
-## Fora de escopo
-
-- Reabrir deals Ganho.
-- Reativar via `moveDealToVendas` (régua é "fecha + cria novo", não move).
-- WhatsApp/Sellflux/cognitive na re-entrega.
-- Backfill retroativo.
-- Mudar a janela 12h de dedupe.
+1. **Reatribuição dos 72 leads do Danilo**: confirmar que o sistema deve **mover o ownership do deal no PipeRun** (PATCH `/deals/{id}` com novo `user_id`) e não apenas atualizar o nosso banco.
+2. **Filtrar Won deals?** Pelos leads do Danilo, devo deixar deals com `status = 2` (Ganha) intactos e reatribuir apenas deals abertos? (recomendado: sim)
+3. **Backfill nome Daniel Ferreira**: confirma o UPDATE direto dos 101 leads para "Daniel Ferreira"?
