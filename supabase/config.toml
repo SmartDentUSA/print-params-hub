@@ -329,3 +329,6 @@ verify_jwt = false
 
 [functions.manychat-lia-bridge]
 verify_jwt = false
+
+[functions.smart-ops-reassign-danilo-vendas]
+verify_jwt = false
