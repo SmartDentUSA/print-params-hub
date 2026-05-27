@@ -659,6 +659,93 @@ async function findPersonDeals(
 }
 
 /**
+ * Build the rich seller PipeRun note (Resumo do Lead + Diagnóstico 7×3 + RAG + Rayshape)
+ * with idempotency by hash. Falls back to legacy `buildDealNoteHTML` on failure so
+ * we never silently skip posting.
+ *
+ * Returns the HTML actually posted (or null when skipped as duplicate).
+ */
+async function postRichSellerNote(
+  apiToken: string,
+  dealId: number,
+  lead: Record<string, unknown>,
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>,
+  opts: { headerPrefix?: string } = {},
+): Promise<void> {
+  const leadId = lead.id as string | undefined;
+  let html = "";
+  let hash = "";
+
+  try {
+    const highlightFormResponses = (formResponses || [])
+      .filter((r) => r && r.value !== undefined && r.value !== null && String(r.value).trim() !== "")
+      .map((r) => ({
+        label: String((r as Record<string, unknown>).label || (r as Record<string, unknown>).field_label || "Campo"),
+        value: String((r as Record<string, unknown>).value ?? ""),
+      }));
+
+    const built = await buildSellerDealSummaryHTML(supabase, lead, {
+      highlightFormName: lead.form_name as string | undefined,
+      highlightFormResponses: highlightFormResponses.length ? highlightFormResponses : undefined,
+    });
+    html = built.html;
+    hash = built.hash;
+  } catch (e) {
+    console.warn(`[lia-assign] buildSellerDealSummaryHTML failed for deal ${dealId}, falling back to legacy:`, e);
+    try {
+      html = await buildDealNoteHTML(lead, supabase, formResponses);
+    } catch (e2) {
+      console.error(`[lia-assign] Legacy buildDealNoteHTML also failed for deal ${dealId}:`, e2);
+      return;
+    }
+  }
+
+  // Idempotency: skip if same hash already posted (Meta redelivery loop)
+  if (hash && leadId) {
+    try {
+      const { data: existing } = await supabase
+        .from("lia_attendances")
+        .select("last_seller_note_hash,last_seller_note_at")
+        .eq("id", leadId)
+        .maybeSingle();
+      const lastHash = (existing as Record<string, unknown> | null)?.last_seller_note_hash as string | null;
+      const lastAt = (existing as Record<string, unknown> | null)?.last_seller_note_at as string | null;
+      if (lastHash && lastHash === hash) {
+        console.log(`[lia-assign] Skipping duplicate seller note (hash match) for lead ${leadId} deal ${dealId}`);
+        return;
+      }
+      if (lastAt) {
+        const ageMs = Date.now() - new Date(lastAt).getTime();
+        if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
+          console.log(`[lia-assign] Throttling seller note (${Math.round(ageMs / 1000)}s since last) lead ${leadId}`);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("[lia-assign] hash dedupe lookup failed:", e);
+    }
+  }
+
+  const finalHtml = opts.headerPrefix ? `${opts.headerPrefix}${html}` : html;
+  const result = await addDealNote(apiToken, dealId, finalHtml);
+
+  if (result?.success && hash && leadId) {
+    try {
+      await supabase
+        .from("lia_attendances")
+        .update({
+          last_seller_note_hash: hash,
+          last_seller_note_at: new Date().toISOString(),
+        })
+        .eq("id", leadId);
+    } catch (e) {
+      console.warn("[lia-assign] Failed to persist seller note hash:", e);
+    }
+  }
+}
+
+/**
  * Update an existing deal (owner, custom fields, note).
  */
 /**
@@ -700,8 +787,7 @@ async function updateExistingDeal(
   }
 
   // Add structured HTML note for PipeRun
-  const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
-  await addDealNote(apiToken, dealId, noteText);
+  await postRichSellerNote(apiToken, dealId, lead, supabase, formResponses);
 }
 
 /**
