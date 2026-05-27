@@ -1,51 +1,60 @@
-## Escopo
+## Objetivo
 
-Redistribuir os **8 deals abertos do Danilo Pereira no Funil de Vendas** (pipeline_id `18784`) e movê-los para a etapa **"Sem contato"** (`stage_id 379940`). Demais funis (Estagnados, Distribuidor, sem pipeline) ficam fora deste lote.
+Renderizar os **dois artefatos reais** que o vendedor recebe quando o lead `criatianobrazodonto@gmail.com` é atribuído — **sem postar nada** no PipeRun nem no WhatsApp:
 
-### Deals afetados
+1. **Nota HTML no card do PipeRun** — `buildDealNoteHTML` (`smart-ops-lia-assign/index.ts:1140`)
+2. **Briefing texto no WhatsApp** do vendedor — `buildSellerNotification` (`smart-ops-lia-assign/index.ts:1014`)
 
-| piperun_deal_id | Etapa atual | Lead |
-|---|---|---|
-| 59276187 | Etapa 03 - Reativação | 9ba6a87c… |
-| 59276212 | Etapa 03 - Reativação | 9ba6a87c… |
-| 59276201 | Etapa 02 - Reativação | 9ba6a87c… |
-| 59265516 | Etapa 03 - Reativação | 58cdeb60… |
-| 58448694 | Etapa 02 - Reativação | f6ea00a8… |
-| 58233486 | Etapa 02 - Reativação | 68c3e0f3… |
-| 58240759 | Etapa 02 - Reativação | 082f59a2… |
-| 58449131 | Etapa 02 - Reativação | 9bb9a979… |
+Ambos rodam o mesmo pipeline: `enrichLeadFromIdentity` → `fetchDealsContext` → DeepSeek (HISTÓRICO + OPORTUNIDADE) → fallback cognitivo determinístico.
 
-Obs.: 3 deals pertencem ao mesmo lead (`9ba6a87c…`) — todos serão tratados individualmente.
+## Implementação (one-off, descartável)
 
-## Implementação
+### Edge function `smart-ops-preview-seller-note`
 
-### Edge function one-off: `smart-ops-reassign-danilo-vendas`
+- `verify_jwt = false`. GET/POST com `?email=...` ou `?lead_id=...`.
+- Carrega `lia_attendances.*` (canonical, `merged_into IS NULL`).
+- Importa e invoca **diretamente** `buildDealNoteHTML` e `buildSellerNotification` de `smart-ops-lia-assign/index.ts` — para garantir paridade 100% com produção, esses dois builders serão **extraídos para `_shared/seller-briefing.ts`** (sem mudança de lógica, apenas refator: mover funções e suas dependências locais como `buildOriginLines`, `buildDeterministicCognitiveFallback`, `generateHistoricoOportunidade`, `buildHistoricoFallback`). `smart-ops-lia-assign` passa a re-exportar/importar.
+- **Não chama** `addDealNote` nem Evolution. Retorna JSON com:
+  ```json
+  {
+    "ok": true,
+    "lead": { "id", "email", "nome", "piperun_id" },
+    "piperun_note_html": "...",
+    "whatsapp_briefing_text": "...",
+    "warning": "PREVIEW ONLY — nothing was posted."
+  }
+  ```
 
-Sem UI. Invocada manualmente uma vez. Para cada um dos 8 deals:
+### Refator mínimo (sem mudança de comportamento)
 
-1. **Round Robin** entre vendedores ativos: `team_members WHERE ativo=true AND role='vendedor' AND piperun_owner_id IS NOT NULL` (exclui Daniel se desejado? — por padrão **inclui** todos os 9 vendedores ativos atuais).
-2. **PATCH PipeRun** `PUT /v1/deals/{id}` com:
-   - `user_id`: novo owner (round robin)
-   - `stage_id`: 379940 (Sem contato)
-3. **UPDATE local** `deals`:
-   - `owner_name` = nome do novo vendedor
-   - `owner_id` = piperun_owner_id
-   - `stage_id` = 379940, `stage_name` = 'Sem contato'
-   - `last_stage_updated_at` = `now()`
-4. **UPDATE local** `lia_attendances` do lead vinculado: `proprietario_lead_crm` = nome do novo vendedor (somente se o lead atualmente está com Danilo — para não sobrescrever outros).
-5. **Log** em `lead_activity_log`: `event_type='deal_reassigned_inactive_seller'`, payload com `from='Danilo Pereira'`, `to=<novo>`, `deal_id`, `previous_stage`, `new_stage='Sem contato'`.
-6. **Log resumo** em `system_health_logs` (`error_type='reassign_danilo_vendas'`).
+- Novo arquivo: `supabase/functions/_shared/seller-briefing.ts` contendo:
+  - `buildDealNoteHTML(lead, supabase, formResponses?)`
+  - `buildSellerNotification(lead, supabase)`
+  - Helpers privados: `buildOriginLines`, `buildDeterministicCognitiveFallback`, `generateHistoricoOportunidade`, `buildHistoricoFallback`, `formatDate`, `formatDealsBlockLocal`.
+- `smart-ops-lia-assign/index.ts`: substituir as definições locais por imports do `_shared/seller-briefing.ts`. Comportamento idêntico, mesmas assinaturas.
+- Risco: baixo (mesma lógica, mesmas chamadas DeepSeek). Validação: 1 chamada de preview imediatamente após deploy.
 
-### Sem mudanças estruturais
+### Execução do preview
 
-- Não cria tabelas nem migrations.
-- Não altera `lia-assign` nem `ingest-lead` neste lote (esses endurecimentos ficam para um plano separado).
-- Won deals: não há nenhum no Funil de Vendas do Danilo, então nada a preservar aqui.
+1. Deploy de `_shared/seller-briefing.ts` + `smart-ops-lia-assign` (refatorado) + `smart-ops-preview-seller-note` (nova).
+2. `curl GET /smart-ops-preview-seller-note?email=criatianobrazodonto@gmail.com`.
+3. Apresentar ao usuário os dois artefatos lado a lado.
 
-## Arquivo
+## O que NÃO faz
 
-- `supabase/functions/smart-ops-reassign-danilo-vendas/index.ts` (novo)
+- Não posta nota no deal real.
+- Não envia WhatsApp para o vendedor.
+- Não altera `last_seller_note_hash`/`_at`.
+- Não muda nada em `ingest-lead`, `deal-form-note`, hierarchy, RR.
+- Não inclui a troca de `[Dra. L.I.A.]` → `[🤖 SmartOps]` (assunto separado, ainda aguardando aprovação).
+
+## Arquivos
+
+- `supabase/functions/_shared/seller-briefing.ts` (novo, refator)
+- `supabase/functions/smart-ops-lia-assign/index.ts` (remove definições locais, importa do shared)
+- `supabase/functions/smart-ops-preview-seller-note/index.ts` (novo, descartável)
+- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
 
 ## Confirmação
 
-Disparo a função imediatamente após deploy? (Ela é one-off — depois pode ser deletada.)
+Posso aplicar? (Se preferir **sem refator**, faço uma versão alternativa: duplico a lógica dentro da preview function — fica mais rápido mas com risco de divergir do produção no futuro.)
