@@ -38,4 +38,6 @@ type: feature
 
 **Config**: `STAGE_ORDER`, `STAGE_LABEL`, `STAGE_PREREQS`, `QUESTION_TEMPLATES` são tabelas curtas hardcoded no módulo. Edição produto/concorrente/sdr_field continua 100% no `SmartOpsMappingFieldsEditor`.
 
+**PipeRun posting (lia-assign)**: as 3 chamadas de nota no `smart-ops-lia-assign` (`updateExistingDeal`, `moveDealToVendas`, `createNewDeal`) agora passam pelo helper `postRichSellerNote`, que usa `buildSellerDealSummaryHTML` (Resumo do Lead completo + bloco 7×3 + RAG + Rayshape) com idempotência por `last_seller_note_hash` / `last_seller_note_at` (skip se hash idêntico, throttle se <5 min). Reativação preserva o cabeçalho `🔄 Deal reativado` via `headerPrefix`. Em caso de erro do builder, faz fallback para o `buildDealNoteHTML` legado (mantido como deprecated). Notas curtas de auditoria (enrichment tag, owner bloqueado, razão social) continuam usando `addDealNote` direto.
+
 **Falha-suave**: se `workflow_cell_mappings` estiver vazio, `diagnoseLead` retorna estrutura vazia e os renderers devolvem string vazia → nota/briefing seguem sem o bloco. Se DeepSeek cair, `llm_script` fica undefined e os outros campos seguem.
