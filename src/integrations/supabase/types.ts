@@ -22263,6 +22263,7 @@ export type Database = {
       }
     }
     Functions: {
+      _debug_pf: { Args: { p_lead_id: string }; Returns: number }
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
