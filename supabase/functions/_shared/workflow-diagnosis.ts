@@ -350,7 +350,7 @@ export async function diagnoseLead(
   // ── LLM positioning script (best-effort, soft-fail) ──
   if (opts.enableLLM !== false) {
     try {
-      diag.llm_script = await generatePositioningScript(diag, lead);
+      diag.llm_script = await generatePositioningScript(supabase, diag, lead);
     } catch (e) {
       console.warn("[workflow-diagnosis] LLM script failed:", e);
     }
