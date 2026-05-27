@@ -1787,6 +1787,200 @@ async function executarReativacaoSdrCaptacao(
 
 // ─── Main Handler ───
 
+// ─── §4.6 ENRICHMENT RE-DELIVERY: Route deal-only ───
+//
+// Disparada SOMENTE pelo dedupe `meta_form_history_12h` em ingest-lead
+// (re-entrega Meta < 12h após primeira submissão do MESMO form). NÃO cria
+// Person, NÃO toca origin, NÃO dispara cognitive/WhatsApp/Sellflux. Apenas
+// roteia o Deal segundo a régua espelho de SDR-CAPTAÇÃO:
+//   • Open deal em VENDAS  → updateExistingDeal + nota curta (GOLDEN RULE)
+//   • Open deals em outros funis → fecha como Perdido + Fresh Round Robin +
+//                                   createNewDeal em VENDAS/SEM_CONTATO
+//   • Nenhum deal aberto → Fresh Round Robin + createNewDeal
+//   • Sem pessoa_piperun_id → abort (route_skipped)
+//   • Won deals (status=1) NUNCA são tocados (apenas filtramos status=0).
+async function executarEnrichmentDealRoute(
+  apiToken: string,
+  supabase: ReturnType<typeof createClient>,
+  lead: Record<string, unknown>,
+  enrichmentFormName: string | null,
+  enrichedFields: string[],
+): Promise<Record<string, unknown>> {
+  const leadId = lead.id as string;
+  const leadEmail = ((lead.email as string) || "").trim().toLowerCase();
+  const personId = (lead.pessoa_piperun_id as number | null) ?? null;
+  if (!personId) {
+    console.warn("[lia-assign] enrichment-route: missing pessoa_piperun_id for", leadEmail);
+    return { flow_type: "route_skipped", reason: "missing_person" };
+  }
+  const companyId = (lead.empresa_piperun_id as number | null) ?? null;
+
+  const allDeals = await findPersonDeals(apiToken, personId);
+  const openDeals = allDeals.filter((d) => Number(d.status) === 0);
+  const vendaDeal = openDeals.find(
+    (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed,
+  );
+  const otherOpenDeals = openDeals.filter(
+    (d) => Number(d.pipeline_id) !== PIPELINES.VENDAS,
+  );
+
+  const customFields = mapAttendanceToDealCustomFields(lead);
+  if (!customFields.some((f) => f.custom_field_id === DEAL_CUSTOM_FIELDS.WHATSAPP)) {
+    const phone = lead.telefone_raw as string | null;
+    if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+  }
+
+  const enrichTag = `Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}")` +
+    (enrichedFields.length ? ` enriqueceu: ${enrichedFields.join(", ")}.` : ".");
+
+  // CASE A — Deal aberto em VENDAS → preserva owner + atualiza
+  if (vendaDeal) {
+    const dealOwnerId = Number(vendaDeal.owner_id ?? 0);
+    try {
+      await updateExistingDeal(
+        apiToken,
+        Number(vendaDeal.id),
+        null,
+        customFields,
+        lead,
+        companyId,
+        supabase,
+        [],
+      );
+      await addDealNote(
+        apiToken,
+        Number(vendaDeal.id),
+        `🔁 [Dra. L.I.A.] ${enrichTag}`,
+      );
+    } catch (e) {
+      console.error("[lia-assign] enrichment-route: updateExistingDeal failed:", e);
+    }
+    await supabase
+      .from("lia_attendances")
+      .update({ piperun_id: Number(vendaDeal.id) })
+      .eq("id", leadId);
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: "deal_enriched_via_redelivery",
+      entity_type: "deal",
+      entity_id: String(vendaDeal.id),
+      entity_name: "Deal preservado em VENDAS",
+      event_data: {
+        flow_type: "preserve_vendas",
+        deal_id: String(vendaDeal.id),
+        owner_id: dealOwnerId,
+        enriched_fields: enrichedFields,
+        form_name: enrichmentFormName,
+      },
+      source_channel: "form",
+      event_timestamp: new Date().toISOString(),
+    });
+    return {
+      flow_type: "preserve_vendas",
+      piperun_id: String(vendaDeal.id),
+      created_new: false,
+      closed_deals: [],
+    };
+  }
+
+  // CASE B — outros funis abertos → fecha como Perdido (espelho SDR-CAPTAÇÃO)
+  const closedDeals: Array<{ id: string; pipeline_id: number }> = [];
+  for (const deal of otherOpenDeals) {
+    try {
+      const res = await piperunPut(apiToken, `deals/${deal.id}`, {
+        status: 2,
+        lost_reason: "reativacao_redelivery_meta",
+      });
+      console.log(
+        `[lia-assign] enrichment-route: deal ${deal.id} (pipeline ${deal.pipeline_id}) fechado como Perdido: ${res.success} (${res.status})`,
+      );
+      closedDeals.push({ id: String(deal.id), pipeline_id: Number(deal.pipeline_id) });
+    } catch (e) {
+      console.warn(`[lia-assign] enrichment-route: falha ao fechar deal ${deal.id}:`, e);
+    }
+  }
+
+  // CASE C — Fresh Round Robin + novo deal em VENDAS
+  const newOwner = await pickRandomActiveVendedor(supabase);
+  console.log(
+    `[lia-assign] enrichment-route: Fresh RR → ${newOwner.nome_completo} (${newOwner.piperun_owner_id})`,
+  );
+
+  const newDealId = await createNewDeal(
+    apiToken,
+    personId,
+    companyId,
+    lead,
+    PIPELINES.VENDAS,
+    STAGES_VENDAS.SEM_CONTATO,
+    newOwner.piperun_owner_id,
+    customFields,
+    leadEmail,
+    supabase,
+    [],
+  );
+
+  if (!newDealId) {
+    console.error("[lia-assign] enrichment-route: createNewDeal falhou para", leadEmail);
+    return {
+      flow_type: "new_deal_failed",
+      piperun_id: null,
+      created_new: false,
+      closed_deals: closedDeals,
+    };
+  }
+
+  try {
+    await addDealNote(
+      apiToken,
+      Number(newDealId),
+      `📩 [Dra. L.I.A.] Deal aberto a partir de re-entrega Meta (form "${enrichmentFormName ?? "n/a"}").\n` +
+        `Deals anteriores fechados como Perdido (reativação): ${closedDeals.length}.\n` +
+        (enrichedFields.length ? `Campos enriquecidos: ${enrichedFields.join(", ")}.` : ""),
+    );
+  } catch (e) {
+    console.warn("[lia-assign] enrichment-route: addDealNote falhou:", e);
+  }
+
+  await supabase
+    .from("lia_attendances")
+    .update({
+      proprietario_lead_crm: newOwner.nome_completo,
+      piperun_id: newDealId,
+      piperun_link: `https://app.pipe.run/#/deals/${newDealId}`,
+      funil_entrada_crm: "Funil de vendas",
+      ultima_etapa_comercial: "sem_contato",
+    })
+    .eq("id", leadId);
+
+  await supabase.from("lead_activity_log").insert({
+    lead_id: leadId,
+    event_type: "deal_reativado_via_redelivery",
+    entity_type: "deal",
+    entity_id: String(newDealId),
+    entity_name: "Deal novo via re-entrega Meta",
+    event_data: {
+      flow_type: "new_deal_after_loss",
+      novo_deal_id: String(newDealId),
+      novo_owner: newOwner.nome_completo,
+      deals_fechados: closedDeals,
+      enriched_fields: enrichedFields,
+      form_name: enrichmentFormName,
+      motivo_fechamento: "reativacao_redelivery_meta",
+    },
+    source_channel: "form",
+    event_timestamp: new Date().toISOString(),
+  });
+
+  return {
+    flow_type: "new_deal_after_loss",
+    piperun_id: String(newDealId),
+    created_new: true,
+    closed_deals: closedDeals,
+    new_owner: newOwner.nome_completo,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1808,7 +2002,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force, trigger, form_responses: inputFormResponses, commercial_override, force_new_deal } = body;
+    const {
+      email,
+      lead_id,
+      force,
+      trigger,
+      form_responses: inputFormResponses,
+      commercial_override,
+      force_new_deal,
+      enrichment_only_route_deal,
+      enrichment_form_name,
+      enriched_fields,
+    } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
@@ -1895,6 +2100,46 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ blocked: true, reason: "non_commercial_lead", detail: intent.reason }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    // ─── ENRICHMENT-ONLY DEAL ROUTE (re-entrega Meta < 12h) ───
+    // Disparado por smart-ops-ingest-lead após merge incremental. Bypassa
+    // idempotency, meta-redelivery-kill, Round Robin geral, cognitive,
+    // briefings, Sellflux e qualquer Person/Company side-effect. Apenas
+    // roteia o Deal (preserva VENDAS / fecha outros como Perdido + cria novo).
+    if (enrichment_only_route_deal === true) {
+      console.log(
+        `[lia-assign] ENRICHMENT_ROUTE: lead=${lead.id} form="${enrichment_form_name ?? "n/a"}" fields=[${(enriched_fields ?? []).join(",")}]`,
+      );
+      try {
+        const routeResult = await executarEnrichmentDealRoute(
+          PIPERUN_API_KEY,
+          supabase,
+          lead,
+          (enrichment_form_name as string | null) ?? null,
+          Array.isArray(enriched_fields) ? (enriched_fields as string[]) : [],
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "info",
+            error_type: "enrichment_only_route_deal",
+            lead_id: lead.id,
+            lead_email: (lead.email as string) ?? null,
+            details: { route_result: routeResult, trigger, form_name: enrichment_form_name },
+          });
+        } catch {}
+        return new Response(
+          JSON.stringify({ success: true, mode: "enrichment_only_route_deal", ...routeResult }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (e) {
+        console.error("[lia-assign] enrichment-route failed:", e);
+        return new Response(
+          JSON.stringify({ success: false, mode: "enrichment_only_route_deal", error: String(e) }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
