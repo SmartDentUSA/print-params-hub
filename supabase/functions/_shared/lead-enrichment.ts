@@ -104,27 +104,33 @@ export async function enrichLeadFromIdentity(
     }
   }
 
-  // ── 2. Omie ERP enrichment (only if not already on the lead) ──
-  if (!enriched.omie_codigo_cliente && (enriched.empresa_cnpj || enriched.pessoa_cpf)) {
+  // ── 2. Omie ERP signal (Omie columns live directly on lia_attendances; backfill
+  //       from canonical siblings when the current lead row hasn't been linked yet) ──
+  if (!enriched.omie_codigo_cliente && (email || phone)) {
     try {
-      const cnpj = String(enriched.empresa_cnpj || "").replace(/\D/g, "");
-      const cpf = String(enriched.pessoa_cpf || "").replace(/\D/g, "");
-      let q = supabase.from("omie_clientes").select(OMIE_FIELDS.join(",")).limit(1);
-      if (cnpj) q = q.eq("cnpj_cpf", cnpj);
-      else if (cpf) q = q.eq("cnpj_cpf", cpf);
-      const { data: omie } = await q.maybeSingle();
-      if (omie) {
+      const filters: string[] = [];
+      if (email) filters.push(`email.eq.${email}`);
+      if (phone) filters.push(`telefone_normalized.eq.${phone}`);
+      let q = supabase
+        .from("lia_attendances")
+        .select(OMIE_FIELDS.join(",") + ",id")
+        .is("merged_into", null)
+        .not("omie_codigo_cliente", "is", null)
+        .or(filters.join(","))
+        .limit(1);
+      if (leadId) q = q.neq("id", leadId);
+      const { data: omieSib } = await q.maybeSingle();
+      if (omieSib) {
         for (const f of OMIE_FIELDS) {
-          if (enriched[f] == null) enriched[f] = (omie as Record<string, unknown>)[f];
+          if (enriched[f] == null) enriched[f] = (omieSib as Record<string, unknown>)[f];
         }
         meta.omie_match = true;
       }
     } catch (e) {
-      console.warn("[lead-enrichment] omie lookup failed:", e);
+      console.warn("[lead-enrichment] omie sibling lookup failed:", e);
     }
-  } else if (enriched.omie_codigo_cliente) {
-    meta.omie_match = true;
   }
+  if (enriched.omie_codigo_cliente) meta.omie_match = true;
 
   // ── 3. Form-responses count (for audit only; consumers already fetch the values) ──
   if (leadId) {
