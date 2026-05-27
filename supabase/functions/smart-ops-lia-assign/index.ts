@@ -5,6 +5,12 @@ import { isCompanyLikeName } from "../_shared/identity-utils.ts";
 import { isFakeEmail } from "../_shared/lead-identity-guard.ts";
 import { fetchDealsContext, type DealsContext } from "../_shared/waleads-messaging.ts";
 import {
+  enrichLeadFromIdentity,
+  buildDeterministicCognitiveFallback,
+  logBriefingAudit,
+  type EnrichmentMeta,
+} from "../_shared/lead-enrichment.ts";
+import {
   PIPELINES,
   PIPELINE_NAMES,
   STAGES_VENDAS,
@@ -1009,8 +1015,9 @@ async function buildSellerNotification(
   lead: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>
 ): Promise<string> {
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
+  // Enrich in-memory from canonical siblings + Omie signal (does NOT persist).
+  const { enriched: enrichedLead, meta: enrichMeta } = await enrichLeadFromIdentity(supabase, lead);
+  const phone = (enrichedLead.telefone_normalized || enrichedLead.telefone_raw) as string | null;
 
   // Fetch last user message via leads bridge
   let lastQuestion = "";
@@ -1018,7 +1025,7 @@ async function buildSellerNotification(
     const { data: leadsRec } = await supabase
       .from("leads")
       .select("id")
-      .eq("email", lead.email as string)
+      .eq("email", enrichedLead.email as string)
       .maybeSingle();
     if (leadsRec?.id) {
       const { data: lastMsg } = await supabase
@@ -1035,13 +1042,13 @@ async function buildSellerNotification(
   }
 
   // Enrich with real deal history (current owner, distinct owners, first contact date)
-  const dealsCtx = await fetchDealsContext(supabase, lead);
+  const dealsCtx = await fetchDealsContext(supabase, enrichedLead);
 
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
+    const aiResult = await generateHistoricoOportunidade(enrichedLead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -1050,49 +1057,78 @@ async function buildSellerNotification(
 
   // Fallback static texts
   if (!historico) {
-    historico = buildHistoricoFallback(lead, dealsCtx);
+    historico = buildHistoricoFallback(enrichedLead, dealsCtx);
   }
   if (!oportunidade) {
     const parts: string[] = [];
-    if (lead.software_cad) parts.push(`Possui software CAD (${lead.software_cad})`);
-    if (lead.tem_impressora && lead.tem_impressora !== "nao") parts.push(`Impressora: ${lead.impressora_modelo || lead.tem_impressora}`);
-    if (lead.tem_scanner && lead.tem_scanner !== "nao") parts.push(`Scanner: ${lead.tem_scanner}`);
-    if (lead.urgency_level) parts.push(`Urgência ${lead.urgency_level}`);
-    if (lead.primary_motivation) parts.push(`motivado por ${lead.primary_motivation}`);
-    if (lead.objection_risk) parts.push(`Risco de objeção: ${lead.objection_risk}`);
+    if (enrichedLead.software_cad) parts.push(`Possui software CAD (${enrichedLead.software_cad})`);
+    const imp = enrichedLead.impressora_modelo || enrichedLead.equip_impressora;
+    if (imp) parts.push(`Impressora: ${imp}`);
+    else if (enrichedLead.tem_impressora && enrichedLead.tem_impressora !== "nao" && enrichedLead.tem_impressora !== "não") parts.push(`Tem impressora: ${enrichedLead.tem_impressora}`);
+    const scn = enrichedLead.scanner_marca || enrichedLead.equip_scanner;
+    if (scn) parts.push(`Scanner: ${scn}`);
+    else if (enrichedLead.tem_scanner && enrichedLead.tem_scanner !== "nao" && enrichedLead.tem_scanner !== "não") parts.push(`Tem scanner: ${enrichedLead.tem_scanner}`);
+    if (enrichedLead.omie_codigo_cliente) parts.push(`Cliente Smart Dent (Omie #${enrichedLead.omie_codigo_cliente}) — faturado R$${enrichedLead.omie_faturamento_total || 0}`);
+    if (enrichedLead.urgency_level) parts.push(`Urgência ${enrichedLead.urgency_level}`);
+    if (enrichedLead.primary_motivation) parts.push(`motivado por ${enrichedLead.primary_motivation}`);
+    if (enrichedLead.objection_risk) parts.push(`Risco de objeção: ${enrichedLead.objection_risk}`);
     oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
   }
+
+  // Deterministic cognitive fallback when cognitive_analysis hasn't run yet.
+  const cog = enrichedLead.cognitive_analysis
+    ? {
+        confidence: Number(enrichedLead.confidence_score_analysis || 0),
+        estagio: String(enrichedLead.lead_stage_detected || "N/A"),
+        urgencia: String(enrichedLead.urgency_level || "N/A"),
+        timeline: String(enrichedLead.interest_timeline || "N/A"),
+        perfil: String(enrichedLead.psychological_profile || "N/A"),
+        motivacao: String(enrichedLead.primary_motivation || "N/A"),
+        risco: String(enrichedLead.objection_risk || "N/A"),
+        abordagem: String(enrichedLead.recommended_approach || "N/A"),
+        is_fallback: false as const,
+      }
+    : buildDeterministicCognitiveFallback(enrichedLead);
+  const urgencyEmoji = (cog.urgencia === "alta") ? "🔴" : (cog.urgencia === "media") ? "🟡" : "🟢";
+  const cogHeader = cog.is_fallback
+    ? "📋 *Perfil Inicial* (análise cognitiva completa após primeiras conversas com a LIA)"
+    : "🧠 *Análise Cognitiva:*";
 
   // Build template
   const lines: string[] = [
     `🤖 *Novo Lead atribuído - Dra. L.I.A.*`,
     ``,
-    `👤 Lead: ${lead.nome || "N/A"}`,
-    `📧 Email: ${lead.email || "N/A"}`,
+    `👤 Lead: ${enrichedLead.nome || "N/A"}`,
+    `📧 Email: ${enrichedLead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
-    ...buildOriginLines(lead, "wa"),
-    `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
-    `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
-    `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
-    `🌡️ Temp: ${lead.temperatura_lead || lead.urgency_level || "N/A"}`,
-    `🔗 PipeRun: ${lead.piperun_link || "N/A"}`,
+    ...buildOriginLines(enrichedLead, "wa"),
+    `🦷 Área de atuação: ${enrichedLead.area_atuacao || "N/A"}`,
+    `🦷 Especialidade: ${enrichedLead.especialidade || "N/A"}`,
+    `🎯 Interesse: ${enrichedLead.produto_interesse || "N/A"}`,
+    `🌡️ Temp: ${enrichedLead.temperatura_lead || cog.urgencia}`,
+    `🔗 PipeRun: ${enrichedLead.piperun_link || "N/A"}`,
     `💬 Última pergunta do lead: ${lastQuestion || "N/A"}`,
-    `🏷️ Contexto: ${lead.rota_inicial_lia || "N/A"}`,
-    `📍 Etapa CRM: ${lead.ultima_etapa_comercial || "N/A"}`,
+    `🏷️ Contexto: ${enrichedLead.rota_inicial_lia || "N/A"}`,
+    `📍 Etapa CRM: ${enrichedLead.ultima_etapa_comercial || "N/A"}`,
     ``,
     `*HISTÓRICO:* ${historico}`,
     `*OPORTUNIDADE:* ${oportunidade}`,
     ``,
-    `🧠 *Análise Cognitiva:*`,
-    `Confiança: ${lead.confidence_score_analysis || 0}%`,
-    `Estágio: ${lead.lead_stage_detected || "N/A"}`,
-    `Urgência: ${urgencyEmoji} ${lead.urgency_level || "N/A"}`,
-    `Timeline: ${lead.interest_timeline || "N/A"}`,
-    `Perfil: ${lead.psychological_profile || "N/A"}`,
-    `Motivação: ${lead.primary_motivation || "N/A"}`,
-    `Risco objeção: ${lead.objection_risk || "N/A"}`,
-    `Abordagem: ${lead.recommended_approach || "N/A"}`,
+    cogHeader,
+    `Confiança: ${cog.confidence}%`,
+    `Estágio: ${cog.estagio}`,
+    `Urgência: ${urgencyEmoji} ${cog.urgencia}`,
+    `Timeline: ${cog.timeline}`,
+    `Perfil: ${cog.perfil}`,
+    `Motivação: ${cog.motivacao}`,
+    `Risco objeção: ${cog.risco}`,
+    `Abordagem: ${cog.abordagem}`,
   ];
+
+  // Fire-and-forget audit
+  if (enrichedLead.id) {
+    logBriefingAudit(supabase, String(enrichedLead.id), enrichMeta, lines.join("\n").length, (enrichedLead.email as string | null) ?? null);
+  }
 
   return lines.join("\n");
 }
@@ -1106,8 +1142,8 @@ async function buildDealNoteHTML(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string> {
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
+  const { enriched: enrichedLead } = await enrichLeadFromIdentity(supabase, lead);
+  const phone = (enrichedLead.telefone_normalized || enrichedLead.telefone_raw) as string | null;
 
   // Fetch last user message
   let lastQuestion = "";
@@ -1132,13 +1168,13 @@ async function buildDealNoteHTML(
   }
 
   // Enrich with real deal history (current owner, distinct owners, first contact date)
-  const dealsCtx = await fetchDealsContext(supabase, lead);
+  const dealsCtx = await fetchDealsContext(supabase, enrichedLead);
 
   // AI-generated HISTÓRICO + OPORTUNIDADE
   let historico = "";
   let oportunidade = "";
   try {
-    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
+    const aiResult = await generateHistoricoOportunidade(enrichedLead, dealsCtx);
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
@@ -1147,18 +1183,39 @@ async function buildDealNoteHTML(
 
   // Fallback static texts
   if (!historico) {
-    historico = buildHistoricoFallback(lead, dealsCtx);
+    historico = buildHistoricoFallback(enrichedLead, dealsCtx);
   }
   if (!oportunidade) {
     const parts: string[] = [];
-    if (lead.software_cad) parts.push(`Possui software CAD (${lead.software_cad})`);
-    if (lead.tem_impressora && lead.tem_impressora !== "nao") parts.push(`Impressora: ${lead.impressora_modelo || lead.tem_impressora}`);
-    if (lead.tem_scanner && lead.tem_scanner !== "nao") parts.push(`Scanner: ${lead.tem_scanner}`);
-    if (lead.urgency_level) parts.push(`Urgência ${lead.urgency_level}`);
-    if (lead.primary_motivation) parts.push(`motivado por ${lead.primary_motivation}`);
-    if (lead.objection_risk) parts.push(`Risco de objeção: ${lead.objection_risk}`);
+    if (enrichedLead.software_cad) parts.push(`Possui software CAD (${enrichedLead.software_cad})`);
+    const imp = enrichedLead.impressora_modelo || enrichedLead.equip_impressora;
+    if (imp) parts.push(`Impressora: ${imp}`);
+    const scn = enrichedLead.scanner_marca || enrichedLead.equip_scanner;
+    if (scn) parts.push(`Scanner: ${scn}`);
+    if (enrichedLead.omie_codigo_cliente) parts.push(`Cliente Smart Dent (Omie #${enrichedLead.omie_codigo_cliente}) — faturado R$${enrichedLead.omie_faturamento_total || 0}`);
+    if (enrichedLead.urgency_level) parts.push(`Urgência ${enrichedLead.urgency_level}`);
+    if (enrichedLead.primary_motivation) parts.push(`motivado por ${enrichedLead.primary_motivation}`);
+    if (enrichedLead.objection_risk) parts.push(`Risco de objeção: ${enrichedLead.objection_risk}`);
     oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
   }
+
+  const cog = enrichedLead.cognitive_analysis
+    ? {
+        confidence: Number(enrichedLead.confidence_score_analysis || 0),
+        estagio: String(enrichedLead.lead_stage_detected || "N/A"),
+        urgencia: String(enrichedLead.urgency_level || "N/A"),
+        timeline: String(enrichedLead.interest_timeline || "N/A"),
+        perfil: String(enrichedLead.psychological_profile || "N/A"),
+        motivacao: String(enrichedLead.primary_motivation || "N/A"),
+        risco: String(enrichedLead.objection_risk || "N/A"),
+        abordagem: String(enrichedLead.recommended_approach || "N/A"),
+        is_fallback: false as const,
+      }
+    : buildDeterministicCognitiveFallback(enrichedLead);
+  const urgencyEmoji = (cog.urgencia === "alta") ? "🔴" : (cog.urgencia === "media") ? "🟡" : "🟢";
+  const cogHeader = cog.is_fallback
+    ? "📋 Perfil Inicial (análise cognitiva virá após primeiras conversas com a LIA)"
+    : "🧠 Análise Cognitiva:";
 
   // Fetch deals count
   let dealsCountText = "";
@@ -1229,32 +1286,32 @@ async function buildDealNoteHTML(
   // Build HTML template
   const html = [
     `<b>🤖 Novo Lead atribuído - Dra. L.I.A.</b><br><br>`,
-    `<b>👤 Lead:</b> ${lead.nome || "N/A"}<br>`,
-    `<b>📧 Email:</b> ${lead.email || "N/A"}<br>`,
+    `<b>👤 Lead:</b> ${enrichedLead.nome || "N/A"}<br>`,
+    `<b>📧 Email:</b> ${enrichedLead.email || "N/A"}<br>`,
     `<b>📱 Tel:</b> ${phone || "N/A"}<br>`,
-    ...buildOriginLines(lead, "html"),
-    `<b>🦷 Área de atuação:</b> ${lead.area_atuacao || "N/A"}<br>`,
-    `<b>🦷 Especialidade:</b> ${lead.especialidade || "N/A"}<br>`,
-    `<b>🎯 Interesse:</b> ${lead.produto_interesse || "N/A"}<br>`,
-    `<b>🌡️ Temp:</b> ${lead.temperatura_lead || lead.urgency_level || "N/A"}<br>`,
-    `<b>🔗 PipeRun:</b> ${lead.piperun_link || "N/A"}<br>`,
+    ...buildOriginLines(enrichedLead, "html"),
+    `<b>🦷 Área de atuação:</b> ${enrichedLead.area_atuacao || "N/A"}<br>`,
+    `<b>🦷 Especialidade:</b> ${enrichedLead.especialidade || "N/A"}<br>`,
+    `<b>🎯 Interesse:</b> ${enrichedLead.produto_interesse || "N/A"}<br>`,
+    `<b>🌡️ Temp:</b> ${enrichedLead.temperatura_lead || cog.urgencia}<br>`,
+    `<b>🔗 PipeRun:</b> ${enrichedLead.piperun_link || "N/A"}<br>`,
     `<b>💬 Última pergunta:</b> ${lastQuestion || "N/A"}<br>`,
-    `<b>🏷️ Contexto:</b> ${lead.rota_inicial_lia || "N/A"}<br>`,
-    `<b>📍 Etapa CRM:</b> ${lead.ultima_etapa_comercial || "N/A"}<br>`,
+    `<b>🏷️ Contexto:</b> ${enrichedLead.rota_inicial_lia || "N/A"}<br>`,
+    `<b>📍 Etapa CRM:</b> ${enrichedLead.ultima_etapa_comercial || "N/A"}<br>`,
     dealsCountText,
     `<hr>`,
     `<b>HISTÓRICO:</b> ${historico}<br>`,
     `<b>OPORTUNIDADE:</b> ${oportunidade}<br>`,
     `<hr>`,
-    `<b>🧠 Análise Cognitiva:</b><br>`,
-    `<b>Confiança:</b> ${lead.confidence_score_analysis || 0}%<br>`,
-    `<b>Estágio:</b> ${lead.lead_stage_detected || "N/A"}<br>`,
-    `<b>Urgência:</b> ${urgencyEmoji} ${lead.urgency_level || "N/A"}<br>`,
-    `<b>Timeline:</b> ${lead.interest_timeline || "N/A"}<br>`,
-    `<b>Perfil:</b> ${lead.psychological_profile || "N/A"}<br>`,
-    `<b>Motivação:</b> ${lead.primary_motivation || "N/A"}<br>`,
-    `<b>Risco objeção:</b> ${lead.objection_risk || "N/A"}<br>`,
-    `<b>Abordagem:</b> ${lead.recommended_approach || "N/A"}<br>`,
+    `<b>${cogHeader}</b><br>`,
+    `<b>Confiança:</b> ${cog.confidence}%<br>`,
+    `<b>Estágio:</b> ${cog.estagio}<br>`,
+    `<b>Urgência:</b> ${urgencyEmoji} ${cog.urgencia}<br>`,
+    `<b>Timeline:</b> ${cog.timeline}<br>`,
+    `<b>Perfil:</b> ${cog.perfil}<br>`,
+    `<b>Motivação:</b> ${cog.motivacao}<br>`,
+    `<b>Risco objeção:</b> ${cog.risco}<br>`,
+    `<b>Abordagem:</b> ${cog.abordagem}<br>`,
     formResponsesHTML,
   ].join("");
 
