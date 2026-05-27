@@ -10,6 +10,7 @@ import {
   logBriefingAudit,
   type EnrichmentMeta,
 } from "../_shared/lead-enrichment.ts";
+import { diagnoseLead, renderDiagnosisWhatsApp } from "../_shared/workflow-diagnosis.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
