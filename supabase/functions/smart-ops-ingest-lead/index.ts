@@ -1037,7 +1037,14 @@ Deno.serve(async (req) => {
         }
 
         // Fire-and-forget: audit log
-        logEnrichmentAudit(existingLead.id, source, fieldsUpdated, previousValues, merged).catch(() => {});
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-ingest-lead",
+          severity: "info",
+          error_type: "lead_enrichment_merge",
+          lead_id: existingLead.id,
+          lead_email: email,
+          details: { source, fields_updated: fieldsUpdated, previous_values: previousValues },
+        }).then(() => {}, () => {});
       }
 
       leadId = existingLead.id;
