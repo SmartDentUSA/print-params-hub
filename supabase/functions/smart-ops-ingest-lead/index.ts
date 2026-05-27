@@ -506,6 +506,64 @@ Deno.serve(async (req) => {
           if (!existingLead.platform_form_id && newFormId) {
             updates.platform_form_id = String(newFormId);
           }
+          // ─── INCREMENTAL NON-DESTRUCTIVE ENRICHMENT ───
+          // O dedupe está correto em NÃO criar lead novo nem reabrir
+          // PipeRun/lia-assign, mas o payload re-entregue pode trazer
+          // campos que o canônico (geralmente legado) não possui. Mesclamos
+          // só o que está vazio (COALESCE), com exceção de equipamentos —
+          // estes seguem ALWAYS_UPDATE (memory: form-enrichment-v3) quando
+          // o incoming traz valor não-vazio e diferente de "não".
+          // NUNCA tocar Person Origin Frozen: origin_id, origem_primeiro_contato,
+          // form_name, email canônico.
+          const enrichmentDiff: Record<string, unknown> = {};
+          const isEmpty = (v: unknown) =>
+            v == null || String(v).trim() === "" || String(v).trim().toLowerCase() === "não";
+          const coalesce = (col: string, incoming: unknown) => {
+            if (isEmpty(incoming)) return;
+            if (isEmpty((existingLead as Record<string, unknown>)[col])) {
+              enrichmentDiff[col] = incoming;
+            }
+          };
+          const alwaysUpdateEquip = (col: string, incoming: unknown) => {
+            if (isEmpty(incoming)) return;
+            const current = (existingLead as Record<string, unknown>)[col];
+            if (String(current ?? "").trim() !== String(incoming).trim()) {
+              enrichmentDiff[col] = incoming;
+            }
+          };
+          // Campos qualitativos (COALESCE — preserva o histórico do lead)
+          coalesce("area_atuacao", areaAtuacao);
+          coalesce("especialidade", especialidade);
+          coalesce("como_digitaliza", comoDigitaliza);
+          coalesce("produto_interesse", produtoInteresse);
+          coalesce("produto_interesse_auto", produtoInteresseAuto);
+          coalesce("resina_interesse", resinaInteresse);
+          if (telefoneNormalized) coalesce("telefone_normalized", telefoneNormalized);
+          // Equipamentos (ALWAYS_UPDATE quando incoming é significativo)
+          alwaysUpdateEquip("tem_impressora", temImpressora);
+          alwaysUpdateEquip("tem_scanner", temScanner);
+          alwaysUpdateEquip("impressora_modelo", impressoraModelo);
+          // form_data JSONB catch-all: preserva payload inteiro versionado
+          const existingFormData =
+            (existingLead.form_data as Record<string, unknown> | null) || {};
+          const enrichmentHistory =
+            (existingFormData.enrichment_history as unknown[] | undefined) || [];
+          enrichmentDiff.form_data = {
+            ...existingFormData,
+            enrichment_history: [
+              ...enrichmentHistory,
+              {
+                at: new Date().toISOString(),
+                via: "meta_form_history_12h",
+                leadgen_id: dedupeId ? String(dedupeId) : null,
+                form_id: newFormId ? String(newFormId) : null,
+                incoming_email: email,
+                fields_filled: Object.keys(enrichmentDiff),
+                payload_snapshot: payload,
+              },
+            ].slice(-10),
+          };
+          Object.assign(updates, enrichmentDiff);
           try {
             await supabase
               .from("lia_attendances")
@@ -514,6 +572,9 @@ Deno.serve(async (req) => {
           } catch (e) {
             console.warn("[ingest-lead] form-history backfill failed:", e);
           }
+          const enrichedFields = Object.keys(enrichmentDiff).filter(
+            (k) => k !== "form_data",
+          );
           try {
             await supabase.from("system_health_logs").insert({
               function_name: "smart-ops-ingest-lead",
@@ -526,11 +587,34 @@ Deno.serve(async (req) => {
                 new_leadgen_id: dedupeId ? String(dedupeId) : null,
                 new_form_id: newFormId ? String(newFormId) : null,
                 prior_event_at: priorForm.event_timestamp,
+                incremental_enrichment_applied: enrichedFields.length > 0,
+                enriched_fields: enrichedFields,
+                incoming_email_differs: existingLead.email
+                  ? existingLead.email.toLowerCase() !== email
+                  : false,
               },
             });
           } catch {}
+          if (enrichedFields.length > 0) {
+            try {
+              await supabase.from("lead_activity_log").insert({
+                lead_id: existingLead.id,
+                event_type: "form_enrichment",
+                event_timestamp: new Date().toISOString(),
+                entity_name: formName,
+                entity_id: `lead:${existingLead.id}|enrich:${dedupeId ?? "n/a"}`,
+                details: {
+                  fields_filled: enrichedFields,
+                  via: "meta_form_history_12h",
+                  source,
+                },
+              });
+            } catch (e) {
+              console.warn("[ingest-lead] form_enrichment activity log failed:", e);
+            }
+          }
           console.log(
-            `[ingest-lead] FORM_HISTORY_DEDUPE_SKIPPED: lead=${existingLead.id} form="${formName}" leadgen_id=${dedupeId ?? "n/a"} (prior at ${priorForm.event_timestamp})`,
+            `[ingest-lead] FORM_HISTORY_DEDUPE_SKIPPED: lead=${existingLead.id} form="${formName}" leadgen_id=${dedupeId ?? "n/a"} (prior at ${priorForm.event_timestamp}) enriched=[${enrichedFields.join(",")}]`,
           );
           return new Response(
             JSON.stringify({
@@ -539,6 +623,7 @@ Deno.serve(async (req) => {
               dedupe_id: dedupeId ? String(dedupeId) : null,
               dedupe_via: "meta_form_history_12h",
               lead_id: existingLead.id,
+              incremental_enrichment: enrichedFields,
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
