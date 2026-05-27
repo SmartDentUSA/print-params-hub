@@ -14,7 +14,6 @@ import {
   fetchProductDossier,
   fetchRayshapeDossier,
   renderDossierForPrompt,
-  firstSentence,
 } from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
