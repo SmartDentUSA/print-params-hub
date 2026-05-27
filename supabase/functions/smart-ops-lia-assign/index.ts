@@ -821,9 +821,9 @@ async function moveDealToVendas(
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
   // Add structured reactivation note (HTML)
-  const reactivationNote = await buildDealNoteHTML(lead, supabase, formResponses);
-  const noteText = `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>${reactivationNote}`;
-  await addDealNote(apiToken, dealId, noteText);
+  await postRichSellerNote(apiToken, dealId, lead, supabase, formResponses, {
+    headerPrefix: `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>`,
+  });
 }
 
 /**
