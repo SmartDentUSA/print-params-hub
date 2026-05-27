@@ -2,10 +2,10 @@
 // para vendedores ativos via Round Robin e mover stage para "Sem contato" (379940).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { piperunPut, addDealNote } from "../_shared/piperun-field-map.ts";
+import { piperunPut, addDealNote, piperunGet } from "../_shared/piperun-field-map.ts";
 
 const PIPELINE_VENDAS = 18784;
-const STAGE_SEM_CONTATO = 379940;
+const STAGE_SEM_CONTATO_FALLBACK = 379940;
 const INACTIVE_OWNER_NAME = "Danilo Pereira";
 
 Deno.serve(async (req) => {
@@ -20,6 +20,23 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Missing PIPERUN_API_KEY" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Descobrir stage_id "Sem contato" via PipeRun
+  let stageSemContato = STAGE_SEM_CONTATO_FALLBACK;
+  try {
+    const stagesRes = await piperunGet(PIPERUN_API_KEY, "stages", { pipeline_id: String(PIPELINE_VENDAS), show: "100" });
+    const items = (stagesRes.data as any)?.data ?? [];
+    const match = items.find((s: any) => String(s.name).toLowerCase().includes("sem contato"));
+    if (match?.id) stageSemContato = Number(match.id);
+    console.log(`[reassign-danilo] stage 'Sem contato' resolved = ${stageSemContato} (found ${items.length} stages)`);
+    if (req.url.includes("discover=1")) {
+      return new Response(JSON.stringify({ stages: items.map((s: any) => ({ id: s.id, name: s.name })) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } catch (e) {
+    console.warn("[reassign-danilo] stage discovery failed:", e);
   }
 
   // 1. Vendedores ativos
@@ -68,7 +85,7 @@ Deno.serve(async (req) => {
     // 2a. PipeRun PUT
     const putRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunDealId}`, {
       user_id: newOwnerId,
-      stage_id: STAGE_SEM_CONTATO,
+      stage_id: stageSemContato,
     });
 
     if (!putRes.success) {
@@ -93,7 +110,7 @@ Deno.serve(async (req) => {
       .update({
         owner_id: newOwnerId,
         owner_name: newOwner.nome_completo,
-        stage_id: STAGE_SEM_CONTATO,
+        stage_id: stageSemContato,
         stage_name: "Sem contato",
         last_stage_updated_at: new Date().toISOString(),
       })
