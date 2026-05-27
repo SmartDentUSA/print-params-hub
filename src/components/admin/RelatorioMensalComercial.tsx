@@ -11,15 +11,15 @@ import {
 
 /* ---------- Types ---------- */
 interface Kpis {
-  total_deals: number | null;
-  receita_total: number | null;
+  deals_ganhos: number | null;
+  deals_criados: number | null;
+  receita_won: number | null;
   ticket_medio: number | null;
-  vendedores_ativos: number | null;
-  leads_criados_mes: number | null;
   funil_ativo: number | null;
   perdidas_mes: number | null;
   enviados_estagnados: number | null;
   clientes_unicos: number | null;
+  taxa_conversao: number | null;
   mes_ref: string | null;
   gerado_em: string | null;
 }
@@ -175,8 +175,8 @@ export default function RelatorioMensalComercial() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   /* derived */
-  const totalLeads = Number(kpis?.leads_criados_mes ?? 0);
-  const totalGanhos = Number(kpis?.total_deals ?? 0);
+  const totalLeads = Number(kpis?.deals_criados ?? 0);
+  const totalGanhos = Number(kpis?.deals_ganhos ?? 0);
   const conversaoMes = totalLeads > 0 ? (totalGanhos / totalLeads) * 100 : 0;
 
   // Map vendor cohort detalhe by name for fast lookup
@@ -347,9 +347,9 @@ export default function RelatorioMensalComercial() {
         {/* KPIs */}
         <div className="sl">Visão Geral do Mês</div>
         <div className="kpi4">
-          <Kpi color="g" label="Receita (P&S)" value={fmtBRLk(kpis?.receita_total)} sub={`${fmtNum(totalGanhos)} deals ganhos`} />
+          <Kpi color="g" label="Receita (P&S)" value={fmtBRLk(kpis?.receita_won)} sub={`${fmtNum(totalGanhos)} deals ganhos`} />
           <Kpi label="Oportunidades criadas" value={fmtNum(totalLeads)} sub={`${fmtNum(kpis?.clientes_unicos ?? 0)} clientes únicos`} />
-          <Kpi color="a" label="Ticket médio" value={fmtBRL(kpis?.ticket_medio)} sub={`vendedores ativos: ${fmtNum(kpis?.vendedores_ativos ?? 0)}`} />
+          <Kpi color="a" label="Ticket médio" value={fmtBRL(kpis?.ticket_medio)} sub={`vendedores ativos: ${fmtNum(vendedoresUnificados.length)}`} />
           <Kpi color="t" label="Conversão (coorte)" value={fmtPct(conversaoMes)} sub="ganhos / criados no mês" />
         </div>
         <div className="kpi3">
