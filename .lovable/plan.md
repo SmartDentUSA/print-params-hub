@@ -1,99 +1,47 @@
+## Problema
+
+A nota postada no PipeRun na **atribuição inicial** do lead (ex.: Alexandre Camargo) usa o template legado `buildDealNoteHTML` (linhas 1297–1330 de `smart-ops-lia-assign/index.ts`), que só contém:
+
+- Cabeçalho do lead
+- `HISTÓRICO` + `OPORTUNIDADE` (geradas pela DeepSeek antiga)
+- `Análise Cognitiva`
+- Respostas do formulário cruas
+
+O novo **Resumo do Lead** com **Diagnóstico Fluxo Digital 7×3** (com RAG do `system_a_catalog` + regra Rayshape) só é postado em **eventos posteriores** (via `smart-ops-deal-form-note`), nunca no momento da atribuição. Daí a aparência "antiga" no PipeRun.
+
 ## Objetivo
 
-A camada LLM do `workflow-diagnosis.ts` hoje gera o "Como posicionar" a partir só do nome do produto-intenção + combo. Vamos passar a **alimentar o prompt com o RAG real da Smart Dent** (mesma base que a apostila/Dra. LIA usam) para que o argumento seja construído sobre **specs, benefícios, indicações clínicas e diferenciais reais do produto que o lead pediu**, mais um **dossiê Rayshape obrigatório** sempre que o lead tem (ou demonstra interesse em) impressora 3D.
+Fazer a **nota de atribuição inicial** (e os 3 pontos de postagem no `lia-assign`: update, move, create) usarem o `buildSellerDealSummaryHTML` (que já chama `diagnoseLead` internamente e renderiza o bloco 7×3 com Rayshape/RAG).
 
-Premissa do usuário codificada no prompt: *"Impressoras genéricas têm limitações operacionais; a Rayshape elimina essas dificuldades e é sempre superior em facilidade de uso no fluxo digital odontológico."* — usar como âncora narrativa, sem inventar specs.
+## Mudanças (apenas em `supabase/functions/smart-ops-lia-assign/index.ts`)
 
-## Como funciona
+1. **Substituir `buildDealNoteHTML` pelo `buildSellerDealSummaryHTML`** em todos os pontos onde a nota é postada:
+   - `updateExistingDeal` (linha 702)
+   - `moveDealToVendas` (linha 737) — preservando o cabeçalho `🔄 Deal reativado…`
+   - `createNewDeal` (linha 804)
 
-### 1. Novo módulo `_shared/product-rag.ts`
+2. **Repassar `formResponses` como `highlightFormResponses`** (com `highlightFormName = lead.form_name`) para destacar no topo o formulário que disparou a atribuição, como já faz o `deal-form-note`.
 
-Função `fetchProductDossier(supabase, productLabel)`:
-- Resolve o produto contra `system_a_catalog` (match por `name` ILIKE + tokens, fallback `slug`, depois `keywords`).
-- Devolve dossiê compacto (≤ 1.2 KB) montado a partir de:
-  - `name`, `product_category`, `product_subcategory`
-  - `description` (truncado 600 chars)
-  - `extra_data.benefits` (top 5)
-  - `extra_data.technical_specifications` (top 6 label:value)
-  - `extra_data.faq` (top 3 P/R)
-  - `clinical_indications`, `compatibility_list`, `contraindications` (top 3 cada)
-- Cache em memória 5 min (mesmo padrão do mapping cache).
+3. **Idempotência reutilizada**: aplicar o mesmo padrão de hash já presente em `deal-form-note` (compara `last_seller_note_hash` antes de postar; persiste após sucesso). Isso evita repostagens quando o webhook Meta reentrega.
 
-Função `fetchRayshapeDossier(supabase)` — atalho fixo: busca pelo slug `rayshape` / nome `Rayshape` e devolve o mesmo formato. Cacheado.
+4. **Manter `buildDealNoteHTML` no arquivo** (não excluir) por enquanto, marcado como `@deprecated`, caso algum outro fluxo ainda o use — verificar usos restantes antes do hand-off.
 
-### 2. Enriquecer `generatePositioningScript`
+5. **WhatsApp/Evolution NÃO muda** — `waleads-messaging.ts` continua mandando o mesmo briefing curto para o vendedor (apenas o que vai pro PipeRun é enriquecido).
 
-Antes do prompt DeepSeek:
-- Resolver dossiê do produto de intenção (`diag.intent.matched_product_label` ou `diag.intent.produto`).
-- Resolver dossiês dos itens do `combo_sugerido.mesma_celula` (top 2, paralelo).
-- Se `concorrentes_detectados` contém impressora **ou** `stack_atual` tem `etapa_3_impressao` com competitor **ou** intent cai em etapa 3/4/5 → anexar dossiê Rayshape.
+## Validação
 
-Prompt atualizado (estrutura, em PT-BR, mantém soft-fail e cap de 400 tokens):
-
-```
-Você é consultor técnico Smart Dent. NÃO invente specs nem preços.
-Use SOMENTE os fatos abaixo (RAG oficial Smart Dent).
-
-LEAD: <especialidade>, stack=<…>, concorrentes=<…>
-INTENÇÃO: <produto + etapa/célula>
-LACUNAS: <…>
-COMBO (motor 7×3): <…>
-
-DOSSIÊ DO PRODUTO DE INTENÇÃO (RAG):
-<bloco compacto: descrição, benefícios, specs, indicações, compatibilidade>
-
-DOSSIÊS DOS PRODUTOS DO COMBO (RAG):
-<até 2 blocos curtos>
-
-[se aplicável]
-DOSSIÊ RAYSHAPE (RAG) — usar como referência quando impressora aparecer:
-<bloco>
-REGRA RAYSHAPE: Impressoras genéricas (Anycubic, Phrozen, Elegoo, etc.) têm
-limitações operacionais (curva de calibração, perda de produtividade, perfis
-não validados). A Rayshape elimina essas dificuldades e é sempre superior em
-facilidade no fluxo digital odontológico. Use isso como gancho de upgrade,
-sem mentir sobre specs — cite só o que estiver no DOSSIÊ RAYSHAPE.
-
-ESCREVA, em PT-BR, MÁXIMO 5 bullets ("• "):
-1) Como o produto de intenção se conecta ao stack atual (compatibilidade real do dossiê)
-2) 1 gancho contra cada concorrente detectado, apoiado em specs do dossiê
-3) Quando impressora estiver envolvida: 1 bullet de posicionamento Rayshape
-4) 1 alerta de risco (não empurrar fora da ordem do fluxo digital)
-```
-
-DeepSeek continua sendo o motor; só o **contexto** vira RAG real em vez de só rótulos.
-
-### 3. Falha-suave
-
-- Se `fetchProductDossier` não acha o produto → segue só com nome (comportamento atual).
-- Se `fetchRayshapeDossier` falha → omite a seção Rayshape (regra/bullet some).
-- Se DeepSeek timeout → `llm_script` undefined, perguntas + combo continuam (igual hoje).
-
-### 4. Render
-
-Sem mudanças na assinatura dos renderers. O conteúdo dos bullets fica mais técnico/ancorado, mas o layout HTML/WhatsApp/prompt cognitivo permanece igual.
-
-### 5. Cognitive prompt
-
-`renderDiagnosisForPrompt` ganha 1 linha extra no fim: `produto_intencao_resumo`= 1ª frase da `description` do dossiê (quando existir) — ajuda o DeepSeek do `cognitive-lead-analysis` a classificar `recommended_approach` ancorado no produto real.
-
-## Arquivos
-
-- `supabase/functions/_shared/product-rag.ts` (**novo**, ~140 linhas — fetch + cache + formatter)
-- `supabase/functions/_shared/workflow-diagnosis.ts` (substitui o corpo de `generatePositioningScript` para injetar dossiês; adiciona linha no `renderDiagnosisForPrompt`)
-- `mem/smart-ops/seller-note-workflow-diagnosis.md` (atualiza: agora consome RAG `system_a_catalog` + Rayshape rule)
-
-## Validação (via `smart-ops-preview-seller-note`)
-
-1. `criatianobrazodonto@gmail.com` (real) — confirmar que bullets citam specs reais dos produtos do combo.
-2. Lead sintético GlazeON + CS 3600 + Anycubic → esperar bullet Rayshape com gancho de produtividade citando spec real do dossiê.
-3. Lead com produto-intenção que **não existe** no catálogo (ex: "Bio Splint XL") → soft-fail, bullets continuam (sem dossiê).
-4. Lead sem impressora declarada e intent em etapa 1 (scanner) → sem bullet Rayshape (regra não aciona).
+- Rodar `smart-ops-preview-seller-note?email=tpd.camargo1@gmail.com` e conferir que o HTML já inclui o bloco 7×3 com Rayshape (caso o lead tenha impressora declarada — o Alexandre não tem, então o bloco deve só citar GlazeON via RAG).
+- Reatribuir manualmente um lead de teste e verificar a nota no PipeRun.
+- Confirmar que webhook Meta reentregue não duplica nota (hash bate).
 
 ## O que NÃO muda
 
-- `workflow_cell_mappings` continua read-only para esse fluxo.
-- Sem migration. Sem coluna nova.
-- `system_a_catalog` é só leitura.
-- WhatsApp/PipeRun/cognitive prompt — mesmas seções, mesma ordem, mesmo hash de dedupe.
-- Sem postar em produção até preview aprovado.
+- Sem migração de schema.
+- Sem alteração na `_shared/workflow-diagnosis.ts`, `product-rag.ts` ou `seller-summary.ts` (já estão prontos).
+- Sem mudança na mensagem WhatsApp ao vendedor.
+- Sem mudança na lógica de criação/atualização de deal — só o conteúdo da nota.
+
+## Arquivos tocados
+
+- `supabase/functions/smart-ops-lia-assign/index.ts` (3 call-sites + import + bloco de idempotência)
+- `mem/smart-ops/seller-note-workflow-diagnosis.md` (atualizar nota: agora aplicado também na atribuição inicial)
