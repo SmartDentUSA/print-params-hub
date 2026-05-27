@@ -175,8 +175,8 @@ export default function RelatorioMensalComercial() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   /* derived */
-  const totalLeads = Number(kpis?.leads_criados_mes ?? 0);
-  const totalGanhos = Number(kpis?.total_deals ?? 0);
+  const totalLeads = Number(kpis?.deals_criados ?? 0);
+  const totalGanhos = Number(kpis?.deals_ganhos ?? 0);
   const conversaoMes = totalLeads > 0 ? (totalGanhos / totalLeads) * 100 : 0;
 
   // Map vendor cohort detalhe by name for fast lookup
