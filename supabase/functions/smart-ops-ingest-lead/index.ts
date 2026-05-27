@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
-import { mergeSmartLead, logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
+import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
@@ -1037,7 +1037,14 @@ Deno.serve(async (req) => {
         }
 
         // Fire-and-forget: audit log
-        logEnrichmentAudit(existingLead.id, source, fieldsUpdated, previousValues, merged).catch(() => {});
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-ingest-lead",
+          severity: "info",
+          error_type: "lead_enrichment_merge",
+          lead_id: existingLead.id,
+          lead_email: email,
+          details: { source, fields_updated: fieldsUpdated, previous_values: previousValues },
+        }).then(() => {}, () => {});
       }
 
       leadId = existingLead.id;
