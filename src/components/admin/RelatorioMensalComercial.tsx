@@ -347,9 +347,9 @@ export default function RelatorioMensalComercial() {
         {/* KPIs */}
         <div className="sl">Visão Geral do Mês</div>
         <div className="kpi4">
-          <Kpi color="g" label="Receita (P&S)" value={fmtBRLk(kpis?.receita_total)} sub={`${fmtNum(totalGanhos)} deals ganhos`} />
+          <Kpi color="g" label="Receita (P&S)" value={fmtBRLk(kpis?.receita_won)} sub={`${fmtNum(totalGanhos)} deals ganhos`} />
           <Kpi label="Oportunidades criadas" value={fmtNum(totalLeads)} sub={`${fmtNum(kpis?.clientes_unicos ?? 0)} clientes únicos`} />
-          <Kpi color="a" label="Ticket médio" value={fmtBRL(kpis?.ticket_medio)} sub={`vendedores ativos: ${fmtNum(kpis?.vendedores_ativos ?? 0)}`} />
+          <Kpi color="a" label="Ticket médio" value={fmtBRL(kpis?.ticket_medio)} sub={`vendedores ativos: ${fmtNum(vendedoresUnificados.length)}`} />
           <Kpi color="t" label="Conversão (coorte)" value={fmtPct(conversaoMes)} sub="ganhos / criados no mês" />
         </div>
         <div className="kpi3">
