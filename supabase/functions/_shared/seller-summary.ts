@@ -7,6 +7,7 @@
  * via addDealNote and for persisting `last_seller_note_hash` / `_at`.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { diagnoseLead, renderDiagnosisHTML } from "./workflow-diagnosis.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -264,6 +265,15 @@ export async function buildSellerDealSummaryHTML(
   if (lead.recommended_approach) intelLines.push(`Abordagem: ${esc(lead.recommended_approach)}`);
   if (intelLines.length) {
     sections.push(`<b>🧠 Inteligência</b><br>${intelLines.map(l => `• ${l}`).join("<br>")}<br>`);
+  }
+
+  // 8b. Diagnóstico Fluxo Digital 7×3 (cross-ref Motor de Regras)
+  try {
+    const diag = await diagnoseLead(supabase, lead, { enableLLM: true });
+    const diagHtml = renderDiagnosisHTML(diag);
+    if (diagHtml) sections.push(diagHtml);
+  } catch (e) {
+    console.warn("[seller-summary] workflow diagnosis failed:", e);
   }
 
   // 9. Links rápidos

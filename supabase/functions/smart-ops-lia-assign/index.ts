@@ -10,6 +10,7 @@ import {
   logBriefingAudit,
   type EnrichmentMeta,
 } from "../_shared/lead-enrichment.ts";
+import { diagnoseLead, renderDiagnosisWhatsApp } from "../_shared/workflow-diagnosis.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -1094,6 +1095,15 @@ async function buildSellerNotification(
     ? "📋 *Perfil Inicial* (análise cognitiva completa após primeiras conversas com a LIA)"
     : "🧠 *Análise Cognitiva:*";
 
+  // 7×3 Workflow Diagnosis (stack atual × intent → perguntas + combo + posicionamento)
+  let diagBlock = "";
+  try {
+    const diag = await diagnoseLead(supabase, enrichedLead, { enableLLM: true });
+    diagBlock = renderDiagnosisWhatsApp(diag);
+  } catch (e) {
+    console.warn("[lia-assign] workflow diagnosis (wa) failed:", e);
+  }
+
   // Build template
   const lines: string[] = [
     `🤖 *Novo Lead atribuído - Dra. L.I.A.*`,
@@ -1111,6 +1121,7 @@ async function buildSellerNotification(
     `🏷️ Contexto: ${enrichedLead.rota_inicial_lia || "N/A"}`,
     `📍 Etapa CRM: ${enrichedLead.ultima_etapa_comercial || "N/A"}`,
     ``,
+    ...(diagBlock ? [diagBlock, ``] : []),
     `*HISTÓRICO:* ${historico}`,
     `*OPORTUNIDADE:* ${oportunidade}`,
     ``,

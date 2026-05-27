@@ -331,6 +331,18 @@ serve(async (req) => {
       if (profileLines.length > 0) {
         sdrProfileBlock = `\n**Perfil técnico (SDR Qualificação):**\n${profileLines.join("\n")}\n`;
       }
+
+      // ── 7×3 Workflow Diagnosis (stack atual × intent mapeada) ──
+      try {
+        const { diagnoseLead, renderDiagnosisForPrompt } = await import("../_shared/workflow-diagnosis.ts");
+        const diag = await diagnoseLead(supabase, leadData as Record<string, unknown>, { enableLLM: false });
+        const diagText = renderDiagnosisForPrompt(diag);
+        if (diagText) {
+          sdrProfileBlock += `\n**Diagnóstico Fluxo Digital 7×3:**\n${diagText}\n`;
+        }
+      } catch (e) {
+        console.warn("[cognitive] Failed to build workflow diagnosis block:", e);
+      }
     } catch (e) {
       console.warn("[cognitive] Failed to build SDR profile block:", e);
     }
