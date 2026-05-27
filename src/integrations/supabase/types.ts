@@ -22708,10 +22708,12 @@ export type Database = {
       fn_relatorio_mes_vendedor_detalhe: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
-          abertos: number
+          abertas: number
           estagnados: number
+          estagnados_pct: number
           ganhas: number
           perdidas: number
+          total_criados: number
           vendedor: string
         }[]
       }
