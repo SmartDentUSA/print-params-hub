@@ -11,6 +11,7 @@ type: feature
 - `lia_attendances.*` (canonical row, `merged_into IS NULL`)
 - `smartops_form_field_responses` (latest 80, indexed by `field_name` + `field_label`)
 - `lia_attendances.raw_payload.custom_fields`
+- `system_a_catalog` (cached 5 min via `_shared/product-rag.ts`) — RAG dossiers (description, benefits, technical_specs, faq, clinical_indications, compatibility_list, contraindications) used to ground the LLM positioning script
 
 **Output `WorkflowDiagnosis`**:
 - `stack_atual`: which cells have data, value found, whether it matches a competitor on that cell
@@ -20,6 +21,13 @@ type: feature
 - `perguntas_qualificacao`: derived from `sdr_field` labels of the intent cell + lacuna cells that are empty on the lead (mapped via QUESTION_TEMPLATES)
 - `concorrentes_detectados`: flagged when lead value matches a `competitor` mapped_value on the same cell
 - `llm_script`: optional 5-bullet DeepSeek positioning (12s timeout, soft-fail, max_tokens=400). Disable with `{ enableLLM: false }`.
+
+**Positioning script grounding (RAG)**:
+- Always fetches `fetchProductDossier(intent.matched_product_label || intent.produto)` from `system_a_catalog`.
+- Fetches dossiers for top 2 products of `combo_sugerido.mesma_celula` (parallel).
+- When a printer is involved (competitor printer OR stack has `etapa_3_impressao` OR intent target stage ∈ {3,4,5}), fetches the Rayshape dossier and appends a fixed REGRA RAYSHAPE: "impressoras genéricas têm limitações operacionais; Rayshape elimina e é sempre superior em facilidade no fluxo digital odontológico — citar apenas specs do dossiê".
+- All dossiers injected into DeepSeek prompt under "=== RAG OFICIAL SMART DENT ===" with explicit instruction to use ONLY these facts, no invented specs/prices.
+- Soft-fail: if a dossier is not found in `system_a_catalog`, that block is omitted and the bullet falls back to the label only.
 
 **Renderers**:
 - `renderDiagnosisHTML(diag)` — PipeRun note block. Injected in `_shared/seller-summary.ts` after Inteligência.
