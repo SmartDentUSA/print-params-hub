@@ -418,6 +418,7 @@ function resolveIntent(
 // DeepSeek positioning script (short, capped, soft-fail)
 // ────────────────────────────────────────────────────────────────
 async function generatePositioningScript(
+  supabase: SupabaseClient,
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
 ): Promise<string> {
