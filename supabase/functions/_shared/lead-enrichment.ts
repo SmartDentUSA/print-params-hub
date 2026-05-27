@@ -44,6 +44,176 @@ export interface EnrichmentMeta {
   cognitive_present: boolean;
 }
 
+export const SOURCE_PRIORITY: Record<string, number> = {
+  piperun_webhook: 1,
+  piperun_sync: 2,
+  ecommerce_webhook: 3,
+  loja_integrada: 3,
+  astron_postback: 4,
+  sellflux_webhook: 5,
+  sellflux: 5,
+  meta_lead_ads: 6,
+  meta_ads: 6,
+  formulario: 7,
+  form: 7,
+  form_submission: 7,
+  smart_dent_form: 7,
+  manual_form: 8,
+  vendedor_direto: 8,
+};
+
+const PROTECTED_FIELDS = new Set([
+  "id",
+  "created_at",
+  "email",
+  "entrada_sistema",
+  "piperun_id",
+  "piperun_link",
+  "piperun_created_at",
+  "pessoa_hash",
+  "pessoa_piperun_id",
+  "li_cliente_id",
+  "astron_user_id",
+  "origem_primeiro_contato",
+]);
+
+const ALWAYS_UPDATE_FIELDS = new Set([
+  "source",
+  "form_name",
+  "origem_campanha",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "valor_oportunidade",
+  "status_oportunidade",
+  "temperatura_lead",
+  "lead_status",
+  "proprietario_lead_crm",
+  "produto_interesse",
+  "produto_interesse_auto",
+  "resina_interesse",
+  "tem_impressora",
+  "tem_scanner",
+  "impressora_modelo",
+  "scanner_marca",
+  "software_cad",
+  "equip_scanner",
+  "equip_scanner_bancada",
+  "equip_impressora",
+  "equip_cad",
+  "equip_pos_impressao",
+  "equip_fresadora",
+  "equip_notebook",
+  "sdr_scanner_interesse",
+  "sdr_impressora_interesse",
+  "sdr_software_cad_interesse",
+  "sdr_cursos_interesse",
+  "sdr_insumos_lab_interesse",
+  "sdr_pos_impressao_interesse",
+  "sdr_solucoes_interesse",
+  "sdr_dentistica_interesse",
+  "sdr_caracterizacao_interesse",
+]);
+
+const MERGE_ARRAY_FIELDS = new Set([
+  "tags_crm",
+  "emails_secundarios",
+  "telefones_secundarios",
+]);
+
+const MERGE_JSONB_FIELDS = new Set([
+  "sellflux_custom_fields",
+  "raw_payload",
+  "form_data",
+]);
+
+function isEmptyValue(value: unknown): boolean {
+  return value == null || (typeof value === "string" && value.trim() === "");
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeObjects(existing: unknown, incoming: unknown): Record<string, unknown> {
+  if (!isPlainObject(existing)) return isPlainObject(incoming) ? { ...incoming } : {};
+  if (!isPlainObject(incoming)) return { ...existing };
+  const out: Record<string, unknown> = { ...existing };
+  for (const [key, value] of Object.entries(incoming)) {
+    out[key] = isPlainObject(out[key]) && isPlainObject(value)
+      ? mergeObjects(out[key], value)
+      : value;
+  }
+  return out;
+}
+
+function mergeArrays(existing: unknown, incoming: unknown): unknown[] {
+  const left = Array.isArray(existing) ? existing : isEmptyValue(existing) ? [] : [existing];
+  const right = Array.isArray(incoming) ? incoming : isEmptyValue(incoming) ? [] : [incoming];
+  const seen = new Set<string>();
+  const out: unknown[] = [];
+  for (const value of [...left, ...right]) {
+    const key = typeof value === "object" ? JSON.stringify(value) : String(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+export function mergeSmartLead(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  source = "default",
+): { merged: Record<string, unknown>; fieldsUpdated: string[]; fieldsSkipped: string[] } {
+  const merged: Record<string, unknown> = {};
+  const fieldsUpdated: string[] = [];
+  const fieldsSkipped: string[] = [];
+  const sourcePriority = SOURCE_PRIORITY[source] ?? 10;
+
+  for (const [field, incomingValue] of Object.entries(incoming)) {
+    if (isEmptyValue(incomingValue)) continue;
+    const existingValue = existing[field];
+
+    if (PROTECTED_FIELDS.has(field) && !isEmptyValue(existingValue)) {
+      fieldsSkipped.push(field);
+      continue;
+    }
+
+    let nextValue: unknown;
+    if (MERGE_ARRAY_FIELDS.has(field)) {
+      nextValue = mergeArrays(existingValue, incomingValue);
+    } else if (MERGE_JSONB_FIELDS.has(field)) {
+      nextValue = mergeObjects(existingValue, incomingValue);
+    } else if (ALWAYS_UPDATE_FIELDS.has(field)) {
+      nextValue = incomingValue;
+    } else if (isEmptyValue(existingValue)) {
+      nextValue = incomingValue;
+    } else {
+      fieldsSkipped.push(field);
+      continue;
+    }
+
+    if (JSON.stringify(existingValue ?? null) === JSON.stringify(nextValue ?? null)) continue;
+    merged[field] = nextValue;
+    fieldsUpdated.push(field);
+  }
+
+  if (fieldsUpdated.length > 0) {
+    merged.raw_payload = mergeObjects(merged.raw_payload ?? existing.raw_payload, {
+      enrichment_meta: {
+        last_merge_source: source,
+        last_merge_source_priority: sourcePriority,
+        last_merge_at: new Date().toISOString(),
+      },
+    });
+    if (!fieldsUpdated.includes("raw_payload")) fieldsUpdated.push("raw_payload");
+  }
+
+  return { merged, fieldsUpdated, fieldsSkipped };
+}
+
 /**
  * Returns a shallow copy of `lead` with missing equipment/Omie/cognitive fields
  * filled in from sibling canonical leads (same email/phone), plus an EnrichmentMeta
