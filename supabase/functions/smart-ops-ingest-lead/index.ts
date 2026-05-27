@@ -616,6 +616,39 @@ Deno.serve(async (req) => {
           console.log(
             `[ingest-lead] FORM_HISTORY_DEDUPE_SKIPPED: lead=${existingLead.id} form="${formName}" leadgen_id=${dedupeId ?? "n/a"} (prior at ${priorForm.event_timestamp}) enriched=[${enrichedFields.join(",")}]`,
           );
+          // ─── Deal-only route (espelho SDR-CAPTAÇÃO) ───
+          // Re-entrega Meta < 12h NÃO cria lead nem reabre lia-assign cheio,
+          // mas a régua de Funil de Vendas precisa rodar: VENDAS aberto →
+          // preserva + nota; outros funis abertos → fecha Perdido + Fresh RR +
+          // novo deal em VENDAS. Lia-assign roda em modo restrito (sem
+          // Person/Company/cognitive/WhatsApp/Sellflux).
+          let dealRouteResult: Record<string, unknown> | null = null;
+          if (existingLead.pessoa_piperun_id && source === "meta_lead_ads" && formName) {
+            try {
+              const { data: routeData, error: routeErr } = await supabase.functions.invoke(
+                "smart-ops-lia-assign",
+                {
+                  body: {
+                    lead_id: existingLead.id,
+                    enrichment_only_route_deal: true,
+                    enrichment_form_name: formName,
+                    enriched_fields: enrichedFields,
+                    trigger: "meta_form_history_dedupe",
+                  },
+                },
+              );
+              if (routeErr) {
+                console.warn("[ingest-lead] enrichment-route invoke error:", routeErr);
+              } else {
+                dealRouteResult = (routeData as Record<string, unknown>) ?? null;
+                console.log(
+                  `[ingest-lead] enrichment-route result: flow=${dealRouteResult?.flow_type} piperun_id=${dealRouteResult?.piperun_id}`,
+                );
+              }
+            } catch (e) {
+              console.warn("[ingest-lead] enrichment-route invoke threw:", e);
+            }
+          }
           return new Response(
             JSON.stringify({
               success: true,
@@ -624,6 +657,7 @@ Deno.serve(async (req) => {
               dedupe_via: "meta_form_history_12h",
               lead_id: existingLead.id,
               incremental_enrichment: enrichedFields,
+              deal_route_result: dealRouteResult,
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
