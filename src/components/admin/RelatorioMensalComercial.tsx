@@ -11,15 +11,15 @@ import {
 
 /* ---------- Types ---------- */
 interface Kpis {
-  total_deals: number | null;
-  receita_total: number | null;
+  deals_ganhos: number | null;
+  deals_criados: number | null;
+  receita_won: number | null;
   ticket_medio: number | null;
-  vendedores_ativos: number | null;
-  leads_criados_mes: number | null;
   funil_ativo: number | null;
   perdidas_mes: number | null;
   enviados_estagnados: number | null;
   clientes_unicos: number | null;
+  taxa_conversao: number | null;
   mes_ref: string | null;
   gerado_em: string | null;
 }
