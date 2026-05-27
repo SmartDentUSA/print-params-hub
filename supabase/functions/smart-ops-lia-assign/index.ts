@@ -2104,6 +2104,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── ENRICHMENT-ONLY DEAL ROUTE (re-entrega Meta < 12h) ───
+    // Disparado por smart-ops-ingest-lead após merge incremental. Bypassa
+    // idempotency, meta-redelivery-kill, Round Robin geral, cognitive,
+    // briefings, Sellflux e qualquer Person/Company side-effect. Apenas
+    // roteia o Deal (preserva VENDAS / fecha outros como Perdido + cria novo).
+    if (enrichment_only_route_deal === true) {
+      console.log(
+        `[lia-assign] ENRICHMENT_ROUTE: lead=${lead.id} form="${enrichment_form_name ?? "n/a"}" fields=[${(enriched_fields ?? []).join(",")}]`,
+      );
+      try {
+        const routeResult = await executarEnrichmentDealRoute(
+          PIPERUN_API_KEY,
+          supabase,
+          lead,
+          (enrichment_form_name as string | null) ?? null,
+          Array.isArray(enriched_fields) ? (enriched_fields as string[]) : [],
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "info",
+            error_type: "enrichment_only_route_deal",
+            lead_id: lead.id,
+            lead_email: (lead.email as string) ?? null,
+            details: { route_result: routeResult, trigger, form_name: enrichment_form_name },
+          });
+        } catch {}
+        return new Response(
+          JSON.stringify({ success: true, mode: "enrichment_only_route_deal", ...routeResult }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (e) {
+        console.error("[lia-assign] enrichment-route failed:", e);
+        return new Response(
+          JSON.stringify({ success: false, mode: "enrichment_only_route_deal", error: String(e) }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ── Idempotency: skip if processed in last 3 min (unless force=true) ──
     // NOTE: sdr_captacao_reativacao no longer bypasses this guard. The Meta
     // webhook re-delivers the same leadgen_id every ~2 min and previously
