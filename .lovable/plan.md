@@ -1,46 +1,66 @@
 ## Diagnóstico
 
-Verifiquei contra o banco real:
+Os formulários gravam marca/modelo do scanner e impressora em chaves como `equip_scanner`, `como_digitaliza`, `equip_impressora`, `impressora_modelo` dentro de `lia_attendances.form_data[...].raw_fields`. As colunas canônicas são **`scanner_marca`** e **`impressora_modelo`**. Mas o código que monta os custom fields da Pessoa e do Deal no PipeRun não cobre esses nomes corretamente — por isso o PipeRun recebe só `"sim"` (ou `"Sim - Marca"` para impressora, mas nada de marca pro scanner).
 
-- `deals.status` possui apenas três valores: `aberta` (28.471), `ganha` (3.816), `perdida` (118).
-- A RPC `fn_relatorio_mes_kpis` filtra por `status='won'`/`'lost'`/`NOT IN ('won','lost')`. Nenhum deal casa, então:
-  - `deals_ganhos`, `receita_won`, `ticket_medio`, `perdidas_mes`, `clientes_unicos` → sempre 0.
-  - `funil_ativo` conta **todos** os deals criados até o fim do mês (28k), porque `'aberta' NOT IN ('won','lost')` é sempre verdadeiro.
-- A RPC `fn_relatorio_mes_vendedor_detalhe`:
-  - Filtra por `status='won'`/`'lost'`/`NOT IN ('won','lost')` → ganhas e perdidas sempre 0; "abertos" inclui ganhas+perdidas+aberta.
-  - Retorna colunas `(vendedor, abertos, estagnados, perdidas, ganhas)` enquanto o frontend lê `total_criados`, `abertas`, `estagnados_pct` → tudo `undefined` → 0.
-- A RPC `fn_relatorio_mes_vendedor` já usa os valores corretos (`'ganha'`/`'perdida'`) — por isso só essa coluna ("Vendas por Vendedor") aparenta funcionar.
+### Bugs encontrados em `supabase/functions/_shared/piperun-field-map.ts`
 
-Resultado visível no painel: card "Funil ativo" com número absurdo, "Perdidas no mês" e "Estagnados" em 0 para todo mundo, cards "Funil por Vendedor" mostrando `0 abertas / 0 perdidas`, "De 0 deals criados no mês".
+**1. `buildPersonFormCustomFields` (Pessoa — campos 772727 Scanner / 772728 Impressora)**
+- Linha 385: lê `lead.scanner_modelo` — **essa coluna não existe**. A coluna real é `scanner_marca`. Resultado: marca do scanner é sempre `null` e o campo da Pessoa vai apenas como `"sim"`.
+- Linhas 385 e 398: sinônimos `["scanner_modelo","modelo_scanner","marca_scanner"]` e `["impressora_modelo","modelo_impressora","marca_impressora","printer_model"]` não cobrem `equip_scanner`, `como_digitaliza`, `equip_impressora`, `scanner_marca` — que são as chaves reais do `form_data` (Meta Lead Ads / formulários internos).
+- Formato atual `"Sim — Marca"` polui o card da Pessoa. Para o campo da Pessoa, faz mais sentido enviar **só a marca/modelo** quando conhecido (e `"Sim"`/`"Não"` apenas quando não há marca).
 
-## Mudanças (somente banco — duas RPCs)
+**2. `mapAttendanceToDealCustomFields` (Deal — campos 1206/1207 Tem Scanner / Tem Impressora)**
+- Linhas 1201-1204: scanner só envia o valor de `tem_scanner` (ex.: `"Sim"`), sem nunca concatenar a marca, mesmo quando `scanner_marca` está preenchido. Impressora já concatena `tem_impressora + impressora_modelo` (linhas 1205-1212), mas scanner não tem equivalente.
+- `SYNONYMS` (linhas 1132-1140) não inclui `scanner_marca`, nem `equip_scanner`/`como_digitaliza`/`equip_impressora`.
 
-Migration única ajustando duas funções, sem mexer em frontend, edge functions, RLS, grants ou outras telas. As funções continuam `SECURITY DEFINER` com `search_path=public`.
+### Evidência
 
-### 1) `fn_relatorio_mes_kpis(p_ano, p_mes)`
-- Trocar `status='won'` → `status='ganha'`, `status='lost'` → `status='perdida'`, `NOT IN ('won','lost')` → `= 'aberta'` (ou `NOT IN ('ganha','perdida')`, mantendo a mesma semântica).
-- Aplicar timezone `America/Sao_Paulo` no recorte de `closed_at` e `piperun_created_at` (igual ao que a RPC de vendedor já faz), para o coorte do mês bater com a UI.
-- Excluir pipelines não comerciais (`Funil Atos`, `Funil E-book`, `Tulip-Teste-*`, `Exportação`, `Ganhos Aleatórios*`) — mesma lista usada em `fn_relatorio_mes_vendedor` — para os KPIs serem consistentes com a tabela "Vendas por Vendedor".
-- Preservar a assinatura/colunas existentes (`receita_won, receita_meta, deals_ganhos, deals_criados, taxa_conversao, ticket_medio, funil_ativo, perdidas_mes, enviados_estagnados, clientes_unicos`).
+Lead `Cristiano Braz` (form Meta "Impresoras - Smart Dent") tem em `form_data.raw_fields`:
+```
+tem_scanner: "sim", equip_scanner: "3shape", como_digitaliza: "3shape",
+tem_impressora: "sim", impressora_modelo: "flashforge"
+```
+Coluna `impressora_modelo` foi promovida (`"flashforge"`), mas `scanner_marca` ficou `null`. Resultado no PipeRun: Pessoa recebe `"Sim"` para scanner e o Deal idem; impressora recebe `"Sim - Flashforge"` no Deal mas `"Sim"` na Pessoa (porque o Person mapper lê coluna inexistente `scanner_modelo` para scanner e, para impressora, hoje retorna `"Sim — flashforge"` em vez da marca limpa).
 
-### 2) `fn_relatorio_mes_vendedor_detalhe(p_ano, p_mes)`
-- Trocar a assinatura para devolver exatamente as colunas que o frontend consome:
-  - `vendedor text, total_criados int, abertas int, ganhas int, perdidas int, estagnados int, estagnados_pct numeric`.
-- Calcular cada coluna usando os status reais (`ganha`/`perdida`/`aberta`), no timezone São Paulo, mesma lista de pipelines comerciais do item 1, e mesma definição de coorte do mês (`piperun_created_at` dentro do mês selecionado):
-  - `total_criados` = todos os deals da coorte do vendedor.
-  - `abertas` = snapshot atual dos deals do vendedor com `status='aberta'` (sem filtrar coorte, igual ao que `fn_relatorio_mes_funil_atual` já faz, para casar com o "Funil ativo").
-  - `ganhas` / `perdidas` = deals fechados no mês com status correspondente.
-  - `estagnados` = deals da coorte cujo `stage_name ILIKE '%estagnad%'` (mantém regra atual, agora com status correto e respeitando filtros).
-  - `estagnados_pct` = `estagnados / NULLIF(total_criados,0) * 100`.
-- Manter a normalização de `owner_name` (`NULLIF`, ignorar IDs numéricos) já presente.
+## Mudanças propostas (apenas `piperun-field-map.ts`)
 
-### 3) Sem alterações em `fn_relatorio_mes_funil_atual`
-Já usa `status='aberta'` corretamente. Só será revalidado depois que `fn_relatorio_mes_vendedores_ativos` (chamada por ela) continuar listando vendedores certos — vamos conferir essa função na migration; se estiver com o mesmo bug de `'won'/'lost'`, corrigir junto, com a mesma regra.
+### A. `buildPersonFormCustomFields`
+- Trocar leitura `lead.scanner_modelo` → `lead.scanner_marca`.
+- Expandir sinônimos do scanner: `scanner_marca, equip_scanner, como_digitaliza, scanner, marca_scanner, modelo_scanner`.
+- Expandir sinônimos da impressora: `impressora_modelo, modelo_impressora, marca_impressora, equip_impressora, printer_model, impressora`.
+- Novo formato dos valores enviados ao PipeRun (Pessoa):
+  - Se marca/modelo conhecido → enviar **apenas a marca normalizada** (ex.: `"3Shape"`, `"Flashforge"`).
+  - Senão, se `tem_scanner`/`tem_impressora` = `"sim"` → enviar `"Sim"`.
+  - Senão, se `"não"` → enviar `"Não"`.
+- Capitalização leve (primeira letra de cada palavra) para a marca, preservando termos já em CamelCase.
 
-## Validação após aplicar
+### B. `mapAttendanceToDealCustomFields`
+- Adicionar `scanner_marca` ao bloco SYNONYMS: `["scanner_marca","equip_scanner","como_digitaliza","scanner_modelo","marca_scanner","modelo_scanner"]`.
+- Adicionar `equip_impressora` aos sinônimos de `impressora_modelo`.
+- Espelhar a lógica da impressora para o scanner (linhas 1201-1204):
+  ```
+  const scanner = resolve("tem_scanner");
+  if (scanner) {
+    const marca = resolve("scanner_marca");
+    const v = marca && /^sim$/i.test(scanner.trim())
+      ? `${humanizeValue(scanner)} - ${humanizeValue(marca)}`
+      : humanizeValue(scanner);
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: v });
+  }
+  ```
+- Adicionar `scanner_marca` como chave canônica em `SYNONYMS` para que `resolve("scanner_marca")` faça fallback no `form_data` quando a coluna ainda não tiver sido promovida.
 
-Para o mês corrente:
-- `funil_ativo` deve ficar coerente com a contagem real de `deals` `status='aberta'` (não mais 28k cumulativos).
-- `perdidas_mes` ≠ 0 quando houver `status='perdida'` no mês.
-- "Funil por Vendedor": cada card mostra `abertas` igual ao snapshot do vendedor; `ganhas` e `perdidas` batem com a tabela "Vendas por Vendedor"; "De N deals criados no mês" deixa de ser 0 quando o vendedor teve criação.
-- Tabela "Vendas por Vendedor" continua idêntica (não mexemos nessa RPC).
+### C. Backfill dos leads já criados
+Após o deploy, rodar duas edge functions já existentes para reprocessar quem já tem `pessoa_piperun_id`/`piperun_id`:
+1. `piperun-person-contact-backfill` (`{ days: 30, limit: 200 }`) — reenvia os 4 custom fields da Pessoa.
+2. `smart-ops-piperun-backfill-customfields` (`{ dry_run: false, since: "30 days", limit: 300 }`) — reenvia custom fields do Deal e atualiza `lia_attendances.piperun_custom_fields`.
+
+## Fora de escopo
+- Não mexer em `dynamic-lead-ingestion` nem na promoção `form_data → scanner_marca` (já cobre `equip_scanner`/`como_digitaliza` via `lia-lead-extraction`; o fallback no mapper já resolve o gap).
+- Sem mudanças de schema, RLS, grants, frontend ou outros endpoints.
+- Sem mudança nos campos da Pessoa (IDs 772727/772728/673900/445631) nem nos IDs dos custom fields do Deal.
+
+## Validação após implementação
+1. `select` em `lia_attendances` de 1 lead recente com `equip_scanner` preenchido → conferir resolução pelo mapper (log `[mapAttendanceToDealCustomFields] fallback form_data → scanner_marca=...`).
+2. Disparar `piperun-person-contact-backfill` para `lead_ids: ["27446c96-..."]` e conferir no PipeRun se o card da Pessoa mostra `"Flashforge"`/`"3Shape"` nos campos 772727/772728.
+3. Conferir Deal correspondente: campo Tem Scanner = `"Sim - 3Shape"`, Tem Impressora = `"Sim - Flashforge"`.

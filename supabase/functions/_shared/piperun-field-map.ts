@@ -382,26 +382,46 @@ export function buildPersonFormCustomFields(
   const fd = lead.form_data;
 
   // ── Scanner (text) ──
-  const scannerModelo = (lead.scanner_modelo as string | null) || scanFormData(fd, ["scanner_modelo", "modelo_scanner", "marca_scanner"]);
-  const temScanner = (lead.tem_scanner as string | null) || scanFormData(fd, ["tem_scanner", "scanner", "possui_scanner"]);
+  const titleCase = (v: string) => {
+    const t = v.trim().replace(/_/g, " ");
+    if (!t) return t;
+    // Preserve already-CamelCase (e.g. "3Shape", "MiiCraft")
+    if (/[a-z][A-Z]/.test(t)) return t;
+    return t.toLowerCase().replace(/(^|\s|-)(\S)/g, (_m, s, c) => s + c.toUpperCase());
+  };
+  const normalizeYesNo = (v: string | null): string | null => {
+    if (!v) return null;
+    const s = String(v).trim();
+    if (/^sim$/i.test(s)) return "Sim";
+    if (/^n[ãa]o$/i.test(s)) return "Não";
+    return s;
+  };
+
+  // ── Scanner (text) ──
+  const scannerMarca = (lead.scanner_marca as string | null)
+    || scanFormData(fd, ["scanner_marca", "equip_scanner", "como_digitaliza", "scanner_modelo", "modelo_scanner", "marca_scanner"]);
+  const temScanner = (lead.tem_scanner as string | null)
+    || scanFormData(fd, ["tem_scanner", "scanner", "possui_scanner"]);
   let scannerVal: string | null = null;
-  if (scannerModelo && temScanner && /^sim$/i.test(String(temScanner).trim())) {
-    scannerVal = `${String(temScanner).trim()} — ${String(scannerModelo).trim()}`;
+  if (scannerMarca && String(scannerMarca).trim() !== "") {
+    scannerVal = titleCase(String(scannerMarca));
   } else {
-    scannerVal = scannerModelo || temScanner || null;
+    scannerVal = normalizeYesNo(temScanner);
   }
   if (scannerVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.SCANNER_FORM, value: scannerVal });
   }
 
   // ── Impressora (text) ──
-  const impressoraModelo = (lead.impressora_modelo as string | null) || scanFormData(fd, ["impressora_modelo", "modelo_impressora", "marca_impressora", "printer_model"]);
-  const temImpressora = (lead.tem_impressora as string | null) || scanFormData(fd, ["tem_impressora", "impressora", "possui_impressora"]);
+  const impressoraModelo = (lead.impressora_modelo as string | null)
+    || scanFormData(fd, ["impressora_modelo", "modelo_impressora", "marca_impressora", "equip_impressora", "printer_model"]);
+  const temImpressora = (lead.tem_impressora as string | null)
+    || scanFormData(fd, ["tem_impressora", "impressora", "possui_impressora"]);
   let impressoraVal: string | null = null;
-  if (impressoraModelo && temImpressora && /^sim$/i.test(String(temImpressora).trim())) {
-    impressoraVal = `${String(temImpressora).trim()} — ${String(impressoraModelo).trim()}`;
+  if (impressoraModelo && String(impressoraModelo).trim() !== "") {
+    impressoraVal = titleCase(String(impressoraModelo));
   } else {
-    impressoraVal = impressoraModelo || temImpressora || null;
+    impressoraVal = normalizeYesNo(temImpressora);
   }
   if (impressoraVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.IMPRESSORA_FORM, value: impressoraVal });
@@ -1135,7 +1155,8 @@ export function mapAttendanceToDealCustomFields(
     area_atuacao: ["area_atuacao", "area_de_atuacao", "area", "area de atuacao", "área de atuação"],
     tem_scanner: ["tem_scanner", "scanner", "possui_scanner", "possui scanner"],
     tem_impressora: ["tem_impressora", "impressora", "possui_impressora", "possui impressora", "impressoes 3d", "impressões 3d"],
-    impressora_modelo: ["impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora"],
+    impressora_modelo: ["impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora", "marca_impressora", "equip_impressora"],
+    scanner_marca: ["scanner_marca", "equip_scanner", "como_digitaliza", "scanner_modelo", "marca_scanner", "modelo_scanner"],
     pais_origem: ["pais_origem", "pais", "country"],
   };
   const formDataKeys = (() => {
@@ -1200,7 +1221,11 @@ export function mapAttendanceToDealCustomFields(
   }
   const scanner = resolve("tem_scanner");
   if (scanner) {
-    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: humanizeValue(scanner) });
+    const marcaScanner = resolve("scanner_marca");
+    const scannerValue = marcaScanner && /^sim$/i.test(scanner.trim())
+      ? `${humanizeValue(scanner)} - ${humanizeValue(marcaScanner)}`
+      : humanizeValue(scanner);
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: scannerValue });
   }
   const impressora = resolve("tem_impressora");
   if (impressora) {
