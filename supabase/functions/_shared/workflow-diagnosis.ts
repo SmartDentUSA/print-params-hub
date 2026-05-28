@@ -58,6 +58,21 @@ export interface WorkflowDiagnosis {
   perguntas_qualificacao: string[];
   concorrentes_detectados: Array<{ stage: string; cell: string; label: string }>;
   llm_script?: string;       // optional DeepSeek positioning bullets
+  spin?: SpinBriefing;       // NEW — SPIN briefing for the seller
+}
+
+export interface SpinBriefing {
+  situacao: string;
+  dores_provaveis: Array<{ dor: string; evidencia: string }>;
+  implicacoes: string[];
+  ponte_produto: string;
+  perguntas_spin: {
+    situacao: string[];
+    problema: string[];
+    implicacao: string[];
+    necessidade: string[];
+  };
+  alerta_lacuna?: string;
 }
 
 // ────────────────────────────────────────────────────────────────
