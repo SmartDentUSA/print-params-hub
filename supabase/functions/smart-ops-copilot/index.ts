@@ -2256,6 +2256,7 @@ serve(async (req) => {
       // Execute tool calls
       currentMessages.push(choice.message);
 
+      const _ragHitsBatch: any[] = [];
       for (const toolCall of choice.message.tool_calls) {
         const fn = toolCall.function.name;
         let args: any;
@@ -2278,11 +2279,26 @@ serve(async (req) => {
           toolResult = { error: `Ferramenta "${fn}" não implementada` };
         }
 
+        // RAG instrumentation — coleta hits para auditoria
+        if (toolResult && Array.isArray(toolResult._rag_hits) && toolResult._rag_hits.length > 0) {
+          _ragHitsBatch.push({ tool: fn, hits: toolResult._rag_hits });
+        }
+
         currentMessages.push({
           role: "tool",
           tool_call_id: toolCall.id,
           content: JSON.stringify(toolResult).slice(0, 8000)
         });
+      }
+
+      // Fire-and-forget audit dos hits de RAG por turno
+      if (_ragHitsBatch.length > 0) {
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-copilot",
+          severity: "info",
+          error_type: "rag_hit",
+          details: { rag_hits: _ragHitsBatch, model: config.label },
+        }).then(() => {}, () => {});
       }
     }
 
