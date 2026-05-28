@@ -139,7 +139,7 @@ export async function buildSellerDealSummaryHTML(
   const history = (lead.piperun_deals_history as Array<Record<string, unknown>> | null) || [];
   let won = 0, lost = 0, open = 0;
   for (const d of history) {
-    const s = String((d.status_name || d.status || "")).toLowerCase();
+    const s = String(d.status || "").toLowerCase();
     if (s.includes("ganh")) won++;
     else if (s.includes("perd")) lost++;
     else open++;
@@ -148,7 +148,7 @@ export async function buildSellerDealSummaryHTML(
     .slice()
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
     .slice(0, 8)
-    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status_name || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
+    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
     .join("<br>");
   sections.push(
     `<b>📊 CRM</b><br>` +
