@@ -1,0 +1,385 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText,
+} from "lucide-react";
+import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
+import { WaContentNodeSelector } from "./WaContentNodeSelector";
+
+interface Props {
+  open: boolean;
+  groupId: string;
+  campaignId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }> = {
+  msg:   { label: "Mensagem",     icon: MessageSquare, color: "text-blue-600" },
+  wait:  { label: "Aguardar",     icon: Clock,         color: "text-amber-600" },
+  ai:    { label: "IA + Conteúdo", icon: Sparkles,     color: "text-purple-600" },
+  image: { label: "Imagem",       icon: ImageIcon,     color: "text-emerald-600" },
+  video: { label: "Vídeo",        icon: Video,         color: "text-red-600" },
+  link:  { label: "Link",         icon: Link2,         color: "text-cyan-600" },
+};
+
+function newNode(type: FlowNodeType): FlowNode {
+  const id = crypto.randomUUID();
+  switch (type) {
+    case "msg":   return { id, type, text: "", mention_all: false };
+    case "wait":  return { id, type, days: 1, time: "09:00", weekdays_only: false };
+    case "ai":    return { id, type, ai_source_type: "article", ai_source_id: "", ai_source_title: "", ai_prompt_override: "" };
+    case "image":
+    case "video": return { id, type, media_url: "", caption: "" };
+    case "link":  return { id, type, title: "", description: "", url: "" };
+  }
+}
+
+export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved }: Props) {
+  const [name, setName] = useState("");
+  const [nodes, setNodes] = useState<FlowNode[]>([]);
+  const [dailyLimit, setDailyLimit] = useState(50);
+  const [delaySeconds, setDelaySeconds] = useState(30);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      setLoading(true);
+      if (campaignId) {
+        const { data, error } = await (supabase as any)
+          .from("wa_campaigns")
+          .select("name, flow_json, daily_limit, delay_seconds")
+          .eq("id", campaignId)
+          .single();
+        if (error) { toast.error(error.message); setLoading(false); return; }
+        setName(data.name ?? "");
+        setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
+        setDailyLimit(data.daily_limit ?? 50);
+        setDelaySeconds(data.delay_seconds ?? 30);
+      } else {
+        setName("Nova campanha");
+        setNodes([]);
+        setDailyLimit(50);
+        setDelaySeconds(30);
+      }
+      setLoading(false);
+    })();
+  }, [open, campaignId]);
+
+  const addNode = (type: FlowNodeType) => setNodes(n => [...n, newNode(type)]);
+  const removeNode = (id: string) => setNodes(n => n.filter(x => x.id !== id));
+  const move = (id: string, dir: -1 | 1) => {
+    setNodes(n => {
+      const i = n.findIndex(x => x.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= n.length) return n;
+      const copy = [...n];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+      return copy;
+    });
+  };
+  const updateNode = (id: string, patch: Partial<FlowNode>) => {
+    setNodes(n => n.map(x => x.id === id ? ({ ...x, ...patch } as FlowNode) : x));
+  };
+
+  const validation = useMemo(() => {
+    const errors: string[] = [];
+    if (!name.trim()) errors.push("Nome da campanha é obrigatório.");
+    if (nodes.length === 0) errors.push("Adicione pelo menos um nó.");
+    nodes.forEach((n, idx) => {
+      const tag = `Nó #${idx + 1} (${nodeMeta[n.type].label})`;
+      if (n.type === "msg" && !n.text.trim()) errors.push(`${tag}: texto vazio.`);
+      if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
+      if ((n.type === "image" || n.type === "video") && !n.media_url.trim()) errors.push(`${tag}: media_url vazio.`);
+      if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
+      if (n.type === "wait" && (!n.days || n.days < 0)) errors.push(`${tag}: dias inválidos.`);
+    });
+    return errors;
+  }, [name, nodes]);
+
+  const handleSave = async (activate: boolean) => {
+    if (activate && validation.length > 0) {
+      toast.error(validation[0]);
+      return;
+    }
+    setSaving(true);
+    try {
+      let cid = campaignId;
+      const payload: any = {
+        group_id: groupId,
+        name: name.trim(),
+        flow_json: nodes,
+        daily_limit: dailyLimit,
+        delay_seconds: delaySeconds,
+      };
+      if (cid) {
+        const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
+        if (error) throw error;
+      } else {
+        payload.status = "draft";
+        const { data, error } = await (supabase as any)
+          .from("wa_campaigns")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        cid = data.id;
+      }
+
+      if (activate) {
+        const { data, error } = await supabase.functions.invoke("wa-campaign-builder", { body: { campaign_id: cid } });
+        if (error) throw error;
+        toast.success(`Campanha ativada — primeira mensagem em ${new Date(data?.first_send).toLocaleString("pt-BR")}`);
+      } else {
+        toast.success("Rascunho salvo");
+      }
+      onSaved();
+    } catch (err: any) {
+      toast.error("Falha: " + (err?.message ?? String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{campaignId ? "Editar campanha" : "Nova campanha"}</SheetTitle>
+        </SheetHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {/* Header */}
+            <div className="space-y-3">
+              <div>
+                <Label>Nome da campanha</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Régua educacional resinas" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Limite diário</Label>
+                  <Input type="number" min={1} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value) || 1)} />
+                </div>
+                <div>
+                  <Label>Delay entre msgs (s)</Label>
+                  <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Nodes */}
+            <div className="space-y-2">
+              <Label>Fluxo ({nodes.length} nós)</Label>
+              {nodes.length === 0 && (
+                <p className="text-xs text-muted-foreground italic p-3 border border-dashed rounded">
+                  Comece adicionando um nó abaixo.
+                </p>
+              )}
+              {nodes.map((n, idx) => {
+                const meta = nodeMeta[n.type];
+                const Icon = meta.icon;
+                return (
+                  <Card key={n.id} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px]">#{idx + 1}</Badge>
+                        <Icon className={`w-4 h-4 ${meta.color}`} />
+                        <span className="text-sm font-medium">{meta.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move(n.id, -1)} disabled={idx === 0}>
+                          <ArrowUp className="w-3 h-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move(n.id, 1)} disabled={idx === nodes.length - 1}>
+                          <ArrowDown className="w-3 h-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeNode(n.id)}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {n.type === "msg" && (
+                      <>
+                        <Textarea
+                          value={(n as MsgNode).text}
+                          onChange={(e) => updateNode(n.id, { text: e.target.value } as Partial<MsgNode>)}
+                          placeholder="Texto da mensagem (suporta {nome}, {grupo})"
+                          rows={3}
+                        />
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs flex items-center gap-2">
+                            <Switch
+                              checked={!!(n as MsgNode).mention_all}
+                              onCheckedChange={(v) => updateNode(n.id, { mention_all: v } as Partial<MsgNode>)}
+                            />
+                            Mencionar todos (@all)
+                          </Label>
+                        </div>
+                      </>
+                    )}
+
+                    {n.type === "wait" && (
+                      <div className="grid grid-cols-3 gap-2 items-end">
+                        <div>
+                          <Label className="text-xs">Dias</Label>
+                          <Input type="number" min={0} value={(n as WaitNode).days}
+                            onChange={(e) => updateNode(n.id, { days: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hora</Label>
+                          <Input type="time" value={(n as WaitNode).time}
+                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)} />
+                        </div>
+                        <Label className="text-xs flex items-center gap-2 pb-2">
+                          <Switch
+                            checked={!!(n as WaitNode).weekdays_only}
+                            onCheckedChange={(v) => updateNode(n.id, { weekdays_only: v } as Partial<WaitNode>)}
+                          />
+                          Só dias úteis
+                        </Label>
+                      </div>
+                    )}
+
+                    {n.type === "ai" && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 text-xs">
+                            {(n as AiNode).ai_source_id ? (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">{(n as AiNode).ai_source_type}</Badge>
+                                <span className="truncate">{(n as AiNode).ai_source_title}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground italic">Nenhum conteúdo selecionado</span>
+                            )}
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => setSelectorOpenFor(n.id)}>
+                            <FileText className="w-3 h-3 mr-1" /> Escolher
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={(n as AiNode).ai_prompt_override ?? ""}
+                          onChange={(e) => updateNode(n.id, { ai_prompt_override: e.target.value } as Partial<AiNode>)}
+                          placeholder="Instrução adicional para a IA (opcional)"
+                          rows={2}
+                        />
+                      </>
+                    )}
+
+                    {(n.type === "image" || n.type === "video") && (
+                      <>
+                        <Input
+                          value={(n as MediaNode).media_url}
+                          onChange={(e) => updateNode(n.id, { media_url: e.target.value } as Partial<MediaNode>)}
+                          placeholder={`URL ${n.type === "image" ? "da imagem" : "do vídeo"}`}
+                        />
+                        <Input
+                          value={(n as MediaNode).caption ?? ""}
+                          onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<MediaNode>)}
+                          placeholder="Legenda (opcional)"
+                        />
+                      </>
+                    )}
+
+                    {n.type === "link" && (
+                      <>
+                        <Input
+                          value={(n as LinkNode).title}
+                          onChange={(e) => updateNode(n.id, { title: e.target.value } as Partial<LinkNode>)}
+                          placeholder="Título do link"
+                        />
+                        <Input
+                          value={(n as LinkNode).url}
+                          onChange={(e) => updateNode(n.id, { url: e.target.value } as Partial<LinkNode>)}
+                          placeholder="https://..."
+                        />
+                        <Textarea
+                          value={(n as LinkNode).description ?? ""}
+                          onChange={(e) => updateNode(n.id, { description: e.target.value } as Partial<LinkNode>)}
+                          placeholder="Descrição (opcional)"
+                          rows={2}
+                        />
+                      </>
+                    )}
+                  </Card>
+                );
+              })}
+
+              {/* Add buttons */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {(Object.keys(nodeMeta) as FlowNodeType[]).map(t => {
+                  const Icon = nodeMeta[t].icon;
+                  return (
+                    <Button key={t} size="sm" variant="outline" onClick={() => addNode(t)}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      <Icon className={`w-3 h-3 mr-1 ${nodeMeta[t].color}`} />
+                      {nodeMeta[t].label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Validation */}
+            {validation.length > 0 && (
+              <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 space-y-1">
+                {validation.map((e, i) => (
+                  <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400">• {e}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center gap-2 pt-2 border-t sticky bottom-0 bg-background pb-2">
+              <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+              <div className="flex-1" />
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                <Save className="w-3 h-3 mr-1" /> Salvar rascunho
+              </Button>
+              <Button onClick={() => handleSave(true)} disabled={saving || validation.length > 0}>
+                {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                Salvar e ativar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <WaContentNodeSelector
+          open={!!selectorOpenFor}
+          onClose={() => setSelectorOpenFor(null)}
+          onSelect={(type, id, title) => {
+            if (selectorOpenFor) {
+              updateNode(selectorOpenFor, {
+                ai_source_type: type,
+                ai_source_id: id,
+                ai_source_title: title,
+              } as Partial<AiNode>);
+            }
+          }}
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export default WaGroupFlowBuilder;
