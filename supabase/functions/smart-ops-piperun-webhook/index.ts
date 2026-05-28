@@ -4,6 +4,7 @@ import {
   PIPELINES,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
+  normalizePipeRunDealStatus,
   DEAL_CUSTOM_FIELDS,
   PIPELINE_NAMES,
   PIPERUN_USERS,
@@ -664,7 +665,8 @@ Deno.serve(async (req) => {
       // Deal status
       const dealStatus = deal.status;
       if (dealStatus !== undefined) {
-        const numStatus = typeof dealStatus === "number" ? dealStatus : (dealStatus === "won" ? 1 : dealStatus === "lost" ? 2 : 0);
+        const norm = normalizePipeRunDealStatus(dealStatus);
+        const numStatus = norm === "won" ? 1 : norm === "lost" ? 2 : 0;
         newLeadData.status_oportunidade = DEAL_STATUS_MAP[numStatus] || "aberta";
         newLeadData.piperun_status = numStatus;
       }
@@ -833,7 +835,8 @@ Deno.serve(async (req) => {
     // Deal status
     const dealStatus = deal.status;
     if (dealStatus !== undefined) {
-      const numStatus = typeof dealStatus === "number" ? dealStatus : (dealStatus === "won" ? 1 : dealStatus === "lost" ? 2 : 0);
+      const norm = normalizePipeRunDealStatus(dealStatus);
+      const numStatus = norm === "won" ? 1 : norm === "lost" ? 2 : 0;
       updateData.status_oportunidade = DEAL_STATUS_MAP[numStatus] || "aberta";
       updateData.piperun_status = numStatus;
     }
@@ -916,9 +919,15 @@ Deno.serve(async (req) => {
     }
 
     // ─── Deals History (upsert current deal snapshot) ───
-    const currentDealStatus = dealStatus !== undefined
-      ? (typeof dealStatus === "number" ? (DEAL_STATUS_MAP[dealStatus] || "aberta") : String(dealStatus))
-      : "aberta";
+    const currentDealStatus = (() => {
+      if (dealStatus === undefined) return "aberta";
+      const norm = normalizePipeRunDealStatus(dealStatus);
+      if (norm === "won") return "ganha";
+      if (norm === "lost") return "perdida";
+      if (norm === "open") return "aberta";
+      // Valor desconhecido: preserva o original como string para auditoria
+      return typeof dealStatus === "number" ? "aberta" : String(dealStatus);
+    })();
 
     let dealSnapshot = buildRichDealSnapshot(
       deal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
@@ -1020,8 +1029,9 @@ Deno.serve(async (req) => {
     }
 
     // ─── Oportunidade Encerrada (won/lost) → Cross-sell/Upsell ───
-    const isWon = deal.status === "won" || deal.status === 1;
-    const isLost = deal.status === "lost" || deal.status === 2;
+    const _normClose = normalizePipeRunDealStatus(deal.status);
+    const isWon = _normClose === "won";
+    const isLost = _normClose === "lost";
     const produtoEncerrado = (updateData.produto_interesse as string) || leadProduto || null;
 
     if (isWon || isLost) {
