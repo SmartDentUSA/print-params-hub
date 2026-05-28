@@ -3700,6 +3700,34 @@ SIGA esta abordagem. NÃO contrarie.` : "";
       ? detectEscalationIntent(message, history)
       : null;
 
+    // ── ANTI-ALUCINAÇÃO: dossiê live Sistema A para produto inferido ──
+    let antiHallucinationBlock = "";
+    try {
+      const produtoFromAttendance = String(
+        (attendance as Record<string, unknown> | null | undefined)?.produto_interesse || "",
+      ).split(",")[0]?.trim();
+      const productLabel = produtoFromAttendance || (
+        // pega 1ª match simples no message: nome de produto com ≥3 letras seguido de modelo
+        (message.match(/\b(Vitality|SmartGum|SmartMake|GlazeON|NanoClean|ChairSide|RayShape|Smart Lab|Smart Slice|Exoplan|exocad|TRIOS|iTero|Primescan|Medit|Aoralscan)\b[^,.!?]*/i)?.[0] || "").trim()
+      );
+      if (productLabel) {
+        const enriched = await fetchEnrichedProductDossier(supabase, productLabel);
+        const block = renderAntiHallucinationForPrompt(enriched?.live || null);
+        if (block) {
+          antiHallucinationBlock = `\n\n${block}\nINSTRUÇÃO: Use APENAS estas regras oficiais para falar de compatibilidade, integração, combo, concorrentes ou contraindicações de ${enriched?.live?.name || productLabel}. Se a informação não estiver aqui, responda "Vou confirmar com o time técnico antes de te responder."`;
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "dra-lia",
+              status: "info",
+              context_raw: `[anti_hallucination] dossier_loaded product="${enriched?.live?.name || productLabel}"`,
+            });
+          } catch (_) { /* no-op */ }
+        }
+      }
+    } catch (e) {
+      console.warn("[dra-lia] anti-hallucination dossier failed:", e instanceof Error ? e.message : e);
+    }
+
     // Build escalation rules for system prompt
     const escalationRules = `
 ### 🔀 RÉGUA DE ESCALONAMENTO (IA → Humano)
