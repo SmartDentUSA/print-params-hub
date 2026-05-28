@@ -1279,6 +1279,67 @@ async function executeSearchSuccessStories(args: any) {
   return { count: stories.length, stories, _rag_hits: stories.map(() => ({ source: "success_stories", similarity: null })) };
 }
 
+async function executeGetProductAntiHallucination(args: any) {
+  const raw = String(args?.product || "").trim();
+  if (!raw) return { error: "product é obrigatório" };
+  const pattern = `%${raw.replace(/[%_]/g, "")}%`;
+
+  // Resolve external_id em system_a_catalog (slug → external_id → nome ILIKE)
+  let row: any = null;
+  try {
+    const bySlug = await supabase.from("system_a_catalog")
+      .select("id, external_id, name, slug")
+      .or(`slug.eq.${raw},external_id.eq.${raw},name.ilike.${pattern},slug.ilike.${pattern}`)
+      .eq("active", true)
+      .limit(1);
+    row = bySlug.data?.[0] || null;
+  } catch (e) {
+    console.warn("[get_product_anti_hallucination] lookup:", e);
+  }
+
+  if (!row?.external_id) {
+    return {
+      resolved: false,
+      message: `Produto "${raw}" não encontrado em system_a_catalog. Responda: "Não tenho esse produto confirmado no Sistema A."`,
+    };
+  }
+
+  const live = await fetchSystemAProduct(String(row.external_id));
+  if (!live) {
+    return {
+      resolved: false,
+      product: { name: row.name, slug: row.slug, external_id: row.external_id },
+      message: `Sistema A não retornou regras anti-alucinação para "${row.name}". Responda: "Não tenho essa informação confirmada no Sistema A."`,
+    };
+  }
+
+  return {
+    resolved: true,
+    product: { name: live.name, slug: row.slug, external_id: row.external_id },
+    rules: {
+      never_claim: live.anti_hallucination.never_claim,
+      always_explain: live.anti_hallucination.always_explain,
+      always_require: live.anti_hallucination.always_require,
+      never_mix_with: live.anti_hallucination.never_mix_with,
+      never_use_in_stages: live.anti_hallucination.never_use_in_stages,
+      forbidden_products: live.forbidden_products,
+      required_products: live.required_products,
+    },
+    competitor_comparison: live.competitor_comparison || null,
+    workflow_stages: Object.fromEntries(
+      Object.entries(live.workflow_stages)
+        .filter(([, s]) => s.applicable)
+        .map(([k, s]) => [k, {
+          role: s.role,
+          pain_points_addressed: s.pain_points_addressed,
+          competitive_advantages: s.competitive_advantages,
+        }]),
+    ),
+    _source: "system_a_live",
+    _disclaimer: "Use APENAS o que está nesta resposta. Se a integração/combo/concorrente não aparece aqui, responda 'Não tenho essa informação confirmada no Sistema A'.",
+  };
+}
+
 async function executeQueryTable(args: any) {
   const allowedTables = [
     "lia_attendances", "knowledge_contents", "knowledge_videos", "knowledge_categories",
