@@ -7,6 +7,8 @@ import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, F
 import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
 import { isGreeting, isSupportQuestion, isSupportInfoQuery, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap, isPromptInjection, PROMPT_INJECTION_RESPONSE } from "../_shared/lia-guards.ts";
 import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext, TESTIMONIAL_INTENT, searchTestimonials } from "../_shared/lia-rag.ts";
+import { fetchEnrichedProductDossier } from "../_shared/product-rag.ts";
+import { renderAntiHallucinationForPrompt } from "../_shared/system-a-live.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
