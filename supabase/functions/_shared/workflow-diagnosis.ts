@@ -477,7 +477,7 @@ async function generatePositioningScript(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
 ): Promise<string> {
-  const key = Deno.env.get("DEEPSEEK_API_KEY");
+  const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return "";
   if (!diag.intent?.target_cell && diag.concorrentes_detectados.length === 0) return "";
 
@@ -554,11 +554,11 @@ REGRAS DURAS (violação = output inutilizado):
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const res = await fetch("https://api.deepseek.com/chat/completions", {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: "deepseek-chat",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         max_tokens: 450,
