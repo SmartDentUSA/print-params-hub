@@ -431,8 +431,41 @@ function CreateCampaign({
     if (temPrinter !== "all") f.tem_printer = temPrinter;
     if (recencia !== "any") f.recencia_dias = parseInt(recencia);
     if (clienteFilter !== "all") f.cliente_filter = clienteFilter;
+    if (funilCrm !== "all") f.piperun_pipeline_name = funilCrm;
+    if (origem !== "all") f.origem_primeiro_contato = origem;
+    if (statusPiperun !== "all") f.piperun_status = statusPiperun;
+    if (prazoCompra !== "all") f.prazo_compra = prazoCompra;
+    if (tipoLocal !== "all") f.tipo_local = tipoLocal;
+    if (cidade.trim()) f.cidade = cidade.trim();
+    if (formName !== "all") f.form_name = formName;
+    if (utmCampaign.trim()) f.utm_campaign = utmCampaign.trim();
+    if (marcaScanner !== "all") f.marca_scanner = marcaScanner;
+    if (marcaImpressora !== "all") f.marca_impressora = marcaImpressora;
+    if (temFresadora !== "all") f.tem_fresadora = temFresadora;
+    if (temCad !== "all") f.tem_cad = temCad;
+    if (imprimeModelos !== "all") f.imprime_modelos = imprimeModelos;
+    if (imprimePlacas !== "all") f.imprime_placas = imprimePlacas;
+    if (imprimeGuias !== "all") f.imprime_guias = imprimeGuias;
+    if (imprimeResinasLd !== "all") f.imprime_resinas_ld = imprimeResinasLd;
+    if (reuniaoAgendada !== "all") f.reuniao_agendada = reuniaoAgendada;
+    if (inadimplente !== "all") f.omie_inadimplente = inadimplente;
+    if (recompraAlert !== "all") f.recompra_alert = recompraAlert;
+    if (sdrCompleto !== "all") f.sdr_completo = sdrCompleto;
+    if (temEmail !== "all") f.tem_email = temEmail;
+    if (temTelefone !== "all") f.tem_telefone = temTelefone;
+    if (aceitaContato !== "all") f.aceita_contato = aceitaContato;
+    const ltvNum = parseFloat(ltvMin); if (!isNaN(ltvNum) && ltvNum > 0) f.ltv_min = ltvNum;
+    const scoreNum = parseFloat(scoreMin); if (!isNaN(scoreNum) && scoreNum > 0) f.score_min = scoreNum;
     return f;
-  }, [produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+  }, [
+    produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus,
+    temScanner, temPrinter, recencia, clienteFilter,
+    funilCrm, origem, statusPiperun, prazoCompra, tipoLocal, cidade, formName, utmCampaign,
+    marcaScanner, marcaImpressora, temFresadora, temCad,
+    imprimeModelos, imprimePlacas, imprimeGuias, imprimeResinasLd,
+    reuniaoAgendada, inadimplente, recompraAlert, sdrCompleto,
+    temEmail, temTelefone, aceitaContato, ltvMin, scoreMin,
+  ]);
 
   // Apply a saved segment's filters into state
   const applySegmentFilters = (filters: Record<string, any> | null | undefined) => {
@@ -449,6 +482,31 @@ function CreateCampaign({
     setTemPrinter(f.tem_printer ?? "all");
     setRecencia(f.recencia_dias != null ? String(f.recencia_dias) : "any");
     setClienteFilter(f.cliente_filter ?? "all");
+    setFunilCrm(f.piperun_pipeline_name ?? "all");
+    setOrigem(f.origem_primeiro_contato ?? "all");
+    setStatusPiperun(f.piperun_status ?? "all");
+    setPrazoCompra(f.prazo_compra ?? "all");
+    setTipoLocal(f.tipo_local ?? "all");
+    setCidade(f.cidade ?? "");
+    setFormName(f.form_name ?? "all");
+    setUtmCampaign(f.utm_campaign ?? "");
+    setMarcaScanner(f.marca_scanner ?? "all");
+    setMarcaImpressora(f.marca_impressora ?? "all");
+    setTemFresadora(f.tem_fresadora ?? "all");
+    setTemCad(f.tem_cad ?? "all");
+    setImprimeModelos(f.imprime_modelos ?? "all");
+    setImprimePlacas(f.imprime_placas ?? "all");
+    setImprimeGuias(f.imprime_guias ?? "all");
+    setImprimeResinasLd(f.imprime_resinas_ld ?? "all");
+    setReuniaoAgendada(f.reuniao_agendada ?? "all");
+    setInadimplente(f.omie_inadimplente ?? "all");
+    setRecompraAlert(f.recompra_alert ?? "all");
+    setSdrCompleto(f.sdr_completo ?? "all");
+    setTemEmail(f.tem_email ?? "all");
+    setTemTelefone(f.tem_telefone ?? "all");
+    setAceitaContato(f.aceita_contato ?? "all");
+    setLtvMin(f.ltv_min != null ? String(f.ltv_min) : "");
+    setScoreMin(f.score_min != null ? String(f.score_min) : "");
   };
 
   // Build a query against lia_attendances applying current filters (returns base query)
@@ -466,14 +524,57 @@ function CreateCampaign({
     if (f.real_status) q = q.eq("real_status", f.real_status);
     if (f.tem_scanner === "yes") q = q.eq("tem_scanner", true);
     if (f.tem_scanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
-    if (f.tem_printer === "yes") q = q.not("equip_printer_brand", "is", null);
-    if (f.tem_printer === "no") q = q.is("equip_printer_brand", null);
+    if (f.tem_printer === "yes") q = q.eq("tem_impressora", true);
+    if (f.tem_printer === "no") q = q.or("tem_impressora.is.null,tem_impressora.eq.false");
     if (f.recencia_dias != null) {
       const since = new Date(Date.now() - Number(f.recencia_dias) * 86400000).toISOString();
       q = q.gte("updated_at", since);
     }
     if (f.cliente_filter === "clientes") q = q.gt("total_deals_all", 0);
     if (f.cliente_filter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+    // ── Identificação / origem ───────────────────────────────────────────────
+    if (f.piperun_pipeline_name) q = q.eq("piperun_pipeline_name", f.piperun_pipeline_name);
+    if (f.origem_primeiro_contato) q = q.eq("origem_primeiro_contato", f.origem_primeiro_contato);
+    if (f.piperun_status) q = q.eq("piperun_status", f.piperun_status);
+    if (f.prazo_compra) q = q.eq("prazo_compra", f.prazo_compra);
+    if (f.tipo_local) q = q.eq("tipo_local", f.tipo_local);
+    if (f.cidade) q = q.ilike("cidade", `%${String(f.cidade).replace(/,/g, " ")}%`);
+    if (f.form_name) q = q.eq("form_name", f.form_name);
+    if (f.utm_campaign) q = q.ilike("utm_campaign", `%${String(f.utm_campaign).replace(/,/g, " ")}%`);
+    // ── Workflow digital (equipamentos / aplicações) ─────────────────────────
+    if (f.marca_scanner) {
+      const safe = String(f.marca_scanner).replace(/,/g, " ");
+      q = q.or(`scanner_marca.ilike.%${safe}%,equip_scanner.ilike.%${safe}%`);
+    }
+    if (f.marca_impressora) {
+      const safe = String(f.marca_impressora).replace(/,/g, " ");
+      q = q.or(`equip_impressora.ilike.%${safe}%,impressora_modelo.ilike.%${safe}%`);
+    }
+    if (f.tem_fresadora === "yes") q = q.not("equip_fresadora", "is", null);
+    if (f.tem_fresadora === "no") q = q.is("equip_fresadora", null);
+    if (f.tem_cad === "yes") q = q.or("equip_cad.not.is.null,software_cad.not.is.null");
+    if (f.tem_cad === "no") q = q.is("equip_cad", null).is("software_cad", null);
+    const ynBool = (col: string, v: string) => v === "yes"
+      ? (qq: any) => qq.eq(col, true)
+      : (qq: any) => qq.or(`${col}.is.null,${col}.eq.false`);
+    if (f.imprime_modelos)     q = ynBool("imprime_modelos",     f.imprime_modelos)(q);
+    if (f.imprime_placas)      q = ynBool("imprime_placas",      f.imprime_placas)(q);
+    if (f.imprime_guias)       q = ynBool("imprime_guias",       f.imprime_guias)(q);
+    if (f.imprime_resinas_ld)  q = ynBool("imprime_resinas_ld",  f.imprime_resinas_ld)(q);
+    if (f.reuniao_agendada)    q = ynBool("reuniao_agendada",    f.reuniao_agendada)(q);
+    if (f.omie_inadimplente)   q = ynBool("omie_inadimplente",   f.omie_inadimplente)(q);
+    if (f.recompra_alert)      q = ynBool("recompra_alert",      f.recompra_alert)(q);
+    if (f.sdr_completo)        q = ynBool("sdr_completo",        f.sdr_completo)(q);
+    // ── Compliance / contato ─────────────────────────────────────────────────
+    if (f.tem_email === "yes") q = q.not("email", "is", null);
+    if (f.tem_email === "no")  q = q.is("email", null);
+    if (f.tem_telefone === "yes") q = q.not("telefone_normalized", "is", null);
+    if (f.tem_telefone === "no")  q = q.is("telefone_normalized", null);
+    if (f.aceita_contato === "yes") q = q.or("do_not_contact.is.null,do_not_contact.eq.false");
+    if (f.aceita_contato === "no")  q = q.eq("do_not_contact", true);
+    // ── Score / LTV ──────────────────────────────────────────────────────────
+    if (f.ltv_min != null)   q = q.gte("ltv_total", Number(f.ltv_min));
+    if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
     return q;
   };
 
