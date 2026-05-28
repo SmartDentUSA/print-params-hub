@@ -1,102 +1,107 @@
-## Diagnóstico
+## Problema observado
 
-Hoje o RAG do SPIN lê só `system_a_catalog` (espelho local). Esse espelho não cobre os campos mais ricos que **o Sistema A já expõe publicamente** em `GET https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id={external_id}`:
+No diagnóstico de `clakira05@hotmail.com`:
 
-| Campo no live API | Conteúdo | O que destrava no SPIN |
-|---|---|---|
-| `features[]` (19 itens no GlazeON) | atributos diferenciadores | Ponte-produto com benefícios específicos |
-| `applications` (string) | qual aplicação clínica resolve | Indicação primária para perguntas de SITUAÇÃO |
-| `document_transcriptions[]` | conteúdo extraído de Ebooks/IFU/FDS via Gemini | Specs reais (resinas compatíveis, protocolo de cura, contraindicações) |
-| `workflow_stages` | papel do produto em scan/print/finish | Mapa direto para 7×3 sem heurística |
-| `competitor_comparison` (quando enabled) | tabela específica vs concorrentes | Argumentos contra Anycubic/Phrozen sem invenção |
-| `forbidden_products[]` / `required_products[]` | combos válidos/inválidos | Trava dura para `combo_sugerido` |
-| `anti_hallucination_rules` | `never_claim`, `always_explain`, `always_require`, `never_mix_with`, `never_use_in_stages` | Regras explícitas para o prompt Gemini |
-| `bot_trigger_words` / `market_keywords` / `search_intent_keywords` | intenção do lead em linguagem real | Melhora o matcher de intent (`resolveIntent`) |
-| `target_audience` | perfil ideal | Calibra perguntas SPIN por persona |
+- Formulário: `# - Impresoras - Smart Dent` / Campanha `RayShape Edge Mini`
+- Equipamentos declarados: **Impressora: não, Scanner: não**
+- Mesmo assim a nota afirma: "Cláudio é um implantodontista que **já possui a RayShape EdgeMini**" e mostra `Stack: 3 · Impressão 3D + 6 · Cursos`.
 
-Validado por curl real: `GET /get-product-data?product_id=3848beb6-b671-43c4-9799-d8e482d197f4` retornou **77 KB** com todos esses campos. (O endpoint `/export-product-ai-playbook` está retornando 500 hoje — não vamos depender dele.)
+Causa: o pipeline está tratando o **produto-alvo do formulário** (intenção de compra) como se fosse parte do **stack instalado** do lead. Hoje:
 
-A coluna `system_a_catalog.external_id` **já guarda** o ID do produto no Sistema A (confirmado: GlazeON Splint → `3848beb6-…`), então a ponte é direta — não precisa migration de schema.
+- `resolveIntent` lê `form_name` / `produto_interesse` corretamente como intenção.
+- Mas `seedSpinBriefing` mistura `stack_atual + intent` em uma única frase ("estrutura em X. interesse em Y"), e o LLM, vendo a intenção como contexto, transforma em "já possui".
+- Pior: respostas de formulário do tipo "qual impressora você busca?" estão sendo capturadas como `sdr_field` da etapa 3, populando `stack_atual` com o produto-alvo — então até a heurística passa a achar que o lead tem a RayShape.
 
-## Escopo
+Resultado: SPIN parte de premissa falsa, dores e perguntas viram irrelevantes ("como gerencia envio de arquivos para sua EdgeMini hoje?" — ele nem comprou).
 
-### 1. Novo módulo `_shared/system-a-live.ts`
+## Objetivo
 
-- `fetchSystemAProduct(externalId, opts)` — chama `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id=…` com timeout 8s, retry 1×, cache em memória (TTL 10 min, chave = externalId). Soft-fail → `null`.
-- `mapSystemAToLiveDossier(payload)` — normaliza o response em uma nova interface `LiveProductDossier`:
+Separar de forma rígida **STACK INSTALADO** (o que o lead já tem) de **ALVO DE COMPRA** (o que ele quer adquirir, vindo do formulário/campanha) em toda a nota SPIN, e nunca deixar o LLM afirmar posse do produto-alvo.
+
+## Mudanças
+
+Arquivo único: `supabase/functions/_shared/workflow-diagnosis.ts` (+ atualização em `mem/smart-ops/seller-note-workflow-diagnosis.md`).
+
+### 1. Guard de "intent-leak" no stack
+
+Em `diagnoseLead`, depois de calcular `intent`:
+
+- Se `intent.target_stage` e `intent.target_cell` existem, varrer `stack` e remover entradas cujo `value` normalizado bata com `intent.matched_product_label` ou com `intent.produto` (substring match em ambos os sentidos) E cujo `field` venha de campo semanticamente de "interesse" — tratar como leak: padrão regex no `field`/`field_label` (`interesse|busca|deseja|quer|procura|alvo|gostaria`). Isso protege casos em que o mesmo formulário pergunta tanto "qual você usa" quanto "qual você quer".
+- Adicionalmente, se `equip_printer_model`/`equip_scanner_model` (ou equivalentes do mapping) vierem com valor `não/nao/n/a`, marcar a célula correspondente como **explicitamente vazia** num novo `Set<string> declaredEmpty` — e remover do `stack` qualquer entrada da mesma célula proveniente de campo não-equipamento.
+
+### 2. Novo campo no diagnóstico
+
+Adicionar em `WorkflowDiagnosis`:
 
 ```ts
-interface LiveProductDossier {
-  id: string;            // external_id (Sistema A)
-  name: string;
-  applications: string;                              // 1 frase
-  benefits: string[];                                // top 8
-  features: string[];                                // top 10
-  technical_specs: Array<{label,value}>;             // já existe no live
-  document_extracts: Array<{filename, summary, key_specs}>; // de document_transcriptions
-  workflow_stages: Record<stage, {role,description,materials[],pain_points[],advantages[]}>;
-  competitor_comparison?: {title, table_headers[], table_data[][]};
-  forbidden_products: string[];
-  required_products: string[];
-  anti_hallucination: {
-    never_claim: string[];
-    always_explain: string[];
-    always_require: string[];
-    never_mix_with: string[];
-    never_use_in_stages: string[];
-  };
-  target_audience: string[];
-  market_keywords: string[];
-  bot_trigger_words: string[];
-}
+declared_empty_cells: string[]; // ex: ["etapa_3_impressao::impressora_3d", "etapa_1_scanner::scanner_intraoral"]
 ```
 
-- `renderLiveDossierForPrompt(d)` — bloco compacto para injetar no prompt Gemini.
+Popular a partir do `declaredEmpty` acima. Usado pelo seed e pelo prompt do LLM.
 
-### 2. `product-rag.ts` — fonte híbrida
+### 3. Reescrita da `situacao` no seed
 
-- `fetchProductDossier(supabase, label)` continua igual (local cache rápido).
-- Nova `fetchEnrichedProductDossier(supabase, label)` que:
-  1. busca `system_a_catalog` row (já temos) → pega `external_id`.
-  2. em paralelo busca live (`fetchSystemAProduct(external_id)`).
-  3. merge: live tem prioridade em `features`, `applications`, `document_extracts`, `workflow_stages`, `competitor_comparison`, `forbidden_products`, `required_products`, `anti_hallucination`. Local fica de fallback.
-- Sem mudar a interface antiga: o consumidor velho continua chamando `fetchProductDossier`; só `workflow-diagnosis.ts` migra para a versão enriquecida.
+Em `seedSpinBriefing`, separar três blocos:
 
-### 3. `workflow-diagnosis.ts` — usar o live em 3 pontos
+- `stackTxt` = stack real (após filtros)
+- `gapTxt` = quando `declared_empty_cells` inclui a célula-alvo: "ainda sem `<etapa>` instalado"
+- `goalTxt` = `intent` sempre rotulado como **"busca adquirir"** / **"avaliando comprar"**, nunca "interesse em" solto
 
-- **`resolveIntent`** — passa a opcionalmente carregar `bot_trigger_words` e `market_keywords` de todos os produtos do mapping (em batch, cache 10min). Cada token desses entra no scoring como **PRODUCT_TOKENS** específico. Resolve o caso "GlazeON Splint → sem match no portfólio" (mencionado no plan anterior) sem precisar manter hardcoded.
-- **`buildProductDiscoveryHints`** (do plano anterior) — agora alimentado por: `applications`, `workflow_stages[stage].pain_points_addressed`, `anti_hallucination.always_require` (perguntar se o lead tem o pré-requisito), `document_extracts[].key_specs` (resinas compatíveis, dispositivos de cura).
-- **`enrichSpinWithLLM`** — o prompt Gemini ganha 3 novos blocos:
-  - `=== CONTEXTO DO PRODUTO (Sistema A live) ===` com `features` + `applications` + top 2 `document_extracts.summary`.
-  - `=== REGRAS ANTI-ALUCINAÇÃO DO PRODUTO ===` com as 5 listas de `anti_hallucination_rules`. Instrução dura: *"Se uma pergunta SPIN ou a ponte_produto violar `never_claim` / `never_mix_with` / `never_use_in_stages`, REESCREVA."*
-  - `=== COMBO VÁLIDO ===` com `required_products` (devem aparecer em perguntas de problema/implicação se faltarem no stack do lead) e `forbidden_products` (proibido sugerir).
+Frase final:
 
-### 4. Endpoint de manutenção: `smart-ops-refresh-system-a-cache`
+- Se `declared_empty_cells` contém a célula da intent → "`<role>` sem `<etapa-alvo>` instalado, avaliando adquirir `<produto-alvo>`. Stack atual: `<stackTxt|—>`."
+- Senão se há stack → "`<role>` com `<stackTxt>`, avaliando adquirir `<produto-alvo>`."
+- Senão → "`<role>` sem stack declarada, avaliando adquirir `<produto-alvo>`."
 
-Edge function nova (`verify_jwt=false`, on-demand), com 2 modos:
+### 4. Dores e implicações reorientadas quando lead NÃO tem o alvo
 
-- `GET ?product_id=<external_id>` — força refresh do cache em memória + opcionalmente faz `UPSERT` em `system_a_catalog.extra_data` com os campos novos (`features`, `applications`, `document_extracts`, `workflow_stages`, `anti_hallucination`) para garantir que mesmo sem live disponível o seed heurístico melhora.
-- `GET ?all=true&limit=50` — varre todas as rows do `system_a_catalog` que têm `external_id` e atualiza em lote (chamado por cron diário).
+Quando `intent.target_stage` está em `declared_empty_cells` (ou stack vazio na célula-alvo):
 
-Sem migration. Apenas `UPDATE system_a_catalog SET extra_data = jsonb_set(coalesce(extra_data,'{}'), '{system_a_live}', $payload, true), updated_at=now() WHERE external_id=$id`.
+- Adicionar dor padronizada: `"Sem <etapa-alvo> próprio, depende de terceiros / não executa esse passo do fluxo"` com evidência `"declarou não possuir <equipamento>"`.
+- Implicação: `"Custo de terceirização e perda de margem por peça enquanto não internaliza <etapa>"`.
+- Remover dores tipo "subutilização do <produto-alvo>" / "EdgeMini parada" que pressupõem posse.
 
-### 5. Validação
+### 5. Perguntas SPIN reorientadas
 
-1. `curl smart-ops-refresh-system-a-cache?product_id=3848beb6-b671-43c4-9799-d8e482d197f4` → confirmar 200 + 19 features + applications populadas.
-2. `curl smart-ops-preview-seller-note?email=bonfanteatendimento@gmail.com` →
-   - `diagnosis.intent.matched_product_label` = "Sistema de Acabamento GlazeON - Splint" (matcher casa via `bot_trigger_words` / `market_keywords` do live).
-   - `diagnosis.spin.perguntas_spin.problema` cita **qual resina de placa** + **qual dispositivo de fotopolimerização** (vindos de `document_extracts` / `technical_specifications`).
-   - `diagnosis.spin.ponte_produto` cita o ganho de **10,5% de Resistência Flexural** (vindo de `technical_specifications`) e a compatibilidade universal (vindo de `applications` / `features`).
-3. Re-rodar `danilohen@gmail.com` para garantir que ioConnect/Medit não regrediu.
-4. `enableLLM:false` → confirmar que o seed heurístico já entrega perguntas específicas usando `applications` + `workflow_stages` + `anti_hallucination.always_require`.
+Quando alvo não está instalado:
 
-## Arquivos alterados
+- `situacaoQ`: "Hoje, como você resolve `<etapa-alvo>` — terceiriza, manda para laboratório ou não faz?"
+- `problemaQ` extra (primeiro da lista): "O que te levou a olhar especificamente para `<produto-alvo>` agora?"
+- Manter `always_require` e `required_products` como perguntas adicionais.
+- Remover qualquer pergunta que assuma posse ("como tem gerenciado o envio para sua `<produto-alvo>`?").
 
-- **Novo** `supabase/functions/_shared/system-a-live.ts` — fetcher + mapper + render do live API.
-- `supabase/functions/_shared/product-rag.ts` — adiciona `fetchEnrichedProductDossier` (merge local+live).
-- `supabase/functions/_shared/workflow-diagnosis.ts` — `resolveIntent` lê PRODUCT_TOKENS do live, `seedSpinBriefing` usa `applications`/`workflow_stages`, `enrichSpinWithLLM` injeta os 3 novos blocos no prompt Gemini.
-- **Nova edge function** `supabase/functions/smart-ops-refresh-system-a-cache/index.ts` + entrada em `supabase/config.toml` com `verify_jwt=false`.
-- `mem/smart-ops/seller-note-workflow-diagnosis.md` — documentar a fonte híbrida (local cache + Sistema A live).
-- **Nova memory** `mem://integration/system-a-live-product-api` — registrar URL, campos consumidos e regra de cache.
+### 6. Prompt do LLM (`enrichSpinWithLLM`)
 
-Nada muda em `lia-assign`, `cognitive-analysis`, `seller-summary`, `dra-lia` ou frontend. O `system_a_catalog` local continua sendo a fonte principal; o live API é uma camada de enriquecimento opcional com soft-fail completo.
+Acrescentar no bloco `DADOS DO LEAD`:
+
+```
+- Células declaradas SEM equipamento: <lista de declared_empty_cells em PT-BR ou "nenhuma">
+- Status do produto-alvo: <"AINDA NÃO POSSUI — busca adquirir"> | <"já possui (consta no stack)">
+```
+
+E em `REGRAS DURAS` adicionar:
+
+- "**NUNCA** afirme ou implique que o lead já possui o produto-alvo se ele consta como AINDA NÃO POSSUI. Use sempre verbos como 'avalia adquirir', 'busca comprar', 'está pesquisando'."
+- "Quando o produto-alvo ainda não foi adquirido: perguntas de SITUAÇÃO devem mapear COMO ele resolve hoje (terceirização, ausência do passo); perguntas de PROBLEMA devem investigar gatilho de compra, alternativas avaliadas e critério de decisão."
+- "Stack atual no prompt é a ÚNICA fonte do que o lead JÁ TEM. Produto-alvo nunca é stack."
+
+### 7. Memória
+
+Atualizar `mem/smart-ops/seller-note-workflow-diagnosis.md` com a regra:
+
+> **Intent-vs-Stack Separation**: produto vindo de `form_name`/`produto_interesse`/campanha é SEMPRE alvo de compra. `declared_empty_cells` marca células onde o lead respondeu explicitamente "não" em equipamento. SPIN nunca pode afirmar posse de produto-alvo quando célula está em `declared_empty_cells` ou ausente do stack.
+
+## Validação
+
+1. Re-rodar diagnóstico para `clakira05@hotmail.com`:
+   - `declared_empty_cells` deve conter `etapa_3_impressao::*` e `etapa_1_scanner::*`.
+   - `situacao` deve dizer "avaliando adquirir RayShape EdgeMini" sem "já possui".
+   - Stack não pode incluir "RayShape" / "EdgeMini".
+   - Pergunta `S` deve ser sobre como ele resolve impressão hoje (terceiriza?), não "como gerencia envio para sua EdgeMini".
+2. Re-rodar `bonfanteatendimento@gmail.com` (GlazeON) — comportamento de specs/anti-alucinação preservado.
+3. Re-rodar `danilohen@gmail.com` (stack rico, sem leak) — sem regressão; stack continua aparecendo intacto.
+
+## Fora de escopo
+
+- Não mexer em `resolveIntent`, mapping tables, ou Sistema A live (já corretos).
+- Não mexer no frontend admin/UI — apenas o conteúdo do diagnóstico muda.

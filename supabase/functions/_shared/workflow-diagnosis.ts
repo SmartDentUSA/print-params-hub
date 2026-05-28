@@ -66,6 +66,12 @@ export interface WorkflowDiagnosis {
   concorrentes_detectados: Array<{ stage: string; cell: string; label: string }>;
   llm_script?: string;       // optional DeepSeek positioning bullets
   spin?: SpinBriefing;       // NEW — SPIN briefing for the seller
+  /**
+   * Cells where the lead explicitly declared they DO NOT own equipment
+   * (e.g. equip_printer_model = "não"). Used by SPIN to avoid implying
+   * ownership of the product-of-interest.
+   */
+  declared_empty_cells?: string[];
 }
 
 export interface SpinBriefing {
@@ -323,9 +329,31 @@ export async function diagnoseLead(
   const stack: StackEntry[] = [];
   const concorrentes: WorkflowDiagnosis["concorrentes_detectados"] = [];
   const cellsWithStack = new Set<string>();
+  const declaredEmpty = new Set<string>();
+
+  // Raw value lookup that does NOT filter out "não/nao" — used to detect
+  // cells where the lead explicitly declared they do NOT own equipment.
+  const rawLeadValue = (field: string): string => {
+    const direct = lead[field];
+    if (direct !== undefined && direct !== null && String(direct).trim() !== "") return String(direct);
+    const fromForm = formIndex.get(field.toLowerCase());
+    if (fromForm !== undefined && fromForm !== "") return fromForm;
+    const fromCustom = customFieldsIndex.get(field.toLowerCase());
+    if (fromCustom !== undefined && fromCustom !== "") return fromCustom;
+    return "";
+  };
+  const isExplicitNo = (v: string): boolean => {
+    const s = v.toLowerCase().trim();
+    return s === "não" || s === "nao" || s === "n/a" || s === "—" || s === "no" || s === "nenhum" || s === "nenhuma";
+  };
 
   for (const b of cells.values()) {
     for (const sf of b.sdr_fields) {
+      // Declared-empty detection: equipment-style fields with explicit "não"
+      const rawVal = rawLeadValue(sf.mapped_value);
+      if (rawVal && isExplicitNo(rawVal) && /equip|printer|scanner|impress|cad|fresa|forno|cura/i.test(sf.mapped_value + " " + (sf.mapped_label || ""))) {
+        declaredEmpty.add(`${b.stage}::${b.cell}`);
+      }
       const val = pickLeadValue(lead, sf.mapped_value, formIndex, customFieldsIndex);
       if (!val) continue;
       // Check if value matches any competitor of this cell
@@ -357,6 +385,64 @@ export async function diagnoseLead(
 
   // ── Intent (produto buscado) ──
   const intent = resolveIntent(lead, mappings, tokenIndex);
+
+  // ── Intent-leak guard: drop stack entries that are actually echoing the
+  // form-declared interest (e.g. SDR field "qual impressora você busca?"
+  // captured the product-of-interest, not an installed equipment).
+  if (intent) {
+    const tokenize = (s: string): Set<string> => {
+      const stop = new Set([
+        "de", "da", "do", "para", "com", "e", "a", "o", "the", "of",
+        "impressora", "scanner", "intraoral", "bancada", "resina", "software",
+        "sistema", "dispositivo", "curso", "cursos", "3d", "edge", "mini",
+      ]);
+      const compact = norm(s).replace(/[^a-z0-9\s]/g, " ");
+      const tokens = compact.split(/\s+/).filter((t) => t.length >= 4 && !stop.has(t));
+      // Also include a no-space squashed form so "edgemini" and "edge mini" match
+      const squashed = compact.replace(/\s+/g, "");
+      const out = new Set(tokens);
+      if (squashed.length >= 6) out.add(squashed);
+      return out;
+    };
+    const intentTokenSet = new Set<string>();
+    for (const src of [intent.matched_product_label, intent.produto]) {
+      if (!src) continue;
+      for (const t of tokenize(String(src))) intentTokenSet.add(t);
+    }
+    const INTEREST_RE = /interesse|busca|deseja|quer|procura|alvo|gostaria|pretende/i;
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const s = stack[i];
+      const valTokens = tokenize(s.value);
+      const valSquashed = norm(s.value).replace(/[^a-z0-9]/g, "");
+      let shared = 0;
+      for (const t of valTokens) if (intentTokenSet.has(t)) shared++;
+      // Also check squashed-form overlap (catches "edgemini" vs "edge mini")
+      const squashedHit = valSquashed.length >= 6 && Array.from(intentTokenSet).some(
+        (t) => t.length >= 6 && (valSquashed.includes(t) || t.includes(valSquashed)),
+      );
+      const hitIntent = shared >= 1 || squashedHit;
+      const isInterestField = INTEREST_RE.test(s.field + " " + s.field_label);
+      if (hitIntent && isInterestField) {
+        stack.splice(i, 1);
+      }
+    }
+    // Recompute cellsWithStack after scrubbing
+    cellsWithStack.clear();
+    for (const s of stack) cellsWithStack.add(`${s.stage}::${s.cell}`);
+  }
+
+  // If a cell is in declaredEmpty AND has no equipment-grade stack entry,
+  // also drop any leftover non-equipment stack entries on that cell — they
+  // are almost certainly intent/interest noise.
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const s = stack[i];
+    const cellKey = `${s.stage}::${s.cell}`;
+    if (declaredEmpty.has(cellKey) && !/equip|printer|scanner|impress|cad|fresa|forno|cura/i.test(s.field + " " + s.field_label)) {
+      stack.splice(i, 1);
+    }
+  }
+  cellsWithStack.clear();
+  for (const s of stack) cellsWithStack.add(`${s.stage}::${s.cell}`);
 
   // ── Lacunas (em relação ao alvo) ──
   const lacunas: WorkflowDiagnosis["lacunas"] = [];
@@ -441,6 +527,7 @@ export async function diagnoseLead(
     combo_sugerido: combo,
     perguntas_qualificacao: perguntasTop,
     concorrentes_detectados: concorrentes,
+    declared_empty_cells: Array.from(declaredEmpty),
   };
 
   // ── LLM positioning script (best-effort, soft-fail) ──
@@ -616,6 +703,29 @@ async function generatePositioningScript(
   const stackSummary = diag.stack_atual.length
     ? diag.stack_atual.map(s => `${STAGE_LABEL[s.stage] || s.stage}/${s.cell}=${s.value}${s.is_competitor ? ` [concorrente: ${s.competitor_label}]` : ""}`).join("; ")
     : "(vazio)";
+
+  const declaredEmptyList = (diag.declared_empty_cells ?? [])
+    .map((k) => {
+      const [st] = k.split("::");
+      return STAGE_LABEL[st] || st;
+    });
+  const declaredEmptyTxt = declaredEmptyList.length ? Array.from(new Set(declaredEmptyList)).join(", ") : "nenhuma";
+
+  const targetCellKey2 = diag.intent?.target_stage && diag.intent.target_cell
+    ? `${diag.intent.target_stage}::${diag.intent.target_cell}`
+    : null;
+  const targetCellHasStack2 = targetCellKey2
+    ? diag.stack_atual.some((s) => `${s.stage}::${s.cell}` === targetCellKey2)
+    : false;
+  const targetNotOwned2 = !!diag.intent && (
+    !targetCellHasStack2 ||
+    (targetCellKey2 ? (diag.declared_empty_cells ?? []).includes(targetCellKey2) : false)
+  );
+  const ownershipStatus = !diag.intent
+    ? "—"
+    : targetNotOwned2
+      ? "AINDA NÃO POSSUI — busca adquirir (alvo de compra)"
+      : "já consta no stack instalado";
   const comboList = [
     ...diag.combo_sugerido.mesma_celula,
     ...diag.combo_sugerido.celula_adjacente,
@@ -875,15 +985,49 @@ function seedSpinBriefing(
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
-  const intentTxt = diag.intent
-    ? `interesse em ${diag.intent.produto}${diag.intent.target_stage ? ` (${STAGE_LABEL[diag.intent.target_stage]})` : ""}`
+
+  // ── Intent-vs-stack separation ─────────────────────────────────
+  // O produto vindo de form/produto_interesse é SEMPRE alvo de compra.
+  // Só consideramos "instalado" se a célula do alvo aparece em stack_atual
+  // e NÃO está em declared_empty_cells.
+  const targetCellKey = diag.intent?.target_stage && diag.intent.target_cell
+    ? `${diag.intent.target_stage}::${diag.intent.target_cell}`
+    : null;
+  const declaredEmptySet = new Set(diag.declared_empty_cells ?? []);
+  const targetCellHasStack = targetCellKey
+    ? diag.stack_atual.some((s) => `${s.stage}::${s.cell}` === targetCellKey)
+    : false;
+  const targetNotOwned = !!diag.intent && (
+    !targetCellHasStack || (targetCellKey ? declaredEmptySet.has(targetCellKey) : false)
+  );
+  const targetLabel = diag.intent?.matched_product_label || diag.intent?.produto || "";
+  const targetStageLbl = diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "";
+
+  const goalTxt = diag.intent
+    ? `avaliando adquirir ${targetLabel}${targetStageLbl ? ` (${targetStageLbl})` : ""}`
     : "intenção a confirmar";
-  const situacao = stackStages.length
-    ? `${role} com estrutura em ${stackStages.join(" + ")}. ${intentTxt}.`
-    : `${role} sem stack declarada. ${intentTxt}.`;
+
+  let situacao: string;
+  if (targetNotOwned && targetStageLbl) {
+    const stackTail = stackStages.length ? ` Stack instalada hoje: ${stackStages.join(" + ")}.` : " Sem stack declarada.";
+    situacao = `${role} ainda sem ${targetStageLbl} próprio, ${goalTxt}.${stackTail}`;
+  } else if (stackStages.length) {
+    situacao = `${role} com estrutura em ${stackStages.join(" + ")}, ${goalTxt}.`;
+  } else {
+    situacao = `${role} sem stack declarada, ${goalTxt}.`;
+  }
 
   const dores: SpinBriefing["dores_provaveis"] = [];
   const implicacoes: string[] = [];
+
+  // Dor primária quando o lead ainda não tem o produto-alvo
+  if (targetNotOwned && targetStageLbl) {
+    dores.push({
+      dor: `Sem ${targetStageLbl} próprio — depende de terceiros ou não executa esse passo do fluxo`,
+      evidencia: `declarou não possuir equipamento na célula-alvo (${targetStageLbl})`,
+    });
+    implicacoes.push(`Custo de terceirização e perda de margem por peça enquanto não internaliza ${targetStageLbl}`);
+  }
 
   // Heurísticas por concorrente
   for (const c of diag.concorrentes_detectados) {
@@ -946,16 +1090,24 @@ function seedSpinBriefing(
   }
 
   // Perguntas SPIN — heurística baseada no que falta + na intent
-  const stackResumo = diag.stack_atual.length
-    ? diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ")
-    : "seu setup atual";
-  const situacaoQ = [`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`];
+  const situacaoQ: string[] = [];
+  if (targetNotOwned && targetStageLbl) {
+    situacaoQ.push(`Hoje, como você resolve ${targetStageLbl} — terceiriza, manda para laboratório ou não faz essa etapa?`);
+  } else if (diag.stack_atual.length) {
+    const stackResumo = diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
+    situacaoQ.push(`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`);
+  } else {
+    situacaoQ.push(`Conta um pouco do seu fluxo atual — quais etapas você já tem internalizadas e quais ainda dependem de terceiros?`);
+  }
 
   const problemaQ: string[] = [];
+  if (targetNotOwned && targetLabel) {
+    problemaQ.push(`O que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
+  }
   if (diag.concorrentes_detectados.length) {
     problemaQ.push(`Onde o ${diag.concorrentes_detectados[0].label} mais te trava — calibração, perfil de material, suporte ou produtividade?`);
   }
-  if (diag.intent?.matched_product_label) {
+  if (!targetNotOwned && diag.intent?.matched_product_label) {
     problemaQ.push(`O que te fez olhar especificamente para ${diag.intent.matched_product_label} agora?`);
   }
   // Live API → perguntas de PROBLEMA específicas: cada `always_require`,
@@ -1054,12 +1206,17 @@ DADOS DO LEAD:
 - Concorrentes detectados: ${diag.concorrentes_detectados.map(c => c.label).join(", ") || "nenhum"}
 - Intenção declarada: ${diag.intent?.produto || "—"} (match no portfólio: ${diag.intent?.matched_product_label || "sem match"})
 - Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
-- Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}${ragSection}
+- Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}
+- Células declaradas SEM equipamento: ${declaredEmptyTxt}
+- Status do produto-alvo: ${ownershipStatus}${ragSection}
 
 SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- SEPARAÇÃO INTENT vs STACK: "Stack atual" é a ÚNICA fonte do que o lead JÁ TEM. O produto-alvo (vindo de form/produto_interesse/campanha) é INTENÇÃO DE COMPRA, NUNCA equipamento instalado.
+- Quando "Status do produto-alvo" = "AINDA NÃO POSSUI": NUNCA afirme ou implique posse ("já possui", "sua EdgeMini", "como gerencia seu X"). Use SEMPRE verbos como "avalia adquirir", "busca comprar", "está pesquisando".
+- Quando o alvo está em "AINDA NÃO POSSUI": perguntas de SITUAÇÃO devem mapear COMO o lead resolve a etapa hoje (terceiriza? laboratório? não faz?); perguntas de PROBLEMA devem investigar gatilho de compra, alternativas avaliadas e critério de decisão.
 - Perguntas DEVEM citar o que o lead JÁ TEM (nome do scanner, da impressora, software). Nada de "qual scanner você usa?" se já sabemos.
 - Implicações concretas: peças/mês, hora-cadeira, retrabalho, garantia, custo de terceirização.
 - Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO ou do bloco "CONTEXTO DO PRODUTO (Sistema A live)". Sem inventar.

@@ -49,3 +49,10 @@ type: feature
 **Falha-suave**: se `workflow_cell_mappings` estiver vazio, `diagnoseLead` retorna estrutura vazia e os renderers devolvem string vazia → nota/briefing seguem sem o bloco. Se DeepSeek cair, `llm_script` fica undefined e os outros campos seguem.
 
 **Falha-suave SPIN**: se Gemini falhar/timeout, `diag.spin` mantém o seed heurístico (situação genérica + dores baseadas em concorrente/lacuna + perguntas SPIN com placeholders do stack). Renderers nunca quebram.
+
+**Intent-vs-Stack Separation (CRÍTICO)**: produto vindo de `form_name` / `produto_interesse` / `produto_interesse_auto` / campanha é SEMPRE alvo de compra, NUNCA equipamento instalado. Guardas em `diagnoseLead`:
+- `declared_empty_cells` (novo campo do `WorkflowDiagnosis`): células onde sdr_field de equipamento (`equip|printer|scanner|impress|cad|fresa|forno|cura`) veio com valor explícito "não/nao/n/a/—/nenhum".
+- Scrubbing pós-`resolveIntent`: remove de `stack_atual` qualquer entrada cujo `value` bata com `intent.matched_product_label`/`intent.produto` E cujo `field`/`field_label` case com regex de interesse (`interesse|busca|deseja|quer|procura|alvo|gostaria|pretende`) — evita que resposta tipo "qual impressora você busca? RayShape" vire stack instalado.
+- Scrubbing extra: em células marcadas em `declaredEmpty`, derruba entradas de stack que não vêm de campo de equipamento.
+- `seedSpinBriefing` calcula `targetNotOwned` (alvo não consta no stack OU célula-alvo em `declared_empty_cells`) e troca a situação para "ainda sem `<etapa-alvo>` próprio, avaliando adquirir `<produto>`", troca a primeira pergunta de SITUAÇÃO para "como você resolve `<etapa>` hoje — terceiriza/laboratório/não faz?" e adiciona pergunta-âncora de PROBLEMA "o que te levou a olhar `<produto>` agora?".
+- Prompt do LLM recebe linhas `Células declaradas SEM equipamento` e `Status do produto-alvo` (`AINDA NÃO POSSUI — busca adquirir` | `já consta no stack instalado`) + regra dura proibindo afirmar posse e ditando o foco das perguntas de SITUAÇÃO/PROBLEMA quando o alvo não foi adquirido.
