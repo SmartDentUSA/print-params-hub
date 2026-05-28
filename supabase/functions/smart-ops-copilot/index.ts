@@ -1952,18 +1952,18 @@ serve(async (req) => {
         console.error(`${config.label} error:`, response.status, errText);
         
         if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit atingido. Tente novamente em alguns segundos." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          return new Response(JSON.stringify({ reply: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
         if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "Créditos insuficientes para Lovable AI. Adicione créditos no workspace." }), {
-            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          return new Response(JSON.stringify({ reply: "💳 Créditos insuficientes na Lovable AI. Adicione créditos em Settings → Workspace → Usage para continuar usando o Copilot.", error: "insufficient_credits" }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
         
-        return new Response(JSON.stringify({ error: `Erro ao chamar ${config.label}: ${response.status}` }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        return new Response(JSON.stringify({ reply: `⚠️ Erro ao chamar ${config.label} (${response.status}). Tente novamente.`, error: `provider_${response.status}` }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
 
