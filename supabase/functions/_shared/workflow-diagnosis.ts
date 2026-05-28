@@ -505,6 +505,7 @@ export async function diagnoseLead(
     combo_sugerido: combo,
     perguntas_qualificacao: perguntasTop,
     concorrentes_detectados: concorrentes,
+    declared_empty_cells: Array.from(declaredEmpty),
   };
 
   // ── LLM positioning script (best-effort, soft-fail) ──
