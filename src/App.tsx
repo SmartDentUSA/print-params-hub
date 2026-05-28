@@ -17,6 +17,7 @@ import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
 import SupportResources from "./pages/SupportResources";
 import SmartOpsFormFlowStandalone from "./pages/SmartOpsFormFlowStandalone";
+import WaFlowVisualizerPage from "./pages/WaFlowVisualizerPage";
 import DraLIA from "./components/DraLIA";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
@@ -35,6 +36,7 @@ const App = () => (
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
       <Route path="/admin" element={<AdminViewSecure />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
+      <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
       
       {/* Portuguese routes (default) */}
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
