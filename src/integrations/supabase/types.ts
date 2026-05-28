@@ -2603,6 +2603,51 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_faqs: {
+        Row: {
+          active: boolean
+          answer: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          priority: number
+          product_refs: string[] | null
+          question: string
+          tags: string[] | null
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          priority?: number
+          product_refs?: string[] | null
+          question: string
+          tags?: string[] | null
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          priority?: number
+          product_refs?: string[] | null
+          question?: string
+          tags?: string[] | null
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           annual_revenue: number | null
@@ -12745,10 +12790,14 @@ export type Database = {
           anti_hallucination_rules: Json | null
           category: string | null
           clinical_brain_status: string | null
+          datasheet_summary: string | null
+          datasheet_url: string | null
           forbidden_products: Json | null
+          manual_url: string | null
           name: string | null
           product_id: string
           required_products: Json | null
+          spec_sheet_url: string | null
           subcategory: string | null
           synced_at: string | null
           whatsapp_messages: Json | null
@@ -12759,10 +12808,14 @@ export type Database = {
           anti_hallucination_rules?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
+          datasheet_summary?: string | null
+          datasheet_url?: string | null
           forbidden_products?: Json | null
+          manual_url?: string | null
           name?: string | null
           product_id: string
           required_products?: Json | null
+          spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
           whatsapp_messages?: Json | null
@@ -12773,10 +12826,14 @@ export type Database = {
           anti_hallucination_rules?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
+          datasheet_summary?: string | null
+          datasheet_url?: string | null
           forbidden_products?: Json | null
+          manual_url?: string | null
           name?: string | null
           product_id?: string
           required_products?: Json | null
+          spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
           whatsapp_messages?: Json | null
@@ -15861,6 +15918,72 @@ export type Database = {
           spin_context?: string | null
           uf?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      success_stories: {
+        Row: {
+          challenge: string | null
+          city: string | null
+          client_name: string
+          client_role: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          image_url: string | null
+          products_used: string[] | null
+          published: boolean
+          published_at: string | null
+          results: Json | null
+          segment: string | null
+          slug: string
+          solution: string | null
+          state: string | null
+          testimonial: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          challenge?: string | null
+          city?: string | null
+          client_name: string
+          client_role?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          products_used?: string[] | null
+          published?: boolean
+          published_at?: string | null
+          results?: Json | null
+          segment?: string | null
+          slug: string
+          solution?: string | null
+          state?: string | null
+          testimonial?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          challenge?: string | null
+          city?: string | null
+          client_name?: string
+          client_role?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          products_used?: string[] | null
+          published?: boolean
+          published_at?: string | null
+          results?: Json | null
+          segment?: string | null
+          slug?: string
+          solution?: string | null
+          state?: string | null
+          testimonial?: string | null
+          updated_at?: string
+          video_url?: string | null
         }
         Relationships: []
       }
