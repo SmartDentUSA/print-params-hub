@@ -58,7 +58,8 @@ export async function buildSellerDealSummaryHTML(
   const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
 
   // ── Parallel fetches (best-effort; never fail the whole note) ──
-  const [ecomRes, enrollRes, formsRes, activityRes, agentLeadRes] = await Promise.all([
+  const phoneSessionId = phoneDigits || null;
+  const [ecomRes, enrollRes, formsRes, agentLeadRes, agentBySessionRes] = await Promise.all([
     email
       ? supabase.from("v_lead_ecommerce")
           .select("lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,lojaintegrada_primeira_compra,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_valor")
@@ -75,18 +76,19 @@ export async function buildSellerDealSummaryHTML(
           .eq("lead_id", leadId).order("enrolled_at", { ascending: false }).limit(10)
       : Promise.resolve({ data: [] }),
     leadId
-      ? supabase.from("lead_form_submissions")
-          .select("form_type,form_data,submitted_at,equipment_mentioned,product_mentioned")
-          .eq("lead_id", leadId).order("submitted_at", { ascending: false }).limit(10)
-      : Promise.resolve({ data: [] }),
-    leadId
-      ? supabase.from("lead_activity_log")
-          .select("event_type,event_timestamp,entity_name,event_data")
-          .eq("lead_id", leadId).order("event_timestamp", { ascending: false }).limit(15)
+      ? supabase.from("smartops_form_field_responses")
+          .select("field_label,value,created_at,form_id")
+          .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(30)
       : Promise.resolve({ data: [] }),
     email
       ? supabase.from("leads").select("id").eq("email", email).maybeSingle()
       : Promise.resolve({ data: null }),
+    phoneSessionId
+      ? supabase.from("agent_interactions")
+          .select("user_message,created_at")
+          .eq("session_id", phoneSessionId)
+          .order("created_at", { ascending: false }).limit(5)
+      : Promise.resolve({ data: [] }),
   ]);
 
   let lastQuestions: string[] = [];
@@ -99,6 +101,12 @@ export async function buildSellerDealSummaryHTML(
       .limit(5);
     lastQuestions = (msgs || [])
       .map((m: any) => String(m.user_message || "").slice(0, 180))
+      .filter(Boolean);
+  }
+  if (!lastQuestions.length) {
+    const fallback = ((agentBySessionRes as any)?.data as Array<{ user_message?: string }>) || [];
+    lastQuestions = fallback
+      .map(m => String(m.user_message || "").slice(0, 180))
       .filter(Boolean);
   }
 
