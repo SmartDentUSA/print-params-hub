@@ -1262,22 +1262,34 @@ function seedSpinBriefing(
     ponte = `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`;
   }
 
-  // Perguntas SPIN — heurística baseada no que falta + na intent
-  const situacaoQ: string[] = [];
-  const INTEREST_VALUE_RE_Q = /^\s*sdr\s*:|interesse\s+em|busca\s+por|procurando|gostaria\s+de|deseja\s+adquirir/i;
-  const cleanStack = diag.stack_atual.filter(
-    (s) => !INTEREST_VALUE_RE_Q.test(String(s.value || "")),
+  // ── ROTEIRO CANÔNICO (espelha "# - Formulário exocad I.A.") ──
+  // Vendedor segue na ordem; cada item ❓ a_descobrir ou ⚠️ gap_ofensivo
+  // vira UMA pergunta de SITUAÇÃO. Itens ✅ declarado: só reconhecimento.
+  const roteiro = buildLeadProfilingRoteiro(lead);
+  const pendentes = roteiro.filter((r) => r.status !== "declarado");
+  const gaps = roteiro.filter((r) => r.status === "gap_ofensivo");
+
+  const situacaoQ: string[] = pendentes.map(
+    (r) => `Etapa ${r.etapa_label} — ${r.titulo}: ${r.pergunta_canonica}`,
   );
-  if (targetNotOwned && targetStageLbl) {
-    situacaoQ.push(`Etapa ${targetStageLbl}: hoje, como você resolve essa etapa — terceiriza, manda para laboratório/parceiro ou simplesmente não faz?`);
-  } else if (cleanStack.length) {
-    const stackResumo = cleanStack.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
-    situacaoQ.push(`Você já roda ${stackResumo}. Como esse fluxo digital está performando — gargalos, retrabalho, terceirizações ainda presentes?`);
-  } else {
-    situacaoQ.push(`Conta um pouco do seu fluxo digital atual — quais das 7 etapas (captura, CAD, impressão, pós, finalização, cursos, fresagem) você já tem internalizadas e quais ainda dependem de terceiros?`);
+  if (situacaoQ.length === 0) {
+    const top = roteiro
+      .filter((r) => r.valor_declarado)
+      .slice(0, 3)
+      .map((r) => `${r.titulo}: ${r.valor_declarado}`)
+      .join("; ");
+    situacaoQ.push(
+      `Stack completa declarada (${top}). Reconheça e aprofunde direto no gargalo do produto-alvo.`,
+    );
   }
 
   const problemaQ: string[] = [];
+  // Gaps ofensivos do roteiro viram perguntas de PROBLEMA (atacar terceirização)
+  for (const g of gaps.slice(0, 2)) {
+    problemaQ.push(
+      `Etapa ${g.etapa_label}: você declarou "${g.valor_declarado}" — hoje terceiriza essa entrega? Qual o custo mensal e a previsibilidade de prazo?`,
+    );
+  }
   if (targetNotOwned && targetLabel) {
     problemaQ.push(`Etapa ${targetStageLbl || "alvo"}: o que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
   }
@@ -1315,24 +1327,20 @@ function seedSpinBriefing(
   }
   if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
 
-  // ── LANE OBRIGATÓRIA: RESINAS & CONSUMÍVEIS (core de recorrência Smart Dent) ──
-  // Sempre que houver intent de hardware (scanner/CAD/impressora/pós/finalização)
-  // OU stack de impressão, perguntar sobre resina, protocolo e consumo mensal.
-  const hwStages = new Set([
-    "etapa_1_scanner", "etapa_2_cad", "etapa_3_impressao",
-    "etapa_4_pos_impressao", "etapa_5_finalizacao", "etapa_7_fresagem",
-  ]);
-  const triggersConsumables =
-    (diag.intent?.target_stage && hwStages.has(diag.intent.target_stage)) ||
-    diag.stack_atual.some((s) => s.stage === "etapa_3_impressao");
-  if (triggersConsumables) {
+  // Lane resinas/protocolo já está coberta pelo roteiro (itens 5-9).
+  // Só reforça PROBLEMA de protocolo quando intent envolve impressão e o
+  // roteiro mostra que o lead já imprime (item 5 ou 6 ou 7 ou 8 declarado).
+  const imprimeAlgo = roteiro.some(
+    (r) => r.ordem >= 5 && r.ordem <= 8 && r.status === "declarado",
+  );
+  if (imprimeAlgo) {
     problemaQ.push(
-      "Etapa Resinas: qual resina você usa hoje (marca/aplicação — modelo, provisório, guia cirúrgica, splint) e quanto consome por mês?",
-    );
-    problemaQ.push(
-      "Etapa Pós-impressão: qual seu protocolo de lavagem (álcool/solvente, tempo) e de cura (qual dispositivo, ciclo)? É o protocolo validado pelo fabricante da resina?",
+      "Etapa Pós-impressão: qual seu protocolo de lavagem (álcool/solvente, tempo) e de cura (dispositivo, ciclo)? É o protocolo validado pelo fabricante da resina?",
     );
   }
+  const triggersConsumables = roteiro.some(
+    (r) => r.ordem >= 5 && r.ordem <= 9 && r.status !== "declarado",
+  );
 
   const implicacaoQ: string[] = [
     "Quantas peças/mês esse gargalo impacta — em retrabalho, hora-cadeira ou casos perdidos?",
@@ -1363,12 +1371,13 @@ function seedSpinBriefing(
     implicacoes: Array.from(new Set(implicacoes)).slice(0, 3),
     ponte_produto: ponte,
     perguntas_spin: {
-      situacao: situacaoQ,
+      situacao: situacaoQ.slice(0, 9),
       problema: problemaQ.slice(0, 5),
       implicacao: implicacaoQ,
       necessidade: necessidadeQ.slice(0, 2),
     },
     alerta_lacuna: alerta,
+    roteiro_perfilamento: roteiro,
   };
 }
 
