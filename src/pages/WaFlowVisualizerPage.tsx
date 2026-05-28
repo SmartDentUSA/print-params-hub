@@ -6,7 +6,7 @@ import { WaGroupFlowVisualizer } from "@/components/smartops/wa-groups/WaGroupFl
 export default function WaFlowVisualizerPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const campaignId = params.get("campaign");
+  const campaignId = params.get("campaign_id");
 
   return (
     <div className="container mx-auto py-6 max-w-4xl space-y-4">
@@ -16,7 +16,7 @@ export default function WaFlowVisualizerPage() {
       {campaignId ? (
         <WaGroupFlowVisualizer campaignId={campaignId} />
       ) : (
-        <p className="text-muted-foreground">Parâmetro <code>?campaign=</code> ausente.</p>
+        <p className="text-muted-foreground">Parâmetro <code>?campaign_id=</code> ausente.</p>
       )}
     </div>
   );
