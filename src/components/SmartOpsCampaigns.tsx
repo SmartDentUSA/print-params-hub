@@ -739,7 +739,7 @@ function CreateCampaign({
   useEffect(() => {
     (async () => {
       const base = supabase.from("lia_attendances").select(
-        "produto_interesse, produto_interesse_auto, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
+        "produto_interesse, produto_interesse_auto, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status, piperun_pipeline_name, origem_primeiro_contato, prazo_compra, tipo_local, form_name, scanner_marca, equip_scanner, equip_impressora"
       ).is("merged_into", null).limit(5000);
       const { data } = await base;
       const rows = (data || []) as any[];
@@ -759,6 +759,19 @@ function CreateCampaign({
       setUfOptions(uniq("uf"));
       setProprietarioOptions(uniq("proprietario_lead_crm"));
       setRealStatusOptions(uniq("real_status"));
+      setPipelineOptions(uniq("piperun_pipeline_name"));
+      setOrigemOptions(uniq("origem_primeiro_contato"));
+      setPrazoCompraOptions(uniq("prazo_compra"));
+      setTipoLocalOptions(uniq("tipo_local"));
+      setFormNameOptions(uniq("form_name"));
+      // Marca scanner: combina coluna dedicada + equip_scanner (string livre)
+      const scannerBrands = [...new Set(
+        rows.flatMap(r => [r.scanner_marca, r.equip_scanner])
+            .filter(Boolean)
+            .map((s: any) => String(s).trim())
+      )].sort();
+      setMarcaScannerOptions(scannerBrands);
+      setMarcaImpressoraOptions(uniq("equip_impressora"));
     })();
   }, []);
 
