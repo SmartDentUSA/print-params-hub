@@ -1479,6 +1479,22 @@ async function enrichSpinWithLLM(
       ? "AINDA NÃO POSSUI — busca adquirir (alvo de compra)"
       : "já consta no stack instalado";
 
+  // ── Roteiro canônico (não reordenar; LLM só refina o tom) ──
+  const roteiroBlock = (seed.roteiro_perfilamento || [])
+    .map((r) => {
+      const tag =
+        r.status === "declarado"
+          ? `✅ ${r.valor_declarado || ""}`
+          : r.status === "gap_ofensivo"
+            ? `⚠️ gap (${r.valor_declarado || "—"}) → ${r.gancho_smartdent || ""}`
+            : `❓ a descobrir`;
+      return `${r.ordem}. ${r.etapa_label} — ${r.titulo}: ${tag}\n   pergunta canônica: ${r.pergunta_canonica}`;
+    })
+    .join("\n");
+  const roteiroSection = roteiroBlock
+    ? `\n\n=== ROTEIRO DE PERFILAMENTO (rota fixa do formulário exocad I.A. — NÃO reordene, NÃO pule) ===\n${roteiroBlock}\n=========================================================`
+    : "";
+
   const prompt = `Você é coach SPIN de um vendedor consultivo da Smart Dent (odontologia digital).
 Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico — para o vendedor abrir a conversa.
 
@@ -1491,12 +1507,15 @@ DADOS DO LEAD:
 - Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
 - Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}
 - Células declaradas SEM equipamento: ${declaredEmptyTxt}
-- Status do produto-alvo: ${ownershipStatus}${ragSection}
+- Status do produto-alvo: ${ownershipStatus}${roteiroSection}${ragSection}
 
 SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- ROTEIRO IMUTÁVEL: as perguntas de SITUAÇÃO devem cobrir EXATAMENTE os itens do "ROTEIRO DE PERFILAMENTO" cujo status é "❓ a descobrir" ou "⚠️ gap", NA MESMA ORDEM do roteiro (1→9). Para itens "✅ declarado" NÃO gere pergunta — só reconheça no campo "situacao". É proibido pular, reordenar ou substituir perguntas do roteiro.
+- Cada pergunta de SITUAÇÃO deve PREFIXAR com "Etapa <etapa_label> — <titulo>:" e manter a essência da "pergunta canônica" (você pode refinar o tom, sem perder o foco).
+- Itens "⚠️ gap" também viram 1 pergunta de PROBLEMA cada, atacando a terceirização/dependência e introduzindo o "gancho" Smart Dent listado no roteiro.
 - SEPARAÇÃO INTENT vs STACK: "Stack atual" é a ÚNICA fonte do que o lead JÁ TEM. O produto-alvo (vindo de form/produto_interesse/campanha) é INTENÇÃO DE COMPRA, NUNCA equipamento instalado.
 - Quando "Status do produto-alvo" = "AINDA NÃO POSSUI": NUNCA afirme ou implique posse ("já possui", "sua EdgeMini", "como gerencia seu X"). Use SEMPRE verbos como "avalia adquirir", "busca comprar", "está pesquisando".
 - Quando o alvo está em "AINDA NÃO POSSUI": perguntas de SITUAÇÃO devem mapear COMO o lead resolve a etapa hoje (terceiriza? laboratório? não faz?); perguntas de PROBLEMA devem investigar gatilho de compra, alternativas avaliadas e critério de decisão.
@@ -1524,7 +1543,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
   "implicacoes": ["string concreta", "string concreta"],
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
   "perguntas_spin": {
-    "situacao": ["1 pergunta"],
+    "situacao": ["1 pergunta POR item ❓/⚠️ do roteiro, na ordem 1→9"],
     "problema": ["2-3 perguntas (incluindo 1 por item de SEMPRE PERGUNTE / EXIJA quando existir)"],
     "implicacao": ["2 perguntas"],
     "necessidade": ["1 pergunta"]
@@ -1569,12 +1588,14 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
         : seed.implicacoes,
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
       perguntas_spin: {
-        situacao: arrStr(parsed.perguntas_spin?.situacao, 1) || seed.perguntas_spin.situacao,
+        situacao: arrStr(parsed.perguntas_spin?.situacao, 9) || seed.perguntas_spin.situacao,
         problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,
         implicacao: arrStr(parsed.perguntas_spin?.implicacao, 2) || seed.perguntas_spin.implicacao,
         necessidade: arrStr(parsed.perguntas_spin?.necessidade, 1) || seed.perguntas_spin.necessidade,
       },
       alerta_lacuna: parsed.alerta_lacuna ? String(parsed.alerta_lacuna).slice(0, 300) : seed.alerta_lacuna,
+      // Roteiro é determinístico — NUNCA confiar no LLM para reordenar/inventar.
+      roteiro_perfilamento: seed.roteiro_perfilamento,
     };
   } catch (e) {
     console.warn("[spin-enrich] failed:", e);
