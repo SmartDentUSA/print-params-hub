@@ -23984,6 +23984,7 @@ export type Database = {
       }
       get_vault_secret: { Args: { p_name: string }; Returns: string }
       has_panel_access: { Args: { user_id: string }; Returns: boolean }
+      increment_faq_views: { Args: { _ids: string[] }; Returns: undefined }
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
