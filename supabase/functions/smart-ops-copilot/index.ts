@@ -2197,6 +2197,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   generate_commercial_report: executeGenerateCommercialReport,
   query_product_owners: executeQueryProductOwners,
   query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
+  get_product_anti_hallucination: executeGetProductAntiHallucination,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -2343,6 +2344,7 @@ const ACTION_TOOLS_ALLOWLIST = new Set<string>([
   "search_courses",
   "search_faqs",
   "search_success_stories",
+  "get_product_anti_hallucination",
 ]);
 const actionTools = tools.filter((t: any) => ACTION_TOOLS_ALLOWLIST.has(t?.function?.name));
 
