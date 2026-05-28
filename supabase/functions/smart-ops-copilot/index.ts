@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -704,6 +705,20 @@ const tools = [
           lead_id: { type: "string", description: "UUID do lead canônico (de lia_attendances)" }
         },
         required: ["lead_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_product_anti_hallucination",
+      description: "FONTE ÚNICA DE VERDADE para compatibilidade, integrações, combos, comparações com concorrentes e regras técnicas de um produto SmartDent. Resolve o produto em system_a_catalog (por slug, external_id ou nome) e busca live no Sistema A (cache 10 min). Use SEMPRE antes de afirmar 'X é compatível com Y', 'X integra com Y', 'X substitui Y', 'X vs concorrente Y' ou 'combo X+Y'. Retorna never_claim, always_require, never_mix_with, forbidden_products, required_products e tabela de comparação oficial.",
+      parameters: {
+        type: "object",
+        properties: {
+          product: { type: "string", description: "Slug, external_id, nome ou parte do nome do produto" }
+        },
+        required: ["product"]
       }
     }
   }
