@@ -1,130 +1,102 @@
+## Diagnóstico
 
-## Objetivo
+Hoje o RAG do SPIN lê só `system_a_catalog` (espelho local). Esse espelho não cobre os campos mais ricos que **o Sistema A já expõe publicamente** em `GET https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id={external_id}`:
 
-Hoje a nota 7×3 lista stack, lacunas, combo e 5 bullets soltos. O vendedor não consegue, em 10 segundos, ver:
+| Campo no live API | Conteúdo | O que destrava no SPIN |
+|---|---|---|
+| `features[]` (19 itens no GlazeON) | atributos diferenciadores | Ponte-produto com benefícios específicos |
+| `applications` (string) | qual aplicação clínica resolve | Indicação primária para perguntas de SITUAÇÃO |
+| `document_transcriptions[]` | conteúdo extraído de Ebooks/IFU/FDS via Gemini | Specs reais (resinas compatíveis, protocolo de cura, contraindicações) |
+| `workflow_stages` | papel do produto em scan/print/finish | Mapa direto para 7×3 sem heurística |
+| `competitor_comparison` (quando enabled) | tabela específica vs concorrentes | Argumentos contra Anycubic/Phrozen sem invenção |
+| `forbidden_products[]` / `required_products[]` | combos válidos/inválidos | Trava dura para `combo_sugerido` |
+| `anti_hallucination_rules` | `never_claim`, `always_explain`, `always_require`, `never_mix_with`, `never_use_in_stages` | Regras explícitas para o prompt Gemini |
+| `bot_trigger_words` / `market_keywords` / `search_intent_keywords` | intenção do lead em linguagem real | Melhora o matcher de intent (`resolveIntent`) |
+| `target_audience` | perfil ideal | Calibra perguntas SPIN por persona |
 
-1. **Onde o lead está hoje** (situação + papel/volume)
-2. **Quais dores ele provavelmente tem** com esse setup
-3. **Por que essas dores importam** (impacto clínico/financeiro)
-4. **Por que o produto de interesse resolve** (ponte explícita)
-5. **O que perguntar** para confirmar essas hipóteses (SPIN real)
+Validado por curl real: `GET /get-product-data?product_id=3848beb6-b671-43c4-9799-d8e482d197f4` retornou **77 KB** com todos esses campos. (O endpoint `/export-product-ai-playbook` está retornando 500 hoje — não vamos depender dele.)
 
-Vou reformatar a saída de `_shared/workflow-diagnosis.ts` em um bloco SPIN consultivo, mantendo todo o pipeline existente (mapping 7×3, RAG, idempotência da nota, WhatsApp).
+A coluna `system_a_catalog.external_id` **já guarda** o ID do produto no Sistema A (confirmado: GlazeON Splint → `3848beb6-…`), então a ponte é direta — não precisa migration de schema.
 
-## Escopo (somente apresentação + prompt LLM, zero mudança de regra de negócio)
+## Escopo
 
-### 1. Novo schema interno `SpinBriefing`
+### 1. Novo módulo `_shared/system-a-live.ts`
 
-Gerado em paralelo ao `WorkflowDiagnosis`, alimentado pelo Gemini (`google/gemini-3-flash-preview`, já em uso) via `Output.object` / JSON estruturado para garantir formato:
+- `fetchSystemAProduct(externalId, opts)` — chama `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id=…` com timeout 8s, retry 1×, cache em memória (TTL 10 min, chave = externalId). Soft-fail → `null`.
+- `mapSystemAToLiveDossier(payload)` — normaliza o response em uma nova interface `LiveProductDossier`:
 
-```text
-{
-  situacao: string        // 1-2 frases: papel + stack-chave + intenção
-  dores_provaveis: [      // 2-4 itens, derivadas de lacunas + concorrentes
-    { dor: string, evidencia: string }
-  ],
-  implicacoes: [          // 2-3 itens: tempo perdido / retrabalho / ROI / risco clínico
-    string
-  ],
-  ponte_produto: string,  // 1-2 frases: como o PRODUTO DE INTENÇÃO resolve essas dores específicas (usa RAG)
-  perguntas_spin: {
-    situacao:  [string],  // 1 pergunta — confirmar contexto que ainda está vago
-    problema:  [string, string], // 2 perguntas — provocar consciência da dor
-    implicacao:[string, string], // 2 perguntas — quantificar impacto
-    necessidade:[string]  // 1 pergunta — convidar à solução (gancho do produto)
-  },
-  alerta_lacuna?: string  // só se houver lacuna real de fluxo (ex: quer impressora sem scanner)
+```ts
+interface LiveProductDossier {
+  id: string;            // external_id (Sistema A)
+  name: string;
+  applications: string;                              // 1 frase
+  benefits: string[];                                // top 8
+  features: string[];                                // top 10
+  technical_specs: Array<{label,value}>;             // já existe no live
+  document_extracts: Array<{filename, summary, key_specs}>; // de document_transcriptions
+  workflow_stages: Record<stage, {role,description,materials[],pain_points[],advantages[]}>;
+  competitor_comparison?: {title, table_headers[], table_data[][]};
+  forbidden_products: string[];
+  required_products: string[];
+  anti_hallucination: {
+    never_claim: string[];
+    always_explain: string[];
+    always_require: string[];
+    never_mix_with: string[];
+    never_use_in_stages: string[];
+  };
+  target_audience: string[];
+  market_keywords: string[];
+  bot_trigger_words: string[];
 }
 ```
 
-### 2. Novo prompt Gemini (substitui o atual de 5 bullets)
+- `renderLiveDossierForPrompt(d)` — bloco compacto para injetar no prompt Gemini.
 
-- Continua recebendo: stack, concorrentes, intent, lacunas, combo, dossiês RAG (intent + Rayshape quando impressora envolvida).
-- Instrução muda para: "Você é coach SPIN de um vendedor consultivo. Use a stack do lead e o dossiê RAG para gerar um briefing SPIN específico **deste lead**. Perguntas devem citar o que ele JÁ TEM (não genéricas). Implicações devem ser concretas (peças/mês, hora-cadeira, retrabalho, garantia). PROIBIDO inventar specs/preços; usar só o dossiê RAG."
-- Mantém as travas duras existentes: nunca cruzar marcas, nunca sugerir outro produto da mesma etapa, marca do lead nunca é "concorrente".
-- Output via JSON estruturado (não bullets soltos), parsed com fallback soft: se Gemini falhar, cai no formato atual de 5 bullets (back-compat).
+### 2. `product-rag.ts` — fonte híbrida
 
-### 3. Heurística determinística (sem LLM) para `dores_provaveis` e `implicacoes`
+- `fetchProductDossier(supabase, label)` continua igual (local cache rápido).
+- Nova `fetchEnrichedProductDossier(supabase, label)` que:
+  1. busca `system_a_catalog` row (já temos) → pega `external_id`.
+  2. em paralelo busca live (`fetchSystemAProduct(external_id)`).
+  3. merge: live tem prioridade em `features`, `applications`, `document_extracts`, `workflow_stages`, `competitor_comparison`, `forbidden_products`, `required_products`, `anti_hallucination`. Local fica de fallback.
+- Sem mudar a interface antiga: o consumidor velho continua chamando `fetchProductDossier`; só `workflow-diagnosis.ts` migra para a versão enriquecida.
 
-Funciona como **fallback e seed do prompt** — garante que mesmo sem LLM já temos um esqueleto SPIN:
+### 3. `workflow-diagnosis.ts` — usar o live em 3 pontos
 
-- Concorrente impressora detectado → dor "calibração/perfil de resina instável", implicação "horas perdidas e retrabalho de peças odontológicas".
-- Concorrente scanner detectado → dor "alinhamento e exportação STL", implicação "atraso no envio ao CAD/laboratório".
-- Lacuna em etapa anterior à intenção (ex: quer Rayshape mas não tem scanner) → dor "fluxo quebrado a montante", implicação "equipamento parado".
-- Intent é resina + tem impressora genérica → dor "perfil não validado para a marca da impressora dele", implicação "rejeição clínica".
-- Intent etapa 6 (cursos) + nenhum equipamento → dor "curva de aprendizado", implicação "investimento parado sem produzir caso clínico".
+- **`resolveIntent`** — passa a opcionalmente carregar `bot_trigger_words` e `market_keywords` de todos os produtos do mapping (em batch, cache 10min). Cada token desses entra no scoring como **PRODUCT_TOKENS** específico. Resolve o caso "GlazeON Splint → sem match no portfólio" (mencionado no plan anterior) sem precisar manter hardcoded.
+- **`buildProductDiscoveryHints`** (do plano anterior) — agora alimentado por: `applications`, `workflow_stages[stage].pain_points_addressed`, `anti_hallucination.always_require` (perguntar se o lead tem o pré-requisito), `document_extracts[].key_specs` (resinas compatíveis, dispositivos de cura).
+- **`enrichSpinWithLLM`** — o prompt Gemini ganha 3 novos blocos:
+  - `=== CONTEXTO DO PRODUTO (Sistema A live) ===` com `features` + `applications` + top 2 `document_extracts.summary`.
+  - `=== REGRAS ANTI-ALUCINAÇÃO DO PRODUTO ===` com as 5 listas de `anti_hallucination_rules`. Instrução dura: *"Se uma pergunta SPIN ou a ponte_produto violar `never_claim` / `never_mix_with` / `never_use_in_stages`, REESCREVA."*
+  - `=== COMBO VÁLIDO ===` com `required_products` (devem aparecer em perguntas de problema/implicação se faltarem no stack do lead) e `forbidden_products` (proibido sugerir).
 
-Essas regras alimentam o prompt como contexto E aparecem na nota mesmo quando o LLM falha.
+### 4. Endpoint de manutenção: `smart-ops-refresh-system-a-cache`
 
-### 4. Renderers atualizados
+Edge function nova (`verify_jwt=false`, on-demand), com 2 modos:
 
-**`renderDiagnosisHTML` (nota PipeRun)** — substitui o bloco atual por:
+- `GET ?product_id=<external_id>` — força refresh do cache em memória + opcionalmente faz `UPSERT` em `system_a_catalog.extra_data` com os campos novos (`features`, `applications`, `document_extracts`, `workflow_stages`, `anti_hallucination`) para garantir que mesmo sem live disponível o seed heurístico melhora.
+- `GET ?all=true&limit=50` — varre todas as rows do `system_a_catalog` que têm `external_id` e atualiza em lote (chamado por cron diário).
 
-```text
-🧭 Diagnóstico SPIN (Fluxo Digital 7×3)
+Sem migration. Apenas `UPDATE system_a_catalog SET extra_data = jsonb_set(coalesce(extra_data,'{}'), '{system_a_live}', $payload, true), updated_at=now() WHERE external_id=$id`.
 
-📍 SITUAÇÃO
-{situacao em 1-2 frases}
-Stack: {etapas com dados resumidas}
-Intenção: {produto} → {etapa-alvo}  [≈ {produto_mapeado}]
+### 5. Validação
 
-⚠️ DORES PROVÁVEIS (a confirmar)
-• {dor 1} — evidência: {ex: usa Anycubic + interesse em resina dental}
-• {dor 2} — evidência: ...
-
-💸 IMPLICAÇÕES
-• {impacto 1}
-• {impacto 2}
-
-🎯 PONTE PARA O PRODUTO DE INTERESSE
-{como {produto} resolve essas dores específicas, com 1 spec do RAG}
-
-📋 PERGUNTAS SPIN (na ordem)
-S → {1 pergunta de situação}
-P → {2 perguntas de problema}
-I → {2 perguntas de implicação}
-N → {1 pergunta de necessidade}
-
-🛒 Combo natural (após confirmar necessidade)
-{mantém o combo atual: etapa-alvo · próxima etapa · curso}
-
-🚨 {alerta_lacuna se houver}
-```
-
-**`renderDiagnosisWhatsApp`** — versão enxuta (8-10 linhas):
-```text
-🧭 SPIN — {nome lead}
-Situação: {1 linha}
-Dor #1: {dor 1}
-Impacto: {implicação chave}
-Ponte: {produto} resolve porque {benefício RAG}
-Pergunte (SPIN):
-  S- {…}
-  P- {…}
-  I- {…}
-  N- {…}
-```
-
-**`renderDiagnosisForPrompt`** (entra no prompt da Dra. LIA / cognitive) — versão texto plano do mesmo briefing, ancorando o `recommended_approach` em SPIN ao invés de só listar stack/lacunas.
-
-### 5. Compatibilidade
-
-- A interface `WorkflowDiagnosis` ganha campo opcional `spin?: SpinBriefing`. `llm_script` continua existindo como fallback.
-- `smart-ops-preview-seller-note` passa a retornar `diagnosis.spin` no JSON para validação rápida via curl.
-- `buildSellerDealSummaryHTML` continua usando `renderDiagnosisHTML` — nenhuma mudança no `lia-assign` ou no posting PipeRun.
-- Hash de idempotência da nota (`last_seller_note_hash`) continua válido — o novo conteúdo simplesmente gera um hash diferente na primeira execução pós-deploy (1 nova nota por deal, esperado).
+1. `curl smart-ops-refresh-system-a-cache?product_id=3848beb6-b671-43c4-9799-d8e482d197f4` → confirmar 200 + 19 features + applications populadas.
+2. `curl smart-ops-preview-seller-note?email=bonfanteatendimento@gmail.com` →
+   - `diagnosis.intent.matched_product_label` = "Sistema de Acabamento GlazeON - Splint" (matcher casa via `bot_trigger_words` / `market_keywords` do live).
+   - `diagnosis.spin.perguntas_spin.problema` cita **qual resina de placa** + **qual dispositivo de fotopolimerização** (vindos de `document_extracts` / `technical_specifications`).
+   - `diagnosis.spin.ponte_produto` cita o ganho de **10,5% de Resistência Flexural** (vindo de `technical_specifications`) e a compatibilidade universal (vindo de `applications` / `features`).
+3. Re-rodar `danilohen@gmail.com` para garantir que ioConnect/Medit não regrediu.
+4. `enableLLM:false` → confirmar que o seed heurístico já entrega perguntas específicas usando `applications` + `workflow_stages` + `anti_hallucination.always_require`.
 
 ## Arquivos alterados
 
-- `supabase/functions/_shared/workflow-diagnosis.ts` — novo schema `SpinBriefing`, heurística determinística, novo prompt Gemini com JSON estruturado, renderers HTML/WhatsApp/Prompt reescritos, fallback para o formato antigo.
-- `mem/smart-ops/seller-note-workflow-diagnosis.md` — atualizar a memória para refletir SPIN como saída principal.
+- **Novo** `supabase/functions/_shared/system-a-live.ts` — fetcher + mapper + render do live API.
+- `supabase/functions/_shared/product-rag.ts` — adiciona `fetchEnrichedProductDossier` (merge local+live).
+- `supabase/functions/_shared/workflow-diagnosis.ts` — `resolveIntent` lê PRODUCT_TOKENS do live, `seedSpinBriefing` usa `applications`/`workflow_stages`, `enrichSpinWithLLM` injeta os 3 novos blocos no prompt Gemini.
+- **Nova edge function** `supabase/functions/smart-ops-refresh-system-a-cache/index.ts` + entrada em `supabase/config.toml` com `verify_jwt=false`.
+- `mem/smart-ops/seller-note-workflow-diagnosis.md` — documentar a fonte híbrida (local cache + Sistema A live).
+- **Nova memory** `mem://integration/system-a-live-product-api` — registrar URL, campos consumidos e regra de cache.
 
-Nenhuma migration, nenhuma mudança em `lia-assign`, `cognitive-analysis`, `seller-summary` ou frontend.
-
-## Validação
-
-1. `curl smart-ops-preview-seller-note?email=danilohen@gmail.com` — conferir `diagnosis.spin` populado, ponte produto cita IoConnect+Medit, perguntas SPIN mencionam o scanner i900 dele.
-2. Rodar com lead sem intent reconhecido — confirmar que SITUAÇÃO/PERGUNTAS aparecem mesmo assim (sem PONTE).
-3. Forçar LLM off (`enableLLM: false`) — confirmar que a heurística determinística ainda renderiza Dor/Implicação/Perguntas a partir das lacunas+concorrentes.
-4. Comparar hash da nota antes/depois para garantir que rodou só 1 vez por deal.
-
+Nada muda em `lia-assign`, `cognitive-analysis`, `seller-summary`, `dra-lia` ou frontend. O `system_a_catalog` local continua sendo a fonte principal; o live API é uma camada de enriquecimento opcional com soft-fail completo.

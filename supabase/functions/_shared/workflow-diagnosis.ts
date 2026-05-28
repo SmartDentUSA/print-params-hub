@@ -14,7 +14,14 @@ import {
   fetchProductDossier,
   fetchRayshapeDossier,
   renderDossierForPrompt,
+  fetchEnrichedProductDossier,
 } from "./product-rag.ts";
+import {
+  type LiveProductDossier,
+  renderLiveDossierForPrompt,
+  renderAntiHallucinationForPrompt,
+  getDiscoveryTokens,
+} from "./system-a-live.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -140,6 +147,80 @@ async function loadMappings(supabase: SupabaseClient): Promise<MappingRow[]> {
 }
 
 // ────────────────────────────────────────────────────────────────
+// Discovery-token index — used by resolveIntent to boost matching
+// using Sistema A `bot_trigger_words` + `market_keywords` + local
+// `keywords` from system_a_catalog. Keyed by normalized product label
+// from the mapping. Cached 5 min.
+// ────────────────────────────────────────────────────────────────
+let _tokenCache: { at: number; index: Map<string, Set<string>> } | null = null;
+
+async function loadProductTokenIndex(
+  supabase: SupabaseClient,
+  mappings: MappingRow[],
+): Promise<Map<string, Set<string>>> {
+  if (_tokenCache && Date.now() - _tokenCache.at < CACHE_TTL_MS) return _tokenCache.index;
+  const labels = Array.from(new Set(
+    mappings
+      .filter((m) => m.mapping_type === "product")
+      .map((m) => (m.mapped_label || m.mapped_value || "").trim())
+      .filter(Boolean),
+  ));
+  const index = new Map<string, Set<string>>();
+  if (!labels.length) {
+    _tokenCache = { at: Date.now(), index };
+    return index;
+  }
+  try {
+    // pull all catalog rows in one shot, then match by includes/equality.
+    const { data } = await supabase
+      .from("system_a_catalog")
+      .select("name, slug, external_id, keywords, extra_data")
+      .eq("active", true)
+      .limit(800);
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[®©™]/g, "").trim();
+    for (const label of labels) {
+      const ln = normalize(label);
+      let row = rows.find((r) => normalize(String(r.name || "")) === ln);
+      if (!row) row = rows.find((r) => {
+        const n = normalize(String(r.name || ""));
+        return n && (n.includes(ln) || ln.includes(n));
+      });
+      if (!row) continue;
+      const extra = (row.extra_data as Record<string, unknown> | null) ?? {};
+      const live = (extra?.system_a_live as Record<string, unknown> | undefined) ?? undefined;
+      const bag: string[] = [];
+      const pushArr = (v: unknown) => {
+        if (Array.isArray(v)) for (const x of v) if (typeof x === "string") bag.push(x);
+      };
+      // local fields (when previously synced or natively populated)
+      pushArr(row.keywords);
+      pushArr(extra.bot_trigger_words);
+      pushArr(extra.market_keywords);
+      pushArr(extra.search_intent_keywords);
+      // live snapshot from refresh-system-a-cache
+      if (live) {
+        pushArr(live.bot_trigger_words);
+        pushArr(live.market_keywords);
+        pushArr(live.search_intent_keywords);
+      }
+      const tokens = bag
+        .flatMap((s) => s.split(/[,;|/]+/))
+        .map((s) => normalize(s).replace(/[^a-z0-9\s]/g, " ").trim())
+        .flatMap((s) => s.split(/\s+/))
+        .filter((t) => t.length >= 3 && t.length <= 32);
+      const set = new Set<string>(tokens);
+      if (set.size) index.set(label, set);
+    }
+  } catch (e) {
+    console.warn("[workflow-diagnosis] loadProductTokenIndex failed:", e);
+  }
+  _tokenCache = { at: Date.now(), index };
+  return index;
+}
+
+// ────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────
 function norm(v: unknown): string {
@@ -189,6 +270,7 @@ export async function diagnoseLead(
   if (mappings.length === 0) {
     return emptyDiagnosis();
   }
+  const tokenIndex = await loadProductTokenIndex(supabase, mappings);
 
   // Index form responses (latest by label) + custom_fields
   const formIndex = new Map<string, string>();
@@ -274,7 +356,7 @@ export async function diagnoseLead(
   }
 
   // ── Intent (produto buscado) ──
-  const intent = resolveIntent(lead, mappings);
+  const intent = resolveIntent(lead, mappings, tokenIndex);
 
   // ── Lacunas (em relação ao alvo) ──
   const lacunas: WorkflowDiagnosis["lacunas"] = [];
@@ -372,11 +454,17 @@ export async function diagnoseLead(
 
   // ── SPIN briefing (heuristic seed + Gemini enrichment, soft-fail) ──
   try {
-    const seed = seedSpinBriefing(diag, lead);
+    // Pre-fetch enriched dossier (local + Sistema A live) for the matched
+    // product. Used by both the seed (deterministic) and Gemini (LLM).
+    const intentLabel = diag.intent?.matched_product_label || diag.intent?.produto || null;
+    const enriched = intentLabel ? await fetchEnrichedProductDossier(supabase, intentLabel) : null;
+    const liveDossier = enriched?.live ?? null;
+
+    const seed = seedSpinBriefing(diag, lead, liveDossier);
     diag.spin = seed;
     if (opts.enableLLM !== false) {
-      const enriched = await enrichSpinWithLLM(supabase, diag, lead, seed);
-      if (enriched) diag.spin = enriched;
+      const llm = await enrichSpinWithLLM(supabase, diag, lead, seed, liveDossier);
+      if (llm) diag.spin = llm;
     }
   } catch (e) {
     console.warn("[workflow-diagnosis] SPIN briefing failed:", e);
@@ -396,6 +484,7 @@ function emptyDiagnosis(): WorkflowDiagnosis {
 function resolveIntent(
   lead: Record<string, unknown>,
   mappings: MappingRow[],
+  tokenIndex?: Map<string, Set<string>>,
 ): LeadIntent | null {
   const candidates: Array<{ text: string; source: string }> = [];
   if (lead.produto_interesse) candidates.push({ text: String(lead.produto_interesse), source: "produto_interesse" });
@@ -459,6 +548,22 @@ function resolveIntent(
       const ln = norm(pl);
       const cn = norm(cand.text);
       if (ln && cn && (cn.includes(ln) || ln.includes(cn))) score += 6;
+
+      // Boost from Sistema A discovery tokens (bot_trigger_words,
+      // market_keywords, search_intent_keywords). Each cand token that
+      // hits the product's discovery set counts as a strong product
+      // signal (weight 5, similar to a brand match).
+      const discovery = tokenIndex?.get(pl);
+      if (discovery && discovery.size) {
+        let discHits = 0;
+        for (const tok of candTokens) {
+          if (discovery.has(tok)) discHits++;
+        }
+        if (discHits > 0) {
+          score += discHits * 5;
+          modelMatch = true; // treat discovery token as a strong signal
+        }
+      }
 
       if (score > (best?.score ?? 0)) best = { row: p, score, brandMatch, modelMatch };
     }
@@ -766,6 +871,7 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
 function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
+  live?: LiveProductDossier | null,
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
@@ -823,12 +929,21 @@ function seedSpinBriefing(
     implicacoes.push("Investimento em treinamento sem produzir casos clínicos imediatos");
   }
 
-  // Ponte (heurística): produto de intenção + 1 característica do RAG (cai vazio se LLM não rodar)
-  const ponte = diag.intent?.matched_product_label
-    ? `${diag.intent.matched_product_label} se conecta diretamente à etapa de ${STAGE_LABEL[diag.intent.target_stage!] || diag.intent.target_stage}, resolvendo o gargalo desse ponto do fluxo do lead.`
-    : diag.intent
-      ? `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`
-      : "";
+  // Ponte (heurística): produto de intenção + 1 característica do RAG (live API quando disponível).
+  let ponte = "";
+  if (diag.intent?.matched_product_label) {
+    const baseLabel = diag.intent.matched_product_label;
+    const stageLbl = STAGE_LABEL[diag.intent.target_stage!] || diag.intent.target_stage;
+    if (live?.applications) {
+      ponte = `${baseLabel} (${live.applications}) cobre a etapa de ${stageLbl}; conecte ao gargalo declarado pelo lead.`;
+    } else if (live?.features?.length) {
+      ponte = `${baseLabel} entrega ${live.features.slice(0, 2).join(" + ")} e resolve a etapa de ${stageLbl}.`;
+    } else {
+      ponte = `${baseLabel} se conecta diretamente à etapa de ${stageLbl}, resolvendo o gargalo desse ponto do fluxo do lead.`;
+    }
+  } else if (diag.intent) {
+    ponte = `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`;
+  }
 
   // Perguntas SPIN — heurística baseada no que falta + na intent
   const stackResumo = diag.stack_atual.length
@@ -842,6 +957,21 @@ function seedSpinBriefing(
   }
   if (diag.intent?.matched_product_label) {
     problemaQ.push(`O que te fez olhar especificamente para ${diag.intent.matched_product_label} agora?`);
+  }
+  // Live API → perguntas de PROBLEMA específicas: cada `always_require`,
+  // cada `required_products` e cada `key_specs` de document_extracts vira
+  // qualificador que o vendedor PRECISA cobrir.
+  if (live) {
+    for (const req of live.anti_hallucination.always_require.slice(0, 2)) {
+      problemaQ.push(`Hoje você já tem ${req}? Sem isso, o ${live.name} não entrega o resultado esperado.`);
+    }
+    if (live.required_products.length) {
+      problemaQ.push(`Para usar ${live.name} você precisa de ${live.required_products.slice(0, 2).join(" + ")}. Já tem ou precisamos combinar?`);
+    }
+    const docSpecs = live.document_extracts.flatMap((d) => d.key_specs).slice(0, 2);
+    for (const ds of docSpecs) {
+      problemaQ.push(`Qual ${ds.toLowerCase().slice(0, 80)} você usa hoje? Preciso confirmar a compatibilidade.`);
+    }
   }
   if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
 
@@ -865,7 +995,7 @@ function seedSpinBriefing(
     ponte_produto: ponte,
     perguntas_spin: {
       situacao: situacaoQ,
-      problema: problemaQ.slice(0, 2),
+      problema: problemaQ.slice(0, 3),
       implicacao: implicacaoQ,
       necessidade: necessidadeQ,
     },
@@ -878,6 +1008,7 @@ async function enrichSpinWithLLM(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
   seed: SpinBriefing,
+  live?: LiveProductDossier | null,
 ): Promise<SpinBriefing | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
@@ -898,6 +1029,10 @@ async function enrichSpinWithLLM(
   const ragBlocks: string[] = [];
   const intentBlock = renderDossierForPrompt(intentDossier, "DOSSIÊ PRODUTO DE INTENÇÃO");
   if (intentBlock) ragBlocks.push(intentBlock);
+  const liveBlock = renderLiveDossierForPrompt(live ?? null);
+  if (liveBlock) ragBlocks.push(liveBlock);
+  const antiHallBlock = renderAntiHallucinationForPrompt(live ?? null);
+  if (antiHallBlock) ragBlocks.push(antiHallBlock);
   if (printerInvolved && rayshapeDossier) {
     ragBlocks.push(renderDossierForPrompt(rayshapeDossier, "DOSSIÊ RAYSHAPE"));
   }
@@ -927,7 +1062,14 @@ ${JSON.stringify(seed, null, 2)}
 REGRAS DURAS:
 - Perguntas DEVEM citar o que o lead JÁ TEM (nome do scanner, da impressora, software). Nada de "qual scanner você usa?" se já sabemos.
 - Implicações concretas: peças/mês, hora-cadeira, retrabalho, garantia, custo de terceirização.
-- Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO. Sem inventar.
+- Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO ou do bloco "CONTEXTO DO PRODUTO (Sistema A live)". Sem inventar.
+- Se o bloco "REGRAS ANTI-ALUCINAÇÃO (Sistema A oficial)" existir, é OBRIGATÓRIO:
+    • nunca afirme nada listado em "NUNCA AFIRME";
+    • nunca combine produtos de "NUNCA COMBINE COM";
+    • nunca posicione nas etapas listadas em "NUNCA USE NAS ETAPAS";
+    • para CADA item de "SEMPRE PERGUNTE / EXIJA" gere uma pergunta de PROBLEMA específica (ex.: "qual resina?", "qual dispositivo de cura?") — sem isso o vendedor recomenda no escuro;
+    • se houver "PRODUTOS REQUERIDOS NO COMBO", faça ao menos 1 pergunta confirmando se o lead já tem cada um;
+    • NUNCA sugira "PRODUTOS PROIBIDOS NO COMBO".
 - A marca pedida pelo lead NUNCA é concorrente.
 - Se não houver concorrente, não invente.
 - PT-BR, tom consultivo de colega especialista, NÃO interrogatório.
@@ -940,7 +1082,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
   "perguntas_spin": {
     "situacao": ["1 pergunta"],
-    "problema": ["2 perguntas"],
+    "problema": ["2-3 perguntas (incluindo 1 por item de SEMPRE PERGUNTE / EXIJA quando existir)"],
     "implicacao": ["2 perguntas"],
     "necessidade": ["1 pergunta"]
   },
@@ -985,7 +1127,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
       perguntas_spin: {
         situacao: arrStr(parsed.perguntas_spin?.situacao, 1) || seed.perguntas_spin.situacao,
-        problema: arrStr(parsed.perguntas_spin?.problema, 2) || seed.perguntas_spin.problema,
+        problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,
         implicacao: arrStr(parsed.perguntas_spin?.implicacao, 2) || seed.perguntas_spin.implicacao,
         necessidade: arrStr(parsed.perguntas_spin?.necessidade, 1) || seed.perguntas_spin.necessidade,
       },

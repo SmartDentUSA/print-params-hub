@@ -7,6 +7,10 @@
  * clinical_indications, compatibility_list, contraindications).
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  fetchSystemAProduct,
+  type LiveProductDossier,
+} from "./system-a-live.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -79,7 +83,7 @@ async function fetchByMatch(
   // 1) exact ilike on name
   let r = await supabase
     .from("system_a_catalog")
-    .select("name, slug, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
+    .select("name, slug, external_id, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
     .eq("active", true)
     .ilike("name", cleaned)
     .limit(1)
@@ -89,7 +93,7 @@ async function fetchByMatch(
   // 2) ilike with wildcards
   r = await supabase
     .from("system_a_catalog")
-    .select("name, slug, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
+    .select("name, slug, external_id, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
     .eq("active", true)
     .ilike("name", `%${cleaned}%`)
     .limit(1)
@@ -102,7 +106,7 @@ async function fetchByMatch(
 
   const { data } = await supabase
     .from("system_a_catalog")
-    .select("name, slug, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
+    .select("name, slug, external_id, product_category, product_subcategory, description, extra_data, technical_specs, clinical_indications, compatibility_list, contraindications, keywords")
     .eq("active", true)
     .or(tokens.map(t => `name.ilike.%${t}%,slug.ilike.%${t}%`).join(","))
     .limit(20);
@@ -161,4 +165,46 @@ export function firstSentence(s: string | null | undefined): string {
   if (!s) return "";
   const m = String(s).match(/^[^.!?\n]{10,240}[.!?]/);
   return (m ? m[0] : String(s).slice(0, 200)).trim();
+}
+
+// ────────────────────────────────────────────────────────────────
+// Enriched dossier — local (system_a_catalog) + Sistema A live API.
+// Live takes precedence on features/applications/document_extracts/
+// workflow_stages/competitor_comparison/anti_hallucination/required/
+// forbidden_products. Local stays as fallback.
+// ────────────────────────────────────────────────────────────────
+export interface EnrichedProductDossier {
+  local: ProductDossier;
+  live: LiveProductDossier | null;
+  external_id: string | null;
+}
+
+const ENRICHED_CACHE = new Map<string, { exp: number; value: EnrichedProductDossier | null }>();
+const ENRICHED_TTL_MS = 5 * 60 * 1000;
+
+export async function fetchEnrichedProductDossier(
+  supabase: SupabaseClient,
+  label: string | null | undefined,
+): Promise<EnrichedProductDossier | null> {
+  const key = norm(label);
+  if (!key) return null;
+  const cached = ENRICHED_CACHE.get(key);
+  if (cached && cached.exp > Date.now()) return cached.value;
+
+  try {
+    const row = await fetchByMatch(supabase, String(label));
+    if (!row) {
+      ENRICHED_CACHE.set(key, { exp: Date.now() + ENRICHED_TTL_MS, value: null });
+      return null;
+    }
+    const localDossier = buildDossier(row);
+    const externalId = (row?.external_id as string | null) ?? null;
+    const live = externalId ? await fetchSystemAProduct(externalId) : null;
+    const value: EnrichedProductDossier = { local: localDossier, live, external_id: externalId };
+    ENRICHED_CACHE.set(key, { exp: Date.now() + ENRICHED_TTL_MS, value });
+    return value;
+  } catch (e) {
+    console.warn("[product-rag] fetchEnrichedProductDossier failed:", e);
+    return null;
+  }
 }
