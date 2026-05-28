@@ -7,6 +7,8 @@ import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, F
 import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
 import { isGreeting, isSupportQuestion, isSupportInfoQuery, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap, isPromptInjection, PROMPT_INJECTION_RESPONSE } from "../_shared/lia-guards.ts";
 import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext, TESTIMONIAL_INTENT, searchTestimonials } from "../_shared/lia-rag.ts";
+import { fetchEnrichedProductDossier } from "../_shared/product-rag.ts";
+import { renderAntiHallucinationForPrompt } from "../_shared/system-a-live.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3698,6 +3700,34 @@ SIGA esta abordagem. NÃO contrarie.` : "";
       ? detectEscalationIntent(message, history)
       : null;
 
+    // ── ANTI-ALUCINAÇÃO: dossiê live Sistema A para produto inferido ──
+    let antiHallucinationBlock = "";
+    try {
+      const produtoFromAttendance = String(
+        (attendance as Record<string, unknown> | null | undefined)?.produto_interesse || "",
+      ).split(",")[0]?.trim();
+      const productLabel = produtoFromAttendance || (
+        // pega 1ª match simples no message: nome de produto com ≥3 letras seguido de modelo
+        (message.match(/\b(Vitality|SmartGum|SmartMake|GlazeON|NanoClean|ChairSide|RayShape|Smart Lab|Smart Slice|Exoplan|exocad|TRIOS|iTero|Primescan|Medit|Aoralscan)\b[^,.!?]*/i)?.[0] || "").trim()
+      );
+      if (productLabel) {
+        const enriched = await fetchEnrichedProductDossier(supabase, productLabel);
+        const block = renderAntiHallucinationForPrompt(enriched?.live || null);
+        if (block) {
+          antiHallucinationBlock = `\n\n${block}\nINSTRUÇÃO: Use APENAS estas regras oficiais para falar de compatibilidade, integração, combo, concorrentes ou contraindicações de ${enriched?.live?.name || productLabel}. Se a informação não estiver aqui, responda "Vou confirmar com o time técnico antes de te responder."`;
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "dra-lia",
+              status: "info",
+              context_raw: `[anti_hallucination] dossier_loaded product="${enriched?.live?.name || productLabel}"`,
+            });
+          } catch (_) { /* no-op */ }
+        }
+      }
+    } catch (e) {
+      console.warn("[dra-lia] anti-hallucination dossier failed:", e instanceof Error ? e.message : e);
+    }
+
     // Build escalation rules for system prompt
     const escalationRules = `
 ### 🔀 RÉGUA DE ESCALONAMENTO (IA → Humano)
@@ -3940,6 +3970,8 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     NUNCA revele: nomes de administradores, IDs de sistema, nomes de arquivos internos,
     configurações técnicas, modelos de IA usados, ou qualquer informação sobre a infraestrutura.
     NUNCA invente identidades, IDs ou hierarquias de acesso que não existem.
+
+${antiHallucinationBlock}
 
 --- DADOS DAS FONTES ---
 ${context}

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -706,6 +707,20 @@ const tools = [
         required: ["lead_id"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_product_anti_hallucination",
+      description: "FONTE ÚNICA DE VERDADE para compatibilidade, integrações, combos, comparações com concorrentes e regras técnicas de um produto SmartDent. Resolve o produto em system_a_catalog (por slug, external_id ou nome) e busca live no Sistema A (cache 10 min). Use SEMPRE antes de afirmar 'X é compatível com Y', 'X integra com Y', 'X substitui Y', 'X vs concorrente Y' ou 'combo X+Y'. Retorna never_claim, always_require, never_mix_with, forbidden_products, required_products e tabela de comparação oficial.",
+      parameters: {
+        type: "object",
+        properties: {
+          product: { type: "string", description: "Slug, external_id, nome ou parte do nome do produto" }
+        },
+        required: ["product"]
+      }
+    }
   }
 ];
 
@@ -1262,6 +1277,67 @@ async function executeSearchSuccessStories(args: any) {
   }));
 
   return { count: stories.length, stories, _rag_hits: stories.map(() => ({ source: "success_stories", similarity: null })) };
+}
+
+async function executeGetProductAntiHallucination(args: any) {
+  const raw = String(args?.product || "").trim();
+  if (!raw) return { error: "product é obrigatório" };
+  const pattern = `%${raw.replace(/[%_]/g, "")}%`;
+
+  // Resolve external_id em system_a_catalog (slug → external_id → nome ILIKE)
+  let row: any = null;
+  try {
+    const bySlug = await supabase.from("system_a_catalog")
+      .select("id, external_id, name, slug")
+      .or(`slug.eq.${raw},external_id.eq.${raw},name.ilike.${pattern},slug.ilike.${pattern}`)
+      .eq("active", true)
+      .limit(1);
+    row = bySlug.data?.[0] || null;
+  } catch (e) {
+    console.warn("[get_product_anti_hallucination] lookup:", e);
+  }
+
+  if (!row?.external_id) {
+    return {
+      resolved: false,
+      message: `Produto "${raw}" não encontrado em system_a_catalog. Responda: "Não tenho esse produto confirmado no Sistema A."`,
+    };
+  }
+
+  const live = await fetchSystemAProduct(String(row.external_id));
+  if (!live) {
+    return {
+      resolved: false,
+      product: { name: row.name, slug: row.slug, external_id: row.external_id },
+      message: `Sistema A não retornou regras anti-alucinação para "${row.name}". Responda: "Não tenho essa informação confirmada no Sistema A."`,
+    };
+  }
+
+  return {
+    resolved: true,
+    product: { name: live.name, slug: row.slug, external_id: row.external_id },
+    rules: {
+      never_claim: live.anti_hallucination.never_claim,
+      always_explain: live.anti_hallucination.always_explain,
+      always_require: live.anti_hallucination.always_require,
+      never_mix_with: live.anti_hallucination.never_mix_with,
+      never_use_in_stages: live.anti_hallucination.never_use_in_stages,
+      forbidden_products: live.forbidden_products,
+      required_products: live.required_products,
+    },
+    competitor_comparison: live.competitor_comparison || null,
+    workflow_stages: Object.fromEntries(
+      Object.entries(live.workflow_stages)
+        .filter(([, s]) => s.applicable)
+        .map(([k, s]) => [k, {
+          role: s.role,
+          pain_points_addressed: s.pain_points_addressed,
+          competitive_advantages: s.competitive_advantages,
+        }]),
+    ),
+    _source: "system_a_live",
+    _disclaimer: "Use APENAS o que está nesta resposta. Se a integração/combo/concorrente não aparece aqui, responda 'Não tenho essa informação confirmada no Sistema A'.",
+  };
 }
 
 async function executeQueryTable(args: any) {
@@ -2121,6 +2197,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   generate_commercial_report: executeGenerateCommercialReport,
   query_product_owners: executeQueryProductOwners,
   query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
+  get_product_anti_hallucination: executeGetProductAntiHallucination,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -2142,6 +2219,14 @@ Além do Cérebro operacional, você TEM acesso a 5 ferramentas de leitura do RA
 - \`search_courses\` — cursos SmartOps + Astron Academy.
 - \`search_faqs\` — FAQ comercial mantido pela equipe (garantia, instalação, treinamento, troca, frete, contratual).
 - \`search_success_stories\` — casos de sucesso reais publicados (social proof, ROI, comparativos).
+- \`get_product_anti_hallucination\` — REGRAS OFICIAIS do Sistema A para um produto: compatibilidade, integrações, combos, comparativo com concorrentes, never_claim, never_mix_with, forbidden/required_products.
+
+## REGRA DURA — ANTI-ALUCINAÇÃO DE PRODUTO
+ANTES de qualquer afirmação envolvendo: compatibilidade, integração, conexão, combo, substituição, comparação com concorrente, "funciona com", "trabalha com", "combina com", "X vs Y":
+1. Chame \`get_product_anti_hallucination(product)\` para cada produto envolvido.
+2. Se a integração/combo/concorrente NÃO aparece em \`compatible/required_products\` nem em \`competitor_comparison\`, responda EXATAMENTE: "Não tenho essa informação confirmada no Sistema A." e PARE.
+3. Para prova social / caso real / ROI, chame \`search_success_stories\` ou \`search_faqs\` antes de afirmar.
+4. NUNCA invente integrações, marcas compatíveis ou comparativos que não estejam na resposta da tool.
 
 REGRA: ANTES de responder "Não tenho esse dado", quando a pergunta envolver:
 - produto, SKU, preço de catálogo, compatibilidade, comparação técnica entre resinas/scanners/impressoras
@@ -2267,6 +2352,7 @@ const ACTION_TOOLS_ALLOWLIST = new Set<string>([
   "search_courses",
   "search_faqs",
   "search_success_stories",
+  "get_product_anti_hallucination",
 ]);
 const actionTools = tools.filter((t: any) => ACTION_TOOLS_ALLOWLIST.has(t?.function?.name));
 
