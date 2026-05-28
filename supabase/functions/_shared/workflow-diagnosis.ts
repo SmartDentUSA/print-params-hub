@@ -608,59 +608,85 @@ const escHtml = (v: unknown): string => String(v ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
-  if (!diag.stack_atual.length && !diag.intent && !diag.combo_sugerido.mesma_celula.length) {
-    return ""; // nada para mostrar
+  if (!diag.stack_atual.length && !diag.intent && !diag.combo_sugerido.mesma_celula.length && !diag.spin) {
+    return "";
   }
   const out: string[] = [];
-  out.push(`<b>🧭 Diagnóstico Fluxo Digital (7×3)</b><br>`);
+  out.push(`<b>🧭 Diagnóstico SPIN (Fluxo Digital 7×3)</b><br>`);
 
-  // Stack + concorrentes
+  // ── SITUAÇÃO ──
+  out.push(`<br>📍 <b>SITUAÇÃO</b><br>`);
+  if (diag.spin?.situacao) {
+    out.push(`${escHtml(diag.spin.situacao)}<br>`);
+  }
   if (diag.stack_atual.length) {
     const stages = Array.from(new Set(diag.stack_atual.map(s => s.stage))).sort();
-    const stageLabels = stages.map(s => STAGE_LABEL[s] || s).join(" + ");
-    out.push(`• Etapas com dados: <b>${escHtml(stageLabels)}</b><br>`);
+    out.push(`<i>Stack:</i> ${escHtml(stages.map(s => STAGE_LABEL[s] || s).join(" + "))}<br>`);
+  }
+  if (diag.intent) {
+    const targ = diag.intent.target_stage
+      ? `${escHtml(STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage)}${diag.intent.matched_product_label ? ` · ≈ ${escHtml(diag.intent.matched_product_label)}` : ""}`
+      : `<i>sem match no portfólio — confirmar</i>`;
+    out.push(`<i>Intenção:</i> ${escHtml(diag.intent.produto)} → ${targ}<br>`);
   }
   if (diag.concorrentes_detectados.length) {
-    const list = diag.concorrentes_detectados
-      .map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ");
-    out.push(`• Concorrência detectada: ${list}<br>`);
+    out.push(`<i>Concorrentes:</i> ${diag.concorrentes_detectados.map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ")}<br>`);
   }
 
-  // Intent
-  if (diag.intent) {
-    if (diag.intent.target_stage) {
-      out.push(`🎯 <b>Intenção:</b> ${escHtml(diag.intent.produto)} → ${escHtml(STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage)} / ${escHtml(diag.intent.target_cell || "—")}${diag.intent.matched_product_label ? ` (≈ ${escHtml(diag.intent.matched_product_label)})` : ""}<br>`);
-    } else {
-      out.push(`🎯 <b>Intenção:</b> ${escHtml(diag.intent.produto)} <i>(sem match no portfólio mapeado — confirmar com o lead)</i><br>`);
-    }
-  }
-
-  // Lacunas
-  if (diag.lacunas.length) {
-    out.push(`⚠️ <b>Lacunas no fluxo:</b> ${diag.lacunas.map(l => escHtml(STAGE_LABEL[l.stage] || l.stage)).join(", ")}<br>`);
-  }
-
-  // Perguntas
-  if (diag.perguntas_qualificacao.length) {
-    out.push(`📋 <b>Pergunte ao lead:</b><br>`);
-    diag.perguntas_qualificacao.forEach((q, i) => {
-      out.push(`&nbsp;&nbsp;${i + 1}. ${escHtml(q)}<br>`);
+  // ── DORES PROVÁVEIS ──
+  if (diag.spin?.dores_provaveis?.length) {
+    out.push(`<br>⚠️ <b>DORES PROVÁVEIS</b> <i>(hipóteses a confirmar)</i><br>`);
+    diag.spin.dores_provaveis.forEach(d => {
+      out.push(`&nbsp;&nbsp;• ${escHtml(d.dor)}${d.evidencia ? ` — <i>evidência:</i> ${escHtml(d.evidencia)}` : ""}<br>`);
     });
   }
 
-  // LLM script
-  if (diag.llm_script) {
-    const safe = escHtml(diag.llm_script).replace(/\n/g, "<br>");
-    out.push(`💡 <b>Como posicionar com o setup dele:</b><br>${safe}<br>`);
+  // ── IMPLICAÇÕES ──
+  if (diag.spin?.implicacoes?.length) {
+    out.push(`<br>💸 <b>IMPLICAÇÕES</b><br>`);
+    diag.spin.implicacoes.forEach(i => out.push(`&nbsp;&nbsp;• ${escHtml(i)}<br>`));
   }
 
-  // Combo
+  // ── PONTE PARA O PRODUTO ──
+  if (diag.spin?.ponte_produto) {
+    out.push(`<br>🎯 <b>PONTE PARA O PRODUTO DE INTERESSE</b><br>${escHtml(diag.spin.ponte_produto)}<br>`);
+  }
+
+  // ── PERGUNTAS SPIN ──
+  const spinQ = diag.spin?.perguntas_spin;
+  if (spinQ && (spinQ.situacao.length || spinQ.problema.length || spinQ.implicacao.length || spinQ.necessidade.length)) {
+    out.push(`<br>📋 <b>PERGUNTAS SPIN</b> <i>(na ordem)</i><br>`);
+    const row = (tag: string, qs: string[]) => qs.forEach(q => out.push(`&nbsp;&nbsp;<b>${tag}</b> → ${escHtml(q)}<br>`));
+    row("S", spinQ.situacao);
+    row("P", spinQ.problema);
+    row("I", spinQ.implicacao);
+    row("N", spinQ.necessidade);
+  } else if (diag.perguntas_qualificacao.length) {
+    // fallback antigo
+    out.push(`<br>📋 <b>Pergunte ao lead:</b><br>`);
+    diag.perguntas_qualificacao.forEach((q, i) => out.push(`&nbsp;&nbsp;${i + 1}. ${escHtml(q)}<br>`));
+  }
+
+  // ── COMBO ──
   const c = diag.combo_sugerido;
   if (c.mesma_celula.length || c.celula_adjacente.length || c.cursos.length) {
-    out.push(`🛒 <b>Combo recomendado:</b><br>`);
+    out.push(`<br>🛒 <b>Combo natural</b> <i>(após confirmar necessidade)</i><br>`);
     if (c.mesma_celula.length) out.push(`&nbsp;&nbsp;◦ Etapa-alvo: ${c.mesma_celula.map(escHtml).join(" · ")}<br>`);
     if (c.celula_adjacente.length) out.push(`&nbsp;&nbsp;◦ Próxima etapa: ${c.celula_adjacente.map(escHtml).join(" · ")}<br>`);
-    if (c.cursos.length) out.push(`&nbsp;&nbsp;◦ Curso recomendado: ${c.cursos.map(escHtml).join(" · ")}<br>`);
+    if (c.cursos.length) out.push(`&nbsp;&nbsp;◦ Curso: ${c.cursos.map(escHtml).join(" · ")}<br>`);
+  }
+
+  // ── ALERTA ──
+  if (diag.spin?.alerta_lacuna) {
+    out.push(`<br>🚨 <b>${escHtml(diag.spin.alerta_lacuna)}</b><br>`);
+  } else if (diag.lacunas.length) {
+    out.push(`<br>🚨 <b>Atenção:</b> lacunas em ${diag.lacunas.map(l => escHtml(STAGE_LABEL[l.stage] || l.stage)).join(", ")} — respeitar ordem do fluxo.<br>`);
+  }
+
+  // ── Fallback bullets antigos (se SPIN faltou) ──
+  if (!diag.spin && diag.llm_script) {
+    const safe = escHtml(diag.llm_script).replace(/\n/g, "<br>");
+    out.push(`<br>💡 <b>Como posicionar:</b><br>${safe}<br>`);
   }
 
   return out.join("");
