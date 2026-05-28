@@ -681,6 +681,29 @@ async function generatePositioningScript(
   const stackSummary = diag.stack_atual.length
     ? diag.stack_atual.map(s => `${STAGE_LABEL[s.stage] || s.stage}/${s.cell}=${s.value}${s.is_competitor ? ` [concorrente: ${s.competitor_label}]` : ""}`).join("; ")
     : "(vazio)";
+
+  const declaredEmptyList = (diag.declared_empty_cells ?? [])
+    .map((k) => {
+      const [st] = k.split("::");
+      return STAGE_LABEL[st] || st;
+    });
+  const declaredEmptyTxt = declaredEmptyList.length ? Array.from(new Set(declaredEmptyList)).join(", ") : "nenhuma";
+
+  const targetCellKey2 = diag.intent?.target_stage && diag.intent.target_cell
+    ? `${diag.intent.target_stage}::${diag.intent.target_cell}`
+    : null;
+  const targetCellHasStack2 = targetCellKey2
+    ? diag.stack_atual.some((s) => `${s.stage}::${s.cell}` === targetCellKey2)
+    : false;
+  const targetNotOwned2 = !!diag.intent && (
+    !targetCellHasStack2 ||
+    (targetCellKey2 ? (diag.declared_empty_cells ?? []).includes(targetCellKey2) : false)
+  );
+  const ownershipStatus = !diag.intent
+    ? "—"
+    : targetNotOwned2
+      ? "AINDA NÃO POSSUI — busca adquirir (alvo de compra)"
+      : "já consta no stack instalado";
   const comboList = [
     ...diag.combo_sugerido.mesma_celula,
     ...diag.combo_sugerido.celula_adjacente,
@@ -1161,12 +1184,17 @@ DADOS DO LEAD:
 - Concorrentes detectados: ${diag.concorrentes_detectados.map(c => c.label).join(", ") || "nenhum"}
 - Intenção declarada: ${diag.intent?.produto || "—"} (match no portfólio: ${diag.intent?.matched_product_label || "sem match"})
 - Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
-- Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}${ragSection}
+- Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}
+- Células declaradas SEM equipamento: ${declaredEmptyTxt}
+- Status do produto-alvo: ${ownershipStatus}${ragSection}
 
 SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- SEPARAÇÃO INTENT vs STACK: "Stack atual" é a ÚNICA fonte do que o lead JÁ TEM. O produto-alvo (vindo de form/produto_interesse/campanha) é INTENÇÃO DE COMPRA, NUNCA equipamento instalado.
+- Quando "Status do produto-alvo" = "AINDA NÃO POSSUI": NUNCA afirme ou implique posse ("já possui", "sua EdgeMini", "como gerencia seu X"). Use SEMPRE verbos como "avalia adquirir", "busca comprar", "está pesquisando".
+- Quando o alvo está em "AINDA NÃO POSSUI": perguntas de SITUAÇÃO devem mapear COMO o lead resolve a etapa hoje (terceiriza? laboratório? não faz?); perguntas de PROBLEMA devem investigar gatilho de compra, alternativas avaliadas e critério de decisão.
 - Perguntas DEVEM citar o que o lead JÁ TEM (nome do scanner, da impressora, software). Nada de "qual scanner você usa?" se já sabemos.
 - Implicações concretas: peças/mês, hora-cadeira, retrabalho, garantia, custo de terceirização.
 - Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO ou do bloco "CONTEXTO DO PRODUTO (Sistema A live)". Sem inventar.
