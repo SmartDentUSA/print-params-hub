@@ -6,6 +6,9 @@ export const EVO_INST  = Deno.env.get('EVOLUTION_INSTANCE_NAME') ?? 'Dra. Lia'
 export const EVO_KEY   = Deno.env.get('EVOLUTION_API_KEY')      ?? 'E1596BBE-4B93-4A62-A610-3BDBD3788672'
 export const EVO_PHONE = '5516981158403'
 export const ADMIN_JID = `${EVO_PHONE}@s.whatsapp.net`
+// WhatsApp LID privacy: participantes vêm como @lid, não @s.whatsapp.net.
+// Nosso LID confirmado via contagem de grupos owned (MEMBER *) = 98908885786860@lid.
+export const ADMIN_LID = Deno.env.get('EVOLUTION_ADMIN_LID') ?? '98908885786860@lid'
 const EVO_INST_ENC = encodeURIComponent(EVO_INST)
 
 export const corsHeaders = {
@@ -38,7 +41,8 @@ export async function fetchAdminGroups(): Promise<EvoGroup[]> {
   const all: EvoGroup[] = await res.json()
   return all.filter(g =>
     g.participants?.some(p =>
-      p.id === ADMIN_JID && (p.admin === 'admin' || p.admin === 'superadmin')
+      (p.id === ADMIN_LID || p.id === ADMIN_JID) &&
+      (p.admin === 'admin' || p.admin === 'superadmin')
     )
   )
 }
