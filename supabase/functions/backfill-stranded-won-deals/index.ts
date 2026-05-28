@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       .select("id, valor_oportunidade, data_fechamento_crm, piperun_deals_history")
       .is("merged_into", null)
       .neq("lead_status", "CLIENTE_ativo")
-      .contains("piperun_deals_history", [{ status: "ganha" }])
+      .filter("piperun_deals_history", "cs", '[{"status":"ganha"}]')
       .limit(batchSize);
 
     if (error) throw error;
