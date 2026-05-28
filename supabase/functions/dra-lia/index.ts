@@ -3971,6 +3971,8 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     configurações técnicas, modelos de IA usados, ou qualquer informação sobre a infraestrutura.
     NUNCA invente identidades, IDs ou hierarquias de acesso que não existem.
 
+${antiHallucinationBlock}
+
 --- DADOS DAS FONTES ---
 ${context}
 --- FIM DOS DADOS ---
