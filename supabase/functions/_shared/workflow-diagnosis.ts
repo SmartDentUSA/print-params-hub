@@ -86,6 +86,25 @@ export interface SpinBriefing {
     necessidade: string[];
   };
   alerta_lacuna?: string;
+  /**
+   * Roteiro canônico de perfilamento — espelha o formulário
+   * "# - Formulário exocad I.A." em 9 pontos fixos. Cada item indica
+   * se o lead já declarou aquele dado (`declarado`), se o vendedor
+   * precisa perguntar (`a_descobrir`) ou se declarou negativa explícita
+   * (`gap_ofensivo` — terceiriza/não internalizou → ofensiva comercial).
+   */
+  roteiro_perfilamento?: RoteiroItem[];
+}
+
+export interface RoteiroItem {
+  ordem: number;
+  etapa_label: string;        // ex.: "1 · Captura"
+  titulo: string;             // título curto (Scanner, CAD, Modelos…)
+  pergunta_canonica: string;  // pergunta exata como no form
+  status: "declarado" | "a_descobrir" | "gap_ofensivo";
+  valor_declarado?: string;
+  hipotese?: string;          // só quando gap_ofensivo
+  gancho_smartdent?: string;  // produto/lane Smart Dent que resolve esta etapa
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -854,6 +873,22 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     out.push(`<i>Concorrentes:</i> ${diag.concorrentes_detectados.map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ")}<br>`);
   }
 
+  // ── ROTEIRO DE PERFILAMENTO (siga nesta ordem — espelha # - Formulário exocad I.A.) ──
+  const rot = diag.spin?.roteiro_perfilamento;
+  if (rot && rot.length) {
+    out.push(`<br>🧩 <b>ROTEIRO DE PERFILAMENTO</b> <i>(siga nesta ordem — perguntas do formulário exocad I.A.)</i><br>`);
+    for (const r of rot) {
+      const head = `${r.ordem}. <b>${escHtml(r.etapa_label)}</b> — ${escHtml(r.titulo)}`;
+      if (r.status === "declarado") {
+        out.push(`&nbsp;&nbsp;✅ ${head}: ${escHtml(r.valor_declarado || "")}<br>`);
+      } else if (r.status === "gap_ofensivo") {
+        out.push(`&nbsp;&nbsp;⚠️ ${head}: <i>${escHtml(r.valor_declarado || "—")}</i> → gancho: ${escHtml(r.gancho_smartdent || "")}<br>`);
+      } else {
+        out.push(`&nbsp;&nbsp;❓ ${head}: ${escHtml(r.pergunta_canonica)}<br>`);
+      }
+    }
+  }
+
   // ── DORES PROVÁVEIS ──
   if (diag.spin?.dores_provaveis?.length) {
     out.push(`<br>⚠️ <b>DORES PROVÁVEIS</b> <i>(hipóteses a confirmar)</i><br>`);
@@ -927,6 +962,17 @@ export function renderDiagnosisWhatsApp(diag: WorkflowDiagnosis): string {
   if (diag.concorrentes_detectados.length) {
     lines.push(`*Concorrentes:* ${diag.concorrentes_detectados.map(c => c.label).join(", ")}`);
   }
+  const rotW = diag.spin?.roteiro_perfilamento;
+  if (rotW && rotW.length) {
+    const pend = rotW.filter((r) => r.status !== "declarado").slice(0, 3);
+    if (pend.length) {
+      lines.push(`🧩 *Roteiro a descobrir:*`);
+      for (const r of pend) {
+        const icon = r.status === "gap_ofensivo" ? "⚠️" : "❓";
+        lines.push(`  ${icon} ${r.etapa_label} — ${r.titulo}`);
+      }
+    }
+  }
   if (diag.spin?.dores_provaveis?.length) {
     lines.push(`⚠️ *Dor #1:* ${diag.spin.dores_provaveis[0].dor}`);
   }
@@ -978,12 +1024,167 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
     lines.push(`Implicações: ${diag.spin.implicacoes.join(" | ")}`);
   }
   if (diag.spin?.ponte_produto) lines.push(`Ponte ao produto: ${diag.spin.ponte_produto}`);
+  const rotP = diag.spin?.roteiro_perfilamento;
+  if (rotP && rotP.length) {
+    const dec = rotP.filter((r) => r.status === "declarado").length;
+    const desc = rotP.filter((r) => r.status === "a_descobrir").length;
+    const gap = rotP.filter((r) => r.status === "gap_ofensivo").length;
+    lines.push(`Roteiro perfilamento: ${dec} declarados / ${desc} a descobrir / ${gap} gaps ofensivos`);
+  }
   return lines.join("\n");
 }
 
 // ────────────────────────────────────────────────────────────────
 // SPIN Briefing — heuristic seed + LLM enrichment
 // ────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────
+// Roteiro Canônico de Perfilamento (espelha "# - Formulário exocad I.A.")
+// Espinha dorsal da SPIN: vendedor deve seguir esses 9 pontos na ordem,
+// confirmando o que está ✅ declarado e perguntando o que está ❓ a descobrir
+// (ou atacando o que virou ⚠️ gap_ofensivo).
+// ──────────────────────────────────────────────────────────────────────
+const ROTEIRO_NEG_RE =
+  /^\s*(n[aã]o(?:\s|,|\.|$)|ainda\s*n[aã]o|n\/a|nenhum[ao]?|sem\s+|—|-|0)\s*/i;
+
+function _pickFirst(lead: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = lead[k];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s && s !== "—" && s !== "-" && s.toLowerCase() !== "null") return s;
+  }
+  return "";
+}
+
+export function buildLeadProfilingRoteiro(
+  lead: Record<string, unknown>,
+): RoteiroItem[] {
+  const spec: Array<{
+    ordem: number;
+    etapa_label: string;
+    titulo: string;
+    pergunta_canonica: string;
+    cols: string[];
+    extra_cols?: string[];
+    gancho: string;
+  }> = [
+    {
+      ordem: 1,
+      etapa_label: "Perfil",
+      titulo: "Área + especialidade",
+      pergunta_canonica:
+        "Confirma sua área de atuação e especialidade (clínica, laboratório, radiologia, planning…)?",
+      cols: ["area_atuacao"],
+      extra_cols: ["especialidade"],
+      gancho: "",
+    },
+    {
+      ordem: 2,
+      etapa_label: "1 · Captura",
+      titulo: "Scanner intraoral",
+      pergunta_canonica:
+        "Hoje você digitaliza suas moldagens? Qual scanner usa (Medit, BLZ, iTero, Aoralscan…)?",
+      cols: [
+        "equip_scanner",
+        "scanner_marca",
+        "sdr_scanner_modelo",
+        "tem_scanner",
+        "como_digitaliza",
+      ],
+      gancho: "Scanner Smart Dent (BLZ INO100/200, Medit i700/i900)",
+    },
+    {
+      ordem: 3,
+      etapa_label: "2 · CAD",
+      titulo: "Software CAD",
+      pergunta_canonica:
+        "Qual software CAD você utiliza hoje (exocad, Medit Clic App, Blz CAD, outro)?",
+      cols: ["software_cad", "equip_cad"],
+      gancho: "exocad DentalCAD Smart Dent",
+    },
+    {
+      ordem: 4,
+      etapa_label: "3 · Impressão (HW)",
+      titulo: "Impressora 3D",
+      pergunta_canonica:
+        "Atualmente você utiliza qual impressora 3D no dia a dia (RayShape, Phrozen, Anycubic, FormLabs…)?",
+      cols: ["equip_impressora", "impressora_modelo", "sdr_modelo_impressora_param"],
+      gancho: "RayShape EdgeMini / EdgePro",
+    },
+    {
+      ordem: 5,
+      etapa_label: "3 · Impressão · Modelos",
+      titulo: "Modelos de estudo/trabalho",
+      pergunta_canonica:
+        "Você imprime modelos? Com qual resina (Smart Dent, Yller, Makertech, outras)?",
+      cols: ["imprime_modelos"],
+      gancho: "Resina Smart Dent Model",
+    },
+    {
+      ordem: 6,
+      etapa_label: "3 · Impressão · Placas",
+      titulo: "Placas miorrelaxantes",
+      pergunta_canonica:
+        "Você imprime placas miorrelaxantes? Com qual resina (Smart Dent Splint, FGM, importada…)?",
+      cols: ["imprime_placas", "sdr_quantas_placas"],
+      gancho: "Resina Smart Dent Splint",
+    },
+    {
+      ordem: 7,
+      etapa_label: "3 · Impressão · Longa duração",
+      titulo: "Elementos dentários (LD)",
+      pergunta_canonica:
+        "Você imprime elementos dentários de longa duração? Com qual resina?",
+      cols: ["imprime_resinas_ld"],
+      gancho: "Resina Smart Dent Permanente",
+    },
+    {
+      ordem: 8,
+      etapa_label: "3 · Impressão · Guias",
+      titulo: "Guias cirúrgicas",
+      pergunta_canonica:
+        "Você imprime guias cirúrgicas? Com qual resina?",
+      cols: ["imprime_guias"],
+      gancho: "Resina Smart Dent Surgical Guide",
+    },
+    {
+      ordem: 9,
+      etapa_label: "Recorrência",
+      titulo: "Consumo de resina + fornecedor",
+      pergunta_canonica:
+        "Quanto de resina você consome por mês e com qual fornecedor compra hoje?",
+      cols: ["sdr_resina_atual", "resina_consumo_mensal_estimado", "sdr_usa_resina_smartdent"],
+      gancho: "Kit recorrente Smart Dent (assinatura mensal)",
+    },
+  ];
+
+  return spec.map((it) => {
+    const main = _pickFirst(lead, it.cols);
+    const extra = it.extra_cols ? _pickFirst(lead, it.extra_cols) : "";
+    const raw = [main, extra].filter(Boolean).join(" / ");
+    const out: RoteiroItem = {
+      ordem: it.ordem,
+      etapa_label: it.etapa_label,
+      titulo: it.titulo,
+      pergunta_canonica: it.pergunta_canonica,
+      status: "a_descobrir",
+    };
+    if (!raw) {
+      out.status = "a_descobrir";
+    } else if (ROTEIRO_NEG_RE.test(raw)) {
+      out.status = "gap_ofensivo";
+      out.valor_declarado = raw.slice(0, 200);
+      out.hipotese = "declarou que não faz/não tem — terceiriza ou ainda não internalizou";
+    } else {
+      out.status = "declarado";
+      out.valor_declarado = raw.slice(0, 200);
+    }
+    if (it.gancho && out.status !== "declarado") out.gancho_smartdent = it.gancho;
+    return out;
+  });
+}
+
 function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
@@ -1095,22 +1296,34 @@ function seedSpinBriefing(
     ponte = `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`;
   }
 
-  // Perguntas SPIN — heurística baseada no que falta + na intent
-  const situacaoQ: string[] = [];
-  const INTEREST_VALUE_RE_Q = /^\s*sdr\s*:|interesse\s+em|busca\s+por|procurando|gostaria\s+de|deseja\s+adquirir/i;
-  const cleanStack = diag.stack_atual.filter(
-    (s) => !INTEREST_VALUE_RE_Q.test(String(s.value || "")),
+  // ── ROTEIRO CANÔNICO (espelha "# - Formulário exocad I.A.") ──
+  // Vendedor segue na ordem; cada item ❓ a_descobrir ou ⚠️ gap_ofensivo
+  // vira UMA pergunta de SITUAÇÃO. Itens ✅ declarado: só reconhecimento.
+  const roteiro = buildLeadProfilingRoteiro(lead);
+  const pendentes = roteiro.filter((r) => r.status !== "declarado");
+  const gaps = roteiro.filter((r) => r.status === "gap_ofensivo");
+
+  const situacaoQ: string[] = pendentes.map(
+    (r) => `Etapa ${r.etapa_label} — ${r.titulo}: ${r.pergunta_canonica}`,
   );
-  if (targetNotOwned && targetStageLbl) {
-    situacaoQ.push(`Etapa ${targetStageLbl}: hoje, como você resolve essa etapa — terceiriza, manda para laboratório/parceiro ou simplesmente não faz?`);
-  } else if (cleanStack.length) {
-    const stackResumo = cleanStack.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
-    situacaoQ.push(`Você já roda ${stackResumo}. Como esse fluxo digital está performando — gargalos, retrabalho, terceirizações ainda presentes?`);
-  } else {
-    situacaoQ.push(`Conta um pouco do seu fluxo digital atual — quais das 7 etapas (captura, CAD, impressão, pós, finalização, cursos, fresagem) você já tem internalizadas e quais ainda dependem de terceiros?`);
+  if (situacaoQ.length === 0) {
+    const top = roteiro
+      .filter((r) => r.valor_declarado)
+      .slice(0, 3)
+      .map((r) => `${r.titulo}: ${r.valor_declarado}`)
+      .join("; ");
+    situacaoQ.push(
+      `Stack completa declarada (${top}). Reconheça e aprofunde direto no gargalo do produto-alvo.`,
+    );
   }
 
   const problemaQ: string[] = [];
+  // Gaps ofensivos do roteiro viram perguntas de PROBLEMA (atacar terceirização)
+  for (const g of gaps.slice(0, 2)) {
+    problemaQ.push(
+      `Etapa ${g.etapa_label}: você declarou "${g.valor_declarado}" — hoje terceiriza essa entrega? Qual o custo mensal e a previsibilidade de prazo?`,
+    );
+  }
   if (targetNotOwned && targetLabel) {
     problemaQ.push(`Etapa ${targetStageLbl || "alvo"}: o que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
   }
@@ -1148,24 +1361,20 @@ function seedSpinBriefing(
   }
   if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
 
-  // ── LANE OBRIGATÓRIA: RESINAS & CONSUMÍVEIS (core de recorrência Smart Dent) ──
-  // Sempre que houver intent de hardware (scanner/CAD/impressora/pós/finalização)
-  // OU stack de impressão, perguntar sobre resina, protocolo e consumo mensal.
-  const hwStages = new Set([
-    "etapa_1_scanner", "etapa_2_cad", "etapa_3_impressao",
-    "etapa_4_pos_impressao", "etapa_5_finalizacao", "etapa_7_fresagem",
-  ]);
-  const triggersConsumables =
-    (diag.intent?.target_stage && hwStages.has(diag.intent.target_stage)) ||
-    diag.stack_atual.some((s) => s.stage === "etapa_3_impressao");
-  if (triggersConsumables) {
+  // Lane resinas/protocolo já está coberta pelo roteiro (itens 5-9).
+  // Só reforça PROBLEMA de protocolo quando intent envolve impressão e o
+  // roteiro mostra que o lead já imprime (item 5 ou 6 ou 7 ou 8 declarado).
+  const imprimeAlgo = roteiro.some(
+    (r) => r.ordem >= 5 && r.ordem <= 8 && r.status === "declarado",
+  );
+  if (imprimeAlgo) {
     problemaQ.push(
-      "Etapa Resinas: qual resina você usa hoje (marca/aplicação — modelo, provisório, guia cirúrgica, splint) e quanto consome por mês?",
-    );
-    problemaQ.push(
-      "Etapa Pós-impressão: qual seu protocolo de lavagem (álcool/solvente, tempo) e de cura (qual dispositivo, ciclo)? É o protocolo validado pelo fabricante da resina?",
+      "Etapa Pós-impressão: qual seu protocolo de lavagem (álcool/solvente, tempo) e de cura (dispositivo, ciclo)? É o protocolo validado pelo fabricante da resina?",
     );
   }
+  const triggersConsumables = roteiro.some(
+    (r) => r.ordem >= 5 && r.ordem <= 9 && r.status !== "declarado",
+  );
 
   const implicacaoQ: string[] = [
     "Quantas peças/mês esse gargalo impacta — em retrabalho, hora-cadeira ou casos perdidos?",
@@ -1196,12 +1405,13 @@ function seedSpinBriefing(
     implicacoes: Array.from(new Set(implicacoes)).slice(0, 3),
     ponte_produto: ponte,
     perguntas_spin: {
-      situacao: situacaoQ,
+      situacao: situacaoQ.slice(0, 9),
       problema: problemaQ.slice(0, 5),
       implicacao: implicacaoQ,
       necessidade: necessidadeQ.slice(0, 2),
     },
     alerta_lacuna: alerta,
+    roteiro_perfilamento: roteiro,
   };
 }
 
@@ -1269,6 +1479,22 @@ async function enrichSpinWithLLM(
       ? "AINDA NÃO POSSUI — busca adquirir (alvo de compra)"
       : "já consta no stack instalado";
 
+  // ── Roteiro canônico (não reordenar; LLM só refina o tom) ──
+  const roteiroBlock = (seed.roteiro_perfilamento || [])
+    .map((r) => {
+      const tag =
+        r.status === "declarado"
+          ? `✅ ${r.valor_declarado || ""}`
+          : r.status === "gap_ofensivo"
+            ? `⚠️ gap (${r.valor_declarado || "—"}) → ${r.gancho_smartdent || ""}`
+            : `❓ a descobrir`;
+      return `${r.ordem}. ${r.etapa_label} — ${r.titulo}: ${tag}\n   pergunta canônica: ${r.pergunta_canonica}`;
+    })
+    .join("\n");
+  const roteiroSection = roteiroBlock
+    ? `\n\n=== ROTEIRO DE PERFILAMENTO (rota fixa do formulário exocad I.A. — NÃO reordene, NÃO pule) ===\n${roteiroBlock}\n=========================================================`
+    : "";
+
   const prompt = `Você é coach SPIN de um vendedor consultivo da Smart Dent (odontologia digital).
 Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico — para o vendedor abrir a conversa.
 
@@ -1281,12 +1507,15 @@ DADOS DO LEAD:
 - Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
 - Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}
 - Células declaradas SEM equipamento: ${declaredEmptyTxt}
-- Status do produto-alvo: ${ownershipStatus}${ragSection}
+- Status do produto-alvo: ${ownershipStatus}${roteiroSection}${ragSection}
 
 SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- ROTEIRO IMUTÁVEL: as perguntas de SITUAÇÃO devem cobrir EXATAMENTE os itens do "ROTEIRO DE PERFILAMENTO" cujo status é "❓ a descobrir" ou "⚠️ gap", NA MESMA ORDEM do roteiro (1→9). Para itens "✅ declarado" NÃO gere pergunta — só reconheça no campo "situacao". É proibido pular, reordenar ou substituir perguntas do roteiro.
+- Cada pergunta de SITUAÇÃO deve PREFIXAR com "Etapa <etapa_label> — <titulo>:" e manter a essência da "pergunta canônica" (você pode refinar o tom, sem perder o foco).
+- Itens "⚠️ gap" também viram 1 pergunta de PROBLEMA cada, atacando a terceirização/dependência e introduzindo o "gancho" Smart Dent listado no roteiro.
 - SEPARAÇÃO INTENT vs STACK: "Stack atual" é a ÚNICA fonte do que o lead JÁ TEM. O produto-alvo (vindo de form/produto_interesse/campanha) é INTENÇÃO DE COMPRA, NUNCA equipamento instalado.
 - Quando "Status do produto-alvo" = "AINDA NÃO POSSUI": NUNCA afirme ou implique posse ("já possui", "sua EdgeMini", "como gerencia seu X"). Use SEMPRE verbos como "avalia adquirir", "busca comprar", "está pesquisando".
 - Quando o alvo está em "AINDA NÃO POSSUI": perguntas de SITUAÇÃO devem mapear COMO o lead resolve a etapa hoje (terceiriza? laboratório? não faz?); perguntas de PROBLEMA devem investigar gatilho de compra, alternativas avaliadas e critério de decisão.
@@ -1314,7 +1543,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
   "implicacoes": ["string concreta", "string concreta"],
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
   "perguntas_spin": {
-    "situacao": ["1 pergunta"],
+    "situacao": ["1 pergunta POR item ❓/⚠️ do roteiro, na ordem 1→9"],
     "problema": ["2-3 perguntas (incluindo 1 por item de SEMPRE PERGUNTE / EXIJA quando existir)"],
     "implicacao": ["2 perguntas"],
     "necessidade": ["1 pergunta"]
@@ -1359,12 +1588,14 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
         : seed.implicacoes,
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
       perguntas_spin: {
-        situacao: arrStr(parsed.perguntas_spin?.situacao, 1) || seed.perguntas_spin.situacao,
+        situacao: arrStr(parsed.perguntas_spin?.situacao, 9) || seed.perguntas_spin.situacao,
         problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,
         implicacao: arrStr(parsed.perguntas_spin?.implicacao, 2) || seed.perguntas_spin.implicacao,
         necessidade: arrStr(parsed.perguntas_spin?.necessidade, 1) || seed.perguntas_spin.necessidade,
       },
       alerta_lacuna: parsed.alerta_lacuna ? String(parsed.alerta_lacuna).slice(0, 300) : seed.alerta_lacuna,
+      // Roteiro é determinístico — NUNCA confiar no LLM para reordenar/inventar.
+      roteiro_perfilamento: seed.roteiro_perfilamento,
     };
   } catch (e) {
     console.warn("[spin-enrich] failed:", e);

@@ -69,3 +69,18 @@ Regra dura no prompt do LLM repete a obrigatoriedade — sem resinas + protocolo
 **Bugfix `[object object]`**: `live.document_extracts[].key_specs` pode conter objetos (não só strings). `seedSpinBriefing` agora coage cada item via `String(o.label ?? o.name ?? o.spec ?? o.title ?? o.value)` antes de gerar a pergunta de compatibilidade.
 
 **Bugfix LLM prompt**: `enrichSpinWithLLM` agora computa `declaredEmptyTxt` e `ownershipStatus` localmente (antes referenciava variáveis do escopo de `generatePositioningScript`, causando ReferenceError silencioso e fazendo a chamada cair sempre no seed).
+
+**Roteiro Canônico de Perfilamento (espinha dorsal da SPIN)** — `buildLeadProfilingRoteiro(lead)` deriva 9 itens fixos espelhando o formulário `# - Formulário exocad I.A.`:
+1. Perfil (área/especialidade) · 2. Captura/Scanner · 3. CAD · 4. Impressora 3D · 5. Modelos · 6. Placas miorrelaxantes · 7. Elementos LD · 8. Guias cirúrgicas · 9. Recorrência (consumo/fornecedor).
+Cada item recebe `status`:
+- `declarado` (valor presente no `lia_attendances`),
+- `a_descobrir` (valor vazio → vendedor PERGUNTA usando `pergunta_canonica`),
+- `gap_ofensivo` (valor casa `ROTEIRO_NEG_RE` = `^(não|nao|ainda não|n/a|nenhum|sem|—|0)` → terceiriza/não internalizou; carrega `gancho_smartdent` da etapa).
+
+`seedSpinBriefing` agora deriva 1:1 as perguntas de SITUAÇÃO a partir dos itens `a_descobrir`+`gap_ofensivo`, NA ORDEM do roteiro (até 9 perguntas). Itens `gap_ofensivo` também viram pergunta de PROBLEMA atacando a terceirização. Quando tudo está `declarado`, gera apenas reconhecimento + foco no gargalo do alvo.
+
+`renderDiagnosisHTML` injeta o bloco **🧩 ROTEIRO DE PERFILAMENTO** entre `Concorrentes` e `DORES PROVÁVEIS` (✅/❓/⚠️ por item). `renderDiagnosisWhatsApp` lista os 3 primeiros itens pendentes. `renderDiagnosisForPrompt` resume `Roteiro: X declarados / Y a descobrir / Z gaps`.
+
+Prompt do LLM recebe novo bloco `ROTEIRO DE PERFILAMENTO (rota fixa do formulário exocad I.A. — NÃO reordene, NÃO pule)` + regra dura: perguntas de SITUAÇÃO devem cobrir EXATAMENTE os itens `❓`/`⚠️` na mesma ordem 1→9; itens `✅` viram só reconhecimento; itens `⚠️` viram também 1 P-question por item. O `roteiro_perfilamento` retornado pelo LLM é descartado — usamos sempre o do seed (determinístico, derivado direto das colunas do lead).
+
+Substitui a "lane obrigatória de resinas" anterior (que era genérica): resinas e protocolo agora estão estruturadas como itens 5-9 do roteiro, e cada gap automaticamente vira pergunta + gancho Smart Dent (Resina Model/Splint/Permanente/Surgical Guide, kit recorrente).
