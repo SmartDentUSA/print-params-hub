@@ -871,6 +871,7 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
 function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
+  live?: LiveProductDossier | null,
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
@@ -928,12 +929,21 @@ function seedSpinBriefing(
     implicacoes.push("Investimento em treinamento sem produzir casos clínicos imediatos");
   }
 
-  // Ponte (heurística): produto de intenção + 1 característica do RAG (cai vazio se LLM não rodar)
-  const ponte = diag.intent?.matched_product_label
-    ? `${diag.intent.matched_product_label} se conecta diretamente à etapa de ${STAGE_LABEL[diag.intent.target_stage!] || diag.intent.target_stage}, resolvendo o gargalo desse ponto do fluxo do lead.`
-    : diag.intent
-      ? `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`
-      : "";
+  // Ponte (heurística): produto de intenção + 1 característica do RAG (live API quando disponível).
+  let ponte = "";
+  if (diag.intent?.matched_product_label) {
+    const baseLabel = diag.intent.matched_product_label;
+    const stageLbl = STAGE_LABEL[diag.intent.target_stage!] || diag.intent.target_stage;
+    if (live?.applications) {
+      ponte = `${baseLabel} (${live.applications}) cobre a etapa de ${stageLbl}; conecte ao gargalo declarado pelo lead.`;
+    } else if (live?.features?.length) {
+      ponte = `${baseLabel} entrega ${live.features.slice(0, 2).join(" + ")} e resolve a etapa de ${stageLbl}.`;
+    } else {
+      ponte = `${baseLabel} se conecta diretamente à etapa de ${stageLbl}, resolvendo o gargalo desse ponto do fluxo do lead.`;
+    }
+  } else if (diag.intent) {
+    ponte = `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`;
+  }
 
   // Perguntas SPIN — heurística baseada no que falta + na intent
   const stackResumo = diag.stack_atual.length
@@ -947,6 +957,21 @@ function seedSpinBriefing(
   }
   if (diag.intent?.matched_product_label) {
     problemaQ.push(`O que te fez olhar especificamente para ${diag.intent.matched_product_label} agora?`);
+  }
+  // Live API → perguntas de PROBLEMA específicas: cada `always_require`,
+  // cada `required_products` e cada `key_specs` de document_extracts vira
+  // qualificador que o vendedor PRECISA cobrir.
+  if (live) {
+    for (const req of live.anti_hallucination.always_require.slice(0, 2)) {
+      problemaQ.push(`Hoje você já tem ${req}? Sem isso, o ${live.name} não entrega o resultado esperado.`);
+    }
+    if (live.required_products.length) {
+      problemaQ.push(`Para usar ${live.name} você precisa de ${live.required_products.slice(0, 2).join(" + ")}. Já tem ou precisamos combinar?`);
+    }
+    const docSpecs = live.document_extracts.flatMap((d) => d.key_specs).slice(0, 2);
+    for (const ds of docSpecs) {
+      problemaQ.push(`Qual ${ds.toLowerCase().slice(0, 80)} você usa hoje? Preciso confirmar a compatibilidade.`);
+    }
   }
   if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
 
@@ -970,7 +995,7 @@ function seedSpinBriefing(
     ponte_produto: ponte,
     perguntas_spin: {
       situacao: situacaoQ,
-      problema: problemaQ.slice(0, 2),
+      problema: problemaQ.slice(0, 3),
       implicacao: implicacaoQ,
       necessidade: necessidadeQ,
     },
