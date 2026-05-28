@@ -221,8 +221,20 @@ export async function buildSellerDealSummaryHTML(
     sections.push(`<b>🎓 Cursos & Treinamentos</b><br>• Sem matrículas registradas.<br>`);
   }
 
-  // 6. 7x3 — formulários
-  const forms = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  // 6. 7x3 — formulários (smartops_form_field_responses)
+  const formResponses = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  // Look up form names in parallel (one extra query, bounded)
+  const formIds = Array.from(new Set(formResponses.map(r => r.form_id).filter(Boolean))) as string[];
+  const formNameMap = new Map<string, string>();
+  if (formIds.length) {
+    const { data: formMeta } = await supabase
+      .from("smartops_forms")
+      .select("id,name")
+      .in("id", formIds);
+    for (const f of (formMeta || []) as Array<{ id: string; name: string }>) {
+      formNameMap.set(f.id, f.name);
+    }
+  }
   const equipLines: string[] = [];
   if (lead.tem_impressora && lead.tem_impressora !== "nao") equipLines.push(`Impressora: ${esc(lead.impressora_modelo || lead.tem_impressora)}`);
   if (lead.tem_scanner && lead.tem_scanner !== "nao") equipLines.push(`Scanner: ${esc(lead.tem_scanner)}`);
@@ -235,14 +247,26 @@ export async function buildSellerDealSummaryHTML(
     formsBlock += `<b>📝 Formulário recente: ${esc(opts.highlightFormName || "—")}</b><br>` +
       opts.highlightFormResponses.map(r => `• <b>${esc(r.label)}:</b> ${esc(r.value)}`).join("<br>") + "<br>";
   }
-  if (forms.length) {
-    formsBlock += `<b>📋 Formulários (últimos ${Math.min(forms.length, 5)} de ${forms.length})</b><br>`;
-    for (const f of forms.slice(0, 5)) {
-      const data = (f.form_data as Record<string, unknown>) || {};
-      const fields = Object.entries(data).slice(0, 8)
-        .map(([k, v]) => `&nbsp;&nbsp;◦ ${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}`)
+  if (formResponses.length) {
+    // Group by form_id; keep newest submission timestamp per group
+    const grouped = new Map<string, { ts: string; rows: Array<Record<string, unknown>> }>();
+    for (const r of formResponses) {
+      const key = String(r.form_id || "_unknown");
+      const ts = String(r.created_at || "");
+      const g = grouped.get(key);
+      if (!g) grouped.set(key, { ts, rows: [r] });
+      else { g.rows.push(r); if (ts > g.ts) g.ts = ts; }
+    }
+    const groups = Array.from(grouped.entries())
+      .sort((a, b) => b[1].ts.localeCompare(a[1].ts))
+      .slice(0, 5);
+    formsBlock += `<b>📋 Formulários (${grouped.size})</b><br>`;
+    for (const [fid, g] of groups) {
+      const name = formNameMap.get(fid) || "Formulário";
+      const fields = g.rows.slice(0, 10)
+        .map(r => `&nbsp;&nbsp;◦ <b>${esc(r.field_label || "—")}:</b> ${esc(r.value)}`)
         .join("<br>");
-      formsBlock += `• <b>${esc(f.form_type)}</b> (${fmtDate(f.submitted_at)})<br>${fields || "&nbsp;&nbsp;◦ —"}<br>`;
+      formsBlock += `• <b>${esc(name)}</b> (${fmtDate(g.ts)})<br>${fields || "&nbsp;&nbsp;◦ —"}<br>`;
     }
   }
   if (equipLines.length) {
@@ -250,8 +274,8 @@ export async function buildSellerDealSummaryHTML(
   }
   if (formsBlock) sections.push(formsBlock);
 
-  // 7. Interações Dra. L.I.A.
-  if (lastQuestions.length || lead.total_messages) {
+  // 7. Interações Dra. L.I.A. — only show if there is real activity
+  if (lastQuestions.length || Number(lead.total_messages) > 0) {
     const qLines = lastQuestions.length
       ? lastQuestions.map(q => `&nbsp;&nbsp;◦ "${esc(q)}"`).join("<br>")
       : "&nbsp;&nbsp;◦ —";
