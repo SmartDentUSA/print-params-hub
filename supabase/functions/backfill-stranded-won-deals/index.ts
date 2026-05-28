@@ -113,15 +113,6 @@ Deno.serve(async (req) => {
       summary.updated++;
       if (snapValue) summary.recovered_value += snapValue;
       if (summary.sample_ids.length < 10) summary.sample_ids.push(String(lead.id));
-
-      // Fire-and-forget cognitive re-analysis
-      const p = fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: lead.id, trigger: "opp_closed", closedType: "COMPRA", source: "backfill_stranded_won" }),
-      }).catch((e) => console.warn(`[backfill-stranded-won] cognitive ${lead.id}:`, e));
-      // @ts-ignore — Deno EdgeRuntime
-      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
     }
 
     // Audit
