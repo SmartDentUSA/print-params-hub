@@ -86,6 +86,25 @@ export interface SpinBriefing {
     necessidade: string[];
   };
   alerta_lacuna?: string;
+  /**
+   * Roteiro canônico de perfilamento — espelha o formulário
+   * "# - Formulário exocad I.A." em 9 pontos fixos. Cada item indica
+   * se o lead já declarou aquele dado (`declarado`), se o vendedor
+   * precisa perguntar (`a_descobrir`) ou se declarou negativa explícita
+   * (`gap_ofensivo` — terceiriza/não internalizou → ofensiva comercial).
+   */
+  roteiro_perfilamento?: RoteiroItem[];
+}
+
+export interface RoteiroItem {
+  ordem: number;
+  etapa_label: string;        // ex.: "1 · Captura"
+  titulo: string;             // título curto (Scanner, CAD, Modelos…)
+  pergunta_canonica: string;  // pergunta exata como no form
+  status: "declarado" | "a_descobrir" | "gap_ofensivo";
+  valor_declarado?: string;
+  hipotese?: string;          // só quando gap_ofensivo
+  gancho_smartdent?: string;  // produto/lane Smart Dent que resolve esta etapa
 }
 
 // ────────────────────────────────────────────────────────────────
