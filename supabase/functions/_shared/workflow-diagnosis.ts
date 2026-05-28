@@ -14,7 +14,14 @@ import {
   fetchProductDossier,
   fetchRayshapeDossier,
   renderDossierForPrompt,
+  fetchEnrichedProductDossier,
 } from "./product-rag.ts";
+import {
+  type LiveProductDossier,
+  renderLiveDossierForPrompt,
+  renderAntiHallucinationForPrompt,
+  getDiscoveryTokens,
+} from "./system-a-live.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -140,6 +147,80 @@ async function loadMappings(supabase: SupabaseClient): Promise<MappingRow[]> {
 }
 
 // ────────────────────────────────────────────────────────────────
+// Discovery-token index — used by resolveIntent to boost matching
+// using Sistema A `bot_trigger_words` + `market_keywords` + local
+// `keywords` from system_a_catalog. Keyed by normalized product label
+// from the mapping. Cached 5 min.
+// ────────────────────────────────────────────────────────────────
+let _tokenCache: { at: number; index: Map<string, Set<string>> } | null = null;
+
+async function loadProductTokenIndex(
+  supabase: SupabaseClient,
+  mappings: MappingRow[],
+): Promise<Map<string, Set<string>>> {
+  if (_tokenCache && Date.now() - _tokenCache.at < CACHE_TTL_MS) return _tokenCache.index;
+  const labels = Array.from(new Set(
+    mappings
+      .filter((m) => m.mapping_type === "product")
+      .map((m) => (m.mapped_label || m.mapped_value || "").trim())
+      .filter(Boolean),
+  ));
+  const index = new Map<string, Set<string>>();
+  if (!labels.length) {
+    _tokenCache = { at: Date.now(), index };
+    return index;
+  }
+  try {
+    // pull all catalog rows in one shot, then match by includes/equality.
+    const { data } = await supabase
+      .from("system_a_catalog")
+      .select("name, slug, external_id, keywords, extra_data")
+      .eq("active", true)
+      .limit(800);
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[®©™]/g, "").trim();
+    for (const label of labels) {
+      const ln = normalize(label);
+      let row = rows.find((r) => normalize(String(r.name || "")) === ln);
+      if (!row) row = rows.find((r) => {
+        const n = normalize(String(r.name || ""));
+        return n && (n.includes(ln) || ln.includes(n));
+      });
+      if (!row) continue;
+      const extra = (row.extra_data as Record<string, unknown> | null) ?? {};
+      const live = (extra?.system_a_live as Record<string, unknown> | undefined) ?? undefined;
+      const bag: string[] = [];
+      const pushArr = (v: unknown) => {
+        if (Array.isArray(v)) for (const x of v) if (typeof x === "string") bag.push(x);
+      };
+      // local fields (when previously synced or natively populated)
+      pushArr(row.keywords);
+      pushArr(extra.bot_trigger_words);
+      pushArr(extra.market_keywords);
+      pushArr(extra.search_intent_keywords);
+      // live snapshot from refresh-system-a-cache
+      if (live) {
+        pushArr(live.bot_trigger_words);
+        pushArr(live.market_keywords);
+        pushArr(live.search_intent_keywords);
+      }
+      const tokens = bag
+        .flatMap((s) => s.split(/[,;|/]+/))
+        .map((s) => normalize(s).replace(/[^a-z0-9\s]/g, " ").trim())
+        .flatMap((s) => s.split(/\s+/))
+        .filter((t) => t.length >= 3 && t.length <= 32);
+      const set = new Set<string>(tokens);
+      if (set.size) index.set(label, set);
+    }
+  } catch (e) {
+    console.warn("[workflow-diagnosis] loadProductTokenIndex failed:", e);
+  }
+  _tokenCache = { at: Date.now(), index };
+  return index;
+}
+
+// ────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────
 function norm(v: unknown): string {
@@ -189,6 +270,7 @@ export async function diagnoseLead(
   if (mappings.length === 0) {
     return emptyDiagnosis();
   }
+  const tokenIndex = await loadProductTokenIndex(supabase, mappings);
 
   // Index form responses (latest by label) + custom_fields
   const formIndex = new Map<string, string>();
@@ -274,7 +356,7 @@ export async function diagnoseLead(
   }
 
   // ── Intent (produto buscado) ──
-  const intent = resolveIntent(lead, mappings);
+  const intent = resolveIntent(lead, mappings, tokenIndex);
 
   // ── Lacunas (em relação ao alvo) ──
   const lacunas: WorkflowDiagnosis["lacunas"] = [];
@@ -372,11 +454,17 @@ export async function diagnoseLead(
 
   // ── SPIN briefing (heuristic seed + Gemini enrichment, soft-fail) ──
   try {
-    const seed = seedSpinBriefing(diag, lead);
+    // Pre-fetch enriched dossier (local + Sistema A live) for the matched
+    // product. Used by both the seed (deterministic) and Gemini (LLM).
+    const intentLabel = diag.intent?.matched_product_label || diag.intent?.produto || null;
+    const enriched = intentLabel ? await fetchEnrichedProductDossier(supabase, intentLabel) : null;
+    const liveDossier = enriched?.live ?? null;
+
+    const seed = seedSpinBriefing(diag, lead, liveDossier);
     diag.spin = seed;
     if (opts.enableLLM !== false) {
-      const enriched = await enrichSpinWithLLM(supabase, diag, lead, seed);
-      if (enriched) diag.spin = enriched;
+      const llm = await enrichSpinWithLLM(supabase, diag, lead, seed, liveDossier);
+      if (llm) diag.spin = llm;
     }
   } catch (e) {
     console.warn("[workflow-diagnosis] SPIN briefing failed:", e);
@@ -396,6 +484,7 @@ function emptyDiagnosis(): WorkflowDiagnosis {
 function resolveIntent(
   lead: Record<string, unknown>,
   mappings: MappingRow[],
+  tokenIndex?: Map<string, Set<string>>,
 ): LeadIntent | null {
   const candidates: Array<{ text: string; source: string }> = [];
   if (lead.produto_interesse) candidates.push({ text: String(lead.produto_interesse), source: "produto_interesse" });
@@ -459,6 +548,22 @@ function resolveIntent(
       const ln = norm(pl);
       const cn = norm(cand.text);
       if (ln && cn && (cn.includes(ln) || ln.includes(cn))) score += 6;
+
+      // Boost from Sistema A discovery tokens (bot_trigger_words,
+      // market_keywords, search_intent_keywords). Each cand token that
+      // hits the product's discovery set counts as a strong product
+      // signal (weight 5, similar to a brand match).
+      const discovery = tokenIndex?.get(pl);
+      if (discovery && discovery.size) {
+        let discHits = 0;
+        for (const tok of candTokens) {
+          if (discovery.has(tok)) discHits++;
+        }
+        if (discHits > 0) {
+          score += discHits * 5;
+          modelMatch = true; // treat discovery token as a strong signal
+        }
+      }
 
       if (score > (best?.score ?? 0)) best = { row: p, score, brandMatch, modelMatch };
     }
