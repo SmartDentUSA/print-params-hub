@@ -370,6 +370,18 @@ export async function diagnoseLead(
     }
   }
 
+  // ── SPIN briefing (heuristic seed + Gemini enrichment, soft-fail) ──
+  try {
+    const seed = seedSpinBriefing(diag, lead);
+    diag.spin = seed;
+    if (opts.enableLLM !== false) {
+      const enriched = await enrichSpinWithLLM(supabase, diag, lead, seed);
+      if (enriched) diag.spin = enriched;
+    }
+  } catch (e) {
+    console.warn("[workflow-diagnosis] SPIN briefing failed:", e);
+  }
+
   return diag;
 }
 
