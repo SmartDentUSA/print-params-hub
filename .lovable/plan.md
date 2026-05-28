@@ -1,86 +1,81 @@
-## Diagnóstico do caso `bellychristinne@gmail.com`
+## Objetivo
 
-A nota tem 4 problemas que se somam:
+A SPIN deve seguir EXATAMENTE a rota do formulário `# - Formulário exocad I.A.` — um roteiro consultivo que perfila o lead em 9 pontos canônicos. O vendedor deve ser instruído a fazer essas perguntas na ordem, marcando o que já está declarado e o que falta descobrir.
 
-1. **Leak de intent escapou** — declarou impressora=`não` e scanner=`não`, mas a Stack mostra `1 · Captura/Scanner` porque o sdr_field `SDR: Interesse em Scanner: Scanner Intraoral INO100` entrou como stack. O guard atual tokeniza com stopwords (`scanner`, `intraoral`, `3d`, `ino`) e o valor sobra com tokens curtos que não batem com `intent`.
-2. **`[object object]` nas perguntas P** — `live.document_extracts[].key_specs` contém objetos, não strings; `String(ds)` quebra.
-3. **Pergunta S inutilizável** — `"Hoje você já está rodando SDR: Interesse em Scanner: Scanner Intraoral INO100. Como esse fluxo está performando?"` dumpou o valor cru do sdr_field na pergunta.
-4. **Tudo orbita equipamento** — o forte da Smart Dent são **resinas e consumíveis** (recorrência). A SPIN não pergunta nada sobre resina, lavagem, cura, perfis, consumo mensal.
+## Roteiro canônico (extraído do form, ordem fixa)
+
+| # | Etapa | Pergunta canônica | Coluna fonte no lead |
+|---|---|---|---|
+| 1 | Perfil | Área de atuação + especialidade | `area_atuacao`, `especialidade` |
+| 2 | 1·Captura | Hoje você digitaliza suas moldagens? Qual scanner? | `equip_scanner`, `scanner_marca`, `tem_scanner`, `como_digitaliza`, `sdr_scanner_modelo` |
+| 3 | 2·CAD | Qual software CAD você utiliza? | `software_cad`, `equip_cad` |
+| 4 | 3·Impressão (hardware) | Qual impressora você utiliza no dia a dia? | `equip_impressora`, `impressora_modelo` |
+| 5 | 3·Impressão · **Modelos** | Imprime modelos? Com qual resina? | `imprime_modelos` |
+| 6 | 3·Impressão · **Placas miorrelaxantes** | Imprime placas? Com qual resina? | `imprime_placas` |
+| 7 | 3·Impressão · **Resinas longa duração / elementos** | Imprime elementos de longa duração? Com qual resina? | `imprime_resinas_ld` |
+| 8 | 3·Impressão · **Guias cirúrgicas** | Imprime guias? Com qual resina? | `imprime_guias` |
+| 9 | Recorrência | Consumo mensal de resina + fornecedor atual | `sdr_resina_atual`, `resina_consumo_mensal_estimado`, `sdr_usa_resina_smartdent` |
+
+Cada linha vira um item do roteiro com status:
+- **✅ declarado** → mostra o valor (vendedor confirma e aprofunda)
+- **❓ a descobrir** → vendedor DEVE fazer a pergunta exata
+
+Valores `"não"`, `"não imprimo"`, `"ainda não digitalizo"`, vazio/`—` contam como **`a descobrir` com hipótese "ainda não faz internamente"**, e viram automaticamente gancho de ofensiva (substituir terceirização / iniciar fluxo).
 
 ## Mudanças
 
-Arquivo: `supabase/functions/_shared/workflow-diagnosis.ts` (+ memória).
+Arquivo principal: `supabase/functions/_shared/workflow-diagnosis.ts`.
 
-### 1. Intent-leak guard mais forte (bug #1)
+### 1. Novo helper `buildLeadProfilingRoteiro(lead)`
 
-No bloco de `intent-leak guard`:
-
-- **Antes do tokenize**, marcar como leak qualquer entrada cujo `value` (não só `field`/`field_label`) bata com `INTEREST_RE` OU comece com `"SDR:"` / contenha `"interesse em"` / `"busca por"` / `"procurando"`. Esses valores **nunca** representam equipamento instalado.
-- Manter o ramo atual (`hitIntent && isInterestField`) como fallback.
-- Reduzir stopwords: tirar `scanner`, `impressora`, `intraoral`, `bancada`, `resina`, `software`, `3d`, `edge`, `mini` da lista — eles são justamente o sinal de overlap. Manter só conectivos.
-
-### 2. Sanitizar `key_specs` (bug #2)
-
-Em `seedSpinBriefing`, no loop de `live.document_extracts`:
+Retorna `Array<RoteiroItem>` com os 9 itens fixos na ordem do form. Cada item:
 
 ```ts
-const docSpecs = live.document_extracts
-  .flatMap((d) => d.key_specs || [])
-  .map((s) => typeof s === "string" ? s : (s?.label || s?.name || s?.spec || ""))
-  .filter((s) => s && s.length > 2)
-  .slice(0, 2);
+{ ordem, etapa_label, titulo, pergunta_canonica, status: 'declarado'|'a_descobrir'|'gap_ofensivo',
+  valor_declarado?: string, hipotese?: string, gancho_smartdent?: string }
 ```
 
-Mesmo tratamento em qualquer lugar que joga `document_extracts` no prompt.
+Regra `gap_ofensivo`: quando o valor declarado é negação (regex `^(não|nao|ainda não|n\/a|nenhum|—)`), tratar como gap com hipótese `"depende de terceiros / não internalizou"` e `gancho_smartdent` apontando a resina/equipamento Smart Dent da etapa (lookup leve em constante).
 
-### 3. Pergunta S não pode usar `s.value` cru (bug #3)
+### 2. `SpinBriefing` ganha `roteiro_perfilamento: RoteiroItem[]`
 
-Quando `targetNotOwned` for falso e cair no ramo `stackResumo`, gerar a partir de uma versão **sanitizada** do valor: se `value` casa `INTEREST_RE`/começa com `SDR:`, ignorar essa entrada para o resumo (já é leak); caso reste vazio, cair no ramo "ausente/terceirizada".
+Populado pelo seed. Substitui a lane "consumíveis" anterior (que era genérica) por essa estrutura canônica — mais rica e ancorada no form real.
 
-### 4. SPIN ancorada no fluxo digital 7×3 (pedido anterior)
+### 3. `seedSpinBriefing` reescrito para a ordem do roteiro
 
-Já detalhado e mantém: novo `WORKFLOW_PAIN_MAP` por etapa, geração de S/P/I/N iterando o fluxo, novo `diagnostico_fluxo` no briefing, prompt LLM exigindo prefixo `"Etapa <label>:"` em cada pergunta, renderização do diagnóstico etapa-a-etapa.
+- `perguntas_spin.situacao`: passa a ser **TODOS** os itens `a_descobrir` do roteiro, na ordem, prefixados com `Etapa <X>:` e usando a pergunta canônica do form. (Antes era 1 pergunta; agora é a sequência consultiva.)
+- `perguntas_spin.problema`: 1-2 perguntas derivadas dos `gap_ofensivo` mais relevantes ("você imprime placas com resina importada — qual o custo/mês e a previsibilidade?").
+- `perguntas_spin.implicacao` e `necessidade`: mantêm a lógica atual (peças/mês, hora-cadeira, fechamento com produto-alvo + pacote de resinas).
+- Mantém intent-leak guard + bugfixes anteriores.
 
-### 5. Lane obrigatória de **resinas e consumíveis** (pedido novo)
+### 4. Renderers
 
-Nova constante `CONSUMABLES_BY_STAGE` (resinas + lavagem + cura + acabamento) com perguntas-padrão sobre **consumo, perfil de aplicação, protocolo e fornecedor atual**. Sempre que:
+- `renderDiagnosisHTML`: novo bloco **🧩 ROTEIRO DE PERFILAMENTO (siga nesta ordem)** ANTES de "PERGUNTAS SPIN". Cada linha: `<n>. <Etapa> — <título>: ✅ <valor>` ou `<n>. <Etapa> — <título>: ❓ <pergunta canônica>` (ou `⚠️ gap: <hipótese>`).
+- `renderDiagnosisWhatsApp`: versão compacta — só lista os 3 primeiros `a_descobrir`/`gap_ofensivo`.
+- `renderDiagnosisForPrompt`: linha `Roteiro: <n itens declarados / m a descobrir / k gaps>` para o cognitive prompt.
 
-- a intent for impressora/scanner/CAD/curso, **OU**
-- o stack contiver qualquer item de impressão (`etapa_3_impressao`),
+### 5. Prompt do LLM (`enrichSpinWithLLM`)
 
-adicionar **pelo menos 2 perguntas obrigatórias** sobre consumíveis na lista P:
+Injeta o roteiro completo como bloco `ROTEIRO DE PERFILAMENTO (rota fixa, não reordene)`. Regras duras adicionais:
 
-- "Etapa Resinas/Consumíveis: qual resina você usa hoje e em quais indicações (modelo, provisório, guia, splint)? Quanto consome por mês?"
-- "Etapa Pós-impressão: como você faz lavagem (qual álcool/solvente) e cura (qual dispositivo e tempo)? Tem protocolo validado pelo fabricante da resina?"
-
-E **1 pergunta N de cross-sell de consumível**:
-
-- "Se a gente fechar a etapa de `<etapa-alvo>` com `<produto>` + protocolo Smart Dent de resinas validadas, faz sentido alinharmos também o pacote inicial de consumíveis?"
-
-Adicionar no `WORKFLOW_PAIN_MAP` da etapa 3/4/5 que `solucao_smartdent` inclua **resinas Smart Dent** explicitamente (não só hardware), porque é onde mora a recorrência.
-
-Atualizar o prompt do LLM com regra dura:
-> "Toda nota SPIN DEVE conter ao menos 1 pergunta sobre RESINAS (qual usa, consumo mensal, indicação) e 1 sobre PROTOCOLO (lavagem/cura). Consumíveis são o core de recorrência da Smart Dent — sem isso o briefing está incompleto."
+- **Proibido** pular ou reordenar itens do roteiro.
+- LLM só pode REFINAR o tom de cada pergunta (manter a essência); a quantidade e ordem de perguntas de SITUAÇÃO **deve bater** com a quantidade de itens `a_descobrir`+`gap_ofensivo`.
+- Para itens `✅ declarado`, gerar 0 perguntas — apenas reconhecimento ("ok, vi que você já roda Medit i700 + exocad…").
 
 ### 6. Memória
 
-Atualizar `mem/smart-ops/seller-note-workflow-diagnosis.md`:
-
-- Regra do "SPIN ancorada no fluxo 7×3" (pedido anterior).
-- **Regra de consumíveis**: toda SPIN com intent/stack de hardware exige perguntas de resina + protocolo + consumo mensal. Recorrência é prioridade.
-- **Intent-leak por valor**: valores começando com `SDR:` ou casando `interesse em|busca por|procurando` nunca contam como stack.
+Atualizar `mem/smart-ops/seller-note-workflow-diagnosis.md` com:
+- Existência do **Roteiro Canônico de Perfilamento** (9 pontos da exocad I.A.) como espinha dorsal da SPIN.
+- Regra: perguntas de SITUAÇÃO derivam 1-para-1 dos itens `a_descobrir`/`gap_ofensivo`; ordem do form é imutável.
+- Negações no formulário viram `gap_ofensivo` (ofensiva comercial), não silêncio.
 
 ## Validação
 
-1. `bellychristinne@gmail.com`:
-   - Stack vazia (scanner=não, impressora=não).
-   - `diagnostico_fluxo`: `[1] alvo (BLZ INO 100 Plus)`, demais ausentes.
-   - Sem `[object object]`. Pergunta S formato "Etapa Scanner: como você captura hoje — moldagem analógica, lab terceirizado?".
-   - Pelo menos 1 pergunta sobre resina e 1 sobre protocolo, mesmo o alvo sendo scanner (impressão é etapa imediata adjacente).
-2. `clakira05@hotmail.com` (RayShape EdgeMini): perguntas N citam resina Smart Dent + EdgeMini juntas.
-3. `danilohen@gmail.com`: stack rico permanece intacto; perguntas de resina não duplicam o que já está declarado.
+1. `bellychristinne@gmail.com` (scanner=não, impressora=não, alvo BLZ INO 100 Plus): roteiro deve mostrar item 2 como ❓ (pergunta de scanner), itens 3-8 como ❓/gap, e 4 perguntas de SITUAÇÃO na ordem do form.
+2. `clakira05@hotmail.com` (alvo RayShape EdgeMini, sem stack): roteiro com itens 4-8 todos ❓; pergunta N nomeia EdgeMini + pacote de resinas.
+3. `danilohen@gmail.com` (stack rico): a maioria dos itens vira ✅ com valor; perguntas de SITUAÇÃO só nos pontos realmente em aberto + 1-2 de aprofundamento nos gaps.
 
 ## Fora de escopo
 
-- `resolveIntent`, mapping tables, live API permanecem como estão.
-- UI admin não muda além da renderização da nota.
+- Não mexer no `resolveIntent`, mapping editor, ou estrutura do formulário em si.
+- Não criar tabela nova — o roteiro é derivado em tempo de execução das colunas já existentes do lead.
