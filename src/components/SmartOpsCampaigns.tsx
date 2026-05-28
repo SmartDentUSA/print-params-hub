@@ -352,6 +352,32 @@ function CreateCampaign({
   const [temPrinter, setTemPrinter] = useState("all");
   const [recencia, setRecencia] = useState("any");
   const [clienteFilter, setClienteFilter] = useState("all");
+  // Step 2 — filtros adicionais baseados em campos reais do lead
+  const [funilCrm, setFunilCrm] = useState("all");           // piperun_pipeline_name
+  const [origem, setOrigem] = useState("all");                // origem_primeiro_contato
+  const [statusPiperun, setStatusPiperun] = useState("all");  // piperun_status
+  const [prazoCompra, setPrazoCompra] = useState("all");      // prazo_compra
+  const [tipoLocal, setTipoLocal] = useState("all");          // tipo_local
+  const [cidade, setCidade] = useState("");                   // cidade ilike
+  const [formName, setFormName] = useState("all");            // form_name
+  const [utmCampaign, setUtmCampaign] = useState("");         // utm_campaign ilike
+  const [marcaScanner, setMarcaScanner] = useState("all");    // scanner_marca / equip_scanner
+  const [marcaImpressora, setMarcaImpressora] = useState("all"); // equip_impressora
+  const [temFresadora, setTemFresadora] = useState("all");    // equip_fresadora
+  const [temCad, setTemCad] = useState("all");                // equip_cad / software_cad
+  const [imprimeModelos, setImprimeModelos] = useState("all");// imprime_modelos
+  const [imprimePlacas, setImprimePlacas] = useState("all");  // imprime_placas
+  const [imprimeGuias, setImprimeGuias] = useState("all");    // imprime_guias
+  const [imprimeResinasLd, setImprimeResinasLd] = useState("all"); // imprime_resinas_ld
+  const [reuniaoAgendada, setReuniaoAgendada] = useState("all"); // reuniao_agendada
+  const [inadimplente, setInadimplente] = useState("all");    // omie_inadimplente
+  const [recompraAlert, setRecompraAlert] = useState("all");  // recompra_alert
+  const [sdrCompleto, setSdrCompleto] = useState("all");      // sdr_completo
+  const [temEmail, setTemEmail] = useState("all");            // email IS NOT NULL
+  const [temTelefone, setTemTelefone] = useState("all");      // telefone_normalized IS NOT NULL
+  const [aceitaContato, setAceitaContato] = useState("all");  // do_not_contact
+  const [ltvMin, setLtvMin] = useState("");                   // ltv_total >=
+  const [scoreMin, setScoreMin] = useState("");               // intelligence_score_total >=
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
@@ -405,8 +431,41 @@ function CreateCampaign({
     if (temPrinter !== "all") f.tem_printer = temPrinter;
     if (recencia !== "any") f.recencia_dias = parseInt(recencia);
     if (clienteFilter !== "all") f.cliente_filter = clienteFilter;
+    if (funilCrm !== "all") f.piperun_pipeline_name = funilCrm;
+    if (origem !== "all") f.origem_primeiro_contato = origem;
+    if (statusPiperun !== "all") f.piperun_status = statusPiperun;
+    if (prazoCompra !== "all") f.prazo_compra = prazoCompra;
+    if (tipoLocal !== "all") f.tipo_local = tipoLocal;
+    if (cidade.trim()) f.cidade = cidade.trim();
+    if (formName !== "all") f.form_name = formName;
+    if (utmCampaign.trim()) f.utm_campaign = utmCampaign.trim();
+    if (marcaScanner !== "all") f.marca_scanner = marcaScanner;
+    if (marcaImpressora !== "all") f.marca_impressora = marcaImpressora;
+    if (temFresadora !== "all") f.tem_fresadora = temFresadora;
+    if (temCad !== "all") f.tem_cad = temCad;
+    if (imprimeModelos !== "all") f.imprime_modelos = imprimeModelos;
+    if (imprimePlacas !== "all") f.imprime_placas = imprimePlacas;
+    if (imprimeGuias !== "all") f.imprime_guias = imprimeGuias;
+    if (imprimeResinasLd !== "all") f.imprime_resinas_ld = imprimeResinasLd;
+    if (reuniaoAgendada !== "all") f.reuniao_agendada = reuniaoAgendada;
+    if (inadimplente !== "all") f.omie_inadimplente = inadimplente;
+    if (recompraAlert !== "all") f.recompra_alert = recompraAlert;
+    if (sdrCompleto !== "all") f.sdr_completo = sdrCompleto;
+    if (temEmail !== "all") f.tem_email = temEmail;
+    if (temTelefone !== "all") f.tem_telefone = temTelefone;
+    if (aceitaContato !== "all") f.aceita_contato = aceitaContato;
+    const ltvNum = parseFloat(ltvMin); if (!isNaN(ltvNum) && ltvNum > 0) f.ltv_min = ltvNum;
+    const scoreNum = parseFloat(scoreMin); if (!isNaN(scoreNum) && scoreNum > 0) f.score_min = scoreNum;
     return f;
-  }, [produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+  }, [
+    produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus,
+    temScanner, temPrinter, recencia, clienteFilter,
+    funilCrm, origem, statusPiperun, prazoCompra, tipoLocal, cidade, formName, utmCampaign,
+    marcaScanner, marcaImpressora, temFresadora, temCad,
+    imprimeModelos, imprimePlacas, imprimeGuias, imprimeResinasLd,
+    reuniaoAgendada, inadimplente, recompraAlert, sdrCompleto,
+    temEmail, temTelefone, aceitaContato, ltvMin, scoreMin,
+  ]);
 
   // Apply a saved segment's filters into state
   const applySegmentFilters = (filters: Record<string, any> | null | undefined) => {
@@ -423,6 +482,31 @@ function CreateCampaign({
     setTemPrinter(f.tem_printer ?? "all");
     setRecencia(f.recencia_dias != null ? String(f.recencia_dias) : "any");
     setClienteFilter(f.cliente_filter ?? "all");
+    setFunilCrm(f.piperun_pipeline_name ?? "all");
+    setOrigem(f.origem_primeiro_contato ?? "all");
+    setStatusPiperun(f.piperun_status ?? "all");
+    setPrazoCompra(f.prazo_compra ?? "all");
+    setTipoLocal(f.tipo_local ?? "all");
+    setCidade(f.cidade ?? "");
+    setFormName(f.form_name ?? "all");
+    setUtmCampaign(f.utm_campaign ?? "");
+    setMarcaScanner(f.marca_scanner ?? "all");
+    setMarcaImpressora(f.marca_impressora ?? "all");
+    setTemFresadora(f.tem_fresadora ?? "all");
+    setTemCad(f.tem_cad ?? "all");
+    setImprimeModelos(f.imprime_modelos ?? "all");
+    setImprimePlacas(f.imprime_placas ?? "all");
+    setImprimeGuias(f.imprime_guias ?? "all");
+    setImprimeResinasLd(f.imprime_resinas_ld ?? "all");
+    setReuniaoAgendada(f.reuniao_agendada ?? "all");
+    setInadimplente(f.omie_inadimplente ?? "all");
+    setRecompraAlert(f.recompra_alert ?? "all");
+    setSdrCompleto(f.sdr_completo ?? "all");
+    setTemEmail(f.tem_email ?? "all");
+    setTemTelefone(f.tem_telefone ?? "all");
+    setAceitaContato(f.aceita_contato ?? "all");
+    setLtvMin(f.ltv_min != null ? String(f.ltv_min) : "");
+    setScoreMin(f.score_min != null ? String(f.score_min) : "");
   };
 
   // Build a query against lia_attendances applying current filters (returns base query)
@@ -440,14 +524,57 @@ function CreateCampaign({
     if (f.real_status) q = q.eq("real_status", f.real_status);
     if (f.tem_scanner === "yes") q = q.eq("tem_scanner", true);
     if (f.tem_scanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
-    if (f.tem_printer === "yes") q = q.not("equip_printer_brand", "is", null);
-    if (f.tem_printer === "no") q = q.is("equip_printer_brand", null);
+    if (f.tem_printer === "yes") q = q.eq("tem_impressora", true);
+    if (f.tem_printer === "no") q = q.or("tem_impressora.is.null,tem_impressora.eq.false");
     if (f.recencia_dias != null) {
       const since = new Date(Date.now() - Number(f.recencia_dias) * 86400000).toISOString();
       q = q.gte("updated_at", since);
     }
     if (f.cliente_filter === "clientes") q = q.gt("total_deals_all", 0);
     if (f.cliente_filter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+    // ── Identificação / origem ───────────────────────────────────────────────
+    if (f.piperun_pipeline_name) q = q.eq("piperun_pipeline_name", f.piperun_pipeline_name);
+    if (f.origem_primeiro_contato) q = q.eq("origem_primeiro_contato", f.origem_primeiro_contato);
+    if (f.piperun_status) q = q.eq("piperun_status", f.piperun_status);
+    if (f.prazo_compra) q = q.eq("prazo_compra", f.prazo_compra);
+    if (f.tipo_local) q = q.eq("tipo_local", f.tipo_local);
+    if (f.cidade) q = q.ilike("cidade", `%${String(f.cidade).replace(/,/g, " ")}%`);
+    if (f.form_name) q = q.eq("form_name", f.form_name);
+    if (f.utm_campaign) q = q.ilike("utm_campaign", `%${String(f.utm_campaign).replace(/,/g, " ")}%`);
+    // ── Workflow digital (equipamentos / aplicações) ─────────────────────────
+    if (f.marca_scanner) {
+      const safe = String(f.marca_scanner).replace(/,/g, " ");
+      q = q.or(`scanner_marca.ilike.%${safe}%,equip_scanner.ilike.%${safe}%`);
+    }
+    if (f.marca_impressora) {
+      const safe = String(f.marca_impressora).replace(/,/g, " ");
+      q = q.or(`equip_impressora.ilike.%${safe}%,impressora_modelo.ilike.%${safe}%`);
+    }
+    if (f.tem_fresadora === "yes") q = q.not("equip_fresadora", "is", null);
+    if (f.tem_fresadora === "no") q = q.is("equip_fresadora", null);
+    if (f.tem_cad === "yes") q = q.or("equip_cad.not.is.null,software_cad.not.is.null");
+    if (f.tem_cad === "no") q = q.is("equip_cad", null).is("software_cad", null);
+    const ynBool = (col: string, v: string) => v === "yes"
+      ? (qq: any) => qq.eq(col, true)
+      : (qq: any) => qq.or(`${col}.is.null,${col}.eq.false`);
+    if (f.imprime_modelos)     q = ynBool("imprime_modelos",     f.imprime_modelos)(q);
+    if (f.imprime_placas)      q = ynBool("imprime_placas",      f.imprime_placas)(q);
+    if (f.imprime_guias)       q = ynBool("imprime_guias",       f.imprime_guias)(q);
+    if (f.imprime_resinas_ld)  q = ynBool("imprime_resinas_ld",  f.imprime_resinas_ld)(q);
+    if (f.reuniao_agendada)    q = ynBool("reuniao_agendada",    f.reuniao_agendada)(q);
+    if (f.omie_inadimplente)   q = ynBool("omie_inadimplente",   f.omie_inadimplente)(q);
+    if (f.recompra_alert)      q = ynBool("recompra_alert",      f.recompra_alert)(q);
+    if (f.sdr_completo)        q = ynBool("sdr_completo",        f.sdr_completo)(q);
+    // ── Compliance / contato ─────────────────────────────────────────────────
+    if (f.tem_email === "yes") q = q.not("email", "is", null);
+    if (f.tem_email === "no")  q = q.is("email", null);
+    if (f.tem_telefone === "yes") q = q.not("telefone_normalized", "is", null);
+    if (f.tem_telefone === "no")  q = q.is("telefone_normalized", null);
+    if (f.aceita_contato === "yes") q = q.or("do_not_contact.is.null,do_not_contact.eq.false");
+    if (f.aceita_contato === "no")  q = q.eq("do_not_contact", true);
+    // ── Score / LTV ──────────────────────────────────────────────────────────
+    if (f.ltv_min != null)   q = q.gte("ltv_total", Number(f.ltv_min));
+    if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
     return q;
   };
 
@@ -567,6 +694,13 @@ function CreateCampaign({
   const [ufOptions, setUfOptions] = useState<string[]>([]);
   const [proprietarioOptions, setProprietarioOptions] = useState<string[]>([]);
   const [realStatusOptions, setRealStatusOptions] = useState<string[]>([]);
+  const [pipelineOptions, setPipelineOptions] = useState<string[]>([]);
+  const [origemOptions, setOrigemOptions] = useState<string[]>([]);
+  const [prazoCompraOptions, setPrazoCompraOptions] = useState<string[]>([]);
+  const [tipoLocalOptions, setTipoLocalOptions] = useState<string[]>([]);
+  const [formNameOptions, setFormNameOptions] = useState<string[]>([]);
+  const [marcaScannerOptions, setMarcaScannerOptions] = useState<string[]>([]);
+  const [marcaImpressoraOptions, setMarcaImpressoraOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
 
@@ -605,7 +739,7 @@ function CreateCampaign({
   useEffect(() => {
     (async () => {
       const base = supabase.from("lia_attendances").select(
-        "produto_interesse, produto_interesse_auto, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status"
+        "produto_interesse, produto_interesse_auto, piperun_stage_name, especialidade, area_atuacao, uf, proprietario_lead_crm, real_status, piperun_pipeline_name, origem_primeiro_contato, prazo_compra, tipo_local, form_name, scanner_marca, equip_scanner, equip_impressora"
       ).is("merged_into", null).limit(5000);
       const { data } = await base;
       const rows = (data || []) as any[];
@@ -625,6 +759,19 @@ function CreateCampaign({
       setUfOptions(uniq("uf"));
       setProprietarioOptions(uniq("proprietario_lead_crm"));
       setRealStatusOptions(uniq("real_status"));
+      setPipelineOptions(uniq("piperun_pipeline_name"));
+      setOrigemOptions(uniq("origem_primeiro_contato"));
+      setPrazoCompraOptions(uniq("prazo_compra"));
+      setTipoLocalOptions(uniq("tipo_local"));
+      setFormNameOptions(uniq("form_name"));
+      // Marca scanner: combina coluna dedicada + equip_scanner (string livre)
+      const scannerBrands = [...new Set(
+        rows.flatMap(r => [r.scanner_marca, r.equip_scanner])
+            .filter(Boolean)
+            .map((s: any) => String(s).trim())
+      )].sort();
+      setMarcaScannerOptions(scannerBrands);
+      setMarcaImpressoraOptions(uniq("equip_impressora"));
     })();
   }, []);
 
@@ -643,6 +790,10 @@ function CreateCampaign({
     return () => clearTimeout(t);
   }, [searchTerm, selectedContent]);
 
+  // Snapshot filters for effect deps
+  const currentFilters = buildFiltersObject();
+  const filtersKey = JSON.stringify(currentFilters);
+
   // Count leads in real time
   useEffect(() => {
     if (step !== 2) return;
@@ -652,38 +803,14 @@ function CreateCampaign({
         .from("lia_attendances")
         .select("id", { count: "exact", head: true })
         .is("merged_into", null) as any;
-
-      if (produtoInteresse !== "all") {
-        const safe = produtoInteresse.replace(/,/g, " ");
-        query = query.or(
-          `produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`
-        );
-      }
-      if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
-      if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
-      if (especialidade !== "all") query = query.eq("especialidade", especialidade);
-      if (areaAtuacao !== "all") query = query.eq("area_atuacao", areaAtuacao);
-      if (uf !== "all") query = query.eq("uf", uf);
-      if (proprietario !== "all") query = query.eq("proprietario_lead_crm", proprietario);
-      if (realStatus !== "all") query = query.eq("real_status", realStatus);
-      if (temScanner === "yes") query = query.eq("tem_scanner", true);
-      if (temScanner === "no") query = query.or("tem_scanner.is.null,tem_scanner.eq.false");
-      if (temPrinter === "yes") query = query.not("equip_printer_brand", "is", null);
-      if (temPrinter === "no") query = query.is("equip_printer_brand", null);
-      if (recencia !== "any") {
-        const days = parseInt(recencia);
-        const since = new Date(Date.now() - days * 86400000).toISOString();
-        query = query.gte("updated_at", since);
-      }
-      if (clienteFilter === "clientes") query = query.gt("total_deals_all", 0);
-      if (clienteFilter === "leads") query = query.or("total_deals_all.is.null,total_deals_all.eq.0");
-
+      query = applyFiltersToQuery(query, currentFilters);
       const { count } = await query;
       setLeadCount(count ?? 0);
       setCountLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, filtersKey]);
 
   // Count valid SMS leads (telefone_normalized IS NOT NULL, opt-out off)
   useEffect(() => {
@@ -695,29 +822,7 @@ function CreateCampaign({
           .select("id", { count: "exact", head: true })
           .is("merged_into", null)
           .not("telefone_normalized", "is", null) as any;
-        if (produtoInteresse !== "all") {
-          const safe = produtoInteresse.replace(/,/g, " ");
-          q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
-        }
-        if (temperatura !== "all") q = q.eq("temperatura_lead", parseInt(temperatura));
-        if (stageName !== "all") q = q.eq("piperun_stage_name", stageName);
-        if (especialidade !== "all") q = q.eq("especialidade", especialidade);
-        if (areaAtuacao !== "all") q = q.eq("area_atuacao", areaAtuacao);
-        if (uf !== "all") q = q.eq("uf", uf);
-        if (proprietario !== "all") q = q.eq("proprietario_lead_crm", proprietario);
-        if (realStatus !== "all") q = q.eq("real_status", realStatus);
-        if (temScanner === "yes") q = q.eq("tem_scanner", true);
-        if (temScanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
-        if (temPrinter === "yes") q = q.not("equip_printer_brand", "is", null);
-        if (temPrinter === "no") q = q.is("equip_printer_brand", null);
-        if (recencia !== "any") {
-          const days = parseInt(recencia);
-          const since = new Date(Date.now() - days * 86400000).toISOString();
-          q = q.gte("updated_at", since);
-        }
-        if (clienteFilter === "clientes") q = q.gt("total_deals_all", 0);
-        if (clienteFilter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
-        return q;
+        return applyFiltersToQuery(q, currentFilters);
       };
       try {
         const { count, error } = await buildBase().neq("sms_opt_out", true);
@@ -728,25 +833,14 @@ function CreateCampaign({
         setSmsLeadValidCount(count ?? 0);
       }
     })();
-  }, [step, sendChannel, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, sendChannel, filtersKey]);
 
   const handleCreate = async () => {
     if (!campaignName.trim()) return;
     setCreating(true);
     try {
-      const filters: any = {};
-      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
-      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
-      if (stageName !== "all") filters.piperun_stage_name = stageName;
-      if (especialidade !== "all") filters.especialidade = especialidade;
-      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
-      if (uf !== "all") filters.uf = uf;
-      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
-      if (realStatus !== "all") filters.real_status = realStatus;
-      if (temScanner !== "all") filters.tem_scanner = temScanner;
-      if (temPrinter !== "all") filters.tem_printer = temPrinter;
-      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
-      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      const filters: any = buildFiltersObject();
       if (sendChannel === "evolution" && evolutionInstance) filters.evolution_instance = evolutionInstance;
 
       const { error } = await supabase.from("campaign_sessions").insert({
@@ -774,19 +868,7 @@ function CreateCampaign({
     setSending(true);
     const tId = toast.loading("Disparando SMS...");
     try {
-      const filters: any = {};
-      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
-      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
-      if (stageName !== "all") filters.piperun_stage_name = stageName;
-      if (especialidade !== "all") filters.especialidade = especialidade;
-      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
-      if (uf !== "all") filters.uf = uf;
-      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
-      if (realStatus !== "all") filters.real_status = realStatus;
-      if (temScanner !== "all") filters.tem_scanner = temScanner;
-      if (temPrinter !== "all") filters.tem_printer = temPrinter;
-      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
-      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      const filters: any = buildFiltersObject();
 
       const { data: camp, error: campErr } = await supabase
         .from("campaign_sessions")
@@ -1126,134 +1208,418 @@ function CreateCampaign({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium">Produto de Interesse</label>
-                <Select value={produtoInteresse} onValueChange={setProdutoInteresse}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {produtoInteresseOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            {/* ── Grupo 1: Identidade & CRM ───────────────────────────── */}
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Identidade & CRM
               </div>
-              <div>
-                <label className="text-sm font-medium">Temperatura</label>
-                <Select value={temperatura} onValueChange={setTemperatura}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="100">🔥 100 — Conquistado</SelectItem>
-                    <SelectItem value="90">🟠 90 — Comprometido</SelectItem>
-                    <SelectItem value="70">🟡 70 — Boas Chances</SelectItem>
-                    <SelectItem value="50">🔵 50 — Em Processo</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium">Produto de Interesse</label>
+                  <Select value={produtoInteresse} onValueChange={setProdutoInteresse}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {produtoInteresseOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Temperatura</label>
+                  <Select value={temperatura} onValueChange={setTemperatura}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="100">🔥 100 — Conquistado</SelectItem>
+                      <SelectItem value="90">🟠 90 — Comprometido</SelectItem>
+                      <SelectItem value="70">🟡 70 — Boas Chances</SelectItem>
+                      <SelectItem value="50">🔵 50 — Em Processo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Funil CRM</label>
+                  <Select value={funilCrm} onValueChange={setFunilCrm}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {pipelineOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Etapa CRM</label>
+                  <Select value={stageName} onValueChange={setStageName}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {stageOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status PipeRun</label>
+                  <Select value={statusPiperun} onValueChange={setStatusPiperun}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="aberta">Aberta</SelectItem>
+                      <SelectItem value="ganha">Ganha</SelectItem>
+                      <SelectItem value="perdida">Perdida</SelectItem>
+                      <SelectItem value="congelada">Congelada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status real</label>
+                  <Select value={realStatus} onValueChange={setRealStatus}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {realStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Proprietário</label>
+                  <Select value={proprietario} onValueChange={setProprietario}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {proprietarioOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Especialidade</label>
+                  <Select value={especialidade} onValueChange={setEspecialidade}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {especialidadeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Área de atuação</label>
+                  <Select value={areaAtuacao} onValueChange={setAreaAtuacao}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {areaOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tipo de local</label>
+                  <Select value={tipoLocal} onValueChange={setTipoLocal}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {tipoLocalOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">UF</label>
+                  <Select value={uf} onValueChange={setUf}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {ufOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Cidade (contém)</label>
+                  <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Ex.: São Paulo" />
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Etapa CRM</label>
-                <Select value={stageName} onValueChange={setStageName}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {stageOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* ── Grupo 2: Origem / Aquisição ────────────────────────── */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Origem & Aquisição
               </div>
-              <div>
-                <label className="text-sm font-medium">Especialidade</label>
-                <Select value={especialidade} onValueChange={setEspecialidade}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {especialidadeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium">Origem (primeiro contato)</label>
+                  <Select value={origem} onValueChange={setOrigem}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {origemOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Formulário</label>
+                  <Select value={formName} onValueChange={setFormName}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {formNameOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">UTM Campaign (contém)</label>
+                  <Input value={utmCampaign} onChange={(e) => setUtmCampaign(e.target.value)} placeholder="Ex.: BLZ-INO" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">SDR completo</label>
+                  <Select value={sdrCompleto} onValueChange={setSdrCompleto}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Última interação</label>
+                  <Select value={recencia} onValueChange={setRecencia}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Qualquer</SelectItem>
+                      <SelectItem value="7">Últimos 7 dias</SelectItem>
+                      <SelectItem value="30">Últimos 30 dias</SelectItem>
+                      <SelectItem value="90">Últimos 90 dias</SelectItem>
+                      <SelectItem value="180">Últimos 180 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Prazo de compra</label>
+                  <Select value={prazoCompra} onValueChange={setPrazoCompra}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {prazoCompraOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Área de atuação</label>
-                <Select value={areaAtuacao} onValueChange={setAreaAtuacao}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {areaOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* ── Grupo 3: Workflow Digital (Equipamentos & Aplicações) ── */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Workflow Digital — Equipamentos & Aplicações
               </div>
-              <div>
-                <label className="text-sm font-medium">UF</label>
-                <Select value={uf} onValueChange={setUf}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {ufOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium">Tem scanner</label>
+                  <Select value={temScanner} onValueChange={setTemScanner}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Marca do scanner</label>
+                  <Select value={marcaScanner} onValueChange={setMarcaScanner}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {marcaScannerOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tem impressora</label>
+                  <Select value={temPrinter} onValueChange={setTemPrinter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Marca da impressora</label>
+                  <Select value={marcaImpressora} onValueChange={setMarcaImpressora}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {marcaImpressoraOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tem CAD</label>
+                  <Select value={temCad} onValueChange={setTemCad}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tem fresadora</label>
+                  <Select value={temFresadora} onValueChange={setTemFresadora}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Imprime modelos</label>
+                  <Select value={imprimeModelos} onValueChange={setImprimeModelos}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Imprime placas</label>
+                  <Select value={imprimePlacas} onValueChange={setImprimePlacas}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Imprime guias</label>
+                  <Select value={imprimeGuias} onValueChange={setImprimeGuias}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Imprime resinas LD</label>
+                  <Select value={imprimeResinasLd} onValueChange={setImprimeResinasLd}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Proprietário</label>
-                <Select value={proprietario} onValueChange={setProprietario}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {proprietarioOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* ── Grupo 4: Valor / Compromisso / Contato ────────────── */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Valor, Compromisso & Contato
               </div>
-              <div>
-                <label className="text-sm font-medium">Status real</label>
-                <Select value={realStatus} onValueChange={setRealStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {realStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Tem scanner</label>
-                <Select value={temScanner} onValueChange={setTemScanner}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="yes">Sim</SelectItem>
-                    <SelectItem value="no">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Tem impressora</label>
-                <Select value={temPrinter} onValueChange={setTemPrinter}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="yes">Sim</SelectItem>
-                    <SelectItem value="no">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Última interação</label>
-                <Select value={recencia} onValueChange={setRecencia}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Qualquer</SelectItem>
-                    <SelectItem value="7">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30">Últimos 30 dias</SelectItem>
-                    <SelectItem value="90">Últimos 90 dias</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Tipo de pessoa</label>
-                <Select value={clienteFilter} onValueChange={setClienteFilter}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="clientes">Apenas clientes</SelectItem>
-                    <SelectItem value="leads">Apenas leads</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium">Tipo de pessoa</label>
+                  <Select value={clienteFilter} onValueChange={setClienteFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="clientes">Apenas clientes</SelectItem>
+                      <SelectItem value="leads">Apenas leads</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">LTV mínimo (R$)</label>
+                  <Input
+                    type="number" min={0} step={100}
+                    value={ltvMin} onChange={(e) => setLtvMin(e.target.value)}
+                    placeholder="Ex.: 5000"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Score mínimo</label>
+                  <Input
+                    type="number" min={0} max={100} step={1}
+                    value={scoreMin} onChange={(e) => setScoreMin(e.target.value)}
+                    placeholder="0 – 100"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Reunião agendada</label>
+                  <Select value={reuniaoAgendada} onValueChange={setReuniaoAgendada}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Recompra em alerta</label>
+                  <Select value={recompraAlert} onValueChange={setRecompraAlert}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Inadimplente (Omie)</label>
+                  <Select value={inadimplente} onValueChange={setInadimplente}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tem e-mail</label>
+                  <Select value={temEmail} onValueChange={setTemEmail}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tem telefone</label>
+                  <Select value={temTelefone} onValueChange={setTemTelefone}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Aceita contato</label>
+                  <Select value={aceitaContato} onValueChange={setAceitaContato}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="yes">Sim</SelectItem>
+                      <SelectItem value="no">Opt-out</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
