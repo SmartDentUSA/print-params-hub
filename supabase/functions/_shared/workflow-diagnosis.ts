@@ -1097,18 +1097,22 @@ function seedSpinBriefing(
 
   // Perguntas SPIN — heurística baseada no que falta + na intent
   const situacaoQ: string[] = [];
+  const INTEREST_VALUE_RE_Q = /^\s*sdr\s*:|interesse\s+em|busca\s+por|procurando|gostaria\s+de|deseja\s+adquirir/i;
+  const cleanStack = diag.stack_atual.filter(
+    (s) => !INTEREST_VALUE_RE_Q.test(String(s.value || "")),
+  );
   if (targetNotOwned && targetStageLbl) {
-    situacaoQ.push(`Hoje, como você resolve ${targetStageLbl} — terceiriza, manda para laboratório ou não faz essa etapa?`);
-  } else if (diag.stack_atual.length) {
-    const stackResumo = diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
-    situacaoQ.push(`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`);
+    situacaoQ.push(`Etapa ${targetStageLbl}: hoje, como você resolve essa etapa — terceiriza, manda para laboratório/parceiro ou simplesmente não faz?`);
+  } else if (cleanStack.length) {
+    const stackResumo = cleanStack.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
+    situacaoQ.push(`Você já roda ${stackResumo}. Como esse fluxo digital está performando — gargalos, retrabalho, terceirizações ainda presentes?`);
   } else {
-    situacaoQ.push(`Conta um pouco do seu fluxo atual — quais etapas você já tem internalizadas e quais ainda dependem de terceiros?`);
+    situacaoQ.push(`Conta um pouco do seu fluxo digital atual — quais das 7 etapas (captura, CAD, impressão, pós, finalização, cursos, fresagem) você já tem internalizadas e quais ainda dependem de terceiros?`);
   }
 
   const problemaQ: string[] = [];
   if (targetNotOwned && targetLabel) {
-    problemaQ.push(`O que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
+    problemaQ.push(`Etapa ${targetStageLbl || "alvo"}: o que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
   }
   if (diag.concorrentes_detectados.length) {
     problemaQ.push(`Onde o ${diag.concorrentes_detectados[0].label} mais te trava — calibração, perfil de material, suporte ou produtividade?`);
@@ -1126,21 +1130,61 @@ function seedSpinBriefing(
     if (live.required_products.length) {
       problemaQ.push(`Para usar ${live.name} você precisa de ${live.required_products.slice(0, 2).join(" + ")}. Já tem ou precisamos combinar?`);
     }
-    const docSpecs = live.document_extracts.flatMap((d) => d.key_specs).slice(0, 2);
+    const docSpecs = live.document_extracts
+      .flatMap((d) => d.key_specs || [])
+      .map((s: unknown) => {
+        if (typeof s === "string") return s;
+        if (s && typeof s === "object") {
+          const o = s as Record<string, unknown>;
+          return String(o.label ?? o.name ?? o.spec ?? o.title ?? o.value ?? "");
+        }
+        return "";
+      })
+      .filter((s) => s && s.length > 2)
+      .slice(0, 2);
     for (const ds of docSpecs) {
-      problemaQ.push(`Qual ${ds.toLowerCase().slice(0, 80)} você usa hoje? Preciso confirmar a compatibilidade.`);
+      problemaQ.push(`Qual "${ds.slice(0, 80)}" você usa hoje? Preciso confirmar a compatibilidade.`);
     }
   }
   if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
+
+  // ── LANE OBRIGATÓRIA: RESINAS & CONSUMÍVEIS (core de recorrência Smart Dent) ──
+  // Sempre que houver intent de hardware (scanner/CAD/impressora/pós/finalização)
+  // OU stack de impressão, perguntar sobre resina, protocolo e consumo mensal.
+  const hwStages = new Set([
+    "etapa_1_scanner", "etapa_2_cad", "etapa_3_impressao",
+    "etapa_4_pos_impressao", "etapa_5_finalizacao", "etapa_7_fresagem",
+  ]);
+  const triggersConsumables =
+    (diag.intent?.target_stage && hwStages.has(diag.intent.target_stage)) ||
+    diag.stack_atual.some((s) => s.stage === "etapa_3_impressao");
+  if (triggersConsumables) {
+    problemaQ.push(
+      "Etapa Resinas: qual resina você usa hoje (marca/aplicação — modelo, provisório, guia cirúrgica, splint) e quanto consome por mês?",
+    );
+    problemaQ.push(
+      "Etapa Pós-impressão: qual seu protocolo de lavagem (álcool/solvente, tempo) e de cura (qual dispositivo, ciclo)? É o protocolo validado pelo fabricante da resina?",
+    );
+  }
 
   const implicacaoQ: string[] = [
     "Quantas peças/mês esse gargalo impacta — em retrabalho, hora-cadeira ou casos perdidos?",
     "Se isso continuar travado mais 6 meses, qual o impacto direto na sua agenda e no faturamento?",
   ];
 
-  const necessidadeQ = diag.intent?.matched_product_label
-    ? [`Se ${diag.intent.matched_product_label} resolver exatamente esse gargalo, faz sentido a gente fechar uma demonstração ainda esta semana?`]
-    : ["Se a gente trouxer uma solução que resolva esse ponto específico, faz sentido avançarmos com uma demonstração?"];
+  const necessidadeQ: string[] = [];
+  if (diag.intent?.matched_product_label) {
+    necessidadeQ.push(
+      `Se ${diag.intent.matched_product_label}${targetStageLbl ? ` resolver a etapa ${targetStageLbl}` : " resolver esse gargalo"}, faz sentido fecharmos uma demonstração ainda esta semana?`,
+    );
+  } else {
+    necessidadeQ.push("Se a gente trouxer uma solução que resolva esse ponto específico, faz sentido avançarmos com uma demonstração?");
+  }
+  if (triggersConsumables) {
+    necessidadeQ.push(
+      `Se fecharmos ${diag.intent?.matched_product_label || "o equipamento-alvo"} + o pacote de resinas Smart Dent validadas e protocolo de pós-cura, faz sentido alinharmos também o kit inicial de consumíveis?`,
+    );
+  }
 
   const alerta = diag.lacunas.length
     ? `Atenção à ordem do fluxo: lead tem lacuna em ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ")}. Confirmar antes de empurrar combo fora de etapa.`
@@ -1153,9 +1197,9 @@ function seedSpinBriefing(
     ponte_produto: ponte,
     perguntas_spin: {
       situacao: situacaoQ,
-      problema: problemaQ.slice(0, 3),
+      problema: problemaQ.slice(0, 5),
       implicacao: implicacaoQ,
-      necessidade: necessidadeQ,
+      necessidade: necessidadeQ.slice(0, 2),
     },
     alerta_lacuna: alerta,
   };
