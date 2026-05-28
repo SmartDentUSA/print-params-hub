@@ -1,81 +1,143 @@
-## Objetivo
+## WA Group Scheduler — Frontend (aprovado para implementar)
 
-A SPIN deve seguir EXATAMENTE a rota do formulário `# - Formulário exocad I.A.` — um roteiro consultivo que perfila o lead em 9 pontos canônicos. O vendedor deve ser instruído a fazer essas perguntas na ordem, marcando o que já está declarado e o que falta descobrir.
+Construir a régua de mensagens para grupos WhatsApp como nova aba dentro de `SmartOpsCampaigns`, consumindo as tabelas/views/edge functions já existentes (`wa_groups`, `wa_campaigns`, `wa_message_queue`, `v_wa_group_summary`, `wa-sync-groups`, `wa-campaign-builder`). Sem mexer no wizard atual.
 
-## Roteiro canônico (extraído do form, ordem fixa)
+### Arquivos a criar
 
-| # | Etapa | Pergunta canônica | Coluna fonte no lead |
-|---|---|---|---|
-| 1 | Perfil | Área de atuação + especialidade | `area_atuacao`, `especialidade` |
-| 2 | 1·Captura | Hoje você digitaliza suas moldagens? Qual scanner? | `equip_scanner`, `scanner_marca`, `tem_scanner`, `como_digitaliza`, `sdr_scanner_modelo` |
-| 3 | 2·CAD | Qual software CAD você utiliza? | `software_cad`, `equip_cad` |
-| 4 | 3·Impressão (hardware) | Qual impressora você utiliza no dia a dia? | `equip_impressora`, `impressora_modelo` |
-| 5 | 3·Impressão · **Modelos** | Imprime modelos? Com qual resina? | `imprime_modelos` |
-| 6 | 3·Impressão · **Placas miorrelaxantes** | Imprime placas? Com qual resina? | `imprime_placas` |
-| 7 | 3·Impressão · **Resinas longa duração / elementos** | Imprime elementos de longa duração? Com qual resina? | `imprime_resinas_ld` |
-| 8 | 3·Impressão · **Guias cirúrgicas** | Imprime guias? Com qual resina? | `imprime_guias` |
-| 9 | Recorrência | Consumo mensal de resina + fornecedor atual | `sdr_resina_atual`, `resina_consumo_mensal_estimado`, `sdr_usa_resina_smartdent` |
-
-Cada linha vira um item do roteiro com status:
-- **✅ declarado** → mostra o valor (vendedor confirma e aprofunda)
-- **❓ a descobrir** → vendedor DEVE fazer a pergunta exata
-
-Valores `"não"`, `"não imprimo"`, `"ainda não digitalizo"`, vazio/`—` contam como **`a descobrir` com hipótese "ainda não faz internamente"**, e viram automaticamente gancho de ofensiva (substituir terceirização / iniciar fluxo).
-
-## Mudanças
-
-Arquivo principal: `supabase/functions/_shared/workflow-diagnosis.ts`.
-
-### 1. Novo helper `buildLeadProfilingRoteiro(lead)`
-
-Retorna `Array<RoteiroItem>` com os 9 itens fixos na ordem do form. Cada item:
-
-```ts
-{ ordem, etapa_label, titulo, pergunta_canonica, status: 'declarado'|'a_descobrir'|'gap_ofensivo',
-  valor_declarado?: string, hipotese?: string, gancho_smartdent?: string }
+```text
+src/components/smart-ops/wa-groups/
+  types.ts
+  SmartOpsWaGroupCampaigns.tsx
+  WaGroupFlowBuilder.tsx
+  WaContentNodeSelector.tsx
+  WaGroupFlowVisualizer.tsx
+src/pages/WaFlowVisualizerPage.tsx
 ```
 
-Regra `gap_ofensivo`: quando o valor declarado é negação (regex `^(não|nao|ainda não|n\/a|nenhum|—)`), tratar como gap com hipótese `"depende de terceiros / não internalizou"` e `gancho_smartdent` apontando a resina/equipamento Smart Dent da etapa (lookup leve em constante).
+### Integração
 
-### 2. `SpinBriefing` ganha `roteiro_perfilamento: RoteiroItem[]`
+- `src/components/SmartOpsCampaigns.tsx`: adicionar `<TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>` + `<TabsContent value="grupos-wa">` renderizando `<SmartOpsWaGroupCampaigns />`. Nenhuma outra linha alterada.
+- `src/App.tsx`: nova rota `/smartops/wa-flow-visualizer` → `WaFlowVisualizerPage` (lê `campaign_id` via `useSearchParams`).
 
-Populado pelo seed. Substitui a lane "consumíveis" anterior (que era genérica) por essa estrutura canônica — mais rica e ancorada no form real.
+### Tipagens (`types.ts`) — nomes alinhados ao contrato do edge `wa-campaign-builder`
 
-### 3. `seedSpinBriefing` reescrito para a ordem do roteiro
+```ts
+export type FlowNodeType = "msg" | "wait" | "ai" | "image" | "video" | "link";
 
-- `perguntas_spin.situacao`: passa a ser **TODOS** os itens `a_descobrir` do roteiro, na ordem, prefixados com `Etapa <X>:` e usando a pergunta canônica do form. (Antes era 1 pergunta; agora é a sequência consultiva.)
-- `perguntas_spin.problema`: 1-2 perguntas derivadas dos `gap_ofensivo` mais relevantes ("você imprime placas com resina importada — qual o custo/mês e a previsibilidade?").
-- `perguntas_spin.implicacao` e `necessidade`: mantêm a lógica atual (peças/mês, hora-cadeira, fechamento com produto-alvo + pacote de resinas).
-- Mantém intent-leak guard + bugfixes anteriores.
+export interface FlowNodeBase { id: string; type: FlowNodeType; }
 
-### 4. Renderers
+export interface MsgNode extends FlowNodeBase {
+  type: "msg";
+  text: string;
+  mention_all?: boolean; // UI exibe; envio Evolution ignora por enquanto
+}
 
-- `renderDiagnosisHTML`: novo bloco **🧩 ROTEIRO DE PERFILAMENTO (siga nesta ordem)** ANTES de "PERGUNTAS SPIN". Cada linha: `<n>. <Etapa> — <título>: ✅ <valor>` ou `<n>. <Etapa> — <título>: ❓ <pergunta canônica>` (ou `⚠️ gap: <hipótese>`).
-- `renderDiagnosisWhatsApp`: versão compacta — só lista os 3 primeiros `a_descobrir`/`gap_ofensivo`.
-- `renderDiagnosisForPrompt`: linha `Roteiro: <n itens declarados / m a descobrir / k gaps>` para o cognitive prompt.
+export interface WaitNode extends FlowNodeBase {
+  type: "wait";
+  days: number;
+  time: string;            // "HH:MM"
+  weekdays_only?: boolean;
+}
 
-### 5. Prompt do LLM (`enrichSpinWithLLM`)
+export interface AiNode extends FlowNodeBase {
+  type: "ai";
+  ai_source_type: "article" | "product" | "video";
+  ai_source_id: string;
+  ai_source_title: string;
+  ai_prompt_override?: string;
+}
 
-Injeta o roteiro completo como bloco `ROTEIRO DE PERFILAMENTO (rota fixa, não reordene)`. Regras duras adicionais:
+export interface MediaNode extends FlowNodeBase {
+  type: "image" | "video";
+  media_url: string;
+  caption?: string;
+}
 
-- **Proibido** pular ou reordenar itens do roteiro.
-- LLM só pode REFINAR o tom de cada pergunta (manter a essência); a quantidade e ordem de perguntas de SITUAÇÃO **deve bater** com a quantidade de itens `a_descobrir`+`gap_ofensivo`.
-- Para itens `✅ declarado`, gerar 0 perguntas — apenas reconhecimento ("ok, vi que você já roda Medit i700 + exocad…").
+export interface LinkNode extends FlowNodeBase {
+  type: "link";
+  title: string;
+  description?: string;
+  url: string;
+}
 
-### 6. Memória
+export type FlowNode = MsgNode | WaitNode | AiNode | MediaNode | LinkNode;
+```
 
-Atualizar `mem/smart-ops/seller-note-workflow-diagnosis.md` com:
-- Existência do **Roteiro Canônico de Perfilamento** (9 pontos da exocad I.A.) como espinha dorsal da SPIN.
-- Regra: perguntas de SITUAÇÃO derivam 1-para-1 dos itens `a_descobrir`/`gap_ofensivo`; ordem do form é imutável.
-- Negações no formulário viram `gap_ofensivo` (ofensiva comercial), não silêncio.
+Todos os pontos do `WaGroupFlowBuilder` que criam/leem/validam nós usam exatamente estes nomes (`weekdays_only`, `ai_source_*`, `ai_prompt_override`, `media_url`). O `WaContentNodeSelector` retorna `(type, id, title)` que o Builder grava como `ai_source_type` / `ai_source_id` / `ai_source_title`.
 
-## Validação
+### Componente 1 — SmartOpsWaGroupCampaigns
 
-1. `bellychristinne@gmail.com` (scanner=não, impressora=não, alvo BLZ INO 100 Plus): roteiro deve mostrar item 2 como ❓ (pergunta de scanner), itens 3-8 como ❓/gap, e 4 perguntas de SITUAÇÃO na ordem do form.
-2. `clakira05@hotmail.com` (alvo RayShape EdgeMini, sem stack): roteiro com itens 4-8 todos ❓; pergunta N nomeia EdgeMini + pacote de resinas.
-3. `danilohen@gmail.com` (stack rico): a maioria dos itens vira ✅ com valor; perguntas de SITUAÇÃO só nos pontos realmente em aberto + 1-2 de aprofundamento nos gaps.
+- Query inicial em `v_wa_group_summary` ordenado por `group_name`.
+- Realtime: canal `wa-groups-overview` com `postgres_changes` em `wa_message_queue` e `wa_campaigns` → recarrega lista.
+- Header: título + subtítulo (instância Comercial + contagem) + botões `Sincronizar` (invoca `wa-sync-groups`, toast com `synced`) e `Nova campanha` (abre Builder sem grupo).
+- Grid `grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3`. Card com `border-l-4` por status:
+  - sem campanha → `border-border`, CTA "Criar régua"
+  - active → emerald; paused → amber; finished/error → tokens equivalentes
+- Card com campanha: avatar de iniciais, Badge status, métricas (sent/pending/failed direto da view), `Progress` (`current_node_index/total_nodes`), próxima data em PT-BR, botões `Ver fluxo` / `Pausar|Retomar` / engrenagem (editar).
+- `Ver fluxo`: `window.open(/smartops/wa-flow-visualizer?campaign_id=...)`; se bloqueado, abre Dialog in-page com `WaGroupFlowVisualizer`.
+- Pausar/Retomar: `update wa_campaigns.status` entre `active|paused`.
 
-## Fora de escopo
+### Componente 2 — WaGroupFlowBuilder
 
-- Não mexer no `resolveIntent`, mapping editor, ou estrutura do formulário em si.
-- Não criar tabela nova — o roteiro é derivado em tempo de execução das colunas já existentes do lead.
+- Dialog full-screen (`max-w-6xl`, `90vh`). Props: `group | null`, `onSaved`, `onCancel`.
+- Carrega `wa_groups` (todos). Itens com `is_admin=false` aparecem desabilitados no select.
+- Se `group.campaign_id`: hidrata estado a partir de `flow_json`, nome, delay, daily_limit.
+- Painel esquerdo `w-64 border-r bg-muted/20 p-4`:
+  - Bloco Configuração: Select grupo, Input nome, Input delay (min 10, helper "anti-ban"), Input daily_limit (1–50).
+  - Resumo: total de nós, nós de conteúdo (não-wait), duração estimada (soma de waits em dias).
+  - Adicionar nó: 6 botões (Mensagem / IA / Aguardar / Imagem / Vídeo / Link) com tokens (violet, primary, amber, emerald, pink, cyan).
+- Painel direito: toolbar (Cancelar / Salvar rascunho / Salvar e ativar) + canvas com grid de pontos via `hsl(var(--border))`.
+- Coluna `max-w-lg mx-auto`: nó início (grupo) → conectores `h-8 w-px bg-border` → `FlowNodeCard` por nó → nó final (contagem).
+- `FlowNodeCard` (`w-72`): header (Grip, ícone, label, preview 50 chars, ↑↓ 🗑 chevron). Body por tipo:
+  - `msg`: Textarea + checkbox `mention_all` (UI-only por enquanto)
+  - `wait`: grid 2 col — dias + horário HH:MM + checkbox `weekdays_only`
+  - `ai`: botão "Selecionar conteúdo" (abre `WaContentNodeSelector`) ou card do item escolhido + "Trocar"; Textarea opcional (`ai_prompt_override`)
+  - `image` / `video`: Input `media_url` + Textarea `caption`
+  - `link`: Input `title` + Textarea `description` + Input `url`
+- Ordenação por swap. Validação:
+  - rascunho: grupo + nome + ≥1 nó não-wait
+  - ativar: rascunho + obrigatórios por tipo (`text` / `media_url` / `ai_source_id` / `url`)
+- Salvar rascunho: `upsert wa_campaigns {status:'draft'}` + `update wa_groups.active_campaign_id`. Toast.
+- Salvar e ativar: mesmo upsert + `fetch POST ${VITE_SUPABASE_URL}/functions/v1/wa-campaign-builder { campaign_id }` com `Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}` + `apikey`. Toast com `first_send`. `Loader2 animate-spin` enquanto chama.
+
+### Componente 3 — WaContentNodeSelector
+
+- Dialog `max-w-2xl max-h-[85vh] p-0 flex-col`. Props: `open`, `onClose`, `onSelect(type, id, title)`.
+- Estado: `query`, `tab` (`article|product|video`), `selected`. Debounce 300ms.
+- Queries por aba:
+  - `knowledge_articles`: `is_published=true`, `ilike('title', %q%)`, `order updated_at desc`, `limit 50`
+  - `system_a_catalog`: `active=true`, `ilike('name', %q%)`
+  - `videos`: `status='active'`, `ilike('title', %q%)`
+- `ScrollArea max-h-72`. Item: título + Badge categoria + "Atualizado dd/MM/aa" + preview `line-clamp-2`. Selecionado → `bg-primary/10 border-primary/30` + `CheckCircle2`.
+- Footer: nome selecionado + Cancelar + "Usar este conteúdo" (disabled sem seleção). Reset ao abrir.
+
+### Componente 4 — WaGroupFlowVisualizer
+
+- Props: `campaignId`. Sem Dialog wrapper.
+- Busca `wa_campaigns` + join `wa_groups` + `wa_message_queue` (order `node_index`).
+- Realtime: canal `vis-${campaignId}` filtrando `campaign_id=eq.${id}` em ambas tabelas → recarrega.
+- Header: nome + Badge status + ícone Users + nome do grupo + N membros.
+- Countdown (se `active` e `next_send_at` futuro): label + `Progress` animada + `HH:MM:SS` via `setInterval(1000)` + data PT-BR.
+- Métricas 3-col (sent/pending/total).
+- Timeline vertical: para cada nó do `flow_json` match com queue items por `node_index`. Círculo de status (sent=emerald check, sending=primary spinner, failed=destructive alert, pending=muted). Linha conectora colorida. Badge "ATUAL" no `current_node_index`. Mostra "Enviado dd/MM HH:mm" / "Agendado dd/MM HH:mm" / "Aguardar N dias — HH:MM".
+
+### Página standalone
+
+`WaFlowVisualizerPage`: lê `campaign_id`, header simples + `<WaGroupFlowVisualizer campaignId={id} />` dentro de `max-w-3xl mx-auto p-6`. Erro amigável se sem id.
+
+### Regras
+
+- Zero cor hardcoded: tokens semânticos. Apenas "status dot" usa utilitários (`emerald-500/amber-500/...`).
+- Todo `fetch`/Supabase com try/catch + `toast` de erro.
+- Estados de loading com `Loader2 animate-spin`.
+- Nada de WaLeads. Nenhuma alteração nas abas atuais de `SmartOpsCampaigns`.
+
+### Verificação pós-build
+
+- Compilação TS limpa.
+- Abrir aba "Grupos WA" → cards renderizam (loading → lista).
+- "Nova campanha" → Builder abre; select de grupo lista todos, não-admin desabilitado.
+- Nó IA → modal abre, busca funciona, seleção grava `ai_source_*` no nó.
+- Salvar e ativar → chama `wa-campaign-builder` e mostra toast com `first_send`.
+- Pausar/Retomar → status muda na view sem recarregar.
+- `/smartops/wa-flow-visualizer?campaign_id=...` carrega com countdown ativo.
