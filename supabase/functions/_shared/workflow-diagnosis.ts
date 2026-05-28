@@ -377,25 +377,81 @@ function resolveIntent(
   if (lead.resina_interesse) candidates.push({ text: String(lead.resina_interesse), source: "resina_interesse" });
 
   const products = mappings.filter(m => m.mapping_type === "product");
+  // ── Scoring-based intent match ──
+  // Stopwords: palavras genéricas que NÃO devem causar match (categoria, não produto).
+  const STOPWORDS = new Set([
+    "scanner","intraoral","intraorais","bancada","impressora","impressoras","resina","resinas",
+    "software","softwares","cad","curso","cursos","dispositivo","credito","crédito","creditos","créditos",
+    "plus","wireless","mini","pro","max","ultra","edge","kit","combo","produto","produtos",
+    "notebook","leads","face","smart","dent","smartdent","dental","odonto","odontologia",
+    "para","com","sem","novo","nova","de","da","do","das","dos","e","ou","em","no","na",
+    "imp","impresoras","printer","printers",
+  ]);
+  // Tokens fortes de marca conhecidas (qualquer um conta como assinatura).
+  const BRAND_TOKENS = new Set([
+    "blz","medit","rayshape","exocad","phrozen","anycubic","elegoo","formlabs",
+    "asiga","sprintray","creality","3shape","nextdent","detax","ackuretta","whip",
+  ]);
+  const tokenize = (s: string): string[] =>
+    norm(s)
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/([a-z])(\d)/g, "$1 $2") // ino110 -> ino 110, i500 -> i 500
+      .replace(/(\d)([a-z])/g, "$1 $2")
+      .split(/\s+/)
+      .filter(Boolean);
+  const significantTokens = (s: string): string[] =>
+    tokenize(s).filter(t => !STOPWORDS.has(t) && t.length >= 2);
+
   for (const cand of candidates) {
-    const t = norm(cand.text);
-    if (!t) continue;
-    // direct substring match against product labels
-    let best: MappingRow | null = null;
+    const candTokens = significantTokens(cand.text);
+    if (!candTokens.length) continue;
+    const candSet = new Set(candTokens);
+    const candBrand = candTokens.find(t => BRAND_TOKENS.has(t)) || null;
+    const candHasDigit = candTokens.some(t => /\d/.test(t));
+
+    let best: { row: MappingRow; score: number; brandMatch: boolean; modelMatch: boolean } | null = null;
     for (const p of products) {
-      const pl = norm(p.mapped_label || p.mapped_value);
-      if (!pl) continue;
-      if (t.includes(pl) || pl.includes(t)) { best = p; break; }
-      // token-level: at least one significant token shared
-      const tokens = t.split(/\s+/).filter(x => x.length >= 4);
-      if (tokens.some(tok => pl.includes(tok))) { best = p; break; }
+      const pl = p.mapped_label || p.mapped_value;
+      const plTokens = significantTokens(pl);
+      if (!plTokens.length) continue;
+      const plBrand = plTokens.find(t => BRAND_TOKENS.has(t)) || null;
+
+      // Hard guard: if both sides declare a brand and they differ, skip — NUNCA cruzar marcas.
+      if (candBrand && plBrand && candBrand !== plBrand) continue;
+
+      let score = 0;
+      let brandMatch = false;
+      let modelMatch = false;
+      for (const tok of plTokens) {
+        if (!candSet.has(tok)) continue;
+        if (BRAND_TOKENS.has(tok)) { score += 5; brandMatch = true; }
+        else if (/\d/.test(tok)) { score += 4; modelMatch = true; } // model number
+        else { score += 1; }
+      }
+      // Bonus: substring exato do label dentro da intent ou vice-versa
+      const ln = norm(pl);
+      const cn = norm(cand.text);
+      if (ln && cn && (cn.includes(ln) || ln.includes(cn))) score += 6;
+
+      if (score > (best?.score ?? 0)) best = { row: p, score, brandMatch, modelMatch };
     }
-    if (best) {
+
+    // Threshold mínimo:
+    //  - se a intent tem marca conhecida → exigimos brandMatch (peso 5).
+    //  - se a intent tem número de modelo → exigimos modelMatch OU brandMatch.
+    //  - caso geral → score >= 6 (≈ substring/duas palavras específicas).
+    const accept = best && (
+      (candBrand && best.brandMatch) ||
+      (candHasDigit && (best.modelMatch || best.brandMatch)) ||
+      (!candBrand && !candHasDigit && best.score >= 6)
+    );
+
+    if (accept && best) {
       return {
         produto: cand.text,
-        target_stage: best.workflow_stage,
-        target_cell: best.workflow_cell,
-        matched_product_label: best.mapped_label || best.mapped_value,
+        target_stage: best.row.workflow_stage,
+        target_cell: best.row.workflow_cell,
+        matched_product_label: best.row.mapped_label || best.row.mapped_value,
         source: cand.source,
       };
     }
