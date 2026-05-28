@@ -56,3 +56,16 @@ type: feature
 - Scrubbing extra: em células marcadas em `declaredEmpty`, derruba entradas de stack que não vêm de campo de equipamento.
 - `seedSpinBriefing` calcula `targetNotOwned` (alvo não consta no stack OU célula-alvo em `declared_empty_cells`) e troca a situação para "ainda sem `<etapa-alvo>` próprio, avaliando adquirir `<produto>`", troca a primeira pergunta de SITUAÇÃO para "como você resolve `<etapa>` hoje — terceiriza/laboratório/não faz?" e adiciona pergunta-âncora de PROBLEMA "o que te levou a olhar `<produto>` agora?".
 - Prompt do LLM recebe linhas `Células declaradas SEM equipamento` e `Status do produto-alvo` (`AINDA NÃO POSSUI — busca adquirir` | `já consta no stack instalado`) + regra dura proibindo afirmar posse e ditando o foco das perguntas de SITUAÇÃO/PROBLEMA quando o alvo não foi adquirido.
+
+**Intent-leak por VALOR (reforço)**: além do match por tokens, `diagnoseLead` derruba qualquer entrada de `stack_atual` cujo `value` cru case com `INTEREST_VALUE_RE` (`^sdr:`, `interesse em`, `busca por`, `procurando`, `gostaria de`, `deseja adquirir`, `pretendo comprar`). Esses valores nunca representam equipamento instalado, independente do nome do campo. Stopwords do tokenize foram reduzidas (removidos `scanner`, `impressora`, `intraoral`, `bancada`, `resina`, `software`, `3d`, `edge`, `mini`) para não esconder overlap legítimo. `seedSpinBriefing` também filtra esses valores antes de montar a pergunta S.
+
+**SPIN ancorada no fluxo 7×3**: todas as perguntas S/P/N são prefixadas com `Etapa <nome>:` quando referenciam uma etapa específica. Regra dura no prompt do LLM exige o prefixo e exige que a pergunta de NECESSIDADE nomeie EXPLICITAMENTE o produto Smart Dent que resolve a etapa (nada de "uma solução genérica").
+
+**Lane obrigatória de RESINAS & CONSUMÍVEIS (core de recorrência)**: sempre que `intent.target_stage ∈ {1·Scanner, 2·CAD, 3·Impressão, 4·Pós, 5·Finalização, 7·Fresagem}` OU stack contém `etapa_3_impressao`, `seedSpinBriefing` injeta automaticamente:
+- 2 perguntas P: (a) qual resina/aplicação/consumo mensal; (b) protocolo de lavagem + cura validado pelo fabricante.
+- 1 pergunta N de cross-sell: combo `<produto-alvo> + pacote de resinas Smart Dent + protocolo de pós-cura + kit inicial de consumíveis`.
+Regra dura no prompt do LLM repete a obrigatoriedade — sem resinas + protocolo o briefing está incompleto.
+
+**Bugfix `[object object]`**: `live.document_extracts[].key_specs` pode conter objetos (não só strings). `seedSpinBriefing` agora coage cada item via `String(o.label ?? o.name ?? o.spec ?? o.title ?? o.value)` antes de gerar a pergunta de compatibilidade.
+
+**Bugfix LLM prompt**: `enrichSpinWithLLM` agora computa `declaredEmptyTxt` e `ownershipStatus` localmente (antes referenciava variáveis do escopo de `generatePositioningScript`, causando ReferenceError silencioso e fazendo a chamada cair sempre no seed).
