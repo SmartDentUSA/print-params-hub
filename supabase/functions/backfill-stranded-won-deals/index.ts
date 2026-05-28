@@ -126,10 +126,10 @@ Deno.serve(async (req) => {
 
     // Audit
     await supabase.from("system_health_logs").insert({
-      kind: "backfill_stranded_won",
+      function_name: "backfill-stranded-won-deals",
       severity: summary.errors > 0 ? "warning" : "info",
-      message: `Backfill processou ${summary.updated}/${summary.scanned} leads travados em "ganha" (recovered R$ ${summary.recovered_value.toFixed(2)})`,
-      metadata: { ...summary, duration_ms: Date.now() - started },
+      error_type: "backfill_stranded_won",
+      details: { ...summary, duration_ms: Date.now() - started },
     }).catch(() => {});
 
     return new Response(JSON.stringify({ ok: true, ...summary, duration_ms: Date.now() - started }), {
