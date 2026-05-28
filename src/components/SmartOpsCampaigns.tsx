@@ -694,6 +694,13 @@ function CreateCampaign({
   const [ufOptions, setUfOptions] = useState<string[]>([]);
   const [proprietarioOptions, setProprietarioOptions] = useState<string[]>([]);
   const [realStatusOptions, setRealStatusOptions] = useState<string[]>([]);
+  const [pipelineOptions, setPipelineOptions] = useState<string[]>([]);
+  const [origemOptions, setOrigemOptions] = useState<string[]>([]);
+  const [prazoCompraOptions, setPrazoCompraOptions] = useState<string[]>([]);
+  const [tipoLocalOptions, setTipoLocalOptions] = useState<string[]>([]);
+  const [formNameOptions, setFormNameOptions] = useState<string[]>([]);
+  const [marcaScannerOptions, setMarcaScannerOptions] = useState<string[]>([]);
+  const [marcaImpressoraOptions, setMarcaImpressoraOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
 
