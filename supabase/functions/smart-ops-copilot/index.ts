@@ -984,6 +984,175 @@ async function executeSearchContent(args: any) {
   return { count: data?.length || 0, articles: data };
 }
 
+// ── RAG: knowledge base semantic search (multi-source) ──
+async function executeSearchKnowledgeRag(args: any) {
+  const query = String(args?.query || "").trim();
+  if (!query) return { error: "query é obrigatório" };
+  const topK = Math.min(Number(args?.top_k) || 5, 10);
+  const minSim = Math.max(0, Math.min(Number(args?.min_similarity) || 0.5, 1));
+
+  try {
+    const { generateEmbedding } = await import("../_shared/generate-embedding.ts");
+    const embedding = await generateEmbedding({ text: query, taskType: "RETRIEVAL_QUERY" });
+    if (!embedding) {
+      return { error: "Falha ao gerar embedding (GOOGLE_AI_KEY ausente?)", count: 0, results: [] };
+    }
+    const { data, error } = await supabase.rpc("match_agent_embeddings", {
+      query_embedding: embedding,
+      match_threshold: minSim,
+      match_count: topK,
+    });
+    if (error) return { error: error.message, count: 0, results: [] };
+
+    const results = (data || []).map((r: any) => {
+      const md = r.metadata || {};
+      const title = md.title || md.name || r.chunk_text?.slice(0, 80) || "(sem título)";
+      const url = md.url_publica || md.url || md.canonical_url || null;
+      return {
+        source: r.source_type,
+        title,
+        snippet: String(r.chunk_text || "").slice(0, 280),
+        url,
+        similarity: Number(r.similarity?.toFixed?.(3) ?? r.similarity ?? 0),
+      };
+    });
+    return { count: results.length, results, _rag_hits: results.map((r: any) => ({ source: r.source, similarity: r.similarity })) };
+  } catch (e) {
+    return { error: (e as Error).message, count: 0, results: [] };
+  }
+}
+
+// ── RAG: products catalog text search ──
+async function executeSearchProducts(args: any) {
+  const query = String(args?.query || "").trim();
+  if (!query) return { error: "query é obrigatório" };
+  const limit = Math.min(Number(args?.limit) || 5, 10);
+  const category = args?.category ? String(args.category) : null;
+  const pattern = `%${query.replace(/[%_]/g, "")}%`;
+
+  const out: any[] = [];
+
+  // 1) system_a_catalog (catálogo principal, tem preço/slug)
+  try {
+    let q = supabase.from("system_a_catalog")
+      .select("id, name, slug, category, price, description, canonical_url")
+      .eq("active", true)
+      .or(`name.ilike.${pattern},category.ilike.${pattern},description.ilike.${pattern}`)
+      .limit(limit);
+    if (category) q = q.ilike("category", `%${category}%`);
+    const { data } = await q;
+    for (const row of data || []) {
+      out.push({
+        source: "system_a_catalog",
+        name: (row as any).name,
+        category: (row as any).category,
+        price: (row as any).price,
+        url: (row as any).canonical_url || ((row as any).slug ? `/produto/${(row as any).slug}` : null),
+        snippet: String((row as any).description || "").slice(0, 200),
+      });
+    }
+  } catch (e) { console.warn("[search_products] system_a_catalog:", e); }
+
+  // 2) resins (tem ai_context + slug)
+  try {
+    const { data } = await supabase.from("resins")
+      .select("id, name, slug, manufacturer, color, type, description, ai_context, price")
+      .eq("active", true)
+      .or(`name.ilike.${pattern},manufacturer.ilike.${pattern},type.ilike.${pattern},description.ilike.${pattern}`)
+      .limit(limit);
+    for (const row of data || []) {
+      out.push({
+        source: "resins",
+        name: (row as any).name,
+        category: `Resina ${(row as any).type || ""}`.trim(),
+        manufacturer: (row as any).manufacturer,
+        price: (row as any).price,
+        url: (row as any).slug ? `/base-conhecimento/d/${(row as any).slug}` : null,
+        snippet: String((row as any).description || (row as any).ai_context || "").slice(0, 200),
+      });
+    }
+  } catch (e) { console.warn("[search_products] resins:", e); }
+
+  // 3) products_catalog (mapping operacional)
+  try {
+    const { data } = await supabase.from("products_catalog")
+      .select("product_id, name, category, subcategory")
+      .or(`name.ilike.${pattern},category.ilike.${pattern},subcategory.ilike.${pattern}`)
+      .limit(limit);
+    for (const row of data || []) {
+      out.push({
+        source: "products_catalog",
+        name: (row as any).name,
+        category: (row as any).category,
+        subcategory: (row as any).subcategory,
+        product_id: (row as any).product_id,
+      });
+    }
+  } catch (e) { console.warn("[search_products] products_catalog:", e); }
+
+  // Dedup por nome (case-insensitive) e corta ao limit final
+  const seen = new Set<string>();
+  const deduped = out.filter((p) => {
+    const key = String(p.name || "").trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
+
+  return { count: deduped.length, products: deduped, _rag_hits: deduped.map((p: any) => ({ source: p.source, similarity: null })) };
+}
+
+// ── RAG: courses search ──
+async function executeSearchCourses(args: any) {
+  const query = String(args?.query || "").trim();
+  if (!query) return { error: "query é obrigatório" };
+  const limit = Math.min(Number(args?.limit) || 5, 10);
+  const pattern = `%${query.replace(/[%_]/g, "")}%`;
+
+  const out: any[] = [];
+
+  try {
+    const { data } = await supabase.from("smartops_courses")
+      .select("id, title, slug, description, modality, category, instructor_name, duration_days")
+      .eq("active", true)
+      .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .limit(limit);
+    for (const row of data || []) {
+      out.push({
+        source: "smartops_courses",
+        title: (row as any).title,
+        modality: (row as any).modality,
+        category: (row as any).category,
+        instructor: (row as any).instructor_name,
+        duration_days: (row as any).duration_days,
+        url: (row as any).slug ? `/cursos/${(row as any).slug}` : null,
+        snippet: String((row as any).description || "").slice(0, 200),
+      });
+    }
+  } catch (e) { console.warn("[search_courses] smartops_courses:", e); }
+
+  try {
+    const { data } = await supabase.from("astron_courses")
+      .select("id, name, slug, short_description, category, total_modules, total_lessons")
+      .eq("is_active", true)
+      .or(`name.ilike.${pattern},short_description.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+      .limit(limit);
+    for (const row of data || []) {
+      out.push({
+        source: "astron_courses",
+        title: (row as any).name,
+        category: (row as any).category,
+        modules: (row as any).total_modules,
+        lessons: (row as any).total_lessons,
+        url: (row as any).slug ? `/astron/${(row as any).slug}` : null,
+        snippet: String((row as any).short_description || "").slice(0, 200),
+      });
+    }
+  } catch (e) { console.warn("[search_courses] astron_courses:", e); }
+
+  return { count: out.length, courses: out.slice(0, limit), _rag_hits: out.slice(0, limit).map((c: any) => ({ source: c.source, similarity: null })) };
+}
+
 async function executeQueryTable(args: any) {
   const allowedTables = [
     "lia_attendances", "knowledge_contents", "knowledge_videos", "knowledge_categories",
