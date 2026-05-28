@@ -868,19 +868,7 @@ function CreateCampaign({
     setSending(true);
     const tId = toast.loading("Disparando SMS...");
     try {
-      const filters: any = {};
-      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
-      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
-      if (stageName !== "all") filters.piperun_stage_name = stageName;
-      if (especialidade !== "all") filters.especialidade = especialidade;
-      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
-      if (uf !== "all") filters.uf = uf;
-      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
-      if (realStatus !== "all") filters.real_status = realStatus;
-      if (temScanner !== "all") filters.tem_scanner = temScanner;
-      if (temPrinter !== "all") filters.tem_printer = temPrinter;
-      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
-      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      const filters: any = buildFiltersObject();
 
       const { data: camp, error: campErr } = await supabase
         .from("campaign_sessions")
