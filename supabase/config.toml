@@ -338,3 +338,15 @@ verify_jwt = false
 
 [functions.smart-ops-reassign-danilo-vendas]
 verify_jwt = false
+
+[functions.wa-sync-groups]
+verify_jwt = false
+
+[functions.wa-campaign-builder]
+verify_jwt = false
+
+[functions.wa-dispatcher]
+verify_jwt = false
+
+[functions.wa-verify-lead]
+verify_jwt = false
