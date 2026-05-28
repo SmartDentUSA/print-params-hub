@@ -1,11 +1,12 @@
-// _shared/evolution.ts — v3 FINAL
-// Instância: Comercial | 5516981158403 | http://82.25.75.61:8080
+// _shared/evolution.ts — v3.1
+// Instância real: "Dra. Lia" (profileName=Comercial) | 5516981158403 | http://82.25.75.61:8080
 
 export const EVO_BASE  = Deno.env.get('EVOLUTION_API_URL')      ?? 'http://82.25.75.61:8080'
-export const EVO_INST  = Deno.env.get('EVOLUTION_INSTANCE_NAME') ?? 'Comercial'
+export const EVO_INST  = Deno.env.get('EVOLUTION_INSTANCE_NAME') ?? 'Dra. Lia'
 export const EVO_KEY   = Deno.env.get('EVOLUTION_API_KEY')      ?? 'E1596BBE-4B93-4A62-A610-3BDBD3788672'
 export const EVO_PHONE = '5516981158403'
 export const ADMIN_JID = `${EVO_PHONE}@s.whatsapp.net`
+const EVO_INST_ENC = encodeURIComponent(EVO_INST)
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +32,7 @@ function h() {
 }
 
 export async function fetchAdminGroups(): Promise<EvoGroup[]> {
-  const url = `${EVO_BASE}/group/fetchAllGroups/${EVO_INST}?getParticipants=true`
+  const url = `${EVO_BASE}/group/fetchAllGroups/${EVO_INST_ENC}?getParticipants=true`
   const res = await fetch(url, { headers: h() })
   if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
   const all: EvoGroup[] = await res.json()
@@ -43,7 +44,7 @@ export async function fetchAdminGroups(): Promise<EvoGroup[]> {
 }
 
 export async function sendText(groupJid: string, text: string): Promise<string | null> {
-  const res = await fetch(`${EVO_BASE}/message/sendText/${EVO_INST}`, {
+  const res = await fetch(`${EVO_BASE}/message/sendText/${EVO_INST_ENC}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ number: groupJid, text }),
   })
@@ -58,7 +59,7 @@ export async function sendMedia(
   mediaUrl: string,
   caption = ''
 ): Promise<string | null> {
-  const res = await fetch(`${EVO_BASE}/message/sendMedia/${EVO_INST}`, {
+  const res = await fetch(`${EVO_BASE}/message/sendMedia/${EVO_INST_ENC}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
   })
@@ -71,7 +72,7 @@ export async function checkWaNumber(rawPhone: string): Promise<WaNumberCheckResu
   const clean = normalizePhone(rawPhone)
   if (!clean || clean.length < 10) return { exists: false }
 
-  const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${EVO_INST}`, {
+  const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${EVO_INST_ENC}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ numbers: [clean] }),
   })
