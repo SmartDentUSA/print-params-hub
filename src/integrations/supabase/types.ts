@@ -8266,9 +8266,12 @@ export type Database = {
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
           wa_chat_summary: string | null
+          wa_exists: boolean | null
           wa_group_origem: string | null
           wa_last_summary_at: string | null
+          wa_phone: string | null
           wa_total_messages: number | null
+          wa_verified_at: string | null
           whatsapp_lid: string | null
           whatsapp_opt_out: boolean
           workflow_portfolio: Json | null
@@ -8830,9 +8833,12 @@ export type Database = {
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
           wa_chat_summary?: string | null
+          wa_exists?: boolean | null
           wa_group_origem?: string | null
           wa_last_summary_at?: string | null
+          wa_phone?: string | null
           wa_total_messages?: number | null
+          wa_verified_at?: string | null
           whatsapp_lid?: string | null
           whatsapp_opt_out?: boolean
           workflow_portfolio?: Json | null
@@ -9394,9 +9400,12 @@ export type Database = {
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
           wa_chat_summary?: string | null
+          wa_exists?: boolean | null
           wa_group_origem?: string | null
           wa_last_summary_at?: string | null
+          wa_phone?: string | null
           wa_total_messages?: number | null
+          wa_verified_at?: string | null
           whatsapp_lid?: string | null
           whatsapp_opt_out?: boolean
           workflow_portfolio?: Json | null
@@ -17404,6 +17413,72 @@ export type Database = {
           },
         ]
       }
+      wa_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_node_index: number
+          daily_limit: number
+          delay_seconds: number
+          finished_at: string | null
+          flow_json: Json
+          group_id: string
+          id: string
+          name: string
+          next_send_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_node_index?: number
+          daily_limit?: number
+          delay_seconds?: number
+          finished_at?: string | null
+          flow_json?: Json
+          group_id: string
+          id?: string
+          name: string
+          next_send_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_node_index?: number
+          daily_limit?: number
+          delay_seconds?: number
+          finished_at?: string | null
+          flow_json?: Json
+          group_id?: string
+          id?: string
+          name?: string
+          next_send_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_campaigns_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "wa_campaigns_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_followup_queue: {
         Row: {
           created_at: string | null
@@ -17613,6 +17688,13 @@ export type Database = {
             foreignKeyName: "wa_group_dispatch_log_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "wa_group_dispatch_log_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
             referencedRelation: "wa_groups"
             referencedColumns: ["id"]
           },
@@ -17657,6 +17739,13 @@ export type Database = {
           synced_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wa_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "wa_group_members_group_id_fkey"
             columns: ["group_id"]
@@ -17853,6 +17942,13 @@ export type Database = {
             foreignKeyName: "wa_group_schedules_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "wa_group_schedules_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
             referencedRelation: "wa_groups"
             referencedColumns: ["id"]
           },
@@ -17860,57 +17956,83 @@ export type Database = {
       }
       wa_groups: {
         Row: {
+          _regua_ativa_legacy: boolean | null
+          active_campaign_id: string | null
           ativo: boolean | null
           created_at: string | null
-          descricao: string | null
-          evolution_instance: string
+          description: string | null
           group_jid: string
           id: string
+          instance_name: string
           invite_link: string | null
-          membros_count: number | null
-          nome: string
+          is_admin: boolean
+          member_count: number | null
+          name: string
+          phone_number: string | null
+          picture_url: string | null
           produto_tag: string | null
-          regua_ativa: boolean | null
+          synced_at: string | null
           tipo: string | null
           turma_id: string | null
-          ultima_sync: string | null
           updated_at: string | null
         }
         Insert: {
+          _regua_ativa_legacy?: boolean | null
+          active_campaign_id?: string | null
           ativo?: boolean | null
           created_at?: string | null
-          descricao?: string | null
-          evolution_instance?: string
+          description?: string | null
           group_jid: string
           id?: string
+          instance_name?: string
           invite_link?: string | null
-          membros_count?: number | null
-          nome: string
+          is_admin?: boolean
+          member_count?: number | null
+          name: string
+          phone_number?: string | null
+          picture_url?: string | null
           produto_tag?: string | null
-          regua_ativa?: boolean | null
+          synced_at?: string | null
           tipo?: string | null
           turma_id?: string | null
-          ultima_sync?: string | null
           updated_at?: string | null
         }
         Update: {
+          _regua_ativa_legacy?: boolean | null
+          active_campaign_id?: string | null
           ativo?: boolean | null
           created_at?: string | null
-          descricao?: string | null
-          evolution_instance?: string
+          description?: string | null
           group_jid?: string
           id?: string
+          instance_name?: string
           invite_link?: string | null
-          membros_count?: number | null
-          nome?: string
+          is_admin?: boolean
+          member_count?: number | null
+          name?: string
+          phone_number?: string | null
+          picture_url?: string | null
           produto_tag?: string | null
-          regua_ativa?: boolean | null
+          synced_at?: string | null
           tipo?: string | null
           turma_id?: string | null
-          ultima_sync?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_wa_groups_active_campaign"
+            columns: ["active_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "fk_wa_groups_active_campaign"
+            columns: ["active_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wa_groups_turma_id_fkey"
             columns: ["turma_id"]
@@ -17966,6 +18088,144 @@ export type Database = {
           created_at?: string | null
           msg_id?: string
           phone?: string | null
+        }
+        Relationships: []
+      }
+      wa_message_queue: {
+        Row: {
+          campaign_id: string
+          content_json: Json
+          created_at: string
+          error_message: string | null
+          evo_message_id: string | null
+          group_jid: string
+          id: string
+          node_index: number
+          node_type: string
+          retry_count: number
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          content_json?: Json
+          created_at?: string
+          error_message?: string | null
+          evo_message_id?: string | null
+          group_jid: string
+          id?: string
+          node_index: number
+          node_type: string
+          retry_count?: number
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          content_json?: Json
+          created_at?: string
+          error_message?: string | null
+          evo_message_id?: string | null
+          group_jid?: string
+          id?: string
+          node_index?: number
+          node_type?: string
+          retry_count?: number
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_message_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "wa_message_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_send_log: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          error_message: string | null
+          evo_message_id: string | null
+          group_jid: string | null
+          http_status: number | null
+          id: string
+          instance_name: string | null
+          node_type: string | null
+          queue_id: string | null
+          sent_at: string
+          success: boolean
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          evo_message_id?: string | null
+          group_jid?: string | null
+          http_status?: number | null
+          id?: string
+          instance_name?: string | null
+          node_type?: string | null
+          queue_id?: string | null
+          sent_at?: string
+          success: boolean
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          evo_message_id?: string | null
+          group_jid?: string | null
+          http_status?: number | null
+          id?: string
+          instance_name?: string | null
+          node_type?: string | null
+          queue_id?: string | null
+          sent_at?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      wa_verify_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string
+          phone: string | null
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          phone?: string | null
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          phone?: string | null
+          processed_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -20864,6 +21124,45 @@ export type Database = {
           },
         ]
       }
+      v_wa_group_summary: {
+        Row: {
+          active_campaign_id: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          campaign_status: string | null
+          current_node_index: number | null
+          description: string | null
+          group_id: string | null
+          group_jid: string | null
+          group_name: string | null
+          instance_name: string | null
+          is_admin: boolean | null
+          member_count: number | null
+          msgs_failed: number | null
+          msgs_pending: number | null
+          msgs_sent: number | null
+          next_send_at: string | null
+          started_at: string | null
+          synced_at: string | null
+          total_nodes: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_wa_groups_active_campaign"
+            columns: ["active_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "fk_wa_groups_active_campaign"
+            columns: ["active_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_workflow_portfolio: {
         Row: {
           e1_acessorios_raw: string | null
@@ -22297,6 +22596,14 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_check_group_send_cooldown: {
+        Args: {
+          p_campaign_id: string
+          p_group_jid: string
+          p_node_index: number
+        }
+        Returns: boolean
+      }
       fn_classify_deal_category: {
         Args: { p_category: string; p_product: string }
         Returns: string
@@ -23488,9 +23795,12 @@ export type Database = {
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
           wa_chat_summary: string | null
+          wa_exists: boolean | null
           wa_group_origem: string | null
           wa_last_summary_at: string | null
+          wa_phone: string | null
           wa_total_messages: number | null
+          wa_verified_at: string | null
           whatsapp_lid: string | null
           whatsapp_opt_out: boolean
           workflow_portfolio: Json | null

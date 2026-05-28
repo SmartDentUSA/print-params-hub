@@ -1,143 +1,73 @@
-## WA Group Scheduler — Frontend (aprovado para implementar)
+## WA Group Scheduler — Backend (5 edge functions) + Migration + Frontend
 
-Construir a régua de mensagens para grupos WhatsApp como nova aba dentro de `SmartOpsCampaigns`, consumindo as tabelas/views/edge functions já existentes (`wa_groups`, `wa_campaigns`, `wa_message_queue`, `v_wa_group_summary`, `wa-sync-groups`, `wa-campaign-builder`). Sem mexer no wizard atual.
+Plano em 3 fases. Backend primeiro porque o frontend (já aprovado em `.lovable/plan.md`) depende de tabelas, view e funções que ainda não existem.
 
-### Arquivos a criar
+### Fase 1 — Migration de reconciliação (`supabase--migration`)
+
+Aplico o `004_reconcile_wa_tables.sql` já discutido, com 3 ajustes obrigatórios para rodar no Postgres do projeto:
+
+1. `ALTER TABLE ... ADD CONSTRAINT IF NOT EXISTS` → bloco `DO $$ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_wa_groups_campaign') THEN ALTER TABLE ... END IF; $$`.
+2. **GRANTs obrigatórios** para todas as tabelas novas em `public` (regra do projeto — sem isso PostgREST devolve 401/permission denied): `wa_campaigns`, `wa_message_queue`, `wa_send_log`, `wa_verify_queue` recebem `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated` + `GRANT ALL ... TO service_role`.
+3. `pg_cron` com `<SERVICE_ROLE_KEY>` hardcoded → leitura via `vault.decrypted_secrets`. Se o secret não estiver no Vault, deixo os dois `cron.schedule` comentados no SQL e aviso para configurar manualmente.
+
+Conteúdo da migration: rename PT-BR→EN em `wa_groups` (`nome→name`, `descricao→description`, `membros_count→member_count`, `regua_ativa→_regua_ativa_legacy`), novas colunas (`is_admin`, `instance_name`, `phone_number`, `picture_url`, `active_campaign_id`, `synced_at`), `wa_group_schedules → wa_group_schedules_legacy`, criação de `wa_campaigns` / `wa_message_queue` / `wa_send_log` / `wa_verify_queue`, colunas `wa_exists` + `wa_verified_at` em `lia_attendances` + trigger `fn_queue_wa_verify`, função `fn_check_group_send_cooldown`, view `v_wa_group_summary`, RLS.
+
+### Fase 2 — 5 Edge Functions
+
+Crio exatamente o código fornecido, com **4 correções obrigatórias** para compilar e funcionar contra o schema real:
+
+```text
+supabase/functions/_shared/evolution.ts          (novo, código verbatim)
+supabase/functions/wa-sync-groups/index.ts       (novo + correção 1)
+supabase/functions/wa-campaign-builder/index.ts  (novo, código verbatim)
+supabase/functions/wa-dispatcher/index.ts        (novo, código verbatim)
+supabase/functions/wa-verify-lead/index.ts       (novo + correções 2 e 3)
+```
+
+**Correções:**
+
+1. **`wa-sync-groups`**: o código importa `EVO_INSTANCE`, mas o `_shared/evolution.ts` exporta `EVO_INST`. Renomeio os 3 usos no `wa-sync-groups` para `EVO_INST` (mantém o nome do shared).
+2. **`wa-verify-lead` schema do `system_health_logs`**: o código usa o schema antigo (`service`/`status`/`message`/`logged_at`); o schema canônico do projeto (usado em `wa-dispatcher` e em todas as outras funções) é `function_name`/`severity`/`error_type`/`details`/`auto_remediated`/`resolved`. Padronizo o insert.
+3. **`wa-verify-lead` filtro composto**: combinar `.is('merged_into', null)` com `.or('wa_phone.is.null,wa_phone.eq...')` quebra o filtro. Substituo por: (a) `SELECT` prévio do `wa_phone` atual do lead, (b) só inclui `wa_phone` no `updatePayload` se for `null`, (c) mantém apenas `.is('merged_into', null)` no `.update()`.
+4. **`wa-sync-groups` CORS**: adicionar handler `OPTIONS` para o frontend conseguir chamar via `supabase.functions.invoke`.
+
+**`supabase/config.toml`** — adiciono entradas com `verify_jwt = false` para as 4 funções públicas (chamadas pelo frontend ou pg_cron):
+
+```toml
+[functions.wa-sync-groups]
+verify_jwt = false
+[functions.wa-campaign-builder]
+verify_jwt = false
+[functions.wa-dispatcher]
+verify_jwt = false
+[functions.wa-verify-lead]
+verify_jwt = false
+```
+
+**Secrets** — verifico via `secrets--fetch_secrets` e, se faltar, peço com `add_secret`:
+- `EVOLUTION_API_URL`, `EVOLUTION_INSTANCE_NAME`, `EVOLUTION_API_KEY` (têm defaults hardcoded no shared, mas o ideal é em secret).
+- `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` — provavelmente já existem.
+
+### Fase 3 — Frontend (spec aprovado em `.lovable/plan.md`, sem alterações)
 
 ```text
 src/components/smart-ops/wa-groups/
-  types.ts
-  SmartOpsWaGroupCampaigns.tsx
-  WaGroupFlowBuilder.tsx
-  WaContentNodeSelector.tsx
-  WaGroupFlowVisualizer.tsx
+  types.ts                       # ai_source_*, media_url, weekdays_only
+  SmartOpsWaGroupCampaigns.tsx   # cards + Realtime
+  WaGroupFlowBuilder.tsx         # builder 6 nós
+  WaContentNodeSelector.tsx      # modal artigos/produtos/vídeos
+  WaGroupFlowVisualizer.tsx      # timeline + countdown
 src/pages/WaFlowVisualizerPage.tsx
 ```
 
-### Integração
+Integração: nova `<TabsTrigger value="grupos-wa">` em `SmartOpsCampaigns.tsx` + rota `/smartops/wa-flow-visualizer` em `App.tsx`. Zero alteração em código existente. Tokens semânticos, sem cor hardcoded.
 
-- `src/components/SmartOpsCampaigns.tsx`: adicionar `<TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>` + `<TabsContent value="grupos-wa">` renderizando `<SmartOpsWaGroupCampaigns />`. Nenhuma outra linha alterada.
-- `src/App.tsx`: nova rota `/smartops/wa-flow-visualizer` → `WaFlowVisualizerPage` (lê `campaign_id` via `useSearchParams`).
+### Verificação por fase
 
-### Tipagens (`types.ts`) — nomes alinhados ao contrato do edge `wa-campaign-builder`
+- **Fase 1**: `SELECT * FROM v_wa_group_summary LIMIT 1` sem erro; `wa_groups` mostra `name`/`is_admin`/`active_campaign_id`.
+- **Fase 2**: `supabase--curl_edge_functions` em `/wa-sync-groups` retorna `{ok:true, synced:N}`; logs via `supabase--edge_function_logs`.
+- **Fase 3**: TS compila; aba "Grupos WA" renderiza; "Salvar e ativar" chama `wa-campaign-builder` e devolve `first_send`.
 
-```ts
-export type FlowNodeType = "msg" | "wait" | "ai" | "image" | "video" | "link";
+### Confirmação antes de prosseguir
 
-export interface FlowNodeBase { id: string; type: FlowNodeType; }
-
-export interface MsgNode extends FlowNodeBase {
-  type: "msg";
-  text: string;
-  mention_all?: boolean; // UI exibe; envio Evolution ignora por enquanto
-}
-
-export interface WaitNode extends FlowNodeBase {
-  type: "wait";
-  days: number;
-  time: string;            // "HH:MM"
-  weekdays_only?: boolean;
-}
-
-export interface AiNode extends FlowNodeBase {
-  type: "ai";
-  ai_source_type: "article" | "product" | "video";
-  ai_source_id: string;
-  ai_source_title: string;
-  ai_prompt_override?: string;
-}
-
-export interface MediaNode extends FlowNodeBase {
-  type: "image" | "video";
-  media_url: string;
-  caption?: string;
-}
-
-export interface LinkNode extends FlowNodeBase {
-  type: "link";
-  title: string;
-  description?: string;
-  url: string;
-}
-
-export type FlowNode = MsgNode | WaitNode | AiNode | MediaNode | LinkNode;
-```
-
-Todos os pontos do `WaGroupFlowBuilder` que criam/leem/validam nós usam exatamente estes nomes (`weekdays_only`, `ai_source_*`, `ai_prompt_override`, `media_url`). O `WaContentNodeSelector` retorna `(type, id, title)` que o Builder grava como `ai_source_type` / `ai_source_id` / `ai_source_title`.
-
-### Componente 1 — SmartOpsWaGroupCampaigns
-
-- Query inicial em `v_wa_group_summary` ordenado por `group_name`.
-- Realtime: canal `wa-groups-overview` com `postgres_changes` em `wa_message_queue` e `wa_campaigns` → recarrega lista.
-- Header: título + subtítulo (instância Comercial + contagem) + botões `Sincronizar` (invoca `wa-sync-groups`, toast com `synced`) e `Nova campanha` (abre Builder sem grupo).
-- Grid `grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3`. Card com `border-l-4` por status:
-  - sem campanha → `border-border`, CTA "Criar régua"
-  - active → emerald; paused → amber; finished/error → tokens equivalentes
-- Card com campanha: avatar de iniciais, Badge status, métricas (sent/pending/failed direto da view), `Progress` (`current_node_index/total_nodes`), próxima data em PT-BR, botões `Ver fluxo` / `Pausar|Retomar` / engrenagem (editar).
-- `Ver fluxo`: `window.open(/smartops/wa-flow-visualizer?campaign_id=...)`; se bloqueado, abre Dialog in-page com `WaGroupFlowVisualizer`.
-- Pausar/Retomar: `update wa_campaigns.status` entre `active|paused`.
-
-### Componente 2 — WaGroupFlowBuilder
-
-- Dialog full-screen (`max-w-6xl`, `90vh`). Props: `group | null`, `onSaved`, `onCancel`.
-- Carrega `wa_groups` (todos). Itens com `is_admin=false` aparecem desabilitados no select.
-- Se `group.campaign_id`: hidrata estado a partir de `flow_json`, nome, delay, daily_limit.
-- Painel esquerdo `w-64 border-r bg-muted/20 p-4`:
-  - Bloco Configuração: Select grupo, Input nome, Input delay (min 10, helper "anti-ban"), Input daily_limit (1–50).
-  - Resumo: total de nós, nós de conteúdo (não-wait), duração estimada (soma de waits em dias).
-  - Adicionar nó: 6 botões (Mensagem / IA / Aguardar / Imagem / Vídeo / Link) com tokens (violet, primary, amber, emerald, pink, cyan).
-- Painel direito: toolbar (Cancelar / Salvar rascunho / Salvar e ativar) + canvas com grid de pontos via `hsl(var(--border))`.
-- Coluna `max-w-lg mx-auto`: nó início (grupo) → conectores `h-8 w-px bg-border` → `FlowNodeCard` por nó → nó final (contagem).
-- `FlowNodeCard` (`w-72`): header (Grip, ícone, label, preview 50 chars, ↑↓ 🗑 chevron). Body por tipo:
-  - `msg`: Textarea + checkbox `mention_all` (UI-only por enquanto)
-  - `wait`: grid 2 col — dias + horário HH:MM + checkbox `weekdays_only`
-  - `ai`: botão "Selecionar conteúdo" (abre `WaContentNodeSelector`) ou card do item escolhido + "Trocar"; Textarea opcional (`ai_prompt_override`)
-  - `image` / `video`: Input `media_url` + Textarea `caption`
-  - `link`: Input `title` + Textarea `description` + Input `url`
-- Ordenação por swap. Validação:
-  - rascunho: grupo + nome + ≥1 nó não-wait
-  - ativar: rascunho + obrigatórios por tipo (`text` / `media_url` / `ai_source_id` / `url`)
-- Salvar rascunho: `upsert wa_campaigns {status:'draft'}` + `update wa_groups.active_campaign_id`. Toast.
-- Salvar e ativar: mesmo upsert + `fetch POST ${VITE_SUPABASE_URL}/functions/v1/wa-campaign-builder { campaign_id }` com `Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}` + `apikey`. Toast com `first_send`. `Loader2 animate-spin` enquanto chama.
-
-### Componente 3 — WaContentNodeSelector
-
-- Dialog `max-w-2xl max-h-[85vh] p-0 flex-col`. Props: `open`, `onClose`, `onSelect(type, id, title)`.
-- Estado: `query`, `tab` (`article|product|video`), `selected`. Debounce 300ms.
-- Queries por aba:
-  - `knowledge_articles`: `is_published=true`, `ilike('title', %q%)`, `order updated_at desc`, `limit 50`
-  - `system_a_catalog`: `active=true`, `ilike('name', %q%)`
-  - `videos`: `status='active'`, `ilike('title', %q%)`
-- `ScrollArea max-h-72`. Item: título + Badge categoria + "Atualizado dd/MM/aa" + preview `line-clamp-2`. Selecionado → `bg-primary/10 border-primary/30` + `CheckCircle2`.
-- Footer: nome selecionado + Cancelar + "Usar este conteúdo" (disabled sem seleção). Reset ao abrir.
-
-### Componente 4 — WaGroupFlowVisualizer
-
-- Props: `campaignId`. Sem Dialog wrapper.
-- Busca `wa_campaigns` + join `wa_groups` + `wa_message_queue` (order `node_index`).
-- Realtime: canal `vis-${campaignId}` filtrando `campaign_id=eq.${id}` em ambas tabelas → recarrega.
-- Header: nome + Badge status + ícone Users + nome do grupo + N membros.
-- Countdown (se `active` e `next_send_at` futuro): label + `Progress` animada + `HH:MM:SS` via `setInterval(1000)` + data PT-BR.
-- Métricas 3-col (sent/pending/total).
-- Timeline vertical: para cada nó do `flow_json` match com queue items por `node_index`. Círculo de status (sent=emerald check, sending=primary spinner, failed=destructive alert, pending=muted). Linha conectora colorida. Badge "ATUAL" no `current_node_index`. Mostra "Enviado dd/MM HH:mm" / "Agendado dd/MM HH:mm" / "Aguardar N dias — HH:MM".
-
-### Página standalone
-
-`WaFlowVisualizerPage`: lê `campaign_id`, header simples + `<WaGroupFlowVisualizer campaignId={id} />` dentro de `max-w-3xl mx-auto p-6`. Erro amigável se sem id.
-
-### Regras
-
-- Zero cor hardcoded: tokens semânticos. Apenas "status dot" usa utilitários (`emerald-500/amber-500/...`).
-- Todo `fetch`/Supabase com try/catch + `toast` de erro.
-- Estados de loading com `Loader2 animate-spin`.
-- Nada de WaLeads. Nenhuma alteração nas abas atuais de `SmartOpsCampaigns`.
-
-### Verificação pós-build
-
-- Compilação TS limpa.
-- Abrir aba "Grupos WA" → cards renderizam (loading → lista).
-- "Nova campanha" → Builder abre; select de grupo lista todos, não-admin desabilitado.
-- Nó IA → modal abre, busca funciona, seleção grava `ai_source_*` no nó.
-- Salvar e ativar → chama `wa-campaign-builder` e mostra toast com `first_send`.
-- Pausar/Retomar → status muda na view sem recarregar.
-- `/smartops/wa-flow-visualizer?campaign_id=...` carrega com countdown ativo.
+Posso aplicar as 4 correções listadas no código das edge functions? Sem elas: `wa-sync-groups` não compila (import quebrado) e `wa-verify-lead` falha no insert de logs e no update do lead.

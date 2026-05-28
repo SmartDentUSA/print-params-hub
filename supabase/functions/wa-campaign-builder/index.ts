@@ -1,0 +1,123 @@
+// supabase/functions/wa-campaign-builder/index.ts
+// Ativa uma campanha: lê flow_json e popula wa_message_queue.
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/evolution.ts'
+
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+
+  const { campaign_id } = await req.json()
+  if (!campaign_id) {
+    return Response.json({ ok: false, error: 'campaign_id obrigatório' }, { status: 400, headers: corsHeaders })
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  const { data: camp, error } = await supabase
+    .from('wa_campaigns')
+    .select('*, wa_groups(group_jid, name, member_count)')
+    .eq('id', campaign_id)
+    .single()
+
+  if (error || !camp) {
+    return Response.json({ ok: false, error: 'Campanha não encontrada' }, { status: 404, headers: corsHeaders })
+  }
+  if (!['draft', 'paused'].includes(camp.status)) {
+    return Response.json({ ok: false, error: `Campanha está ${camp.status} — só draft ou paused podem ser ativadas` }, { status: 400, headers: corsHeaders })
+  }
+
+  const flow: Array<Record<string, unknown>> = camp.flow_json ?? []
+  if (flow.length === 0) {
+    return Response.json({ ok: false, error: 'flow_json vazio' }, { status: 400, headers: corsHeaders })
+  }
+
+  const groupJid = camp.wa_groups?.group_jid
+  if (!groupJid) {
+    return Response.json({ ok: false, error: 'Grupo sem JID — sincronize os grupos primeiro' }, { status: 400, headers: corsHeaders })
+  }
+
+  await supabase.from('wa_message_queue')
+    .delete().eq('campaign_id', campaign_id).eq('status', 'pending')
+
+  const queueRows: Array<Record<string, unknown>> = []
+  const startTs = camp.started_at ? new Date(camp.started_at).getTime() : Date.now() + 15_000
+  let accMs = 0
+  let lastWait: Record<string, unknown> | null = null
+
+  for (let i = 0; i < flow.length; i++) {
+    const node = flow[i]
+    if (node.type === 'wait') {
+      accMs += ((node.days as number) ?? 1) * 86_400_000
+      lastWait = node
+      continue
+    }
+
+    const time = (lastWait?.time as string) ?? '09:00'
+    const [hh, mm] = time.split(':').map(Number)
+    const ts = new Date(startTs + accMs)
+    ts.setUTCHours(hh + 3, mm, 0, 0)
+
+    if (ts.getTime() < Date.now() && accMs === 0) {
+      ts.setDate(ts.getDate() + 1)
+    }
+    if (lastWait?.weekdays_only) {
+      const d = ts.getDay()
+      if (d === 0) ts.setDate(ts.getDate() + 1)
+      if (d === 6) ts.setDate(ts.getDate() + 2)
+    }
+
+    queueRows.push({
+      campaign_id,
+      group_jid: groupJid,
+      node_index: i,
+      node_type: node.type,
+      content_json: buildContent(node),
+      scheduled_at: ts.toISOString(),
+      status: 'pending',
+    })
+  }
+
+  if (queueRows.length === 0) {
+    return Response.json({ ok: false, error: 'Nenhum nó de conteúdo no fluxo' }, { status: 400, headers: corsHeaders })
+  }
+
+  const { error: insertErr } = await supabase.from('wa_message_queue').insert(queueRows)
+  if (insertErr) throw insertErr
+
+  await supabase.from('wa_campaigns').update({
+    status: 'active',
+    started_at: camp.started_at ?? new Date().toISOString(),
+    current_node_index: 0,
+    next_send_at: queueRows[0].scheduled_at,
+  }).eq('id', campaign_id)
+
+  await supabase.from('wa_groups')
+    .update({ active_campaign_id: campaign_id })
+    .eq('group_jid', groupJid)
+
+  console.log(`[wa-campaign-builder] Campanha ${campaign_id} ativada: ${queueRows.length} msgs`)
+
+  return Response.json({
+    ok: true, campaign: campaign_id, group: groupJid,
+    queued: queueRows.length,
+    first_send: queueRows[0].scheduled_at,
+    schedule: queueRows.map(r => ({ node: r.node_index, type: r.node_type, scheduled: r.scheduled_at })),
+  }, { headers: corsHeaders })
+})
+
+function buildContent(node: Record<string, unknown>): Record<string, unknown> {
+  switch (node.type) {
+    case 'msg':   return { text: node.text ?? node.content, mentions_everyone: node.mention_all ?? node.mentions_everyone ?? false }
+    case 'ai':    return { ai_source_type: node.ai_source_type ?? 'article', ai_source_id: node.ai_source_id, ai_source_title: node.ai_source_title, ai_prompt_override: node.ai_prompt_override ?? null }
+    case 'image':
+    case 'video': return { media_url: node.media_url, caption: node.caption ?? '' }
+    case 'link':  return { title: node.title, description: node.description, url: node.url }
+    default:      return { raw: node }
+  }
+}
