@@ -125,12 +125,14 @@ Deno.serve(async (req) => {
     }
 
     // Audit
-    await supabase.from("system_health_logs").insert({
-      function_name: "backfill-stranded-won-deals",
-      severity: summary.errors > 0 ? "warning" : "info",
-      error_type: "backfill_stranded_won",
-      details: { ...summary, duration_ms: Date.now() - started },
-    }).catch(() => {});
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "backfill-stranded-won-deals",
+        severity: summary.errors > 0 ? "warning" : "info",
+        error_type: "backfill_stranded_won",
+        details: { ...summary, duration_ms: Date.now() - started },
+      });
+    } catch (_) { /* audit best-effort */ }
 
     return new Response(JSON.stringify({ ok: true, ...summary, duration_ms: Date.now() - started }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
