@@ -51,8 +51,9 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
     (async () => {
       try {
         let rows: Item[] = [];
+        const sb = supabase as any;
         if (tab === "article") {
-          let q = supabase
+          let q = sb
             .from("knowledge_articles")
             .select("id, title, category, meta_description, updated_at")
             .eq("is_published", true)
@@ -66,7 +67,7 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
             preview: r.meta_description, updated_at: r.updated_at,
           }));
         } else if (tab === "product") {
-          let q = supabase
+          let q = sb
             .from("system_a_catalog")
             .select("id, name, category, description, updated_at")
             .eq("active", true)
@@ -80,7 +81,7 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
             preview: r.description, updated_at: r.updated_at,
           }));
         } else {
-          let q = supabase
+          let q = sb
             .from("videos")
             .select("id, title, description, updated_at")
             .eq("status", "active")
