@@ -329,9 +329,31 @@ export async function diagnoseLead(
   const stack: StackEntry[] = [];
   const concorrentes: WorkflowDiagnosis["concorrentes_detectados"] = [];
   const cellsWithStack = new Set<string>();
+  const declaredEmpty = new Set<string>();
+
+  // Raw value lookup that does NOT filter out "não/nao" — used to detect
+  // cells where the lead explicitly declared they do NOT own equipment.
+  const rawLeadValue = (field: string): string => {
+    const direct = lead[field];
+    if (direct !== undefined && direct !== null && String(direct).trim() !== "") return String(direct);
+    const fromForm = formIndex.get(field.toLowerCase());
+    if (fromForm !== undefined && fromForm !== "") return fromForm;
+    const fromCustom = customFieldsIndex.get(field.toLowerCase());
+    if (fromCustom !== undefined && fromCustom !== "") return fromCustom;
+    return "";
+  };
+  const isExplicitNo = (v: string): boolean => {
+    const s = v.toLowerCase().trim();
+    return s === "não" || s === "nao" || s === "n/a" || s === "—" || s === "no" || s === "nenhum" || s === "nenhuma";
+  };
 
   for (const b of cells.values()) {
     for (const sf of b.sdr_fields) {
+      // Declared-empty detection: equipment-style fields with explicit "não"
+      const rawVal = rawLeadValue(sf.mapped_value);
+      if (rawVal && isExplicitNo(rawVal) && /equip|printer|scanner|impress|cad|fresa|forno|cura/i.test(sf.mapped_value + " " + (sf.mapped_label || ""))) {
+        declaredEmpty.add(`${b.stage}::${b.cell}`);
+      }
       const val = pickLeadValue(lead, sf.mapped_value, formIndex, customFieldsIndex);
       if (!val) continue;
       // Check if value matches any competitor of this cell
@@ -363,6 +385,42 @@ export async function diagnoseLead(
 
   // ── Intent (produto buscado) ──
   const intent = resolveIntent(lead, mappings, tokenIndex);
+
+  // ── Intent-leak guard: drop stack entries that are actually echoing the
+  // form-declared interest (e.g. SDR field "qual impressora você busca?"
+  // captured the product-of-interest, not an installed equipment).
+  if (intent) {
+    const intentTokens = [intent.matched_product_label, intent.produto]
+      .filter(Boolean)
+      .map((s) => norm(String(s)))
+      .filter((s) => s.length >= 4);
+    const INTEREST_RE = /interesse|busca|deseja|quer|procura|alvo|gostaria|pretende/i;
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const s = stack[i];
+      const valN = norm(s.value);
+      const hitIntent = intentTokens.some((t) => valN.includes(t) || t.includes(valN));
+      const isInterestField = INTEREST_RE.test(s.field + " " + s.field_label);
+      if (hitIntent && isInterestField) {
+        stack.splice(i, 1);
+      }
+    }
+    // Recompute cellsWithStack after scrubbing
+    cellsWithStack.clear();
+    for (const s of stack) cellsWithStack.add(`${s.stage}::${s.cell}`);
+  }
+
+  // If a cell is in declaredEmpty AND has no equipment-grade stack entry,
+  // also drop any leftover non-equipment stack entries on that cell — they
+  // are almost certainly intent/interest noise.
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const s = stack[i];
+    const cellKey = `${s.stage}::${s.cell}`;
+    if (declaredEmpty.has(cellKey) && !/equip|printer|scanner|impress|cad|fresa|forno|cura/i.test(s.field + " " + s.field_label)) {
+      stack.splice(i, 1);
+    }
+  }
+  cellsWithStack.clear();
+  for (const s of stack) cellsWithStack.add(`${s.stage}::${s.cell}`);
 
   // ── Lacunas (em relação ao alvo) ──
   const lacunas: WorkflowDiagnosis["lacunas"] = [];
