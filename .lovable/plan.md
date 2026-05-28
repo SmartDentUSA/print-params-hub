@@ -1,60 +1,87 @@
-## Diagnóstico
+## Diagnóstico (causa raiz já confirmada por SQL ao vivo)
 
-Verificado no banco:
-- `astron_courses`: **0 registros** (tabela existe, sync nunca rodou)
-- `smartops_courses`: 11 registros sem campo de grade curricular/módulos
-- FAQs em `knowledge_contents`: **0** (não existe taxonomia)
-- Casos de sucesso: 9 registros soltos por título (não tagueados)
-- `products_catalog`: 116 produtos, **sem coluna `datasheet_url`**
-- `resin_documents`: 47 PDFs (apenas resinas têm ficha técnica)
+**1. Cérebro do Copilot está congelado há 6 dias**
 
-## Plano (4 frentes, sem inventar dados)
+Todas as 7 seções do `copilot_brain` (overview, sales_month, sales_ranking, pipeline, products_sold, equipment, alerts) têm `updated_at = 2026-05-22T19:18:52`. Hoje é 28/05.
 
-### 1. 🔴 Cursos Astron — Sync da grade curricular
-- Criar edge function `sync-astron-courses` que consome a API Astron Academy (mesma já usada em `dynamic-context-enrichment`) e popula `astron_courses` + nova tabela `astron_course_modules` (course_id, order_index, title, lessons jsonb, duration_sec).
-- Schedulada diariamente via `pg_cron`.
-- Atualizar tool `search_courses` do Copilot para fazer JOIN com `astron_course_modules` e retornar grade resumida (≤2KB).
+| Métrica | Cérebro (22/05) | Realidade SQL (28/05) | Diferença |
+|---|---|---|---|
+| Receita mês | R$ 1.184.236 | **R$ 1.543.634** | −R$ 359 k |
+| Deals ganhos | 229 | **339** | −110 |
+| Deals criados no mês | — | 2.214 | — |
 
-### 2. 🟡 FAQ Comercial — Taxonomia + seed
-- Migration: criar `commercial_faqs` (id, question, answer, category, tags[], product_refs[], priority, active, embedding vector(3072)).
-- GRANT + RLS read-only para `anon`/`authenticated`; insert via service_role.
-- UI mínima em `/admin/faqs` (CRUD básico reaproveitando shadcn Table existente) para o time popular as 50 perguntas.
-- Nova tool Copilot `search_faqs` (FTS + vetorial, reusa `generateEmbedding`).
-- Incluir embeddings em `agent_embeddings` via trigger AFTER INSERT/UPDATE (mesmo padrão de `knowledge_contents`).
+`SELECT * FROM cron.job WHERE command ILIKE '%brain%'` ⇒ **nenhum job de refresh existe**. A população das tabelas `copilot_brain.brain_*` nunca foi automatizada.
 
-### 3. 🟡 Fichas Técnicas PDF — Coluna + ingestão
-- Migration: `ALTER TABLE products_catalog ADD COLUMN datasheet_url text, spec_sheet_url text, manual_url text`.
-- Função `ingest-product-datasheet` que aceita upload (Storage bucket `product-datasheets`) ou URL externa, extrai texto via `pdf-parse`, gera chunks + embeddings para `agent_embeddings` (source='product_datasheet', source_id=product_id).
-- UI em `/admin/produtos/[id]` (extender página existente do catálogo) com campo de upload.
-- Tool `search_products` retorna `datasheet_url` quando disponível.
+**2. Aba "Relatórios" tem duas implementações e a rica está escondida**
 
-### 4. 🟢 Casos de Sucesso — Modelo dedicado
-- Migration: `success_stories` (client_name, segment, challenge, solution, results jsonb, products_used[], video_url, image_url, published, embedding).
-- Backfill manual dos 9 conteúdos existentes (script one-off via insert tool, sem inventar dados — apenas reclassifica títulos óbvios).
-- Tool Copilot `search_success_stories` (filtra por segmento/produto/resultado).
-- Página pública `/casos-de-sucesso` (SEO-friendly, schema.org `Review`).
+- `SmartOpsReports.tsx` mostra clientes + feed de deals — sem receita do mês.
+- `RelatorioMensalComercial.tsx` (renderizado dentro) consome **11 RPCs `fn_relatorio_mes_*`** com receita, ganhas, perdidas, ticket, recorrência. Funciona, mas a UI atual prioriza "Abertos/Estagnados" por vendedor e **omite a coluna de Ganhas R$ / Perdidas R$**, que é o que o gestor compara contra o PipeRun.
 
-## Ordem de execução sugerida
+## Plano
 
-1. **Sprint 1 (hoje)**: FAQ infra (migration + UI) e Fichas Técnicas (migration + coluna) — desbloqueiam time comercial para começar a popular.
-2. **Sprint 2 (24h)**: Sync Astron courses (depende de credenciais API — confirmar `ASTRON_API_KEY` em secrets).
-3. **Sprint 3**: Success stories + página pública.
+### Fase 1 — Refresh contínuo do Cérebro (resolve 100 % da divergência do Copilot)
+
+1. Criar `public.refresh_copilot_brain()` (PL/pgSQL, `SECURITY DEFINER`) que repovoa as 8 tabelas `copilot_brain.brain_*` direto das fontes ao vivo:
+   - `deals` (filtros: `is_deleted=false`, `merged_into IS NULL` no join com `lia_attendances`)
+   - `lia_attendances` canônicas
+   - `proposal_items_sold`, `omie_*`, `ecommerce_orders`
+   - Reusa lógica de `fn_relatorio_mes_*` e `query_sales_summary` para garantir paridade.
+2. Migration: agenda `pg_cron` a cada **5 min** (`*/5 * * * *`) executando a função. Job adicional **a cada hora** executa um sanity-check que loga diff Cérebro vs SQL ao vivo em `system_health_logs`.
+3. Trigger imediato após cada webhook do PipeRun (`smart-ops-piperun-webhook`): chamar `refresh_copilot_brain()` **debounceado** (no máx 1×/min via `pg_advisory_lock`) para que vendas reflitam em < 1 min.
+4. No Copilot (`smart-ops-copilot/index.ts > loadBrainContext`): se `brain.meta.updated_at < now() - 10 min`, chamar `supabase.rpc("refresh_copilot_brain")` inline antes de servir a resposta + anexar badge "atualizado agora" no prompt.
+
+### Fase 2 — Aba Relatórios completa (resolve "baba relatório")
+
+1. **Header executivo** novo em `RelatorioMensalComercial.tsx`:
+   - 4 KPIs grandes: Receita Ganha · Receita Perdida · Ticket Médio · Conversão % (mês atual vs mês anterior com Δ%).
+   - Banner se diff vs Cérebro > 5 %: "Cérebro defasado — última atualização há X min — [Atualizar agora]".
+2. **Tabela por Vendedor** reformulada (uma linha por vendedor, colunas):
+   - Ganhas (qtd · R$)
+   - Perdidas (qtd · R$)
+   - Em aberto (qtd · R$)
+   - Ticket médio
+   - Conversão (ganhas / fechadas)
+   - Δ Receita MoM
+   - Top etapa onde concentra (drill-down expansível para o detalhe atual de "Abertos por etapa")
+3. **Reconciliação CRM**:
+   - Botão "Reconciliar com PipeRun" que dispara `piperun-full-sync` e depois `refresh_copilot_brain()`.
+   - Card "Saúde dos dados" mostrando: último sync PipeRun, último refresh Cérebro, deals com `status='ganha'` sem `lead_status='CLIENTE_ativo'` (resto do backfill anterior — hoje em 33).
+4. **Exportação enriquecida**: o CSV atual exporta `lia_attendances`. Adicionar opção "Exportar Relatório do Mês" que serializa as 11 RPCs já consumidas (vendedor, funil, origem, itens, recorrência, astron) em planilha XLSX com abas.
+
+### Fase 3 — Auditoria permanente (evita regressão)
+
+1. Página `/admin/diagnostico-cerebro` (oculta no menu, acessível por link) com 3 painéis:
+   - **Cérebro vs CRM ao vivo** (lado a lado, refresh a cada 30 s) — receita, deals ganhos, top vendedor.
+   - **Quando o Cérebro pulou** — gráfico de `meta.updated_at` ao longo de 30 dias.
+   - **Falhas de webhook PipeRun** — últimas 50 do `system_health_logs` filtradas por `feature='piperun_webhook' AND status='error'`.
+2. Alerta automático: se diff > 5 % e `last_refresh > 30 min`, inserir alerta crítico em `copilot_brain.brain_alerts` e o Copilot passa a iniciar respostas com "⚠️ Cérebro defasado — números podem estar atrasados".
 
 ## Detalhes técnicos
 
-- Todas as novas tabelas seguem padrão CDP: `merged_into IS NULL` quando referenciam leads; `embedding vector(3072)` com índice HNSW.
-- Tools novas do Copilot entram em `ACTION_TOOLS_ALLOWLIST` (`smart-ops-copilot/index.ts`) e atualizam o bloco "FONTES DE CONHECIMENTO" do SYSTEM_PROMPT.
-- Instrumentação `rag_hits` por tool em `system_health_logs` (já existente).
-- Memória: atualizar `mem://smart-ops/copilot-rag-access-v1` com as 3 novas fontes (faqs, datasheets, success_stories) e criar `mem://integration/astron-courses-sync-v1`.
+- A função `refresh_copilot_brain()` faz `TRUNCATE + INSERT` por seção dentro de uma transação para evitar leitura parcial. Cada bloco já existe espalhado nas 11 `fn_relatorio_mes_*` — vamos extrair os SELECTs base para uma única view materializada `copilot_brain.mv_base_deals_mes` (REFRESH CONCURRENTLY) que alimenta tudo.
+- Lock de concorrência: `pg_try_advisory_lock(737373)` no início; sai silenciosamente se outro processo está rodando.
+- Os RPCs `fn_relatorio_mes_*` permanecem (são usados pela UI). A função nova só consolida o subconjunto que o Copilot lê.
+- `query_sales_summary` (tool do Copilot) continua sendo a verdade-de-cálculo para receita; o Cérebro vira apenas o snapshot pré-computado dela. O guard "Max(CRM_Won, Omie_Billing) + LTV_Ecommerce" da memória Core é preservado.
+
+## Verificação
+
+Após Fase 1:
+```sql
+SELECT (get_copilot_brain()->'overview'->>'receita_mes')::numeric AS brain,
+       (SELECT sum(value) FROM deals WHERE status IN ('ganha','ganho','won','1')
+        AND piperun_created_at >= date_trunc('month', now())
+        AND (is_deleted IS NULL OR is_deleted=false)) AS sql_live;
+```
+Resultado esperado: diff < 0,5 % e `brain.meta.updated_at` dentro dos últimos 10 min.
 
 ## Fora de escopo
 
-- Não vou criar conteúdo (perguntas, casos, fichas) — apenas a infra. O time popula.
-- Não vou alterar `products_catalog` semântica nem `system_a_catalog` (read-only sync de System A).
-- Não vou tocar Dra. LIA RAG (já funciona; reusamos `generateEmbedding` apenas).
+- Não vou tocar nos RPCs `fn_relatorio_mes_*` (eles já funcionam, só estão sub-utilizados).
+- Não vou criar nova fonte de verdade; o PipeRun continua sendo a referência via `deals` sincronizadas.
+- Não vou mexer no Omie/Sellflux/Ecommerce — eles já entram no `query_sales_summary`.
 
-## Pré-requisitos a confirmar antes do build
+## Pré-requisitos (sim/não)
 
-1. Existe `ASTRON_API_KEY` ou endpoint público para grade curricular?
-2. Storage bucket `product-datasheets` pode ser público (CDN) ou precisa de signed URLs?
-3. UI de admin de FAQs/produtos: reaproveitar `/admin` atual ou criar rota nova?
+1. Posso criar job `pg_cron` rodando `refresh_copilot_brain()` a cada 5 min?
+2. Posso fazer a página de Relatórios reformular o header e a tabela por vendedor (sem remover nada do que existe hoje — só reordenando e adicionando colunas de Ganhas/Perdidas R$)?
+3. Posso criar `/admin/diagnostico-cerebro` para auditoria contínua?
