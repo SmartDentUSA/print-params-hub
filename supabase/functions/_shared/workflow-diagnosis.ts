@@ -1008,6 +1008,7 @@ async function enrichSpinWithLLM(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
   seed: SpinBriefing,
+  live?: LiveProductDossier | null,
 ): Promise<SpinBriefing | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
@@ -1028,6 +1029,10 @@ async function enrichSpinWithLLM(
   const ragBlocks: string[] = [];
   const intentBlock = renderDossierForPrompt(intentDossier, "DOSSIÊ PRODUTO DE INTENÇÃO");
   if (intentBlock) ragBlocks.push(intentBlock);
+  const liveBlock = renderLiveDossierForPrompt(live ?? null);
+  if (liveBlock) ragBlocks.push(liveBlock);
+  const antiHallBlock = renderAntiHallucinationForPrompt(live ?? null);
+  if (antiHallBlock) ragBlocks.push(antiHallBlock);
   if (printerInvolved && rayshapeDossier) {
     ragBlocks.push(renderDossierForPrompt(rayshapeDossier, "DOSSIÊ RAYSHAPE"));
   }
@@ -1057,7 +1062,14 @@ ${JSON.stringify(seed, null, 2)}
 REGRAS DURAS:
 - Perguntas DEVEM citar o que o lead JÁ TEM (nome do scanner, da impressora, software). Nada de "qual scanner você usa?" se já sabemos.
 - Implicações concretas: peças/mês, hora-cadeira, retrabalho, garantia, custo de terceirização.
-- Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO. Sem inventar.
+- Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO ou do bloco "CONTEXTO DO PRODUTO (Sistema A live)". Sem inventar.
+- Se o bloco "REGRAS ANTI-ALUCINAÇÃO (Sistema A oficial)" existir, é OBRIGATÓRIO:
+    • nunca afirme nada listado em "NUNCA AFIRME";
+    • nunca combine produtos de "NUNCA COMBINE COM";
+    • nunca posicione nas etapas listadas em "NUNCA USE NAS ETAPAS";
+    • para CADA item de "SEMPRE PERGUNTE / EXIJA" gere uma pergunta de PROBLEMA específica (ex.: "qual resina?", "qual dispositivo de cura?") — sem isso o vendedor recomenda no escuro;
+    • se houver "PRODUTOS REQUERIDOS NO COMBO", faça ao menos 1 pergunta confirmando se o lead já tem cada um;
+    • NUNCA sugira "PRODUTOS PROIBIDOS NO COMBO".
 - A marca pedida pelo lead NUNCA é concorrente.
 - Se não houver concorrente, não invente.
 - PT-BR, tom consultivo de colega especialista, NÃO interrogatório.
@@ -1070,7 +1082,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
   "perguntas_spin": {
     "situacao": ["1 pergunta"],
-    "problema": ["2 perguntas"],
+    "problema": ["2-3 perguntas (incluindo 1 por item de SEMPRE PERGUNTE / EXIJA quando existir)"],
     "implicacao": ["2 perguntas"],
     "necessidade": ["1 pergunta"]
   },
@@ -1115,7 +1127,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
       perguntas_spin: {
         situacao: arrStr(parsed.perguntas_spin?.situacao, 1) || seed.perguntas_spin.situacao,
-        problema: arrStr(parsed.perguntas_spin?.problema, 2) || seed.perguntas_spin.problema,
+        problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,
         implicacao: arrStr(parsed.perguntas_spin?.implicacao, 2) || seed.perguntas_spin.implicacao,
         necessidade: arrStr(parsed.perguntas_spin?.necessidade, 1) || seed.perguntas_spin.necessidade,
       },
