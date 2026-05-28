@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Shield, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
+import { AdminKnowledgeHub } from "@/components/AdminKnowledgeHub";
 import { AdminAuthors } from "@/components/AdminAuthors";
 import { AdminCatalog } from "@/components/AdminCatalog";
 import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
@@ -268,6 +269,7 @@ export default function AdminViewSecure() {
       case 'documents': return <AdminDocumentsList />;
       // Conteúdo
       case 'knowledge': return <AdminKnowledge />;
+      case 'knowledge-hub': return <AdminKnowledgeHub />;
       case 'authors': return <AdminAuthors />;
       // Ferramentas
       case 'tools': return (

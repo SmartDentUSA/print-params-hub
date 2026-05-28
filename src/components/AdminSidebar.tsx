@@ -6,6 +6,7 @@ import {
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
   Video, ChevronDown, GraduationCap, Map, Megaphone, Printer
 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -64,6 +65,7 @@ const sidebarGroups: SidebarGroupDef[] = [
     defaultOpen: false,
     items: [
       { id: "knowledge", title: "Artigos", icon: FileText },
+      { id: "knowledge-hub", title: "Knowledge Hub", icon: BookOpen },
       { id: "authors", title: "Autores", icon: UserCircle },
     ],
   },
