@@ -188,6 +188,53 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_knowledge_rag",
+      description: "Busca semântica multi-fonte no RAG (agent_embeddings) cobrindo produtos, resinas, artigos, vídeos e cursos. Use para perguntas técnicas/comparativas: 'diferença Vitality A2 vs BL1', 'qual scanner para implantes', 'compatibilidade resina X com impressora Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Pergunta em linguagem natural" },
+          top_k: { type: "number", description: "Máx. resultados (padrão 5, máx 10)" },
+          min_similarity: { type: "number", description: "Similaridade mínima (padrão 0.5)" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_products",
+      description: "Busca textual no catálogo de produtos (products_catalog + system_a_catalog + resins). Use para: 'qual SKU da X', 'listar resinas para anteriores', 'preço do scanner Y'. Retorna nome, categoria, preço, link.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca (nome, categoria, aplicação)" },
+          category: { type: "string", description: "Filtra por categoria (opcional)" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 5, máx 10)" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_courses",
+      description: "Busca cursos SmartOps + Astron Academy. Use para: 'tem curso de fluxo digital?', 'treinamento sobre scanner'. Retorna título, modalidade, link.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 5)" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "query_table",
       description: "Consulta genérica em qualquer tabela do sistema. Retorna até 50 registros.",
       parameters: {
