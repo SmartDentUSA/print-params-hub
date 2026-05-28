@@ -390,15 +390,37 @@ export async function diagnoseLead(
   // form-declared interest (e.g. SDR field "qual impressora você busca?"
   // captured the product-of-interest, not an installed equipment).
   if (intent) {
-    const intentTokens = [intent.matched_product_label, intent.produto]
-      .filter(Boolean)
-      .map((s) => norm(String(s)))
-      .filter((s) => s.length >= 4);
+    const tokenize = (s: string): Set<string> => {
+      const stop = new Set([
+        "de", "da", "do", "para", "com", "e", "a", "o", "the", "of",
+        "impressora", "scanner", "intraoral", "bancada", "resina", "software",
+        "sistema", "dispositivo", "curso", "cursos", "3d", "edge", "mini",
+      ]);
+      const compact = norm(s).replace(/[^a-z0-9\s]/g, " ");
+      const tokens = compact.split(/\s+/).filter((t) => t.length >= 4 && !stop.has(t));
+      // Also include a no-space squashed form so "edgemini" and "edge mini" match
+      const squashed = compact.replace(/\s+/g, "");
+      const out = new Set(tokens);
+      if (squashed.length >= 6) out.add(squashed);
+      return out;
+    };
+    const intentTokenSet = new Set<string>();
+    for (const src of [intent.matched_product_label, intent.produto]) {
+      if (!src) continue;
+      for (const t of tokenize(String(src))) intentTokenSet.add(t);
+    }
     const INTEREST_RE = /interesse|busca|deseja|quer|procura|alvo|gostaria|pretende/i;
     for (let i = stack.length - 1; i >= 0; i--) {
       const s = stack[i];
-      const valN = norm(s.value);
-      const hitIntent = intentTokens.some((t) => valN.includes(t) || t.includes(valN));
+      const valTokens = tokenize(s.value);
+      const valSquashed = norm(s.value).replace(/[^a-z0-9]/g, "");
+      let shared = 0;
+      for (const t of valTokens) if (intentTokenSet.has(t)) shared++;
+      // Also check squashed-form overlap (catches "edgemini" vs "edge mini")
+      const squashedHit = valSquashed.length >= 6 && Array.from(intentTokenSet).some(
+        (t) => t.length >= 6 && (valSquashed.includes(t) || t.includes(valSquashed)),
+      );
+      const hitIntent = shared >= 1 || squashedHit;
       const isInterestField = INTEREST_RE.test(s.field + " " + s.field_label);
       if (hitIntent && isInterestField) {
         stack.splice(i, 1);
