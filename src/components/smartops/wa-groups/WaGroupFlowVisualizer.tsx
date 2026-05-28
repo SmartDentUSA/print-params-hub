@@ -33,9 +33,10 @@ function countdown(target: string | null): string {
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
   if (d > 0) return `em ${d}d ${h}h`;
   if (h > 0) return `em ${h}h ${m}m`;
-  return `em ${m}m`;
+  return `em ${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
 export function WaGroupFlowVisualizer({ campaignId }: Props) {
@@ -72,9 +73,9 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
     return () => { (supabase as any).removeChannel(ch); };
   }, [campaignId, fetchAll]);
 
-  // Countdown tick
+  // Countdown tick (1s)
   useEffect(() => {
-    const i = setInterval(() => setTick(t => t + 1), 30_000);
+    const i = setInterval(() => setTick(t => t + 1), 1_000);
     return () => clearInterval(i);
   }, []);
 

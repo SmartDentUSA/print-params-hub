@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,42 +156,63 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
   };
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{campaignId ? "Editar campanha" : "Nova campanha"}</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] p-0 flex flex-col gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
+          <h2 className="text-base font-semibold whitespace-nowrap">
+            {campaignId ? "Editar campanha" : "Nova campanha"}
+          </h2>
+          <div className="flex-1" />
+          <Badge variant="secondary" className="text-[10px]">{nodes.length} nós</Badge>
+        </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="mt-4 space-y-4">
-            {/* Header */}
-            <div className="space-y-3">
-              <div>
-                <Label>Nome da campanha</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Régua educacional resinas" />
+          <div className="flex-1 flex min-h-0">
+            {/* Sidebar — paleta + config */}
+            <aside className="w-64 border-r bg-muted/20 overflow-y-auto p-3 space-y-4 shrink-0">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Adicionar nó</Label>
+                <div className="flex flex-col gap-1.5">
+                  {(Object.keys(nodeMeta) as FlowNodeType[]).map(t => {
+                    const Icon = nodeMeta[t].icon;
+                    return (
+                      <Button key={t} size="sm" variant="outline" className="justify-start" onClick={() => addNode(t)}>
+                        <Plus className="w-3 h-3 mr-1.5" />
+                        <Icon className={`w-3.5 h-3.5 mr-1.5 ${nodeMeta[t].color}`} />
+                        {nodeMeta[t].label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="space-y-2 pt-3 border-t">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Configuração</Label>
                 <div>
-                  <Label>Limite diário</Label>
+                  <Label className="text-xs">Nome da campanha</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Régua educacional" />
+                </div>
+                <div>
+                  <Label className="text-xs">Limite diário</Label>
                   <Input type="number" min={1} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value) || 1)} />
                 </div>
                 <div>
-                  <Label>Delay entre msgs (s)</Label>
+                  <Label className="text-xs">Delay entre msgs (s)</Label>
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
                 </div>
               </div>
-            </div>
+            </aside>
 
-            {/* Nodes */}
-            <div className="space-y-2">
-              <Label>Fluxo ({nodes.length} nós)</Label>
+            {/* Canvas — lista de nós */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 min-w-0">
               {nodes.length === 0 && (
-                <p className="text-xs text-muted-foreground italic p-3 border border-dashed rounded">
-                  Comece adicionando um nó abaixo.
+                <p className="text-xs text-muted-foreground italic p-6 border border-dashed rounded text-center">
+                  Comece adicionando um nó na barra lateral.
                 </p>
               )}
               {nodes.map((n, idx) => {
@@ -324,33 +345,21 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
                   </Card>
                 );
               })}
-
-              {/* Add buttons */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {(Object.keys(nodeMeta) as FlowNodeType[]).map(t => {
-                  const Icon = nodeMeta[t].icon;
-                  return (
-                    <Button key={t} size="sm" variant="outline" onClick={() => addNode(t)}>
-                      <Plus className="w-3 h-3 mr-1" />
-                      <Icon className={`w-3 h-3 mr-1 ${nodeMeta[t].color}`} />
-                      {nodeMeta[t].label}
-                    </Button>
-                  );
-                })}
-              </div>
             </div>
+          </div>
+        )}
 
-            {/* Validation */}
+        {/* Footer */}
+        {!loading && (
+          <div className="border-t bg-background shrink-0">
             {validation.length > 0 && (
-              <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 space-y-1">
+              <div className="border-b border-amber-500/30 bg-amber-500/5 px-4 py-2 space-y-0.5 max-h-24 overflow-y-auto">
                 {validation.map((e, i) => (
                   <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400">• {e}</p>
                 ))}
               </div>
             )}
-
-            {/* Footer */}
-            <div className="flex items-center gap-2 pt-2 border-t sticky bottom-0 bg-background pb-2">
+            <div className="flex items-center gap-2 px-4 py-3">
               <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
               <div className="flex-1" />
               <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
@@ -377,8 +386,8 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
             }
           }}
         />
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

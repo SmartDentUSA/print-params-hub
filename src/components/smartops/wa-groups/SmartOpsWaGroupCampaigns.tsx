@@ -242,7 +242,7 @@ export function SmartOpsWaGroupCampaigns() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => navigate(`/smartops/wa-flow-visualizer?campaign=${row.campaign_id}`)}
+                          onClick={() => navigate(`/smartops/wa-flow-visualizer?campaign_id=${row.campaign_id}`)}
                         >
                           <Eye className="w-3 h-3 mr-1" /> Visualizar
                         </Button>
