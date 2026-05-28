@@ -281,12 +281,12 @@ export async function diagnoseLead(
   // ── Combo sugerido ──
   const combo: ComboBlock = { mesma_celula: [], celula_adjacente: [], cursos: [] };
   if (intent?.target_stage && intent.target_cell) {
-    const ownCell = cells.get(`${intent.target_stage}::${intent.target_cell}`);
-    if (ownCell) {
-      combo.mesma_celula = ownCell.products
-        .map(p => p.mapped_label || p.mapped_value)
-        .filter((p, i, a) => a.indexOf(p) === i)
-        .slice(0, 3);
+    // REGRA: NUNCA citar outro produto da mesma etapa/célula como alternativa.
+    // Quando temos um produto-âncora (matched_product_label), `mesma_celula` contém
+    // SOMENTE esse produto. Quando não há match, fica vazio — o vendedor deve
+    // qualificar antes de sugerir. Acessórios/upgrades vêm de `celula_adjacente`.
+    if (intent.matched_product_label) {
+      combo.mesma_celula = [intent.matched_product_label];
     }
     // adjacent = next stage (any cell), top 2 products
     const idx = STAGE_ORDER.indexOf(intent.target_stage);
@@ -377,25 +377,81 @@ function resolveIntent(
   if (lead.resina_interesse) candidates.push({ text: String(lead.resina_interesse), source: "resina_interesse" });
 
   const products = mappings.filter(m => m.mapping_type === "product");
+  // ── Scoring-based intent match ──
+  // Stopwords: palavras genéricas que NÃO devem causar match (categoria, não produto).
+  const STOPWORDS = new Set([
+    "scanner","intraoral","intraorais","bancada","impressora","impressoras","resina","resinas",
+    "software","softwares","cad","curso","cursos","dispositivo","credito","crédito","creditos","créditos",
+    "plus","wireless","mini","pro","max","ultra","edge","kit","combo","produto","produtos",
+    "notebook","leads","face","smart","dent","smartdent","dental","odonto","odontologia",
+    "para","com","sem","novo","nova","de","da","do","das","dos","e","ou","em","no","na",
+    "imp","impresoras","printer","printers",
+  ]);
+  // Tokens fortes de marca conhecidas (qualquer um conta como assinatura).
+  const BRAND_TOKENS = new Set([
+    "blz","medit","rayshape","exocad","phrozen","anycubic","elegoo","formlabs",
+    "asiga","sprintray","creality","3shape","nextdent","detax","ackuretta","whip",
+  ]);
+  const tokenize = (s: string): string[] =>
+    norm(s)
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/([a-z])(\d)/g, "$1 $2") // ino110 -> ino 110, i500 -> i 500
+      .replace(/(\d)([a-z])/g, "$1 $2")
+      .split(/\s+/)
+      .filter(Boolean);
+  const significantTokens = (s: string): string[] =>
+    tokenize(s).filter(t => !STOPWORDS.has(t) && t.length >= 2);
+
   for (const cand of candidates) {
-    const t = norm(cand.text);
-    if (!t) continue;
-    // direct substring match against product labels
-    let best: MappingRow | null = null;
+    const candTokens = significantTokens(cand.text);
+    if (!candTokens.length) continue;
+    const candSet = new Set(candTokens);
+    const candBrand = candTokens.find(t => BRAND_TOKENS.has(t)) || null;
+    const candHasDigit = candTokens.some(t => /\d/.test(t));
+
+    let best: { row: MappingRow; score: number; brandMatch: boolean; modelMatch: boolean } | null = null;
     for (const p of products) {
-      const pl = norm(p.mapped_label || p.mapped_value);
-      if (!pl) continue;
-      if (t.includes(pl) || pl.includes(t)) { best = p; break; }
-      // token-level: at least one significant token shared
-      const tokens = t.split(/\s+/).filter(x => x.length >= 4);
-      if (tokens.some(tok => pl.includes(tok))) { best = p; break; }
+      const pl = p.mapped_label || p.mapped_value;
+      const plTokens = significantTokens(pl);
+      if (!plTokens.length) continue;
+      const plBrand = plTokens.find(t => BRAND_TOKENS.has(t)) || null;
+
+      // Hard guard: if both sides declare a brand and they differ, skip — NUNCA cruzar marcas.
+      if (candBrand && plBrand && candBrand !== plBrand) continue;
+
+      let score = 0;
+      let brandMatch = false;
+      let modelMatch = false;
+      for (const tok of plTokens) {
+        if (!candSet.has(tok)) continue;
+        if (BRAND_TOKENS.has(tok)) { score += 5; brandMatch = true; }
+        else if (/\d/.test(tok)) { score += 4; modelMatch = true; } // model number
+        else { score += 1; }
+      }
+      // Bonus: substring exato do label dentro da intent ou vice-versa
+      const ln = norm(pl);
+      const cn = norm(cand.text);
+      if (ln && cn && (cn.includes(ln) || ln.includes(cn))) score += 6;
+
+      if (score > (best?.score ?? 0)) best = { row: p, score, brandMatch, modelMatch };
     }
-    if (best) {
+
+    // Threshold mínimo:
+    //  - se a intent tem marca conhecida → exigimos brandMatch (peso 5).
+    //  - se a intent tem número de modelo → exigimos modelMatch OU brandMatch.
+    //  - caso geral → score >= 6 (≈ substring/duas palavras específicas).
+    const accept = best && (
+      (candBrand && best.brandMatch) ||
+      (candHasDigit && (best.modelMatch || best.brandMatch)) ||
+      (!candBrand && !candHasDigit && best.score >= 6)
+    );
+
+    if (accept && best) {
       return {
         produto: cand.text,
-        target_stage: best.workflow_stage,
-        target_cell: best.workflow_cell,
-        matched_product_label: best.mapped_label || best.mapped_value,
+        target_stage: best.row.workflow_stage,
+        target_cell: best.row.workflow_cell,
+        matched_product_label: best.row.mapped_label || best.row.mapped_value,
         source: cand.source,
       };
     }
@@ -482,11 +538,18 @@ Lead:
   Combo sugerido pelo motor: ${comboList.join(" | ") || "nenhum"}${ragSection}
 
 Escreva em PT-BR, no MÁXIMO 5 bullets curtos (uma linha cada, começando com "• "):
-1) Como o PRODUTO DE INTENÇÃO se conecta ao stack atual — cite 1 benefício/spec do DOSSIÊ DE INTENÇÃO (compatibilidade real, sem inventar)
-2) 1 gancho contra cada concorrente detectado, apoiado em spec/benefício do dossiê RAG
-3) Se impressora estiver envolvida: 1 bullet de posicionamento Rayshape baseado no DOSSIÊ RAYSHAPE
-4) 1 alerta de risco — respeitar ordem do fluxo digital, não empurrar fora de etapa
-REGRAS: NÃO invente produtos nem specs. Use APENAS produtos do "Combo sugerido" e fatos dos dossiês RAG acima. Sem preços. Sem promessas absolutas. Direto ao ponto.`;
+1) Apresente o PRODUTO DE INTENÇÃO (exatamente "${diag.intent?.matched_product_label || diag.intent?.produto || "—"}") com 1 benefício/spec do DOSSIÊ DE INTENÇÃO.
+2) 1 pergunta consultiva de descoberta — qual a dor/necessidade que motivou o interesse nesse produto (volume, aplicação clínica, fluxo atual). NÃO é interrogatório, é convite.
+3) 1 gancho contra cada concorrente detectado (se houver), apoiado em spec/benefício do dossiê RAG. Se não houver concorrente, PULE este bullet — não invente concorrente.
+4) Se impressora estiver envolvida E o produto de intenção NÃO é Rayshape: 1 bullet de posicionamento Rayshape do DOSSIÊ RAYSHAPE. Se o próprio produto pedido já é Rayshape, PULE.
+5) 1 alerta de risco — respeitar ordem do fluxo digital (lacunas: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}), não empurrar fora de etapa.
+
+REGRAS DURAS (violação = output inutilizado):
+- PROIBIDO sugerir qualquer outro produto da mesma etapa como alternativa, upgrade ou substituto ao produto de intenção. Só o que o lead pediu.
+- PROIBIDO citar produtos que não estejam em "Combo sugerido" acima ou nos dossiês RAG.
+- PROIBIDO inventar specs, modelos, preços, prazos ou promessas absolutas.
+- A marca pedida pelo lead (BLZ, MEDIT, Rayshape, etc.) NUNCA é "concorrente" — é a própria intenção.
+- Foco do briefing: ensinar o vendedor a MAPEAR a necessidade real do lead (por que esse produto, qual problema resolve, qual aplicação) antes de empurrar combo.`;
 
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 12000);
