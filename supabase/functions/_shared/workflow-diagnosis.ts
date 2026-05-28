@@ -940,15 +940,49 @@ function seedSpinBriefing(
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
-  const intentTxt = diag.intent
-    ? `interesse em ${diag.intent.produto}${diag.intent.target_stage ? ` (${STAGE_LABEL[diag.intent.target_stage]})` : ""}`
+
+  // ── Intent-vs-stack separation ─────────────────────────────────
+  // O produto vindo de form/produto_interesse é SEMPRE alvo de compra.
+  // Só consideramos "instalado" se a célula do alvo aparece em stack_atual
+  // e NÃO está em declared_empty_cells.
+  const targetCellKey = diag.intent?.target_stage && diag.intent.target_cell
+    ? `${diag.intent.target_stage}::${diag.intent.target_cell}`
+    : null;
+  const declaredEmptySet = new Set(diag.declared_empty_cells ?? []);
+  const targetCellHasStack = targetCellKey
+    ? diag.stack_atual.some((s) => `${s.stage}::${s.cell}` === targetCellKey)
+    : false;
+  const targetNotOwned = !!diag.intent && (
+    !targetCellHasStack || (targetCellKey ? declaredEmptySet.has(targetCellKey) : false)
+  );
+  const targetLabel = diag.intent?.matched_product_label || diag.intent?.produto || "";
+  const targetStageLbl = diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "";
+
+  const goalTxt = diag.intent
+    ? `avaliando adquirir ${targetLabel}${targetStageLbl ? ` (${targetStageLbl})` : ""}`
     : "intenção a confirmar";
-  const situacao = stackStages.length
-    ? `${role} com estrutura em ${stackStages.join(" + ")}. ${intentTxt}.`
-    : `${role} sem stack declarada. ${intentTxt}.`;
+
+  let situacao: string;
+  if (targetNotOwned && targetStageLbl) {
+    const stackTail = stackStages.length ? ` Stack instalada hoje: ${stackStages.join(" + ")}.` : " Sem stack declarada.";
+    situacao = `${role} ainda sem ${targetStageLbl} próprio, ${goalTxt}.${stackTail}`;
+  } else if (stackStages.length) {
+    situacao = `${role} com estrutura em ${stackStages.join(" + ")}, ${goalTxt}.`;
+  } else {
+    situacao = `${role} sem stack declarada, ${goalTxt}.`;
+  }
 
   const dores: SpinBriefing["dores_provaveis"] = [];
   const implicacoes: string[] = [];
+
+  // Dor primária quando o lead ainda não tem o produto-alvo
+  if (targetNotOwned && targetStageLbl) {
+    dores.push({
+      dor: `Sem ${targetStageLbl} próprio — depende de terceiros ou não executa esse passo do fluxo`,
+      evidencia: `declarou não possuir equipamento na célula-alvo (${targetStageLbl})`,
+    });
+    implicacoes.push(`Custo de terceirização e perda de margem por peça enquanto não internaliza ${targetStageLbl}`);
+  }
 
   // Heurísticas por concorrente
   for (const c of diag.concorrentes_detectados) {
@@ -1011,16 +1045,24 @@ function seedSpinBriefing(
   }
 
   // Perguntas SPIN — heurística baseada no que falta + na intent
-  const stackResumo = diag.stack_atual.length
-    ? diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ")
-    : "seu setup atual";
-  const situacaoQ = [`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`];
+  const situacaoQ: string[] = [];
+  if (targetNotOwned && targetStageLbl) {
+    situacaoQ.push(`Hoje, como você resolve ${targetStageLbl} — terceiriza, manda para laboratório ou não faz essa etapa?`);
+  } else if (diag.stack_atual.length) {
+    const stackResumo = diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ");
+    situacaoQ.push(`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`);
+  } else {
+    situacaoQ.push(`Conta um pouco do seu fluxo atual — quais etapas você já tem internalizadas e quais ainda dependem de terceiros?`);
+  }
 
   const problemaQ: string[] = [];
+  if (targetNotOwned && targetLabel) {
+    problemaQ.push(`O que te levou a olhar especificamente para ${targetLabel} agora? Já avaliou outras opções?`);
+  }
   if (diag.concorrentes_detectados.length) {
     problemaQ.push(`Onde o ${diag.concorrentes_detectados[0].label} mais te trava — calibração, perfil de material, suporte ou produtividade?`);
   }
-  if (diag.intent?.matched_product_label) {
+  if (!targetNotOwned && diag.intent?.matched_product_label) {
     problemaQ.push(`O que te fez olhar especificamente para ${diag.intent.matched_product_label} agora?`);
   }
   // Live API → perguntas de PROBLEMA específicas: cada `always_require`,
