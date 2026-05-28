@@ -1978,6 +1978,9 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   notify_seller: executeNotifySeller,
   search_videos: executeSearchVideos,
   search_content: executeSearchContent,
+  search_knowledge_rag: executeSearchKnowledgeRag,
+  search_products: executeSearchProducts,
+  search_courses: executeSearchCourses,
   query_table: executeQueryTable,
   describe_table: executeDescribeTable,
   query_stats: executeQueryStats,
@@ -2102,6 +2105,12 @@ const ACTION_TOOLS_ALLOWLIST = new Set<string>([
   "create_audience",
   "generate_commercial_report",
   "get_lead_card", // visão 360 individual continua disponível para drill-down
+  // RAG / Conhecimento (read-only, sem mutação)
+  "search_knowledge_rag",
+  "search_products",
+  "search_content",
+  "search_videos",
+  "search_courses",
 ]);
 const actionTools = tools.filter((t: any) => ACTION_TOOLS_ALLOWLIST.has(t?.function?.name));
 
