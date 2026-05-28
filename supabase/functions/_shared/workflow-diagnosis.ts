@@ -1003,6 +1003,154 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
 // ────────────────────────────────────────────────────────────────
 // SPIN Briefing — heuristic seed + LLM enrichment
 // ────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────
+// Roteiro Canônico de Perfilamento (espelha "# - Formulário exocad I.A.")
+// Espinha dorsal da SPIN: vendedor deve seguir esses 9 pontos na ordem,
+// confirmando o que está ✅ declarado e perguntando o que está ❓ a descobrir
+// (ou atacando o que virou ⚠️ gap_ofensivo).
+// ──────────────────────────────────────────────────────────────────────
+const ROTEIRO_NEG_RE =
+  /^\s*(n[aã]o(?:\s|,|\.|$)|ainda\s*n[aã]o|n\/a|nenhum[ao]?|sem\s+|—|-|0)\s*/i;
+
+function _pickFirst(lead: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = lead[k];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s && s !== "—" && s !== "-" && s.toLowerCase() !== "null") return s;
+  }
+  return "";
+}
+
+export function buildLeadProfilingRoteiro(
+  lead: Record<string, unknown>,
+): RoteiroItem[] {
+  const spec: Array<{
+    ordem: number;
+    etapa_label: string;
+    titulo: string;
+    pergunta_canonica: string;
+    cols: string[];
+    extra_cols?: string[];
+    gancho: string;
+  }> = [
+    {
+      ordem: 1,
+      etapa_label: "Perfil",
+      titulo: "Área + especialidade",
+      pergunta_canonica:
+        "Confirma sua área de atuação e especialidade (clínica, laboratório, radiologia, planning…)?",
+      cols: ["area_atuacao"],
+      extra_cols: ["especialidade"],
+      gancho: "",
+    },
+    {
+      ordem: 2,
+      etapa_label: "1 · Captura",
+      titulo: "Scanner intraoral",
+      pergunta_canonica:
+        "Hoje você digitaliza suas moldagens? Qual scanner usa (Medit, BLZ, iTero, Aoralscan…)?",
+      cols: [
+        "equip_scanner",
+        "scanner_marca",
+        "sdr_scanner_modelo",
+        "tem_scanner",
+        "como_digitaliza",
+      ],
+      gancho: "Scanner Smart Dent (BLZ INO100/200, Medit i700/i900)",
+    },
+    {
+      ordem: 3,
+      etapa_label: "2 · CAD",
+      titulo: "Software CAD",
+      pergunta_canonica:
+        "Qual software CAD você utiliza hoje (exocad, Medit Clic App, Blz CAD, outro)?",
+      cols: ["software_cad", "equip_cad"],
+      gancho: "exocad DentalCAD Smart Dent",
+    },
+    {
+      ordem: 4,
+      etapa_label: "3 · Impressão (HW)",
+      titulo: "Impressora 3D",
+      pergunta_canonica:
+        "Atualmente você utiliza qual impressora 3D no dia a dia (RayShape, Phrozen, Anycubic, FormLabs…)?",
+      cols: ["equip_impressora", "impressora_modelo", "sdr_modelo_impressora_param"],
+      gancho: "RayShape EdgeMini / EdgePro",
+    },
+    {
+      ordem: 5,
+      etapa_label: "3 · Impressão · Modelos",
+      titulo: "Modelos de estudo/trabalho",
+      pergunta_canonica:
+        "Você imprime modelos? Com qual resina (Smart Dent, Yller, Makertech, outras)?",
+      cols: ["imprime_modelos"],
+      gancho: "Resina Smart Dent Model",
+    },
+    {
+      ordem: 6,
+      etapa_label: "3 · Impressão · Placas",
+      titulo: "Placas miorrelaxantes",
+      pergunta_canonica:
+        "Você imprime placas miorrelaxantes? Com qual resina (Smart Dent Splint, FGM, importada…)?",
+      cols: ["imprime_placas", "sdr_quantas_placas"],
+      gancho: "Resina Smart Dent Splint",
+    },
+    {
+      ordem: 7,
+      etapa_label: "3 · Impressão · Longa duração",
+      titulo: "Elementos dentários (LD)",
+      pergunta_canonica:
+        "Você imprime elementos dentários de longa duração? Com qual resina?",
+      cols: ["imprime_resinas_ld"],
+      gancho: "Resina Smart Dent Permanente",
+    },
+    {
+      ordem: 8,
+      etapa_label: "3 · Impressão · Guias",
+      titulo: "Guias cirúrgicas",
+      pergunta_canonica:
+        "Você imprime guias cirúrgicas? Com qual resina?",
+      cols: ["imprime_guias"],
+      gancho: "Resina Smart Dent Surgical Guide",
+    },
+    {
+      ordem: 9,
+      etapa_label: "Recorrência",
+      titulo: "Consumo de resina + fornecedor",
+      pergunta_canonica:
+        "Quanto de resina você consome por mês e com qual fornecedor compra hoje?",
+      cols: ["sdr_resina_atual", "resina_consumo_mensal_estimado", "sdr_usa_resina_smartdent"],
+      gancho: "Kit recorrente Smart Dent (assinatura mensal)",
+    },
+  ];
+
+  return spec.map((it) => {
+    const main = _pickFirst(lead, it.cols);
+    const extra = it.extra_cols ? _pickFirst(lead, it.extra_cols) : "";
+    const raw = [main, extra].filter(Boolean).join(" / ");
+    const out: RoteiroItem = {
+      ordem: it.ordem,
+      etapa_label: it.etapa_label,
+      titulo: it.titulo,
+      pergunta_canonica: it.pergunta_canonica,
+      status: "a_descobrir",
+    };
+    if (!raw) {
+      out.status = "a_descobrir";
+    } else if (ROTEIRO_NEG_RE.test(raw)) {
+      out.status = "gap_ofensivo";
+      out.valor_declarado = raw.slice(0, 200);
+      out.hipotese = "declarou que não faz/não tem — terceiriza ou ainda não internalizou";
+    } else {
+      out.status = "declarado";
+      out.valor_declarado = raw.slice(0, 200);
+    }
+    if (it.gancho && out.status !== "declarado") out.gancho_smartdent = it.gancho;
+    return out;
+  });
+}
+
 function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
