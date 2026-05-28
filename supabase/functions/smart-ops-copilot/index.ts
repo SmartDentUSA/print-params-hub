@@ -235,6 +235,38 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_faqs",
+      description: "Busca em commercial_faqs (FAQ comercial mantido pela equipe). Use SEMPRE antes de responder dúvidas de pré-venda, garantia, instalação, treinamento, troca, frete, financeiro/contratual. Retorna pergunta, resposta, categoria.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo ou pergunta" },
+          category: { type: "string", description: "Filtra categoria (opcional)" },
+          limit: { type: "number", description: "Máx resultados (padrão 5, máx 10)" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_success_stories",
+      description: "Busca casos de sucesso publicados (success_stories). Use para social proof quando lead pedir referências, comparativos ou ROI real. Pode filtrar por segmento (clinica/laboratorio/dentista_solo/rede/protetico) ou produto.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca em cliente, desafio, solução, depoimento" },
+          segment: { type: "string", description: "Filtra segmento (opcional)" },
+          product: { type: "string", description: "Filtra por produto usado (opcional)" },
+          limit: { type: "number", description: "Máx resultados (padrão 3, máx 10)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "query_table",
       description: "Consulta genérica em qualquer tabela do sistema. Retorna até 50 registros.",
       parameters: {
