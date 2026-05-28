@@ -393,8 +393,6 @@ export async function diagnoseLead(
     const tokenize = (s: string): Set<string> => {
       const stop = new Set([
         "de", "da", "do", "para", "com", "e", "a", "o", "the", "of",
-        "impressora", "scanner", "intraoral", "bancada", "resina", "software",
-        "sistema", "dispositivo", "curso", "cursos", "3d", "edge", "mini",
       ]);
       const compact = norm(s).replace(/[^a-z0-9\s]/g, " ");
       const tokens = compact.split(/\s+/).filter((t) => t.length >= 4 && !stop.has(t));
@@ -410,8 +408,16 @@ export async function diagnoseLead(
       for (const t of tokenize(String(src))) intentTokenSet.add(t);
     }
     const INTEREST_RE = /interesse|busca|deseja|quer|procura|alvo|gostaria|pretende/i;
+    // Value-side leak: any stack value whose RAW text is clearly a form-interest
+    // echo (e.g. "SDR: Interesse em Scanner: ...") is NEVER installed equipment.
+    const INTEREST_VALUE_RE = /^\s*sdr\s*:|interesse\s+em|busca\s+por|procurando|gostaria\s+de|deseja\s+adquirir|pretendo\s+comprar/i;
     for (let i = stack.length - 1; i >= 0; i--) {
       const s = stack[i];
+      // Hard-drop: value itself looks like an interest declaration.
+      if (INTEREST_VALUE_RE.test(String(s.value || ""))) {
+        stack.splice(i, 1);
+        continue;
+      }
       const valTokens = tokenize(s.value);
       const valSquashed = norm(s.value).replace(/[^a-z0-9]/g, "");
       let shared = 0;
