@@ -1024,6 +1024,13 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
     lines.push(`Implicações: ${diag.spin.implicacoes.join(" | ")}`);
   }
   if (diag.spin?.ponte_produto) lines.push(`Ponte ao produto: ${diag.spin.ponte_produto}`);
+  const rotP = diag.spin?.roteiro_perfilamento;
+  if (rotP && rotP.length) {
+    const dec = rotP.filter((r) => r.status === "declarado").length;
+    const desc = rotP.filter((r) => r.status === "a_descobrir").length;
+    const gap = rotP.filter((r) => r.status === "gap_ofensivo").length;
+    lines.push(`Roteiro perfilamento: ${dec} declarados / ${desc} a descobrir / ${gap} gaps ofensivos`);
+  }
   return lines.join("\n");
 }
 
