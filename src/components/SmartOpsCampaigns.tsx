@@ -352,6 +352,32 @@ function CreateCampaign({
   const [temPrinter, setTemPrinter] = useState("all");
   const [recencia, setRecencia] = useState("any");
   const [clienteFilter, setClienteFilter] = useState("all");
+  // Step 2 — filtros adicionais baseados em campos reais do lead
+  const [funilCrm, setFunilCrm] = useState("all");           // piperun_pipeline_name
+  const [origem, setOrigem] = useState("all");                // origem_primeiro_contato
+  const [statusPiperun, setStatusPiperun] = useState("all");  // piperun_status
+  const [prazoCompra, setPrazoCompra] = useState("all");      // prazo_compra
+  const [tipoLocal, setTipoLocal] = useState("all");          // tipo_local
+  const [cidade, setCidade] = useState("");                   // cidade ilike
+  const [formName, setFormName] = useState("all");            // form_name
+  const [utmCampaign, setUtmCampaign] = useState("");         // utm_campaign ilike
+  const [marcaScanner, setMarcaScanner] = useState("all");    // scanner_marca / equip_scanner
+  const [marcaImpressora, setMarcaImpressora] = useState("all"); // equip_impressora
+  const [temFresadora, setTemFresadora] = useState("all");    // equip_fresadora
+  const [temCad, setTemCad] = useState("all");                // equip_cad / software_cad
+  const [imprimeModelos, setImprimeModelos] = useState("all");// imprime_modelos
+  const [imprimePlacas, setImprimePlacas] = useState("all");  // imprime_placas
+  const [imprimeGuias, setImprimeGuias] = useState("all");    // imprime_guias
+  const [imprimeResinasLd, setImprimeResinasLd] = useState("all"); // imprime_resinas_ld
+  const [reuniaoAgendada, setReuniaoAgendada] = useState("all"); // reuniao_agendada
+  const [inadimplente, setInadimplente] = useState("all");    // omie_inadimplente
+  const [recompraAlert, setRecompraAlert] = useState("all");  // recompra_alert
+  const [sdrCompleto, setSdrCompleto] = useState("all");      // sdr_completo
+  const [temEmail, setTemEmail] = useState("all");            // email IS NOT NULL
+  const [temTelefone, setTemTelefone] = useState("all");      // telefone_normalized IS NOT NULL
+  const [aceitaContato, setAceitaContato] = useState("all");  // do_not_contact
+  const [ltvMin, setLtvMin] = useState("");                   // ltv_total >=
+  const [scoreMin, setScoreMin] = useState("");               // intelligence_score_total >=
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
