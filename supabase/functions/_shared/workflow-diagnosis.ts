@@ -66,6 +66,12 @@ export interface WorkflowDiagnosis {
   concorrentes_detectados: Array<{ stage: string; cell: string; label: string }>;
   llm_script?: string;       // optional DeepSeek positioning bullets
   spin?: SpinBriefing;       // NEW — SPIN briefing for the seller
+  /**
+   * Cells where the lead explicitly declared they DO NOT own equipment
+   * (e.g. equip_printer_model = "não"). Used by SPIN to avoid implying
+   * ownership of the product-of-interest.
+   */
+  declared_empty_cells?: string[];
 }
 
 export interface SpinBriefing {
