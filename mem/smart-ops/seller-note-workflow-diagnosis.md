@@ -1,6 +1,6 @@
 ---
 name: Seller Note 7×3 Workflow Diagnosis
-description: PipeRun seller note + WhatsApp briefing + cognitive prompt all consume `_shared/workflow-diagnosis.ts` which cross-refs lead stack vs workflow_cell_mappings (Motor de Regras 7×3) to produce stack/intent/lacunas/combo/perguntas + LLM positioning script
+description: PipeRun seller note + WhatsApp briefing + cognitive prompt consume `_shared/workflow-diagnosis.ts` which cross-refs lead stack vs workflow_cell_mappings (Motor 7×3) and outputs a SPIN briefing (Situação/Dores/Implicações/Ponte ao produto/Perguntas SPIN) gerado por heurística + Gemini estruturado
 type: feature
 ---
 
@@ -29,10 +29,16 @@ type: feature
 - All dossiers injected into DeepSeek prompt under "=== RAG OFICIAL SMART DENT ===" with explicit instruction to use ONLY these facts, no invented specs/prices.
 - Soft-fail: if a dossier is not found in `system_a_catalog`, that block is omitted and the bullet falls back to the label only.
 
+**SPIN Briefing (saída principal — `diag.spin`)**:
+- `seedSpinBriefing()` gera situação + dores prováveis + implicações + perguntas SPIN a partir de stack/concorrentes/lacunas (heurística determinística — funciona sem LLM).
+- `enrichSpinWithLLM()` chama Gemini (`google/gemini-3-flash-preview`, gateway Lovable, response_format json_object, max_tokens 1200, timeout 15s) passando o seed + dossiês RAG (intenção + Rayshape quando impressora envolvida) para refinar com termos específicos do lead (cita scanner/CAD/impressora pelo nome, implicações concretas em hora-cadeira/peças-mês, ponte com 1 spec do dossiê). Soft-fail volta ao seed.
+- Estrutura: `{ situacao, dores_provaveis:[{dor,evidencia}], implicacoes[], ponte_produto, perguntas_spin:{situacao,problema,implicacao,necessidade}, alerta_lacuna? }`.
+- `llm_script` (formato antigo de 5 bullets) preservado como fallback secundário.
+
 **Renderers**:
-- `renderDiagnosisHTML(diag)` — PipeRun note block. Injected in `_shared/seller-summary.ts` after Inteligência.
-- `renderDiagnosisWhatsApp(diag)` — Compact text for seller WhatsApp. Injected in `smart-ops-lia-assign/buildSellerNotification` between cabeçalho e HISTÓRICO.
-- `renderDiagnosisForPrompt(diag)` — Plain text for LLM context. Appended to "Perfil técnico (SDR Qualificação)" in `cognitive-lead-analysis` to anchor `lead_stage_detected` / `recommended_approach` in the official 7×3 ruler.
+- `renderDiagnosisHTML(diag)` — bloco PipeRun com seções SITUAÇÃO → DORES PROVÁVEIS → IMPLICAÇÕES → PONTE → PERGUNTAS SPIN (S/P/I/N) → COMBO → ALERTA. Injected em `_shared/seller-summary.ts`.
+- `renderDiagnosisWhatsApp(diag)` — versão enxuta 8-10 linhas (Situação, Dor#1, Impacto, Ponte, 4 perguntas S/P/I/N, combo, alerta). Injected em `smart-ops-lia-assign/buildSellerNotification`.
+- `renderDiagnosisForPrompt(diag)` — texto plano para `cognitive-lead-analysis` ancorar `recommended_approach` em SPIN ao invés de só stack/lacunas.
 
 **Preview / verification**: edge function `smart-ops-preview-seller-note` (`verify_jwt=false`). GET `?email=` / `?lead_id=` / `?piperun_id=` returns `{ diagnosis, diagnosis_html, diagnosis_whatsapp_text, piperun_note_html, piperun_note_hash }` without posting to PipeRun/WhatsApp/DB.
 
@@ -41,3 +47,5 @@ type: feature
 **PipeRun posting (lia-assign)**: as 3 chamadas de nota no `smart-ops-lia-assign` (`updateExistingDeal`, `moveDealToVendas`, `createNewDeal`) agora passam pelo helper `postRichSellerNote`, que usa `buildSellerDealSummaryHTML` (Resumo do Lead completo + bloco 7×3 + RAG + Rayshape) com idempotência por `last_seller_note_hash` / `last_seller_note_at` (skip se hash idêntico, throttle se <5 min). Reativação preserva o cabeçalho `🔄 Deal reativado` via `headerPrefix`. Em caso de erro do builder, faz fallback para o `buildDealNoteHTML` legado (mantido como deprecated). Notas curtas de auditoria (enrichment tag, owner bloqueado, razão social) continuam usando `addDealNote` direto.
 
 **Falha-suave**: se `workflow_cell_mappings` estiver vazio, `diagnoseLead` retorna estrutura vazia e os renderers devolvem string vazia → nota/briefing seguem sem o bloco. Se DeepSeek cair, `llm_script` fica undefined e os outros campos seguem.
+
+**Falha-suave SPIN**: se Gemini falhar/timeout, `diag.spin` mantém o seed heurístico (situação genérica + dores baseadas em concorrente/lacuna + perguntas SPIN com placeholders do stack). Renderers nunca quebram.
