@@ -790,6 +790,10 @@ function CreateCampaign({
     return () => clearTimeout(t);
   }, [searchTerm, selectedContent]);
 
+  // Snapshot filters for effect deps
+  const currentFilters = buildFiltersObject();
+  const filtersKey = JSON.stringify(currentFilters);
+
   // Count leads in real time
   useEffect(() => {
     if (step !== 2) return;
@@ -799,38 +803,14 @@ function CreateCampaign({
         .from("lia_attendances")
         .select("id", { count: "exact", head: true })
         .is("merged_into", null) as any;
-
-      if (produtoInteresse !== "all") {
-        const safe = produtoInteresse.replace(/,/g, " ");
-        query = query.or(
-          `produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`
-        );
-      }
-      if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
-      if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
-      if (especialidade !== "all") query = query.eq("especialidade", especialidade);
-      if (areaAtuacao !== "all") query = query.eq("area_atuacao", areaAtuacao);
-      if (uf !== "all") query = query.eq("uf", uf);
-      if (proprietario !== "all") query = query.eq("proprietario_lead_crm", proprietario);
-      if (realStatus !== "all") query = query.eq("real_status", realStatus);
-      if (temScanner === "yes") query = query.eq("tem_scanner", true);
-      if (temScanner === "no") query = query.or("tem_scanner.is.null,tem_scanner.eq.false");
-      if (temPrinter === "yes") query = query.not("equip_printer_brand", "is", null);
-      if (temPrinter === "no") query = query.is("equip_printer_brand", null);
-      if (recencia !== "any") {
-        const days = parseInt(recencia);
-        const since = new Date(Date.now() - days * 86400000).toISOString();
-        query = query.gte("updated_at", since);
-      }
-      if (clienteFilter === "clientes") query = query.gt("total_deals_all", 0);
-      if (clienteFilter === "leads") query = query.or("total_deals_all.is.null,total_deals_all.eq.0");
-
+      query = applyFiltersToQuery(query, currentFilters);
       const { count } = await query;
       setLeadCount(count ?? 0);
       setCountLoading(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [step, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, filtersKey]);
 
   // Count valid SMS leads (telefone_normalized IS NOT NULL, opt-out off)
   useEffect(() => {
@@ -842,29 +822,7 @@ function CreateCampaign({
           .select("id", { count: "exact", head: true })
           .is("merged_into", null)
           .not("telefone_normalized", "is", null) as any;
-        if (produtoInteresse !== "all") {
-          const safe = produtoInteresse.replace(/,/g, " ");
-          q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
-        }
-        if (temperatura !== "all") q = q.eq("temperatura_lead", parseInt(temperatura));
-        if (stageName !== "all") q = q.eq("piperun_stage_name", stageName);
-        if (especialidade !== "all") q = q.eq("especialidade", especialidade);
-        if (areaAtuacao !== "all") q = q.eq("area_atuacao", areaAtuacao);
-        if (uf !== "all") q = q.eq("uf", uf);
-        if (proprietario !== "all") q = q.eq("proprietario_lead_crm", proprietario);
-        if (realStatus !== "all") q = q.eq("real_status", realStatus);
-        if (temScanner === "yes") q = q.eq("tem_scanner", true);
-        if (temScanner === "no") q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
-        if (temPrinter === "yes") q = q.not("equip_printer_brand", "is", null);
-        if (temPrinter === "no") q = q.is("equip_printer_brand", null);
-        if (recencia !== "any") {
-          const days = parseInt(recencia);
-          const since = new Date(Date.now() - days * 86400000).toISOString();
-          q = q.gte("updated_at", since);
-        }
-        if (clienteFilter === "clientes") q = q.gt("total_deals_all", 0);
-        if (clienteFilter === "leads") q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
-        return q;
+        return applyFiltersToQuery(q, currentFilters);
       };
       try {
         const { count, error } = await buildBase().neq("sms_opt_out", true);
@@ -875,25 +833,14 @@ function CreateCampaign({
         setSmsLeadValidCount(count ?? 0);
       }
     })();
-  }, [step, sendChannel, produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus, temScanner, temPrinter, recencia, clienteFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, sendChannel, filtersKey]);
 
   const handleCreate = async () => {
     if (!campaignName.trim()) return;
     setCreating(true);
     try {
-      const filters: any = {};
-      if (produtoInteresse !== "all") filters.produto_interesse = produtoInteresse;
-      if (temperatura !== "all") filters.temperatura_lead = parseInt(temperatura);
-      if (stageName !== "all") filters.piperun_stage_name = stageName;
-      if (especialidade !== "all") filters.especialidade = especialidade;
-      if (areaAtuacao !== "all") filters.area_atuacao = areaAtuacao;
-      if (uf !== "all") filters.uf = uf;
-      if (proprietario !== "all") filters.proprietario_lead_crm = proprietario;
-      if (realStatus !== "all") filters.real_status = realStatus;
-      if (temScanner !== "all") filters.tem_scanner = temScanner;
-      if (temPrinter !== "all") filters.tem_printer = temPrinter;
-      if (recencia !== "any") filters.recencia_dias = parseInt(recencia);
-      if (clienteFilter !== "all") filters.cliente_filter = clienteFilter;
+      const filters: any = buildFiltersObject();
       if (sendChannel === "evolution" && evolutionInstance) filters.evolution_instance = evolutionInstance;
 
       const { error } = await supabase.from("campaign_sessions").insert({
