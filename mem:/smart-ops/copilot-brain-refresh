@@ -1,0 +1,12 @@
+---
+name: copilot-brain-refresh
+description: Cérebro do Copilot é refrescado por pg_cron a cada 5min via public.refresh_copilot_brain(); guard inline força refresh se snapshot >10min
+type: feature
+---
+- `copilot_brain.refresh_all()` é o populador. Wrapper `public.refresh_copilot_brain(p_force boolean)` adiciona advisory lock 737373 + debounce 60s.
+- pg_cron `copilot-brain-refresh-5min` (*/5 * * * *) e `copilot-brain-drift-hourly` (7 * * * *).
+- `public.check_copilot_brain_drift()` compara `brain_overview.receita_mes` vs deals (status='ganha', closed_at no mês SP, excluindo pipelines Funil Atos/E-book/Tulip/Exportação/Ganhos Aleatórios). Diff >5% ou idade >30min => alerta crítico em `copilot_brain.brain_alerts` + log error.
+- `smart-ops-copilot/loadBrainContext`: se snapshot >10min, chama refresh_copilot_brain(true) inline antes de servir.
+- `smart-ops-piperun-webhook`: chama refresh fire-and-forget após processar webhook (debounce 60s pela função protege).
+- Fix em `copilot_brain.refresh_equipment`: agrega (category,brand,model) via GROUP BY antes de inserir (antes quebrava com ON CONFLICT por duplicatas no resultset).
+- UI: `src/components/admin/CopilotBrainHealthCard.tsx` mostra status (Cérebro vs CRM ao vivo) + botão "Atualizar Cérebro"; embutido no topo de `RelatorioMensalComercial`.
