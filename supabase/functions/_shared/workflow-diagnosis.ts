@@ -281,12 +281,12 @@ export async function diagnoseLead(
   // ── Combo sugerido ──
   const combo: ComboBlock = { mesma_celula: [], celula_adjacente: [], cursos: [] };
   if (intent?.target_stage && intent.target_cell) {
-    const ownCell = cells.get(`${intent.target_stage}::${intent.target_cell}`);
-    if (ownCell) {
-      combo.mesma_celula = ownCell.products
-        .map(p => p.mapped_label || p.mapped_value)
-        .filter((p, i, a) => a.indexOf(p) === i)
-        .slice(0, 3);
+    // REGRA: NUNCA citar outro produto da mesma etapa/célula como alternativa.
+    // Quando temos um produto-âncora (matched_product_label), `mesma_celula` contém
+    // SOMENTE esse produto. Quando não há match, fica vazio — o vendedor deve
+    // qualificar antes de sugerir. Acessórios/upgrades vêm de `celula_adjacente`.
+    if (intent.matched_product_label) {
+      combo.mesma_celula = [intent.matched_product_label];
     }
     // adjacent = next stage (any cell), top 2 products
     const idx = STAGE_ORDER.indexOf(intent.target_stage);
