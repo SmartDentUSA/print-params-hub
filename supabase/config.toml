@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.smart-ops-preview-seller-note]
 verify_jwt = false
 
+[functions.smart-ops-refresh-system-a-cache]
+verify_jwt = false
+
 [functions.reformat-article-html]
 verify_jwt = false
 
