@@ -538,11 +538,18 @@ Lead:
   Combo sugerido pelo motor: ${comboList.join(" | ") || "nenhum"}${ragSection}
 
 Escreva em PT-BR, no MÁXIMO 5 bullets curtos (uma linha cada, começando com "• "):
-1) Como o PRODUTO DE INTENÇÃO se conecta ao stack atual — cite 1 benefício/spec do DOSSIÊ DE INTENÇÃO (compatibilidade real, sem inventar)
-2) 1 gancho contra cada concorrente detectado, apoiado em spec/benefício do dossiê RAG
-3) Se impressora estiver envolvida: 1 bullet de posicionamento Rayshape baseado no DOSSIÊ RAYSHAPE
-4) 1 alerta de risco — respeitar ordem do fluxo digital, não empurrar fora de etapa
-REGRAS: NÃO invente produtos nem specs. Use APENAS produtos do "Combo sugerido" e fatos dos dossiês RAG acima. Sem preços. Sem promessas absolutas. Direto ao ponto.`;
+1) Apresente o PRODUTO DE INTENÇÃO (exatamente "${diag.intent?.matched_product_label || diag.intent?.produto || "—"}") com 1 benefício/spec do DOSSIÊ DE INTENÇÃO.
+2) 1 pergunta consultiva de descoberta — qual a dor/necessidade que motivou o interesse nesse produto (volume, aplicação clínica, fluxo atual). NÃO é interrogatório, é convite.
+3) 1 gancho contra cada concorrente detectado (se houver), apoiado em spec/benefício do dossiê RAG. Se não houver concorrente, PULE este bullet — não invente concorrente.
+4) Se impressora estiver envolvida E o produto de intenção NÃO é Rayshape: 1 bullet de posicionamento Rayshape do DOSSIÊ RAYSHAPE. Se o próprio produto pedido já é Rayshape, PULE.
+5) 1 alerta de risco — respeitar ordem do fluxo digital (lacunas: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}), não empurrar fora de etapa.
+
+REGRAS DURAS (violação = output inutilizado):
+- PROIBIDO sugerir qualquer outro produto da mesma etapa como alternativa, upgrade ou substituto ao produto de intenção. Só o que o lead pediu.
+- PROIBIDO citar produtos que não estejam em "Combo sugerido" acima ou nos dossiês RAG.
+- PROIBIDO inventar specs, modelos, preços, prazos ou promessas absolutas.
+- A marca pedida pelo lead (BLZ, MEDIT, Rayshape, etc.) NUNCA é "concorrente" — é a própria intenção.
+- Foco do briefing: ensinar o vendedor a MAPEAR a necessidade real do lead (por que esse produto, qual problema resolve, qual aplicação) antes de empurrar combo.`;
 
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 12000);
