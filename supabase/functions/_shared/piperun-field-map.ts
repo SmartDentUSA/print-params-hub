@@ -493,6 +493,33 @@ export const DEAL_STATUS_MAP: Record<number, string> = {
   2: "perdida",
 };
 
+/**
+ * Normaliza o `deal.status` recebido do PipeRun para um literal canônico.
+ * Aceita:
+ *  - número:    0 → "open", 1 → "won", 2 → "lost"
+ *  - string EN: "open"/"won"/"lost" (case-insensitive)
+ *  - string PT: "aberta"/"aberto", "ganha"/"ganho", "perdida"/"perdido" (case-insensitive)
+ *  - string numérica: "0"/"1"/"2"
+ * Retorna null para valores desconhecidos (caller decide o fallback).
+ */
+export function normalizePipeRunDealStatus(
+  raw: unknown,
+): "won" | "lost" | "open" | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number") {
+    if (raw === 1) return "won";
+    if (raw === 2) return "lost";
+    if (raw === 0) return "open";
+    return null;
+  }
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s === "1" || s === "won" || s === "ganha" || s === "ganho") return "won";
+  if (s === "2" || s === "lost" || s === "perdida" || s === "perdido") return "lost";
+  if (s === "0" || s === "open" || s === "aberta" || s === "aberto") return "open";
+  return null;
+}
+
 // ─── Field extraction from PipeRun deal → lia_attendances ───
 
 export interface PipeRunDealData {
