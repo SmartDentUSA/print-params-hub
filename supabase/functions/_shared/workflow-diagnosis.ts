@@ -1246,6 +1246,29 @@ async function enrichSpinWithLLM(
     ? diag.stack_atual.map(s => `${STAGE_LABEL[s.stage] || s.stage}/${s.cell}=${s.value}${s.is_competitor ? ` [concorrente: ${s.competitor_label}]` : ""}`).join("; ")
     : "(vazio)";
 
+  // Local context for prompt (mirrors generatePositioningScript helpers).
+  const declaredEmptyListE = (diag.declared_empty_cells ?? []).map((k) => {
+    const [st] = k.split("::");
+    return STAGE_LABEL[st] || st;
+  });
+  const declaredEmptyTxt = declaredEmptyListE.length
+    ? Array.from(new Set(declaredEmptyListE)).join(", ")
+    : "nenhuma";
+  const targetCellKeyE = diag.intent?.target_stage && diag.intent.target_cell
+    ? `${diag.intent.target_stage}::${diag.intent.target_cell}`
+    : null;
+  const targetCellHasStackE = targetCellKeyE
+    ? diag.stack_atual.some((s) => `${s.stage}::${s.cell}` === targetCellKeyE)
+    : false;
+  const targetNotOwnedE = !!diag.intent && (
+    !targetCellHasStackE || (targetCellKeyE ? (diag.declared_empty_cells ?? []).includes(targetCellKeyE) : false)
+  );
+  const ownershipStatus = !diag.intent
+    ? "—"
+    : targetNotOwnedE
+      ? "AINDA NÃO POSSUI — busca adquirir (alvo de compra)"
+      : "já consta no stack instalado";
+
   const prompt = `Você é coach SPIN de um vendedor consultivo da Smart Dent (odontologia digital).
 Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico — para o vendedor abrir a conversa.
 
@@ -1280,6 +1303,9 @@ REGRAS DURAS:
 - A marca pedida pelo lead NUNCA é concorrente.
 - Se não houver concorrente, não invente.
 - PT-BR, tom consultivo de colega especialista, NÃO interrogatório.
+- TODA pergunta SPIN deve referenciar uma ETAPA do fluxo digital 7×3 (1·Captura/Scanner, 2·CAD, 3·Impressão 3D, 4·Pós-impressão, 5·Finalização, 6·Cursos, 7·Fresagem). Prefixe com "Etapa <nome>:" quando fizer sentido.
+- OBRIGATÓRIO: o briefing DEVE conter ao menos 1 pergunta sobre RESINAS (qual usa, aplicação, consumo/mês) e 1 sobre PROTOCOLO de lavagem/cura, sempre que a intent ou stack envolver hardware (scanner, CAD, impressão, pós, finalização, fresagem). Consumíveis são o core de recorrência da Smart Dent — sem isso o briefing está incompleto.
+- Pergunta de NECESSIDADE deve nomear EXPLICITAMENTE o produto Smart Dent que resolve a etapa (ex.: "EdgeMini + protocolo de resinas Smart Dent") — não vender "uma solução" genérica.
 
 Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
 {
