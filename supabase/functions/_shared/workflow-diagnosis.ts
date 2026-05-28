@@ -693,45 +693,51 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
 }
 
 export function renderDiagnosisWhatsApp(diag: WorkflowDiagnosis): string {
-  if (!diag.stack_atual.length && !diag.intent) return "";
+  if (!diag.stack_atual.length && !diag.intent && !diag.spin) return "";
   const lines: string[] = [];
-  lines.push("🧭 *Diagnóstico Fluxo Digital*");
+  lines.push("🧭 *SPIN — Briefing do Lead*");
 
-  if (diag.stack_atual.length) {
-    const stages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
-    lines.push(`Etapa(s) com dados: ${stages.join(" + ")}`);
+  if (diag.spin?.situacao) lines.push(`*Situação:* ${diag.spin.situacao}`);
+  if (diag.intent?.target_stage) {
+    lines.push(`*Intenção:* ${diag.intent.produto} → ${STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage}`);
+  } else if (diag.intent) {
+    lines.push(`*Intenção:* ${diag.intent.produto} (validar)`);
   }
   if (diag.concorrentes_detectados.length) {
-    lines.push(`Concorrentes: ${diag.concorrentes_detectados.map(c => c.label).join(", ")}`);
+    lines.push(`*Concorrentes:* ${diag.concorrentes_detectados.map(c => c.label).join(", ")}`);
   }
-  if (diag.intent?.target_stage) {
-    lines.push(`🎯 Intent: ${diag.intent.produto} → ${STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage}`);
-  } else if (diag.intent) {
-    lines.push(`🎯 Intent: ${diag.intent.produto} (validar com lead)`);
+  if (diag.spin?.dores_provaveis?.length) {
+    lines.push(`⚠️ *Dor #1:* ${diag.spin.dores_provaveis[0].dor}`);
   }
-  if (diag.lacunas.length) {
-    lines.push(`⚠️ Lacunas: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ")}`);
+  if (diag.spin?.implicacoes?.length) {
+    lines.push(`💸 *Impacto:* ${diag.spin.implicacoes[0]}`);
   }
-  if (diag.perguntas_qualificacao.length) {
-    lines.push(`📋 Perguntar:`);
-    diag.perguntas_qualificacao.slice(0, 3).forEach((q, i) => lines.push(`  ${i + 1}. ${q}`));
+  if (diag.spin?.ponte_produto) {
+    lines.push(`🎯 *Ponte:* ${diag.spin.ponte_produto}`);
+  }
+  const sq = diag.spin?.perguntas_spin;
+  if (sq) {
+    lines.push(`📋 *Pergunte (SPIN):*`);
+    if (sq.situacao[0]) lines.push(`  S- ${sq.situacao[0]}`);
+    if (sq.problema[0]) lines.push(`  P- ${sq.problema[0]}`);
+    if (sq.implicacao[0]) lines.push(`  I- ${sq.implicacao[0]}`);
+    if (sq.necessidade[0]) lines.push(`  N- ${sq.necessidade[0]}`);
   }
   const combo = [
     ...diag.combo_sugerido.mesma_celula,
     ...diag.combo_sugerido.celula_adjacente,
     ...diag.combo_sugerido.cursos,
   ].slice(0, 4);
-  if (combo.length) lines.push(`🛒 Ofereça: ${combo.join(" · ")}`);
-  if (diag.llm_script) {
-    lines.push(`💡 ${diag.llm_script.split("\n").map(s => s.replace(/^[•\-]\s*/, "").trim()).filter(Boolean).slice(0, 2).join(" | ")}`);
-  }
+  if (combo.length) lines.push(`🛒 *Após confirmar:* ${combo.join(" · ")}`);
+  if (diag.spin?.alerta_lacuna) lines.push(`🚨 ${diag.spin.alerta_lacuna}`);
   return lines.join("\n");
 }
 
 /** Compact text block for embedding into the cognitive prompt (no formatting). */
 export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
-  if (!diag.stack_atual.length && !diag.intent) return "";
+  if (!diag.stack_atual.length && !diag.intent && !diag.spin) return "";
   const lines: string[] = [];
+  if (diag.spin?.situacao) lines.push(`SPIN-Situação: ${diag.spin.situacao}`);
   if (diag.stack_atual.length) {
     lines.push(`Stack atual: ${diag.stack_atual.map(s => `${STAGE_LABEL[s.stage] || s.stage}/${s.cell}=${s.value}${s.is_competitor ? " [concorrente]" : ""}`).join("; ")}`);
   }
@@ -744,5 +750,257 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
   if (diag.concorrentes_detectados.length) {
     lines.push(`Concorrentes: ${diag.concorrentes_detectados.map(c => c.label).join(", ")}`);
   }
+  if (diag.spin?.dores_provaveis?.length) {
+    lines.push(`Dores prováveis: ${diag.spin.dores_provaveis.map(d => d.dor).join(" | ")}`);
+  }
+  if (diag.spin?.implicacoes?.length) {
+    lines.push(`Implicações: ${diag.spin.implicacoes.join(" | ")}`);
+  }
+  if (diag.spin?.ponte_produto) lines.push(`Ponte ao produto: ${diag.spin.ponte_produto}`);
   return lines.join("\n");
+}
+
+// ────────────────────────────────────────────────────────────────
+// SPIN Briefing — heuristic seed + LLM enrichment
+// ────────────────────────────────────────────────────────────────
+function seedSpinBriefing(
+  diag: WorkflowDiagnosis,
+  lead: Record<string, unknown>,
+): SpinBriefing {
+  const role = String(lead.area_atuacao || lead.especialidade || "profissional");
+  const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
+  const intentTxt = diag.intent
+    ? `interesse em ${diag.intent.produto}${diag.intent.target_stage ? ` (${STAGE_LABEL[diag.intent.target_stage]})` : ""}`
+    : "intenção a confirmar";
+  const situacao = stackStages.length
+    ? `${role} com estrutura em ${stackStages.join(" + ")}. ${intentTxt}.`
+    : `${role} sem stack declarada. ${intentTxt}.`;
+
+  const dores: SpinBriefing["dores_provaveis"] = [];
+  const implicacoes: string[] = [];
+
+  // Heurísticas por concorrente
+  for (const c of diag.concorrentes_detectados) {
+    const lbl = c.label.toLowerCase();
+    if (/anycubic|phrozen|elegoo|creality|formlabs/.test(lbl)) {
+      dores.push({
+        dor: "Calibração instável e perfis de resina não validados para uso odontológico",
+        evidencia: `usa ${c.label} (impressora genérica)`,
+      });
+      implicacoes.push("Horas perdidas em retrabalho de peças clínicas e risco de rejeição em consultório");
+    } else if (c.stage === "etapa_1_scanner") {
+      dores.push({
+        dor: "Alinhamento de STL e exportação para o CAD pouco previsíveis",
+        evidencia: `scanner ${c.label}`,
+      });
+      implicacoes.push("Atrasos no envio ao laboratório/CAD e retrabalho de escaneamento");
+    } else if (c.stage === "etapa_2_cad") {
+      dores.push({
+        dor: "Licenciamento e curva de software CAD não integrados ao fluxo Smart Dent",
+        evidencia: `CAD ${c.label}`,
+      });
+      implicacoes.push("Dependência de terceiros para desenho e perda de margem por terceirização");
+    }
+  }
+
+  // Heurísticas por lacuna
+  for (const l of diag.lacunas) {
+    if (l.cell === "*") {
+      dores.push({
+        dor: `Fluxo quebrado: falta ${STAGE_LABEL[l.stage] || l.stage} antes da etapa de interesse`,
+        evidencia: "pré-requisito do fluxo sem dados declarados",
+      });
+      implicacoes.push(`Risco do equipamento de interesse ficar parado sem ${STAGE_LABEL[l.stage] || l.stage}`);
+    }
+  }
+
+  // Intent etapa 6 sem nada
+  if (diag.intent?.target_stage === "etapa_6_cursos" && diag.stack_atual.length === 0) {
+    dores.push({
+      dor: "Curva de aprendizado sem equipamento próprio para praticar",
+      evidencia: "intenção em curso sem stack instalada",
+    });
+    implicacoes.push("Investimento em treinamento sem produzir casos clínicos imediatos");
+  }
+
+  // Ponte (heurística): produto de intenção + 1 característica do RAG (cai vazio se LLM não rodar)
+  const ponte = diag.intent?.matched_product_label
+    ? `${diag.intent.matched_product_label} se conecta diretamente à etapa de ${STAGE_LABEL[diag.intent.target_stage!] || diag.intent.target_stage}, resolvendo o gargalo desse ponto do fluxo do lead.`
+    : diag.intent
+      ? `Confirmar com o lead qual o uso real de "${diag.intent.produto}" antes de posicionar — sem match direto no portfólio mapeado.`
+      : "";
+
+  // Perguntas SPIN — heurística baseada no que falta + na intent
+  const stackResumo = diag.stack_atual.length
+    ? diag.stack_atual.slice(0, 2).map(s => `${s.field_label}: ${s.value}`).join(", ")
+    : "seu setup atual";
+  const situacaoQ = [`Hoje você já está rodando ${stackResumo}. Como esse fluxo está performando no dia a dia?`];
+
+  const problemaQ: string[] = [];
+  if (diag.concorrentes_detectados.length) {
+    problemaQ.push(`Onde o ${diag.concorrentes_detectados[0].label} mais te trava — calibração, perfil de material, suporte ou produtividade?`);
+  }
+  if (diag.intent?.matched_product_label) {
+    problemaQ.push(`O que te fez olhar especificamente para ${diag.intent.matched_product_label} agora?`);
+  }
+  if (problemaQ.length === 0) problemaQ.push("Qual é hoje o ponto do seu fluxo digital que mais consome tempo ou gera retrabalho?");
+
+  const implicacaoQ: string[] = [
+    "Quantas peças/mês esse gargalo impacta — em retrabalho, hora-cadeira ou casos perdidos?",
+    "Se isso continuar travado mais 6 meses, qual o impacto direto na sua agenda e no faturamento?",
+  ];
+
+  const necessidadeQ = diag.intent?.matched_product_label
+    ? [`Se ${diag.intent.matched_product_label} resolver exatamente esse gargalo, faz sentido a gente fechar uma demonstração ainda esta semana?`]
+    : ["Se a gente trouxer uma solução que resolva esse ponto específico, faz sentido avançarmos com uma demonstração?"];
+
+  const alerta = diag.lacunas.length
+    ? `Atenção à ordem do fluxo: lead tem lacuna em ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ")}. Confirmar antes de empurrar combo fora de etapa.`
+    : undefined;
+
+  return {
+    situacao,
+    dores_provaveis: dores.slice(0, 4),
+    implicacoes: Array.from(new Set(implicacoes)).slice(0, 3),
+    ponte_produto: ponte,
+    perguntas_spin: {
+      situacao: situacaoQ,
+      problema: problemaQ.slice(0, 2),
+      implicacao: implicacaoQ,
+      necessidade: necessidadeQ,
+    },
+    alerta_lacuna: alerta,
+  };
+}
+
+async function enrichSpinWithLLM(
+  supabase: SupabaseClient,
+  diag: WorkflowDiagnosis,
+  lead: Record<string, unknown>,
+  seed: SpinBriefing,
+): Promise<SpinBriefing | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  if (!diag.intent && diag.concorrentes_detectados.length === 0 && diag.stack_atual.length === 0) return null;
+
+  // Reuse RAG dossiers (intent + Rayshape if printer involved)
+  const intentLabel = diag.intent?.matched_product_label || diag.intent?.produto || null;
+  const printerInvolved =
+    diag.concorrentes_detectados.some(c => /\b(impress|printer|anycubic|phrozen|elegoo|formlabs|asiga|sprintray|creality)\b/i.test(c.label)) ||
+    diag.stack_atual.some(s => s.stage === "etapa_3_impressao") ||
+    ["etapa_3_impressao", "etapa_4_pos_impressao", "etapa_5_finalizacao"].includes(diag.intent?.target_stage || "");
+
+  const [intentDossier, rayshapeDossier] = await Promise.all([
+    fetchProductDossier(supabase, intentLabel),
+    printerInvolved ? fetchRayshapeDossier(supabase) : Promise.resolve(null),
+  ]);
+
+  const ragBlocks: string[] = [];
+  const intentBlock = renderDossierForPrompt(intentDossier, "DOSSIÊ PRODUTO DE INTENÇÃO");
+  if (intentBlock) ragBlocks.push(intentBlock);
+  if (printerInvolved && rayshapeDossier) {
+    ragBlocks.push(renderDossierForPrompt(rayshapeDossier, "DOSSIÊ RAYSHAPE"));
+  }
+  const ragSection = ragBlocks.length
+    ? "\n\n=== RAG OFICIAL SMART DENT (use SOMENTE estes fatos para specs/benefícios) ===\n" + ragBlocks.join("\n\n") + "\n========================================================="
+    : "";
+
+  const stackSummary = diag.stack_atual.length
+    ? diag.stack_atual.map(s => `${STAGE_LABEL[s.stage] || s.stage}/${s.cell}=${s.value}${s.is_competitor ? ` [concorrente: ${s.competitor_label}]` : ""}`).join("; ")
+    : "(vazio)";
+
+  const prompt = `Você é coach SPIN de um vendedor consultivo da Smart Dent (odontologia digital).
+Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico — para o vendedor abrir a conversa.
+
+DADOS DO LEAD:
+- Nome: ${lead.nome || "N/I"}
+- Especialidade/área: ${lead.especialidade || lead.area_atuacao || "N/I"}
+- Stack atual: ${stackSummary}
+- Concorrentes detectados: ${diag.concorrentes_detectados.map(c => c.label).join(", ") || "nenhum"}
+- Intenção declarada: ${diag.intent?.produto || "—"} (match no portfólio: ${diag.intent?.matched_product_label || "sem match"})
+- Etapa-alvo: ${diag.intent?.target_stage ? (STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage) : "—"}
+- Lacunas no fluxo: ${diag.lacunas.map(l => STAGE_LABEL[l.stage] || l.stage).join(", ") || "nenhuma"}${ragSection}
+
+SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
+${JSON.stringify(seed, null, 2)}
+
+REGRAS DURAS:
+- Perguntas DEVEM citar o que o lead JÁ TEM (nome do scanner, da impressora, software). Nada de "qual scanner você usa?" se já sabemos.
+- Implicações concretas: peças/mês, hora-cadeira, retrabalho, garantia, custo de terceirização.
+- Ponte ao produto: usar SOMENTE specs/benefícios do DOSSIÊ DE INTENÇÃO. Sem inventar.
+- A marca pedida pelo lead NUNCA é concorrente.
+- Se não houver concorrente, não invente.
+- PT-BR, tom consultivo de colega especialista, NÃO interrogatório.
+
+Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
+{
+  "situacao": "string (1-2 frases — papel + stack-chave + intenção)",
+  "dores_provaveis": [{ "dor": "string", "evidencia": "string curta citando o que o lead tem" }],
+  "implicacoes": ["string concreta", "string concreta"],
+  "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
+  "perguntas_spin": {
+    "situacao": ["1 pergunta"],
+    "problema": ["2 perguntas"],
+    "implicacao": ["2 perguntas"],
+    "necessidade": ["1 pergunta"]
+  },
+  "alerta_lacuna": "string opcional ou null"
+}`;
+
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 1200,
+        response_format: { type: "json_object" },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const text = String(json?.choices?.[0]?.message?.content || "").trim();
+    if (!text) return null;
+    // Strip potential markdown fences
+    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    // Sanity check
+    if (!parsed.situacao || !parsed.perguntas_spin) return null;
+    return {
+      situacao: String(parsed.situacao).slice(0, 400),
+      dores_provaveis: Array.isArray(parsed.dores_provaveis)
+        ? parsed.dores_provaveis.slice(0, 4).map((d: Record<string, unknown>) => ({
+            dor: String(d.dor || "").slice(0, 250),
+            evidencia: String(d.evidencia || "").slice(0, 200),
+          })).filter((d: { dor: string }) => d.dor)
+        : seed.dores_provaveis,
+      implicacoes: Array.isArray(parsed.implicacoes)
+        ? parsed.implicacoes.slice(0, 3).map((s: unknown) => String(s).slice(0, 250)).filter(Boolean)
+        : seed.implicacoes,
+      ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
+      perguntas_spin: {
+        situacao: arrStr(parsed.perguntas_spin?.situacao, 1) || seed.perguntas_spin.situacao,
+        problema: arrStr(parsed.perguntas_spin?.problema, 2) || seed.perguntas_spin.problema,
+        implicacao: arrStr(parsed.perguntas_spin?.implicacao, 2) || seed.perguntas_spin.implicacao,
+        necessidade: arrStr(parsed.perguntas_spin?.necessidade, 1) || seed.perguntas_spin.necessidade,
+      },
+      alerta_lacuna: parsed.alerta_lacuna ? String(parsed.alerta_lacuna).slice(0, 300) : seed.alerta_lacuna,
+    };
+  } catch (e) {
+    console.warn("[spin-enrich] failed:", e);
+    return null;
+  } finally {
+    clearTimeout(to);
+  }
+}
+
+function arrStr(v: unknown, max: number): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = v.slice(0, max).map(x => String(x).trim()).filter(Boolean);
+  return out.length ? out : null;
 }
