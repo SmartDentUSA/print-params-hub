@@ -9917,6 +9917,7 @@ export type Database = {
           data_envio: string | null
           data_envio_dia: string | null
           error_details: string | null
+          evolution_instance: string | null
           id: string
           lead_id: string | null
           mensagem_preview: string | null
@@ -9930,6 +9931,7 @@ export type Database = {
           data_envio?: string | null
           data_envio_dia?: string | null
           error_details?: string | null
+          evolution_instance?: string | null
           id?: string
           lead_id?: string | null
           mensagem_preview?: string | null
@@ -9943,6 +9945,7 @@ export type Database = {
           data_envio?: string | null
           data_envio_dia?: string | null
           error_details?: string | null
+          evolution_instance?: string | null
           id?: string
           lead_id?: string | null
           mensagem_preview?: string | null
@@ -18439,6 +18442,18 @@ export type Database = {
             referencedColumns: ["person_id"]
           },
         ]
+      }
+      v_automacoes_lia_metricas: {
+        Row: {
+          dia: string | null
+          leads_unicos: number | null
+          numeros_unicos: number | null
+          status: string | null
+          taxa_sucesso_pct: number | null
+          tipo: string | null
+          total: number | null
+        }
+        Relationships: []
       }
       v_behavioral_health: {
         Row: {
