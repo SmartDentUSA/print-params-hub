@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import CopilotBrainHealthCard from "@/components/admin/CopilotBrainHealthCard";
 
 /* ---------- Types ---------- */
 interface Kpis {
@@ -345,6 +346,7 @@ export default function RelatorioMensalComercial() {
         </div>
 
         {/* KPIs */}
+        <CopilotBrainHealthCard />
         <div className="sl">Visão Geral do Mês</div>
         <div className="kpi4">
           <Kpi color="g" label="Receita (P&S)" value={fmtBRLk(kpis?.receita_won)} sub={`${fmtNum(totalGanhos)} deals ganhos`} />

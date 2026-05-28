@@ -1305,6 +1305,13 @@ Deno.serve(async (req) => {
       console.warn("[piperun-webhook] Consolidation verify error (non-blocking):", verifyErr);
     }
 
+    // ─── Trigger refresh do Cérebro do Copilot (debounceado a 60s pela própria função) ───
+    // Fire-and-forget: não bloqueia a resposta ao PipeRun.
+    supabase.rpc("refresh_copilot_brain", { p_force: false })
+      .then(({ error }) => {
+        if (error) console.warn("[piperun-webhook] brain refresh failed:", error.message);
+      });
+
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,

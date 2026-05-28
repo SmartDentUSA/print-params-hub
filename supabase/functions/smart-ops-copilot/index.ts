@@ -2195,7 +2195,28 @@ function createSSEFromText(text: string): ReadableStream<Uint8Array> {
 // aqui apenas leitura.
 async function loadBrainContext(): Promise<{ json: any; updatedAt: string | null }> {
   try {
-    const { data, error } = await supabase.rpc("get_copilot_brain");
+    // Guard: se o snapshot estiver defasado >10 min, força refresh inline
+    // para garantir que o Copilot nunca responda com números antigos.
+    let { data, error } = await supabase.rpc("get_copilot_brain");
+    if (!error) {
+      const initialBrain = data || {};
+      const initialUpdatedAt =
+        initialBrain?.overview?.updated_at ||
+        (Array.isArray(initialBrain?.meta) && initialBrain.meta[0]?.updated_at);
+      const ageMs = initialUpdatedAt
+        ? Date.now() - new Date(initialUpdatedAt).getTime()
+        : Infinity;
+      if (ageMs > 10 * 60 * 1000) {
+        console.log(`[Brain] Snapshot ${Math.round(ageMs / 60000)}min old, forcing refresh`);
+        try {
+          await supabase.rpc("refresh_copilot_brain", { p_force: true });
+          const reloaded = await supabase.rpc("get_copilot_brain");
+          if (!reloaded.error) data = reloaded.data;
+        } catch (refreshErr: any) {
+          console.warn("[Brain] inline refresh failed:", refreshErr?.message || refreshErr);
+        }
+      }
+    }
     if (error) {
       console.error("[Brain] rpc error:", error.message);
       return { json: { error: error.message }, updatedAt: null };

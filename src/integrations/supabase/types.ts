@@ -22704,6 +22704,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      check_copilot_brain_drift: { Args: never; Returns: Json }
       cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
       compute_lead_portfolio_from_mappings: {
         Args: { p_lead_id: string }
@@ -24063,6 +24064,7 @@ export type Database = {
           won_deals: number
         }[]
       }
+      refresh_copilot_brain: { Args: { p_force?: boolean }; Returns: Json }
       release_cognitive_analysis_lock: {
         Args: { target_lead_id: string }
         Returns: boolean
