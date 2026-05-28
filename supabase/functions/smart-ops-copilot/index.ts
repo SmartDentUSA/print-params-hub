@@ -1108,7 +1108,7 @@ async function executeSearchProducts(args: any) {
   // 3) products_catalog (mapping operacional)
   try {
     const { data } = await supabase.from("products_catalog")
-      .select("product_id, name, category, subcategory")
+      .select("product_id, name, category, subcategory, datasheet_url, spec_sheet_url, manual_url, datasheet_summary")
       .or(`name.ilike.${pattern},category.ilike.${pattern},subcategory.ilike.${pattern}`)
       .limit(limit);
     for (const row of data || []) {
@@ -1118,6 +1118,10 @@ async function executeSearchProducts(args: any) {
         category: (row as any).category,
         subcategory: (row as any).subcategory,
         product_id: (row as any).product_id,
+        datasheet_url: (row as any).datasheet_url || null,
+        spec_sheet_url: (row as any).spec_sheet_url || null,
+        manual_url: (row as any).manual_url || null,
+        snippet: String((row as any).datasheet_summary || "").slice(0, 200),
       });
     }
   } catch (e) { console.warn("[search_products] products_catalog:", e); }
