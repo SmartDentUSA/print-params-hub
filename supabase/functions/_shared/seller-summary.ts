@@ -58,7 +58,8 @@ export async function buildSellerDealSummaryHTML(
   const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
 
   // ── Parallel fetches (best-effort; never fail the whole note) ──
-  const [ecomRes, enrollRes, formsRes, activityRes, agentLeadRes] = await Promise.all([
+  const phoneSessionId = phoneDigits || null;
+  const [ecomRes, enrollRes, formsRes, agentLeadRes, agentBySessionRes] = await Promise.all([
     email
       ? supabase.from("v_lead_ecommerce")
           .select("lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,lojaintegrada_primeira_compra,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_valor")
@@ -75,18 +76,19 @@ export async function buildSellerDealSummaryHTML(
           .eq("lead_id", leadId).order("enrolled_at", { ascending: false }).limit(10)
       : Promise.resolve({ data: [] }),
     leadId
-      ? supabase.from("lead_form_submissions")
-          .select("form_type,form_data,submitted_at,equipment_mentioned,product_mentioned")
-          .eq("lead_id", leadId).order("submitted_at", { ascending: false }).limit(10)
-      : Promise.resolve({ data: [] }),
-    leadId
-      ? supabase.from("lead_activity_log")
-          .select("event_type,event_timestamp,entity_name,event_data")
-          .eq("lead_id", leadId).order("event_timestamp", { ascending: false }).limit(15)
+      ? supabase.from("smartops_form_field_responses")
+          .select("field_label,value,created_at,form_id")
+          .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(30)
       : Promise.resolve({ data: [] }),
     email
       ? supabase.from("leads").select("id").eq("email", email).maybeSingle()
       : Promise.resolve({ data: null }),
+    phoneSessionId
+      ? supabase.from("agent_interactions")
+          .select("user_message,created_at")
+          .eq("session_id", phoneSessionId)
+          .order("created_at", { ascending: false }).limit(5)
+      : Promise.resolve({ data: [] }),
   ]);
 
   let lastQuestions: string[] = [];
@@ -99,6 +101,12 @@ export async function buildSellerDealSummaryHTML(
       .limit(5);
     lastQuestions = (msgs || [])
       .map((m: any) => String(m.user_message || "").slice(0, 180))
+      .filter(Boolean);
+  }
+  if (!lastQuestions.length) {
+    const fallback = ((agentBySessionRes as any)?.data as Array<{ user_message?: string }>) || [];
+    lastQuestions = fallback
+      .map(m => String(m.user_message || "").slice(0, 180))
       .filter(Boolean);
   }
 
@@ -131,7 +139,7 @@ export async function buildSellerDealSummaryHTML(
   const history = (lead.piperun_deals_history as Array<Record<string, unknown>> | null) || [];
   let won = 0, lost = 0, open = 0;
   for (const d of history) {
-    const s = String((d.status_name || d.status || "")).toLowerCase();
+    const s = String(d.status || "").toLowerCase();
     if (s.includes("ganh")) won++;
     else if (s.includes("perd")) lost++;
     else open++;
@@ -140,7 +148,7 @@ export async function buildSellerDealSummaryHTML(
     .slice()
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
     .slice(0, 8)
-    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status_name || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
+    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
     .join("<br>");
   sections.push(
     `<b>📊 CRM</b><br>` +
@@ -213,8 +221,20 @@ export async function buildSellerDealSummaryHTML(
     sections.push(`<b>🎓 Cursos & Treinamentos</b><br>• Sem matrículas registradas.<br>`);
   }
 
-  // 6. 7x3 — formulários
-  const forms = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  // 6. 7x3 — formulários (smartops_form_field_responses)
+  const formResponses = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  // Look up form names in parallel (one extra query, bounded)
+  const formIds = Array.from(new Set(formResponses.map(r => r.form_id).filter(Boolean))) as string[];
+  const formNameMap = new Map<string, string>();
+  if (formIds.length) {
+    const { data: formMeta } = await supabase
+      .from("smartops_forms")
+      .select("id,name")
+      .in("id", formIds);
+    for (const f of (formMeta || []) as Array<{ id: string; name: string }>) {
+      formNameMap.set(f.id, f.name);
+    }
+  }
   const equipLines: string[] = [];
   if (lead.tem_impressora && lead.tem_impressora !== "nao") equipLines.push(`Impressora: ${esc(lead.impressora_modelo || lead.tem_impressora)}`);
   if (lead.tem_scanner && lead.tem_scanner !== "nao") equipLines.push(`Scanner: ${esc(lead.tem_scanner)}`);
@@ -227,14 +247,26 @@ export async function buildSellerDealSummaryHTML(
     formsBlock += `<b>📝 Formulário recente: ${esc(opts.highlightFormName || "—")}</b><br>` +
       opts.highlightFormResponses.map(r => `• <b>${esc(r.label)}:</b> ${esc(r.value)}`).join("<br>") + "<br>";
   }
-  if (forms.length) {
-    formsBlock += `<b>📋 Formulários (últimos ${Math.min(forms.length, 5)} de ${forms.length})</b><br>`;
-    for (const f of forms.slice(0, 5)) {
-      const data = (f.form_data as Record<string, unknown>) || {};
-      const fields = Object.entries(data).slice(0, 8)
-        .map(([k, v]) => `&nbsp;&nbsp;◦ ${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}`)
+  if (formResponses.length) {
+    // Group by form_id; keep newest submission timestamp per group
+    const grouped = new Map<string, { ts: string; rows: Array<Record<string, unknown>> }>();
+    for (const r of formResponses) {
+      const key = String(r.form_id || "_unknown");
+      const ts = String(r.created_at || "");
+      const g = grouped.get(key);
+      if (!g) grouped.set(key, { ts, rows: [r] });
+      else { g.rows.push(r); if (ts > g.ts) g.ts = ts; }
+    }
+    const groups = Array.from(grouped.entries())
+      .sort((a, b) => b[1].ts.localeCompare(a[1].ts))
+      .slice(0, 5);
+    formsBlock += `<b>📋 Formulários (${grouped.size})</b><br>`;
+    for (const [fid, g] of groups) {
+      const name = formNameMap.get(fid) || "Formulário";
+      const fields = g.rows.slice(0, 10)
+        .map(r => `&nbsp;&nbsp;◦ <b>${esc(r.field_label || "—")}:</b> ${esc(r.value)}`)
         .join("<br>");
-      formsBlock += `• <b>${esc(f.form_type)}</b> (${fmtDate(f.submitted_at)})<br>${fields || "&nbsp;&nbsp;◦ —"}<br>`;
+      formsBlock += `• <b>${esc(name)}</b> (${fmtDate(g.ts)})<br>${fields || "&nbsp;&nbsp;◦ —"}<br>`;
     }
   }
   if (equipLines.length) {
@@ -242,8 +274,8 @@ export async function buildSellerDealSummaryHTML(
   }
   if (formsBlock) sections.push(formsBlock);
 
-  // 7. Interações Dra. L.I.A.
-  if (lastQuestions.length || lead.total_messages) {
+  // 7. Interações Dra. L.I.A. — only show if there is real activity
+  if (lastQuestions.length || Number(lead.total_messages) > 0) {
     const qLines = lastQuestions.length
       ? lastQuestions.map(q => `&nbsp;&nbsp;◦ "${esc(q)}"`).join("<br>")
       : "&nbsp;&nbsp;◦ —";
