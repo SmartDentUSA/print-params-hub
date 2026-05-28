@@ -873,6 +873,22 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     out.push(`<i>Concorrentes:</i> ${diag.concorrentes_detectados.map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ")}<br>`);
   }
 
+  // ── ROTEIRO DE PERFILAMENTO (siga nesta ordem — espelha # - Formulário exocad I.A.) ──
+  const rot = diag.spin?.roteiro_perfilamento;
+  if (rot && rot.length) {
+    out.push(`<br>🧩 <b>ROTEIRO DE PERFILAMENTO</b> <i>(siga nesta ordem — perguntas do formulário exocad I.A.)</i><br>`);
+    for (const r of rot) {
+      const head = `${r.ordem}. <b>${escHtml(r.etapa_label)}</b> — ${escHtml(r.titulo)}`;
+      if (r.status === "declarado") {
+        out.push(`&nbsp;&nbsp;✅ ${head}: ${escHtml(r.valor_declarado || "")}<br>`);
+      } else if (r.status === "gap_ofensivo") {
+        out.push(`&nbsp;&nbsp;⚠️ ${head}: <i>${escHtml(r.valor_declarado || "—")}</i> → gancho: ${escHtml(r.gancho_smartdent || "")}<br>`);
+      } else {
+        out.push(`&nbsp;&nbsp;❓ ${head}: ${escHtml(r.pergunta_canonica)}<br>`);
+      }
+    }
+  }
+
   // ── DORES PROVÁVEIS ──
   if (diag.spin?.dores_provaveis?.length) {
     out.push(`<br>⚠️ <b>DORES PROVÁVEIS</b> <i>(hipóteses a confirmar)</i><br>`);
