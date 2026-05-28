@@ -962,6 +962,17 @@ export function renderDiagnosisWhatsApp(diag: WorkflowDiagnosis): string {
   if (diag.concorrentes_detectados.length) {
     lines.push(`*Concorrentes:* ${diag.concorrentes_detectados.map(c => c.label).join(", ")}`);
   }
+  const rotW = diag.spin?.roteiro_perfilamento;
+  if (rotW && rotW.length) {
+    const pend = rotW.filter((r) => r.status !== "declarado").slice(0, 3);
+    if (pend.length) {
+      lines.push(`🧩 *Roteiro a descobrir:*`);
+      for (const r of pend) {
+        const icon = r.status === "gap_ofensivo" ? "⚠️" : "❓";
+        lines.push(`  ${icon} ${r.etapa_label} — ${r.titulo}`);
+      }
+    }
+  }
   if (diag.spin?.dores_provaveis?.length) {
     lines.push(`⚠️ *Dor #1:* ${diag.spin.dores_provaveis[0].dor}`);
   }
