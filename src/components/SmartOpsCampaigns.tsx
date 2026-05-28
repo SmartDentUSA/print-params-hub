@@ -17,6 +17,7 @@ import {
   Check, Send, Filter, Users, Clock, CheckCircle, XCircle, AlertCircle, Image, Smartphone, Copy
 } from "lucide-react";
 import { Save, Bookmark, Trash2 } from "lucide-react";
+import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
 
 // ── Types ──
 interface ContentItem {
@@ -2034,6 +2035,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="biblioteca">Biblioteca de Conteúdo</TabsTrigger>
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca">
@@ -2044,6 +2046,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="historico">
           <CampaignHistory />
+        </TabsContent>
+        <TabsContent value="grupos-wa">
+          <SmartOpsWaGroupCampaigns />
         </TabsContent>
       </Tabs>
     </div>
