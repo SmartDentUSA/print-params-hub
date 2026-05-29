@@ -21,12 +21,13 @@ serve(async (req) => {
 
   const { data: camp, error } = await supabase
     .from('wa_campaigns')
-    .select('*, wa_groups(group_jid, name, member_count)')
+    .select('*, wa_groups!wa_campaigns_group_id_fkey(group_jid, name, member_count)')
     .eq('id', campaign_id)
     .single()
 
   if (error || !camp) {
-    return Response.json({ ok: false, error: 'Campanha não encontrada' }, { status: 404, headers: corsHeaders })
+    console.error('[wa-campaign-builder] fetch campaign failed', { campaign_id, error })
+    return Response.json({ ok: false, error: `Campanha não encontrada: ${error?.message ?? 'unknown'}` }, { status: 404, headers: corsHeaders })
   }
   if (!['draft', 'paused'].includes(camp.status)) {
     return Response.json({ ok: false, error: `Campanha está ${camp.status} — só draft ou paused podem ser ativadas` }, { status: 400, headers: corsHeaders })
