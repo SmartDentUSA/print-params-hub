@@ -60,6 +60,10 @@ function discoverLikelyAdminLid(groups: GroupWithAdminFlag[]): { lid: string; co
   const counts = new Map<string, number>()
   for (const g of groups) {
     const lidsInGroup = new Set<string>()
+    for (const ownerLike of [g.owner, g.subjectOwner]) {
+      const lid = normalizeLid(ownerLike)
+      if (lid && String(ownerLike).endsWith('@lid')) lidsInGroup.add(lid)
+    }
     for (const p of g.participants ?? []) {
       if (!isAdminValue((p as any).admin)) continue
       const lid = normalizeLid(p.id)
