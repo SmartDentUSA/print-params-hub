@@ -1,169 +1,142 @@
+# WA Groups v2 — Multi-instância + Grupos Compartilhados + Central de Campanhas
 
-# Copilot como Bibliotecário + Autor da Smart Dent
+Backend e frontend serão entregues juntos em uma sequência única.
 
-Dois fluxos no mesmo Copilot, alimentando a **mesma RAG** (`smartdent_method_docs`):
+## 1. Backend — migration
 
-```text
-[VOCÊ anexa PDF/DOCX/MD/TXT]
-        ↓
-   ingest_method_doc  ──► extrai → chunk → embed (gemini-embedding-001, 768d)
-        ↓                                          ↓
-   smartdent_method_docs (pgvector HNSW) ◄────────┘
-        ↑                          ↑
-        │                          │
-   match_method_docs        match_method_docs
-        │                          │
-   [Briefing estratégico]   [draft_knowledge_article]
-                                   ↓
-                            knowledge_contents (status=draft)
-                                   ↓
-                            publish_knowledge_article
-                                   ↓
-                            /base-conhecimento/{letra}/{slug}
-```
+Nova migration:
 
----
+- `wa_groups`: adicionar `enabled boolean default true`. Backfill `enabled = is_admin` (não-admin já entram desabilitados por padrão).
+- `wa_groups`: índice `(instance_name, enabled, is_admin)` para o filtro do frontend.
+- `wa_campaign_groups` (nova tabela junction, 1 campanha → N grupos):
+  - `campaign_id uuid` FK → `wa_campaigns(id) on delete cascade`
+  - `group_id uuid` FK → `wa_groups(id) on delete cascade`
+  - `created_at timestamptz default now()`
+  - PK composta `(campaign_id, group_id)`
+  - GRANTs (`authenticated` full, `service_role` all) + RLS.
+- View `v_wa_group_summary`: recriar para incluir `enabled`, `instance_name` (já tem), e marcar `in_shared_campaign` quando o grupo pertence a uma campanha sem `group_id`. Continua exibindo a "campanha do card" via `active_campaign_id`.
+- View `v_wa_combined_campaigns`: nova. Lista campanhas com `group_id IS NULL` e agrega via `wa_campaign_groups` os arrays de grupos + totais (`group_count`, `total_members`, contadores de fila).
+- RPC `fn_detach_group_from_campaign(p_campaign_id, p_group_id)`: remove o registro de `wa_campaign_groups`, limpa `wa_groups.active_campaign_id` se apontava para esta campanha e cancela mensagens `pending` da fila daquele grupo nesta campanha. `security definer`.
 
-## Frente A — Ingestão (Copilot aprende)
+## 2. Backend — Evolution multi-instância
 
-### A1. Tabela `smartdent_method_docs`
+Em `supabase/functions/_shared/evolution.ts`:
 
-| coluna | tipo | nota |
-|---|---|---|
-| `id` | uuid PK | |
-| `source_doc_id` | uuid | agrupa chunks do mesmo arquivo |
-| `chunk_index` | int | ordem |
-| `title` | text | nome do documento original |
-| `slug` | text | normalizado |
-| `doc_type` | text | `icp_positive` / `icp_negative` / `workflow_stage` / `product_positioning` / `competitor_play` / `methodology` / `script` / `outro` |
-| `target_audience` | text[] | `protodontista`, `radiologista`, `clínica`, etc. (LLM classifica) |
-| `target_products` | text[] | `rayshape-edge-mini`, `phrozen-sonic-mini-8k`, etc. |
-| `body_md` | text | chunk de 1000 chars / overlap 150 |
-| `embedding` | vector(768) | `gemini-embedding-001`, reaproveita `_shared/generate-embedding.ts` |
-| `tokens` | int | |
-| `active` | bool default true | |
-| `uploaded_by` | uuid | quem mandou via Copilot |
-| `created_at` / `updated_at` | timestamptz | |
+- Manter `EVO_INST` legado, mas tornar `fetchAdminGroups`, `sendText`, `sendMedia` parametrizáveis por `instanceName` (default = `EVO_INST`).
+- Nova função `fetchInstances()` que chama `GET /instance/fetchInstances` e retorna `WaInstanceInfo[]` (filtrando `connectionStatus === 'open'`).
 
-- Índice HNSW cosine em `embedding`.
-- Índice GIN em `target_audience` e `target_products`.
-- RLS: `SELECT` autenticado, mutações só `service_role` (Copilot via edge function).
-- GRANTs explícitos (anon **não** lê).
+## 3. Backend — edge functions
 
-### A2. RPC `match_method_docs(query_embedding, audience?, product?, doc_type?, match_count default 8)`
+- `wa-sync-groups` refator:
+  - Sem body → chama `fetchInstances()`, sincroniza todas as instâncias conectadas, retorna `{ instances: WaInstanceInfo[], synced: number, per_instance: {…} }`.
+  - Com `{ instance_name }` → sincroniza só aquela.
+  - Em cada upsert, gravar `instance_name` correto (não mais EVO_INST hardcoded).
+- `wa-campaign-builder` refator multi-group:
+  - Aceitar `campaign_id` (mesma assinatura) ou criar fila a partir de `wa_campaign_groups` quando `wa_campaigns.group_id IS NULL`.
+  - Para cada grupo da junction: gera filas independentes (mesmo cronograma base, anti-duplicata por grupo).
+  - Continuar setando `wa_groups.active_campaign_id` em cada grupo participante.
+  - Single-group antigo segue funcionando (path `group_id` direto).
+- `wa-group-blast` (nova):
+  - Body: `{ group_jids: string[], message_type: 'msg'|'image'|'video'|'audio'|'document'|'link', content: {...}, scheduled_at?: string, campaign_name?: string, instance_name?: string }`.
+  - Cria 1 `wa_campaigns` com `status='active'`, `flow_json` de 1 nó (tipo `blast`).
+  - Insere N linhas em `wa_campaign_groups` + N linhas em `wa_message_queue` com `scheduled_at` (default = now + 30s).
+  - Marca `wa_groups.active_campaign_id` em cada grupo (somente se o grupo está livre).
+  - Retorna `{ ok, campaign_id, groups, queued, first_send }`.
+- `wa-dispatcher`: nenhuma mudança estrutural — já lê fila por linha; só precisa usar a `instance_name` correta do registro (parametrizar `sendText/sendMedia`).
 
-Retorna `id, title, body_md, doc_type, target_audience, target_products, similarity`. Filtro opcional por audience/product/doc_type, threshold ≥ 0.55.
+## 4. Frontend — `src/components/smartops/wa-groups/`
 
-### A3. Tool Copilot `ingest_method_doc`
+> Observação importante: o prompt enviado cita o path `src/components/smart-ops/...`. O caminho real é `src/components/smartops/...`. Vou seguir o caminho real.
 
-Input: `{ source_url | text_inline, title?, doc_type?, target_audience?, target_products?, replace_existing? }`
+### Refator `SmartOpsWaGroupCampaigns.tsx`
 
-Fluxo:
-1. Baixa (Supabase Storage / URL externa) ou usa texto inline.
-2. Extrai: PDF (`pdf-parse` via npm), DOCX (`mammoth`), MD/TXT direto.
-3. Normaliza → chunks 1000c / overlap 150.
-4. LLM (Gemini 3 Flash) classifica `doc_type`, `target_audience`, `target_products` se não vierem.
-5. Batch embed cada chunk via `generate-embedding.ts` (já tem cache SHA256).
-6. Upsert na tabela; se `replace_existing` → soft-delete chunks antigos do mesmo `source_doc_id`.
-7. Devolve: `{ source_doc_id, chunks: N, doc_type, audience, products, preview }`.
+- Estado novo: `instances`, `selectedInstance`, `selectionMode`, `selectedGroupIds`, `combinedCampaigns`.
+- Header:
+  - `Select` de instância (carrega via `wa-sync-groups` sem body); se 1 só, fica desabilitado.
+  - Botão `Sincronizar`, `Selecionar grupos`, `+ Nova campanha`.
+- Query: `v_wa_group_summary` filtrada por `instance_name`. Em paralelo, query `v_wa_combined_campaigns`.
+- Render:
+  - Para campanhas multi-group: 1 `WaCombinedCampaignCard` `col-span-full` no topo.
+  - Para grupos sem campanha combinada: cards individuais com badge admin/não-admin, toggle `enabled` (`Switch`), opacidade reduzida quando `!enabled`, e botão "Criar régua" desabilitado com tooltip quando `!is_admin`.
+- Modo seleção: checkbox em grupos `is_admin && enabled`; footer fixo com contagem + `Criar fluxo compartilhado` + `Blast pontual` + `Cancelar`.
+- Realtime: adicionar `wa_groups` e `wa_campaign_groups` ao canal existente.
 
-### A4. Tools de gerência
+### `WaCombinedCampaignCard.tsx` (novo)
 
-- `list_method_docs(filters?)`
-- `search_method_docs(query, filters?)` — debug humano via Copilot
-- `delete_method_doc(source_doc_id)`
-- `update_method_doc_metadata(source_doc_id, { doc_type?, audience?, products?, active? })`
+- Lista os grupos da campanha com toggle de desanexar (chama `fn_detach_group_from_campaign` via RPC).
+- Mostra status, próximo envio, totais e ações (`Ver fluxo`, `Pausar/Retomar`, `Editar`).
 
-### A5. Bucket de storage
+### `WaGroupMultiSelect.tsx` (novo)
 
-`smartdent-method-docs` (privado). RLS: upload só `service_role`, download via signed URL.
+- Listagem de `wa_groups` `is_admin=true AND enabled=true` com checkboxes, agrupada por instância, com contagem de membros e footer de seleção. Usado pelo Builder e pela Central de Campanhas.
 
----
+### `WaGroupBlastModal.tsx` (novo)
 
-## Frente B — Autoria (Copilot publica usando o que aprendeu)
+- Dialog max-w-xl, com `DialogTitle/Description` (corrige warning a11y atual).
+- Tipo de mensagem (radio): texto/imagem/vídeo/áudio/documento/link — reusa `WaMediaUploader` já existente.
+- Agendamento: "Agora (em 30s)" ou data/hora específica.
+- Confirma → `supabase.functions.invoke('wa-group-blast', { body })`.
 
-### B1. Schema delta em `knowledge_contents`
+### Refator `WaGroupFlowBuilder.tsx`
 
-Adiciona (não-quebra):
-- `created_by text default 'human'` — valores `human` / `copilot`
-- `source_method_docs uuid[]` — IDs dos chunks RAG usados (auditoria)
-- `draft_metadata jsonb` — briefing, prompt, modelo, tokens
+- Substituir `groupId` único por suporte a `groupIds: string[]`.
+- Painel esquerdo: trocar resumo do grupo por `WaGroupMultiSelect` (pré-marcado quando vier de seleção múltipla ou de edição multi-group).
+- Salvar:
+  - Se 1 grupo → mantém path atual (`wa_campaigns.group_id`).
+  - Se 2+ → `wa_campaigns.group_id = null` + linhas em `wa_campaign_groups`.
+  - Ao ativar: chama `wa-campaign-builder` (já adaptado).
+- Carregar campanha: se `group_id IS NULL`, popular seleção a partir de `wa_campaign_groups`.
 
-### B2. Tools Copilot
+### `types.ts`
 
-| tool | função |
-|---|---|
-| `draft_knowledge_article` | Gera rascunho usando `match_method_docs` + catálogo de produtos + `knowledge_contents` existentes (FTS p/ não canibalizar). Modelo: `google/gemini-3.1-pro-preview`, max 4500 tokens. Retorna preview no chat (título, meta, primeiros 400c, FAQs). **Não publica.** Salva como `status='draft'`, `active=false`, `created_by='copilot'`. |
-| `revise_draft` | Recebe `draft_id` + instrução ("encurta intro", "troca título por X") → reescreve preservando slug. |
-| `publish_knowledge_article` | `active=true`, dispara pipeline OG banner existente, reindexa FTS, sync System A↔B (`system-a-b-resilient-assets`). Retorna URL canônica. |
-| `list_my_drafts` | Lista drafts pendentes do Copilot. |
-| `unpublish_knowledge_article` | `active=false` (não deleta). |
+Atualizar `WaGroupSummary` com `enabled`, `in_shared_campaign`; adicionar `WaInstanceInfo`, `WaCombinedCampaign`.
 
-### B3. Validators (guardrails)
+## 5. Integração na Central de Campanhas
 
-`_shared/article-validators.ts`:
-- **No-price guard** (regex `R\$|\$\s?\d|preço|valor|custa`) — bloqueia publicação.
-- **No-spec-invention**: cada spec numérica/técnica do body deve ter substring match em pelo menos 1 chunk de `source_method_docs` OU no catálogo de produtos.
-- **Canonical links**: link interno deve casar `/base-conhecimento/{a-f}/{slug}` (`knowledge-base-url-integrity`).
-- **Slug único**: reaproveita `useSlugGeneration` / `cleanSlugSanitization`.
-- **Categoria válida**: A-F (taxonomia existente).
+`SmartOpsCampaigns.tsx`, Step 1 (Segmentação):
 
-### B4. System prompt do Copilot — delta
+- Novo segmento `'wa-groups'` (card com ícone `MessageSquare`).
+- Quando selecionado, renderiza `WaGroupMultiSelect` no lugar dos filtros de leads e preenche `selectedGroups/Names/totalReach`.
+- Step 3 (Execução): se `segmentType === 'wa-groups'`, dispara `wa-group-blast` em vez de `bulk_campaign`.
 
-Adiciona regras:
-- Antes de gerar artigo: **obrigatório** chamar `match_method_docs` + `search_knowledge_content` (já existe).
-- Proibido: inventar specs, citar preços, prometer prazo, copiar concorrente.
-- Sempre devolver preview → aguardar "publica" → só então `publish_knowledge_article`.
-- Tom: técnico-consultivo, primeira pessoa Smart Dent, CTA WhatsApp ao fim.
-- Estrutura: H1 → dor/contexto → solução → diferenciais → workflow 7×3 (quando aplicável) → FAQ → CTA.
+## 6. QA
 
----
+- Migration roda + linter limpo nas nossas alterações.
+- `wa-sync-groups` (sem body) retorna instâncias e sincroniza todas.
+- `wa-group-blast` cria fila correta para 2+ grupos.
+- `wa-campaign-builder` continua funcionando single-group e funciona multi-group.
+- Frontend: filtro por instância, toggle enabled persiste, modo seleção funcional, card combinado abre detalhes, desanexar grupo via RPC reverte para card individual, blast modal envia.
+- Corrigir warning a11y dos Dialogs (incluir `DialogTitle` + `DialogDescription`/visually-hidden).
+
+## Detalhes técnicos
+
+- TypeScript strict, zero cor hardcoded, tokens semânticos.
+- RLS: `wa_campaign_groups` segue mesma política de `wa_campaigns` (somente authenticated).
+- `wa-group-blast` valida body via Zod; CORS via `_shared/evolution.ts`.
+- Realtime mantém um único canal com 4 tabelas (`wa_campaigns`, `wa_message_queue`, `wa_groups`, `wa_campaign_groups`).
+- `WaMediaUploader` (já criado anteriormente) é reusado no Blast e no flow.
 
 ## Arquivos
 
-**Novos:**
-- Migração: tabela `smartdent_method_docs` + RPC `match_method_docs` + GRANTs + RLS + bucket + extensão de `knowledge_contents`.
-- `supabase/functions/copilot-ingest-method-doc/index.ts`
-- `supabase/functions/copilot-draft-knowledge-article/index.ts`
-- `supabase/functions/copilot-publish-knowledge-article/index.ts`
-- `supabase/functions/_shared/method-docs-rag.ts` (chunking, embed, match)
-- `supabase/functions/_shared/article-validators.ts` (price/spec/link/slug)
-- `supabase/functions/_shared/knowledge-article-generator.ts` (pipeline RAG → LLM → validate)
+```
+Migration nova:
+  supabase/migrations/<timestamp>_wa_groups_v2.sql
 
-**Editados:**
-- Orquestrador do Copilot (registra 9 novas tools: 5 ingestão + 4 publicação)
-- System prompt do Copilot
-- Memórias: `mem://smart-ops/copilot-rag-access-v1` (incluir `match_method_docs`), `mem://architecture/content-generation-policy-no-prices-v2` (Copilot como autor)
+Edge functions:
+  supabase/functions/_shared/evolution.ts            (parametrizar instância + fetchInstances)
+  supabase/functions/wa-sync-groups/index.ts         (multi-instância)
+  supabase/functions/wa-campaign-builder/index.ts    (multi-group)
+  supabase/functions/wa-dispatcher/index.ts          (usar instance_name da fila)
+  supabase/functions/wa-group-blast/index.ts         (NOVA)
 
-**Não muda:** Knowledge Base UI, slugs canônicos, pipeline OG banner, System A↔B sync, taxonomia A-F, Frente A independente da B, `lia-assign`, Smart Merge, `copilot_brain`.
-
----
-
-## Fluxo final
-
-```text
-você → anexa "Manual_Rayshape_v3.pdf"
-Copilot → ingest_method_doc → "✅ 14 chunks indexados (product_positioning, rayshape-edge-mini, protodontista)"
-
-você → "escreve artigo Rayshape Edge Mini para protodontistas"
-Copilot → match_method_docs + search_knowledge_content + draft_knowledge_article
-       → "📝 Rascunho: 'Rayshape Edge Mini: autonomia total para protodontistas'
-          1.240 palavras · categoria D · 4 FAQs · fontes: 8 chunks
-          [preview...]
-          Publicar?"
-
-você → "troca o título por 'Protodontia digital sem laboratório'"
-Copilot → revise_draft → novo preview
-
-você → "publica"
-Copilot → publish_knowledge_article →
-       "🚀 /base-conhecimento/p/protodontia-digital-sem-laboratorio"
+Frontend:
+  src/components/smartops/wa-groups/types.ts         (modificar)
+  src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx (refator)
+  src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx       (multi-group)
+  src/components/smartops/wa-groups/WaCombinedCampaignCard.tsx   (NOVO)
+  src/components/smartops/wa-groups/WaGroupMultiSelect.tsx       (NOVO)
+  src/components/smartops/wa-groups/WaGroupBlastModal.tsx        (NOVO)
+  src/components/SmartOpsCampaigns.tsx                           (Step 1 + Step 3)
 ```
 
----
-
-## Perguntas antes de implementar
-
-1. **Limite de upload**: 20 MB / 50 páginas por doc (acima disso, paginar)?
-2. **Aprovação humana sempre obrigatória** antes de publicar, ou aceita flag `auto_publish=true` em temas específicos?
-3. **Rascunhos visíveis no site público** (com badge "rascunho") ou totalmente ocultos até `publish`?
+Não tocar: `WaContentNodeSelector.tsx`, `WaGroupFlowVisualizer.tsx`, `WaFlowVisualizerPage.tsx`, `App.tsx`, `WaMediaUploader.tsx`.

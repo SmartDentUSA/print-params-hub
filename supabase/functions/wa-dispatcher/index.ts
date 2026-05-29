@@ -36,10 +36,21 @@ serve(async (req) => {
       return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
     }
 
+    // Lookup instance_name per group_jid in one shot
+    const jids = Array.from(new Set(pending.map((p: any) => p.group_jid)))
+    const { data: groupRows } = await supabase
+      .from('wa_groups')
+      .select('group_jid, instance_name')
+      .in('group_jid', jids)
+    const instanceByJid = new Map<string, string>(
+      (groupRows ?? []).map((g: any) => [g.group_jid, g.instance_name])
+    )
+
     for (const item of pending) {
       const camp    = item.wa_campaigns as { delay_seconds: number; daily_limit: number }
       const delayMs = Math.max((camp.delay_seconds ?? 15) * 1000, 10_000)
       const jitter  = Math.floor(Math.random() * 5000)
+      const instance = instanceByJid.get(item.group_jid) ?? undefined
 
       await supabase.from('wa_message_queue')
         .update({ status: 'sending' }).eq('id', item.id)
@@ -71,28 +82,28 @@ serve(async (req) => {
           case 'msg': {
             const txt = (item.content_json?.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await sendText(item.group_jid, txt)
+            evoId = await sendText(item.group_jid, txt, instance)
             break
           }
           case 'image':
             evoId = await sendMedia(item.group_jid, 'image',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string)
+              (item.content_json?.caption ?? '') as string, instance)
             break
           case 'video':
             evoId = await sendMedia(item.group_jid, 'video',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string)
+              (item.content_json?.caption ?? '') as string, instance)
             break
           case 'audio':
             evoId = await sendMedia(item.group_jid, 'audio',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string)
+              (item.content_json?.caption ?? '') as string, instance)
             break
           case 'document':
             evoId = await sendMedia(item.group_jid, 'document',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string)
+              (item.content_json?.caption ?? '') as string, instance)
             break
           case 'link': {
             const c = item.content_json ?? {}
@@ -101,12 +112,12 @@ serve(async (req) => {
               c.description ? String(c.description) : '',
               c.url         ? String(c.url)         : '',
             ].filter(Boolean).join('\n\n')
-            evoId = await sendText(item.group_jid, txt)
+            evoId = await sendText(item.group_jid, txt, instance)
             break
           }
           case 'ai': {
             const txt = await resolveAIContent(supabase, item.content_json)
-            evoId = await sendText(item.group_jid, txt)
+            evoId = await sendText(item.group_jid, txt, instance)
             await supabase.from('wa_message_queue')
               .update({ content_json: { ...item.content_json, _resolved_text: txt } })
               .eq('id', item.id)
@@ -123,7 +134,7 @@ serve(async (req) => {
 
         await supabase.from('wa_send_log').insert({
           queue_id: item.id, campaign_id: item.campaign_id,
-          group_jid: item.group_jid, instance_name: 'Comercial',
+          group_jid: item.group_jid, instance_name: instance ?? 'unknown',
           node_type: item.node_type, success: true,
           http_status: 200, evo_message_id: evoId, sent_at: now,
         })
@@ -147,7 +158,7 @@ serve(async (req) => {
 
         await supabase.from('wa_send_log').insert({
           queue_id: item.id, campaign_id: item.campaign_id,
-          group_jid: item.group_jid, instance_name: 'Comercial',
+          group_jid: item.group_jid, instance_name: instance ?? 'unknown',
           node_type: item.node_type, success: false,
           http_status: 500, error_message: msg.slice(0, 500),
         })

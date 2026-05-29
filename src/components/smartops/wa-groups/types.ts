@@ -50,12 +50,14 @@ export interface WaGroupSummary {
   description: string | null;
   member_count: number | null;
   is_admin: boolean;
+  enabled: boolean;
   instance_name: string | null;
   active_campaign_id: string | null;
   synced_at: string | null;
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_status: "draft" | "active" | "paused" | "finished" | "error" | null;
+  campaign_type: "flow" | "blast" | null;
   current_node_index: number | null;
   next_send_at: string | null;
   started_at: string | null;
@@ -63,6 +65,41 @@ export interface WaGroupSummary {
   msgs_sent: number | null;
   msgs_pending: number | null;
   msgs_failed: number | null;
+  in_shared_campaign: boolean;
+}
+
+export interface WaInstanceInfo {
+  instanceName: string;
+  connectionStatus: "open" | "close" | "connecting" | string;
+  owner?: string;
+  profileName?: string;
+}
+
+export interface WaCombinedCampaignGroup {
+  group_id: string;
+  group_jid: string;
+  group_name: string | null;
+  member_count: number | null;
+  is_admin: boolean;
+  enabled: boolean;
+  instance_name: string | null;
+}
+
+export interface WaCombinedCampaign {
+  campaign_id: string;
+  campaign_name: string;
+  campaign_status: "draft" | "active" | "paused" | "finished" | "error";
+  campaign_type: "flow" | "blast";
+  current_node_index: number | null;
+  next_send_at: string | null;
+  started_at: string | null;
+  total_nodes: number;
+  group_count: number;
+  total_members: number;
+  groups: WaCombinedCampaignGroup[];
+  msgs_sent: number;
+  msgs_pending: number;
+  msgs_failed: number;
 }
 
 export interface WaCampaignRow {

@@ -38,50 +38,63 @@ serve(async (req) => {
     return Response.json({ ok: false, error: 'flow_json vazio' }, { status: 400, headers: corsHeaders })
   }
 
-  const groupJid = camp.wa_groups?.group_jid
-  if (!groupJid) {
-    return Response.json({ ok: false, error: 'Grupo sem JID — sincronize os grupos primeiro' }, { status: 400, headers: corsHeaders })
+  // Resolve target groups: single (camp.group_id) OR multi (wa_campaign_groups)
+  type Tgt = { id: string; group_jid: string }
+  let targets: Tgt[] = []
+
+  if (camp.group_id && camp.wa_groups?.group_jid) {
+    targets = [{ id: camp.group_id, group_jid: camp.wa_groups.group_jid }]
+  } else {
+    const { data: linked } = await supabase
+      .from('wa_campaign_groups')
+      .select('group_id, wa_groups!inner(id, group_jid, enabled, is_admin)')
+      .eq('campaign_id', campaign_id)
+    targets = (linked ?? [])
+      .map((r: any) => ({ id: r.wa_groups.id, group_jid: r.wa_groups.group_jid }))
+      .filter((t: Tgt) => !!t.group_jid)
   }
 
+  if (targets.length === 0) {
+    return Response.json({ ok: false, error: 'Campanha sem grupos vinculados' }, { status: 400, headers: corsHeaders })
+  }
+
+  // Clean previous pending for this campaign across all groups
   await supabase.from('wa_message_queue')
     .delete().eq('campaign_id', campaign_id).eq('status', 'pending')
 
-  const queueRows: Array<Record<string, unknown>> = []
   const startTs = camp.started_at ? new Date(camp.started_at).getTime() : Date.now() + 15_000
-  let accMs = 0
-  let lastWait: Record<string, unknown> | null = null
+  const queueRows: Array<Record<string, unknown>> = []
 
-  for (let i = 0; i < flow.length; i++) {
-    const node = flow[i]
-    if (node.type === 'wait') {
-      accMs += ((node.days as number) ?? 1) * 86_400_000
-      lastWait = node
-      continue
+  for (const tgt of targets) {
+    let accMs = 0
+    let lastWait: Record<string, unknown> | null = null
+    for (let i = 0; i < flow.length; i++) {
+      const node = flow[i]
+      if (node.type === 'wait') {
+        accMs += ((node.days as number) ?? 1) * 86_400_000
+        lastWait = node
+        continue
+      }
+      const time = (lastWait?.time as string) ?? '09:00'
+      const [hh, mm] = time.split(':').map(Number)
+      const ts = new Date(startTs + accMs)
+      ts.setUTCHours(hh + 3, mm, 0, 0)
+      if (ts.getTime() < Date.now() && accMs === 0) ts.setDate(ts.getDate() + 1)
+      if (lastWait?.weekdays_only) {
+        const d = ts.getDay()
+        if (d === 0) ts.setDate(ts.getDate() + 1)
+        if (d === 6) ts.setDate(ts.getDate() + 2)
+      }
+      queueRows.push({
+        campaign_id,
+        group_jid: tgt.group_jid,
+        node_index: i,
+        node_type: node.type,
+        content_json: buildContent(node),
+        scheduled_at: ts.toISOString(),
+        status: 'pending',
+      })
     }
-
-    const time = (lastWait?.time as string) ?? '09:00'
-    const [hh, mm] = time.split(':').map(Number)
-    const ts = new Date(startTs + accMs)
-    ts.setUTCHours(hh + 3, mm, 0, 0)
-
-    if (ts.getTime() < Date.now() && accMs === 0) {
-      ts.setDate(ts.getDate() + 1)
-    }
-    if (lastWait?.weekdays_only) {
-      const d = ts.getDay()
-      if (d === 0) ts.setDate(ts.getDate() + 1)
-      if (d === 6) ts.setDate(ts.getDate() + 2)
-    }
-
-    queueRows.push({
-      campaign_id,
-      group_jid: groupJid,
-      node_index: i,
-      node_type: node.type,
-      content_json: buildContent(node),
-      scheduled_at: ts.toISOString(),
-      status: 'pending',
-    })
   }
 
   if (queueRows.length === 0) {
@@ -91,24 +104,30 @@ serve(async (req) => {
   const { error: insertErr } = await supabase.from('wa_message_queue').insert(queueRows)
   if (insertErr) throw insertErr
 
+  const firstSend = queueRows.map(r => r.scheduled_at as string).sort()[0]
+
   await supabase.from('wa_campaigns').update({
     status: 'active',
     started_at: camp.started_at ?? new Date().toISOString(),
     current_node_index: 0,
-    next_send_at: queueRows[0].scheduled_at,
+    next_send_at: firstSend,
   }).eq('id', campaign_id)
 
-  await supabase.from('wa_groups')
-    .update({ active_campaign_id: campaign_id })
-    .eq('group_jid', groupJid)
+  // Mark active_campaign_id on every target group (only if free or already this campaign)
+  for (const tgt of targets) {
+    await supabase.from('wa_groups')
+      .update({ active_campaign_id: campaign_id })
+      .eq('id', tgt.id)
+  }
 
-  console.log(`[wa-campaign-builder] Campanha ${campaign_id} ativada: ${queueRows.length} msgs`)
+  console.log(`[wa-campaign-builder] Campanha ${campaign_id} ativada: ${queueRows.length} msgs em ${targets.length} grupos`)
 
   return Response.json({
-    ok: true, campaign: campaign_id, group: groupJid,
+    ok: true, campaign: campaign_id,
+    groups: targets.length,
+    group_jids: targets.map(t => t.group_jid),
     queued: queueRows.length,
-    first_send: queueRows[0].scheduled_at,
-    schedule: queueRows.map(r => ({ node: r.node_index, type: r.node_type, scheduled: r.scheduled_at })),
+    first_send: firstSend,
   }, { headers: corsHeaders })
 })
 

@@ -9,7 +9,7 @@ export const ADMIN_JID = `${EVO_PHONE}@s.whatsapp.net`
 // WhatsApp LID privacy: participantes vêm como @lid, não @s.whatsapp.net.
 // Nosso LID confirmado via contagem de grupos owned (MEMBER *) = 98908885786860@lid.
 export const ADMIN_LID = Deno.env.get('EVOLUTION_ADMIN_LID') ?? '98908885786860@lid'
-const EVO_INST_ENC = encodeURIComponent(EVO_INST)
+const enc = (instance: string) => encodeURIComponent(instance)
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,12 +30,37 @@ export interface WaNumberCheckResult {
   name?: string
 }
 
+export interface WaInstanceInfo {
+  instanceName:     string
+  connectionStatus: 'open' | 'close' | 'connecting' | string
+  owner?:           string
+  profileName?:     string
+}
+
 function h() {
   return { 'Content-Type': 'application/json', 'apikey': EVO_KEY }
 }
 
-export async function fetchAdminGroups(): Promise<EvoGroup[]> {
-  const url = `${EVO_BASE}/group/fetchAllGroups/${EVO_INST_ENC}?getParticipants=true`
+export async function fetchInstances(): Promise<WaInstanceInfo[]> {
+  const res = await fetch(`${EVO_BASE}/instance/fetchInstances`, { headers: h() })
+  if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
+  const raw = await res.json()
+  const list = Array.isArray(raw) ? raw : []
+  return list
+    .map((it: any): WaInstanceInfo => {
+      const inst = it.instance ?? it
+      return {
+        instanceName:     inst.instanceName ?? inst.name ?? '',
+        connectionStatus: inst.connectionStatus ?? inst.status ?? 'close',
+        owner:            inst.owner ?? inst.ownerJid ?? undefined,
+        profileName:      inst.profileName ?? inst.profile_name ?? undefined,
+      }
+    })
+    .filter(i => i.instanceName)
+}
+
+export async function fetchAdminGroups(instanceName: string = EVO_INST): Promise<EvoGroup[]> {
+  const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
   const res = await fetch(url, { headers: h() })
   if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
   const all: EvoGroup[] = await res.json()
@@ -47,8 +72,8 @@ export async function fetchAdminGroups(): Promise<EvoGroup[]> {
   )
 }
 
-export async function sendText(groupJid: string, text: string): Promise<string | null> {
-  const res = await fetch(`${EVO_BASE}/message/sendText/${EVO_INST_ENC}`, {
+export async function sendText(groupJid: string, text: string, instanceName: string = EVO_INST): Promise<string | null> {
+  const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ number: groupJid, text }),
   })
@@ -61,9 +86,10 @@ export async function sendMedia(
   groupJid: string,
   mediatype: 'image' | 'video' | 'audio' | 'document',
   mediaUrl: string,
-  caption = ''
+  caption = '',
+  instanceName: string = EVO_INST,
 ): Promise<string | null> {
-  const res = await fetch(`${EVO_BASE}/message/sendMedia/${EVO_INST_ENC}`, {
+  const res = await fetch(`${EVO_BASE}/message/sendMedia/${enc(instanceName)}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
   })
@@ -72,11 +98,11 @@ export async function sendMedia(
   return d?.key?.id ?? null
 }
 
-export async function checkWaNumber(rawPhone: string): Promise<WaNumberCheckResult> {
+export async function checkWaNumber(rawPhone: string, instanceName: string = EVO_INST): Promise<WaNumberCheckResult> {
   const clean = normalizePhone(rawPhone)
   if (!clean || clean.length < 10) return { exists: false }
 
-  const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${EVO_INST_ENC}`, {
+  const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${enc(instanceName)}`, {
     method: 'POST', headers: h(),
     body: JSON.stringify({ numbers: [clean] }),
   })
