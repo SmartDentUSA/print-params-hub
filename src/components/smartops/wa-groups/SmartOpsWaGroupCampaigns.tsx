@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   RefreshCw, Users, Plus, Pencil, Eye, Search, ShieldAlert, Activity,
-  PauseCircle, PlayCircle, Clock,
+  PauseCircle, PlayCircle, Clock, Send, X,
 } from "lucide-react";
-import type { WaGroupSummary } from "./types";
+import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
+import { WaGroupBlastModal } from "./WaGroupBlastModal";
 
 const statusVariant: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -43,12 +48,34 @@ export function SmartOpsWaGroupCampaigns() {
   const [search, setSearch] = useState("");
   const [builderGroupId, setBuilderGroupId] = useState<string | null>(null);
   const [builderCampaignId, setBuilderCampaignId] = useState<string | null>(null);
+  const [instances, setInstances] = useState<WaInstanceInfo[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState<string>("");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [blastOpen, setBlastOpen] = useState(false);
+
+  // Load available instances on mount (sem sync — só lê do retorno)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("wa-sync-groups", { body: {} });
+        const list: WaInstanceInfo[] = (data?.instances ?? []).filter((i: any) => i?.instanceName);
+        setInstances(list);
+        if (list.length > 0 && !selectedInstance) setSelectedInstance(list[0].instanceName);
+      } catch {
+        // silent — view still works with whatever wa_groups has
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
+    let q = (supabase as any)
       .from("v_wa_group_summary")
-      .select("*")
+      .select("*");
+    if (selectedInstance) q = q.eq("instance_name", selectedInstance);
+    const { data, error } = await q
       .order("is_admin", { ascending: false })
       .order("group_name", { ascending: true });
     if (error) {
@@ -58,7 +85,7 @@ export function SmartOpsWaGroupCampaigns() {
     }
     setRows((data ?? []) as WaGroupSummary[]);
     setLoading(false);
-  }, []);
+  }, [selectedInstance]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -69,6 +96,7 @@ export function SmartOpsWaGroupCampaigns() {
       .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaigns" }, () => fetchRows())
       .on("postgres_changes", { event: "*", schema: "public", table: "wa_message_queue" }, () => fetchRows())
       .on("postgres_changes", { event: "*", schema: "public", table: "wa_groups" }, () => fetchRows())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaign_groups" }, () => fetchRows())
       .subscribe();
     return () => { (supabase as any).removeChannel(channel); };
   }, [fetchRows]);
@@ -76,9 +104,11 @@ export function SmartOpsWaGroupCampaigns() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body: {} });
+      const body = selectedInstance ? { instance_name: selectedInstance } : {};
+      const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body });
       if (error) throw error;
       toast.success(`Sincronizados ${data?.synced ?? 0} grupos`);
+      if (Array.isArray(data?.instances)) setInstances(data.instances);
       await fetchRows();
     } catch (err: any) {
       toast.error("Falha no sync: " + (err?.message ?? String(err)));
@@ -99,6 +129,19 @@ export function SmartOpsWaGroupCampaigns() {
     fetchRows();
   };
 
+  const handleToggleEnabled = async (row: WaGroupSummary, next: boolean) => {
+    const { error } = await (supabase as any)
+      .from("wa_groups")
+      .update({ enabled: next })
+      .eq("id", row.group_id);
+    if (error) { toast.error(error.message); return; }
+    fetchRows();
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -110,8 +153,11 @@ export function SmartOpsWaGroupCampaigns() {
 
   const adminCount = rows.filter(r => r.is_admin).length;
   const activeCount = rows.filter(r => r.campaign_status === "active").length;
+  const selectedRows = rows.filter(r => selectedIds.includes(r.group_id));
+  const selectedMembers = selectedRows.reduce((s, r) => s + (r.member_count ?? 0), 0);
 
   return (
+    <TooltipProvider>
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -127,6 +173,28 @@ export function SmartOpsWaGroupCampaigns() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {instances.length > 0 && (
+            <Select value={selectedInstance} onValueChange={setSelectedInstance} disabled={instances.length === 1}>
+              <SelectTrigger className="h-9 w-[200px] text-xs">
+                <SelectValue placeholder="Instância" />
+              </SelectTrigger>
+              <SelectContent>
+                {instances.map(i => (
+                  <SelectItem key={i.instanceName} value={i.instanceName}>
+                    {i.profileName ? `${i.profileName} (${i.instanceName})` : i.instanceName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            variant={selectionMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setSelectionMode(s => !s); setSelectedIds([]); }}
+          >
+            {selectionMode ? <X className="w-4 h-4 mr-2" /> : <Checkbox className="mr-2" checked={false} />}
+            {selectionMode ? "Sair da seleção" : "Selecionar grupos"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Sincronizando..." : "Sincronizar grupos"}
@@ -156,18 +224,34 @@ export function SmartOpsWaGroupCampaigns() {
           <p>Nenhum grupo encontrado. Clique em "Sincronizar grupos".</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${selectionMode ? "pb-24" : ""}`}>
           {filtered.map(row => {
             const disabled = !row.is_admin;
             const hasCampaign = !!row.campaign_id;
             const progress = row.total_nodes && row.total_nodes > 0
               ? Math.round(((row.current_node_index ?? 0) / row.total_nodes) * 100)
               : 0;
+            const isSelected = selectedIds.includes(row.group_id);
+            const canSelect = row.is_admin && row.enabled;
+            const dimmed = !row.enabled;
             return (
-              <Card key={row.group_id} className={`flex flex-col ${disabled ? "opacity-60" : "hover:shadow-md transition-shadow"}`}>
+              <Card
+                key={row.group_id}
+                className={`flex flex-col transition-shadow ${dimmed ? "opacity-50" : "hover:shadow-md"} ${isSelected ? "ring-2 ring-primary" : ""}`}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm line-clamp-2">{row.group_name ?? "Grupo sem nome"}</CardTitle>
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      {selectionMode && (
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={!canSelect}
+                          onCheckedChange={() => canSelect && toggleSelect(row.group_id)}
+                          className="mt-0.5"
+                        />
+                      )}
+                      <CardTitle className="text-sm line-clamp-2 flex-1">{row.group_name ?? "Grupo sem nome"}</CardTitle>
+                    </div>
                     {row.is_admin ? (
                       <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
                         Admin
@@ -178,9 +262,18 @@ export function SmartOpsWaGroupCampaigns() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Users className="w-3 h-3" />
-                    {row.member_count ?? 0} membros
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3 h-3" />
+                      {row.member_count ?? 0} membros
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <span className="text-[10px]">{row.enabled ? "ativado" : "desativ."}</span>
+                      <Switch
+                        checked={row.enabled}
+                        onCheckedChange={(v) => handleToggleEnabled(row, v)}
+                      />
+                    </label>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-3 pt-0">
@@ -191,6 +284,9 @@ export function SmartOpsWaGroupCampaigns() {
                           {statusLabel[row.campaign_status ?? "draft"]}
                         </Badge>
                         <span className="text-xs text-muted-foreground truncate">{row.campaign_name}</span>
+                        {row.in_shared_campaign && (
+                          <Badge variant="outline" className="text-[10px] border-primary/40">compartilhada</Badge>
+                        )}
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-[11px] text-muted-foreground">
@@ -225,18 +321,25 @@ export function SmartOpsWaGroupCampaigns() {
                   )}
 
                   <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
-                    <Button
-                      size="sm"
-                      variant={hasCampaign ? "outline" : "default"}
-                      disabled={disabled}
-                      onClick={() => {
-                        setBuilderGroupId(row.group_id);
-                        setBuilderCampaignId(row.campaign_id);
-                      }}
-                    >
-                      {hasCampaign ? <Pencil className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                      {hasCampaign ? "Editar" : "Criar campanha"}
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Button
+                            size="sm"
+                            variant={hasCampaign ? "outline" : "default"}
+                            disabled={disabled}
+                            onClick={() => {
+                              setBuilderGroupId(row.group_id);
+                              setBuilderCampaignId(row.campaign_id);
+                            }}
+                          >
+                            {hasCampaign ? <Pencil className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                            {hasCampaign ? "Editar" : "Criar régua"}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {disabled && <TooltipContent>Somente grupos onde somos admin</TooltipContent>}
+                    </Tooltip>
                     {hasCampaign && (
                       <>
                         <Button
@@ -267,6 +370,21 @@ export function SmartOpsWaGroupCampaigns() {
         </div>
       )}
 
+      {/* Selection footer */}
+      {selectionMode && selectedIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background border shadow-lg rounded-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-sm">
+            <strong>{selectedIds.length}</strong> grupos selecionados · <strong>{selectedMembers}</strong> membros
+          </span>
+          <Button size="sm" onClick={() => setBlastOpen(true)}>
+            <Send className="w-3 h-3 mr-1" /> Blast pontual
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => { setSelectionMode(false); setSelectedIds([]); }}>
+            Cancelar
+          </Button>
+        </div>
+      )}
+
       {/* Builder Sheet */}
       {builderGroupId && (
         <WaGroupFlowBuilder
@@ -277,7 +395,16 @@ export function SmartOpsWaGroupCampaigns() {
           onSaved={() => { setBuilderGroupId(null); setBuilderCampaignId(null); fetchRows(); }}
         />
       )}
+
+      <WaGroupBlastModal
+        open={blastOpen}
+        onClose={() => setBlastOpen(false)}
+        onSent={() => { setBlastOpen(false); setSelectionMode(false); setSelectedIds([]); fetchRows(); }}
+        selectedGroupJids={selectedRows.map(r => r.group_jid)}
+        selectedGroupNames={selectedRows.map(r => r.group_name ?? "")}
+      />
     </div>
+    </TooltipProvider>
   );
 }
 
