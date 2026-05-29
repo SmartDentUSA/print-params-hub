@@ -16657,6 +16657,7 @@ export type Database = {
           elevenlabs_voice_id: string | null
           email: string
           evolution_api_key: string | null
+          evolution_group_key_broken_at: string | null
           evolution_instance_name: string | null
           evolution_lid: string | null
           evolution_phone: string | null
@@ -16687,6 +16688,7 @@ export type Database = {
           elevenlabs_voice_id?: string | null
           email: string
           evolution_api_key?: string | null
+          evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
@@ -16717,6 +16719,7 @@ export type Database = {
           elevenlabs_voice_id?: string | null
           email?: string
           evolution_api_key?: string | null
+          evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
@@ -18402,6 +18405,7 @@ export type Database = {
           _regua_ativa_legacy: boolean | null
           active_campaign_id: string | null
           ativo: boolean | null
+          consecutive_send_errors: number
           created_at: string | null
           description: string | null
           enabled: boolean
@@ -18410,11 +18414,14 @@ export type Database = {
           instance_name: string
           invite_link: string | null
           is_admin: boolean
+          last_send_error: string | null
+          last_send_error_at: string | null
           member_count: number | null
           name: string
           phone_number: string | null
           picture_url: string | null
           produto_tag: string | null
+          session_health: string
           synced_at: string | null
           tipo: string | null
           turma_id: string | null
@@ -18424,6 +18431,7 @@ export type Database = {
           _regua_ativa_legacy?: boolean | null
           active_campaign_id?: string | null
           ativo?: boolean | null
+          consecutive_send_errors?: number
           created_at?: string | null
           description?: string | null
           enabled?: boolean
@@ -18432,11 +18440,14 @@ export type Database = {
           instance_name?: string
           invite_link?: string | null
           is_admin?: boolean
+          last_send_error?: string | null
+          last_send_error_at?: string | null
           member_count?: number | null
           name: string
           phone_number?: string | null
           picture_url?: string | null
           produto_tag?: string | null
+          session_health?: string
           synced_at?: string | null
           tipo?: string | null
           turma_id?: string | null
@@ -18446,6 +18457,7 @@ export type Database = {
           _regua_ativa_legacy?: boolean | null
           active_campaign_id?: string | null
           ativo?: boolean | null
+          consecutive_send_errors?: number
           created_at?: string | null
           description?: string | null
           enabled?: boolean
@@ -18454,11 +18466,14 @@ export type Database = {
           instance_name?: string
           invite_link?: string | null
           is_admin?: boolean
+          last_send_error?: string | null
+          last_send_error_at?: string | null
           member_count?: number | null
           name?: string
           phone_number?: string | null
           picture_url?: string | null
           produto_tag?: string | null
+          session_health?: string
           synced_at?: string | null
           tipo?: string | null
           turma_id?: string | null
@@ -23765,6 +23780,7 @@ export type Database = {
         }[]
       }
       fn_vitality_gen_tick: { Args: never; Returns: undefined }
+      fn_wa_reactivate_group: { Args: { p_group_jid: string }; Returns: Json }
       fn_wa_reprocess_undelivered: {
         Args: { p_campaign_id: string }
         Returns: number
