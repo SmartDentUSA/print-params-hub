@@ -67,11 +67,16 @@ export function SmartOpsWaGroupCampaigns() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.functions.invoke("wa-sync-groups", { body: {} });
+        const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body: { list_only: true } });
+        if (error) throw error;
         const list: WaInstanceInfo[] = (data?.instances ?? []).filter((i: any) => i?.instanceName);
         setInstances(list);
-        if (list.length > 0 && !selectedInstance) setSelectedInstance(list[0].instanceName);
-      } catch {
+        if (list.length > 0 && !selectedInstance) {
+          const connected = list.find(i => (i as any).connectionStatus === "open");
+          setSelectedInstance((connected ?? list[0]).instanceName);
+        }
+      } catch (e: any) {
+        toast.error("Falha ao listar instâncias: " + (e?.message ?? String(e)));
         // silent — view still works with whatever wa_groups has
       }
     })();
