@@ -394,6 +394,62 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "ingest_method_doc",
+      description: "Aprende com um documento Smart Dent (PDF/DOCX/MD/TXT) — extrai, fatia em chunks, vetoriza e indexa em smartdent_method_docs para uso em briefings e na geração de artigos. Aceita URL pública, path no bucket smartdent-method-docs, ou texto inline.",
+      parameters: {
+        type: "object",
+        properties: {
+          source_url: { type: "string", description: "URL pública do arquivo (opcional)" },
+          storage_path: { type: "string", description: "Path dentro do bucket smartdent-method-docs (opcional)" },
+          text_inline: { type: "string", description: "Texto cru pronto para indexar (opcional)" },
+          filename: { type: "string", description: "Nome do arquivo (para detectar mime)" },
+          title: { type: "string", description: "Título do documento (default: filename)" },
+          doc_type: { type: "string", description: "icp_positive|icp_negative|workflow_stage|product_positioning|competitor_play|methodology|script|outro (LLM classifica se vazio)" },
+          target_audience: { type: "array", items: { type: "string" }, description: "Públicos: protodontista, dentista_clinico, radiologista, clinica, laboratorio, etc." },
+          target_products: { type: "array", items: { type: "string" }, description: "Slugs de produtos relacionados" },
+          replace_existing: { type: "string", description: "source_doc_id antigo a desativar antes de reindexar" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "draft_knowledge_article",
+      description: "Gera RASCUNHO de artigo para o Knowledge Base público, ancorado em smartdent_method_docs + catálogo. Salva como active=false, created_by='copilot'. NÃO publica — devolve preview e pede confirmação.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "Tema central do artigo" },
+          target_audience: { type: "array", items: { type: "string" } },
+          target_products: { type: "array", items: { type: "string" } },
+          category_letter: { type: "string", description: "A|B|C|D|E|F (dica de categoria)" },
+          tone: { type: "string", description: "consultivo-técnico (default), editorial, didático…" },
+          draft_id: { type: "string", description: "UUID — para revisar/regenerar um rascunho existente" },
+          revise_instructions: { type: "string", description: "Quando draft_id é passado: o que mudar" }
+        },
+        required: ["topic"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "publish_knowledge_article",
+      description: "Publica (active=true) um rascunho gerado por draft_knowledge_article. Re-valida guardrails (sem preço, categoria válida, slug único) antes de publicar. Devolve a URL canônica /base-conhecimento/{letra}/{slug}.",
+      parameters: {
+        type: "object",
+        properties: {
+          draft_id: { type: "string", description: "UUID do rascunho" },
+          action: { type: "string", description: "'publish' (default) ou 'unpublish'" }
+        },
+        required: ["draft_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "create_article",
       description: "Cria um artigo na base de conhecimento usando o orquestrador de conteúdo IA.",
       parameters: {
@@ -2181,6 +2237,18 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   unify_leads: executeUnifyLeads,
   ingest_knowledge: executeIngestKnowledge,
   create_article: executeCreateArticle,
+  ingest_method_doc: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-ingest-method-doc", { body: args });
+    return error ? { error: error.message } : data;
+  },
+  draft_knowledge_article: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-draft-knowledge-article", { body: args });
+    return error ? { error: error.message } : data;
+  },
+  publish_knowledge_article: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-publish-knowledge-article", { body: args });
+    return error ? { error: error.message } : data;
+  },
   import_csv: executeImportCsv,
   calculate: executeCalculate,
   query_leads_advanced: executeQueryLeadsAdvanced,
