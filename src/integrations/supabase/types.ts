@@ -23136,6 +23136,16 @@ export type Database = {
         Returns: undefined
       }
       check_copilot_brain_drift: { Args: never; Returns: Json }
+      claim_pending_kb_docs: {
+        Args: { p_limit?: number }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          source_label: string
+          title: string
+        }[]
+      }
       cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
       compute_lead_portfolio_from_mappings: {
         Args: { p_lead_id: string }
