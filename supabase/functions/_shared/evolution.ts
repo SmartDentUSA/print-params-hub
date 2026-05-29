@@ -123,7 +123,7 @@ export async function fetchGroupsWithAdminFlag(
 ): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
   const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 60_000)
+  const timer = setTimeout(() => ctrl.abort(), 120_000)
   let res: Response
   try {
     res = await fetch(url, { headers: hWith(apikey), signal: ctrl.signal })
