@@ -5,11 +5,13 @@ const COST_RATES: Record<string, { input: number; output: number }> = {
   "lovable": { input: 0.15, output: 0.60 },
   "deepseek": { input: 0.14, output: 0.28 },
   "google": { input: 0.01, output: 0.01 },
+  "anthropic": { input: 3.00, output: 15.00 },
 };
 
 function detectProvider(model: string): string {
   if (model.startsWith("google/")) return "lovable";
   if (model.startsWith("openai/")) return "lovable";
+  if (model.includes("claude") || model.startsWith("anthropic/")) return "anthropic";
   if (model.includes("deepseek")) return "deepseek";
   if (model.includes("embedding")) return "google";
   return "lovable";

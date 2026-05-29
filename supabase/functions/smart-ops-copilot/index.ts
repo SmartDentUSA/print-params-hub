@@ -17,7 +17,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // --- MODEL CONFIG ---
-type ModelId = "deepseek" | "gemini" | "claude";
+type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
 
 function getModelConfig(modelId: ModelId) {
   if (modelId === "gemini") {
@@ -26,6 +26,8 @@ function getModelConfig(modelId: ModelId) {
       model: "google/gemini-3-flash-preview",
       apiKey: LOVABLE_API_KEY!,
       label: "gemini",
+      temperature: 0.3,
+      maxTokens: 4096,
     };
   }
   if (modelId === "claude") {
@@ -34,13 +36,29 @@ function getModelConfig(modelId: ModelId) {
       model: "claude-sonnet-4-5",
       apiKey: ANTHROPIC_API_KEY!,
       label: "claude",
+      temperature: 0.3,
+      maxTokens: 4096,
     };
   }
+  if (modelId === "deepseek-flash") {
+    // Variante rápida: temperatura baixa e respostas mais curtas.
+    return {
+      url: "https://api.deepseek.com/chat/completions",
+      model: "deepseek-chat",
+      apiKey: DEEPSEEK_API_KEY,
+      label: "deepseek-flash",
+      temperature: 0.1,
+      maxTokens: 1536,
+    };
+  }
+  // deepseek-pro (default): mais espaço para raciocínio/ferramentas.
   return {
     url: "https://api.deepseek.com/chat/completions",
     model: "deepseek-chat",
     apiKey: DEEPSEEK_API_KEY,
-    label: "deepseek",
+    label: "deepseek-pro",
+    temperature: 0.3,
+    maxTokens: 4096,
   };
 }
 
@@ -2446,12 +2464,14 @@ serve(async (req) => {
 
   try {
     const { messages, csv_data, model: requestedModel } = await req.json();
-    
-    // Determine which model to use
+
+    // Determine which model to use (legacy "deepseek" → "deepseek-pro").
     const modelId: ModelId =
       requestedModel === "gemini" ? "gemini"
       : requestedModel === "claude" ? "claude"
-      : "deepseek";
+      : requestedModel === "deepseek-flash" ? "deepseek-flash"
+      : requestedModel === "deepseek-pro" ? "deepseek-pro"
+      : "deepseek-pro";
     const config = getModelConfig(modelId);
 
     // Validate API key
