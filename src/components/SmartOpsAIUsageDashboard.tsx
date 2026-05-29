@@ -36,18 +36,21 @@ const AI_FUNCTIONS_MAP: Record<string, { label: string; provider: string; descri
   "index-embeddings": { label: "Embeddings", provider: "Google", description: "Geração de embeddings vetoriais" },
   "index-spin-entries": { label: "SPIN Embed", provider: "Google", description: "Embeddings SPIN" },
   "ingest-knowledge-text": { label: "KB Embed", provider: "Google", description: "Embeddings da base de conhecimento" },
+  "smart-ops-copilot": { label: "Copilot Comercial", provider: "DeepSeek + Lovable + Anthropic", description: "Chat operacional do Painel Administrativo (DS V4-Pro/Flash, Gemini, Claude)" },
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
   lovable: "Lovable (Gemini)",
   deepseek: "DeepSeek",
   google: "Google (Embed)",
+  anthropic: "Anthropic (Claude)",
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
   lovable: "text-blue-600",
   deepseek: "text-emerald-600",
   google: "text-amber-600",
+  anthropic: "text-purple-600",
 };
 
 function getMonthOptions() {
@@ -241,7 +244,7 @@ export function SmartOpsAIUsageDashboard() {
 
       {/* Provider Breakdown */}
       {byProvider.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {byProvider.map((p) => (
             <Card key={p.provider}>
               <CardHeader className="pb-2">
