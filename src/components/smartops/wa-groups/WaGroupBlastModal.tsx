@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Send } from "lucide-react";
 import { WaMediaUploader } from "./WaMediaUploader";
+import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
 
 type MsgType = "msg" | "image" | "video" | "audio" | "document" | "link";
 
@@ -16,11 +17,20 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSent?: () => void;
-  selectedGroupJids: string[];
-  selectedGroupNames: string[];
+  selectedGroupJids?: string[];
+  selectedGroupNames?: string[];
+  /** Quando true, o modal mostra um passo de segmentação (picker) incluindo grupos não-admin. */
+  pickerMode?: boolean;
+  instanceFilter?: string;
 }
 
-export function WaGroupBlastModal({ open, onClose, onSent, selectedGroupJids, selectedGroupNames }: Props) {
+export function WaGroupBlastModal({
+  open, onClose, onSent,
+  selectedGroupJids: presetJids = [],
+  selectedGroupNames: presetNames = [],
+  pickerMode = false,
+  instanceFilter,
+}: Props) {
   const [type, setType] = useState<MsgType>("msg");
   const [text, setText] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
@@ -32,11 +42,19 @@ export function WaGroupBlastModal({ open, onClose, onSent, selectedGroupJids, se
   const [whenMode, setWhenMode] = useState<"now" | "scheduled">("now");
   const [scheduledAt, setScheduledAt] = useState("");
   const [sending, setSending] = useState(false);
+  // Picker state (used only when pickerMode=true)
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const [pickedJids, setPickedJids] = useState<string[]>([]);
+  const [pickedNames, setPickedNames] = useState<string[]>([]);
+
+  const selectedGroupJids = pickerMode ? pickedJids : presetJids;
+  const selectedGroupNames = pickerMode ? pickedNames : presetNames;
 
   const reset = () => {
     setType("msg"); setText(""); setMediaUrl(""); setFileName(undefined);
     setCaption(""); setLinkTitle(""); setLinkUrl(""); setLinkDesc("");
     setWhenMode("now"); setScheduledAt("");
+    setPickedIds([]); setPickedJids([]); setPickedNames([]);
   };
 
   const buildContent = (): Record<string, unknown> | null => {
@@ -99,13 +117,31 @@ export function WaGroupBlastModal({ open, onClose, onSent, selectedGroupJids, se
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Envio pontual — {selectedGroupJids.length} grupo{selectedGroupJids.length === 1 ? "" : "s"}</DialogTitle>
+          <DialogTitle>
+            Envio pontual {pickerMode ? "(wizard)" : "—"} {selectedGroupJids.length} grupo{selectedGroupJids.length === 1 ? "" : "s"}
+          </DialogTitle>
           <DialogDescription className="line-clamp-2">
-            {selectedGroupNames.slice(0, 5).join(", ")}{selectedGroupNames.length > 5 ? ` e mais ${selectedGroupNames.length - 5}` : ""}
+            {pickerMode
+              ? "Selecione os grupos abaixo (incluindo onde a instância não é admin) para o envio único."
+              : `${selectedGroupNames.slice(0, 5).join(", ")}${selectedGroupNames.length > 5 ? ` e mais ${selectedGroupNames.length - 5}` : ""}`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {pickerMode && (
+            <div>
+              <Label className="text-xs">Segmentação</Label>
+              <WaGroupMultiSelect
+                selectedIds={pickedIds}
+                instanceFilter={instanceFilter}
+                includeNonAdmin
+                onChange={(ids, jids, names) => {
+                  setPickedIds(ids); setPickedJids(jids); setPickedNames(names);
+                }}
+              />
+            </div>
+          )}
+
           <div>
             <Label className="text-xs">Tipo de mensagem</Label>
             <RadioGroup value={type} onValueChange={(v) => setType(v as MsgType)} className="grid grid-cols-3 gap-2 mt-1">
