@@ -232,7 +232,17 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (activate) {
         const { data, error } = await supabase.functions.invoke("wa-campaign-builder", { body: { campaign_id: cid } });
         if (error) {
-          const detail = (data as any)?.error || (error as any)?.message || String(error);
+          let detail = (data as any)?.error || (error as any)?.message || String(error);
+          try {
+            const ctx = (error as any)?.context;
+            if (ctx && typeof ctx.json === "function") {
+              const body = await ctx.json();
+              if (body?.error) detail = body.error;
+            } else if (ctx && typeof ctx.text === "function") {
+              const txt = await ctx.text();
+              if (txt) { try { const j = JSON.parse(txt); detail = j.error ?? txt; } catch { detail = txt; } }
+            }
+          } catch { /* ignore */ }
           throw new Error(detail);
         }
         if (data && (data as any).ok === false) {
