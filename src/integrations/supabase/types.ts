@@ -22870,6 +22870,15 @@ export type Database = {
         }[]
       }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
+      fn_get_seller_by_name: {
+        Args: { p_name: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          notification_phone: string
+          whatsapp_number: string
+        }[]
+      }
       fn_import_dh_leads: {
         Args: { p_leads: Json }
         Returns: {
