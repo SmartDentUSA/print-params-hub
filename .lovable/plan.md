@@ -1,48 +1,35 @@
-## Plano
+## Objetivo
+Corrigir o sync de grupos para que os grupos da instância `Danilo Henrique` sejam salvos como admin quando o Danilo é administrador, sem mexer em envio, dispatcher, builder, `EVO_BASE` ou `EVO_KEY`.
 
-1. **Corrigir a descoberta da instância Danilo Henrique**
-   - Manter `team_members.evolution_instance_name = 'Danilo Henrique'` como fonte interna para a instância, mesmo quando ela não aparece em `/instance/fetchInstances`.
-   - Usar `5519992612348` e `5519992612348@s.whatsapp.net` como hints oficiais dessa instância.
-   - Não alterar `EVO_BASE`, envio de mensagens, dispatcher ou builder.
+## Diagnóstico confirmado
+- `wa_groups` tem 402 grupos para `Danilo Henrique`, todos com `is_admin=false`.
+- A instância está cadastrada em `team_members` com telefone `5519992612348` e API key própria.
+- O banco ainda não tem coluna `evolution_lid`.
+- O log mostra que a função só usa `5519992612348@s.whatsapp.net`/telefone como hint, mas a Evolution retorna o admin/owner em formato `@lid`; por isso a comparação nunca bate.
 
-2. **Ajustar o filtro de grupos em `fetchAdminGroups`**
-   - Hoje o log mostra que a função chamou Danilo com os hints corretos, mas retornou `0 grupos admin`; isso indica que o endpoint respondeu, porém o filtro local descartou tudo.
-   - Tornar o filtro tolerante aos formatos reais do Evolution:
-     - aceitar `owner` / `subjectOwner` por telefone/JID;
-     - aceitar participante admin quando o ID bate por JID, LID ou telefone;
-     - normalizar variações de `admin` (`admin`, `superadmin`, `true`, etc.);
-     - para instância selecionada explicitamente, se o Evolution já retorna os grupos daquele celular mas não expõe LID/owner compatível, sincronizar os grupos retornados com `is_admin` derivado quando possível, em vez de descartar tudo.
+## Plano de implementação
+1. **Persistir LID da instância**
+   - Criar a coluna nullable `team_members.evolution_lid`.
+   - Não criar tabela nova; sem alteração de RLS necessária.
 
-3. **Melhorar diagnóstico no retorno e logs da edge function**
-   - Logar por instância:
-     - quantidade bruta de grupos recebidos do Evolution;
-     - quantidade após filtro;
-     - se houve fallback por ausência de match de owner/LID.
-   - Retornar `per_instance['Danilo Henrique']` com `raw`, `synced`, `groups` e `warning` quando aplicável.
+2. **Descobrir automaticamente o LID do Danilo**
+   - Em `wa-sync-groups`, após buscar os 402 grupos, contar participantes com `admin`/`superadmin` cujo `id` termina em `@lid`.
+   - Selecionar o LID mais frequente como provável LID da instância, usando uma trava mínima de confiança para evitar falso positivo.
 
-4. **Corrigir escopo do `team_members` para não depender do nome do vendedor ativo**
-   - O banco tem vários vendedores ativos usando a mesma instância `Danilo Henrique`, enquanto o registro com nome `Danilo Henrique` está inativo.
-   - A sincronização deve tratar a instância como entidade WhatsApp, não como vendedor individual ativo, usando `distinct evolution_instance_name` + telefone/token disponível.
+3. **Recalcular `is_admin` no mesmo sync**
+   - Após descobrir o LID, recalcular todos os grupos já baixados: grupo será admin quando `owner`, `subjectOwner` ou participante admin bater com esse LID.
+   - Persistir os grupos com `is_admin=true` quando aplicável.
 
-5. **Validar após implementar**
-   - Chamar `wa-sync-groups` com `{ "instance_name": "Danilo Henrique" }`.
-   - Confirmar nos logs algo como:
-     ```text
-     [wa-sync-groups] Danilo Henrique: X grupos recebidos, Y sincronizados
-     ```
-   - Conferir no banco:
-     ```sql
-     select count(*) from wa_groups where instance_name = 'Danilo Henrique';
-     ```
+4. **Salvar o LID para próximos syncs**
+   - Atualizar todos os registros de `team_members` com `evolution_instance_name = 'Danilo Henrique'` e telefone `5519992612348` para guardar o LID descoberto.
+   - Em syncs futuros, ler `evolution_lid` e passar como hint direto.
 
-## Arquivos previstos
+5. **Logs e validação**
+   - Logar: grupos brutos, candidatos LID, LID escolhido, quantidade admin recalculada.
+   - Validar chamando `wa-sync-groups` com `{ "instance_name": "Danilo Henrique" }`.
+   - Conferir no banco: `count(*) filter (where is_admin)` para `instance_name='Danilo Henrique'` deve ficar maior que zero.
 
-- `supabase/functions/_shared/evolution.ts`
-- `supabase/functions/wa-sync-groups/index.ts`
-
-## Fora de escopo
-
-- Não mexer em `sendText` / `sendMedia`.
-- Não mexer no dispatcher.
-- Não mexer no flow builder.
-- Não mudar servidor/base URL do Evolution.
+## Fora do escopo
+- Não alterar `sendText`/`sendMedia`.
+- Não alterar dispatcher nem builder.
+- Não alterar servidor Evolution, `EVO_BASE` ou chave global.
