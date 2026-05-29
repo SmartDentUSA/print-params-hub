@@ -3,7 +3,7 @@
 
 export const EVO_BASE  = Deno.env.get('EVOLUTION_API_URL')      ?? 'http://82.25.75.61:8080'
 export const EVO_INST  = Deno.env.get('EVOLUTION_INSTANCE_NAME') ?? 'Dra. Lia'
-export const EVO_KEY   = Deno.env.get('EVOLUTION_API_KEY')      ?? 'E1596BBE-4B93-4A62-A610-3BDBD3788672'
+export const EVO_KEY   = Deno.env.get('EVOLUTION_API_KEY')      ?? 'SmartDent_LIA_2026'
 export const EVO_PHONE = '5516981158403'
 export const ADMIN_JID = `${EVO_PHONE}@s.whatsapp.net`
 // WhatsApp LID privacy: participantes vêm como @lid, não @s.whatsapp.net.
@@ -170,6 +170,7 @@ export async function sendText(groupJid: string, text: string, instanceName: str
   const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, text }),
+    signal: AbortSignal.timeout(15_000),
   })
   if (!res.ok) throw new Error(`sendText ${res.status}: ${await res.text()}`)
   const d = await res.json()
@@ -187,6 +188,7 @@ export async function sendMedia(
   const res = await fetch(`${EVO_BASE}/message/sendMedia/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
+    signal: AbortSignal.timeout(15_000),
   })
   if (!res.ok) throw new Error(`sendMedia ${res.status}: ${await res.text()}`)
   const d = await res.json()
