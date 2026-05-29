@@ -1,57 +1,39 @@
 ## Objetivo
 
-1. Painel Administrativo (`SmartOpsAIUsageDashboard`) passa a exibir consumo do **Claude** (Anthropic) ao lado de Lovable/DeepSeek/Google.
-2. Seletor de modelo do Copilot ganha duas variantes do DeepSeek: **DeepSeek-V4-Pro** e **DeepSeek-V4-Flash** (substituindo o botão único "DeepSeek").
+Em `Admin → Smart Ops → WhatsApp → Campanhas em Grupos`:
+
+1. Ocultar do grid principal os grupos onde a instância NÃO é admin (sem régua/flow disponível para eles).
+2. Permitir alcançar esses grupos apenas via o wizard de Blast pontual (segmentação) — onde aparecem listados, claramente marcados como "não admin", e habilitados apenas para envio único.
+3. Permitir editar o nome das réguas compartilhadas no card "Réguas compartilhadas".
 
 ## Mudanças
 
-### 1. Tracking de uso do Claude
-`supabase/functions/_shared/log-ai-usage.ts`
-- Adicionar `"anthropic"` em `COST_RATES` (ex.: Claude Sonnet 4.5 ≈ $3 input / $15 output por 1M tokens).
-- `detectProvider()`: retornar `"anthropic"` quando o model contém `claude` ou começa com `anthropic/`.
+### 1. `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx`
 
-`supabase/functions/smart-ops-copilot/index.ts`
-- Já chama `logAIUsage` — passará a registrar o provider `anthropic` automaticamente assim que o detector for atualizado.
+- No `filtered` (memo do grid), adicionar `r.is_admin` ao filtro — grupos não-admin somem do grid principal.
+- Recalcular `enabledCount` / `disabledCount` / contador "X grupos" considerando apenas admin (a métrica `adminCount` continua exibida no header).
+- Adicionar botão no header: **"Blast pontual (wizard)"** que abre um novo modal de segmentação listando TODOS os grupos sincronizados (admin e não-admin), com badge "não admin" e tooltip "Apenas envio único; régua exige admin".
+- No card de Réguas compartilhadas: adicionar botão lápis ao lado do nome que abre um pequeno Dialog (`Input` + Salvar) fazendo `update wa_campaigns set name where id=...`, refazendo `fetchShared` após sucesso.
 
-### 2. Painel admin reconhece Claude
-`src/components/SmartOpsAIUsageDashboard.tsx`
-- `PROVIDER_LABELS`: adicionar `anthropic: "Anthropic (Claude)"`.
-- `PROVIDER_COLORS`: adicionar `anthropic: "text-purple-600"`.
-- Ajustar grid de provider breakdown de `sm:grid-cols-3` → `sm:grid-cols-4` para acomodar Anthropic.
-- `AI_FUNCTIONS_MAP["smart-ops-copilot"]`: registrar entrada do Copilot com provider `"Lovable + DeepSeek + Anthropic"` (a função não estava listada).
+### 2. `src/components/smartops/wa-groups/WaGroupBlastModal.tsx`
 
-### 3. Variantes DeepSeek no Copilot
-`supabase/functions/smart-ops-copilot/index.ts`
-- `ModelId` passa a aceitar `"deepseek-pro"` e `"deepseek-flash"` (mantém `"deepseek"` como alias legado → mapeia para `deepseek-pro`).
-- `getModelConfig()`:
-  - `deepseek-pro` → `model: "deepseek-chat"`, label `deepseek-pro`
-  - `deepseek-flash` → `model: "deepseek-chat"` com prompt/temperatura otimizada **ou** `model: "deepseek-reasoner"` (a decidir — ver pergunta abaixo)
-- Roteamento de `requestedModel` no handler ajustado para os novos IDs.
+- Aceitar prop opcional `pickerMode` (default `false`). Quando `true`, renderiza um passo inicial de segmentação:
+  - Lista de grupos (reaproveita `WaGroupMultiSelect` sem filtro de admin) com busca por nome, filtro por instância e checkboxes.
+  - Mostra badge "não admin" nos grupos sem admin; ainda assim selecionáveis (Evolution permite enviar mensagem em grupo do qual a instância participa mesmo sem ser admin).
+  - Após escolher os grupos, segue para o passo atual (tipo/mídia/agendamento).
+- O caminho existente "Selecionar grupos → Blast pontual" no rodapé continua funcionando com `pickerMode=false` e `selectedGroupJids` pré-definidos.
 
-`src/components/SmartOpsCopilot.tsx`
-- `ModelId`: `"deepseek-pro" | "deepseek-flash" | "gemini" | "claude"`.
-- Substituir o `ToggleGroupItem value="deepseek"` por dois itens: **DS V4-Pro** e **DS V4-Flash**.
-- Default selecionado: `deepseek-pro`.
-- Persistir seleção em `localStorage` (atualmente não persiste).
+### 3. `src/components/smartops/wa-groups/WaGroupMultiSelect.tsx`
 
-## Detalhes técnicos
+- Adicionar prop opcional `includeNonAdmin?: boolean` (default `false`) para que, no novo wizard, a lista mostre grupos não-admin com badge visual.
 
-```text
-ai_token_usage.provider passa a ter 4 valores possíveis:
-  lovable | deepseek | google | anthropic
-```
+### Sem mudanças de banco
 
-Custos estimados (USD/1M tokens) usados em `log-ai-usage.ts`:
-```
-anthropic (Claude Sonnet 4.5): input 3.00 / output 15.00
-```
+Não há migrations. Política: réguas/flow continuam restritos a grupos admin; blast pontual (uma mensagem por vez) é liberado para qualquer grupo onde a instância participa.
 
-## Pergunta antes de implementar
+## Validação
 
-DeepSeek API hoje expõe apenas dois modelos públicos: `deepseek-chat` (V3.2) e `deepseek-reasoner`. Os nomes "V4-Pro" e "V4-Flash" não existem no endpoint oficial. Para o seletor funcionar de verdade, preciso saber como mapear:
-
-- **Opção A** (recomendada): `V4-Pro` → `deepseek-chat`, `V4-Flash` → `deepseek-reasoner` (raciocínio mais longo).
-- **Opção B**: ambos chamam `deepseek-chat` e a diferença é só `temperature`/`max_tokens` (Pro = qualidade, Flash = rápido/curto).
-- **Opção C**: você tem acesso a um endpoint/beta com esses model IDs exatos — me passa a string que vai em `body.model`.
-
-Confirmar qual opção seguir; se não responder, sigo com **Opção B** (rotulagem visual, mesmo endpoint, parâmetros distintos).
+- Grid principal não mostra cards com badge "Não admin".
+- Contadores no header e nos abas Ativados/Desativados refletem apenas admins.
+- Botão "Blast pontual (wizard)" abre modal que lista admins + não-admins, envia para selecionados via `wa-group-blast` (já existente).
+- Editar nome de régua compartilhada persiste e atualiza imediatamente.
