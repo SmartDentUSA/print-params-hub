@@ -21670,20 +21670,25 @@ export type Database = {
           campaign_name: string | null
           campaign_status: string | null
           campaign_type: string | null
+          consecutive_send_errors: number | null
           current_node_index: number | null
           description: string | null
           enabled: boolean | null
           group_id: string | null
           group_jid: string | null
+          group_key_auto_fallback: boolean | null
           group_name: string | null
           in_shared_campaign: boolean | null
           instance_name: string | null
           is_admin: boolean | null
+          last_send_error: string | null
+          last_send_error_at: string | null
           member_count: number | null
           msgs_failed: number | null
           msgs_pending: number | null
           msgs_sent: number | null
           next_send_at: string | null
+          session_health: string | null
           started_at: string | null
           synced_at: string | null
           total_nodes: number | null
