@@ -67,9 +67,44 @@ export function SmartOpsWaGroupCampaigns() {
   useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body: { list_only: true } });
-        if (error) throw error;
-        const list: WaInstanceInfo[] = (data?.instances ?? []).filter((i: any) => i?.instanceName);
+        // 1) Instâncias ativas dos team members (fonte da verdade)
+        const { data: tm, error: tmErr } = await (supabase as any)
+          .from("team_members")
+          .select("evolution_instance_name, evolution_phone, nome_completo")
+          .eq("ativo", true)
+          .not("evolution_instance_name", "is", null);
+        if (tmErr) throw tmErr;
+
+        const byName = new Map<string, WaInstanceInfo>();
+        for (const r of (tm ?? []) as any[]) {
+          const name = (r.evolution_instance_name ?? "").trim();
+          if (!name || byName.has(name)) continue;
+          byName.set(name, {
+            instanceName: name,
+            connectionStatus: "unknown",
+            profileName: r.nome_completo ?? undefined,
+            owner: r.evolution_phone ?? undefined,
+          } as any);
+        }
+
+        // 2) Enriquecer com connectionStatus real via wa-sync-groups (list_only)
+        try {
+          const { data } = await supabase.functions.invoke("wa-sync-groups", { body: { list_only: true } });
+          const live: WaInstanceInfo[] = (data?.instances ?? []).filter((i: any) => i?.instanceName);
+          for (const i of live) {
+            const cur = byName.get(i.instanceName);
+            if (cur) {
+              (cur as any).connectionStatus = i.connectionStatus ?? "unknown";
+              if (!cur.profileName && i.profileName) cur.profileName = i.profileName;
+            }
+          }
+        } catch {
+          // se a Evolution falhar, mantém a lista do team_members sem status
+        }
+
+        const list = Array.from(byName.values()).sort((a, b) =>
+          (a.profileName ?? a.instanceName).localeCompare(b.profileName ?? b.instanceName)
+        );
         setInstances(list);
         if (list.length > 0 && !selectedInstance) {
           const connected = list.find(i => (i as any).connectionStatus === "open");
@@ -77,7 +112,6 @@ export function SmartOpsWaGroupCampaigns() {
         }
       } catch (e: any) {
         toast.error("Falha ao listar instâncias: " + (e?.message ?? String(e)));
-        // silent — view still works with whatever wa_groups has
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
