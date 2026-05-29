@@ -351,14 +351,32 @@ export function SmartOpsWaGroupCampaigns() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar grupo ou campanha..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar grupo ou campanha..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="inline-flex rounded-md border bg-muted/30 p-0.5">
+          <button
+            type="button"
+            onClick={() => setView("enabled")}
+            className={`px-3 py-1.5 text-xs rounded ${view === "enabled" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Ativados <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{enabledCount}</Badge>
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("disabled")}
+            className={`px-3 py-1.5 text-xs rounded ${view === "disabled" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Desativados <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{disabledCount}</Badge>
+          </button>
+        </div>
       </div>
 
       {/* Réguas compartilhadas (multi-grupo) */}
