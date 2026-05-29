@@ -3,6 +3,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sendText, sendMedia, sleep, corsHeaders } from '../_shared/evolution.ts'
+import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -245,7 +246,7 @@ serve(async (req) => {
 })
 
 async function checkDailyLimit(sb: SupabaseClient, cid: string, limit: number) {
-  const start = new Date(); start.setHours(0, 0, 0, 0)
+  const start = spStartOfDay()
   const { count } = await sb.from('wa_message_queue')
     .select('id', { count: 'exact', head: true })
     .eq('campaign_id', cid).eq('status', 'sent')
@@ -274,12 +275,11 @@ async function advanceCampaign(sb: SupabaseClient, cid: string, sentIdx: number)
   if (nxt.type === 'wait') {
     const days = (nxt.days as number) ?? 1
     const [hh, mm] = ((nxt.time as string) ?? '09:00').split(':').map(Number)
-    const at = new Date(Date.now() + days * 86_400_000)
-    at.setUTCHours(hh + 3, mm, 0, 0)
+    let at = spDateTimeToUtc(addDaysSp(new Date(), days), hh, mm)
     if (nxt.weekdays_only) {
-      const d = at.getDay()
-      if (d === 0) at.setDate(at.getDate() + 1)
-      if (d === 6) at.setDate(at.getDate() + 2)
+      const d = spWeekday(at)
+      if (d === 0) at = addDaysSp(at, 1)
+      else if (d === 6) at = addDaysSp(at, 2)
     }
     await sb.from('wa_campaigns')
       .update({ current_node_index: next, next_send_at: at.toISOString() }).eq('id', cid)
