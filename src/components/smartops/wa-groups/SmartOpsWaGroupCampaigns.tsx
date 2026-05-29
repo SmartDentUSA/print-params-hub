@@ -18,6 +18,8 @@ import {
 import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
 import { WaGroupBlastModal } from "./WaGroupBlastModal";
+import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const statusVariant: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -56,6 +58,10 @@ export function SmartOpsWaGroupCampaigns() {
   const [blastOpen, setBlastOpen] = useState(false);
   const [sharedCampaigns, setSharedCampaigns] = useState<Array<{ id: string; name: string; status: string; group_ids: string[]; group_names: string[] }>>([]);
   const [sharedOpen, setSharedOpen] = useState(true);
+  const [editGroupsFor, setEditGroupsFor] = useState<{ id: string; name: string; status: string; group_ids: string[] } | null>(null);
+  const [editGroupsDraft, setEditGroupsDraft] = useState<string[]>([]);
+  const [savingGroups, setSavingGroups] = useState(false);
+  const [editFlowFor, setEditFlowFor] = useState<{ id: string; group_ids: string[] } | null>(null);
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -172,13 +178,60 @@ export function SmartOpsWaGroupCampaigns() {
   };
 
   const filtered = useMemo(() => {
+    // IDs de grupos que já fazem parte de uma régua compartilhada — devem sair da lista principal
+    const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
+    const base = rows.filter(r => !sharedIds.has(r.group_id));
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(r =>
+    if (!q) return base;
+    return base.filter(r =>
       (r.group_name ?? "").toLowerCase().includes(q) ||
       (r.campaign_name ?? "").toLowerCase().includes(q)
     );
-  }, [rows, search]);
+  }, [rows, search, sharedCampaigns]);
+
+  const openEditGroups = (c: { id: string; name: string; status: string; group_ids: string[] }) => {
+    setEditGroupsFor(c);
+    setEditGroupsDraft(c.group_ids);
+  };
+
+  const saveEditGroups = async () => {
+    if (!editGroupsFor) return;
+    const campId = editGroupsFor.id;
+    const before = new Set(editGroupsFor.group_ids);
+    const after = new Set(editGroupsDraft);
+    const toAdd = [...after].filter(id => !before.has(id));
+    const toRemove = [...before].filter(id => !after.has(id));
+    if (toAdd.length === 0 && toRemove.length === 0) { setEditGroupsFor(null); return; }
+    if (after.size === 0) { toast.error("A régua precisa ter ao menos 1 grupo."); return; }
+    setSavingGroups(true);
+    try {
+      if (toAdd.length > 0) {
+        const rows = toAdd.map(gid => ({ campaign_id: campId, group_id: gid }));
+        const { error } = await (supabase as any).from("wa_campaign_groups").insert(rows);
+        if (error) throw error;
+      }
+      if (toRemove.length > 0) {
+        for (const gid of toRemove) {
+          const { error } = await (supabase as any).rpc("fn_detach_group_from_campaign", {
+            p_campaign_id: campId, p_group_id: gid,
+          });
+          if (error) throw error;
+        }
+      }
+      // Se ativa, reconstrói fila para refletir nova lista de grupos
+      if (editGroupsFor.status === "active" && toAdd.length > 0) {
+        await supabase.functions.invoke("wa-campaign-builder", { body: { campaign_id: campId } });
+      }
+      toast.success(`Grupos atualizados (+${toAdd.length} / −${toRemove.length})`);
+      setEditGroupsFor(null);
+      fetchRows();
+      fetchShared();
+    } catch (err: any) {
+      toast.error("Falha: " + (err?.message ?? String(err)));
+    } finally {
+      setSavingGroups(false);
+    }
+  };
 
   const adminCount = rows.filter(r => r.is_admin).length;
   const activeCount = rows.filter(r => r.campaign_status === "active").length;
