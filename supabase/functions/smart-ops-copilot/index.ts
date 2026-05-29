@@ -2567,7 +2567,9 @@ serve(async (req) => {
           messages: currentMessages,
           tools: actionTools,
           tool_choice: "auto",
-          stream: false
+          stream: false,
+          temperature: config.temperature,
+          max_tokens: config.maxTokens,
         })
       });
 
@@ -2714,7 +2716,9 @@ serve(async (req) => {
         body: JSON.stringify({
           model: config.model,
           messages: currentMessages,
-          stream: false
+          stream: false,
+          temperature: config.temperature,
+          max_tokens: config.maxTokens,
         })
       });
 
