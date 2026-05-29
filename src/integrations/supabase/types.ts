@@ -16658,6 +16658,7 @@ export type Database = {
           email: string
           evolution_api_key: string | null
           evolution_instance_name: string | null
+          evolution_lid: string | null
           evolution_phone: string | null
           id: string
           manychat_api_key: string | null
@@ -16687,6 +16688,7 @@ export type Database = {
           email: string
           evolution_api_key?: string | null
           evolution_instance_name?: string | null
+          evolution_lid?: string | null
           evolution_phone?: string | null
           id?: string
           manychat_api_key?: string | null
@@ -16716,6 +16718,7 @@ export type Database = {
           email?: string
           evolution_api_key?: string | null
           evolution_instance_name?: string | null
+          evolution_lid?: string | null
           evolution_phone?: string | null
           id?: string
           manychat_api_key?: string | null
