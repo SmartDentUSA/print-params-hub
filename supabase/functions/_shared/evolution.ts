@@ -122,7 +122,16 @@ export async function fetchGroupsWithAdminFlag(
   apikey?: string,
 ): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
   const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
-  const res = await fetch(url, { headers: hWith(apikey) })
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 60_000)
+  let res: Response
+  try {
+    res = await fetch(url, { headers: hWith(apikey), signal: ctrl.signal })
+  } catch (e) {
+    throw new Error(`fetchAllGroups timeout/aborted: ${e instanceof Error ? e.message : String(e)}`)
+  } finally {
+    clearTimeout(timer)
+  }
   if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
   const all: EvoGroup[] = await res.json()
 
