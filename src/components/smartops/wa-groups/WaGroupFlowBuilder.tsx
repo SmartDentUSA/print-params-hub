@@ -12,10 +12,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip,
 } from "lucide-react";
 import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
+import { WaMediaUploader } from "./WaMediaUploader";
 
 interface Props {
   open: boolean;
@@ -31,6 +32,8 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }
   ai:    { label: "IA + Conteúdo", icon: Sparkles,     color: "text-purple-600" },
   image: { label: "Imagem",       icon: ImageIcon,     color: "text-emerald-600" },
   video: { label: "Vídeo",        icon: Video,         color: "text-red-600" },
+  audio: { label: "Áudio",        icon: Mic,           color: "text-pink-600" },
+  document: { label: "Documento", icon: Paperclip,     color: "text-slate-600" },
   link:  { label: "Link",         icon: Link2,         color: "text-cyan-600" },
 };
 
@@ -41,7 +44,9 @@ function newNode(type: FlowNodeType): FlowNode {
     case "wait":  return { id, type, days: 1, time: "09:00", weekdays_only: false };
     case "ai":    return { id, type, ai_source_type: "article", ai_source_id: "", ai_source_title: "", ai_prompt_override: "" };
     case "image":
-    case "video": return { id, type, media_url: "", caption: "" };
+    case "video":
+    case "audio":
+    case "document": return { id, type, media_url: "", caption: "" };
     case "link":  return { id, type, title: "", description: "", url: "" };
   }
 }
