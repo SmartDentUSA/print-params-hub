@@ -16656,6 +16656,7 @@ export type Database = {
           created_at: string
           elevenlabs_voice_id: string | null
           email: string
+          evolution_api_key: string | null
           evolution_instance_name: string | null
           evolution_phone: string | null
           id: string
@@ -16684,6 +16685,7 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email: string
+          evolution_api_key?: string | null
           evolution_instance_name?: string | null
           evolution_phone?: string | null
           id?: string
@@ -16712,6 +16714,7 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email?: string
+          evolution_api_key?: string | null
           evolution_instance_name?: string | null
           evolution_phone?: string | null
           id?: string

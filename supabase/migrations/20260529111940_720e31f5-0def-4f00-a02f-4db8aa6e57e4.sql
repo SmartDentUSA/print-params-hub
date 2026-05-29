@@ -1,0 +1,2 @@
+UPDATE public.team_members SET evolution_api_key = 'DC600C9D-F981-4648-B525-73B83A3852C6' WHERE evolution_instance_name = 'Danilo Henrique' AND (evolution_api_key IS NULL OR evolution_api_key = '');
+UPDATE public.team_members SET evolution_api_key = 'E1596BBE-4B93-4A62-A610-3BDBD3788672' WHERE evolution_instance_name = 'Dra. Lia' AND (evolution_api_key IS NULL OR evolution_api_key = '');

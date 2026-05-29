@@ -38,53 +38,102 @@ serve(async (req) => {
 
     const connected = instances.filter(i => i.connectionStatus === 'open')
 
+    // Merge instâncias cadastradas em team_members (fonte da verdade interna).
+    // Cada instância pode ter sua própria apikey (token) — o servidor Evolution
+    // não usa uma única "global key": cada instância tem token próprio.
+    const { data: tmAll } = await supabase
+      .from('team_members')
+      .select('evolution_instance_name, evolution_phone, evolution_api_key, nome_completo, ativo')
+      .eq('ativo', true)
+      .not('evolution_instance_name', 'is', null)
+    const tmInstances: WaInstanceInfo[] = []
+    const tmPhones = new Map<string, string>()
+    const apikeyByInstance = new Map<string, string>()
+    for (const r of (tmAll ?? []) as any[]) {
+      const name = String(r.evolution_instance_name ?? '').trim()
+      const phone = String(r.evolution_phone ?? '').replace(/\D/g, '')
+      const apikey = String(r.evolution_api_key ?? '').trim()
+      if (!name) continue
+      if (phone && !tmPhones.has(name)) tmPhones.set(name, phone)
+      if (apikey && !apikeyByInstance.has(name)) apikeyByInstance.set(name, apikey)
+      if (!instances.some(i => i.instanceName === name)) {
+        tmInstances.push({
+          instanceName: name,
+          connectionStatus: 'unknown',
+          owner: phone ? `${phone}@s.whatsapp.net` : undefined,
+          profileName: r.nome_completo ?? undefined,
+        })
+      }
+    }
+
+    // Descobre status real de cada instância usando o apikey próprio dela
+    // (apenas Dra. Lia aparece em fetchInstances com a key global).
+    for (const [name, apikey] of apikeyByInstance) {
+      if (instances.some(i => i.instanceName === name && i.connectionStatus === 'open')) continue
+      try {
+        const live = await fetchInstances(apikey)
+        const found = live.find(i => i.instanceName === name)
+        if (!found) continue
+        const idx = tmInstances.findIndex(i => i.instanceName === name)
+        if (idx >= 0) {
+          tmInstances[idx] = { ...tmInstances[idx], ...found }
+        } else {
+          const evoIdx = instances.findIndex(i => i.instanceName === name)
+          if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...found }
+          else instances.push(found)
+        }
+      } catch (e) {
+        console.warn(`[wa-sync-groups] fetchInstances(${name}) com apikey própria falhou:`, e instanceof Error ? e.message : String(e))
+      }
+    }
+
+    // Lista combinada exposta na resposta (UI)
+    const combinedInstances = [...instances, ...tmInstances]
+
     // list_only: apenas devolve as instâncias descobertas (sem sincronizar grupos)
     if (body.list_only) {
       return Response.json({
-        ok: true, synced: 0, instances, per_instance: {},
+        ok: true, synced: 0, instances: combinedInstances, per_instance: {},
       }, { headers: corsHeaders })
     }
 
-    // Filter to target instance if requested
-    const targets = body.instance_name
-      ? connected.filter(i => i.instanceName === body.instance_name)
-      : connected
+    // Filter to target instance if requested.
+    // Se a instância pedida não estiver em "connected", tenta usá-la mesmo assim
+    // contanto que conste em team_members ou venha do próprio Evolution.
+    let targets: WaInstanceInfo[]
+    if (body.instance_name) {
+      const fromEvo = instances.find(i => i.instanceName === body.instance_name)
+      const fromTm  = tmInstances.find(i => i.instanceName === body.instance_name)
+      const picked = fromEvo ?? fromTm
+      targets = picked ? [picked] : []
+    } else {
+      targets = connected
+    }
 
     if (targets.length === 0) {
       return Response.json({
-        ok: true, synced: 0, instances,
+        ok: true, synced: 0, instances: combinedInstances,
         warning: body.instance_name
-          ? `Instância "${body.instance_name}" não está conectada.`
+          ? `Instância "${body.instance_name}" não encontrada (Evolution + team_members).`
           : 'Nenhuma instância conectada.',
       }, { headers: corsHeaders })
     }
 
     const per_instance: Record<string, { synced: number; groups: string[]; error?: string }> = {}
     let totalSynced = 0
-
-    // Fallback de telefone via team_members (quando inst.owner vem vazio)
-    const instanceNames = targets.map(t => t.instanceName)
-    const phoneByInstance = new Map<string, string>()
-    if (instanceNames.length > 0) {
-      const { data: tmRows } = await supabase
-        .from('team_members')
-        .select('evolution_instance_name, evolution_phone')
-        .in('evolution_instance_name', instanceNames)
-        .not('evolution_phone', 'is', null)
-      for (const r of (tmRows ?? [])) {
-        const n = (r as any).evolution_instance_name as string
-        const p = String((r as any).evolution_phone ?? '').replace(/\D/g, '')
-        if (n && p && !phoneByInstance.has(n)) phoneByInstance.set(n, p)
-      }
-    }
+    // Fallback de telefone vem do tmPhones acima
+    const phoneByInstance = tmPhones
 
     for (const inst of targets) {
       try {
-        const ownerJid = inst.owner ?? undefined
-        const ownerDigits = (ownerJid ?? '').replace(/\D/g, '')
-        const phone = ownerDigits || phoneByInstance.get(inst.instanceName) || undefined
+        const tmPhone = phoneByInstance.get(inst.instanceName)
+        const ownerJid = inst.owner ?? (tmPhone ? `${tmPhone}@s.whatsapp.net` : undefined)
+        const ownerDigits = (inst.owner ?? '').replace(/\D/g, '')
+        const phone = ownerDigits || tmPhone || undefined
         const hints: OwnerHints = { jid: ownerJid, phone }
-        const groups = await fetchAdminGroups(inst.instanceName, hints)
+        const apikey = apikeyByInstance.get(inst.instanceName)
+        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
+        const groups = await fetchAdminGroups(inst.instanceName, hints, apikey)
         console.log(`[wa-sync-groups] ${inst.instanceName}: ${groups.length} grupos admin`)
 
         if (groups.length > 0) {
@@ -119,7 +168,7 @@ serve(async (req) => {
     return Response.json({
       ok:        true,
       synced:    totalSynced,
-      instances,
+      instances: combinedInstances,
       per_instance,
     }, { headers: corsHeaders })
 
