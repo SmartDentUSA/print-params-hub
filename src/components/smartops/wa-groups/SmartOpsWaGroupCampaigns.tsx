@@ -20,6 +20,7 @@ import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
 import { WaGroupBlastModal } from "./WaGroupBlastModal";
 import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
 import { WaCampaignHealthBadge } from "./WaCampaignHealthBadge";
+import { WaGroupSessionBadge } from "./WaGroupSessionBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const statusVariant: Record<string, string> = {
@@ -606,6 +607,14 @@ export function SmartOpsWaGroupCampaigns() {
                       {row.campaign_id && (
                         <WaCampaignHealthBadge campaignId={row.campaign_id} compact />
                       )}
+                      <WaGroupSessionBadge
+                        groupJid={row.group_jid}
+                        sessionHealth={row.session_health}
+                        lastError={row.last_send_error}
+                        lastErrorAt={row.last_send_error_at}
+                        autoFallback={row.group_key_auto_fallback}
+                        onReactivated={fetchRows}
+                      />
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">Sem campanha ativa</p>

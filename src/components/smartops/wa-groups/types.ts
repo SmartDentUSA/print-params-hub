@@ -66,6 +66,11 @@ export interface WaGroupSummary {
   msgs_pending: number | null;
   msgs_failed: number | null;
   in_shared_campaign: boolean;
+  session_health?: "ok" | "session_broken" | string | null;
+  consecutive_send_errors?: number | null;
+  last_send_error?: string | null;
+  last_send_error_at?: string | null;
+  group_key_auto_fallback?: boolean | null;
 }
 
 export interface WaInstanceInfo {

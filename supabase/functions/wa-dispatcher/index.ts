@@ -2,7 +2,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup } from '../_shared/evolution.ts'
+import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
@@ -41,25 +41,38 @@ serve(async (req) => {
     const jids = Array.from(new Set(pending.map((p: any) => p.group_jid)))
     const { data: groupRows } = await supabase
       .from('wa_groups')
-      .select('group_jid, instance_name')
+      .select('group_jid, instance_name, session_health')
       .in('group_jid', jids)
     const instanceByJid = new Map<string, string>(
       (groupRows ?? []).map((g: any) => [g.group_jid, g.instance_name])
     )
+    const groupHealthByJid = new Map<string, string>(
+      (groupRows ?? []).map((g: any) => [g.group_jid, g.session_health ?? 'ok'])
+    )
 
-    // Resolve per-instance Evolution apikey (memory: Evolution Per-Instance Credentials)
+    // Resolve per-instance Evolution apikey + group-key health
+    // (memory: Evolution Per-Instance Credentials + group-key auto-fallback)
     const instanceNames = Array.from(new Set(
       (groupRows ?? []).map((g: any) => g.instance_name).filter(Boolean)
     )) as string[]
-    const apikeyByInstance = new Map<string, string>()
+    type TeamMemberCreds = {
+      id: string
+      evolution_api_key: string | null
+      evolution_group_key_broken_at: string | null
+    }
+    const teamMemberByInstance = new Map<string, TeamMemberCreds>()
     if (instanceNames.length) {
       const { data: tmRows } = await supabase
         .from('team_members')
-        .select('evolution_instance_name, evolution_api_key')
+        .select('id, evolution_instance_name, evolution_api_key, evolution_group_key_broken_at')
         .in('evolution_instance_name', instanceNames)
       for (const tm of tmRows ?? []) {
-        if (tm.evolution_instance_name && tm.evolution_api_key) {
-          apikeyByInstance.set(tm.evolution_instance_name, tm.evolution_api_key)
+        if (tm.evolution_instance_name) {
+          teamMemberByInstance.set(tm.evolution_instance_name, {
+            id: tm.id,
+            evolution_api_key: tm.evolution_api_key ?? null,
+            evolution_group_key_broken_at: tm.evolution_group_key_broken_at ?? null,
+          })
         }
       }
     }
@@ -69,7 +82,18 @@ serve(async (req) => {
       const delayMs = Math.max((camp.delay_seconds ?? 15) * 1000, 10_000)
       const jitter  = Math.floor(Math.random() * 5000)
       const instance = instanceByJid.get(item.group_jid) ?? undefined
-      const apikey   = instance ? apikeyByInstance.get(instance) : undefined
+      const teamMember = instance ? teamMemberByInstance.get(instance) : undefined
+      const isGroup  = item.group_jid?.endsWith('@g.us') ?? false
+      const apikey   = resolveApiKey({ teamMember, isGroup })
+
+      // Skip se grupo está com sessão quebrada — aguarda Reativar manual.
+      if (isGroup && groupHealthByJid.get(item.group_jid) === 'session_broken') {
+        await supabase.from('wa_message_queue')
+          .update({ status: 'blocked_session', error_message: 'Grupo bloqueado: sessão WhatsApp quebrada. Use Reativar.' })
+          .eq('id', item.id)
+        results.push({ id: item.id, status: 'blocked_session' })
+        continue
+      }
 
       await supabase.from('wa_message_queue')
         .update({ status: 'sending' }).eq('id', item.id)
@@ -118,19 +142,64 @@ serve(async (req) => {
 
         let evoId: string | null = null
 
-        // Helper: encapsula sendText/sendMedia com retry-once + warmup em SessionError
+        // Helper: encapsula sendText/sendMedia com:
+        //   1. retry-once + warmup em SessionError (mesma key)
+        //   2. AUTO-FALLBACK: se key for per-instance e ainda assim SessionError,
+        //      tenta 1× com GLOBAL_EVOLUTION_KEY. Se funciona, marca team_member
+        //      como group_key_broken e segue. Se não, propaga o erro.
         const sendWithSessionRetry = async (
-          fn: () => Promise<string | null>,
+          fn: (key: string) => Promise<string | null>,
         ): Promise<string | null> => {
           try {
-            return await fn()
+            return await fn(apikey)
           } catch (e) {
             const m = e instanceof Error ? e.message : String(e)
-            if (/SessionError|No sessions/i.test(m) && instance) {
+            const isSessionError = /SessionError|No sessions/i.test(m)
+            if (isSessionError && instance) {
               console.warn(`[wa-dispatcher] SessionError → warmup ${item.group_jid}`)
               await warmupGroup(item.group_jid, instance, apikey)
               await sleep(3000)
-              return await fn()
+              try {
+                return await fn(apikey)
+              } catch (e2) {
+                const m2 = e2 instanceof Error ? e2.message : String(e2)
+                const stillSession = /SessionError|No sessions/i.test(m2)
+                // Auto-fallback: chave per-instance quebrada para grupos → tenta global.
+                if (stillSession && isGroup && apikey !== GLOBAL_EVOLUTION_KEY && teamMember) {
+                  console.warn(`[wa-dispatcher] per-instance key falhou em grupo, tentando GLOBAL`)
+                  try {
+                    const evoIdGlobal = await fn(GLOBAL_EVOLUTION_KEY)
+                    // Funcionou: marca team_member para que próximos envios em grupo já usem global.
+                    if (!teamMember.evolution_group_key_broken_at) {
+                      await supabase.from('team_members')
+                        .update({ evolution_group_key_broken_at: new Date().toISOString() })
+                        .eq('id', teamMember.id)
+                        .is('evolution_group_key_broken_at', null)
+                      teamMember.evolution_group_key_broken_at = new Date().toISOString()
+                      try {
+                        await supabase.from('system_health_logs').insert({
+                          function_name: 'wa-dispatcher',
+                          severity: 'warning',
+                          error_type: 'group_key_auto_fallback',
+                          details: {
+                            team_member_id: teamMember.id,
+                            instance_name: instance,
+                            group_jid: item.group_jid,
+                            reason: 'per-instance Evolution key falhou em grupo; ativado fallback para EVOLUTION_API_KEY global',
+                          },
+                          ai_suggested_action: 'Revalidar a apikey da instância no Evolution e limpar evolution_group_key_broken_at quando OK.',
+                          auto_remediated: true,
+                          resolved: false,
+                        })
+                      } catch (_) { /* não fatal */ }
+                    }
+                    return evoIdGlobal
+                  } catch (e3) {
+                    throw e3
+                  }
+                }
+                throw e2
+              }
             }
             throw e
           }
@@ -140,28 +209,28 @@ serve(async (req) => {
           case 'msg': {
             const txt = (item.content_json?.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
+            evoId = await sendWithSessionRetry((k) => sendText(item.group_jid, txt, instance, k))
             break
           }
           case 'image':
-            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'image',
+            evoId = await sendWithSessionRetry((k) => sendMedia(item.group_jid, 'image',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey))
+              (item.content_json?.caption ?? '') as string, instance, k))
             break
           case 'video':
-            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'video',
+            evoId = await sendWithSessionRetry((k) => sendMedia(item.group_jid, 'video',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey))
+              (item.content_json?.caption ?? '') as string, instance, k))
             break
           case 'audio':
-            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'audio',
+            evoId = await sendWithSessionRetry((k) => sendMedia(item.group_jid, 'audio',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey))
+              (item.content_json?.caption ?? '') as string, instance, k))
             break
           case 'document':
-            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'document',
+            evoId = await sendWithSessionRetry((k) => sendMedia(item.group_jid, 'document',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey))
+              (item.content_json?.caption ?? '') as string, instance, k))
             break
           case 'link': {
             const c = item.content_json ?? {}
@@ -170,12 +239,12 @@ serve(async (req) => {
               c.description ? String(c.description) : '',
               c.url         ? String(c.url)         : '',
             ].filter(Boolean).join('\n\n')
-            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
+            evoId = await sendWithSessionRetry((k) => sendText(item.group_jid, txt, instance, k))
             break
           }
           case 'ai': {
             const txt = await resolveAIContent(supabase, item.content_json)
-            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
+            evoId = await sendWithSessionRetry((k) => sendText(item.group_jid, txt, instance, k))
             await supabase.from('wa_message_queue')
               .update({ content_json: { ...item.content_json, _resolved_text: txt } })
               .eq('id', item.id)
@@ -203,6 +272,14 @@ serve(async (req) => {
           http_status: 200, evo_message_id: evoId, sent_at: now,
         })
 
+        // Sucesso: zera contadores de erro do grupo.
+        if (isGroup) {
+          await supabase.from('wa_groups')
+            .update({ session_health: 'ok', consecutive_send_errors: 0, last_send_error: null, last_send_error_at: null })
+            .eq('group_jid', item.group_jid)
+            .gt('consecutive_send_errors', 0)
+        }
+
         await advanceCampaign(supabase, item.campaign_id, item.node_index)
         results.push({ id: item.id, status: 'sent' })
         processedCount++
@@ -212,12 +289,40 @@ serve(async (req) => {
         const msg     = err instanceof Error ? err.message : String(err)
         const retries = (item.retry_count ?? 0) + 1
         const isFinal = retries >= 3
+        const isSessionError = /SessionError|No sessions/i.test(msg)
+
+        // Tracking de saúde do grupo para SessionError persistente.
+        let blockedBySession = false
+        if (isGroup && isSessionError) {
+          const { data: g } = await supabase
+            .from('wa_groups')
+            .select('consecutive_send_errors')
+            .eq('group_jid', item.group_jid)
+            .maybeSingle()
+          const nextCount = (g?.consecutive_send_errors ?? 0) + 1
+          const shouldBlock = nextCount >= 2
+          await supabase.from('wa_groups').update({
+            consecutive_send_errors: nextCount,
+            last_send_error: msg.slice(0, 500),
+            last_send_error_at: new Date().toISOString(),
+            ...(shouldBlock ? { session_health: 'session_broken' } : {}),
+          }).eq('group_jid', item.group_jid)
+
+          if (shouldBlock) {
+            blockedBySession = true
+            // Bloqueia todas as pending desse grupo até Reativar manual.
+            await supabase.from('wa_message_queue')
+              .update({ status: 'blocked_session', error_message: 'Sessão WhatsApp do grupo quebrada após 2 falhas. Use Reativar.' })
+              .eq('group_jid', item.group_jid)
+              .eq('status', 'pending')
+          }
+        }
 
         await supabase.from('wa_message_queue').update({
-          status:        isFinal ? 'failed' : 'pending',
+          status:        blockedBySession ? 'blocked_session' : (isFinal ? 'failed' : 'pending'),
           error_message: msg.slice(0, 500),
           retry_count:   retries,
-          ...(isFinal ? {} : { scheduled_at: new Date(Date.now() + 30 * 60_000).toISOString() }),
+          ...(isFinal || blockedBySession ? {} : { scheduled_at: new Date(Date.now() + 30 * 60_000).toISOString() }),
         }).eq('id', item.id)
 
         await supabase.from('wa_send_log').insert({

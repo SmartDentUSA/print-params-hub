@@ -1,65 +1,113 @@
-# Watchdog de entrega WhatsApp + painel de saúde
+## Objetivo
 
-## Problema
-Hoje o `wa-dispatcher` marca `status='sent'` assim que o Evolution responde 200 com um `key.id`. Isso **não** garante que a mensagem chegou no grupo. Quando falha (`SessionError`), o item fica `pending` e o cron pode tentar de novo indefinidamente. Falta:
-1. Confirmação real de entrega (consultar o Evolution depois do envio)
-2. Garantia anti-duplicação (nunca reenviar um item que já tem `evo_message_id` confirmado)
-3. Visibilidade no front
+Auto-fallback no dispatcher: quando detecta `SessionError: No sessions` em grupo usando per-instance key, tenta com a global, e se funcionar marca `evolution_group_key_broken_at` no team_member. Próximos envios em grupo daquele team_member usam direto a global; mensagens individuais continuam com a per-instance.
 
-## O que vai ser construído
+---
 
-### 1. Migration — colunas de rastreamento de entrega
-Adiciona em `wa_message_queue`:
-- `evo_message_id text` — id retornado pelo Evolution no envio (já existe? checar; senão criar)
-- `delivery_status text` — `unknown | sent_to_server | delivered | read | failed_undelivered`
-- `delivery_checked_at timestamptz`
-- `delivery_attempts int default 0`
+## Migrations
 
-Índice parcial: `WHERE delivery_status IN ('unknown','sent_to_server') AND sent_at IS NOT NULL`.
+### Migration 1 — colunas novas + CHECK ampliado
 
-### 2. Edge function nova: `wa-delivery-reconciler` (cron 5 min)
-Para cada item com `status='sent'`, `evo_message_id IS NOT NULL`, `delivery_status NOT IN ('delivered','read')`, `sent_at > now()-24h`:
-1. Resolve a `instance_name` + `apikey` do grupo (via `wa_groups` + `team_members`)
-2. Chama `POST /chat/findMessages/{instance}` com filtro pelo `key.id`
-3. Lê `status` retornado pelo Baileys: `PENDING`, `SERVER_ACK`, `DELIVERY_ACK`, `READ`, `PLAYED`
-4. Atualiza `delivery_status` correspondente
-5. Se passou >15 min e ainda `PENDING`/sem registro → marca `delivery_status='failed_undelivered'`, `status='pending'`, `retry_count=0`, `scheduled_at=now()`, **mas mantém `evo_message_id`** para detectar duplicata caso a primeira entrega chegue tarde
-6. No próximo ciclo, o dispatcher reenvia — antes de chamar `sendText/sendMedia`, verifica se já existe `evo_message_id`; se sim, primeiro tenta `findMessages` mais uma vez (proteção anti-duplicata)
+```sql
+ALTER TABLE team_members
+  ADD COLUMN evolution_group_key_broken_at timestamptz NULL;
 
-### 3. Dispatcher — guarda anti-duplicação + retry com warmup
-Em `wa-dispatcher/index.ts`:
-- Antes de enviar, se o item já tem `evo_message_id`, consulta `/chat/findMessages`; se a mensagem existe e está pelo menos `SERVER_ACK`, marca `delivery_status` direto e **pula o envio** (evita duplicata)
-- Ao receber erro `SessionError: No sessions`, chama `GET /group/findGroupInfos?groupJid=...` (warmup do Baileys), aguarda 3s, tenta **1 vez** novamente
-- Persiste o `key.id` em `evo_message_id` imediatamente após resposta 200
-- Salva `delivery_status='sent_to_server'` no mesmo update
+ALTER TABLE wa_groups
+  ADD COLUMN session_health text NOT NULL DEFAULT 'ok',
+  ADD COLUMN consecutive_send_errors int NOT NULL DEFAULT 0,
+  ADD COLUMN last_send_error text,
+  ADD COLUMN last_send_error_at timestamptz;
 
-### 4. Cron schedule
-`select cron.schedule('wa-delivery-reconciler-5min', '*/5 * * * *', $$ net.http_post(...) $$)` — disparado via SQL após aprovação.
+-- Ampliar CHECK ANTES de qualquer UPDATE com 'blocked_session'
+ALTER TABLE wa_message_queue
+  DROP CONSTRAINT IF EXISTS wa_message_queue_status_check;
 
-### 5. Frontend — card "Saúde da entrega" em `SmartOpsWaGroupCampaigns.tsx`
-Por campanha ativa, mostrar:
+ALTER TABLE wa_message_queue
+  ADD CONSTRAINT wa_message_queue_status_check
+  CHECK (status IN ('pending','sending','sent','failed','skipped','blocked_session'));
 ```
-Agendadas: 12  •  Enviadas: 10  •  Entregues: 8  •  Lidas: 5  •  Falhas: 2
+
+### Migration 2 — RPC `fn_wa_reactivate_group`
+
+```sql
+CREATE OR REPLACE FUNCTION public.fn_wa_reactivate_group(p_group_jid text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_released int;
+BEGIN
+  UPDATE wa_groups
+     SET session_health='ok', consecutive_send_errors=0,
+         last_send_error=NULL, last_send_error_at=NULL
+   WHERE group_jid = p_group_jid;
+
+  WITH upd AS (
+    UPDATE wa_message_queue
+       SET status='pending', scheduled_at = now() + interval '10 seconds'
+     WHERE group_jid = p_group_jid AND status='blocked_session'
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_released FROM upd;
+
+  RETURN jsonb_build_object('released', v_released);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.fn_wa_reactivate_group(text) TO authenticated, service_role;
 ```
-Cores: verde (entregue/lida), amarelo (sent_to_server > 10min), vermelho (failed_undelivered).
 
-Botão **"Reprocessar não-entregues"** chama RPC que reseta os items `failed_undelivered` daquela campanha para `pending`/`scheduled_at=now()`.
+---
 
-Tooltip nas falhas com a `error_message` real.
+## Código
 
-## Arquivos tocados
-- `supabase/migrations/<novo>.sql` — colunas + índice
-- `supabase/functions/wa-delivery-reconciler/index.ts` — novo
-- `supabase/functions/wa-dispatcher/index.ts` — guarda + warmup + persistir evo_message_id
-- `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx` — card de saúde + botão reprocessar
-- SQL `pg_cron` schedule (insert tool, não migration)
+### `supabase/functions/_shared/evolution.ts`
 
-## Garantias
-- **Nunca envia 2x**: dispatcher confere `evo_message_id` + `findMessages` antes de qualquer reenvio
-- **Detecta entrega real**: reconciler confirma com o Baileys o estado da mensagem
-- **Auto-recupera de SessionError**: warmup + retry 1x dentro do mesmo ciclo
-- **Visível no front**: usuário vê em tempo real o que entregou e o que travou
+```ts
+export function resolveApiKey(opts: {
+  teamMember?: { evolution_api_key?: string | null; evolution_group_key_broken_at?: string | null } | null;
+  isGroup: boolean;
+}): string {
+  const GLOBAL = Deno.env.get('EVOLUTION_API_KEY') ?? 'SmartDent_LIA_2026';
+  if (!opts.teamMember) return GLOBAL;
+  if (opts.isGroup && opts.teamMember.evolution_group_key_broken_at) return GLOBAL;
+  return opts.teamMember.evolution_api_key || GLOBAL;
+}
+```
+
+Também exportar a constante `GLOBAL_EVOLUTION_KEY` para o dispatcher comparar `key === GLOBAL`.
+
+### `supabase/functions/wa-dispatcher/index.ts`
+
+1. Lookup expandido:
+   ```ts
+   .select('id, evolution_instance_name, evolution_api_key, evolution_group_key_broken_at')
+   ```
+2. `teamMemberByInstance: Map<string, { id, evolution_api_key, evolution_group_key_broken_at }>`
+3. Ao processar item de grupo (`group_jid.endsWith('@g.us')`):
+   - `key = resolveApiKey({ teamMember, isGroup: true })`
+   - tenta envio
+   - sucesso → `sent`, zera `consecutive_send_errors`, `session_health='ok'`
+   - erro `/SessionError|No sessions/i`:
+     - se `key !== GLOBAL_EVOLUTION_KEY` → retry síncrono 1× com GLOBAL
+       - sucesso: `UPDATE team_members SET evolution_group_key_broken_at=now() WHERE id=$1 AND evolution_group_key_broken_at IS NULL`; log warning em `system_health_logs`; marca `sent`
+       - falha: incrementa `consecutive_send_errors`; se ≥2 → `session_health='session_broken'` + `UPDATE wa_message_queue SET status='blocked_session' WHERE group_jid=$1 AND status='pending'`
+     - se `key === GLOBAL`: mesma escalada de 2-falhas → bloqueia grupo
+4. Antes do envio: skipar item se `wa_groups.session_health='session_broken'`.
+
+### Frontend
+
+- `WaCampaignHealthBadge.tsx`: badge 🟢 ok / 🔴 "Sessão WhatsApp quebrada" com tooltip mostrando `last_send_error` + horário.
+- `SmartOpsWaGroupCampaigns.tsx`: quando `session_health='session_broken'`, botão **Reativar grupo** → `supabase.rpc('fn_wa_reactivate_group', { p_group_jid })` + toast com contagem + invalidação de query.
+- Indicador discreto "🔧 Auto-fallback ativo" quando o team_member do owner do grupo tem `evolution_group_key_broken_at != null`.
+
+### Memory
+
+Atualizar `mem://integration/evolution-per-instance-credentials`: per-instance key pode quebrar especificamente para JIDs de grupo; dispatcher faz retry síncrono com `EVOLUTION_API_KEY` global e marca `team_members.evolution_group_key_broken_at`.
+
+---
 
 ## Fora de escopo
-- Reconectar instâncias Evolution caídas (precisa do painel Evolution)
-- Webhook de status do Evolution (mais robusto, mas exige configurar webhook no servidor — pode ser fase 2)
+
+Polling de `/instance/connectionState`, restart automático de instância, webhooks de estado do Evolution.
