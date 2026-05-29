@@ -43,8 +43,12 @@ function h() {
   return { 'Content-Type': 'application/json', 'apikey': EVO_KEY }
 }
 
-export async function fetchInstances(): Promise<WaInstanceInfo[]> {
-  const res = await fetch(`${EVO_BASE}/instance/fetchInstances`, { headers: h() })
+function hWith(apikey?: string) {
+  return { 'Content-Type': 'application/json', 'apikey': apikey || EVO_KEY }
+}
+
+export async function fetchInstances(apikey?: string): Promise<WaInstanceInfo[]> {
+  const res = await fetch(`${EVO_BASE}/instance/fetchInstances`, { headers: hWith(apikey) })
   if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
   const raw = await res.json()
   const list = Array.isArray(raw) ? raw : []
@@ -70,9 +74,10 @@ export interface OwnerHints {
 export async function fetchAdminGroups(
   instanceName: string = EVO_INST,
   hints?: OwnerHints,
+  apikey?: string,
 ): Promise<EvoGroup[]> {
   const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
-  const res = await fetch(url, { headers: h() })
+  const res = await fetch(url, { headers: hWith(apikey) })
   if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
   const all: EvoGroup[] = await res.json()
 
@@ -105,9 +110,9 @@ export async function fetchAdminGroups(
   })
 }
 
-export async function sendText(groupJid: string, text: string, instanceName: string = EVO_INST): Promise<string | null> {
+export async function sendText(groupJid: string, text: string, instanceName: string = EVO_INST, apikey?: string): Promise<string | null> {
   const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
-    method: 'POST', headers: h(),
+    method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, text }),
   })
   if (!res.ok) throw new Error(`sendText ${res.status}: ${await res.text()}`)
@@ -121,9 +126,10 @@ export async function sendMedia(
   mediaUrl: string,
   caption = '',
   instanceName: string = EVO_INST,
+  apikey?: string,
 ): Promise<string | null> {
   const res = await fetch(`${EVO_BASE}/message/sendMedia/${enc(instanceName)}`, {
-    method: 'POST', headers: h(),
+    method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
   })
   if (!res.ok) throw new Error(`sendMedia ${res.status}: ${await res.text()}`)
@@ -131,12 +137,12 @@ export async function sendMedia(
   return d?.key?.id ?? null
 }
 
-export async function checkWaNumber(rawPhone: string, instanceName: string = EVO_INST): Promise<WaNumberCheckResult> {
+export async function checkWaNumber(rawPhone: string, instanceName: string = EVO_INST, apikey?: string): Promise<WaNumberCheckResult> {
   const clean = normalizePhone(rawPhone)
   if (!clean || clean.length < 10) return { exists: false }
 
   const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${enc(instanceName)}`, {
-    method: 'POST', headers: h(),
+    method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ numbers: [clean] }),
   })
   if (!res.ok) throw new Error(`whatsappNumbers ${res.status}: ${await res.text()}`)
