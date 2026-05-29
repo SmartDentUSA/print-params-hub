@@ -270,6 +270,58 @@ export function mapBaileysStatus(raw: string | null): 'unknown' | 'sent_to_serve
   return 'unknown'
 }
 
+/**
+ * Salva/atualiza um contato na instância Evolution.
+ * Tenta /chat/updateContact (algumas builds suportam) e cai para /chat/whatsappNumbers
+ * (que pelo menos força o Baileys a resolver/cachear o JID, mitigando anti-ban).
+ * Retorna o método usado e se foi efetivo.
+ */
+export async function upsertContact(
+  rawPhone: string,
+  contactName: string | null,
+  instanceName: string,
+  apikey?: string,
+): Promise<{ ok: boolean; method: 'updateContact' | 'whatsappNumbers' | 'none'; exists?: boolean; error?: string }> {
+  const clean = normalizePhone(rawPhone)
+  if (!clean || clean.length < 10) return { ok: false, method: 'none', error: 'invalid_phone' }
+
+  const number = clean.startsWith('55') ? clean : `55${clean}`
+  const jid = `${number}@s.whatsapp.net`
+
+  // 1) Tenta updateContact (não existe em todas as builds — 404 cai pro fallback)
+  let usedUpdate = false
+  try {
+    const res = await fetch(`${EVO_BASE}/chat/updateContact/${enc(instanceName)}`, {
+      method: 'POST',
+      headers: hWith(apikey),
+      body: JSON.stringify({ remoteJid: jid, name: contactName || number }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.ok) usedUpdate = true
+    else await res.text()
+  } catch (_) { /* ignora e segue p/ fallback */ }
+
+  // 2) whatsappNumbers — sempre roda para garantir que o JID está no store Baileys
+  try {
+    const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${enc(instanceName)}`, {
+      method: 'POST',
+      headers: hWith(apikey),
+      body: JSON.stringify({ numbers: [number] }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      return { ok: usedUpdate, method: usedUpdate ? 'updateContact' : 'none', error: `whatsappNumbers ${res.status}: ${body.slice(0, 200)}` }
+    }
+    const data = await res.json()
+    const r = Array.isArray(data) ? data[0] : data
+    const exists = r?.exists === true || r?.numberExists === true
+    return { ok: true, method: usedUpdate ? 'updateContact' : 'whatsappNumbers', exists }
+  } catch (e) {
+    return { ok: usedUpdate, method: usedUpdate ? 'updateContact' : 'none', error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 export async function checkWaNumber(rawPhone: string, instanceName: string = EVO_INST, apikey?: string): Promise<WaNumberCheckResult> {
   const clean = normalizePhone(rawPhone)
   if (!clean || clean.length < 10) return { exists: false }

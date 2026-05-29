@@ -17925,6 +17925,45 @@ export type Database = {
           },
         ]
       }
+      wa_contact_sync_queue: {
+        Row: {
+          attempts: number
+          contact_name: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          lead_id: string
+          per_instance: Json
+          phone_e164: string
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lead_id: string
+          per_instance?: Json
+          phone_e164: string
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lead_id?: string
+          per_instance?: Json
+          phone_e164?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       wa_followup_queue: {
         Row: {
           created_at: string | null
