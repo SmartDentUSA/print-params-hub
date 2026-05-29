@@ -110,6 +110,53 @@ export async function fetchAdminGroups(
   })
 }
 
+/**
+ * Retorna TODOS os grupos que a instância participa, com flag `isAdmin`
+ * computada pelo melhor esforço (owner/subjectOwner/participants).
+ * Útil quando o filtro estrito derruba grupos válidos por divergência de
+ * formato de ID (LID privacy, owner ausente, etc.).
+ */
+export async function fetchGroupsWithAdminFlag(
+  instanceName: string = EVO_INST,
+  hints?: OwnerHints,
+  apikey?: string,
+): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
+  const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
+  const res = await fetch(url, { headers: hWith(apikey) })
+  if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
+  const all: EvoGroup[] = await res.json()
+
+  const jid   = hints?.jid   ?? (hints ? undefined : ADMIN_JID)
+  const lid   = hints?.lid   ?? (hints ? undefined : ADMIN_LID)
+  const phone = hints?.phone ?? (hints ? undefined : EVO_PHONE)
+
+  const digitsOf = (s?: string) => (s ?? '').replace(/\D/g, '')
+  const phoneDigits = digitsOf(phone)
+
+  return (all ?? []).map(g => {
+    let isAdmin = false
+    if (jid && (g.owner === jid || g.subjectOwner === jid)) isAdmin = true
+    if (!isAdmin && phoneDigits) {
+      const od = digitsOf(g.owner || g.subjectOwner)
+      if (od && od.startsWith(phoneDigits)) isAdmin = true
+    }
+    if (!isAdmin) {
+      isAdmin = g.participants?.some(p => {
+        const adm = (p as any).admin
+        if (adm !== 'admin' && adm !== 'superadmin' && adm !== true) return false
+        if (lid && p.id === lid) return true
+        if (jid && p.id === jid) return true
+        if (phoneDigits) {
+          const pd = digitsOf(p.id)
+          if (pd && pd.startsWith(phoneDigits)) return true
+        }
+        return false
+      }) ?? false
+    }
+    return { ...g, isAdmin }
+  })
+}
+
 export async function sendText(groupJid: string, text: string, instanceName: string = EVO_INST, apikey?: string): Promise<string | null> {
   const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
