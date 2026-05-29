@@ -43,18 +43,21 @@ serve(async (req) => {
     // não usa uma única "global key": cada instância tem token próprio.
     const { data: tmAll } = await supabase
       .from('team_members')
-      .select('evolution_instance_name, evolution_phone, evolution_api_key, nome_completo, ativo')
+      .select('evolution_instance_name, evolution_phone, evolution_api_key, evolution_lid, nome_completo, ativo')
       .eq('ativo', true)
       .not('evolution_instance_name', 'is', null)
     const tmInstances: WaInstanceInfo[] = []
     const tmPhones = new Map<string, string>()
+    const tmLids = new Map<string, string>()
     const apikeyByInstance = new Map<string, string>()
     for (const r of (tmAll ?? []) as any[]) {
       const name = String(r.evolution_instance_name ?? '').trim()
       const phone = String(r.evolution_phone ?? '').replace(/\D/g, '')
+      const lid = normalizeLid(r.evolution_lid)
       const apikey = String(r.evolution_api_key ?? '').trim()
       if (!name) continue
       if (phone && !tmPhones.has(name)) tmPhones.set(name, phone)
+      if (lid && !tmLids.has(name)) tmLids.set(name, lid)
       if (apikey && !apikeyByInstance.has(name)) apikeyByInstance.set(name, apikey)
       if (!instances.some(i => i.instanceName === name)) {
         tmInstances.push({
@@ -119,10 +122,11 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
+    const lidByInstance = tmLids
 
     for (const inst of targets) {
       try {
@@ -130,11 +134,42 @@ serve(async (req) => {
         const ownerJid = inst.owner ?? (tmPhone ? `${tmPhone}@s.whatsapp.net` : undefined)
         const ownerDigits = (inst.owner ?? '').replace(/\D/g, '')
         const phone = ownerDigits || tmPhone || undefined
-        const hints: OwnerHints = { jid: ownerJid, phone }
+        const storedLid = lidByInstance.get(inst.instanceName)
+        const hints: OwnerHints = { jid: ownerJid, phone, lid: storedLid }
         const apikey = apikeyByInstance.get(inst.instanceName)
-        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
-        const all = await fetchGroupsWithAdminFlag(inst.instanceName, hints, apikey)
+        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} lid=${storedLid ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
+        let all = await fetchGroupsWithAdminFlag(inst.instanceName, hints, apikey)
+        let activeLid = storedLid
+        let lidConfidence = storedLid ? 1 : 0
+        let discoveredLid: string | undefined
+        if (!activeLid && all.length > 0) {
+          const discovery = discoverLikelyAdminLid(all)
+          discoveredLid = discovery?.lid
+          lidConfidence = discovery?.confidence ?? 0
+          if (discovery) {
+            console.log(`[wa-sync-groups] ${inst.instanceName}: LID candidato ${discovery.lid} em ${discovery.count}/${all.length} grupos (${Math.round(discovery.confidence * 100)}%)`)
+          } else {
+            console.warn(`[wa-sync-groups] ${inst.instanceName}: nenhum LID admin confiável encontrado`)
+          }
+          activeLid = discoveredLid
+        }
+        if (activeLid) {
+          all = recalculateAdminFlag(all, { ...hints, lid: activeLid })
+        }
         const adminCount = all.filter(g => g.isAdmin).length
+        if (discoveredLid && phone) {
+          const { error: lidUpdateError } = await supabase
+            .from('team_members')
+            .update({ evolution_lid: discoveredLid })
+            .eq('evolution_instance_name', inst.instanceName)
+            .eq('evolution_phone', phone)
+          if (lidUpdateError) {
+            console.warn(`[wa-sync-groups] ${inst.instanceName}: falha ao persistir evolution_lid ${discoveredLid}:`, lidUpdateError.message)
+          } else {
+            lidByInstance.set(inst.instanceName, discoveredLid)
+            console.log(`[wa-sync-groups] ${inst.instanceName}: evolution_lid persistido (${discoveredLid})`)
+          }
+        }
         const isExplicitInstance = !!body.instance_name && body.instance_name === inst.instanceName
         // Quando o usuário seleciona explicitamente uma instância, sincronizamos
         // TODOS os grupos retornados pelo Evolution (o endpoint já está escopado
@@ -173,6 +208,7 @@ serve(async (req) => {
           synced: groupsToSync.length,
           raw:    all.length,
           admin:  adminCount,
+          ...(activeLid ? { lid: activeLid, lid_confidence: lidConfidence } : {}),
           groups: groupsToSync.map(g => g.subject),
           ...(warning ? { warning } : {}),
         }
