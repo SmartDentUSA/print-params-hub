@@ -11,6 +11,74 @@ import { fetchGroupsWithAdminFlag, fetchInstances, EVO_INST, corsHeaders, WaInst
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+type GroupWithAdminFlag = Awaited<ReturnType<typeof fetchGroupsWithAdminFlag>>[number]
+
+const digitsOf = (s?: string) => (s ?? '').replace(/\D/g, '')
+
+function normalizeLid(value: unknown): string | undefined {
+  const raw = String(value ?? '').trim()
+  if (!raw) return undefined
+  if (raw.endsWith('@lid')) return raw
+  const digits = digitsOf(raw)
+  return digits ? `${digits}@lid` : undefined
+}
+
+function isAdminValue(value: unknown): boolean {
+  return value === 'admin' || value === 'superadmin' || value === true
+}
+
+function recalculateAdminFlag(groups: GroupWithAdminFlag[], hints: OwnerHints): GroupWithAdminFlag[] {
+  const lid = normalizeLid(hints.lid)
+  const jid = hints.jid
+  const phoneDigits = digitsOf(hints.phone)
+
+  return groups.map(g => {
+    let isAdmin = false
+    if (jid && (g.owner === jid || g.subjectOwner === jid)) isAdmin = true
+    if (!isAdmin && lid && (g.owner === lid || g.subjectOwner === lid)) isAdmin = true
+    if (!isAdmin && phoneDigits) {
+      const ownerDigits = digitsOf(g.owner || g.subjectOwner)
+      if (ownerDigits && ownerDigits.startsWith(phoneDigits)) isAdmin = true
+    }
+    if (!isAdmin) {
+      isAdmin = g.participants?.some(p => {
+        if (!isAdminValue((p as any).admin)) return false
+        if (lid && p.id === lid) return true
+        if (jid && p.id === jid) return true
+        if (phoneDigits) {
+          const participantDigits = digitsOf(p.id)
+          if (participantDigits && participantDigits.startsWith(phoneDigits)) return true
+        }
+        return false
+      }) ?? false
+    }
+    return { ...g, isAdmin }
+  })
+}
+
+function discoverLikelyAdminLid(groups: GroupWithAdminFlag[]): { lid: string; count: number; confidence: number } | null {
+  const counts = new Map<string, number>()
+  for (const g of groups) {
+    const lidsInGroup = new Set<string>()
+    for (const p of g.participants ?? []) {
+      if (!isAdminValue((p as any).admin)) continue
+      const lid = normalizeLid(p.id)
+      if (lid && p.id.endsWith('@lid')) lidsInGroup.add(lid)
+    }
+    for (const lid of lidsInGroup) counts.set(lid, (counts.get(lid) ?? 0) + 1)
+  }
+
+  let best: { lid: string; count: number } | null = null
+  for (const [lid, count] of counts) {
+    if (!best || count > best.count) best = { lid, count }
+  }
+  if (!best) return null
+
+  const confidence = groups.length > 0 ? best.count / groups.length : 0
+  const minimum = Math.max(3, Math.ceil(groups.length * 0.05))
+  return best.count >= minimum ? { ...best, confidence } : null
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
