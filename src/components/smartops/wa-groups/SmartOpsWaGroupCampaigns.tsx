@@ -568,6 +568,45 @@ export function SmartOpsWaGroupCampaigns() {
         selectedGroupJids={selectedRows.map(r => r.group_jid)}
         selectedGroupNames={selectedRows.map(r => r.group_name ?? "")}
       />
+
+      {editFlowFor && (
+        <WaGroupFlowBuilder
+          open={!!editFlowFor}
+          groupIds={editFlowFor.group_ids}
+          campaignId={editFlowFor.id}
+          onClose={() => setEditFlowFor(null)}
+          onSaved={() => { setEditFlowFor(null); fetchRows(); fetchShared(); }}
+        />
+      )}
+
+      <Dialog open={!!editGroupsFor} onOpenChange={(o) => !o && setEditGroupsFor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar grupos da régua</DialogTitle>
+          </DialogHeader>
+          {editGroupsFor && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                <strong>{editGroupsFor.name}</strong> — marque/desmarque os grupos. Ao salvar, grupos
+                removidos terão suas mensagens pendentes canceladas.
+              </p>
+              <WaGroupMultiSelect
+                selectedIds={editGroupsDraft}
+                onChange={(ids) => setEditGroupsDraft(ids)}
+                instanceFilter={selectedInstance || undefined}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditGroupsFor(null)} disabled={savingGroups}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEditGroups} disabled={savingGroups}>
+              {savingGroups ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </TooltipProvider>
   );
