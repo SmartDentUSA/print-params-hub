@@ -10,13 +10,14 @@ const corsHeaders = {
 
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // --- MODEL CONFIG ---
-type ModelId = "deepseek" | "gemini";
+type ModelId = "deepseek" | "gemini" | "claude";
 
 function getModelConfig(modelId: ModelId) {
   if (modelId === "gemini") {
@@ -25,6 +26,14 @@ function getModelConfig(modelId: ModelId) {
       model: "google/gemini-3-flash-preview",
       apiKey: LOVABLE_API_KEY!,
       label: "gemini",
+    };
+  }
+  if (modelId === "claude") {
+    return {
+      url: "https://api.anthropic.com/v1/chat/completions",
+      model: "claude-sonnet-4-5",
+      apiKey: ANTHROPIC_API_KEY!,
+      label: "claude",
     };
   }
   return {
