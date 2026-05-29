@@ -6,7 +6,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fetchAdminGroups, fetchInstances, EVO_INST, corsHeaders, WaInstanceInfo } from '../_shared/evolution.ts'
+import { fetchAdminGroups, fetchInstances, EVO_INST, corsHeaders, WaInstanceInfo, OwnerHints } from '../_shared/evolution.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -62,9 +62,29 @@ serve(async (req) => {
     const per_instance: Record<string, { synced: number; groups: string[]; error?: string }> = {}
     let totalSynced = 0
 
+    // Fallback de telefone via team_members (quando inst.owner vem vazio)
+    const instanceNames = targets.map(t => t.instanceName)
+    const phoneByInstance = new Map<string, string>()
+    if (instanceNames.length > 0) {
+      const { data: tmRows } = await supabase
+        .from('team_members')
+        .select('evolution_instance_name, evolution_phone')
+        .in('evolution_instance_name', instanceNames)
+        .not('evolution_phone', 'is', null)
+      for (const r of (tmRows ?? [])) {
+        const n = (r as any).evolution_instance_name as string
+        const p = String((r as any).evolution_phone ?? '').replace(/\D/g, '')
+        if (n && p && !phoneByInstance.has(n)) phoneByInstance.set(n, p)
+      }
+    }
+
     for (const inst of targets) {
       try {
-        const groups = await fetchAdminGroups(inst.instanceName)
+        const ownerJid = inst.owner ?? undefined
+        const ownerDigits = (ownerJid ?? '').replace(/\D/g, '')
+        const phone = ownerDigits || phoneByInstance.get(inst.instanceName) || undefined
+        const hints: OwnerHints = { jid: ownerJid, phone }
+        const groups = await fetchAdminGroups(inst.instanceName, hints)
         console.log(`[wa-sync-groups] ${inst.instanceName}: ${groups.length} grupos admin`)
 
         if (groups.length > 0) {
