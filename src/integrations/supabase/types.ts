@@ -1248,17 +1248,23 @@ export type Database = {
         Row: {
           lead_id: string
           lock_date: string
+          seller_phone: string | null
           sent_at: string | null
+          tipo: string | null
         }
         Insert: {
           lead_id: string
           lock_date?: string
+          seller_phone?: string | null
           sent_at?: string | null
+          tipo?: string | null
         }
         Update: {
           lead_id?: string
           lock_date?: string
+          seller_phone?: string | null
           sent_at?: string | null
+          tipo?: string | null
         }
         Relationships: []
       }
@@ -23787,6 +23793,8 @@ export type Database = {
           variacao_crm_pct: number
         }[]
       }
+      fn_test_net_post: { Args: never; Returns: number }
+      fn_test_vault_access: { Args: never; Returns: string }
       fn_total_vendas_mes: {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
