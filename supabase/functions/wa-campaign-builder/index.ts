@@ -75,15 +75,21 @@ serve(async (req) => {
         lastWait = node
         continue
       }
-      const time = (lastWait?.time as string) ?? '09:00'
-      const [hh, mm] = time.split(':').map(Number)
-      const ts = new Date(startTs + accMs)
-      ts.setUTCHours(hh + 3, mm, 0, 0)
-      if (ts.getTime() < Date.now() && accMs === 0) ts.setDate(ts.getDate() + 1)
-      if (lastWait?.weekdays_only) {
-        const d = ts.getDay()
-        if (d === 0) ts.setDate(ts.getDate() + 1)
-        if (d === 6) ts.setDate(ts.getDate() + 2)
+      let ts: Date
+      if (lastWait) {
+        // Após um nó wait: usa o horário configurado no wait (BRT → UTC = +3h)
+        const time = (lastWait.time as string) ?? '09:00'
+        const [hh, mm] = time.split(':').map(Number)
+        ts = new Date(startTs + accMs)
+        ts.setUTCHours(hh + 3, mm, 0, 0)
+        if (lastWait.weekdays_only) {
+          const d = ts.getDay()
+          if (d === 0) ts.setDate(ts.getDate() + 1)
+          if (d === 6) ts.setDate(ts.getDate() + 2)
+        }
+      } else {
+        // Primeiro nó de conteúdo: respeita exatamente o started_at escolhido na UI
+        ts = new Date(startTs)
       }
       queueRows.push({
         campaign_id,

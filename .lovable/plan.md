@@ -1,41 +1,38 @@
 ## Diagnóstico
 
-Há três problemas conectados:
+A campanha "Nova campanha" (id `73fdbb9f...`) foi salva com `started_at = 2026-05-29 14:56 UTC` (11:56 BRT, próximo dos 11:57 pedidos), mas a fila gerou `scheduled_at = 2026-05-30 12:00 UTC` — ou seja, foi empurrada para o dia seguinte às 09:00 BRT. Por isso o dispatcher não disparou no horário.
 
-1. **Sync de grupos**
-   - `wa-sync-groups` passou a retornar HTTP `202` para indicar processamento em background.
-   - O client `supabase.functions.invoke()` está tratando esse retorno como erro e mostra: `Edge Function returned a non-2xx status code`.
-   - A correção segura é retornar HTTP `200` com `started: true` no JSON.
+A causa está em `supabase/functions/wa-campaign-builder/index.ts`, no loop que monta `queueRows`:
 
-2. **Grupos ativos não aparecem**
-   - A tela agora filtra por `enabled` e por instância selecionada.
-   - Se a sincronização falha/timeout, os dados não atualizam e a lista pode parecer vazia.
-   - Também há registros duplicados de instância com o mesmo nome `Danilo Henrique`, o que pode confundir a seleção visual.
+```ts
+const time = (lastWait?.time as string) ?? '09:00'
+const [hh, mm] = time.split(':').map(Number)
+const ts = new Date(startTs + accMs)
+ts.setUTCHours(hh + 3, mm, 0, 0)
+if (ts.getTime() < Date.now() && accMs === 0) ts.setDate(ts.getDate() + 1)
+```
 
-3. **Erro ao mudar data/hora de início da automação**
-   - Ao salvar e ativar uma campanha já ativa/pausada com nova data, `wa-campaign-builder` só aceita status `draft` ou `paused`.
-   - Se a campanha estiver `active`, ele retorna erro 400, que aparece no frontend como `Edge Function returned a non-2xx status code`.
+Para o primeiro nó (sem nó `wait` antes), `lastWait` é null → o horário é forçado para `09:00 BRT`, ignorando o `started_at` escolhido. Como `09:00` de hoje já passou, o `if` empurra para o dia seguinte → `30/05 12:00 UTC`.
+
+Ou seja: o horário escolhido na UI (`started_at`) só é usado como "data base"; o horário real é sempre 09:00 BRT (ou o `time` do último `wait`).
 
 ## Plano de correção
 
-1. **Corrigir retorno do sync**
-   - Em `supabase/functions/wa-sync-groups/index.ts`, trocar a resposta de background de status `202` para `200`.
-   - Manter `started: true`, `targets` e `message` no body.
+1. **`supabase/functions/wa-campaign-builder/index.ts`** — ajustar o cálculo de `ts`:
+   - Se ainda não passamos por nenhum `wait` (`lastWait === null` e `accMs === 0`): usar `ts = new Date(startTs)` diretamente, sem sobrescrever hora/minuto. Assim respeita o `started_at` exato vindo da UI.
+   - Se já houve `wait`: manter a lógica atual (`ts.setUTCHours(hh + 3, mm, 0, 0)` baseada no `wait.time`).
+   - Manter o ajuste de dias úteis (`weekdays_only`) apenas quando há `wait`.
+   - Remover/ajustar o `if (ts < Date.now() && accMs === 0) ts.setDate(+1)` para o primeiro nó: se `started_at` for futuro, não mexer; se for passado por pouco (ex.: alguns minutos), disparar imediatamente (mantém `ts`).
 
-2. **Não ocultar grupos por falha de sync**
-   - Em `SmartOpsWaGroupCampaigns.tsx`, manter a aba `Ativados` como padrão, mas mostrar feedback claro quando não houver grupos no filtro atual.
-   - Garantir que o botão de sincronizar não force a lista a parecer vazia enquanto o background ainda roda.
-   - Preservar a listagem existente mesmo se o sync retornar erro parcial.
+2. **Reativar a campanha existente** — após corrigir, o usuário pode salvar/ativar novamente em `73fdbb9f...` (o builder já aceita status `active`, conforme correção anterior), o que apaga `pending` e recria a fila com `scheduled_at` correto.
 
-3. **Corrigir ativação/agendamento**
-   - Em `supabase/functions/wa-campaign-builder/index.ts`, permitir reconstruir fila quando a campanha estiver `active`, além de `draft` e `paused`.
-   - Ao reativar/reagendar, apagar apenas mensagens `pending` da campanha e recriar a fila com o novo `started_at`.
-   - Retornar HTTP `200` com `{ ok: false, error }` apenas para erros de validação? Melhor: manter erros reais como 400, mas o frontend passará a exibir `data.error` quando existir.
+3. **Validação**
+   - Deploy de `wa-campaign-builder`.
+   - Reativar a campanha de teste com `started_at` ~2 min no futuro.
+   - Conferir via SQL: `SELECT scheduled_at FROM wa_message_queue WHERE campaign_id=...` — deve bater com o `started_at` escolhido.
+   - Conferir log do `wa-dispatcher` no horário marcado.
 
-4. **Melhorar mensagem de erro no frontend**
-   - Em `WaGroupFlowBuilder.tsx`, depois de chamar `wa-campaign-builder`, verificar `data?.ok`; se vier falso, mostrar o erro real (`Campanha está active...`, `Campanha sem grupos...`, etc.) em vez da mensagem genérica non-2xx.
+## Arquivos
+- `supabase/functions/wa-campaign-builder/index.ts` (lógica de agendamento do 1º nó)
 
-5. **Validar**
-   - Deploy da `wa-sync-groups` e `wa-campaign-builder`.
-   - Testar chamada `wa-sync-groups` para confirmar HTTP 200 imediato.
-   - Testar `wa-campaign-builder` em campanha ativa/pausada com `started_at` futuro para confirmar que a fila é recriada sem erro.
+Nenhuma mudança de UI ou de schema.
