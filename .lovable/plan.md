@@ -1,30 +1,57 @@
 ## Objetivo
-Garantir que o erro do `cs_principal` (instância sem `evolution_api_key`/`evolution_phone` próprios → `wa-sync-groups` caindo no `EVO_KEY` global e retornando 401/vazio) nunca mais aconteça.
 
-## Mudanças de memória
+1. Painel Administrativo (`SmartOpsAIUsageDashboard`) passa a exibir consumo do **Claude** (Anthropic) ao lado de Lovable/DeepSeek/Google.
+2. Seletor de modelo do Copilot ganha duas variantes do DeepSeek: **DeepSeek-V4-Pro** e **DeepSeek-V4-Flash** (substituindo o botão único "DeepSeek").
 
-### 1. Nova Core rule em `mem://index.md`
-Adicionar à seção **Core** (sempre em contexto):
+## Mudanças
 
-> **Evolution Per-Instance Credentials**: O Evolution self-hosted atribui `apikey` única por instância. TODA chamada Evolution para uma instância específica DEVE ler `evolution_api_key` (+ `evolution_phone`, `evolution_lid`) de `team_members` por `evolution_instance_name` e usar como override no header `apikey`. O `EVO_KEY` global é apenas último fallback. Sem isso: 401/lista vazia, instância nunca conecta e `recalculateAdminFlag` não marca admin. Toda nova instância DEVE ter `evolution_phone` + `evolution_api_key` preenchidos antes do primeiro sync.
+### 1. Tracking de uso do Claude
+`supabase/functions/_shared/log-ai-usage.ts`
+- Adicionar `"anthropic"` em `COST_RATES` (ex.: Claude Sonnet 4.5 ≈ $3 input / $15 output por 1M tokens).
+- `detectProvider()`: retornar `"anthropic"` quando o model contém `claude` ou começa com `anthropic/`.
 
-### 2. Novo arquivo `mem://integration/evolution-per-instance-credentials`
-Detalhamento técnico:
-- Schema: `team_members.evolution_instance_name`, `evolution_api_key`, `evolution_phone`, `evolution_lid`
-- Padrão correto já implementado em: `wa-sync-groups`, `smart-ops-lia-notify-seller` (`getBriefingConfig()`)
-- Funções que precisam seguir o padrão: `wa-dispatcher`, `_shared/evolution.ts` (qualquer helper de envio)
-- Checklist ao provisionar nova instância:
-  1. Criar instância no painel Evolution
-  2. Copiar Token/API Key
-  3. `UPDATE team_members SET evolution_phone='55…', evolution_api_key='…' WHERE evolution_instance_name='…'`
-  4. Disparar `wa-sync-groups` — `evolution_lid` é descoberto automaticamente
-  5. Validar `SELECT count(*) FROM wa_groups WHERE instance_name='…' AND is_admin=true > 0`
-- Sintoma de regressão: logs com `apikey=global` ou 401 em `wa-sync-groups`/`wa-dispatcher`
+`supabase/functions/smart-ops-copilot/index.ts`
+- Já chama `logAIUsage` — passará a registrar o provider `anthropic` automaticamente assim que o detector for atualizado.
 
-### 3. Atualizar referência em `## Memories` do índice
-Adicionar:
-`- [Evolution Per-Instance Creds](mem://integration/evolution-per-instance-credentials) — Cada instância tem apikey própria em team_members; EVO_KEY global é só fallback`
+### 2. Painel admin reconhece Claude
+`src/components/SmartOpsAIUsageDashboard.tsx`
+- `PROVIDER_LABELS`: adicionar `anthropic: "Anthropic (Claude)"`.
+- `PROVIDER_COLORS`: adicionar `anthropic: "text-purple-600"`.
+- Ajustar grid de provider breakdown de `sm:grid-cols-3` → `sm:grid-cols-4` para acomodar Anthropic.
+- `AI_FUNCTIONS_MAP["smart-ops-copilot"]`: registrar entrada do Copilot com provider `"Lovable + DeepSeek + Anthropic"` (a função não estava listada).
 
-## Não-objetivos
-- Nenhuma mudança de código nesta etapa (memória apenas).
-- Auditoria de `_shared/evolution.ts`/`wa-dispatcher` para conformidade fica para próxima task se você quiser.
+### 3. Variantes DeepSeek no Copilot
+`supabase/functions/smart-ops-copilot/index.ts`
+- `ModelId` passa a aceitar `"deepseek-pro"` e `"deepseek-flash"` (mantém `"deepseek"` como alias legado → mapeia para `deepseek-pro`).
+- `getModelConfig()`:
+  - `deepseek-pro` → `model: "deepseek-chat"`, label `deepseek-pro`
+  - `deepseek-flash` → `model: "deepseek-chat"` com prompt/temperatura otimizada **ou** `model: "deepseek-reasoner"` (a decidir — ver pergunta abaixo)
+- Roteamento de `requestedModel` no handler ajustado para os novos IDs.
+
+`src/components/SmartOpsCopilot.tsx`
+- `ModelId`: `"deepseek-pro" | "deepseek-flash" | "gemini" | "claude"`.
+- Substituir o `ToggleGroupItem value="deepseek"` por dois itens: **DS V4-Pro** e **DS V4-Flash**.
+- Default selecionado: `deepseek-pro`.
+- Persistir seleção em `localStorage` (atualmente não persiste).
+
+## Detalhes técnicos
+
+```text
+ai_token_usage.provider passa a ter 4 valores possíveis:
+  lovable | deepseek | google | anthropic
+```
+
+Custos estimados (USD/1M tokens) usados em `log-ai-usage.ts`:
+```
+anthropic (Claude Sonnet 4.5): input 3.00 / output 15.00
+```
+
+## Pergunta antes de implementar
+
+DeepSeek API hoje expõe apenas dois modelos públicos: `deepseek-chat` (V3.2) e `deepseek-reasoner`. Os nomes "V4-Pro" e "V4-Flash" não existem no endpoint oficial. Para o seletor funcionar de verdade, preciso saber como mapear:
+
+- **Opção A** (recomendada): `V4-Pro` → `deepseek-chat`, `V4-Flash` → `deepseek-reasoner` (raciocínio mais longo).
+- **Opção B**: ambos chamam `deepseek-chat` e a diferença é só `temperature`/`max_tokens` (Pro = qualidade, Flash = rápido/curto).
+- **Opção C**: você tem acesso a um endpoint/beta com esses model IDs exatos — me passa a string que vai em `body.model`.
+
+Confirmar qual opção seguir; se não responder, sigo com **Opção B** (rotulagem visual, mesmo endpoint, parâmetros distintos).
