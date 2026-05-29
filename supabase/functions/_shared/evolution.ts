@@ -22,6 +22,8 @@ export interface EvoGroup {
   desc?: string
   size: number
   participants: { id: string; admin: 'admin' | 'superadmin' | null }[]
+  owner?: string
+  subjectOwner?: string
 }
 
 export interface WaNumberCheckResult {
@@ -59,17 +61,48 @@ export async function fetchInstances(): Promise<WaInstanceInfo[]> {
     .filter(i => i.instanceName)
 }
 
-export async function fetchAdminGroups(instanceName: string = EVO_INST): Promise<EvoGroup[]> {
+export interface OwnerHints {
+  jid?:   string  // ex: 5519992612348@s.whatsapp.net
+  lid?:   string  // ex: 98908885786860@lid
+  phone?: string  // dígitos puros, ex: 5519992612348
+}
+
+export async function fetchAdminGroups(
+  instanceName: string = EVO_INST,
+  hints?: OwnerHints,
+): Promise<EvoGroup[]> {
   const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
   const res = await fetch(url, { headers: h() })
   if (!res.ok) throw new Error(`fetchAllGroups ${res.status}: ${await res.text()}`)
   const all: EvoGroup[] = await res.json()
-  return all.filter(g =>
-    g.participants?.some(p =>
-      (p.id === ADMIN_LID || p.id === ADMIN_JID) &&
-      (p.admin === 'admin' || p.admin === 'superadmin')
-    )
-  )
+
+  // Sem hints → retrocompat (Dra. Lia). Com hints → usa só os valores fornecidos.
+  const jid   = hints?.jid   ?? (hints ? undefined : ADMIN_JID)
+  const lid   = hints?.lid   ?? (hints ? undefined : ADMIN_LID)
+  const phone = hints?.phone ?? (hints ? undefined : EVO_PHONE)
+
+  const digitsOf = (s?: string) => (s ?? '').replace(/\D/g, '')
+  const phoneDigits = digitsOf(phone)
+
+  return all.filter(g => {
+    // 1) owner do grupo bate com a instância
+    if (jid && (g.owner === jid || g.subjectOwner === jid)) return true
+    if (phoneDigits) {
+      const od = digitsOf(g.owner || g.subjectOwner)
+      if (od && od.startsWith(phoneDigits)) return true
+    }
+    // 2) participante admin que bate com jid/lid/phone
+    return g.participants?.some(p => {
+      if (p.admin !== 'admin' && p.admin !== 'superadmin') return false
+      if (lid && p.id === lid) return true
+      if (jid && p.id === jid) return true
+      if (phoneDigits) {
+        const pd = digitsOf(p.id)
+        if (pd && pd.startsWith(phoneDigits)) return true
+      }
+      return false
+    }) ?? false
+  })
 }
 
 export async function sendText(groupJid: string, text: string, instanceName: string = EVO_INST): Promise<string | null> {
