@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
       let providerStatus = "erro";
       let providerBody = "";
       let httpStatus = 0;
+      let providerProtocol: string | null = null;
       try {
         const apiRes = await fetch(DISPARO_PRO_URL, {
           method: "POST",
@@ -114,8 +115,22 @@ Deno.serve(async (req) => {
         });
         httpStatus = apiRes.status;
         providerBody = await apiRes.text();
-        providerStatus = apiRes.ok ? "enviado" : "erro";
-        if (apiRes.ok) sent++; else failed++;
+        // Parse body para validar de verdade — HTTP 200 não basta.
+        let parsed: any = null;
+        try { parsed = JSON.parse(providerBody); } catch { parsed = null; }
+        // DisparoPro retorna por número: status/sucesso/codigo/protocolo
+        const item = Array.isArray(parsed?.numeros) ? parsed.numeros[0]
+                   : Array.isArray(parsed) ? parsed[0]
+                   : parsed;
+        const codigoOk = item && (
+          item.sucesso === true ||
+          item.status === "ok" || item.status === "enviado" || item.status === "aceito" ||
+          item.codigo === 0 || item.codigo === "0" || item.codigo === 200
+        );
+        providerProtocol = item?.protocolo ?? item?.id ?? item?.message_id ?? parsed?.protocolo ?? null;
+        if (apiRes.ok && codigoOk) { providerStatus = "aceito_provider"; sent++; }
+        else if (apiRes.ok && parsed && !codigoOk) { providerStatus = "rejeitado_provider"; failed++; }
+        else { providerStatus = "erro"; failed++; }
       } catch (e) {
         failed++;
         providerBody = String(e);
@@ -123,7 +138,8 @@ Deno.serve(async (req) => {
 
       perLeadResults.push({
         lead_id: lead.id, numero, status: providerStatus,
-        http_status: httpStatus, provider: providerBody.slice(0, 300),
+        http_status: httpStatus, protocolo: providerProtocol,
+        provider: providerBody.slice(0, 500),
       });
 
       await supabase.from("message_logs").insert({
@@ -131,7 +147,9 @@ Deno.serve(async (req) => {
         tipo: "sms_disparopro",
         mensagem_preview: message.slice(0, 200),
         status: providerStatus,
-        error_details: providerStatus === "enviado" ? null : `[${httpStatus}] ${providerBody.slice(0, 500)}`,
+        error_details: providerStatus === "aceito_provider"
+          ? (providerProtocol ? `protocolo=${providerProtocol}` : null)
+          : `[${httpStatus}] ${providerBody.slice(0, 500)}`,
       });
     }
 
