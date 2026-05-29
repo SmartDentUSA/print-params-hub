@@ -155,15 +155,16 @@ serve(async (req) => {
           } catch (e) {
             const m = e instanceof Error ? e.message : String(e)
             const isSessionError = /SessionError|No sessions/i.test(m)
-            if (isSessionError && instance) {
-              console.warn(`[wa-dispatcher] SessionError → warmup ${item.group_jid}`)
+            const isTimeout = /Signal timed out|aborted|AbortError|timeout/i.test(m)
+            if ((isSessionError || isTimeout) && instance) {
+              console.warn(`[wa-dispatcher] ${isTimeout ? 'Timeout' : 'SessionError'} → warmup ${item.group_jid}`)
               await warmupGroup(item.group_jid, instance, apikey)
               await sleep(3000)
               try {
                 return await fn(apikey)
               } catch (e2) {
                 const m2 = e2 instanceof Error ? e2.message : String(e2)
-                const stillSession = /SessionError|No sessions/i.test(m2)
+                const stillSession = /SessionError|No sessions|Signal timed out|aborted|AbortError|timeout/i.test(m2)
                 // Auto-fallback: chave per-instance quebrada para grupos → tenta global.
                 if (stillSession && isGroup && apikey !== GLOBAL_EVOLUTION_KEY && teamMember) {
                   console.warn(`[wa-dispatcher] per-instance key falhou em grupo, tentando GLOBAL`)
