@@ -319,7 +319,7 @@ serve(async (req) => {
       targets:   targets.map(t => t.instanceName),
       per_instance,
       message:   `Sincronização iniciada em background para ${targets.length} instância(s). A lista atualizará automaticamente.`,
-    }, { status: 202, headers: corsHeaders })
+    }, { status: 200, headers: corsHeaders })
 
   } catch (err) {
     console.error('[wa-sync-groups] ERRO:', err)

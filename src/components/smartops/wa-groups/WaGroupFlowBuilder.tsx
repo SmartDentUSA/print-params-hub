@@ -231,8 +231,14 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
 
       if (activate) {
         const { data, error } = await supabase.functions.invoke("wa-campaign-builder", { body: { campaign_id: cid } });
-        if (error) throw error;
-        toast.success(`Campanha ativada — primeira mensagem em ${new Date(data?.first_send).toLocaleString("pt-BR")}`);
+        if (error) {
+          const detail = (data as any)?.error || (error as any)?.message || String(error);
+          throw new Error(detail);
+        }
+        if (data && (data as any).ok === false) {
+          throw new Error((data as any).error ?? "Falha ao ativar campanha");
+        }
+        toast.success(`Campanha ativada — primeira mensagem em ${new Date((data as any)?.first_send).toLocaleString("pt-BR")}`);
       } else {
         toast.success("Rascunho salvo");
       }
