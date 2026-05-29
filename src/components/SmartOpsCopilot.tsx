@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Sparkle
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 
 type Message = { role: "user" | "assistant"; content: string };
-type ModelId = "deepseek" | "gemini";
+type ModelId = "deepseek" | "gemini" | "claude";
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
@@ -397,6 +397,10 @@ export function SmartOpsCopilot() {
           <ToggleGroupItem value="gemini" className="text-xs gap-1 px-2.5 h-7">
             <Brain className="w-3 h-3" />
             Gemini
+          </ToggleGroupItem>
+          <ToggleGroupItem value="claude" className="text-xs gap-1 px-2.5 h-7">
+            <Sparkle className="w-3 h-3" />
+            Claude
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
