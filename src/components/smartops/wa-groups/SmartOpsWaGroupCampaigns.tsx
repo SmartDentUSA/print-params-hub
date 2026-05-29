@@ -340,6 +340,13 @@ export function SmartOpsWaGroupCampaigns() {
             </SelectContent>
           </Select>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWizardBlastOpen(true)}
+          >
+            <Send className="w-4 h-4 mr-2" /> Blast pontual (wizard)
+          </Button>
+          <Button
             variant={selectionMode ? "default" : "outline"}
             size="sm"
             onClick={() => { setSelectionMode(s => !s); setSelectedIds([]); }}
