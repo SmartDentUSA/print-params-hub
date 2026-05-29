@@ -2448,13 +2448,17 @@ serve(async (req) => {
     const { messages, csv_data, model: requestedModel } = await req.json();
     
     // Determine which model to use
-    const modelId: ModelId = requestedModel === "gemini" ? "gemini" : "deepseek";
+    const modelId: ModelId =
+      requestedModel === "gemini" ? "gemini"
+      : requestedModel === "claude" ? "claude"
+      : "deepseek";
     const config = getModelConfig(modelId);
 
     // Validate API key
     if (!config.apiKey) {
-      const errorMsg = modelId === "gemini" 
-        ? "LOVABLE_API_KEY não configurada. Gemini indisponível."
+      const errorMsg =
+        modelId === "gemini" ? "LOVABLE_API_KEY não configurada. Gemini indisponível."
+        : modelId === "claude" ? "ANTHROPIC_API_KEY não configurada. Claude indisponível."
         : "DEEPSEEK_API_KEY não configurada.";
       return new Response(JSON.stringify({ error: errorMsg }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
