@@ -54,17 +54,17 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
         const sb = supabase as any;
         if (tab === "article") {
           let q = sb
-            .from("knowledge_articles")
-            .select("id, title, category, meta_description, updated_at")
-            .eq("is_published", true)
+            .from("knowledge_contents")
+            .select("id, title, excerpt, meta_description, updated_at")
+            .eq("active", true)
             .order("updated_at", { ascending: false })
             .limit(50);
           if (debounced) q = q.ilike("title", `%${debounced}%`);
           const { data, error } = await q;
           if (error) throw error;
           rows = (data ?? []).map((r: any) => ({
-            id: r.id, title: r.title, category: r.category,
-            preview: r.meta_description, updated_at: r.updated_at,
+            id: r.id, title: r.title, category: null,
+            preview: r.excerpt ?? r.meta_description, updated_at: r.updated_at,
           }));
         } else if (tab === "product") {
           let q = sb
@@ -82,10 +82,9 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
           }));
         } else {
           let q = sb
-            .from("videos")
+            .from("knowledge_videos")
             .select("id, title, description, updated_at")
-            .eq("status", "active")
-            .order("updated_at", { ascending: false })
+            .order("updated_at", { ascending: false, nullsFirst: false })
             .limit(50);
           if (debounced) q = q.ilike("title", `%${debounced}%`);
           const { data, error } = await q;
