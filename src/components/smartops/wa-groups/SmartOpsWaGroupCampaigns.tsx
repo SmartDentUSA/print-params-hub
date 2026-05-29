@@ -63,6 +63,10 @@ export function SmartOpsWaGroupCampaigns() {
   const [savingGroups, setSavingGroups] = useState(false);
   const [editFlowFor, setEditFlowFor] = useState<{ id: string; group_ids: string[] } | null>(null);
   const [view, setView] = useState<"enabled" | "disabled">("enabled");
+  const [wizardBlastOpen, setWizardBlastOpen] = useState(false);
+  const [renameFor, setRenameFor] = useState<{ id: string; name: string } | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -232,7 +236,11 @@ export function SmartOpsWaGroupCampaigns() {
   const filtered = useMemo(() => {
     // IDs de grupos que já fazem parte de uma régua compartilhada — devem sair da lista principal
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    const base = rows.filter(r => !sharedIds.has(r.group_id) && (view === "enabled" ? r.enabled : !r.enabled));
+    const base = rows.filter(r =>
+      r.is_admin &&
+      !sharedIds.has(r.group_id) &&
+      (view === "enabled" ? r.enabled : !r.enabled)
+    );
     const q = search.trim().toLowerCase();
     if (!q) return base;
     return base.filter(r =>
@@ -243,11 +251,11 @@ export function SmartOpsWaGroupCampaigns() {
 
   const enabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => !sharedIds.has(r.group_id) && r.enabled).length;
+    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && r.enabled).length;
   }, [rows, sharedCampaigns]);
   const disabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => !sharedIds.has(r.group_id) && !r.enabled).length;
+    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && !r.enabled).length;
   }, [rows, sharedCampaigns]);
 
   const openEditGroups = (c: { id: string; name: string; status: string; group_ids: string[] }) => {
