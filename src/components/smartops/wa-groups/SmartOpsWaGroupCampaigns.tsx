@@ -342,9 +342,9 @@ export function SmartOpsWaGroupCampaigns() {
         <div className="flex items-center gap-3">
           <Users className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Campanhas em Grupos WhatsApp</h3>
-          <Badge variant="secondary">{rows.length} grupos</Badge>
-          <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
-            {adminCount} admin
+          <Badge variant="secondary">{adminCount} grupos admin</Badge>
+          <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400">
+            {rows.length - adminCount} sem admin
           </Badge>
           <Badge variant="outline" className="border-primary/40">
             {activeCount} ativas
@@ -449,6 +449,15 @@ export function SmartOpsWaGroupCampaigns() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={statusVariant[c.status]}>{statusLabel[c.status]}</Badge>
                     <span className="text-sm font-medium">{c.name}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => openRename({ id: c.id, name: c.name })}
+                      title="Renomear régua"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
                     <Badge variant="outline" className="text-[10px]">
                       <Users className="w-3 h-3 mr-1" />
                       {c.group_ids.length} grupos
