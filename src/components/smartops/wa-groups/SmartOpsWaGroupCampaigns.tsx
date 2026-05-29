@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   RefreshCw, Users, Plus, Pencil, Eye, Search, ShieldAlert, Activity,
-  PauseCircle, PlayCircle, Clock, Send, X,
+  PauseCircle, PlayCircle, Clock, Send, X, Sparkles,
 } from "lucide-react";
 import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
@@ -48,6 +48,7 @@ export function SmartOpsWaGroupCampaigns() {
   const [search, setSearch] = useState("");
   const [builderGroupId, setBuilderGroupId] = useState<string | null>(null);
   const [builderCampaignId, setBuilderCampaignId] = useState<string | null>(null);
+  const [multiBuilderIds, setMultiBuilderIds] = useState<string[] | null>(null);
   const [instances, setInstances] = useState<WaInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string>("");
   const [selectionMode, setSelectionMode] = useState(false);
@@ -379,6 +380,9 @@ export function SmartOpsWaGroupCampaigns() {
           <Button size="sm" onClick={() => setBlastOpen(true)}>
             <Send className="w-3 h-3 mr-1" /> Blast pontual
           </Button>
+          <Button size="sm" variant="secondary" onClick={() => setMultiBuilderIds(selectedIds)}>
+            <Sparkles className="w-3 h-3 mr-1" /> Montar régua única
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => { setSelectionMode(false); setSelectedIds([]); }}>
             Cancelar
           </Button>
@@ -393,6 +397,21 @@ export function SmartOpsWaGroupCampaigns() {
           campaignId={builderCampaignId}
           onClose={() => { setBuilderGroupId(null); setBuilderCampaignId(null); }}
           onSaved={() => { setBuilderGroupId(null); setBuilderCampaignId(null); fetchRows(); }}
+        />
+      )}
+
+      {multiBuilderIds && (
+        <WaGroupFlowBuilder
+          open={!!multiBuilderIds}
+          groupIds={multiBuilderIds}
+          campaignId={null}
+          onClose={() => setMultiBuilderIds(null)}
+          onSaved={() => {
+            setMultiBuilderIds(null);
+            setSelectionMode(false);
+            setSelectedIds([]);
+            fetchRows();
+          }}
         />
       )}
 
