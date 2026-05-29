@@ -418,6 +418,145 @@ Deno.serve(async (req) => {
 
     const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
 
+    // ─── UNIVERSAL META RE-DELIVERY ROUTE ───
+    // Se o dedupe early acima detectou re-entrega Meta com form_name e nos
+    // pediu para diferir, agora temos todos os campos do payload extraídos.
+    // Aplicamos enrichment incremental no lead canônico (preservando origin
+    // e dados não-vazios) e disparamos a régua de deal universal em
+    // smart-ops-lia-assign (enrichment_only_route_deal): preserva VENDAS se
+    // já existir, ou abre fresh deal em VENDAS após fechar funis não-CS.
+    if (deferredRedeliveryCanonicalId) {
+      try {
+        const { data: canon } = await supabase
+          .from("lia_attendances")
+          .select("*")
+          .eq("id", deferredRedeliveryCanonicalId)
+          .maybeSingle();
+        if (canon) {
+          const isEmpty = (v: unknown) =>
+            v == null || String(v).trim() === "" || String(v).trim().toLowerCase() === "não";
+          const enrichmentDiff: Record<string, unknown> = {};
+          const coalesce = (col: string, incoming: unknown) => {
+            if (isEmpty(incoming)) return;
+            if (isEmpty((canon as Record<string, unknown>)[col])) {
+              enrichmentDiff[col] = incoming;
+            }
+          };
+          const alwaysUpdateEquip = (col: string, incoming: unknown) => {
+            if (isEmpty(incoming)) return;
+            const current = (canon as Record<string, unknown>)[col];
+            if (String(current ?? "").trim() !== String(incoming).trim()) {
+              enrichmentDiff[col] = incoming;
+            }
+          };
+          coalesce("area_atuacao", areaAtuacao);
+          coalesce("especialidade", especialidade);
+          coalesce("como_digitaliza", comoDigitaliza);
+          coalesce("produto_interesse", produtoInteresse);
+          coalesce("produto_interesse_auto", produtoInteresseAuto);
+          coalesce("resina_interesse", resinaInteresse);
+          if (telefoneNormalized) coalesce("telefone_normalized", telefoneNormalized);
+          if (telefoneRaw) coalesce("telefone_raw", telefoneRaw);
+          alwaysUpdateEquip("tem_impressora", temImpressora);
+          alwaysUpdateEquip("tem_scanner", temScanner);
+          alwaysUpdateEquip("impressora_modelo", impressoraModelo);
+          const existingFormData =
+            (canon.form_data as Record<string, unknown> | null) || {};
+          const enrichmentHistory =
+            (existingFormData.enrichment_history as unknown[] | undefined) || [];
+          const updates: Record<string, unknown> = {
+            ...enrichmentDiff,
+            form_data: {
+              ...existingFormData,
+              enrichment_history: [
+                ...enrichmentHistory,
+                {
+                  at: new Date().toISOString(),
+                  via: deferredRedeliveryVia,
+                  leadgen_id: dedupeId ? String(dedupeId) : null,
+                  form_id: payload.platform_form_id || payload.meta_form_id || null,
+                  incoming_email: email,
+                  fields_filled: Object.keys(enrichmentDiff),
+                  payload_snapshot: payload,
+                },
+              ].slice(-10),
+            },
+          };
+          if (!canon.platform_lead_id && dedupeId) {
+            updates.platform_lead_id = String(dedupeId);
+          }
+          if (!canon.platform_form_id && (payload.platform_form_id || payload.meta_form_id)) {
+            updates.platform_form_id = String(payload.platform_form_id || payload.meta_form_id);
+          }
+          try {
+            await supabase
+              .from("lia_attendances")
+              .update(updates)
+              .eq("id", canon.id);
+          } catch (e) {
+            console.warn("[ingest-lead] universal redelivery enrichment failed:", e);
+          }
+          const enrichedFields = Object.keys(enrichmentDiff);
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "info",
+              error_type: deferredRedeliveryVia,
+              lead_id: canon.id,
+              lead_email: canon.email || email,
+              details: {
+                form_name: formName,
+                new_leadgen_id: dedupeId ? String(dedupeId) : null,
+                enriched_fields: enrichedFields,
+              },
+            });
+          } catch {}
+          let dealRouteResult: Record<string, unknown> | null = null;
+          if (canon.pessoa_piperun_id && formName) {
+            try {
+              const { data: routeData, error: routeErr } = await supabase.functions.invoke(
+                "smart-ops-lia-assign",
+                {
+                  body: {
+                    lead_id: canon.id,
+                    enrichment_only_route_deal: true,
+                    enrichment_form_name: formName,
+                    enriched_fields: enrichedFields,
+                    trigger: deferredRedeliveryVia,
+                  },
+                },
+              );
+              if (routeErr) {
+                console.warn("[ingest-lead] universal redelivery invoke error:", routeErr);
+              } else {
+                dealRouteResult = (routeData as Record<string, unknown>) ?? null;
+              }
+            } catch (e) {
+              console.warn("[ingest-lead] universal redelivery invoke threw:", e);
+            }
+          } else {
+            console.log(
+              `[ingest-lead] universal redelivery: skipping deal route (pessoa_piperun_id=${canon.pessoa_piperun_id ?? "n/a"}, formName=${formName ?? "n/a"})`,
+            );
+          }
+          return new Response(
+            JSON.stringify({
+              success: true,
+              duplicate_skipped: true,
+              dedupe_id: dedupeId ? String(dedupeId) : null,
+              dedupe_via: deferredRedeliveryVia,
+              lead_id: canon.id,
+              incremental_enrichment: enrichedFields,
+              deal_route_result: dealRouteResult,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] deferred redelivery block failed (non-blocking):", e);
+      }
+    }
+
     // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
     let existingLead: Record<string, any> | null = null;
     let matchedVia: "email" | "phone" | null = null;
