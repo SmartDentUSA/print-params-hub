@@ -1917,8 +1917,20 @@ async function executarEnrichmentDealRoute(
   const vendaDeal = openDeals.find(
     (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed,
   );
+  // Pipelines protegidos: NUNCA fechados por re-entrega Meta. Cliente em
+  // onboarding/CS pode receber novo deal em VENDAS (nova intenção comercial)
+  // mas o trabalho de CS é preservado intacto.
+  const PROTECTED_PIPELINES = new Set<number>([
+    PIPELINES.CS_ONBOARDING,
+    PIPELINES.GANHOS_ALEATORIOS_CS,
+  ]);
   const otherOpenDeals = openDeals.filter(
-    (d) => Number(d.pipeline_id) !== PIPELINES.VENDAS,
+    (d) =>
+      Number(d.pipeline_id) !== PIPELINES.VENDAS &&
+      !PROTECTED_PIPELINES.has(Number(d.pipeline_id)),
+  );
+  const preservedCsDeals = openDeals.filter((d) =>
+    PROTECTED_PIPELINES.has(Number(d.pipeline_id)),
   );
 
   const customFields = mapAttendanceToDealCustomFields(lead);
@@ -2033,6 +2045,9 @@ async function executarEnrichmentDealRoute(
       Number(newDealId),
       `📩 [Dra. L.I.A.] Deal aberto a partir de re-entrega Meta (form "${enrichmentFormName ?? "n/a"}").\n` +
         `Deals anteriores fechados como Perdido (reativação): ${closedDeals.length}.\n` +
+        (preservedCsDeals.length
+          ? `Deals CS preservados (não fechados): ${preservedCsDeals.map((d) => d.id).join(", ")}.\n`
+          : "") +
         (enrichedFields.length ? `Campos enriquecidos: ${enrichedFields.join(", ")}.` : ""),
     );
   } catch (e) {
