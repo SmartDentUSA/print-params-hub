@@ -4,6 +4,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/evolution.ts'
+import { spDateTimeToUtc, spWeekday, addDaysSp } from '../_shared/timezone.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -77,15 +78,14 @@ serve(async (req) => {
       }
       let ts: Date
       if (lastWait) {
-        // Após um nó wait: usa o horário configurado no wait (BRT → UTC = +3h)
+        // Após um nó wait: usa o horário SP configurado no wait (timezone-aware).
         const time = (lastWait.time as string) ?? '09:00'
         const [hh, mm] = time.split(':').map(Number)
-        ts = new Date(startTs + accMs)
-        ts.setUTCHours(hh + 3, mm, 0, 0)
+        ts = spDateTimeToUtc(new Date(startTs + accMs), hh, mm)
         if (lastWait.weekdays_only) {
-          const d = ts.getDay()
-          if (d === 0) ts.setDate(ts.getDate() + 1)
-          if (d === 6) ts.setDate(ts.getDate() + 2)
+          const d = spWeekday(ts)
+          if (d === 0) ts = addDaysSp(ts, 1)
+          else if (d === 6) ts = addDaysSp(ts, 2)
         }
       } else {
         // Primeiro nó de conteúdo: respeita exatamente o started_at escolhido na UI
