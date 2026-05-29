@@ -63,6 +63,10 @@ export function SmartOpsWaGroupCampaigns() {
   const [savingGroups, setSavingGroups] = useState(false);
   const [editFlowFor, setEditFlowFor] = useState<{ id: string; group_ids: string[] } | null>(null);
   const [view, setView] = useState<"enabled" | "disabled">("enabled");
+  const [wizardBlastOpen, setWizardBlastOpen] = useState(false);
+  const [renameFor, setRenameFor] = useState<{ id: string; name: string } | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -232,7 +236,11 @@ export function SmartOpsWaGroupCampaigns() {
   const filtered = useMemo(() => {
     // IDs de grupos que já fazem parte de uma régua compartilhada — devem sair da lista principal
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    const base = rows.filter(r => !sharedIds.has(r.group_id) && (view === "enabled" ? r.enabled : !r.enabled));
+    const base = rows.filter(r =>
+      r.is_admin &&
+      !sharedIds.has(r.group_id) &&
+      (view === "enabled" ? r.enabled : !r.enabled)
+    );
     const q = search.trim().toLowerCase();
     if (!q) return base;
     return base.filter(r =>
@@ -243,11 +251,11 @@ export function SmartOpsWaGroupCampaigns() {
 
   const enabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => !sharedIds.has(r.group_id) && r.enabled).length;
+    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && r.enabled).length;
   }, [rows, sharedCampaigns]);
   const disabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => !sharedIds.has(r.group_id) && !r.enabled).length;
+    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && !r.enabled).length;
   }, [rows, sharedCampaigns]);
 
   const openEditGroups = (c: { id: string; name: string; status: string; group_ids: string[] }) => {
@@ -299,6 +307,33 @@ export function SmartOpsWaGroupCampaigns() {
   const selectedRows = rows.filter(r => selectedIds.includes(r.group_id));
   const selectedMembers = selectedRows.reduce((s, r) => s + (r.member_count ?? 0), 0);
 
+  const openRename = (c: { id: string; name: string }) => {
+    setRenameFor(c);
+    setRenameDraft(c.name ?? "");
+  };
+
+  const saveRename = async () => {
+    if (!renameFor) return;
+    const name = renameDraft.trim();
+    if (!name) { toast.error("Nome não pode ficar vazio."); return; }
+    if (name === renameFor.name) { setRenameFor(null); return; }
+    setRenaming(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("wa_campaigns")
+        .update({ name })
+        .eq("id", renameFor.id);
+      if (error) throw error;
+      toast.success("Nome atualizado");
+      setRenameFor(null);
+      fetchShared();
+    } catch (err: any) {
+      toast.error("Falha: " + (err?.message ?? String(err)));
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   return (
     <TooltipProvider>
     <div className="space-y-4">
@@ -307,9 +342,9 @@ export function SmartOpsWaGroupCampaigns() {
         <div className="flex items-center gap-3">
           <Users className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Campanhas em Grupos WhatsApp</h3>
-          <Badge variant="secondary">{rows.length} grupos</Badge>
-          <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
-            {adminCount} admin
+          <Badge variant="secondary">{adminCount} grupos admin</Badge>
+          <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400">
+            {rows.length - adminCount} sem admin
           </Badge>
           <Badge variant="outline" className="border-primary/40">
             {activeCount} ativas
@@ -339,6 +374,13 @@ export function SmartOpsWaGroupCampaigns() {
               })}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWizardBlastOpen(true)}
+          >
+            <Send className="w-4 h-4 mr-2" /> Blast pontual (wizard)
+          </Button>
           <Button
             variant={selectionMode ? "default" : "outline"}
             size="sm"
@@ -407,6 +449,15 @@ export function SmartOpsWaGroupCampaigns() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={statusVariant[c.status]}>{statusLabel[c.status]}</Badge>
                     <span className="text-sm font-medium">{c.name}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => openRename({ id: c.id, name: c.name })}
+                      title="Renomear régua"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
                     <Badge variant="outline" className="text-[10px]">
                       <Users className="w-3 h-3 mr-1" />
                       {c.group_ids.length} grupos
@@ -656,6 +707,38 @@ export function SmartOpsWaGroupCampaigns() {
         selectedGroupJids={selectedRows.map(r => r.group_jid)}
         selectedGroupNames={selectedRows.map(r => r.group_name ?? "")}
       />
+
+      {/* Blast pontual via wizard (segmentação, inclui não-admin) */}
+      <WaGroupBlastModal
+        open={wizardBlastOpen}
+        onClose={() => setWizardBlastOpen(false)}
+        onSent={() => { setWizardBlastOpen(false); fetchRows(); }}
+        pickerMode
+        instanceFilter={selectedInstance || undefined}
+      />
+
+      {/* Renomear régua compartilhada */}
+      <Dialog open={!!renameFor} onOpenChange={(o) => !o && !renaming && setRenameFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renomear régua compartilhada</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            placeholder="Nome da régua"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRenameFor(null)} disabled={renaming}>
+              Cancelar
+            </Button>
+            <Button onClick={saveRename} disabled={renaming}>
+              {renaming ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {editFlowFor && (
         <WaGroupFlowBuilder
