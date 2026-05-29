@@ -19,6 +19,7 @@ import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
 import { WaGroupBlastModal } from "./WaGroupBlastModal";
 import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
+import { WaCampaignHealthBadge } from "./WaCampaignHealthBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const statusVariant: Record<string, string> = {
@@ -492,6 +493,7 @@ export function SmartOpsWaGroupCampaigns() {
                       </Badge>
                     ))}
                   </div>
+                  <WaCampaignHealthBadge campaignId={c.id} />
                 </div>
               ))}
             </CardContent>
@@ -601,6 +603,9 @@ export function SmartOpsWaGroupCampaigns() {
                         <Clock className="w-3 h-3" />
                         Próximo: {formatDateTime(row.next_send_at)}
                       </div>
+                      {row.campaign_id && (
+                        <WaCampaignHealthBadge campaignId={row.campaign_id} compact />
+                      )}
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">Sem campanha ativa</p>

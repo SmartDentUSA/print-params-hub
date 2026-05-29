@@ -2,7 +2,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendText, sendMedia, sleep, corsHeaders } from '../_shared/evolution.ts'
+import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
@@ -23,7 +23,7 @@ serve(async (req) => {
     const { data: pending, error } = await supabase
       .from('wa_message_queue')
       .select(`
-        id, campaign_id, group_jid, node_index, node_type, content_json, retry_count,
+        id, campaign_id, group_jid, node_index, node_type, content_json, retry_count, evo_message_id, delivery_status,
         wa_campaigns!inner(delay_seconds, daily_limit, status)
       `)
       .eq('status', 'pending')
@@ -77,6 +77,25 @@ serve(async (req) => {
       console.log(`[wa-dispatcher] → send`, { queue_id: item.id, group_jid: item.group_jid, instance, node_type: item.node_type })
 
       try {
+        // GUARDA ANTI-DUPLICAÇÃO: se já temos evo_message_id de um envio anterior,
+        // confere primeiro com o Baileys antes de reenviar.
+        if (item.evo_message_id && instance) {
+          const raw = await findMessageStatus(item.group_jid, item.evo_message_id, instance, apikey)
+          const mapped = mapBaileysStatus(raw)
+          if (mapped === 'delivered' || mapped === 'read' || mapped === 'sent_to_server') {
+            const now = new Date().toISOString()
+            await supabase.from('wa_message_queue').update({
+              status: 'sent',
+              sent_at: now,
+              delivery_status: mapped,
+              delivery_checked_at: now,
+            }).eq('id', item.id)
+            results.push({ id: item.id, status: 'sent_dedup' })
+            console.log(`[wa-dispatcher] ⊘ dedup ${item.id}: already ${mapped} on Evolution`)
+            continue
+          }
+        }
+
         if (!(await checkDailyLimit(supabase, item.campaign_id, camp.daily_limit))) {
           await setStatus(supabase, item.id, 'skipped', 'Limite diário atingido')
           results.push({ id: item.id, status: 'skipped' })
@@ -99,32 +118,50 @@ serve(async (req) => {
 
         let evoId: string | null = null
 
+        // Helper: encapsula sendText/sendMedia com retry-once + warmup em SessionError
+        const sendWithSessionRetry = async (
+          fn: () => Promise<string | null>,
+        ): Promise<string | null> => {
+          try {
+            return await fn()
+          } catch (e) {
+            const m = e instanceof Error ? e.message : String(e)
+            if (/SessionError|No sessions/i.test(m) && instance) {
+              console.warn(`[wa-dispatcher] SessionError → warmup ${item.group_jid}`)
+              await warmupGroup(item.group_jid, instance, apikey)
+              await sleep(3000)
+              return await fn()
+            }
+            throw e
+          }
+        }
+
         switch (item.node_type) {
           case 'msg': {
             const txt = (item.content_json?.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await sendText(item.group_jid, txt, instance, apikey)
+            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
             break
           }
           case 'image':
-            evoId = await sendMedia(item.group_jid, 'image',
+            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'image',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey)
+              (item.content_json?.caption ?? '') as string, instance, apikey))
             break
           case 'video':
-            evoId = await sendMedia(item.group_jid, 'video',
+            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'video',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey)
+              (item.content_json?.caption ?? '') as string, instance, apikey))
             break
           case 'audio':
-            evoId = await sendMedia(item.group_jid, 'audio',
+            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'audio',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey)
+              (item.content_json?.caption ?? '') as string, instance, apikey))
             break
           case 'document':
-            evoId = await sendMedia(item.group_jid, 'document',
+            evoId = await sendWithSessionRetry(() => sendMedia(item.group_jid, 'document',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance, apikey)
+              (item.content_json?.caption ?? '') as string, instance, apikey))
             break
           case 'link': {
             const c = item.content_json ?? {}
@@ -133,12 +170,12 @@ serve(async (req) => {
               c.description ? String(c.description) : '',
               c.url         ? String(c.url)         : '',
             ].filter(Boolean).join('\n\n')
-            evoId = await sendText(item.group_jid, txt, instance, apikey)
+            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
             break
           }
           case 'ai': {
             const txt = await resolveAIContent(supabase, item.content_json)
-            evoId = await sendText(item.group_jid, txt, instance, apikey)
+            evoId = await sendWithSessionRetry(() => sendText(item.group_jid, txt, instance, apikey))
             await supabase.from('wa_message_queue')
               .update({ content_json: { ...item.content_json, _resolved_text: txt } })
               .eq('id', item.id)
@@ -150,7 +187,13 @@ serve(async (req) => {
 
         const now = new Date().toISOString()
         await supabase.from('wa_message_queue')
-          .update({ status: 'sent', sent_at: now, evo_message_id: evoId })
+          .update({
+            status: 'sent',
+            sent_at: now,
+            evo_message_id: evoId,
+            delivery_status: 'sent_to_server',
+            delivery_checked_at: now,
+          })
           .eq('id', item.id)
 
         await supabase.from('wa_send_log').insert({

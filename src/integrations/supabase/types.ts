@@ -18549,6 +18549,9 @@ export type Database = {
           campaign_id: string
           content_json: Json
           created_at: string
+          delivery_attempts: number
+          delivery_checked_at: string | null
+          delivery_status: string | null
           error_message: string | null
           evo_message_id: string | null
           group_jid: string
@@ -18564,6 +18567,9 @@ export type Database = {
           campaign_id: string
           content_json?: Json
           created_at?: string
+          delivery_attempts?: number
+          delivery_checked_at?: string | null
+          delivery_status?: string | null
           error_message?: string | null
           evo_message_id?: string | null
           group_jid: string
@@ -18579,6 +18585,9 @@ export type Database = {
           campaign_id?: string
           content_json?: Json
           created_at?: string
+          delivery_attempts?: number
+          delivery_checked_at?: string | null
+          delivery_status?: string | null
           error_message?: string | null
           evo_message_id?: string | null
           group_jid?: string
@@ -21584,6 +21593,42 @@ export type Database = {
           },
         ]
       }
+      v_wa_campaign_delivery_health: {
+        Row: {
+          campaign_id: string | null
+          delivered: number | null
+          failed: number | null
+          last_sent_at: string | null
+          next_scheduled_at: string | null
+          read: number | null
+          scheduled: number | null
+          sent: number | null
+          stuck: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_message_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_combined_campaigns"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "wa_message_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "wa_message_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_wa_combined_campaigns: {
         Row: {
           campaign_id: string | null
@@ -23720,6 +23765,10 @@ export type Database = {
         }[]
       }
       fn_vitality_gen_tick: { Args: never; Returns: undefined }
+      fn_wa_reprocess_undelivered: {
+        Args: { p_campaign_id: string }
+        Returns: number
+      }
       fn_ytd_piperun: {
         Args: { p_ano?: number }
         Returns: {

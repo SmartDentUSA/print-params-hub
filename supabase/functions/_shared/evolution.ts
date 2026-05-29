@@ -195,6 +195,62 @@ export async function sendMedia(
   return d?.key?.id ?? null
 }
 
+/**
+ * Warmup do Baileys: força resolução de sessão E2E do grupo.
+ * Usar antes de re-tentar envio quando o erro for "SessionError: No sessions".
+ */
+export async function warmupGroup(
+  groupJid: string,
+  instanceName: string = EVO_INST,
+  apikey?: string,
+): Promise<boolean> {
+  try {
+    const url = `${EVO_BASE}/group/findGroupInfos/${enc(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`
+    const res = await fetch(url, { headers: hWith(apikey), signal: AbortSignal.timeout(10_000) })
+    return res.ok
+  } catch (_) {
+    return false
+  }
+}
+
+/**
+ * Consulta o estado real (Baileys) de uma mensagem já enviada.
+ * Retorna o status bruto: PENDING | SERVER_ACK | DELIVERY_ACK | READ | PLAYED | null se não encontrada.
+ */
+export async function findMessageStatus(
+  groupJid: string,
+  messageId: string,
+  instanceName: string = EVO_INST,
+  apikey?: string,
+): Promise<string | null> {
+  try {
+    const url = `${EVO_BASE}/chat/findMessages/${enc(instanceName)}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: hWith(apikey),
+      body: JSON.stringify({ where: { key: { remoteJid: groupJid, id: messageId } } }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const records = Array.isArray(data) ? data : (data?.messages?.records ?? data?.records ?? [])
+    const m = Array.isArray(records) && records.length ? records[0] : null
+    if (!m) return null
+    return (m.status ?? m?.message?.status ?? null) as string | null
+  } catch (_) {
+    return null
+  }
+}
+
+/** Mapeia status bruto do Baileys para nosso delivery_status. */
+export function mapBaileysStatus(raw: string | null): 'unknown' | 'sent_to_server' | 'delivered' | 'read' {
+  const s = (raw ?? '').toUpperCase()
+  if (s === 'READ' || s === 'PLAYED') return 'read'
+  if (s === 'DELIVERY_ACK') return 'delivered'
+  if (s === 'SERVER_ACK' || s === 'PENDING') return 'sent_to_server'
+  return 'unknown'
+}
+
 export async function checkWaNumber(rawPhone: string, instanceName: string = EVO_INST, apikey?: string): Promise<WaNumberCheckResult> {
   const clean = normalizePhone(rawPhone)
   if (!clean || clean.length < 10) return { exists: false }
