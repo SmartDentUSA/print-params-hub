@@ -2237,6 +2237,18 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   unify_leads: executeUnifyLeads,
   ingest_knowledge: executeIngestKnowledge,
   create_article: executeCreateArticle,
+  ingest_method_doc: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-ingest-method-doc", { body: args });
+    return error ? { error: error.message } : data;
+  },
+  draft_knowledge_article: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-draft-knowledge-article", { body: args });
+    return error ? { error: error.message } : data;
+  },
+  publish_knowledge_article: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("copilot-publish-knowledge-article", { body: args });
+    return error ? { error: error.message } : data;
+  },
   import_csv: executeImportCsv,
   calculate: executeCalculate,
   query_leads_advanced: executeQueryLeadsAdvanced,
