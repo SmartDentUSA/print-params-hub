@@ -55,6 +55,8 @@ serve(async (req) => {
       await supabase.from('wa_message_queue')
         .update({ status: 'sending' }).eq('id', item.id)
 
+      console.log(`[wa-dispatcher] → send`, { queue_id: item.id, group_jid: item.group_jid, instance, node_type: item.node_type })
+
       try {
         if (!(await checkDailyLimit(supabase, item.campaign_id, camp.daily_limit))) {
           await setStatus(supabase, item.id, 'skipped', 'Limite diário atingido')
