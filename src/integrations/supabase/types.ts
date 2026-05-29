@@ -1199,6 +1199,21 @@ export type Database = {
         }
         Relationships: []
       }
+      boas_vindas_locks: {
+        Row: {
+          lead_id: string
+          locked_at: string
+        }
+        Insert: {
+          lead_id: string
+          locked_at?: string
+        }
+        Update: {
+          lead_id?: string
+          locked_at?: string
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           active: boolean
