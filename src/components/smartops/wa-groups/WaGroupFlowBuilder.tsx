@@ -299,6 +299,69 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                   <Label className="text-xs">Delay entre msgs (s)</Label>
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
                 </div>
+                <div className="pt-3 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Início da automação</Label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {scheduleEnabled ? "Agendar" : "Agora"}
+                      </span>
+                      <Switch
+                        checked={scheduleEnabled}
+                        onCheckedChange={(v) => setScheduleEnabled(v)}
+                      />
+                    </div>
+                  </div>
+                  {scheduleEnabled ? (
+                    <div className="space-y-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !scheduleDate && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                            {scheduleDate
+                              ? format(scheduleDate, "dd 'de' MMM 'de' yyyy", { locale: ptBR })
+                              : "Escolher data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={scheduleDate}
+                            onSelect={setScheduleDate}
+                            disabled={(date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
+                            initialFocus
+                            locale={ptBR}
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        A régua começa a enviar a partir desta data/hora. Os nós "Aguardar" contam a partir daí.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Ao ativar, a primeira mensagem é enviada em ~15 segundos.
+                    </p>
+                  )}
+                </div>
               </div>
             </aside>
 
