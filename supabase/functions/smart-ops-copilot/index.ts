@@ -131,6 +131,7 @@ const tools = [
         properties: {
           lead_name: { type: "string", description: "Nome do lead (busca ILIKE em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
+          email: { type: "string", description: "Email do lead (resolução alternativa)" },
           phone: { type: "string", description: "Telefone alternativo (se não houver lead_id/lead_name)" },
           message: { type: "string", description: "Texto do SMS (até 160 chars 7-bit, 70 chars com acentos)" },
           codificacao: { type: "string", description: "'0' = 7-bit (sem acentos, 160 chars/PDU), '8' = 8-bit (com acentos, 70 chars/PDU). Default: '0'" },
@@ -913,21 +914,22 @@ async function executeSendSms(args: any) {
     let leadId = args.lead_id;
     let phone = args.phone;
     let leadName: string | null = null;
-    if (!leadId && (args.lead_name || phone)) {
-      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").is("merged_into", null).limit(1);
-      if (args.lead_name) q = q.ilike("nome", `%${args.lead_name}%`);
-      else if (phone) q = q.or(`telefone_normalized.eq.${phone},telefone.eq.${phone}`);
+    if (!leadId && (args.lead_name || args.email || phone)) {
+      let q = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone_raw,wa_phone").is("merged_into", null).limit(1);
+      if (args.email) q = q.ilike("email", args.email);
+      else if (args.lead_name) q = q.ilike("nome", `%${args.lead_name}%`);
+      else if (phone) q = q.or(`telefone_normalized.eq.${phone},telefone_raw.eq.${phone}`);
       const { data } = await q;
       if (data && data.length > 0) {
         leadId = data[0].id;
         leadName = data[0].nome;
-        phone = phone || data[0].telefone_normalized || data[0].telefone;
+        phone = phone || data[0].telefone_normalized || data[0].telefone_raw || data[0].wa_phone;
       }
     }
     if (!leadId) return { error: "Lead não encontrado. Informe lead_id, lead_name ou phone válido." };
     if (!phone) {
-      const { data: l } = await supabase.from("lia_attendances").select("nome,telefone_normalized,telefone").eq("id", leadId).maybeSingle();
-      phone = l?.telefone_normalized || l?.telefone || null;
+      const { data: l } = await supabase.from("lia_attendances").select("nome,telefone_normalized,telefone_raw,wa_phone").eq("id", leadId).maybeSingle();
+      phone = l?.telefone_normalized || l?.telefone_raw || l?.wa_phone || null;
       leadName = leadName || l?.nome || null;
       if (!phone) return { error: `Lead ${leadName || leadId} não tem telefone cadastrado.` };
     }
