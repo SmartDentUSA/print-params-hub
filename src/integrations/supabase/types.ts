@@ -5272,6 +5272,8 @@ export type Database = {
           content_image_alt: string | null
           content_image_url: string | null
           created_at: string | null
+          created_by: string
+          draft_metadata: Json | null
           excerpt: string
           excerpt_en: string | null
           excerpt_es: string | null
@@ -5300,6 +5302,7 @@ export type Database = {
           selected_pdf_ids_es: string[] | null
           selected_pdf_ids_pt: string[] | null
           slug: string
+          source_method_docs: string[] | null
           technical_properties: Json | null
           title: string
           title_en: string | null
@@ -5325,6 +5328,8 @@ export type Database = {
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
+          created_by?: string
+          draft_metadata?: Json | null
           excerpt: string
           excerpt_en?: string | null
           excerpt_es?: string | null
@@ -5353,6 +5358,7 @@ export type Database = {
           selected_pdf_ids_es?: string[] | null
           selected_pdf_ids_pt?: string[] | null
           slug: string
+          source_method_docs?: string[] | null
           technical_properties?: Json | null
           title: string
           title_en?: string | null
@@ -5378,6 +5384,8 @@ export type Database = {
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
+          created_by?: string
+          draft_metadata?: Json | null
           excerpt?: string
           excerpt_en?: string | null
           excerpt_es?: string | null
@@ -5406,6 +5414,7 @@ export type Database = {
           selected_pdf_ids_es?: string[] | null
           selected_pdf_ids_pt?: string[] | null
           slug?: string
+          source_method_docs?: string[] | null
           technical_properties?: Json | null
           title?: string
           title_en?: string | null
@@ -14879,6 +14888,66 @@ export type Database = {
         }
         Relationships: []
       }
+      smartdent_method_docs: {
+        Row: {
+          active: boolean
+          body_md: string
+          chunk_index: number
+          created_at: string
+          doc_type: string
+          embedding: string | null
+          id: string
+          slug: string | null
+          source_doc_id: string
+          source_metadata: Json | null
+          source_storage_path: string | null
+          target_audience: string[] | null
+          target_products: string[] | null
+          title: string
+          tokens: number | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          body_md: string
+          chunk_index?: number
+          created_at?: string
+          doc_type?: string
+          embedding?: string | null
+          id?: string
+          slug?: string | null
+          source_doc_id: string
+          source_metadata?: Json | null
+          source_storage_path?: string | null
+          target_audience?: string[] | null
+          target_products?: string[] | null
+          title: string
+          tokens?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          body_md?: string
+          chunk_index?: number
+          created_at?: string
+          doc_type?: string
+          embedding?: string | null
+          id?: string
+          slug?: string | null
+          source_doc_id?: string
+          source_metadata?: Json | null
+          source_storage_path?: string | null
+          target_audience?: string[] | null
+          target_products?: string[] | null
+          title?: string
+          tokens?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       smartops_course_enrollments: {
         Row: {
           area_atuacao: string | null
@@ -24223,6 +24292,26 @@ export type Database = {
           metadata: Json
           similarity: number
           source_type: string
+        }[]
+      }
+      match_method_docs: {
+        Args: {
+          filter_audience?: string[]
+          filter_doc_type?: string
+          filter_products?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          body_md: string
+          doc_type: string
+          id: string
+          similarity: number
+          source_doc_id: string
+          target_audience: string[]
+          target_products: string[]
+          title: string
         }[]
       }
       merge_tags_crm: {
