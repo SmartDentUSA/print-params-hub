@@ -117,7 +117,9 @@ function buildContent(node: Record<string, unknown>): Record<string, unknown> {
     case 'msg':   return { text: node.text ?? node.content, mentions_everyone: node.mention_all ?? node.mentions_everyone ?? false }
     case 'ai':    return { ai_source_type: node.ai_source_type ?? 'article', ai_source_id: node.ai_source_id, ai_source_title: node.ai_source_title, ai_prompt_override: node.ai_prompt_override ?? null }
     case 'image':
-    case 'video': return { media_url: node.media_url, caption: node.caption ?? '' }
+    case 'video':
+    case 'audio':
+    case 'document': return { media_url: node.media_url, caption: node.caption ?? '', file_name: node.file_name ?? null, mime_type: node.mime_type ?? null }
     case 'link':  return { title: node.title, description: node.description, url: node.url }
     default:      return { raw: node }
   }

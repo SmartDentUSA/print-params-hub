@@ -84,6 +84,16 @@ serve(async (req) => {
               item.content_json?.media_url as string,
               (item.content_json?.caption ?? '') as string)
             break
+          case 'audio':
+            evoId = await sendMedia(item.group_jid, 'audio',
+              item.content_json?.media_url as string,
+              (item.content_json?.caption ?? '') as string)
+            break
+          case 'document':
+            evoId = await sendMedia(item.group_jid, 'document',
+              item.content_json?.media_url as string,
+              (item.content_json?.caption ?? '') as string)
+            break
           case 'link': {
             const c = item.content_json ?? {}
             const txt = [
