@@ -1,35 +1,39 @@
 ## Objetivo
-Corrigir o sync de grupos para que os grupos da instância `Danilo Henrique` sejam salvos como admin quando o Danilo é administrador, sem mexer em envio, dispatcher, builder, `EVO_BASE` ou `EVO_KEY`.
 
-## Diagnóstico confirmado
-- `wa_groups` tem 402 grupos para `Danilo Henrique`, todos com `is_admin=false`.
-- A instância está cadastrada em `team_members` com telefone `5519992612348` e API key própria.
-- O banco ainda não tem coluna `evolution_lid`.
-- O log mostra que a função só usa `5519992612348@s.whatsapp.net`/telefone como hint, mas a Evolution retorna o admin/owner em formato `@lid`; por isso a comparação nunca bate.
+Permitir que o usuário escolha **data e hora de início** da automação ao criar/ativar uma campanha (régua) no `WaGroupFlowBuilder`. Hoje, ao clicar em "Ativar", a primeira mensagem é agendada para `now() + 15s` (ou data do primeiro nó `wait`). A nova opção deixará o usuário definir explicitamente quando a régua começa a rodar.
 
-## Plano de implementação
-1. **Persistir LID da instância**
-   - Criar a coluna nullable `team_members.evolution_lid`.
-   - Não criar tabela nova; sem alteração de RLS necessária.
+## Como funcionará
 
-2. **Descobrir automaticamente o LID do Danilo**
-   - Em `wa-sync-groups`, após buscar os 402 grupos, contar participantes com `admin`/`superadmin` cujo `id` termina em `@lid`.
-   - Selecionar o LID mais frequente como provável LID da instância, usando uma trava mínima de confiança para evitar falso positivo.
+1. No painel lateral "Configuração" do builder, adicionar um campo **"Início da automação"** com:
+   - Toggle: **"Iniciar agora"** (padrão, comportamento atual) **vs "Agendar início"**.
+   - Quando "Agendar início" estiver ativo, exibir:
+     - DatePicker (shadcn) — não permite datas no passado.
+     - Input de hora (`HH:MM`) — padrão `09:00`.
+   - Texto auxiliar: "A régua começa a enviar a partir desta data/hora. Os nós 'Aguardar' continuam contando a partir desse ponto."
 
-3. **Recalcular `is_admin` no mesmo sync**
-   - Após descobrir o LID, recalcular todos os grupos já baixados: grupo será admin quando `owner`, `subjectOwner` ou participante admin bater com esse LID.
-   - Persistir os grupos com `is_admin=true` quando aplicável.
+2. Ao salvar como rascunho ou ativar, gravar `wa_campaigns.started_at` com o timestamp ISO escolhido (ou `null` quando "Iniciar agora").
 
-4. **Salvar o LID para próximos syncs**
-   - Atualizar todos os registros de `team_members` com `evolution_instance_name = 'Danilo Henrique'` e telefone `5519992612348` para guardar o LID descoberto.
-   - Em syncs futuros, ler `evolution_lid` e passar como hint direto.
+3. A edge function `wa-campaign-builder` **já respeita `camp.started_at`** (`const startTs = camp.started_at ? ... : Date.now() + 15_000`). Logo, basta passar o valor — nenhuma mudança no backend.
 
-5. **Logs e validação**
-   - Logar: grupos brutos, candidatos LID, LID escolhido, quantidade admin recalculada.
-   - Validar chamando `wa-sync-groups` com `{ "instance_name": "Danilo Henrique" }`.
-   - Conferir no banco: `count(*) filter (where is_admin)` para `instance_name='Danilo Henrique'` deve ficar maior que zero.
+4. Ao ativar com data futura, o toast já mostra "primeira mensagem em ...", então a experiência fica natural.
 
-## Fora do escopo
-- Não alterar `sendText`/`sendMedia`.
-- Não alterar dispatcher nem builder.
-- Não alterar servidor Evolution, `EVO_BASE` ou chave global.
+## Arquivos afetados
+
+- `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx`
+  - Novo state `scheduleEnabled: boolean`, `scheduleDate: Date | undefined`, `scheduleTime: string`.
+  - Carregar `started_at` existente ao editar (incluir no `select` do `useEffect`).
+  - UI nova na sidebar de configuração (após "Atraso entre mensagens").
+  - `handleSave`: incluir `started_at` no `payload` (ISO ou `null`).
+  - Validação: se "Agendar início" estiver ativo, exigir data preenchida e timestamp futuro antes de ativar.
+
+## Fora de escopo
+
+- Nenhuma mudança em edge functions, schema do banco ou dispatcher.
+- Não muda comportamento dos nós `wait`.
+- Não altera campanhas blast (`WaGroupBlastModal`) — apenas réguas (flow builder).
+
+## Validação
+
+- Criar nova régua, escolher data amanhã 14:00, ativar → `wa_campaigns.started_at` = amanhã 14:00; primeira mensagem na fila com `scheduled_at` ≈ 14:00.
+- Editar régua existente → datepicker pré-preenchido com `started_at` salvo.
+- Ativar com "Iniciar agora" → comportamento idêntico ao atual.
