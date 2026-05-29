@@ -20,7 +20,8 @@ import { WaMediaUploader } from "./WaMediaUploader";
 
 interface Props {
   open: boolean;
-  groupId: string;
+  groupId?: string;
+  groupIds?: string[];
   campaignId: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -51,7 +52,9 @@ function newNode(type: FlowNodeType): FlowNode {
   }
 }
 
-export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved }: Props) {
+export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClose, onSaved }: Props) {
+  const isMulti = !groupId && Array.isArray(groupIds) && groupIds.length > 0;
+  const targetIds: string[] = isMulti ? (groupIds as string[]) : (groupId ? [groupId] : []);
   const [name, setName] = useState("");
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [dailyLimit, setDailyLimit] = useState(50);
@@ -77,7 +80,7 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
       } else {
-        setName("Nova campanha");
+        setName(isMulti ? `Régua única (${targetIds.length} grupos)` : "Nova campanha");
         setNodes([]);
         setDailyLimit(50);
         setDelaySeconds(30);
@@ -147,7 +150,7 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
     try {
       let cid = campaignId;
       const payload: any = {
-        group_id: groupId,
+        group_id: isMulti ? null : groupId,
         name: name.trim(),
         flow_json: nodes,
         daily_limit: dailyLimit,
@@ -165,18 +168,26 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
           .single();
         if (error) throw error;
         cid = data.id;
-        // Vincula o rascunho ao grupo para que apareça no card (a view usa active_campaign_id).
-        // Só vincula se o grupo ainda não tem campanha ativa, para não sobrescrever campanhas em andamento.
-        const { data: g } = await (supabase as any)
-          .from("wa_groups")
-          .select("active_campaign_id")
-          .eq("id", groupId)
-          .single();
-        if (!g?.active_campaign_id) {
-          await (supabase as any)
+        if (isMulti) {
+          // Vincula a campanha aos N grupos via junction table
+          const rows = targetIds.map(gid => ({ campaign_id: cid, group_id: gid }));
+          const { error: linkErr } = await (supabase as any)
+            .from("wa_campaign_groups")
+            .insert(rows);
+          if (linkErr) throw linkErr;
+        } else if (groupId) {
+          // Single-group: vincula via active_campaign_id se grupo estiver livre
+          const { data: g } = await (supabase as any)
             .from("wa_groups")
-            .update({ active_campaign_id: cid })
-            .eq("id", groupId);
+            .select("active_campaign_id")
+            .eq("id", groupId)
+            .single();
+          if (!g?.active_campaign_id) {
+            await (supabase as any)
+              .from("wa_groups")
+              .update({ active_campaign_id: cid })
+              .eq("id", groupId);
+          }
         }
       }
 
@@ -203,6 +214,11 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
           <h2 className="text-base font-semibold whitespace-nowrap">
             {campaignId ? "Editar campanha" : "Nova campanha"}
           </h2>
+          {isMulti && (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              {targetIds.length} grupos
+            </Badge>
+          )}
           <div className="flex-1" />
           <Badge variant="secondary" className="text-[10px]">{nodes.length} nós</Badge>
         </div>
