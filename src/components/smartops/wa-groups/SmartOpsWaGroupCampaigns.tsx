@@ -331,6 +331,20 @@ export function SmartOpsWaGroupCampaigns() {
                     >
                       <Eye className="w-3 h-3 mr-1" /> Visualizar
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditFlowFor({ id: c.id, group_ids: c.group_ids })}
+                    >
+                      <Pencil className="w-3 h-3 mr-1" /> Editar fluxo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditGroups(c)}
+                    >
+                      <Users className="w-3 h-3 mr-1" /> Editar grupos
+                    </Button>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {c.group_names.map((n, i) => (
