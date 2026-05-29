@@ -1,113 +1,49 @@
-## Objetivo
+# Diagnóstico — Receita Maio/2026 divergente
 
-Auto-fallback no dispatcher: quando detecta `SessionError: No sessions` em grupo usando per-instance key, tenta com a global, e se funcionar marca `evolution_group_key_broken_at` no team_member. Próximos envios em grupo daquele team_member usam direto a global; mensagens individuais continuam com a per-instance.
+Verifiquei as 3 fontes diretamente no banco:
 
----
+| Fonte | Deals ganhos | Receita |
+|---|---|---|
+| **PipeRun (UI oficial)** | — | **R$ 2.502.791,58** |
+| **Tabela `deals`** (usada pelo Relatório do Sistema → `vw_vendas_ganhas` → `fn_total_vendas_mes`) | 347 | **R$ 2.252.998** (= R$ 2.223k que aparece na tela) |
+| **JSONB `piperun_deals_history`** em `lia_attendances` (fonte do Cérebro/Copilot) — distinct deal_id | 432 | **R$ 2.604.537** |
 
-## Migrations
+## Causa raiz
 
-### Migration 1 — colunas novas + CHECK ampliado
+A tabela `deals` está **defasada**. Encontrei **38 deals ganhos em Maio** que existem no PipeRun e no JSONB (ex: deal 60236286 / Adriano / R$ 69.990 fechado 29-05) mas **nunca foram persistidos na tabela `deals`**. Isso soma ~R$ 138k. Outros ~R$ 110k vêm de valores stale (proposta atualizada no PipeRun mas snapshot antigo na tabela).
 
-```sql
-ALTER TABLE team_members
-  ADD COLUMN evolution_group_key_broken_at timestamptz NULL;
+O fluxo atual:
+- `smart-ops-piperun-webhook` e `piperun-full-sync` atualizam o JSONB em `lia_attendances` (canônico, em tempo real).
+- A tabela `deals` é atualizada por um caminho separado que está perdendo eventos.
+- `vw_vendas_ganhas` lê da tabela `deals` → Relatório fica desatualizado.
+- O Cérebro já foi migrado para ler do JSONB (last refactor), por isso ele bate com PipeRun, e o Relatório do Sistema continua divergente.
 
-ALTER TABLE wa_groups
-  ADD COLUMN session_health text NOT NULL DEFAULT 'ok',
-  ADD COLUMN consecutive_send_errors int NOT NULL DEFAULT 0,
-  ADD COLUMN last_send_error text,
-  ADD COLUMN last_send_error_at timestamptz;
+## Plano de correção
 
--- Ampliar CHECK ANTES de qualquer UPDATE com 'blocked_session'
-ALTER TABLE wa_message_queue
-  DROP CONSTRAINT IF EXISTS wa_message_queue_status_check;
+**1. Recriar `vw_vendas_ganhas` lendo direto do JSONB canônico**
 
-ALTER TABLE wa_message_queue
-  ADD CONSTRAINT wa_message_queue_status_check
-  CHECK (status IN ('pending','sending','sent','failed','skipped','blocked_session'));
-```
+Nova view materializada como SELECT sobre `lia_attendances` + `jsonb_array_elements(piperun_deals_history)`:
+- `WHERE merged_into IS NULL`
+- `AND snap->>'status' = 'ganha'`
+- `AND snap->>'closed_at' IS NOT NULL`
+- `DISTINCT ON (deal_id)` pegando o snapshot mais recente (evita duplicação quando o mesmo deal aparece em leads diferentes)
+- Expõe as mesmas colunas: `vendedor` (owner_name), `pipeline`, `etapa` (stage_name), `produto`, `valor` (value), `fechado_em` (closed_at), `mes_fechamento`, etc.
 
-### Migration 2 — RPC `fn_wa_reactivate_group`
+**2. Manter as funções de relatório sem alterar assinatura**
+- `fn_total_vendas_mes`, `fn_resumo_vendas_mes` continuam idênticas — só mudam de fonte porque a view foi recriada.
+- Já foram alinhadas ao novo padrão na migration anterior do Cérebro.
 
-```sql
-CREATE OR REPLACE FUNCTION public.fn_wa_reactivate_group(p_group_jid text)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE v_released int;
-BEGIN
-  UPDATE wa_groups
-     SET session_health='ok', consecutive_send_errors=0,
-         last_send_error=NULL, last_send_error_at=NULL
-   WHERE group_jid = p_group_jid;
+**3. Validação pós-migration**
 
-  WITH upd AS (
-    UPDATE wa_message_queue
-       SET status='pending', scheduled_at = now() + interval '10 seconds'
-     WHERE group_jid = p_group_jid AND status='blocked_session'
-    RETURNING 1
-  )
-  SELECT count(*) INTO v_released FROM upd;
+Rodar `SELECT * FROM fn_total_vendas_mes(2026,5)` e confirmar que a `receita_total` cai dentro de ±1% de R$ 2.502.791,58 (PipeRun). Recalcular ranking por vendedor e comparar com o `brain_sales_ranking` — devem ser idênticos.
 
-  RETURN jsonb_build_object('released', v_released);
-END;
-$$;
+**4. (Opcional, fora deste escopo)** Diagnosticar por que `piperun-full-sync` deixou de gravar na tabela `deals`. Como agora ninguém crítico depende dela, pode virar tabela de auditoria/legado.
 
-GRANT EXECUTE ON FUNCTION public.fn_wa_reactivate_group(text) TO authenticated, service_role;
-```
+## Detalhes técnicos
 
----
+- Arquivo único: nova migration recriando `public.vw_vendas_ganhas` (DROP + CREATE).
+- Filtro de pipelines NÃO se aplica aqui (o Relatório deve mostrar todas as vendas ganhas, igual o PipeRun). O filtro de pipelines não-comerciais (`Funil Atos`, `E-book`, etc.) continua só nas funções específicas do Cérebro/check_copilot_brain_drift.
+- Parse de `closed_at`: alguns snapshots têm formato `"2023-02-14"` solto; usar `(snap->>'closed_at')::timestamptz` com guard `regexp_match` ou simplesmente filtrar `substring(...,1,4) ~ '^[0-9]{4}$'`.
+- Coerção de `value` para `numeric` com `NULLIF` para evitar erro em strings vazias.
 
-## Código
-
-### `supabase/functions/_shared/evolution.ts`
-
-```ts
-export function resolveApiKey(opts: {
-  teamMember?: { evolution_api_key?: string | null; evolution_group_key_broken_at?: string | null } | null;
-  isGroup: boolean;
-}): string {
-  const GLOBAL = Deno.env.get('EVOLUTION_API_KEY') ?? 'SmartDent_LIA_2026';
-  if (!opts.teamMember) return GLOBAL;
-  if (opts.isGroup && opts.teamMember.evolution_group_key_broken_at) return GLOBAL;
-  return opts.teamMember.evolution_api_key || GLOBAL;
-}
-```
-
-Também exportar a constante `GLOBAL_EVOLUTION_KEY` para o dispatcher comparar `key === GLOBAL`.
-
-### `supabase/functions/wa-dispatcher/index.ts`
-
-1. Lookup expandido:
-   ```ts
-   .select('id, evolution_instance_name, evolution_api_key, evolution_group_key_broken_at')
-   ```
-2. `teamMemberByInstance: Map<string, { id, evolution_api_key, evolution_group_key_broken_at }>`
-3. Ao processar item de grupo (`group_jid.endsWith('@g.us')`):
-   - `key = resolveApiKey({ teamMember, isGroup: true })`
-   - tenta envio
-   - sucesso → `sent`, zera `consecutive_send_errors`, `session_health='ok'`
-   - erro `/SessionError|No sessions/i`:
-     - se `key !== GLOBAL_EVOLUTION_KEY` → retry síncrono 1× com GLOBAL
-       - sucesso: `UPDATE team_members SET evolution_group_key_broken_at=now() WHERE id=$1 AND evolution_group_key_broken_at IS NULL`; log warning em `system_health_logs`; marca `sent`
-       - falha: incrementa `consecutive_send_errors`; se ≥2 → `session_health='session_broken'` + `UPDATE wa_message_queue SET status='blocked_session' WHERE group_jid=$1 AND status='pending'`
-     - se `key === GLOBAL`: mesma escalada de 2-falhas → bloqueia grupo
-4. Antes do envio: skipar item se `wa_groups.session_health='session_broken'`.
-
-### Frontend
-
-- `WaCampaignHealthBadge.tsx`: badge 🟢 ok / 🔴 "Sessão WhatsApp quebrada" com tooltip mostrando `last_send_error` + horário.
-- `SmartOpsWaGroupCampaigns.tsx`: quando `session_health='session_broken'`, botão **Reativar grupo** → `supabase.rpc('fn_wa_reactivate_group', { p_group_jid })` + toast com contagem + invalidação de query.
-- Indicador discreto "🔧 Auto-fallback ativo" quando o team_member do owner do grupo tem `evolution_group_key_broken_at != null`.
-
-### Memory
-
-Atualizar `mem://integration/evolution-per-instance-credentials`: per-instance key pode quebrar especificamente para JIDs de grupo; dispatcher faz retry síncrono com `EVOLUTION_API_KEY` global e marca `team_members.evolution_group_key_broken_at`.
-
----
-
-## Fora de escopo
-
-Polling de `/instance/connectionState`, restart automático de instância, webhooks de estado do Evolution.
+Posso aplicar?
