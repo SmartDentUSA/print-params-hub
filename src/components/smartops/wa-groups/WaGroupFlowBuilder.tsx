@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye,
 } from "lucide-react";
 import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
@@ -54,6 +54,7 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
+  const [previewByNode, setPreviewByNode] = useState<Record<string, { loading: boolean; text?: string; provider?: string; error?: string }>>({});
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +95,27 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
   };
   const updateNode = (id: string, patch: Partial<FlowNode>) => {
     setNodes(n => n.map(x => x.id === id ? ({ ...x, ...patch } as FlowNode) : x));
+  };
+
+  const previewAi = async (n: AiNode) => {
+    if (!n.ai_source_id) { toast.error("Selecione um conteúdo antes."); return; }
+    setPreviewByNode(p => ({ ...p, [n.id]: { loading: true } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("wa-ai-preview", {
+        body: {
+          ai_source_type: n.ai_source_type,
+          ai_source_id: n.ai_source_id,
+          ai_source_title: n.ai_source_title,
+          ai_prompt_override: n.ai_prompt_override,
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error ?? "Falha ao gerar preview");
+      setPreviewByNode(p => ({ ...p, [n.id]: { loading: false, text: data.preview, provider: data.provider } }));
+    } catch (err: any) {
+      setPreviewByNode(p => ({ ...p, [n.id]: { loading: false, error: err?.message ?? String(err) } }));
+      toast.error("Falha no preview: " + (err?.message ?? String(err)));
+    }
   };
 
   const validation = useMemo(() => {
@@ -297,6 +319,17 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
                           <Button size="sm" variant="outline" onClick={() => setSelectorOpenFor(n.id)}>
                             <FileText className="w-3 h-3 mr-1" /> Escolher
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!(n as AiNode).ai_source_id || previewByNode[n.id]?.loading}
+                            onClick={() => previewAi(n as AiNode)}
+                          >
+                            {previewByNode[n.id]?.loading
+                              ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              : <Eye className="w-3 h-3 mr-1" />}
+                            Pré-visualizar
+                          </Button>
                         </div>
                         <Textarea
                           value={(n as AiNode).ai_prompt_override ?? ""}
@@ -304,6 +337,20 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
                           placeholder="Instrução adicional para a IA (opcional)"
                           rows={2}
                         />
+                        {previewByNode[n.id]?.text && (
+                          <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1">
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span>Preview ({previewByNode[n.id]?.provider}) — {previewByNode[n.id]?.text?.length ?? 0} chars</span>
+                              <button
+                                className="underline hover:text-foreground"
+                                onClick={() => previewAi(n as AiNode)}
+                              >
+                                regenerar
+                              </button>
+                            </div>
+                            <p className="text-xs whitespace-pre-wrap">{previewByNode[n.id]?.text}</p>
+                          </div>
+                        )}
                       </>
                     )}
 

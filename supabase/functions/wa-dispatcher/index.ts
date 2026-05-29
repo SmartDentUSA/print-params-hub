@@ -277,11 +277,12 @@ async function resolveAIContent(sb: SupabaseClient, cfg: Record<string, unknown>
   let ctx = '', title = ''
 
   if (type === 'article' && id) {
-    const { data } = await sb.from('knowledge_articles')
-      .select('title, meta_description, content, category').eq('id', id).single()
+    const { data } = await sb.from('knowledge_contents')
+      .select('title, meta_description, excerpt, content_html').eq('id', id).single()
     if (data) {
       title = data.title
-      ctx = `Título: ${data.title}\nCategoria: ${data.category}\nResumo: ${data.meta_description}\n\n${(data.content ?? '').substring(0, 1500)}`
+      const body = (data.content_html ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      ctx = `Título: ${data.title}\nResumo: ${data.excerpt ?? data.meta_description ?? ''}\n\n${body.substring(0, 1500)}`
     }
   } else if (type === 'product' && id) {
     const { data } = await sb.from('system_a_catalog')
@@ -291,7 +292,7 @@ async function resolveAIContent(sb: SupabaseClient, cfg: Record<string, unknown>
       ctx = `Produto: ${data.name}\nCategoria: ${data.category}\n${(data.description ?? '').substring(0, 1000)}`
     }
   } else if (type === 'video' && id) {
-    const { data } = await sb.from('videos')
+    const { data } = await sb.from('knowledge_videos')
       .select('title, description').eq('id', id).single()
     if (data) {
       title = data.title
