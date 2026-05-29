@@ -257,6 +257,7 @@ serve(async (req) => {
         console.log(`[wa-sync-groups] ${inst.instanceName}: ${all.length} grupos brutos, ${adminCount} admin, ${groupsToSync.length} a sincronizar`)
 
         if (groupsToSync.length > 0) {
+          const syncedAt = new Date().toISOString()
           const rows = groupsToSync.map(g => ({
             group_jid:     g.id,
             name:          g.subject,
@@ -264,16 +265,25 @@ serve(async (req) => {
             member_count:  g.size ?? g.participants?.length ?? 0,
             instance_name: inst.instanceName,
             is_admin:      g.isAdmin,
-            synced_at:     new Date().toISOString(),
+            synced_at:     syncedAt,
           }))
-          const { error } = await supabase.from('wa_groups').upsert(rows, { onConflict: 'group_jid' })
-          if (error) throw error
+          // Batch upserts para não estourar payload/CPU em instâncias grandes (400+ grupos).
+          const BATCH = 100
+          for (let i = 0; i < rows.length; i += BATCH) {
+            const chunk = rows.slice(i, i + BATCH)
+            const { error } = await supabase
+              .from('wa_groups')
+              .upsert(chunk, { onConflict: 'group_jid' })
+            if (error) throw error
+          }
 
-          const jids = groupsToSync.map(g => g.id)
+          // Marca grupos órfãos (não retornados nesta sync) como não-admin,
+          // usando cutoff de synced_at para evitar query NOT IN gigante.
           await supabase.from('wa_groups')
-            .update({ is_admin: false, synced_at: new Date().toISOString() })
+            .update({ is_admin: false })
             .eq('instance_name', inst.instanceName)
-            .not('group_jid', 'in', `(${jids.map(j => `"${j}"`).join(',')})`)
+            .lt('synced_at', syncedAt)
+            .eq('is_admin', true)
         }
 
         per_instance[inst.instanceName] = {
