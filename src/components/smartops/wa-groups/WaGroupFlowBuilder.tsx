@@ -10,9 +10,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
 } from "lucide-react";
 import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
@@ -59,6 +64,9 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [dailyLimit, setDailyLimit] = useState(50);
   const [delaySeconds, setDelaySeconds] = useState(30);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
@@ -71,7 +79,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (campaignId) {
         const { data, error } = await (supabase as any)
           .from("wa_campaigns")
-          .select("name, flow_json, daily_limit, delay_seconds")
+          .select("name, flow_json, daily_limit, delay_seconds, started_at, status")
           .eq("id", campaignId)
           .single();
         if (error) { toast.error(error.message); setLoading(false); return; }
@@ -79,11 +87,27 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
+        // Pré-carrega agendamento: só faz sentido enquanto for futuro e ainda não rodou.
+        if (data.started_at && new Date(data.started_at).getTime() > Date.now()) {
+          const d = new Date(data.started_at);
+          setScheduleEnabled(true);
+          setScheduleDate(d);
+          setScheduleTime(
+            `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+          );
+        } else {
+          setScheduleEnabled(false);
+          setScheduleDate(undefined);
+          setScheduleTime("09:00");
+        }
       } else {
         setName(isMulti ? `Régua única (${targetIds.length} grupos)` : "Nova campanha");
         setNodes([]);
         setDailyLimit(50);
         setDelaySeconds(30);
+        setScheduleEnabled(false);
+        setScheduleDate(undefined);
+        setScheduleTime("09:00");
       }
       setLoading(false);
     })();
@@ -141,11 +165,24 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
     return errors;
   }, [name, nodes]);
 
+  const computeStartedAt = (): { iso: string | null; error?: string } => {
+    if (!scheduleEnabled) return { iso: null };
+    if (!scheduleDate) return { iso: null, error: "Selecione a data de início." };
+    const [hh, mm] = (scheduleTime || "09:00").split(":").map(Number);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return { iso: null, error: "Hora inválida." };
+    const d = new Date(scheduleDate);
+    d.setHours(hh, mm, 0, 0);
+    if (d.getTime() <= Date.now()) return { iso: null, error: "A data/hora de início deve ser futura." };
+    return { iso: d.toISOString() };
+  };
+
   const handleSave = async (activate: boolean) => {
     if (activate && validation.length > 0) {
       toast.error(validation[0]);
       return;
     }
+    const sched = computeStartedAt();
+    if (sched.error) { toast.error(sched.error); return; }
     setSaving(true);
     try {
       let cid = campaignId;
@@ -155,6 +192,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         flow_json: nodes,
         daily_limit: dailyLimit,
         delay_seconds: delaySeconds,
+        started_at: sched.iso,
       };
       if (cid) {
         const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
@@ -260,6 +298,69 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                 <div>
                   <Label className="text-xs">Delay entre msgs (s)</Label>
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
+                </div>
+                <div className="pt-3 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Início da automação</Label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {scheduleEnabled ? "Agendar" : "Agora"}
+                      </span>
+                      <Switch
+                        checked={scheduleEnabled}
+                        onCheckedChange={(v) => setScheduleEnabled(v)}
+                      />
+                    </div>
+                  </div>
+                  {scheduleEnabled ? (
+                    <div className="space-y-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !scheduleDate && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                            {scheduleDate
+                              ? format(scheduleDate, "dd 'de' MMM 'de' yyyy", { locale: ptBR })
+                              : "Escolher data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={scheduleDate}
+                            onSelect={setScheduleDate}
+                            disabled={(date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
+                            initialFocus
+                            locale={ptBR}
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        A régua começa a enviar a partir desta data/hora. Os nós "Aguardar" contam a partir daí.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Ao ativar, a primeira mensagem é enviada em ~15 segundos.
+                    </p>
+                  )}
                 </div>
               </div>
             </aside>
