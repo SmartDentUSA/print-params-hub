@@ -62,6 +62,7 @@ export function SmartOpsWaGroupCampaigns() {
   const [editGroupsDraft, setEditGroupsDraft] = useState<string[]>([]);
   const [savingGroups, setSavingGroups] = useState(false);
   const [editFlowFor, setEditFlowFor] = useState<{ id: string; group_ids: string[] } | null>(null);
+  const [view, setView] = useState<"enabled" | "disabled">("enabled");
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -204,11 +205,19 @@ export function SmartOpsWaGroupCampaigns() {
   };
 
   const handleToggleEnabled = async (row: WaGroupSummary, next: boolean) => {
+    // Optimistic update: o card sai imediatamente da lista atual
+    setRows(prev => prev.map(r => r.group_id === row.group_id ? { ...r, enabled: next } : r));
     const { error } = await (supabase as any)
       .from("wa_groups")
       .update({ enabled: next })
       .eq("id", row.group_id);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      // rollback
+      setRows(prev => prev.map(r => r.group_id === row.group_id ? { ...r, enabled: !next } : r));
+      toast.error(error.message);
+      return;
+    }
+    toast.success(next ? "Grupo ativado" : "Grupo desativado");
     fetchRows();
   };
 
@@ -219,14 +228,23 @@ export function SmartOpsWaGroupCampaigns() {
   const filtered = useMemo(() => {
     // IDs de grupos que já fazem parte de uma régua compartilhada — devem sair da lista principal
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    const base = rows.filter(r => !sharedIds.has(r.group_id));
+    const base = rows.filter(r => !sharedIds.has(r.group_id) && (view === "enabled" ? r.enabled : !r.enabled));
     const q = search.trim().toLowerCase();
     if (!q) return base;
     return base.filter(r =>
       (r.group_name ?? "").toLowerCase().includes(q) ||
       (r.campaign_name ?? "").toLowerCase().includes(q)
     );
-  }, [rows, search, sharedCampaigns]);
+  }, [rows, search, sharedCampaigns, view]);
+
+  const enabledCount = useMemo(() => {
+    const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
+    return rows.filter(r => !sharedIds.has(r.group_id) && r.enabled).length;
+  }, [rows, sharedCampaigns]);
+  const disabledCount = useMemo(() => {
+    const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
+    return rows.filter(r => !sharedIds.has(r.group_id) && !r.enabled).length;
+  }, [rows, sharedCampaigns]);
 
   const openEditGroups = (c: { id: string; name: string; status: string; group_ids: string[] }) => {
     setEditGroupsFor(c);
