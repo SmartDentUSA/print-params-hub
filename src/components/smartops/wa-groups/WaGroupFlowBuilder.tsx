@@ -12,10 +12,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip,
 } from "lucide-react";
 import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
+import { WaMediaUploader } from "./WaMediaUploader";
 
 interface Props {
   open: boolean;
@@ -31,6 +32,8 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }
   ai:    { label: "IA + Conteúdo", icon: Sparkles,     color: "text-purple-600" },
   image: { label: "Imagem",       icon: ImageIcon,     color: "text-emerald-600" },
   video: { label: "Vídeo",        icon: Video,         color: "text-red-600" },
+  audio: { label: "Áudio",        icon: Mic,           color: "text-pink-600" },
+  document: { label: "Documento", icon: Paperclip,     color: "text-slate-600" },
   link:  { label: "Link",         icon: Link2,         color: "text-cyan-600" },
 };
 
@@ -41,7 +44,9 @@ function newNode(type: FlowNodeType): FlowNode {
     case "wait":  return { id, type, days: 1, time: "09:00", weekdays_only: false };
     case "ai":    return { id, type, ai_source_type: "article", ai_source_id: "", ai_source_title: "", ai_prompt_override: "" };
     case "image":
-    case "video": return { id, type, media_url: "", caption: "" };
+    case "video":
+    case "audio":
+    case "document": return { id, type, media_url: "", caption: "" };
     case "link":  return { id, type, title: "", description: "", url: "" };
   }
 }
@@ -126,7 +131,7 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
       const tag = `Nó #${idx + 1} (${nodeMeta[n.type].label})`;
       if (n.type === "msg" && !n.text.trim()) errors.push(`${tag}: texto vazio.`);
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
-      if ((n.type === "image" || n.type === "video") && !n.media_url.trim()) errors.push(`${tag}: media_url vazio.`);
+      if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
       if (n.type === "wait" && (!n.days || n.days < 0)) errors.push(`${tag}: dias inválidos.`);
     });
@@ -354,18 +359,21 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
                       </>
                     )}
 
-                    {(n.type === "image" || n.type === "video") && (
+                    {(n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && (
                       <>
-                        <Input
+                        <WaMediaUploader
+                          kind={n.type}
                           value={(n as MediaNode).media_url}
-                          onChange={(e) => updateNode(n.id, { media_url: e.target.value } as Partial<MediaNode>)}
-                          placeholder={`URL ${n.type === "image" ? "da imagem" : "do vídeo"}`}
+                          fileName={(n as MediaNode).file_name}
+                          onChange={(patch) => updateNode(n.id, patch as Partial<MediaNode>)}
                         />
-                        <Input
-                          value={(n as MediaNode).caption ?? ""}
-                          onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<MediaNode>)}
-                          placeholder="Legenda (opcional)"
-                        />
+                        {n.type !== "audio" && (
+                          <Input
+                            value={(n as MediaNode).caption ?? ""}
+                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<MediaNode>)}
+                            placeholder="Legenda (opcional)"
+                          />
+                        )}
                       </>
                     )}
 

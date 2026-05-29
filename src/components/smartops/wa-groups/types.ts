@@ -1,4 +1,4 @@
-export type FlowNodeType = "msg" | "wait" | "ai" | "image" | "video" | "link";
+export type FlowNodeType = "msg" | "wait" | "ai" | "image" | "video" | "audio" | "document" | "link";
 
 export interface FlowNodeBase {
   id: string;
@@ -27,9 +27,11 @@ export interface AiNode extends FlowNodeBase {
 }
 
 export interface MediaNode extends FlowNodeBase {
-  type: "image" | "video";
+  type: "image" | "video" | "audio" | "document";
   media_url: string;
   caption?: string;
+  file_name?: string;
+  mime_type?: string;
 }
 
 export interface LinkNode extends FlowNodeBase {
