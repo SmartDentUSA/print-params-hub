@@ -10,9 +10,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip,
+  Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
 } from "lucide-react";
 import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
@@ -59,6 +64,9 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [dailyLimit, setDailyLimit] = useState(50);
   const [delaySeconds, setDelaySeconds] = useState(30);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
@@ -71,7 +79,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (campaignId) {
         const { data, error } = await (supabase as any)
           .from("wa_campaigns")
-          .select("name, flow_json, daily_limit, delay_seconds")
+          .select("name, flow_json, daily_limit, delay_seconds, started_at, status")
           .eq("id", campaignId)
           .single();
         if (error) { toast.error(error.message); setLoading(false); return; }
@@ -79,11 +87,27 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
+        // Pré-carrega agendamento: só faz sentido enquanto for futuro e ainda não rodou.
+        if (data.started_at && new Date(data.started_at).getTime() > Date.now()) {
+          const d = new Date(data.started_at);
+          setScheduleEnabled(true);
+          setScheduleDate(d);
+          setScheduleTime(
+            `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+          );
+        } else {
+          setScheduleEnabled(false);
+          setScheduleDate(undefined);
+          setScheduleTime("09:00");
+        }
       } else {
         setName(isMulti ? `Régua única (${targetIds.length} grupos)` : "Nova campanha");
         setNodes([]);
         setDailyLimit(50);
         setDelaySeconds(30);
+        setScheduleEnabled(false);
+        setScheduleDate(undefined);
+        setScheduleTime("09:00");
       }
       setLoading(false);
     })();
@@ -141,11 +165,24 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
     return errors;
   }, [name, nodes]);
 
+  const computeStartedAt = (): { iso: string | null; error?: string } => {
+    if (!scheduleEnabled) return { iso: null };
+    if (!scheduleDate) return { iso: null, error: "Selecione a data de início." };
+    const [hh, mm] = (scheduleTime || "09:00").split(":").map(Number);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return { iso: null, error: "Hora inválida." };
+    const d = new Date(scheduleDate);
+    d.setHours(hh, mm, 0, 0);
+    if (d.getTime() <= Date.now()) return { iso: null, error: "A data/hora de início deve ser futura." };
+    return { iso: d.toISOString() };
+  };
+
   const handleSave = async (activate: boolean) => {
     if (activate && validation.length > 0) {
       toast.error(validation[0]);
       return;
     }
+    const sched = computeStartedAt();
+    if (sched.error) { toast.error(sched.error); return; }
     setSaving(true);
     try {
       let cid = campaignId;
@@ -155,6 +192,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         flow_json: nodes,
         daily_limit: dailyLimit,
         delay_seconds: delaySeconds,
+        started_at: sched.iso,
       };
       if (cid) {
         const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
