@@ -1,80 +1,65 @@
-## Diagnóstico
+# Watchdog de entrega WhatsApp + painel de saúde
 
-Logs da fila `wa_message_queue` mostram dois sintomas:
+## Problema
+Hoje o `wa-dispatcher` marca `status='sent'` assim que o Evolution responde 200 com um `key.id`. Isso **não** garante que a mensagem chegou no grupo. Quando falha (`SessionError`), o item fica `pending` e o cron pode tentar de novo indefinidamente. Falta:
+1. Confirmação real de entrega (consultar o Evolution depois do envio)
+2. Garantia anti-duplicação (nunca reenviar um item que já tem `evo_message_id` confirmado)
+3. Visibilidade no front
 
-1. `sendMedia 400: SessionError: No sessions` na campanha `73fdbb9f` (grupo `Automação teste`, instância **Danilo Henrique**, scheduled 18:58).
-2. `Cooldown anti-duplicata: mesmo nó enviado nas últimas 2h` pulando reenvios legítimos após edição de fluxo (entradas 16:05/16:18).
+## O que vai ser construído
 
-### Causa #1 — Dispatcher ignora apikey por instância
+### 1. Migration — colunas de rastreamento de entrega
+Adiciona em `wa_message_queue`:
+- `evo_message_id text` — id retornado pelo Evolution no envio (já existe? checar; senão criar)
+- `delivery_status text` — `unknown | sent_to_server | delivered | read | failed_undelivered`
+- `delivery_checked_at timestamptz`
+- `delivery_attempts int default 0`
 
-`supabase/functions/wa-dispatcher/index.ts` resolve apenas `instance_name` por `group_jid`:
+Índice parcial: `WHERE delivery_status IN ('unknown','sent_to_server') AND sent_at IS NOT NULL`.
 
-```ts
-const instance = instanceByJid.get(item.group_jid)
-evoId = await sendText(item.group_jid, txt, instance)
+### 2. Edge function nova: `wa-delivery-reconciler` (cron 5 min)
+Para cada item com `status='sent'`, `evo_message_id IS NOT NULL`, `delivery_status NOT IN ('delivered','read')`, `sent_at > now()-24h`:
+1. Resolve a `instance_name` + `apikey` do grupo (via `wa_groups` + `team_members`)
+2. Chama `POST /chat/findMessages/{instance}` com filtro pelo `key.id`
+3. Lê `status` retornado pelo Baileys: `PENDING`, `SERVER_ACK`, `DELIVERY_ACK`, `READ`, `PLAYED`
+4. Atualiza `delivery_status` correspondente
+5. Se passou >15 min e ainda `PENDING`/sem registro → marca `delivery_status='failed_undelivered'`, `status='pending'`, `retry_count=0`, `scheduled_at=now()`, **mas mantém `evo_message_id`** para detectar duplicata caso a primeira entrega chegue tarde
+6. No próximo ciclo, o dispatcher reenvia — antes de chamar `sendText/sendMedia`, verifica se já existe `evo_message_id`; se sim, primeiro tenta `findMessages` mais uma vez (proteção anti-duplicata)
+
+### 3. Dispatcher — guarda anti-duplicação + retry com warmup
+Em `wa-dispatcher/index.ts`:
+- Antes de enviar, se o item já tem `evo_message_id`, consulta `/chat/findMessages`; se a mensagem existe e está pelo menos `SERVER_ACK`, marca `delivery_status` direto e **pula o envio** (evita duplicata)
+- Ao receber erro `SessionError: No sessions`, chama `GET /group/findGroupInfos?groupJid=...` (warmup do Baileys), aguarda 3s, tenta **1 vez** novamente
+- Persiste o `key.id` em `evo_message_id` imediatamente após resposta 200
+- Salva `delivery_status='sent_to_server'` no mesmo update
+
+### 4. Cron schedule
+`select cron.schedule('wa-delivery-reconciler-5min', '*/5 * * * *', $$ net.http_post(...) $$)` — disparado via SQL após aprovação.
+
+### 5. Frontend — card "Saúde da entrega" em `SmartOpsWaGroupCampaigns.tsx`
+Por campanha ativa, mostrar:
 ```
-
-`_shared/evolution.ts` aceita um 4º arg `apikey?` e, quando ausente, usa `EVO_KEY` global. O dispatcher nunca passa a apikey da instância, então toda chamada usa a apikey de "Dra. Lia". Para grupos cuja instância tem apikey própria (memory `Evolution Per-Instance Credentials`), o Evolution self-hosted devolve `400 No sessions`.
-
-### Causa #2 — Cooldown bloqueia conteúdo novo
-
-`fn_check_group_send_cooldown` ignora o conteúdo: qualquer item da mesma `(group_jid, campaign_id, node_index)` enviado nas últimas 2h faz pular. Edição de flow_json (nó 0 antes era `msg`, agora é `image`) é bloqueada porque o `node_index` continua 0.
-
-## Mudanças
-
-### 1. `supabase/functions/wa-dispatcher/index.ts`
-
-- Ampliar o lookup batched: além de `instance_name`, juntar `team_members` para trazer `evolution_api_key` de cada instância em uso na batch.
-- Construir `Map<jid, { instance, apikey }>`.
-- Passar `apikey` em `sendText(jid, txt, instance, apikey)` e `sendMedia(jid, kind, url, caption, instance, apikey)` em todos os 5 ramos do switch.
-
-### 2. `supabase/migrations/<timestamp>_wa_cooldown_content_aware.sql`
-
-Recriar `fn_check_group_send_cooldown` para considerar `node_type` e um hash estável do `content_json` (`md5(content_json::text)`), evitando falso-positivo após edição do fluxo. Assinatura preservada (mesmos params) para não exigir mudança no dispatcher.
-
-```sql
-CREATE OR REPLACE FUNCTION public.fn_check_group_send_cooldown(
-  p_group_jid text, p_node_index integer, p_campaign_id uuid
-) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  WITH target AS (
-    SELECT node_type, md5(coalesce(content_json::text,'')) AS content_hash
-    FROM public.wa_message_queue
-    WHERE campaign_id = p_campaign_id AND node_index = p_node_index
-    ORDER BY id DESC LIMIT 1
-  )
-  SELECT NOT EXISTS (
-    SELECT 1
-    FROM public.wa_message_queue q, target t
-    WHERE q.group_jid = p_group_jid
-      AND q.campaign_id = p_campaign_id
-      AND q.node_index  = p_node_index
-      AND q.node_type   = t.node_type
-      AND md5(coalesce(q.content_json::text,'')) = t.content_hash
-      AND q.status = 'sent'
-      AND q.sent_at > now() - interval '2 hours'
-  );
-$$;
+Agendadas: 12  •  Enviadas: 10  •  Entregues: 8  •  Lidas: 5  •  Falhas: 2
 ```
+Cores: verde (entregue/lida), amarelo (sent_to_server > 10min), vermelho (failed_undelivered).
 
-### 3. Limpeza pontual da fila travada
+Botão **"Reprocessar não-entregues"** chama RPC que reseta os items `failed_undelivered` daquela campanha para `pending`/`scheduled_at=now()`.
 
-Resetar para `pending` (sem alterar `scheduled_at`) os 3 itens hoje em `pending` da campanha `73fdbb9f` com `error_message` antiga, e limpar o `retry_count` para nova tentativa após o deploy. Usar `supabase--read_query` é insuficiente — aplicar via migration de dados:
+Tooltip nas falhas com a `error_message` real.
 
-```sql
-UPDATE public.wa_message_queue
-SET error_message = NULL, retry_count = 0
-WHERE status = 'pending' AND error_message ILIKE '%SessionError%';
-```
+## Arquivos tocados
+- `supabase/migrations/<novo>.sql` — colunas + índice
+- `supabase/functions/wa-delivery-reconciler/index.ts` — novo
+- `supabase/functions/wa-dispatcher/index.ts` — guarda + warmup + persistir evo_message_id
+- `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx` — card de saúde + botão reprocessar
+- SQL `pg_cron` schedule (insert tool, não migration)
 
-## Validação
+## Garantias
+- **Nunca envia 2x**: dispatcher confere `evo_message_id` + `findMessages` antes de qualquer reenvio
+- **Detecta entrega real**: reconciler confirma com o Baileys o estado da mensagem
+- **Auto-recupera de SessionError**: warmup + retry 1x dentro do mesmo ciclo
+- **Visível no front**: usuário vê em tempo real o que entregou e o que travou
 
-1. Após deploy, próximo tick do cron de `wa-dispatcher` deve enviar o item 5ed24793 com sucesso (apikey correta de "Danilo Henrique").
-2. `wa_send_log` registra `success=true, instance_name='Danilo Henrique'`.
-3. Editar um fluxo já enviado e republicar deve disparar normalmente (cooldown não bloqueia conteúdo diferente).
-4. Campanhas pausadas (`a839f4d4`, `9859c6dd`) só voltam a enviar quando o usuário clicar em "Retomar" — comportamento correto, não é bug.
-
-## Fora do escopo
-
-- Reconectar instâncias caídas no Evolution (operação manual no painel da Evolution se a sessão WhatsApp Web cair).
-- Refatoração de `_shared/evolution.ts` (assinatura já suporta apikey opcional; só faltava o dispatcher passar).
+## Fora de escopo
+- Reconectar instâncias Evolution caídas (precisa do painel Evolution)
+- Webhook de status do Evolution (mais robusto, mas exige configurar webhook no servidor — pode ser fase 2)
