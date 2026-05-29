@@ -200,7 +200,7 @@ serve(async (req) => {
     const phoneByInstance = tmPhones
     const lidByInstance = tmLids
 
-    for (const inst of targets) {
+    const processInstance = async (inst: WaInstanceInfo) => {
       try {
         const tmPhone = phoneByInstance.get(inst.instanceName)
         const ownerJid = inst.owner ?? (tmPhone ? `${tmPhone}@s.whatsapp.net` : undefined)
@@ -302,12 +302,24 @@ serve(async (req) => {
       }
     }
 
+    const job = (async () => {
+      for (const inst of targets) {
+        await processInstance(inst)
+      }
+    })()
+
+    // Continua processando em background — Evolution pode demorar minutos.
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(job) } catch (_) { /* noop */ }
+
     return Response.json({
       ok:        true,
-      synced:    totalSynced,
+      started:   true,
+      synced:    0,
       instances: combinedInstances,
+      targets:   targets.map(t => t.instanceName),
       per_instance,
-    }, { headers: corsHeaders })
+      message:   `Sincronização iniciada em background para ${targets.length} instância(s). A lista atualizará automaticamente.`,
+    }, { status: 202, headers: corsHeaders })
 
   } catch (err) {
     console.error('[wa-sync-groups] ERRO:', err)
