@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Sparkle
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Sparkle, Rocket
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 
 type Message = { role: "user" | "assistant"; content: string };
-type ModelId = "deepseek" | "gemini" | "claude";
+type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
@@ -33,7 +33,20 @@ export function SmartOpsCopilot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<ModelId>("deepseek");
+  const [selectedModel, setSelectedModel] = useState<ModelId>(() => {
+    try {
+      const saved = localStorage.getItem("copilot-selected-model") as ModelId | null;
+      if (saved === "deepseek-pro" || saved === "deepseek-flash" || saved === "gemini" || saved === "claude") return saved;
+      // legacy migration
+      if ((saved as any) === "deepseek") return "deepseek-pro";
+    } catch { /* ignore */ }
+    return "deepseek-pro";
+  });
+
+  // Persist selected model
+  useEffect(() => {
+    try { localStorage.setItem("copilot-selected-model", selectedModel); } catch { /* ignore */ }
+  }, [selectedModel]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -390,9 +403,13 @@ export function SmartOpsCopilot() {
           onValueChange={(v) => { if (v) setSelectedModel(v as ModelId); }}
           size="sm"
         >
-          <ToggleGroupItem value="deepseek" className="text-xs gap-1 px-2.5 h-7">
+          <ToggleGroupItem value="deepseek-pro" className="text-xs gap-1 px-2.5 h-7">
             <Zap className="w-3 h-3" />
-            DeepSeek
+            DS V4-Pro
+          </ToggleGroupItem>
+          <ToggleGroupItem value="deepseek-flash" className="text-xs gap-1 px-2.5 h-7">
+            <Rocket className="w-3 h-3" />
+            DS V4-Flash
           </ToggleGroupItem>
           <ToggleGroupItem value="gemini" className="text-xs gap-1 px-2.5 h-7">
             <Brain className="w-3 h-3" />
