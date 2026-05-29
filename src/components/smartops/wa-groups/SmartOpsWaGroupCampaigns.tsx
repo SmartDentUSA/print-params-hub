@@ -67,11 +67,16 @@ export function SmartOpsWaGroupCampaigns() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.functions.invoke("wa-sync-groups", { body: {} });
+        const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body: { list_only: true } });
+        if (error) throw error;
         const list: WaInstanceInfo[] = (data?.instances ?? []).filter((i: any) => i?.instanceName);
         setInstances(list);
-        if (list.length > 0 && !selectedInstance) setSelectedInstance(list[0].instanceName);
-      } catch {
+        if (list.length > 0 && !selectedInstance) {
+          const connected = list.find(i => (i as any).connectionStatus === "open");
+          setSelectedInstance((connected ?? list[0]).instanceName);
+        }
+      } catch (e: any) {
+        toast.error("Falha ao listar instâncias: " + (e?.message ?? String(e)));
         // silent — view still works with whatever wa_groups has
       }
     })();
@@ -255,20 +260,29 @@ export function SmartOpsWaGroupCampaigns() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          {instances.length > 0 && (
-            <Select value={selectedInstance} onValueChange={setSelectedInstance} disabled={instances.length === 1}>
-              <SelectTrigger className="h-9 w-[200px] text-xs">
-                <SelectValue placeholder="Instância" />
-              </SelectTrigger>
-              <SelectContent>
-                {instances.map(i => (
+          <Select value={selectedInstance} onValueChange={setSelectedInstance}>
+            <SelectTrigger className="h-9 w-[240px] text-xs">
+              <SelectValue placeholder={instances.length === 0 ? "Nenhuma instância" : "Instância"} />
+            </SelectTrigger>
+            <SelectContent>
+              {instances.length === 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Nenhuma instância detectada
+                </div>
+              )}
+              {instances.map(i => {
+                const open = (i as any).connectionStatus === "open";
+                return (
                   <SelectItem key={i.instanceName} value={i.instanceName}>
-                    {i.profileName ? `${i.profileName} (${i.instanceName})` : i.instanceName}
+                    <span className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${open ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                      {i.profileName ? `${i.profileName} (${i.instanceName})` : i.instanceName}
+                    </span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+                );
+              })}
+            </SelectContent>
+          </Select>
           <Button
             variant={selectionMode ? "default" : "outline"}
             size="sm"

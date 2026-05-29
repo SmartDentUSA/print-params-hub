@@ -21,7 +21,7 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
   try {
-    let body: { instance_name?: string } = {}
+    let body: { instance_name?: string; list_only?: boolean } = {}
     if (req.method === 'POST') {
       try { body = await req.json() } catch { body = {} }
     }
@@ -37,6 +37,13 @@ serve(async (req) => {
     }
 
     const connected = instances.filter(i => i.connectionStatus === 'open')
+
+    // list_only: apenas devolve as instâncias descobertas (sem sincronizar grupos)
+    if (body.list_only) {
+      return Response.json({
+        ok: true, synced: 0, instances, per_instance: {},
+      }, { headers: corsHeaders })
+    }
 
     // Filter to target instance if requested
     const targets = body.instance_name
