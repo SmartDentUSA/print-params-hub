@@ -6,7 +6,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fetchAdminGroups, fetchInstances, EVO_INST, corsHeaders, WaInstanceInfo, OwnerHints } from '../_shared/evolution.ts'
+import { fetchGroupsWithAdminFlag, fetchInstances, EVO_INST, corsHeaders, WaInstanceInfo, OwnerHints } from '../_shared/evolution.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -119,7 +119,7 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-    const per_instance: Record<string, { synced: number; groups: string[]; error?: string }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
@@ -133,35 +133,54 @@ serve(async (req) => {
         const hints: OwnerHints = { jid: ownerJid, phone }
         const apikey = apikeyByInstance.get(inst.instanceName)
         console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
-        const groups = await fetchAdminGroups(inst.instanceName, hints, apikey)
-        console.log(`[wa-sync-groups] ${inst.instanceName}: ${groups.length} grupos admin`)
+        const all = await fetchGroupsWithAdminFlag(inst.instanceName, hints, apikey)
+        const adminCount = all.filter(g => g.isAdmin).length
+        const isExplicitInstance = !!body.instance_name && body.instance_name === inst.instanceName
+        // Quando o usuário seleciona explicitamente uma instância, sincronizamos
+        // TODOS os grupos retornados pelo Evolution (o endpoint já está escopado
+        // a essa instância) — o flag `is_admin` reflete a melhor detecção.
+        // No modo automático (sem instance_name) mantemos o comportamento legado:
+        // só persistimos onde detectamos admin para evitar lixo na tabela.
+        const groupsToSync = isExplicitInstance ? all : all.filter(g => g.isAdmin)
+        let warning: string | undefined
+        if (isExplicitInstance && adminCount === 0 && all.length > 0) {
+          warning = `Nenhum grupo foi detectado como admin (owner/LID/phone não bateram). Sincronizando ${all.length} grupos com is_admin=false. Verifique se o número ${phone ?? '-'} é admin nos grupos.`
+          console.warn(`[wa-sync-groups] ${inst.instanceName}: ${warning}`)
+        }
+        console.log(`[wa-sync-groups] ${inst.instanceName}: ${all.length} grupos brutos, ${adminCount} admin, ${groupsToSync.length} a sincronizar`)
 
-        if (groups.length > 0) {
-          const rows = groups.map(g => ({
+        if (groupsToSync.length > 0) {
+          const rows = groupsToSync.map(g => ({
             group_jid:     g.id,
             name:          g.subject,
             description:   g.desc ?? null,
             member_count:  g.size ?? g.participants?.length ?? 0,
             instance_name: inst.instanceName,
-            is_admin:      true,
+            is_admin:      g.isAdmin,
             synced_at:     new Date().toISOString(),
           }))
           const { error } = await supabase.from('wa_groups').upsert(rows, { onConflict: 'group_jid' })
           if (error) throw error
 
-          const jids = groups.map(g => g.id)
+          const jids = groupsToSync.map(g => g.id)
           await supabase.from('wa_groups')
             .update({ is_admin: false, synced_at: new Date().toISOString() })
             .eq('instance_name', inst.instanceName)
             .not('group_jid', 'in', `(${jids.map(j => `"${j}"`).join(',')})`)
         }
 
-        per_instance[inst.instanceName] = { synced: groups.length, groups: groups.map(g => g.subject) }
-        totalSynced += groups.length
+        per_instance[inst.instanceName] = {
+          synced: groupsToSync.length,
+          raw:    all.length,
+          admin:  adminCount,
+          groups: groupsToSync.map(g => g.subject),
+          ...(warning ? { warning } : {}),
+        }
+        totalSynced += groupsToSync.length
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         console.error(`[wa-sync-groups] ${inst.instanceName} falhou:`, msg)
-        per_instance[inst.instanceName] = { synced: 0, groups: [], error: msg }
+        per_instance[inst.instanceName] = { synced: 0, raw: 0, admin: 0, groups: [], error: msg }
       }
     }
 
