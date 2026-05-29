@@ -165,6 +165,19 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
           .single();
         if (error) throw error;
         cid = data.id;
+        // Vincula o rascunho ao grupo para que apareça no card (a view usa active_campaign_id).
+        // Só vincula se o grupo ainda não tem campanha ativa, para não sobrescrever campanhas em andamento.
+        const { data: g } = await (supabase as any)
+          .from("wa_groups")
+          .select("active_campaign_id")
+          .eq("id", groupId)
+          .single();
+        if (!g?.active_campaign_id) {
+          await (supabase as any)
+            .from("wa_groups")
+            .update({ active_campaign_id: cid })
+            .eq("id", groupId);
+        }
       }
 
       if (activate) {
