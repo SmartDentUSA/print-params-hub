@@ -2045,6 +2045,9 @@ async function executarEnrichmentDealRoute(
       Number(newDealId),
       `📩 [Dra. L.I.A.] Deal aberto a partir de re-entrega Meta (form "${enrichmentFormName ?? "n/a"}").\n` +
         `Deals anteriores fechados como Perdido (reativação): ${closedDeals.length}.\n` +
+        (preservedCsDeals.length
+          ? `Deals CS preservados (não fechados): ${preservedCsDeals.map((d) => d.id).join(", ")}.\n`
+          : "") +
         (enrichedFields.length ? `Campos enriquecidos: ${enrichedFields.join(", ")}.` : ""),
     );
   } catch (e) {
