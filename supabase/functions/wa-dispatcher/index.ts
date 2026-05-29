@@ -47,11 +47,29 @@ serve(async (req) => {
       (groupRows ?? []).map((g: any) => [g.group_jid, g.instance_name])
     )
 
+    // Resolve per-instance Evolution apikey (memory: Evolution Per-Instance Credentials)
+    const instanceNames = Array.from(new Set(
+      (groupRows ?? []).map((g: any) => g.instance_name).filter(Boolean)
+    )) as string[]
+    const apikeyByInstance = new Map<string, string>()
+    if (instanceNames.length) {
+      const { data: tmRows } = await supabase
+        .from('team_members')
+        .select('evolution_instance_name, evolution_api_key')
+        .in('evolution_instance_name', instanceNames)
+      for (const tm of tmRows ?? []) {
+        if (tm.evolution_instance_name && tm.evolution_api_key) {
+          apikeyByInstance.set(tm.evolution_instance_name, tm.evolution_api_key)
+        }
+      }
+    }
+
     for (const item of pending) {
       const camp    = item.wa_campaigns as { delay_seconds: number; daily_limit: number }
       const delayMs = Math.max((camp.delay_seconds ?? 15) * 1000, 10_000)
       const jitter  = Math.floor(Math.random() * 5000)
       const instance = instanceByJid.get(item.group_jid) ?? undefined
+      const apikey   = instance ? apikeyByInstance.get(instance) : undefined
 
       await supabase.from('wa_message_queue')
         .update({ status: 'sending' }).eq('id', item.id)
@@ -85,28 +103,28 @@ serve(async (req) => {
           case 'msg': {
             const txt = (item.content_json?.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await sendText(item.group_jid, txt, instance)
+            evoId = await sendText(item.group_jid, txt, instance, apikey)
             break
           }
           case 'image':
             evoId = await sendMedia(item.group_jid, 'image',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance)
+              (item.content_json?.caption ?? '') as string, instance, apikey)
             break
           case 'video':
             evoId = await sendMedia(item.group_jid, 'video',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance)
+              (item.content_json?.caption ?? '') as string, instance, apikey)
             break
           case 'audio':
             evoId = await sendMedia(item.group_jid, 'audio',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance)
+              (item.content_json?.caption ?? '') as string, instance, apikey)
             break
           case 'document':
             evoId = await sendMedia(item.group_jid, 'document',
               item.content_json?.media_url as string,
-              (item.content_json?.caption ?? '') as string, instance)
+              (item.content_json?.caption ?? '') as string, instance, apikey)
             break
           case 'link': {
             const c = item.content_json ?? {}
@@ -115,12 +133,12 @@ serve(async (req) => {
               c.description ? String(c.description) : '',
               c.url         ? String(c.url)         : '',
             ].filter(Boolean).join('\n\n')
-            evoId = await sendText(item.group_jid, txt, instance)
+            evoId = await sendText(item.group_jid, txt, instance, apikey)
             break
           }
           case 'ai': {
             const txt = await resolveAIContent(supabase, item.content_json)
-            evoId = await sendText(item.group_jid, txt, instance)
+            evoId = await sendText(item.group_jid, txt, instance, apikey)
             await supabase.from('wa_message_queue')
               .update({ content_json: { ...item.content_json, _resolved_text: txt } })
               .eq('id', item.id)
