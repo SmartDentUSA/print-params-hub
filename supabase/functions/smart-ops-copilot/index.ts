@@ -2407,6 +2407,54 @@ serve(async (req) => {
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
+    // ── Server-side action audit (anti-hallucination) ──
+    const ACTION_TOOL_NAMES = new Set<string>([
+      "send_sms","send_whatsapp","notify_seller","send_to_sellflux",
+      "bulk_campaign","move_crm_stage","update_lead","add_tags","unify_leads",
+    ]);
+    const executedActions: Array<{ name: string; args: any; result: any }> = [];
+    const lastUserText = String(
+      [...messages].reverse().find((m: any) => m?.role === "user")?.content || ""
+    ).toLowerCase();
+    const userAskedForSms = /\b(sms|disparopro|disparo\s*pro|torpedo)\b/.test(lastUserText);
+    const userAskedForWhats = /\b(whats(app)?|wpp)\b/.test(lastUserText);
+
+    function renderActionResultBlock(a: { name: string; args: any; result: any }): string {
+      const r = a.result || {};
+      if (a.name === "send_sms") {
+        const sent = Number(r.sent ?? 0);
+        const failed = Number(r.failed ?? 0);
+        const provider = r.provider_response || {};
+        const perLead = Array.isArray(provider.per_lead) ? provider.per_lead[0] : null;
+        const httpStatus = perLead?.http_status ?? null;
+        const providerStatus = perLead?.status ?? null;
+        const providerBody = String(perLead?.provider ?? "").slice(0, 200);
+        if (r.error || r.success === false || sent === 0 || failed >= 1) {
+          return [
+            "❌ **SMS NÃO foi enviado.**",
+            `- Lead: ${r.lead_name || r.lead_id || "?"} (${r.phone || "sem telefone"})`,
+            `- campaign_id: ${r.campaign_id || "-"}`,
+            `- provider HTTP: ${httpStatus ?? "-"} | status: ${providerStatus ?? "-"}`,
+            `- motivo: ${r.error || providerBody || "provider não confirmou entrega"}`,
+          ].join("\n");
+        }
+        return [
+          "✅ **SMS aceito pelo provider (DisparoPro).**",
+          `- Para: ${r.phone}`,
+          `- Lead: ${r.lead_name || r.lead_id}`,
+          `- campaign_id: ${r.campaign_id}`,
+          `- provider HTTP: ${httpStatus ?? "-"} | status: ${providerStatus ?? "-"}`,
+          "_Aceito ≠ entregue. Confirmação final depende do DLR do operador._",
+        ].join("\n");
+      }
+      if (a.name === "send_whatsapp") {
+        if (r.error || r.success === false) return `❌ **WhatsApp NÃO enviado.** Motivo: ${r.error || "falha no provider"}`;
+        return `✅ WhatsApp enviado. Provider: ${JSON.stringify(r).slice(0, 300)}`;
+      }
+      if (r.error || r.success === false) return `❌ **Falha na ação \`${a.name}\`:** ${r.error || "tool retornou success:false"}`;
+      return `✅ Ação \`${a.name}\` executada. Retorno: ${JSON.stringify(r).slice(0, 400)}`;
+    }
+
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       console.log(`[Copilot] Iteration ${iteration + 1}/${MAX_ITERATIONS} using ${config.label}`);
       
@@ -2468,7 +2516,17 @@ serve(async (req) => {
 
       // If the model returned text content WITHOUT tool calls → stream it directly
       if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) {
-        const content = choice.message.content || "Operação concluída.";
+        let content = choice.message.content || "Operação concluída.";
+
+        // ANTI-HALLUCINATION: substitui fala do LLM por fatos reais quando houve ação,
+        // ou bloqueia confirmação fabricada quando o usuário pediu SMS/WhatsApp mas
+        // nenhuma tool de envio foi executada neste turno.
+        if (executedActions.length > 0) {
+          content = executedActions.map(renderActionResultBlock).join("\n\n");
+        } else if (userAskedForSms || userAskedForWhats) {
+          const canal = userAskedForSms ? "SMS" : "WhatsApp";
+          content = `❌ Nenhum ${canal} foi disparado. O agente não executou a ferramenta de envio neste turno. Tente novamente com algo como: "envia ${canal} para o lead <email/telefone>: <mensagem>".`;
+        }
         
         // Log usage
         logAIUsage({
@@ -2511,6 +2569,10 @@ serve(async (req) => {
           }
         } else {
           toolResult = { error: `Ferramenta "${fn}" não implementada` };
+        }
+
+        if (ACTION_TOOL_NAMES.has(fn)) {
+          executedActions.push({ name: fn, args, result: toolResult });
         }
 
         // RAG instrumentation — coleta hits para auditoria
