@@ -131,7 +131,7 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
       const tag = `Nó #${idx + 1} (${nodeMeta[n.type].label})`;
       if (n.type === "msg" && !n.text.trim()) errors.push(`${tag}: texto vazio.`);
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
-      if ((n.type === "image" || n.type === "video") && !n.media_url.trim()) errors.push(`${tag}: media_url vazio.`);
+      if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
       if (n.type === "wait" && (!n.days || n.days < 0)) errors.push(`${tag}: dias inválidos.`);
     });
@@ -359,18 +359,21 @@ export function WaGroupFlowBuilder({ open, groupId, campaignId, onClose, onSaved
                       </>
                     )}
 
-                    {(n.type === "image" || n.type === "video") && (
+                    {(n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && (
                       <>
-                        <Input
+                        <WaMediaUploader
+                          kind={n.type}
                           value={(n as MediaNode).media_url}
-                          onChange={(e) => updateNode(n.id, { media_url: e.target.value } as Partial<MediaNode>)}
-                          placeholder={`URL ${n.type === "image" ? "da imagem" : "do vídeo"}`}
+                          fileName={(n as MediaNode).file_name}
+                          onChange={(patch) => updateNode(n.id, patch as Partial<MediaNode>)}
                         />
-                        <Input
-                          value={(n as MediaNode).caption ?? ""}
-                          onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<MediaNode>)}
-                          placeholder="Legenda (opcional)"
-                        />
+                        {n.type !== "audio" && (
+                          <Input
+                            value={(n as MediaNode).caption ?? ""}
+                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<MediaNode>)}
+                            placeholder="Legenda (opcional)"
+                          />
+                        )}
                       </>
                     )}
 
