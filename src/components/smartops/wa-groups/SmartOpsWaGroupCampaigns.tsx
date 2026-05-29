@@ -182,7 +182,11 @@ export function SmartOpsWaGroupCampaigns() {
       const body = selectedInstance ? { instance_name: selectedInstance } : {};
       const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body });
       if (error) throw error;
-      toast.success(`Sincronizados ${data?.synced ?? 0} grupos`);
+      if (data?.started) {
+        toast.success("Sincronização iniciada — a lista atualiza automaticamente em instantes.");
+      } else {
+        toast.success(`Sincronizados ${data?.synced ?? 0} grupos`);
+      }
       if (Array.isArray(data?.instances)) setInstances(data.instances);
       await fetchRows();
     } catch (err: any) {
