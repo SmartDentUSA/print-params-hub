@@ -85,6 +85,15 @@ Deno.serve(async (req) => {
       payload.platform_lead_id ||
       payload.leadgen_id ||
       null;
+    // ── META RE-DELIVERY UNIVERSAL ROUTE ──
+    // Quando a dedupe (HARD ou FAMILY) bate em re-entrega Meta com form_name,
+    // NÃO abortamos: agendamos enrichment + régua de deal universal para
+    // rodar depois que extrairmos os campos do payload (~linha 395).
+    const payloadHasMetaForm =
+      payload.source === "meta_lead_ads" &&
+      Boolean(payload.form_name || payload.formName || payload.form);
+    let deferredRedeliveryCanonicalId: string | null = null;
+    let deferredRedeliveryVia: string | null = null;
     if (dedupeId) {
       try {
         const supabaseDedupe = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -106,6 +115,13 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (priorLead) {
+          if (payloadHasMetaForm) {
+            deferredRedeliveryCanonicalId = priorLead.id;
+            deferredRedeliveryVia = "hard_dedupe_universal";
+            console.log(
+              `[ingest-lead] HARD_DEDUPE_DEFERRED → universal redelivery route for lead ${priorLead.id}`,
+            );
+          } else {
           console.log(
             `[ingest-lead] HARD_DEDUPE_SKIPPED: platform_lead_id=${dedupeId} already on lead ${priorLead.id} (pessoa=${priorLead.pessoa_piperun_id ?? "n/a"})`,
           );
@@ -119,6 +135,7 @@ Deno.serve(async (req) => {
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
+          }
         }
         // ─── FAMILY-KEY DEDUPE (Meta) — LIFETIME ───
         // Business rule: a Meta Lead Ads respondent NEVER answers the same
