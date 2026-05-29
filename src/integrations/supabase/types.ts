@@ -24942,6 +24942,7 @@ export type Database = {
         }[]
       }
       refresh_copilot_brain: { Args: { p_force?: boolean }; Returns: Json }
+      refresh_vw_vendas_ganhas: { Args: never; Returns: undefined }
       release_cognitive_analysis_lock: {
         Args: { target_lead_id: string }
         Returns: boolean
