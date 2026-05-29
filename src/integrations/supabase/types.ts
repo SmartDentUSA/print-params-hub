@@ -594,6 +594,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agent_state: {
@@ -992,6 +999,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astron_member_access_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -2104,6 +2118,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       campaign_sessions: {
@@ -2602,6 +2623,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_listings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -3397,6 +3425,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_status_history: {
@@ -3556,6 +3591,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -3732,6 +3774,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -4013,6 +4062,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -4377,6 +4433,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrichment_safety_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -4899,6 +4962,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -5084,6 +5154,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "involve_me_sync_control_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -5929,6 +6006,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_activity_log_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -6135,6 +6219,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -6350,6 +6441,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_conversion_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -6562,6 +6660,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -6813,6 +6918,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_form_submissions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -7031,6 +7143,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_opportunities_product_key_fkey"
             columns: ["product_key"]
             isOneToOne: false
@@ -7232,6 +7351,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -7465,6 +7591,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_product_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -7695,6 +7828,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_sdr_interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -7889,6 +8029,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -9817,6 +9964,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lia_attendances_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -10097,6 +10251,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       marketing_assets: {
@@ -10343,6 +10504,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -10808,6 +10976,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
             columns: ["vendedor_codigo"]
             isOneToOne: false
@@ -11019,6 +11194,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -11239,6 +11421,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -11633,6 +11822,13 @@ export type Database = {
             columns: ["producer_lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -12275,6 +12471,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       piperun_staging: {
@@ -12529,6 +12732,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "piperun_webhook_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       platform_plan_log: {
@@ -12703,6 +12913,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_plan_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -12939,6 +13156,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_subscriptions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -13241,6 +13465,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promotion_usage_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "promotion_usage_promotion_id_fkey"
             columns: ["promotion_id"]
             isOneToOne: false
@@ -13409,6 +13640,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: true
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -13730,6 +13968,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reactivation_sequences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reactivation_sequences_seller_tm_id_fkey"
             columns: ["seller_tm_id"]
             isOneToOne: false
@@ -13925,6 +14170,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "referrals_referrer_id_fkey"
             columns: ["referrer_id"]
             isOneToOne: false
@@ -14055,6 +14307,13 @@ export type Database = {
             columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -14829,6 +15088,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "short_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       site_settings: {
@@ -15223,6 +15489,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -15653,6 +15926,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -16129,6 +16409,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartpoints_ledger_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -16968,6 +17255,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
@@ -17229,6 +17523,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tldv_meeting_intelligence_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: true
@@ -17416,6 +17717,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
           {
@@ -17703,6 +18011,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -18141,6 +18456,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       wa_group_dispatch_log: {
@@ -18375,6 +18697,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -18942,6 +19271,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -19658,6 +19994,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_equipment_field_map: {
@@ -19860,6 +20203,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -20193,6 +20543,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -20532,6 +20889,13 @@ export type Database = {
             referencedRelation: "vw_lia_attendances_enriched"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_open_opportunities: {
@@ -20694,6 +21058,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -21567,6 +21938,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -22988,6 +23366,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lia_attendances_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -23108,40 +23493,6 @@ export type Database = {
           valor_frete: number | null
           valor_produtos: number | null
           vendedor: string | null
-        }
-        Insert: {
-          categoria?: string | null
-          etapa?: string | null
-          fechado_em?: string | null
-          forma_pagamento?: string | null
-          id?: string | null
-          mes_fechamento?: never
-          origem?: string | null
-          parcelas?: number | null
-          pipeline?: string | null
-          piperun_deal_id?: string | null
-          produto?: string | null
-          valor?: number | null
-          valor_frete?: number | null
-          valor_produtos?: number | null
-          vendedor?: string | null
-        }
-        Update: {
-          categoria?: string | null
-          etapa?: string | null
-          fechado_em?: string | null
-          forma_pagamento?: string | null
-          id?: string | null
-          mes_fechamento?: never
-          origem?: string | null
-          parcelas?: number | null
-          pipeline?: string | null
-          piperun_deal_id?: string | null
-          produto?: string | null
-          valor?: number | null
-          valor_frete?: number | null
-          valor_produtos?: number | null
-          vendedor?: string | null
         }
         Relationships: []
       }
