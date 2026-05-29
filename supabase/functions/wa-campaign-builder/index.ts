@@ -29,8 +29,8 @@ serve(async (req) => {
     console.error('[wa-campaign-builder] fetch campaign failed', { campaign_id, error })
     return Response.json({ ok: false, error: `Campanha não encontrada: ${error?.message ?? 'unknown'}` }, { status: 404, headers: corsHeaders })
   }
-  if (!['draft', 'paused'].includes(camp.status)) {
-    return Response.json({ ok: false, error: `Campanha está ${camp.status} — só draft ou paused podem ser ativadas` }, { status: 400, headers: corsHeaders })
+  if (!['draft', 'paused', 'active'].includes(camp.status)) {
+    return Response.json({ ok: false, error: `Campanha está ${camp.status} — não pode ser (re)ativada` }, { status: 400, headers: corsHeaders })
   }
 
   const flow: Array<Record<string, unknown>> = camp.flow_json ?? []
