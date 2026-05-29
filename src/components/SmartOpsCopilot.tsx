@@ -227,18 +227,86 @@ export function SmartOpsCopilot() {
     }
   };
 
-  // CSV upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload de arquivos: CSV vai para o input; PDF/DOCX/TXT/MD vão para RAG via ingest
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const csvText = ev.target?.result as string;
-      setInput(`Importar este CSV:\n${csvText.slice(0, 2000)}`);
-      toast.success(`CSV "${file.name}" carregado`);
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+
+    const name = file.name.toLowerCase();
+    const isCsv = name.endsWith(".csv");
+
+    if (isCsv) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const csvText = ev.target?.result as string;
+        setInput(`Importar este CSV:\n${csvText.slice(0, 2000)}`);
+        toast.success(`CSV "${file.name}" carregado`);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // Limite 20MB (mesmo do bucket)
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Arquivo maior que 20MB. Divida em partes.");
+      return;
+    }
+
+    const allowed = [".pdf", ".docx", ".txt", ".md", ".markdown"];
+    if (!allowed.some((ext) => name.endsWith(ext))) {
+      toast.error("Formato não suportado. Use PDF, DOCX, TXT, MD ou CSV.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: `📎 Enviando documento para a RAG: **${file.name}**` },
+    ]);
+
+    try {
+      const ts = Date.now();
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const path = `uploads/${ts}_${safe}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("smartdent-method-docs")
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (upErr) throw new Error(`Upload falhou: ${upErr.message}`);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke("copilot-ingest-method-doc", {
+        body: {
+          storage_path: path,
+          filename: file.name,
+          title: file.name.replace(/\.[^.]+$/, ""),
+          uploaded_by: userData?.user?.id || null,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      const d = data as any;
+      const summary = [
+        `✅ **Documento indexado na RAG**`,
+        `• Título: ${d.title}`,
+        `• Tipo: \`${d.doc_type}\``,
+        `• Chunks: ${d.chunks}${d.embed_failures ? ` (falhas embed: ${d.embed_failures})` : ""}`,
+        d.target_audience?.length ? `• Público: ${d.target_audience.join(", ")}` : "",
+        d.target_products?.length ? `• Produtos: ${d.target_products.join(", ")}` : "",
+        ``,
+        `Já posso usar este conteúdo. Quer que eu gere um rascunho de artigo a partir dele?`,
+      ].filter(Boolean).join("\n");
+      setMessages((prev) => [...prev, { role: "assistant", content: summary }]);
+      toast.success("Documento indexado");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao ingerir documento";
+      setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }]);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -402,7 +470,7 @@ export function SmartOpsCopilot() {
         <div className="border-t p-3 flex gap-2 items-center bg-card">
           <input
             type="file"
-            accept=".csv"
+            accept=".csv,.pdf,.docx,.txt,.md,.markdown"
             ref={fileRef}
             onChange={handleFileUpload}
             className="hidden"
@@ -412,7 +480,8 @@ export function SmartOpsCopilot() {
             size="icon"
             onClick={() => fileRef.current?.click()}
             className="flex-shrink-0"
-            title="Importar CSV"
+            disabled={isLoading}
+            title="Anexar arquivo (PDF, DOCX, TXT, MD, CSV) — vai para a RAG do Copilot"
           >
             <Paperclip className="w-4 h-4" />
           </Button>
