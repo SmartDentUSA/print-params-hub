@@ -603,6 +603,9 @@ export function SmartOpsWaGroupCampaigns() {
                         <Clock className="w-3 h-3" />
                         Próximo: {formatDateTime(row.next_send_at)}
                       </div>
+                      {row.campaign_id && (
+                        <WaCampaignHealthBadge campaignId={row.campaign_id} compact />
+                      )}
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">Sem campanha ativa</p>
