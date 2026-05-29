@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   RefreshCw, Users, Plus, Pencil, Eye, Search, ShieldAlert, Activity,
-  PauseCircle, PlayCircle, Clock, Send, X, Sparkles,
+  PauseCircle, PlayCircle, Clock, Send, X, Sparkles, Layers, ChevronDown, ChevronRight,
 } from "lucide-react";
 import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
@@ -54,6 +54,8 @@ export function SmartOpsWaGroupCampaigns() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [blastOpen, setBlastOpen] = useState(false);
+  const [sharedCampaigns, setSharedCampaigns] = useState<Array<{ id: string; name: string; status: string; group_ids: string[]; group_names: string[] }>>([]);
+  const [sharedOpen, setSharedOpen] = useState(true);
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -89,6 +91,32 @@ export function SmartOpsWaGroupCampaigns() {
   }, [selectedInstance]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  // Load shared (multi-group) campaigns
+  const fetchShared = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from("wa_campaigns")
+      .select("id, name, status, wa_campaign_groups(group_id, wa_groups(id, name, instance_name))")
+      .is("group_id", null)
+      .in("status", ["draft", "active", "paused"]);
+    const list = (data ?? [])
+      .map((c: any) => {
+        const links = (c.wa_campaign_groups ?? []).filter((l: any) =>
+          !selectedInstance || l.wa_groups?.instance_name === selectedInstance
+        );
+        return {
+          id: c.id,
+          name: c.name,
+          status: c.status,
+          group_ids: links.map((l: any) => l.wa_groups?.id).filter(Boolean),
+          group_names: links.map((l: any) => l.wa_groups?.name ?? "—"),
+        };
+      })
+      .filter((c: any) => c.group_ids.length > 0);
+    setSharedCampaigns(list);
+  }, [selectedInstance]);
+
+  useEffect(() => { fetchShared(); }, [fetchShared, rows]);
 
   // Realtime: refetch on wa_campaigns or wa_message_queue change
   useEffect(() => {
@@ -213,6 +241,57 @@ export function SmartOpsWaGroupCampaigns() {
           className="pl-9"
         />
       </div>
+
+      {/* Réguas compartilhadas (multi-grupo) */}
+      {sharedCampaigns.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <button
+              type="button"
+              onClick={() => setSharedOpen(o => !o)}
+              className="flex items-center gap-2 text-left w-full"
+            >
+              {sharedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <Layers className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">
+                Réguas compartilhadas
+              </CardTitle>
+              <Badge variant="secondary">{sharedCampaigns.length}</Badge>
+            </button>
+          </CardHeader>
+          {sharedOpen && (
+            <CardContent className="space-y-2 pt-0">
+              {sharedCampaigns.map(c => (
+                <div key={c.id} className="rounded border bg-background p-2.5 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className={statusVariant[c.status]}>{statusLabel[c.status]}</Badge>
+                    <span className="text-sm font-medium">{c.name}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      <Users className="w-3 h-3 mr-1" />
+                      {c.group_ids.length} grupos
+                    </Badge>
+                    <div className="flex-1" />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(`/smartops/wa-flow-visualizer?campaign_id=${c.id}`)}
+                    >
+                      <Eye className="w-3 h-3 mr-1" /> Visualizar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {c.group_names.map((n, i) => (
+                      <Badge key={i} variant="outline" className="text-[10px] font-normal">
+                        {n}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Grid */}
       {loading ? (
