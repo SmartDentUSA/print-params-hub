@@ -201,6 +201,13 @@ Deno.serve(async (req) => {
               console.log(
                 `[ingest-lead] FAMILY_DEDUPE_LIFETIME_SKIPPED: form_id=${famFormId} email=${famEmail} phone=${famPhone} → lead ${famLead.id} (new leadgen_id ${dedupeId} archived)`,
               );
+              if (payloadHasMetaForm) {
+                deferredRedeliveryCanonicalId = famLead.id;
+                deferredRedeliveryVia = "family_dedupe_universal";
+                console.log(
+                  `[ingest-lead] FAMILY_DEDUPE_DEFERRED → universal redelivery route for lead ${famLead.id}`,
+                );
+              } else {
               return new Response(
                 JSON.stringify({
                   success: true,
@@ -211,6 +218,7 @@ Deno.serve(async (req) => {
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
               );
+              }
             }
           }
         }
