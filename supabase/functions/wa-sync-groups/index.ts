@@ -164,7 +164,7 @@ serve(async (req) => {
 
           const jids = groupsToSync.map(g => g.id)
           await supabase.from('wa_groups')
-            .delete()
+            .update({ is_admin: false, synced_at: new Date().toISOString() })
             .eq('instance_name', inst.instanceName)
             .not('group_jid', 'in', `(${jids.map(j => `"${j}"`).join(',')})`)
         }
