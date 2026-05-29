@@ -74,6 +74,55 @@ Deno.serve(async (req) => {
 
     console.log("[ingest-lead] Payload recebido:", JSON.stringify(payload).slice(0, 500));
 
+    // ─── TELEMETRY: prova de recebimento ───
+    // Garante registro de TODA invocação no system_health_logs, mesmo
+    // antes de qualquer validação / dedupe. Fundamental para detectar
+    // gaps onde o Meta deveria estar chamando e não está.
+    try {
+      const _telSource =
+        (payload && typeof payload === "object" && (payload as Record<string, unknown>).source) || null;
+      const _telLeadgen =
+        (payload as Record<string, unknown>).meta_leadgen_id ||
+        (payload as Record<string, unknown>).platform_lead_id ||
+        (payload as Record<string, unknown>).leadgen_id ||
+        null;
+      const _telFormId =
+        (payload as Record<string, unknown>).platform_form_id ||
+        (payload as Record<string, unknown>).meta_form_id ||
+        null;
+      const _telFormName =
+        (payload as Record<string, unknown>).form_name ||
+        (payload as Record<string, unknown>).formName ||
+        null;
+      const _telEmail =
+        (payload as Record<string, unknown>).email ||
+        (payload as Record<string, unknown>).user_email ||
+        null;
+      const _telPhone =
+        (payload as Record<string, unknown>).phone ||
+        (payload as Record<string, unknown>).telefone ||
+        (payload as Record<string, unknown>).phone_number ||
+        null;
+      supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-ingest-lead",
+        severity: "info",
+        error_type: "ingest_lead_received",
+        lead_email: _telEmail ? String(_telEmail) : null,
+        details: {
+          source: _telSource,
+          leadgen_id: _telLeadgen ? String(_telLeadgen) : null,
+          form_id: _telFormId ? String(_telFormId) : null,
+          form_name: _telFormName ? String(_telFormName) : null,
+          phone: _telPhone ? String(_telPhone) : null,
+          received_at: new Date().toISOString(),
+          headers: {
+            user_agent: req.headers.get("user-agent"),
+            x_forwarded_for: req.headers.get("x-forwarded-for"),
+          },
+        },
+      }).then(() => {}, () => {});
+    } catch {}
+
     // ─── IDEMPOTENCY GUARD (Meta Lead Ads / SellFlux re-delivery) ───
     // Meta and SellFlux frequently re-deliver the SAME leadgen_id every 2 min,
     // causing the same lead to be re-processed dozens of times → re-triggering
