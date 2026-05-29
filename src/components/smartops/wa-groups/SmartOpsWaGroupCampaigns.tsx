@@ -307,6 +307,33 @@ export function SmartOpsWaGroupCampaigns() {
   const selectedRows = rows.filter(r => selectedIds.includes(r.group_id));
   const selectedMembers = selectedRows.reduce((s, r) => s + (r.member_count ?? 0), 0);
 
+  const openRename = (c: { id: string; name: string }) => {
+    setRenameFor(c);
+    setRenameDraft(c.name ?? "");
+  };
+
+  const saveRename = async () => {
+    if (!renameFor) return;
+    const name = renameDraft.trim();
+    if (!name) { toast.error("Nome não pode ficar vazio."); return; }
+    if (name === renameFor.name) { setRenameFor(null); return; }
+    setRenaming(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("wa_campaigns")
+        .update({ name })
+        .eq("id", renameFor.id);
+      if (error) throw error;
+      toast.success("Nome atualizado");
+      setRenameFor(null);
+      fetchShared();
+    } catch (err: any) {
+      toast.error("Falha: " + (err?.message ?? String(err)));
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   return (
     <TooltipProvider>
     <div className="space-y-4">
