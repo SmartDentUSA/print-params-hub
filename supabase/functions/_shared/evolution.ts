@@ -189,7 +189,7 @@ export async function sendText(groupJid: string, text: string, instanceName: str
   const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, text }),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(45_000),
   })
   if (!res.ok) throw new Error(`sendText ${res.status}: ${await res.text()}`)
   const d = await res.json()
@@ -207,7 +207,7 @@ export async function sendMedia(
   const res = await fetch(`${EVO_BASE}/message/sendMedia/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(60_000),
   })
   if (!res.ok) throw new Error(`sendMedia ${res.status}: ${await res.text()}`)
   const d = await res.json()
