@@ -39,19 +39,23 @@ serve(async (req) => {
     const connected = instances.filter(i => i.connectionStatus === 'open')
 
     // Merge instâncias cadastradas em team_members (fonte da verdade interna).
-    // Útil quando o Evolution não devolve a instância em fetchInstances mas ela existe.
+    // Cada instância pode ter sua própria apikey (token) — o servidor Evolution
+    // não usa uma única "global key": cada instância tem token próprio.
     const { data: tmAll } = await supabase
       .from('team_members')
-      .select('evolution_instance_name, evolution_phone, nome_completo, ativo')
+      .select('evolution_instance_name, evolution_phone, evolution_api_key, nome_completo, ativo')
       .eq('ativo', true)
       .not('evolution_instance_name', 'is', null)
     const tmInstances: WaInstanceInfo[] = []
     const tmPhones = new Map<string, string>()
+    const apikeyByInstance = new Map<string, string>()
     for (const r of (tmAll ?? []) as any[]) {
       const name = String(r.evolution_instance_name ?? '').trim()
       const phone = String(r.evolution_phone ?? '').replace(/\D/g, '')
+      const apikey = String(r.evolution_api_key ?? '').trim()
       if (!name) continue
       if (phone && !tmPhones.has(name)) tmPhones.set(name, phone)
+      if (apikey && !apikeyByInstance.has(name)) apikeyByInstance.set(name, apikey)
       if (!instances.some(i => i.instanceName === name)) {
         tmInstances.push({
           instanceName: name,
@@ -61,6 +65,28 @@ serve(async (req) => {
         })
       }
     }
+
+    // Descobre status real de cada instância usando o apikey próprio dela
+    // (apenas Dra. Lia aparece em fetchInstances com a key global).
+    for (const [name, apikey] of apikeyByInstance) {
+      if (instances.some(i => i.instanceName === name && i.connectionStatus === 'open')) continue
+      try {
+        const live = await fetchInstances(apikey)
+        const found = live.find(i => i.instanceName === name)
+        if (!found) continue
+        const idx = tmInstances.findIndex(i => i.instanceName === name)
+        if (idx >= 0) {
+          tmInstances[idx] = { ...tmInstances[idx], ...found }
+        } else {
+          const evoIdx = instances.findIndex(i => i.instanceName === name)
+          if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...found }
+          else instances.push(found)
+        }
+      } catch (e) {
+        console.warn(`[wa-sync-groups] fetchInstances(${name}) com apikey própria falhou:`, e instanceof Error ? e.message : String(e))
+      }
+    }
+
     // Lista combinada exposta na resposta (UI)
     const combinedInstances = [...instances, ...tmInstances]
 
@@ -105,8 +131,9 @@ serve(async (req) => {
         const ownerDigits = (inst.owner ?? '').replace(/\D/g, '')
         const phone = ownerDigits || tmPhone || undefined
         const hints: OwnerHints = { jid: ownerJid, phone }
-        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'}`)
-        const groups = await fetchAdminGroups(inst.instanceName, hints)
+        const apikey = apikeyByInstance.get(inst.instanceName)
+        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
+        const groups = await fetchAdminGroups(inst.instanceName, hints, apikey)
         console.log(`[wa-sync-groups] ${inst.instanceName}: ${groups.length} grupos admin`)
 
         if (groups.length > 0) {
