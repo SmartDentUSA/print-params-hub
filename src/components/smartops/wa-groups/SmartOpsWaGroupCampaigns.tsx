@@ -708,6 +708,38 @@ export function SmartOpsWaGroupCampaigns() {
         selectedGroupNames={selectedRows.map(r => r.group_name ?? "")}
       />
 
+      {/* Blast pontual via wizard (segmentação, inclui não-admin) */}
+      <WaGroupBlastModal
+        open={wizardBlastOpen}
+        onClose={() => setWizardBlastOpen(false)}
+        onSent={() => { setWizardBlastOpen(false); fetchRows(); }}
+        pickerMode
+        instanceFilter={selectedInstance || undefined}
+      />
+
+      {/* Renomear régua compartilhada */}
+      <Dialog open={!!renameFor} onOpenChange={(o) => !o && !renaming && setRenameFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renomear régua compartilhada</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            placeholder="Nome da régua"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRenameFor(null)} disabled={renaming}>
+              Cancelar
+            </Button>
+            <Button onClick={saveRename} disabled={renaming}>
+              {renaming ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {editFlowFor && (
         <WaGroupFlowBuilder
           open={!!editFlowFor}
