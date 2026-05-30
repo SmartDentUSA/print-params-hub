@@ -1,29 +1,36 @@
-## Diagnóstico
+## Problema
 
-O badge "Cérebro defasado vs CRM" está comparando fontes diferentes:
+Na seção "Réguas compartilhadas" do painel WhatsApp → Campanhas, cada card mostra Visualizar / Editar fluxo / Editar grupos / Renomear — mas **não tem botão de excluir**. Hoje só dá pra apagar régua de grupo único.
 
-- **Cérebro** (R$ 2.604.537 · 432 ganhos) lê de `lia_attendances.piperun_deals_history` (JSONB canônico, mesma fonte usada pelo `vw_vendas_ganhas` recriado).
-- **"CRM ao vivo"** na função `check_copilot_brain_drift` lê de `public.deals` (R$ 2.252.998 · 347 ganhos) — a tabela defasada que já identificamos na investigação anterior, e que motivou recriar o `vw_vendas_ganhas`.
+## Verificação de FKs (já feita)
 
-Ou seja: o Cérebro está **correto** e alinhado ao PipeRun (R$ 2,5M). Quem está errado é o comparador — está usando a fonte que sabidamente perde ~85 deals/mês.
+`wa_campaigns` tem 3 dependências:
+- `wa_message_queue.campaign_id` → `CASCADE` ✅
+- `wa_campaign_groups.campaign_id` → `CASCADE` ✅
+- `wa_groups.active_campaign_id` → `SET NULL` ✅
 
-## Correção
+Ou seja, um simples `DELETE FROM wa_campaigns WHERE id=?` limpa fila pendente, vínculos de grupos e zera o `active_campaign_id` dos grupos automaticamente. Sem migration nem RPC nova.
 
-Atualizar `public.check_copilot_brain_drift()` para usar a **mesma fonte canônica** que o Cérebro:
+## Plano
 
-- Trocar `FROM public.deals d WHERE d.status = 'ganha' ...` por leitura do `vw_vendas_ganhas` (que já filtra mês corrente SP, exclui pipelines não-comerciais, e usa `DISTINCT ON (deal_id)` sobre o JSONB).
-- Manter o mesmo retorno JSON (campos `brain_receita`, `live_receita`, `brain_deals`, `live_deals`, `diff_pct`, `last_refresh`, `age_minutes`).
-- Manter regra de alerta (`diff_pct > 5%` ou snapshot > 30min) e os inserts em `system_health_logs` / `brain_alerts`.
+Arquivo único: `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx`
 
-Resultado esperado: diff cai para <1% (Cérebro e view leem o mesmo JSONB; única diferença será latência do refresh do snapshot).
+1. **Import**: adicionar `Trash2` ao import de `lucide-react`.
+2. **Handler novo** `handleDeleteShared(c)`:
+   - `confirm(\`Excluir a régua "${c.name}"? Os ${c.group_ids.length} grupos voltam para "sem régua" e mensagens pendentes serão canceladas.\`)`
+   - `await supabase.from('wa_campaigns').delete().eq('id', c.id)`
+   - `toast.success("Régua excluída")` / `toast.error(...)` no catch
+   - `await fetchShared(); await fetchRows();`
+3. **UI**: dentro do loop `sharedCampaigns.map(c => ...)` (linhas 449-498), adicionar após o botão "Editar grupos" (linha 488) um botão destrutivo:
+   ```tsx
+   <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10"
+     onClick={() => handleDeleteShared(c)} title="Excluir régua">
+     <Trash2 className="w-3 h-3" />
+   </Button>
+   ```
 
-## O que NÃO mudar
+## Risco / fora de escopo
 
-- `vw_vendas_ganhas` (já está certo).
-- `copilot_brain.refresh_all()` e cron de 5min.
-- Componente `CopilotBrainHealthCard` (continua consumindo o mesmo RPC).
-- Tabela `public.deals` — separadamente vale diagnosticar por que o `piperun-full-sync` não atualiza essa tabela, mas isso é independente do alerta e fica fora deste plano.
-
-## Entregável
-
-Uma migration que recria `public.check_copilot_brain_drift()` lendo de `vw_vendas_ganhas`.
+- Não toco em régua de grupo único (já tem fluxo próprio).
+- Não toco no `sharedOpen` default, tamanho dos cards, nem no toggle ativo/desativado — esses ficam para outra rodada se você quiser.
+- Sem mudança de schema, sem edge function.
