@@ -501,6 +501,15 @@ export function SmartOpsWaGroupCampaigns() {
                     >
                       <Users className="w-3 h-3 mr-1" /> Editar grupos
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteShared(c)}
+                      title="Excluir régua"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {c.group_names.map((n, i) => (
