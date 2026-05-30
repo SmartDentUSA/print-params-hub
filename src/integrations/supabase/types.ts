@@ -15519,15 +15519,19 @@ export type Database = {
           active: boolean
           course_id: string
           created_at: string | null
+          end_date: string | null
           enrolled_count: number
           id: string
           label: string
           launch_date: string | null
+          location: string | null
+          modality: string | null
           recurrence_index: number | null
           recurrence_parent_id: string | null
           sellflux_tag: string | null
           slots: number
           sort_order: number
+          start_date: string | null
           turma_number: number | null
           updated_at: string | null
           whatsapp_group_link: string | null
@@ -15536,15 +15540,19 @@ export type Database = {
           active?: boolean
           course_id: string
           created_at?: string | null
+          end_date?: string | null
           enrolled_count?: number
           id?: string
           label: string
           launch_date?: string | null
+          location?: string | null
+          modality?: string | null
           recurrence_index?: number | null
           recurrence_parent_id?: string | null
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
+          start_date?: string | null
           turma_number?: number | null
           updated_at?: string | null
           whatsapp_group_link?: string | null
@@ -15553,15 +15561,19 @@ export type Database = {
           active?: boolean
           course_id?: string
           created_at?: string | null
+          end_date?: string | null
           enrolled_count?: number
           id?: string
           label?: string
           launch_date?: string | null
+          location?: string | null
+          modality?: string | null
           recurrence_index?: number | null
           recurrence_parent_id?: string | null
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
+          start_date?: string | null
           turma_number?: number | null
           updated_at?: string | null
           whatsapp_group_link?: string | null
