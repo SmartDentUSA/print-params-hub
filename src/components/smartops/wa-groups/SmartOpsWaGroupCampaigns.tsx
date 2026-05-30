@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   RefreshCw, Users, Plus, Pencil, Eye, Search, ShieldAlert, Activity,
-  PauseCircle, PlayCircle, Clock, Send, X, Sparkles, Layers, ChevronDown, ChevronRight,
+  PauseCircle, PlayCircle, Clock, Send, X, Sparkles, Layers, ChevronDown, ChevronRight, Trash2,
 } from "lucide-react";
 import type { WaGroupSummary, WaInstanceInfo } from "./types";
 import { WaGroupFlowBuilder } from "./WaGroupFlowBuilder";
@@ -169,6 +169,21 @@ export function SmartOpsWaGroupCampaigns() {
   }, [selectedInstance]);
 
   useEffect(() => { fetchShared(); }, [fetchShared, rows]);
+
+  const handleDeleteShared = useCallback(async (c: { id: string; name: string; group_ids: string[] }) => {
+    const ok = window.confirm(
+      `Excluir a régua "${c.name}"?\n\nOs ${c.group_ids.length} grupo(s) voltam para "sem régua" e mensagens pendentes serão canceladas.`
+    );
+    if (!ok) return;
+    const { error } = await (supabase as any).from("wa_campaigns").delete().eq("id", c.id);
+    if (error) {
+      toast.error("Falha ao excluir: " + (error.message ?? String(error)));
+      return;
+    }
+    toast.success("Régua excluída");
+    await fetchShared();
+    await fetchRows();
+  }, [fetchShared, fetchRows]);
 
   // Realtime: refetch on wa_campaigns or wa_message_queue change
   useEffect(() => {
@@ -485,6 +500,15 @@ export function SmartOpsWaGroupCampaigns() {
                       onClick={() => openEditGroups(c)}
                     >
                       <Users className="w-3 h-3 mr-1" /> Editar grupos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteShared(c)}
+                      title="Excluir régua"
+                    >
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-1">
