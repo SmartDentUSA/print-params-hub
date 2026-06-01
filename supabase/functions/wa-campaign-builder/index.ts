@@ -74,15 +74,17 @@ serve(async (req) => {
       if (node.type === 'wait') {
         const days  = (node.days  as number) ?? 0
         const hours = (node.hours as number) ?? 0
-        accMs += days * 86_400_000 + hours * 3_600_000
+        const minutes = (node.minutes as number) ?? 0
+        accMs += days * 86_400_000 + hours * 3_600_000 + minutes * 60_000
         lastWait = node
         continue
       }
       let ts: Date
       if (lastWait) {
         const waitHours = (lastWait.hours as number) ?? 0
-        if (waitHours > 0) {
-          // Offset relativo (em horas): dispara exatamente após o intervalo, sem ancorar em horário do dia.
+        const waitMinutes = (lastWait.minutes as number) ?? 0
+        if (waitHours > 0 || waitMinutes > 0) {
+          // Offset relativo (horas/minutos): dispara exatamente após o intervalo, sem ancorar em horário do dia.
           ts = new Date(startTs + accMs)
         } else {
           // Apenas dias: usa o horário SP configurado no wait (timezone-aware).
