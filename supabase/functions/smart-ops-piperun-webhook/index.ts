@@ -517,7 +517,7 @@ Deno.serve(async (req) => {
       const personName = ids.personName || (deal.title ? String(deal.title).split(" - ")[0] : "Lead PipeRun");
 
       if (!personEmail) {
-        console.warn(`[piperun-webhook] Deal sem email após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
+        console.warn(`[piperun-webhook] Deal sem email (person nem company) após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
         await auditEvent("skipped_no_email", null, "deal_without_email_after_hydration");
         return new Response(
           JSON.stringify({ ok: true, skipped: true, reason: "no_email_after_hydration", deal_id: dealId }),
@@ -525,14 +525,17 @@ Deno.serve(async (req) => {
         );
       }
 
-      const phoneNormalized: string | null = normalizeBrazilianPhone(ids.personPhone);
+      const phoneNormalized: string | null = normalizeBrazilianPhone(personPhoneEffective);
+      if (identitySource === "company_fallback") {
+        console.log(`[piperun-webhook] identity_source=company_fallback deal=${dealId} email=${personEmail} phone=${personPhoneEffective}`);
+      }
 
       // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
       const identity = validateLeadIdentity({
         nome: personName,
         email: personEmail,
         phoneNormalized,
-        rawPhone: ids.personPhone,
+        rawPhone: personPhoneEffective,
       });
       if (!identity.ok) {
         await logRejectedLead(supabase, {
@@ -540,7 +543,7 @@ Deno.serve(async (req) => {
           source: "piperun_webhook",
           check: identity,
           email: personEmail,
-          raw: { dealId, personName, personPhone: ids.personPhone },
+          raw: { dealId, personName, personPhone: personPhoneEffective, identitySource },
         });
         console.log(
           `[piperun-webhook] Lead criação BLOQUEADA (deal ${dealId}) — identity incompleta: ${identity.missing.join(",")}`,
