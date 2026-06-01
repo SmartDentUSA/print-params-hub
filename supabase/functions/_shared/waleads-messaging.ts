@@ -350,8 +350,8 @@ export async function generateHistoricoOportunidade(
   lead: Record<string, unknown>,
   dealsCtx?: DealsContext
 ): Promise<{ historico: string; oportunidade: string }> {
-  const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
-  if (!DEEPSEEK_API_KEY) return { historico: "", oportunidade: "" };
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return { historico: "", oportunidade: "" };
 
   const cognitive = lead.cognitive_analysis as Record<string, unknown> | null;
   const cognitiveContext = cognitive
@@ -391,14 +391,14 @@ REGRAS OBRIGATÓRIAS:
 - Use a data exata em "Primeiro contato" — não escolha datas intermediárias.
 Retorne APENAS JSON: {"historico":"...","oportunidade":"..."}`;
 
-  const res = await fetch("https://api.deepseek.com/chat/completions", {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "google/gemini-2.5-flash-lite",
       messages: [
         { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores." },
         { role: "user", content: prompt },
@@ -409,13 +409,13 @@ Retorne APENAS JSON: {"historico":"...","oportunidade":"..."}`;
     signal: AbortSignal.timeout(12000),
   });
 
-  if (!res.ok) throw new Error(`DeepSeek API ${res.status}`);
+  if (!res.ok) throw new Error(`Lovable AI Gateway ${res.status}`);
   const data = await res.json();
   const usage = extractUsage(data);
   await logAIUsage({
     functionName: "waleads-messaging",
-    actionLabel: "generate-briefing-deepseek",
-    model: "deepseek-chat",
+    actionLabel: "generate-briefing-gemini-lite",
+    model: "google/gemini-2.5-flash-lite",
     promptTokens: usage.prompt_tokens,
     completionTokens: usage.completion_tokens,
   });
