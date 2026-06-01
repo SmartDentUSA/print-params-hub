@@ -2123,9 +2123,9 @@ function CampaignHistory() {
                                 {log.provider_status}
                               </Badge>
                             )}
-                            {log.status === "sent" && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {(log.status === "sent" || log.status === "delivered") && <CheckCircle className="w-3 h-3 text-green-500" />}
                             {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
-                            {log.status === "pending" && <AlertCircle className="w-3 h-3 text-amber-500" />}
+                            {(log.status === "pending" || log.status === "aguardando") && <AlertCircle className="w-3 h-3 text-amber-500" />}
                             <span>{log.status}</span>
                           </div>
                         </div>
