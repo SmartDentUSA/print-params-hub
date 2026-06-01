@@ -1,45 +1,71 @@
-## Problema observado pelo usuário
+## Problema
 
-Quando o lead abre o link do formulário (`/f/:slug`) dentro do **WhatsApp** (ou Instagram/Facebook/Telegram), a tela mostra **Bad Gateway**. Só depois de vários F5 a página finalmente carrega. Isso está derrubando a taxa de preenchimento.
+`https://parametros.smartdent.com.br/f/-formulario-exocad-ia` retorna **502 Bad Gateway** (página em branco com texto "Bad Gateway"). Curl direto às vezes devolve 200, mas o navegador real recebe 502 — comportamento intermitente típico do proxy quando o path tem caracteres "ruins".
 
 ## Causa raiz
 
-No `vercel.json`, o último rewrite intercepta **todas as rotas** quando o User-Agent contém qualquer termo da lista de bots — e essa lista inclui `whatsapp`, `facebookexternalhit`, `telegrambot`, `linkedinbot`. O navegador in-app do WhatsApp manda UA com "WhatsApp" no nome, então cai no rewrite:
+O slug começa com hífen: `-formulario-exocad-ia`. Isso veio do `generateSlug` em `src/components/SmartOpsFormBuilder.tsx`:
 
+```ts
+text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
 ```
-/:path*  (UA contém whatsapp/etc.)  →  seo-proxy?originalPath=/:path*
-```
 
-O `seo-proxy` não tem handler para a rota `/f/:slug` (formulário público é SPA, não tem SSR de SEO) → devolve **404** → o Vercel propaga como **502 Bad Gateway**.
+O nome do formulário é `# - Formulário exocad I.A.`. O `#` é removido, sobra ` - Formulário…`, vira `-formulario-exocad-i-a`. O `.trim()` só remove **espaços**, não hífens.
 
-Comprovado por teste:
-- `curl /f/<slug> -A "WhatsApp/2.0"` → **502**
-- `curl /f/<slug> -A "Mozilla/5.0"` → **200**
-- `seo-proxy?originalPath=/f/<slug>` → **404**
+Confirmado no banco: existem 2 formulários com slug começando em `-`:
 
-O F5 às vezes "resolve" porque o Cloudflare/CDN serve cache antigo do `index.html`, ou porque o WhatsApp eventualmente reabre fora do in-app browser.
+| id | slug | name |
+|----|------|------|
+| fbe205b0… | `-formulario-exocad-ia` | # - Formulário exocad I.A. |
+| 63ecb106… | `-formulario-exocad-ia-copia-1779133804525` | # - Formulário Padrão |
+
+O hospedeiro atual do domínio (`parametros.smartdent.com.br` → Lovable/Express, cookie `lovable.app`) trata `/f/-...` de forma inconsistente e dispara 502 em parte das requisições. A nova regra `vercel.json` que adicionamos não atua mais porque o domínio não passa pela Vercel.
 
 ## Correção
 
-Adicionar em `vercel.json`, **antes** do bloco de bots, um rewrite passthrough para `/f/:path*` apontando para `/index.html` (SPA). Como o Vercel avalia rewrites em ordem e o primeiro match vence, o rewrite de bots deixa de capturar formulários — eles passam a ser servidos pelo SPA para qualquer User-Agent.
+### 1. Renomear slugs existentes (migration)
 
-```json
-{ "source": "/f/:path*", "destination": "/index.html" }
+Remover hífens de início/fim e colapsar duplicados em todos os `smartops_forms.slug`:
+
+```sql
+UPDATE smartops_forms
+SET slug = regexp_replace(regexp_replace(slug, '^-+|-+$', '', 'g'), '-+', '-', 'g')
+WHERE slug ~ '^-' OR slug ~ '-$' OR slug ~ '--';
 ```
 
-Esse rewrite vai logo acima do `"source": "/:path*"` com `has: user-agent`. Comportamento para navegadores normais não muda (já carregam o SPA via fallback do Vercel). A diferença é que o navegador in-app do WhatsApp/IG/FB/Telegram agora também recebe o SPA em vez de cair no seo-proxy.
+Slugs novos:
+- `-formulario-exocad-ia` → `formulario-exocad-ia`
+- `-formulario-exocad-ia-copia-1779133804525` → `formulario-exocad-ia-copia-1779133804525`
 
-## Validação após deploy
+URL nova: `https://parametros.smartdent.com.br/f/formulario-exocad-ia` (funciona com qualquer proxy/UA, inclusive WhatsApp).
 
-1. `curl -I https://parametros.smartdent.com.br/f/<slug-real> -A "WhatsApp/2.0"` → deve retornar **200** (antes: 502).
-2. Abrir o link do formulário diretamente dentro do WhatsApp Mobile → carregar de primeira, sem F5.
-3. Conferir que `/base-conhecimento/...` continua sendo servido pelo `seo-proxy` quando UA é bot (SEO preservado).
+### 2. Endurecer `generateSlug` (frontend)
 
-## Arquivos alterados
+Em `src/components/SmartOpsFormBuilder.tsx`, ajustar para nunca mais gerar slug com hífen nas pontas:
 
-- `vercel.json` — 1 linha de rewrite adicionada (sem mexer em edge functions, sem mexer no `PublicFormPage.tsx`, sem mexer no `smart-ops-ingest-lead`).
+```ts
+const generateSlug = (text: string) =>
+  text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")   // ← novo: remove hífen do início/fim
+    .trim();
+```
+
+## Validação após apply
+
+1. `curl -I https://parametros.smartdent.com.br/f/formulario-exocad-ia -A "Mozilla/5.0"` → 200.
+2. `curl -I https://parametros.smartdent.com.br/f/formulario-exocad-ia -A "WhatsApp/2.0"` → 200.
+3. Abrir o link no WhatsApp Mobile → carrega de primeira.
+4. Criar um formulário de teste com nome começando em `#` ou `-` no editor → o slug gerado começa com letra.
 
 ## Fora de escopo
 
-- `seo-proxy` não precisa de handler novo (formulário não tem valor SEO).
-- O submit do formulário continua igual — a causa NÃO é o ingest, é o carregamento inicial da página.
+- Não mexe em `vercel.json`, edge functions ou no `PublicFormPage.tsx`.
+- Não cria redirect da URL antiga (`/f/-formulario-exocad-ia`) porque ela já está 502 — links em campanhas anteriores precisam ser republicados com a URL nova. Se você quiser, posso adicionar uma rota cliente que aceite o slug com `-` inicial e redirecione, mas o ideal é trocar nas campanhas.
+
+## Aviso ao time comercial
+
+Qualquer link já distribuído com `/f/-formulario-exocad-ia` precisa ser atualizado para `/f/formulario-exocad-ia` nas campanhas ativas.
