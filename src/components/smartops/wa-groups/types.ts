@@ -15,6 +15,7 @@ export interface WaitNode extends FlowNodeBase {
   type: "wait";
   days: number;
   hours?: number;
+  minutes?: number;
   time: string; // "HH:MM"
   weekdays_only?: boolean;
 }
