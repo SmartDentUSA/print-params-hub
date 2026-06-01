@@ -8,11 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle, User,
+  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle, User, Building2,
 } from "lucide-react";
 import type {
   SmartopsCourse, Turma, TurmaDay, DealSearchResult,
-  ProposalItem, EquipmentData, EnrollmentCompanion,
+  ProposalItem, EquipmentData, EnrollmentCompanion, DealSearchListItem,
 } from "@/types/courses";
 import {
   extractProposalItems, formatDatePtBr, formatWeekday,
