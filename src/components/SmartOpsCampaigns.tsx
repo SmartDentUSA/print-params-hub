@@ -122,6 +122,8 @@ const statusColors: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-800",
   running: "bg-amber-100 text-amber-800",
   completed: "bg-green-100 text-green-800",
+  completed_with_errors: "bg-orange-100 text-orange-800",
+  failed: "bg-red-100 text-red-800",
   cancelled: "bg-red-100 text-red-800",
 };
 
@@ -130,6 +132,8 @@ const statusLabels: Record<string, string> = {
   scheduled: "Agendada",
   running: "Em execução",
   completed: "Concluída",
+  completed_with_errors: "Concluída c/ falhas",
+  failed: "Falha total",
   cancelled: "Cancelada",
 };
 
@@ -397,6 +401,14 @@ function CreateCampaign({
   const [smsBalanceLoading, setSmsBalanceLoading] = useState(false);
   const [smsLeadValidCount, setSmsLeadValidCount] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
+  const [smsCampaignId, setSmsCampaignId] = useState<string | null>(null);
+  const [audiencePreview, setAudiencePreview] = useState<{
+    total: number;
+    com_telefone: number;
+    sample: Array<{ id?: string; nome?: string | null; telefone?: string | null }>;
+    lead_ids: string[];
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const smsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const smsStats = useMemo(() => {
@@ -869,46 +881,86 @@ function CreateCampaign({
     setSending(true);
     const tId = toast.loading("Disparando SMS...");
     try {
-      const filters: any = buildFiltersObject();
-
-      const { data: camp, error: campErr } = await supabase
-        .from("campaign_sessions")
-        .insert({
-          name: campaignName.trim(),
-          description: campaignDesc.trim() || null,
-          channel: "sms",
-          content_id: null,
-          content_type: null,
-          lead_filters: Object.keys(filters).length ? filters : null,
-          lead_count: smsLeadValidCount ?? leadCount,
-          status: "running",
-          results: {
-            sms_message: smsMessage,
-            sms_codificacao: smsCodificacao,
-            sms_pdus: smsStats.pdus,
-            sms_custo_por_pdu: smsStats.custoPdu,
-          },
-        })
-        .select("id")
-        .single();
-      if (campErr || !camp) throw new Error(campErr?.message ?? "Erro ao criar campanha");
-
-      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
-        body: {
-          campaign_id: (camp as any).id,
-          sms_message: smsMessage,
-          sms_codificacao: smsCodificacao,
-        },
+      const id = await ensureSmsCampaign();
+      if (!id) throw new Error("Não foi possível criar a campanha");
+      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
+        body: { campaign_id: id },
       });
       if (error) throw error;
       const sent = (data as any)?.sent ?? 0;
       const failed = (data as any)?.failed ?? 0;
-      toast.success(`Disparo concluído: ${sent} enviados, ${failed} falhas`, { id: tId });
+      const total = (data as any)?.total_leads ?? 0;
+      const status = (data as any)?.status ?? "completed";
+      toast.success(
+        `Disparo ${status}: ${sent}/${total} enviados, ${failed} falhas`,
+        { id: tId }
+      );
       onCreated();
     } catch (e) {
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
     } finally {
       setSending(false);
+    }
+  };
+
+  // Cria (ou atualiza) o draft de campanha SMS na tabela `campaigns` e retorna o id
+  const ensureSmsCampaign = async (): Promise<string | null> => {
+    const filters: any = buildFiltersObject();
+    const payload = {
+      canal: "sms",
+      nome: campaignName.trim(),
+      descricao: campaignDesc.trim() || null,
+      mensagem_template: smsMessage,
+      lead_filter: Object.keys(filters).length ? filters : null,
+    };
+    if (smsCampaignId) {
+      const { error } = await supabase
+        .from("campaigns" as any)
+        .update(payload)
+        .eq("id", smsCampaignId);
+      if (error) throw new Error(error.message);
+      return smsCampaignId;
+    }
+    const { data, error } = await supabase
+      .from("campaigns" as any)
+      .insert({ ...payload, status: "draft" })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "Erro ao criar campanha");
+    const id = (data as any).id as string;
+    setSmsCampaignId(id);
+    return id;
+  };
+
+  const handlePreviewAudience = async () => {
+    if (!campaignName.trim()) {
+      toast.error("Defina um nome para a campanha primeiro");
+      return;
+    }
+    setPreviewing(true);
+    const tId = toast.loading("Calculando audiência...");
+    try {
+      const id = await ensureSmsCampaign();
+      if (!id) throw new Error("Não foi possível criar a campanha");
+      const filters: any = buildFiltersObject();
+      const { data, error } = await supabase.functions.invoke("campaign-build-audience", {
+        body: { ...filters, campaign_id: id },
+      });
+      if (error) throw error;
+      const aud = (data as any)?.audience ?? { total: 0, com_telefone: 0 };
+      const sample = (data as any)?.sample ?? [];
+      const lead_ids = (data as any)?.lead_ids ?? [];
+      setAudiencePreview({
+        total: aud.total ?? 0,
+        com_telefone: aud.com_telefone ?? 0,
+        sample,
+        lead_ids,
+      });
+      toast.success(`Audiência: ${aud.total} leads (${aud.com_telefone} com telefone)`, { id: tId });
+    } catch (e) {
+      toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no preview"}`, { id: tId });
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -1682,19 +1734,67 @@ function CreateCampaign({
                   <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                {audiencePreview && (
+                  <div className="border rounded-lg p-3 mt-3 bg-accent/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium">Preview de Audiência</p>
+                      <div className="flex gap-2">
+                        <Badge variant="secondary">{audiencePreview.total} total</Badge>
+                        <Badge className="bg-green-100 text-green-800">
+                          {audiencePreview.com_telefone} c/ telefone
+                        </Badge>
+                      </div>
+                    </div>
+                    {audiencePreview.sample.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground uppercase">
+                          Amostra ({Math.min(5, audiencePreview.sample.length)})
+                        </p>
+                        {audiencePreview.sample.slice(0, 5).map((s, i) => (
+                          <div key={s.id ?? i} className="text-xs flex justify-between border-b last:border-0 py-1">
+                            <span>{s.nome ?? "—"}</span>
+                            <span className="text-muted-foreground">{s.telefone ?? "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
                   <Button variant="outline" onClick={() => setStep(2)} disabled={sending}>
                     <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
                   </Button>
-                  <Button variant="outline" onClick={handleCreate} disabled={sending || creating}>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await ensureSmsCampaign();
+                        toast.success("Rascunho salvo em campaigns");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+                      }
+                    }}
+                    disabled={sending || previewing || !campaignName.trim()}
+                  >
                     Salvar como rascunho
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handlePreviewAudience}
+                    disabled={previewing || sending || !campaignName.trim()}
+                  >
+                    <Users className="w-4 h-4 mr-1" />
+                    {previewing ? "Calculando..." : "Preview de Audiência"}
                   </Button>
                   <Button
                     onClick={handleSendSms}
                     disabled={sending || !smsMessage.trim()}
                     className="flex-1"
                   >
-                    {sending ? "Disparando..." : `📱 Disparar SMS agora (${smsLeadValidCount ?? 0} leads)`}
+                    {sending
+                      ? "Disparando..."
+                      : `📱 Disparar SMS agora (${audiencePreview?.com_telefone ?? smsLeadValidCount ?? 0} leads)`}
                   </Button>
                 </div>
               </>
@@ -1782,13 +1882,52 @@ function CampaignHistory() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("campaign_sessions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) toast.error("Erro ao carregar campanhas");
-      setCampaigns(data || []);
+      const [newRes, legacyRes] = await Promise.all([
+        supabase
+          .from("campaigns" as any)
+          .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("campaign_sessions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+      if (newRes.error && legacyRes.error) toast.error("Erro ao carregar campanhas");
+
+      const fromNew: CampaignSession[] = ((newRes.data as any[]) || []).map((c) => ({
+        id: c.id,
+        name: c.nome,
+        description: c.descricao,
+        status: c.status,
+        channel: c.canal,
+        content_id: null,
+        content_type: null,
+        lead_filters: c.lead_filter,
+        lead_count: c.total_leads ?? c.audience_count ?? null,
+        lead_ids: null,
+        sent_count: c.total_sent ?? null,
+        failed_count: c.total_failed ?? null,
+        results: {
+          total_delivered: c.total_delivered ?? 0,
+          sms_message: c.mensagem_template ?? undefined,
+          _source: "campaigns",
+        },
+        scheduled_at: null,
+        started_at: c.started_at,
+        completed_at: c.completed_at,
+        created_at: c.created_at,
+        created_by: c.created_by ?? null,
+      }));
+      const fromLegacy: CampaignSession[] = ((legacyRes.data as any[]) || []).map((c) => ({
+        ...c,
+        results: { ...(c.results || {}), _source: "campaign_sessions" },
+      }));
+      const merged = [...fromNew, ...fromLegacy].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? "")
+      );
+      setCampaigns(merged);
       setLoading(false);
     })();
   }, []);
@@ -1835,6 +1974,7 @@ function CampaignHistory() {
               <th className="text-left p-3 font-medium">Status</th>
               <th className="text-right p-3 font-medium">Leads</th>
               <th className="text-right p-3 font-medium">Enviados</th>
+              <th className="text-right p-3 font-medium">Entregues</th>
               <th className="text-right p-3 font-medium">Falhas</th>
               <th className="text-right p-3 font-medium">Taxa</th>
               <th className="text-left p-3 font-medium">Criada</th>
@@ -1843,6 +1983,7 @@ function CampaignHistory() {
           <tbody>
             {campaigns.map(c => {
               const rate = c.lead_count && c.sent_count ? Math.round((c.sent_count / c.lead_count) * 100) : null;
+              const delivered = (c.results as any)?.total_delivered;
               return (
                 <tr key={c.id} className="border-b hover:bg-accent/5 cursor-pointer" onClick={() => openDetail(c)}>
                   <td className="p-3 font-medium">{c.name}</td>
@@ -1850,6 +1991,7 @@ function CampaignHistory() {
                   <td className="p-3"><Badge className={statusColors[c.status || "draft"]}>{statusLabels[c.status || "draft"]}</Badge></td>
                   <td className="p-3 text-right">{c.lead_count ?? "—"}</td>
                   <td className="p-3 text-right">{c.sent_count ?? "—"}</td>
+                  <td className="p-3 text-right">{delivered != null && delivered !== undefined ? delivered : "—"}</td>
                   <td className="p-3 text-right">{c.failed_count ?? "—"}</td>
                   <td className="p-3 text-right">{rate != null ? `${rate}%` : "—"}</td>
                   <td className="p-3 text-muted-foreground">{formatDate(c.created_at)}</td>
@@ -1981,9 +2123,9 @@ function CampaignHistory() {
                                 {log.provider_status}
                               </Badge>
                             )}
-                            {log.status === "sent" && <CheckCircle className="w-3 h-3 text-green-500" />}
+                            {(log.status === "sent" || log.status === "delivered") && <CheckCircle className="w-3 h-3 text-green-500" />}
                             {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
-                            {log.status === "pending" && <AlertCircle className="w-3 h-3 text-amber-500" />}
+                            {(log.status === "pending" || log.status === "aguardando") && <AlertCircle className="w-3 h-3 text-amber-500" />}
                             <span>{log.status}</span>
                           </div>
                         </div>
