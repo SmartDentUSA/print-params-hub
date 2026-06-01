@@ -232,14 +232,21 @@ export function SmartOpsWaGroupCampaigns() {
   const handleToggleEnabled = async (row: WaGroupSummary, next: boolean) => {
     // Optimistic update: o card sai imediatamente da lista atual
     setRows(prev => prev.map(r => r.group_id === row.group_id ? { ...r, enabled: next } : r));
-    const { error } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("wa_groups")
       .update({ enabled: next })
-      .eq("id", row.group_id);
+      .eq("id", row.group_id)
+      .select("id");
     if (error) {
       // rollback
       setRows(prev => prev.map(r => r.group_id === row.group_id ? { ...r, enabled: !next } : r));
       toast.error(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      // RLS bloqueou silenciosamente: 0 linhas afetadas
+      setRows(prev => prev.map(r => r.group_id === row.group_id ? { ...r, enabled: !next } : r));
+      toast.error("Sem permissão para alterar este grupo");
       return;
     }
     toast.success(next ? "Grupo ativado" : "Grupo desativado");
