@@ -45,7 +45,16 @@ function extractIds(deal: Record<string, unknown>) {
   const pipeline = deal.pipeline as Record<string, unknown> | undefined;
   const owner = (deal.owner || deal.user) as Record<string, unknown> | undefined;
   const person = deal.person as Record<string, unknown> | undefined;
-  const company = (person?.company || deal.company) as Record<string, unknown> | undefined;
+  // Merge: deal.company traz contact_emails/contact_phones; person.company
+  // costuma ser uma versão reduzida (só id/name/cnae). Mesclando garantimos
+  // que campos de contato da empresa não se percam quando a Person também
+  // referencia a company.
+  const dealCompany = deal.company as Record<string, unknown> | undefined;
+  const personCompany = person?.company as Record<string, unknown> | undefined;
+  const company: Record<string, unknown> | undefined =
+    dealCompany || personCompany
+      ? { ...(dealCompany || {}), ...(personCompany || {}) }
+      : undefined;
 
   return {
     stageId: Number(stage?.id || deal.stage_id) || undefined,
