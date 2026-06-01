@@ -468,18 +468,24 @@ Deno.serve(async (req) => {
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
-    // DEBUG temporário (deal 57764817 — diagnosticar fallback empresa)
-    if (dealId === "57764817") {
-      console.log("[piperun-webhook][debug 57764817]", JSON.stringify({
-        hydrated,
-        personEmail: ids.personEmail,
-        personPhone: ids.personPhone,
-        companyEmail: ids.companyEmail,
-        companyPhone: ids.companyPhone,
-        dealCompanyHasEmails: Array.isArray((deal.company as any)?.contact_emails),
-        personCompanyHasEmails: Array.isArray(((deal.person as any)?.company as any)?.contact_emails),
-        dealCompanyKeys: deal.company ? Object.keys(deal.company as Record<string, unknown>) : null,
-      }));
+    // Fallback adicional: GET /deals/{id} muitas vezes NÃO retorna
+    // company.contact_emails/contact_phones mesmo com `with[]`. Quando faltar
+    // email/telefone do contato e tivermos companyId, buscamos diretamente
+    // em /companies/{id}.
+    if (
+      PIPERUN_API_KEY &&
+      ids.companyId &&
+      !ids.personEmail &&
+      !ids.companyEmail
+    ) {
+      const contacts = await fetchCompanyContacts(PIPERUN_API_KEY, ids.companyId);
+      if (contacts?.contact_emails?.[0]?.address) {
+        (ids as Record<string, unknown>).companyEmail = String(contacts.contact_emails[0].address);
+      }
+      if (contacts?.contact_phones?.[0]?.number && !ids.companyPhone) {
+        (ids as Record<string, unknown>).companyPhone = String(contacts.contact_phones[0].number);
+      }
+      console.log(`[piperun-webhook] company-contacts fallback deal=${dealId} email=${ids.companyEmail || "null"} phone=${ids.companyPhone || "null"}`);
     }
 
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
