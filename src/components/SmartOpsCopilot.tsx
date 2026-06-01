@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Sparkle, Rocket
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
