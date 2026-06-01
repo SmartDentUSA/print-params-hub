@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Send } from "lucide-react";
 import { WaMediaUploader } from "./WaMediaUploader";
 import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
+import { CampaignLinkPicker } from "../CampaignLinkPicker";
 
 type MsgType = "msg" | "image" | "video" | "audio" | "document" | "link";
 
@@ -156,7 +157,13 @@ export function WaGroupBlastModal({
 
           {type === "msg" && (
             <div>
-              <Label className="text-xs">Mensagem</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Mensagem</Label>
+                <CampaignLinkPicker
+                  channel="whatsapp_groups"
+                  onInsert={(t) => setText((p) => (p ? p + " " : "") + t)}
+                />
+              </div>
               <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Texto do blast..." />
             </div>
           )}

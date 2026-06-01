@@ -1092,7 +1092,13 @@ function CreateCampaign({
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Mensagem SMS</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Mensagem SMS</Label>
+                    <CampaignLinkPicker
+                      channel="sms"
+                      onInsert={(t) => setSmsMessage((p) => (p ? p + " " : "") + t)}
+                    />
+                  </div>
                   <Textarea
                     ref={smsTextareaRef}
                     value={smsMessage}
