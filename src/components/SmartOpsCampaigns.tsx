@@ -1734,19 +1734,67 @@ function CreateCampaign({
                   <p className="text-sm whitespace-pre-wrap">{renderSmsPreview(smsMessage)}</p>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                {audiencePreview && (
+                  <div className="border rounded-lg p-3 mt-3 bg-accent/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium">Preview de Audiência</p>
+                      <div className="flex gap-2">
+                        <Badge variant="secondary">{audiencePreview.total} total</Badge>
+                        <Badge className="bg-green-100 text-green-800">
+                          {audiencePreview.com_telefone} c/ telefone
+                        </Badge>
+                      </div>
+                    </div>
+                    {audiencePreview.sample.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground uppercase">
+                          Amostra ({Math.min(5, audiencePreview.sample.length)})
+                        </p>
+                        {audiencePreview.sample.slice(0, 5).map((s, i) => (
+                          <div key={s.id ?? i} className="text-xs flex justify-between border-b last:border-0 py-1">
+                            <span>{s.nome ?? "—"}</span>
+                            <span className="text-muted-foreground">{s.telefone ?? "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
                   <Button variant="outline" onClick={() => setStep(2)} disabled={sending}>
                     <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
                   </Button>
-                  <Button variant="outline" onClick={handleCreate} disabled={sending || creating}>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await ensureSmsCampaign();
+                        toast.success("Rascunho salvo em campaigns");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+                      }
+                    }}
+                    disabled={sending || previewing || !campaignName.trim()}
+                  >
                     Salvar como rascunho
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handlePreviewAudience}
+                    disabled={previewing || sending || !campaignName.trim()}
+                  >
+                    <Users className="w-4 h-4 mr-1" />
+                    {previewing ? "Calculando..." : "Preview de Audiência"}
                   </Button>
                   <Button
                     onClick={handleSendSms}
                     disabled={sending || !smsMessage.trim()}
                     className="flex-1"
                   >
-                    {sending ? "Disparando..." : `📱 Disparar SMS agora (${smsLeadValidCount ?? 0} leads)`}
+                    {sending
+                      ? "Disparando..."
+                      : `📱 Disparar SMS agora (${audiencePreview?.com_telefone ?? smsLeadValidCount ?? 0} leads)`}
                   </Button>
                 </div>
               </>
