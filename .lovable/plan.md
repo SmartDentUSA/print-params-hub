@@ -1,108 +1,93 @@
-## Escopo
+## Componente CampaignLinkPicker
 
-Só o fluxo **SMS** dentro de `src/components/SmartOpsCampaigns.tsx`. WhatsApp/Evolution continua exatamente como está (escrevendo em `campaign_sessions`). Backend já está pronto — nenhuma migration, nenhuma edge function nova.
+Criar `src/components/smartops/CampaignLinkPicker.tsx`, reutilizável nos 3 canais (SMS, WhatsApp, Grupos WA), consumindo a edge function `disparopro-sync-links`.
 
-## O que existe hoje (SMS)
+### 1. Novo componente
 
-- `handleSendSms` (linhas 867-913) grava em **`campaign_sessions`** e chama **`smart-ops-sms-disparopro`**.
-- Não há botão de Preview de Audiência — o usuário só vê o `smsLeadValidCount` calculado client-side por query direta em `lia_attendances`.
-- `CampaignHistory` (linhas 1776-2007) lê só de `campaign_sessions`.
+**Arquivo**: `src/components/smartops/CampaignLinkPicker.tsx`
 
-## O que muda
-
-### 1. `CreateCampaign` — fluxo SMS
-
-Adicionar 3 estados novos:
-
+**Props**:
 ```ts
-const [smsCampaignId, setSmsCampaignId] = useState<string | null>(null);
-const [audiencePreview, setAudiencePreview] = useState<{
-  total: number; com_telefone: number; sample: any[]; lead_ids: string[];
-} | null>(null);
-const [previewing, setPreviewing] = useState(false);
+interface Props {
+  channel: 'sms' | 'whatsapp' | 'whatsapp_groups';
+  onInsert: (text: string) => void;
+}
 ```
 
-Nova helper `ensureSmsCampaign()`:
-- Se já existe `smsCampaignId`, faz `UPDATE campaigns` com `mensagem_template`, `lead_filter`, `nome`.
-- Senão, `INSERT INTO campaigns` com:
-  - `canal: 'sms'`
-  - `nome: campaignName.trim()`
-  - `descricao: campaignDesc.trim() || null`
-  - `mensagem_template: smsMessage`
-  - `lead_filter: buildFiltersObject()`
-  - `status: 'draft'`
-  - retorna o `id` e guarda em `smsCampaignId`.
+**UI**:
+- Botão trigger `[🔗 Links]` (`variant="outline" size="sm"`).
+- Abre um `Popover` (~420px) listando links do canal.
+- Topo do painel: `[🔄 Sincronizar DisparoPro]` + `[+ Novo Link]`.
+- Lista agrupada em 2 seções com badge:
+  - **DisparoPro** (badge azul, `variant="default"`) — `source = 'disparopro'`.
+  - **Manual** (badge cinza, `variant="secondary"`) — `source = 'manual'`.
+- Cada linha: `nome` (font-medium) · `url_curta ?? url` truncada (`text-xs text-muted-foreground`) · ações `[↩]` `[✏]` `[🗑]`. Editar/excluir só habilitados para `source = 'manual'`.
+- Loading skeleton e estado vazio.
 
-Reescrever `handleSendSms`:
-1. `id = await ensureSmsCampaign()`
-2. `supabase.functions.invoke('campaign-execute-sms', { body: { campaign_id: id } })`
-3. Mostra toast com `{sent, failed, total_leads, status}`.
+**Comportamento**:
+- Ao abrir: `GET /functions/v1/disparopro-sync-links?channel={channel}` via `fetch` (ver nota técnica).
+- `[↩]` → `onInsert(link.url_curta ?? link.url)` e fecha o popover.
+- `[🔄]` → `POST { action: 'sync' }` via `supabase.functions.invoke`, refaz o GET.
+- `[+ Novo Link]` / `[✏]` → `Dialog` com:
+  - Nome* (Input), URL* (Input), URL curta (Input opcional).
+  - Disponível em: 3 `Checkbox` (SMS / WhatsApp / Grupos WA) — pré-marca o canal atual.
+  - `[Cancelar]` `[Salvar]` → `POST { action: 'save', link: { id?, nome, url, url_curta, channels } }`.
+- `[🗑]` → confirm + `POST { action: 'delete', id }`. Refresh.
 
-Novo `handlePreviewAudience`:
-1. `id = await ensureSmsCampaign()`
-2. `supabase.functions.invoke('campaign-build-audience', { body: { ...buildFiltersObject(), campaign_id: id } })`
-3. `setAudiencePreview(data.audience + sample + lead_ids)`.
+### Nota técnica — GET com querystring
 
-### 2. UI — Step 3 do wizard (SMS apenas)
-
-Entre "Salvar como rascunho" e "Disparar SMS agora", inserir:
-
-- Botão **"👁 Preview de Audiência"** que dispara `handlePreviewAudience`.
-- Painel resumo quando `audiencePreview` está populado:
-  - `total` leads / `com_telefone` válidos
-  - Lista das primeiras 5 amostras (`sample[].nome` + `telefone`)
-
-O botão "Disparar SMS agora" continua existindo mas agora chama o novo fluxo. Botão "Salvar como rascunho" salva em `campaigns` (não mais em `campaign_sessions`) quando canal=sms.
-
-### 3. `CampaignHistory` — union das duas tabelas
-
-- Buscar em paralelo `campaigns` (novo) e `campaign_sessions` (legado WA/Evolution).
-- Normalizar campos pra uma interface comum:
-  - `nome` ← `campaigns.nome` ou `campaign_sessions.name`
-  - `canal` ← `canal` ou `channel`
-  - `lead_count` ← `total_leads` ou `lead_count`
-  - `sent_count` ← `total_sent` ou `sent_count`
-  - `failed_count` ← `total_failed` ou `failed_count`
-  - `delivered_count` ← `total_delivered` (só novo)
-  - `lead_filter` ← `lead_filter` ou `lead_filters`
-  - `_source` ← `'campaigns'` ou `'campaign_sessions'`
-- Ordenar por `created_at desc`, limit 100 cada.
-- Tabela ganha coluna **"Entregues"** (mostra `—` pro legado).
-
-### 4. Mapeamento de status (topo do arquivo)
-
-Adicionar em `statusColors` e `statusLabels`:
+`supabase.functions.invoke` não aceita querystring no path de forma confiável. Para o GET, usar `fetch` direto:
 
 ```ts
-completed_with_errors: { color: laranja, label: "Concluída c/ falhas" }
-failed: { color: vermelho, label: "Falha total" }
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const res = await fetch(
+  `${SUPABASE_URL}/functions/v1/disparopro-sync-links?channel=${channel}`,
+  { headers: { Authorization: `Bearer ${SUPABASE_ANON}` } }
+);
+const data = await res.json();
 ```
 
-### 5. Log por lead (`campaign_send_log`)
+Para POST (`sync` / `save` / `delete`), continuar com:
+```ts
+const { data } = await supabase.functions.invoke('disparopro-sync-links', {
+  body: { action: 'sync' }, // ou 'save' / 'delete'
+});
+```
 
-Já existe a leitura em `openDetail` (linha 1799-1805) — só precisa estender o badge na linha 1986 pra reconhecer os 3 status do novo backend:
+### Tipos locais
+```ts
+type Link = {
+  id: string;
+  nome: string;
+  url: string;
+  url_curta: string | null;
+  source: 'disparopro' | 'manual';
+  channels: ('sms'|'whatsapp'|'whatsapp_groups')[];
+};
+```
 
-- `aguardando` → ícone amarelo "Aguardando DLR"
-- `delivered` → ícone verde "Entregue"
-- `failed` → ícone vermelho "Falhou"
-- mantém `sent` / `pending` como fallback do legado.
+### 2. Integrações
 
-## Fora de escopo
+**A) `src/components/SmartOpsCampaigns.tsx` — Step 3, SMS** (perto do `Textarea` de `smsMessage`, ~linha 1099):
+```tsx
+<CampaignLinkPicker channel="sms" onInsert={(t) => setSmsMessage((p) => (p ? p + " " : "") + t)} />
+```
 
-- Não mexer no fluxo WhatsApp/Evolution (`handleCreate` para sendChannel !== 'sms').
-- Não remover `campaign_sessions` nem a edge function `smart-ops-sms-disparopro` — ficam disponíveis pra rollback.
-- Não criar migration nem edge function.
-- Não tocar em `SmartOpsAudienceBuilder.tsx` nem `SmartOpsWaGroupCampaigns.tsx`.
+**B) `src/components/SmartOpsCampaigns.tsx` — Step 3, WhatsApp** (bloco do canal `evolution`):
+```tsx
+<CampaignLinkPicker channel="whatsapp" onInsert={(t) => setWaMessage((p) => (p ? p + " " : "") + t)} />
+```
+Confirmar nome real do state (`waMessage`/`evolutionMessage`) ao editar.
 
-## Validação após apply
+**C) `src/components/smartops/wa-groups/WaGroupBlastModal.tsx`** (ao lado do `Textarea` de `text`, linha 160):
+```tsx
+<CampaignLinkPicker channel="whatsapp_groups" onInsert={(t) => setText((p) => (p ? p + " " : "") + t)} />
+```
 
-1. Criar campanha SMS de teste com 1-2 filtros.
-2. Clicar "Preview de Audiência" → ver `total / com_telefone / sample` no painel.
-3. Conferir no Supabase que `campaigns` tem 1 linha com `canal='sms'`, `status='draft'`, `lead_filter` populado.
-4. Clicar "Disparar SMS agora" → toast com `sent/failed/total_leads`, e `campaigns.status` muda pra `running` → `completed*`/`failed`.
-5. Abrir aba Histórico → campanha aparece junto com as antigas (legado de `campaign_sessions`), com coluna Entregues preenchida.
-6. Abrir detalhe → log por lead mostra status `aguardando`/`delivered`/`failed`.
-
-## Risco
-
-🟢 **Baixo.** Mudanças isoladas no caminho SMS. WA/Evolution segue intacto. Rollback = reverter a edição do arquivo (1 arquivo, ~3 blocos).
+### Fora de escopo
+- Não alterar lógica de envio (`handleSendSms`, `handleCreate`, blast).
+- Não criar migrations.
+- Não tocar em outros arquivos além dos 3 listados.
+- Sem novas dependências — usar `Popover`, `Dialog`, `Checkbox`, `Input`, `Button`, `Badge` já existentes.
