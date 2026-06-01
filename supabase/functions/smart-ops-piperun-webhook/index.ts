@@ -21,7 +21,7 @@ import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { hydrateDealPayload, needsHydration } from "../_shared/piperun-deal-hydrate.ts";
+import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
