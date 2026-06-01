@@ -468,6 +468,20 @@ Deno.serve(async (req) => {
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
+    // DEBUG temporário (deal 57764817 — diagnosticar fallback empresa)
+    if (dealId === "57764817") {
+      console.log("[piperun-webhook][debug 57764817]", JSON.stringify({
+        hydrated,
+        personEmail: ids.personEmail,
+        personPhone: ids.personPhone,
+        companyEmail: ids.companyEmail,
+        companyPhone: ids.companyPhone,
+        dealCompanyHasEmails: Array.isArray((deal.company as any)?.contact_emails),
+        personCompanyHasEmails: Array.isArray(((deal.person as any)?.company as any)?.contact_emails),
+        dealCompanyKeys: deal.company ? Object.keys(deal.company as Record<string, unknown>) : null,
+      }));
+    }
+
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
 
     // ─── Identity Resolution (cascading search expandido) ───
