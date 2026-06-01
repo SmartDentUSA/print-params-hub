@@ -17,7 +17,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // --- MODEL CONFIG ---
-type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
+// Routing por tarefa:
+//   deepseek-pro   → default (raciocínio + tools, melhor custo/qualidade)
+//   gemini-flash   → lookups rápidos e baratos
+//   gemini         → alias mantido para compatibilidade
+//   claude         → apenas com COPILOT_ALLOW_CLAUDE=true (caro, ~20× DeepSeek)
+type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini-flash" | "gemini" | "claude";
 
 function getModelConfig(modelId: ModelId) {
   if (modelId === "gemini") {
@@ -30,7 +35,17 @@ function getModelConfig(modelId: ModelId) {
       maxTokens: 4096,
     };
   }
-  if (modelId === "claude") {
+  if (modelId === "gemini-flash") {
+    return {
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      model: "google/gemini-3-flash-preview",
+      apiKey: LOVABLE_API_KEY!,
+      label: "gemini-flash",
+      temperature: 0.1,
+      maxTokens: 1536,
+    };
+  }
+  if (modelId === "claude" && Deno.env.get("COPILOT_ALLOW_CLAUDE") === "true") {
     return {
       url: "https://api.anthropic.com/v1/chat/completions",
       model: "claude-sonnet-4-5",
@@ -41,17 +56,18 @@ function getModelConfig(modelId: ModelId) {
     };
   }
   if (modelId === "deepseek-flash") {
-    // Variante rápida: temperatura baixa e respostas mais curtas.
+    // Compat: rota antiga "deepseek-flash" agora vai p/ Gemini Flash (mais barato).
     return {
-      url: "https://api.deepseek.com/chat/completions",
-      model: "deepseek-chat",
-      apiKey: DEEPSEEK_API_KEY,
-      label: "deepseek-flash",
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      model: "google/gemini-3-flash-preview",
+      apiKey: LOVABLE_API_KEY!,
+      label: "gemini-flash",
       temperature: 0.1,
       maxTokens: 1536,
     };
   }
-  // deepseek-pro (default): mais espaço para raciocínio/ferramentas.
+  // deepseek-pro (default): raciocínio + tools.
+  // Também é o fallback quando "claude" é solicitado sem COPILOT_ALLOW_CLAUDE.
   return {
     url: "https://api.deepseek.com/chat/completions",
     model: "deepseek-chat",

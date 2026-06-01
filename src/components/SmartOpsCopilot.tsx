@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Sparkle, Rocket
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Message = { role: "user" | "assistant"; content: string };
 type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
+// Claude está oculto do seletor (custo ~20× DeepSeek). Reativar requer COPILOT_ALLOW_CLAUDE=true no edge.
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
@@ -36,7 +37,7 @@ export function SmartOpsCopilot() {
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => {
     try {
       const saved = localStorage.getItem("copilot-selected-model") as ModelId | null;
-      if (saved === "deepseek-pro" || saved === "deepseek-flash" || saved === "gemini" || saved === "claude") return saved;
+      if (saved === "deepseek-pro" || saved === "deepseek-flash" || saved === "gemini") return saved;
       // legacy migration
       if ((saved as any) === "deepseek") return "deepseek-pro";
     } catch { /* ignore */ }
@@ -414,10 +415,6 @@ export function SmartOpsCopilot() {
           <ToggleGroupItem value="gemini" className="text-xs gap-1 px-2.5 h-7">
             <Brain className="w-3 h-3" />
             Gemini
-          </ToggleGroupItem>
-          <ToggleGroupItem value="claude" className="text-xs gap-1 px-2.5 h-7">
-            <Sparkle className="w-3 h-3" />
-            Claude
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
