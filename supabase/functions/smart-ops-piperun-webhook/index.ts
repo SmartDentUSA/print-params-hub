@@ -21,7 +21,7 @@ import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { hydrateDealPayload, needsHydration } from "../_shared/piperun-deal-hydrate.ts";
+import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +45,16 @@ function extractIds(deal: Record<string, unknown>) {
   const pipeline = deal.pipeline as Record<string, unknown> | undefined;
   const owner = (deal.owner || deal.user) as Record<string, unknown> | undefined;
   const person = deal.person as Record<string, unknown> | undefined;
-  const company = (person?.company || deal.company) as Record<string, unknown> | undefined;
+  // Merge: deal.company traz contact_emails/contact_phones; person.company
+  // costuma ser uma versão reduzida (só id/name/cnae). Mesclando garantimos
+  // que campos de contato da empresa não se percam quando a Person também
+  // referencia a company.
+  const dealCompany = deal.company as Record<string, unknown> | undefined;
+  const personCompany = person?.company as Record<string, unknown> | undefined;
+  const company: Record<string, unknown> | undefined =
+    dealCompany || personCompany
+      ? { ...(dealCompany || {}), ...(personCompany || {}) }
+      : undefined;
 
   return {
     stageId: Number(stage?.id || deal.stage_id) || undefined,
@@ -459,11 +468,38 @@ Deno.serve(async (req) => {
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
+    // Fallback adicional: GET /deals/{id} muitas vezes NÃO retorna
+    // company.contact_emails/contact_phones mesmo com `with[]`. Quando faltar
+    // email/telefone do contato e tivermos companyId, buscamos diretamente
+    // em /companies/{id}.
+    if (
+      PIPERUN_API_KEY &&
+      ids.companyId &&
+      !ids.personEmail &&
+      !ids.companyEmail
+    ) {
+      const contacts = await fetchCompanyContacts(PIPERUN_API_KEY, ids.companyId);
+      if (contacts?.contact_emails?.[0]?.address) {
+        (ids as Record<string, unknown>).companyEmail = String(contacts.contact_emails[0].address);
+      }
+      if (contacts?.contact_phones?.[0]?.number && !ids.companyPhone) {
+        (ids as Record<string, unknown>).companyPhone = String(contacts.contact_phones[0].number);
+      }
+      console.log(`[piperun-webhook] company-contacts fallback deal=${dealId} companyId=${ids.companyId} email=${ids.companyEmail || "null"} phone=${ids.companyPhone || "null"}`);
+    }
+
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
 
     // ─── Identity Resolution (cascading search expandido) ───
-    const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const phoneNormalizedForCascade = normalizeBrazilianPhone(ids.personPhone);
+    // Fallback: quando a Pessoa do PipeRun não tem email/telefone, usa os
+    // contatos cadastrados na Empresa (comum em deals CS Onboarding criados
+    // direto a partir da company). Sem isso o auto-create aborta com
+    // `deal_without_email_after_hydration`.
+    const personEmailRaw = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
+    const personEmail = personEmailRaw || ids.companyEmail || null;
+    const personPhoneEffective = ids.personPhone || ids.companyPhone || null;
+    const identitySource = personEmailRaw ? "person" : (ids.companyEmail ? "company_fallback" : "none");
+    const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);
     const currentLead = await findLeadByCascade(
       supabase, dealId, ids.personHash, ids.personId, personEmail,
       {
@@ -510,7 +546,7 @@ Deno.serve(async (req) => {
       const personName = ids.personName || (deal.title ? String(deal.title).split(" - ")[0] : "Lead PipeRun");
 
       if (!personEmail) {
-        console.warn(`[piperun-webhook] Deal sem email após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
+        console.warn(`[piperun-webhook] Deal sem email (person nem company) após hidratação (deal=${dealId}, hydrated=${hydrated}) — devolvendo 200 skipped`);
         await auditEvent("skipped_no_email", null, "deal_without_email_after_hydration");
         return new Response(
           JSON.stringify({ ok: true, skipped: true, reason: "no_email_after_hydration", deal_id: dealId }),
@@ -518,14 +554,17 @@ Deno.serve(async (req) => {
         );
       }
 
-      const phoneNormalized: string | null = normalizeBrazilianPhone(ids.personPhone);
+      const phoneNormalized: string | null = normalizeBrazilianPhone(personPhoneEffective);
+      if (identitySource === "company_fallback") {
+        console.log(`[piperun-webhook] identity_source=company_fallback deal=${dealId} email=${personEmail} phone=${personPhoneEffective}`);
+      }
 
       // ── Identity guard: nunca cria lead sem nome+email+telefone reais ──
       const identity = validateLeadIdentity({
         nome: personName,
         email: personEmail,
         phoneNormalized,
-        rawPhone: ids.personPhone,
+        rawPhone: personPhoneEffective,
       });
       if (!identity.ok) {
         await logRejectedLead(supabase, {
@@ -533,7 +572,7 @@ Deno.serve(async (req) => {
           source: "piperun_webhook",
           check: identity,
           email: personEmail,
-          raw: { dealId, personName, personPhone: ids.personPhone },
+          raw: { dealId, personName, personPhone: personPhoneEffective, identitySource },
         });
         console.log(
           `[piperun-webhook] Lead criação BLOQUEADA (deal ${dealId}) — identity incompleta: ${identity.missing.join(",")}`,
@@ -564,7 +603,7 @@ Deno.serve(async (req) => {
       const newLeadData: Record<string, unknown> = {
         nome: personName,
         email: personEmail.toLowerCase().trim(),
-        telefone_raw: ids.personPhone,
+        telefone_raw: personPhoneEffective,
         telefone_normalized: phoneNormalized,
         piperun_id: dealId,
         piperun_link: `https://app.pipe.run/#/deals/${dealId}`,

@@ -127,3 +127,30 @@ export async function hydrateDealPayload(
     return { deal: webhookDeal, hydrated: false, error: String(e) };
   }
 }
+
+/**
+ * Fetch contact_emails/contact_phones de uma Company via GET /companies/{id}.
+ * O endpoint /deals/{id} com `with[]=company.contact_emails` nem sempre
+ * retorna esses arrays — buscamos diretamente quando precisamos do contato
+ * da empresa para identificar o lead.
+ */
+export async function fetchCompanyContacts(
+  apiToken: string,
+  companyId: number | string,
+): Promise<{ contact_emails?: Array<{ address?: string }>; contact_phones?: Array<{ number?: string }> } | null> {
+  if (!apiToken || !companyId) return null;
+  try {
+    const res = await piperunGet(apiToken, `companies/${companyId}`, {}, {
+      "with[]": ["contact_emails", "contact_phones"],
+    });
+    if (!res.success || !res.data) return null;
+    const data = (res.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    if (!data) return null;
+    return {
+      contact_emails: data.contact_emails as Array<{ address?: string }> | undefined,
+      contact_phones: data.contact_phones as Array<{ number?: string }> | undefined,
+    };
+  } catch {
+    return null;
+  }
+}
