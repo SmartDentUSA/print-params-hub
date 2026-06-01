@@ -1882,13 +1882,52 @@ function CampaignHistory() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("campaign_sessions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) toast.error("Erro ao carregar campanhas");
-      setCampaigns(data || []);
+      const [newRes, legacyRes] = await Promise.all([
+        supabase
+          .from("campaigns" as any)
+          .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("campaign_sessions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+      if (newRes.error && legacyRes.error) toast.error("Erro ao carregar campanhas");
+
+      const fromNew: CampaignSession[] = ((newRes.data as any[]) || []).map((c) => ({
+        id: c.id,
+        name: c.nome,
+        description: c.descricao,
+        status: c.status,
+        channel: c.canal,
+        content_id: null,
+        content_type: null,
+        lead_filters: c.lead_filter,
+        lead_count: c.total_leads ?? c.audience_count ?? null,
+        lead_ids: null,
+        sent_count: c.total_sent ?? null,
+        failed_count: c.total_failed ?? null,
+        results: {
+          total_delivered: c.total_delivered ?? 0,
+          sms_message: c.mensagem_template ?? undefined,
+          _source: "campaigns",
+        },
+        scheduled_at: null,
+        started_at: c.started_at,
+        completed_at: c.completed_at,
+        created_at: c.created_at,
+        created_by: c.created_by ?? null,
+      }));
+      const fromLegacy: CampaignSession[] = ((legacyRes.data as any[]) || []).map((c) => ({
+        ...c,
+        results: { ...(c.results || {}), _source: "campaign_sessions" },
+      }));
+      const merged = [...fromNew, ...fromLegacy].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? "")
+      );
+      setCampaigns(merged);
       setLoading(false);
     })();
   }, []);
@@ -1935,6 +1974,7 @@ function CampaignHistory() {
               <th className="text-left p-3 font-medium">Status</th>
               <th className="text-right p-3 font-medium">Leads</th>
               <th className="text-right p-3 font-medium">Enviados</th>
+              <th className="text-right p-3 font-medium">Entregues</th>
               <th className="text-right p-3 font-medium">Falhas</th>
               <th className="text-right p-3 font-medium">Taxa</th>
               <th className="text-left p-3 font-medium">Criada</th>
@@ -1943,6 +1983,7 @@ function CampaignHistory() {
           <tbody>
             {campaigns.map(c => {
               const rate = c.lead_count && c.sent_count ? Math.round((c.sent_count / c.lead_count) * 100) : null;
+              const delivered = (c.results as any)?.total_delivered;
               return (
                 <tr key={c.id} className="border-b hover:bg-accent/5 cursor-pointer" onClick={() => openDetail(c)}>
                   <td className="p-3 font-medium">{c.name}</td>
@@ -1950,6 +1991,7 @@ function CampaignHistory() {
                   <td className="p-3"><Badge className={statusColors[c.status || "draft"]}>{statusLabels[c.status || "draft"]}</Badge></td>
                   <td className="p-3 text-right">{c.lead_count ?? "—"}</td>
                   <td className="p-3 text-right">{c.sent_count ?? "—"}</td>
+                  <td className="p-3 text-right">{delivered != null && delivered !== undefined ? delivered : "—"}</td>
                   <td className="p-3 text-right">{c.failed_count ?? "—"}</td>
                   <td className="p-3 text-right">{rate != null ? `${rate}%` : "—"}</td>
                   <td className="p-3 text-muted-foreground">{formatDate(c.created_at)}</td>
