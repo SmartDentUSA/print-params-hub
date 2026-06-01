@@ -1823,6 +1823,48 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_links: {
+        Row: {
+          ativo: boolean
+          channels: string[]
+          created_at: string
+          created_by: string | null
+          disparopro_id: string | null
+          id: string
+          nome: string
+          source: string
+          updated_at: string
+          url: string
+          url_curta: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          disparopro_id?: string | null
+          id?: string
+          nome: string
+          source?: string
+          updated_at?: string
+          url: string
+          url_curta?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          disparopro_id?: string | null
+          id?: string
+          nome?: string
+          source?: string
+          updated_at?: string
+          url?: string
+          url_curta?: string | null
+        }
+        Relationships: []
+      }
       campaign_produto_map: {
         Row: {
           ativo: boolean | null
