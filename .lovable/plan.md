@@ -1,93 +1,27 @@
-## Componente CampaignLinkPicker
+## Problema
 
-Criar `src/components/smartops/CampaignLinkPicker.tsx`, reutilizável nos 3 canais (SMS, WhatsApp, Grupos WA), consumindo a edge function `disparopro-sync-links`.
+Ao desativar um grupo (ex: "Warzone fln") no `SmartOpsWaGroupCampaigns`, o card some momentaneamente mas reaparece como "ativado". Causa: as RLS policies da tabela `wa_groups` só permitem `UPDATE` para `service_role`. Usuários autenticados não têm policy de UPDATE, então o PostgREST retorna **0 linhas afetadas com `error: null`** — falha silenciosa. O `fetchRows()` relê a view `v_wa_group_summary` (ainda com `enabled=true`) e o card volta.
 
-### 1. Novo componente
+## Correção
 
-**Arquivo**: `src/components/smartops/CampaignLinkPicker.tsx`
+### 1. Migration — policy de UPDATE para admins
 
-**Props**:
-```ts
-interface Props {
-  channel: 'sms' | 'whatsapp' | 'whatsapp_groups';
-  onInsert: (text: string) => void;
-}
+```sql
+CREATE POLICY admin_update_wa_groups
+ON public.wa_groups
+FOR UPDATE
+TO authenticated
+USING (public.is_admin((SELECT auth.uid())))
+WITH CHECK (public.is_admin((SELECT auth.uid())));
 ```
 
-**UI**:
-- Botão trigger `[🔗 Links]` (`variant="outline" size="sm"`).
-- Abre um `Popover` (~420px) listando links do canal.
-- Topo do painel: `[🔄 Sincronizar DisparoPro]` + `[+ Novo Link]`.
-- Lista agrupada em 2 seções com badge:
-  - **DisparoPro** (badge azul, `variant="default"`) — `source = 'disparopro'`.
-  - **Manual** (badge cinza, `variant="secondary"`) — `source = 'manual'`.
-- Cada linha: `nome` (font-medium) · `url_curta ?? url` truncada (`text-xs text-muted-foreground`) · ações `[↩]` `[✏]` `[🗑]`. Editar/excluir só habilitados para `source = 'manual'`.
-- Loading skeleton e estado vazio.
+### 2. Hardening do handler
 
-**Comportamento**:
-- Ao abrir: `GET /functions/v1/disparopro-sync-links?channel={channel}` via `fetch` (ver nota técnica).
-- `[↩]` → `onInsert(link.url_curta ?? link.url)` e fecha o popover.
-- `[🔄]` → `POST { action: 'sync' }` via `supabase.functions.invoke`, refaz o GET.
-- `[+ Novo Link]` / `[✏]` → `Dialog` com:
-  - Nome* (Input), URL* (Input), URL curta (Input opcional).
-  - Disponível em: 3 `Checkbox` (SMS / WhatsApp / Grupos WA) — pré-marca o canal atual.
-  - `[Cancelar]` `[Salvar]` → `POST { action: 'save', link: { id?, nome, url, url_curta, channels } }`.
-- `[🗑]` → confirm + `POST { action: 'delete', id }`. Refresh.
+Em `src/components/SmartOpsWaGroupCampaigns.tsx`, no `handleToggleEnabled`:
+- Adicionar `.select("id")` no update para detectar 0 linhas afetadas
+- Se array vazio → tratar como erro de permissão (rollback otimista + toast "Sem permissão para alterar este grupo")
 
-### Nota técnica — GET com querystring
+## Fora de escopo
 
-`supabase.functions.invoke` não aceita querystring no path de forma confiável. Para o GET, usar `fetch` direto:
-
-```ts
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const res = await fetch(
-  `${SUPABASE_URL}/functions/v1/disparopro-sync-links?channel=${channel}`,
-  { headers: { Authorization: `Bearer ${SUPABASE_ANON}` } }
-);
-const data = await res.json();
-```
-
-Para POST (`sync` / `save` / `delete`), continuar com:
-```ts
-const { data } = await supabase.functions.invoke('disparopro-sync-links', {
-  body: { action: 'sync' }, // ou 'save' / 'delete'
-});
-```
-
-### Tipos locais
-```ts
-type Link = {
-  id: string;
-  nome: string;
-  url: string;
-  url_curta: string | null;
-  source: 'disparopro' | 'manual';
-  channels: ('sms'|'whatsapp'|'whatsapp_groups')[];
-};
-```
-
-### 2. Integrações
-
-**A) `src/components/SmartOpsCampaigns.tsx` — Step 3, SMS** (perto do `Textarea` de `smsMessage`, ~linha 1099):
-```tsx
-<CampaignLinkPicker channel="sms" onInsert={(t) => setSmsMessage((p) => (p ? p + " " : "") + t)} />
-```
-
-**B) `src/components/SmartOpsCampaigns.tsx` — Step 3, WhatsApp** (bloco do canal `evolution`):
-```tsx
-<CampaignLinkPicker channel="whatsapp" onInsert={(t) => setWaMessage((p) => (p ? p + " " : "") + t)} />
-```
-Confirmar nome real do state (`waMessage`/`evolutionMessage`) ao editar.
-
-**C) `src/components/smartops/wa-groups/WaGroupBlastModal.tsx`** (ao lado do `Textarea` de `text`, linha 160):
-```tsx
-<CampaignLinkPicker channel="whatsapp_groups" onInsert={(t) => setText((p) => (p ? p + " " : "") + t)} />
-```
-
-### Fora de escopo
-- Não alterar lógica de envio (`handleSendSms`, `handleCreate`, blast).
-- Não criar migrations.
-- Não tocar em outros arquivos além dos 3 listados.
-- Sem novas dependências — usar `Popover`, `Dialog`, `Checkbox`, `Input`, `Button`, `Badge` já existentes.
+- Não mexer em outras policies de `wa_groups`
+- Não alterar a view `v_wa_group_summary` nem fluxos de campanha/blast
