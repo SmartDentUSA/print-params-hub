@@ -574,7 +574,7 @@ Deno.serve(async (req) => {
       const newLeadData: Record<string, unknown> = {
         nome: personName,
         email: personEmail.toLowerCase().trim(),
-        telefone_raw: ids.personPhone,
+        telefone_raw: personPhoneEffective,
         telefone_normalized: phoneNormalized,
         piperun_id: dealId,
         piperun_link: `https://app.pipe.run/#/deals/${dealId}`,
