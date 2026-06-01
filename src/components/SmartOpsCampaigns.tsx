@@ -401,6 +401,14 @@ function CreateCampaign({
   const [smsBalanceLoading, setSmsBalanceLoading] = useState(false);
   const [smsLeadValidCount, setSmsLeadValidCount] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
+  const [smsCampaignId, setSmsCampaignId] = useState<string | null>(null);
+  const [audiencePreview, setAudiencePreview] = useState<{
+    total: number;
+    com_telefone: number;
+    sample: Array<{ id?: string; nome?: string | null; telefone?: string | null }>;
+    lead_ids: string[];
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const smsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const smsStats = useMemo(() => {
