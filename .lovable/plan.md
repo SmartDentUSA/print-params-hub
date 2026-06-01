@@ -1,50 +1,45 @@
-## Diagnóstico
+## Problema observado pelo usuário
 
-Pico de 29/05 (US$ 5,30) foi causado por **10 chamadas do Copilot no Claude Sonnet 4.5 = US$ 4,86**. Hoje o seletor expõe Claude como opção e qualquer turno carrega Cérebro inteiro + tools (~150k tokens × US$ 15/M output).
+Quando o lead abre o link do formulário (`/f/:slug`) dentro do **WhatsApp** (ou Instagram/Facebook/Telegram), a tela mostra **Bad Gateway**. Só depois de vários F5 a página finalmente carrega. Isso está derrubando a taxa de preenchimento.
 
-Dias "normais" (US$ 0,15–0,50) são dominados por:
-- `smart-ops-lia-assign` — 1147 briefings/dia em DeepSeek (volume alto, prompt simples — Gemini Flash-Lite faria igual por 1/14 do preço)
-- Copilot em DeepSeek (~US$ 0,30/dia, ok)
-- Dra. LIA em Gemini Flash (ok)
+## Causa raiz
 
-## Rebalanceamento por tarefa (cada IA no que faz melhor)
+No `vercel.json`, o último rewrite intercepta **todas as rotas** quando o User-Agent contém qualquer termo da lista de bots — e essa lista inclui `whatsapp`, `facebookexternalhit`, `telegrambot`, `linkedinbot`. O navegador in-app do WhatsApp manda UA com "WhatsApp" no nome, então cai no rewrite:
 
-| Função | Hoje | Novo | Razão |
-|---|---|---|---|
-| **Copilot — chat padrão** | DeepSeek-pro (default) | **DeepSeek-pro** (mantém) | melhor custo/raciocínio com tools |
-| **Copilot — modo rápido** | DeepSeek-flash | **Gemini 3 Flash** | lookups simples 30× mais baratos |
-| **Copilot — modo profundo** | Claude Sonnet 4.5 (default acessível) | **Claude removido do seletor** + flag `COPILOT_ALLOW_CLAUDE=false` server-side; só liga com env explícita | evita os US$ 0,50/turno acidentais |
-| **lia-assign briefings** (1000+/dia) | DeepSeek | **Gemini 2.5 Flash-Lite** | prompt curto, alto volume — economia ~85% (de US$ 0,20/dia → US$ 0,03) |
-| **Dra. LIA chat** | Gemini 2.5 Flash | mantém | já está otimizado |
-| **cognitive-lead-analysis / workflow-diagnosis** | DeepSeek | mantém | baixo volume, precisa raciocínio |
-| **Conteúdo/SEO/PDF/OG** | Gemini 2.5 Flash | mantém | já otimizado |
-| **Watchdog anomaly** | DeepSeek (US$ 0,0002/dia) | mantém | irrelevante |
+```
+/:path*  (UA contém whatsapp/etc.)  →  seo-proxy?originalPath=/:path*
+```
 
-## Alterações técnicas
+O `seo-proxy` não tem handler para a rota `/f/:slug` (formulário público é SPA, não tem SSR de SEO) → devolve **404** → o Vercel propaga como **502 Bad Gateway**.
 
-1. **`supabase/functions/smart-ops-copilot/index.ts`**
-   - Remover bloco `claude` de `getModelConfig` por padrão; condicionar com `Deno.env.get("COPILOT_ALLOW_CLAUDE") === "true"`.
-   - Trocar `deepseek-flash` (que hoje só baixa temperatura mas usa DeepSeek) por **Gemini 3 Flash** via gateway Lovable — renomear label para `gemini-flash`.
-   - Default permanece `deepseek-pro`.
-   - Atualizar selector no frontend `SmartOpsCopilot.tsx` para remover Claude da lista (ou esconder atrás de feature flag admin).
+Comprovado por teste:
+- `curl /f/<slug> -A "WhatsApp/2.0"` → **502**
+- `curl /f/<slug> -A "Mozilla/5.0"` → **200**
+- `seo-proxy?originalPath=/f/<slug>` → **404**
 
-2. **`supabase/functions/_shared/waleads-messaging.ts`** (linha 394–418)
-   - Trocar chamada `api.deepseek.com` por gateway Lovable `google/gemini-2.5-flash-lite`.
-   - Manter mesma estrutura de prompt e `logAIUsage` (provider passa a `lovable`).
+O F5 às vezes "resolve" porque o Cloudflare/CDN serve cache antigo do `index.html`, ou porque o WhatsApp eventualmente reabre fora do in-app browser.
 
-3. **Memory**: adicionar `mem://strategy/ai-model-routing-v1` documentando a matriz acima como regra fixa.
+## Correção
 
-## Impacto esperado
+Adicionar em `vercel.json`, **antes** do bloco de bots, um rewrite passthrough para `/f/:path*` apontando para `/index.html` (SPA). Como o Vercel avalia rewrites em ordem e o primeiro match vence, o rewrite de bots deixa de capturar formulários — eles passam a ser servidos pelo SPA para qualquer User-Agent.
 
-- Custo médio diário: **~US$ 0,30 → ~US$ 0,05** (–83%)
-- Pico de Claude impossível por acidente
-- Latência de briefings cai (~30%) — Gemini Flash-Lite responde em 600ms vs DeepSeek 1,5s
+```json
+{ "source": "/f/:path*", "destination": "/index.html" }
+```
 
-## O que NÃO muda
+Esse rewrite vai logo acima do `"source": "/:path*"` com `has: user-agent`. Comportamento para navegadores normais não muda (já carregam o SPA via fallback do Vercel). A diferença é que o navegador in-app do WhatsApp/IG/FB/Telegram agora também recebe o SPA em vez de cair no seo-proxy.
 
-- Personas, prompts, tools, lógica de negócio do Copilot/Dra. LIA
-- Modelos de geração de imagem e conteúdo
-- Embeddings
-- Provider Anthropic permanece configurado (só não é selecionável)
+## Validação após deploy
 
-Pronto para implementar — me dá go.
+1. `curl -I https://parametros.smartdent.com.br/f/<slug-real> -A "WhatsApp/2.0"` → deve retornar **200** (antes: 502).
+2. Abrir o link do formulário diretamente dentro do WhatsApp Mobile → carregar de primeira, sem F5.
+3. Conferir que `/base-conhecimento/...` continua sendo servido pelo `seo-proxy` quando UA é bot (SEO preservado).
+
+## Arquivos alterados
+
+- `vercel.json` — 1 linha de rewrite adicionada (sem mexer em edge functions, sem mexer no `PublicFormPage.tsx`, sem mexer no `smart-ops-ingest-lead`).
+
+## Fora de escopo
+
+- `seo-proxy` não precisa de handler novo (formulário não tem valor SEO).
+- O submit do formulário continua igual — a causa NÃO é o ingest, é o carregamento inicial da página.

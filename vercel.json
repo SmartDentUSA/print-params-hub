@@ -62,6 +62,10 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap"
     },
     {
+      "source": "/f/:path*",
+      "destination": "/index.html"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
