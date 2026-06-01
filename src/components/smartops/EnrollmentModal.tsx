@@ -8,11 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle, User,
+  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle, User, Building2,
 } from "lucide-react";
 import type {
   SmartopsCourse, Turma, TurmaDay, DealSearchResult,
-  ProposalItem, EquipmentData, EnrollmentCompanion,
+  ProposalItem, EquipmentData, EnrollmentCompanion, DealSearchListItem,
 } from "@/types/courses";
 import {
   extractProposalItems, formatDatePtBr, formatWeekday,
@@ -299,9 +299,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Deal ID ou PipeRun ID..."
+                    placeholder="PipeRun ID, Deal ID ou e-mail..."
                     value={dealIdInput}
-                    onChange={(e) => setDealIdInput(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) => setDealIdInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                   <Button onClick={handleSearch} disabled={dealSearch.loading}>
@@ -314,11 +314,72 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   <p className="text-sm text-red-500">{dealSearch.error}</p>
                 )}
 
+                {/* Lista de deals quando há múltiplos resultados */}
+                {dealSearch.results.length > 1 && !dealSearch.result && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {dealSearch.results.length} deals encontrados — selecione o correto:
+                    </p>
+                    {dealSearch.results.map((r) => (
+                      <Card key={`${r.lead_id}-${r.deal_id}`} className="hover:border-primary/50 transition">
+                        <CardContent className="pt-3 pb-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {r.deal_type === 'b2b' ? (
+                                <Building2 className="w-4 h-4 text-blue-500 shrink-0" />
+                              ) : r.deal_type === 'b2c' ? (
+                                <User className="w-4 h-4 text-emerald-500 shrink-0" />
+                              ) : (
+                                <Users className="w-4 h-4 text-violet-500 shrink-0" />
+                              )}
+                              <span className="font-medium truncate">
+                                {r.company_name || r.person_name || r.deal_title || '—'}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] uppercase">
+                                {r.deal_type}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              #{r.deal_id}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                            <span className="truncate">
+                              {r.deal_title || '—'}
+                              {r.company_name && r.person_name && (
+                                <> · {r.person_name}</>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {r.status && <Badge variant="secondary" className="text-[10px]">{r.status}</Badge>}
+                              {typeof r.value === 'number' && r.value > 0 && (
+                                <span>R$ {r.value.toLocaleString('pt-BR')}</span>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            disabled={dealSearch.loading}
+                            onClick={async () => {
+                              await dealSearch.selectDeal(r);
+                            }}
+                          >
+                            Selecionar <ArrowRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
                 {dealSearch.result && (
                   <Card>
                     <CardContent className="pt-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{dealSearch.result.nome}</span>
+                        <span className="font-medium">
+                          {dealSearch.result.nome || dealSearch.result.empresa_nome || '—'}
+                        </span>
                         {dealSearch.result.email && (
                           <span className="text-xs text-muted-foreground">{dealSearch.result.email}</span>
                         )}

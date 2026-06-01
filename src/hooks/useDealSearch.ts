@@ -1,41 +1,79 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { DealSearchResult, PiperunDeal } from '@/types/courses';
+import type { DealSearchResult, DealSearchListItem, PiperunDeal } from '@/types/courses';
 
 export function useDealSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [result, setResult]   = useState<DealSearchResult | null>(null);
+  const [results, setResults] = useState<DealSearchListItem[]>([]);
 
-  const search = async (dealId: string) => {
-    const id = dealId.trim();
-    if (!id) return;
-    setLoading(true); setError(null); setResult(null);
+  const hydrateFull = async (lead_id: string, deal_id: string): Promise<DealSearchResult | null> => {
+    // Busca os dados completos do lead canônico (telefones formatados, endereço, etc.)
+    const { data, error: rpcErr } = await (supabase as any)
+      .rpc('fn_search_deal_for_training', { p_deal_id: deal_id });
+    if (rpcErr) throw rpcErr;
+    if (!data?.found) return null;
+
+    // Fetch cirúrgico do deal escolhido a partir do histórico
+    let matched: PiperunDeal | null = null;
+    try {
+      const { data: dealRow } = await (supabase as any).rpc(
+        'fn_get_deal_from_history',
+        { p_lead_id: lead_id, p_deal_id: deal_id },
+      );
+      if (dealRow) matched = dealRow as PiperunDeal;
+    } catch (e) {
+      console.warn('[DealSearch] fn_get_deal_from_history fallback:', e);
+    }
+
+    return { ...(data as DealSearchResult), matched_deal: matched };
+  };
+
+  const search = async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setResults([]);
 
     try {
-      // 1) RPC resolve o lead canônico + payload completo (sem carregar 1000+ deals)
       const { data, error: rpcErr } = await (supabase as any)
-        .rpc('fn_search_deal_for_training', { p_deal_id: id });
+        .rpc('fn_search_deals_for_training', { p_query: q });
       if (rpcErr) throw rpcErr;
-      if (!data?.found) {
-        setError('Deal não encontrado. Verifique o ID e tente novamente.');
+
+      const list: DealSearchListItem[] = data?.results ?? [];
+      if (!data?.found || list.length === 0) {
+        setError('Nenhum deal encontrado. Tente outro ID ou e-mail.');
         return;
       }
-      if (data.warning) console.warn('[DealSearch]', data.warning);
 
-      // 2) Fetch cirúrgico: extrai SÓ o deal escolhido do JSONB no servidor
-      let matched: PiperunDeal | null = null;
-      try {
-        const { data: dealRow, error: dealErr } = await (supabase as any).rpc(
-          'fn_get_deal_from_history',
-          { p_lead_id: data.lead_id, p_deal_id: id },
-        );
-        if (!dealErr && dealRow) matched = dealRow as PiperunDeal;
-      } catch (e) {
-        console.warn('[DealSearch] fn_get_deal_from_history fallback:', e);
+      setResults(list);
+
+      // Auto-seleciona se houver apenas 1 resultado
+      if (list.length === 1) {
+        const r = list[0];
+        const hydrated = await hydrateFull(r.lead_id, r.deal_id);
+        if (hydrated) setResult(hydrated);
       }
+    } catch (err: any) {
+      setError(`Erro: ${err?.message || String(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      setResult({ ...(data as DealSearchResult), matched_deal: matched });
+  const selectDeal = async (item: DealSearchListItem) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const hydrated = await hydrateFull(item.lead_id, item.deal_id);
+      if (!hydrated) {
+        setError('Falha ao carregar dados do deal.');
+        return;
+      }
+      setResult(hydrated);
     } catch (err: any) {
       setError(`Erro: ${err?.message || String(err)}`);
     } finally {
@@ -44,7 +82,12 @@ export function useDealSearch() {
   };
 
   return {
-    search, loading, error, result,
-    clear: () => { setResult(null); setError(null); },
+    search,
+    selectDeal,
+    loading,
+    error,
+    result,
+    results,
+    clear: () => { setResult(null); setResults([]); setError(null); },
   };
 }
