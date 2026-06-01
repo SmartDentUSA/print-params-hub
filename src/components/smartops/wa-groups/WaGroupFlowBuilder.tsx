@@ -47,7 +47,7 @@ function newNode(type: FlowNodeType): FlowNode {
   const id = crypto.randomUUID();
   switch (type) {
     case "msg":   return { id, type, text: "", mention_all: false };
-    case "wait":  return { id, type, days: 1, time: "09:00", weekdays_only: false };
+    case "wait":  return { id, type, days: 1, hours: 0, time: "09:00", weekdays_only: false };
     case "ai":    return { id, type, ai_source_type: "article", ai_source_id: "", ai_source_title: "", ai_prompt_override: "" };
     case "image":
     case "video":
@@ -160,7 +160,12 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
       if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
-      if (n.type === "wait" && (!n.days || n.days < 0)) errors.push(`${tag}: dias inválidos.`);
+      if (n.type === "wait") {
+        const d = (n as WaitNode).days ?? 0;
+        const h = (n as WaitNode).hours ?? 0;
+        if (d < 0 || h < 0) errors.push(`${tag}: tempo inválido.`);
+        if (d === 0 && h === 0) errors.push(`${tag}: defina dias ou horas (>0).`);
+      }
     });
     return errors;
   }, [name, nodes]);
@@ -433,16 +438,23 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                     )}
 
                     {n.type === "wait" && (
-                      <div className="grid grid-cols-3 gap-2 items-end">
+                      <div className="grid grid-cols-4 gap-2 items-end">
                         <div>
                           <Label className="text-xs">Dias</Label>
                           <Input type="number" min={0} value={(n as WaitNode).days}
                             onChange={(e) => updateNode(n.id, { days: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
                         </div>
                         <div>
-                          <Label className="text-xs">Hora</Label>
+                          <Label className="text-xs">Horas</Label>
+                          <Input type="number" min={0} max={23} value={(n as WaitNode).hours ?? 0}
+                            onChange={(e) => updateNode(n.id, { hours: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hora do dia</Label>
                           <Input type="time" value={(n as WaitNode).time}
-                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)} />
+                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)}
+                            disabled={((n as WaitNode).hours ?? 0) > 0}
+                            title={((n as WaitNode).hours ?? 0) > 0 ? "Ignorado quando há horas configuradas (usa offset relativo)" : ""} />
                         </div>
                         <Label className="text-xs flex items-center gap-2 pb-2">
                           <Switch

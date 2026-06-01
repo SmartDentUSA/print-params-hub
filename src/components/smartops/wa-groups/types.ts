@@ -14,6 +14,7 @@ export interface MsgNode extends FlowNodeBase {
 export interface WaitNode extends FlowNodeBase {
   type: "wait";
   days: number;
+  hours?: number;
   time: string; // "HH:MM"
   weekdays_only?: boolean;
 }
