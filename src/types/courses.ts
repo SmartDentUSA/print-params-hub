@@ -230,3 +230,21 @@ export interface PiperunProposalItem {
   unit: number;
   total: number;
 }
+
+export type DealType = 'b2b' | 'b2c' | 'b2b2c';
+
+export interface DealSearchListItem {
+  lead_id: string;
+  deal_id: string;
+  piperun_id: string | null;
+  deal_title: string | null;
+  person_name: string | null;
+  company_name: string | null;
+  company_cnpj: string | null;
+  email: string | null;
+  telefone: string | null;
+  status: string | null;
+  value: number | null;
+  updated_at: string | null;
+  deal_type: DealType;
+}
