@@ -47,7 +47,7 @@ function newNode(type: FlowNodeType): FlowNode {
   const id = crypto.randomUUID();
   switch (type) {
     case "msg":   return { id, type, text: "", mention_all: false };
-    case "wait":  return { id, type, days: 1, time: "09:00", weekdays_only: false };
+    case "wait":  return { id, type, days: 1, hours: 0, time: "09:00", weekdays_only: false };
     case "ai":    return { id, type, ai_source_type: "article", ai_source_id: "", ai_source_title: "", ai_prompt_override: "" };
     case "image":
     case "video":
@@ -160,7 +160,12 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
       if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
-      if (n.type === "wait" && (!n.days || n.days < 0)) errors.push(`${tag}: dias inválidos.`);
+      if (n.type === "wait") {
+        const d = (n as WaitNode).days ?? 0;
+        const h = (n as WaitNode).hours ?? 0;
+        if (d < 0 || h < 0) errors.push(`${tag}: tempo inválido.`);
+        if (d === 0 && h === 0) errors.push(`${tag}: defina dias ou horas (>0).`);
+      }
     });
     return errors;
   }, [name, nodes]);
