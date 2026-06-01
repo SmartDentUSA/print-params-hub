@@ -881,46 +881,86 @@ function CreateCampaign({
     setSending(true);
     const tId = toast.loading("Disparando SMS...");
     try {
-      const filters: any = buildFiltersObject();
-
-      const { data: camp, error: campErr } = await supabase
-        .from("campaign_sessions")
-        .insert({
-          name: campaignName.trim(),
-          description: campaignDesc.trim() || null,
-          channel: "sms",
-          content_id: null,
-          content_type: null,
-          lead_filters: Object.keys(filters).length ? filters : null,
-          lead_count: smsLeadValidCount ?? leadCount,
-          status: "running",
-          results: {
-            sms_message: smsMessage,
-            sms_codificacao: smsCodificacao,
-            sms_pdus: smsStats.pdus,
-            sms_custo_por_pdu: smsStats.custoPdu,
-          },
-        })
-        .select("id")
-        .single();
-      if (campErr || !camp) throw new Error(campErr?.message ?? "Erro ao criar campanha");
-
-      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
-        body: {
-          campaign_id: (camp as any).id,
-          sms_message: smsMessage,
-          sms_codificacao: smsCodificacao,
-        },
+      const id = await ensureSmsCampaign();
+      if (!id) throw new Error("Não foi possível criar a campanha");
+      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
+        body: { campaign_id: id },
       });
       if (error) throw error;
       const sent = (data as any)?.sent ?? 0;
       const failed = (data as any)?.failed ?? 0;
-      toast.success(`Disparo concluído: ${sent} enviados, ${failed} falhas`, { id: tId });
+      const total = (data as any)?.total_leads ?? 0;
+      const status = (data as any)?.status ?? "completed";
+      toast.success(
+        `Disparo ${status}: ${sent}/${total} enviados, ${failed} falhas`,
+        { id: tId }
+      );
       onCreated();
     } catch (e) {
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
     } finally {
       setSending(false);
+    }
+  };
+
+  // Cria (ou atualiza) o draft de campanha SMS na tabela `campaigns` e retorna o id
+  const ensureSmsCampaign = async (): Promise<string | null> => {
+    const filters: any = buildFiltersObject();
+    const payload = {
+      canal: "sms",
+      nome: campaignName.trim(),
+      descricao: campaignDesc.trim() || null,
+      mensagem_template: smsMessage,
+      lead_filter: Object.keys(filters).length ? filters : null,
+    };
+    if (smsCampaignId) {
+      const { error } = await supabase
+        .from("campaigns" as any)
+        .update(payload)
+        .eq("id", smsCampaignId);
+      if (error) throw new Error(error.message);
+      return smsCampaignId;
+    }
+    const { data, error } = await supabase
+      .from("campaigns" as any)
+      .insert({ ...payload, status: "draft" })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "Erro ao criar campanha");
+    const id = (data as any).id as string;
+    setSmsCampaignId(id);
+    return id;
+  };
+
+  const handlePreviewAudience = async () => {
+    if (!campaignName.trim()) {
+      toast.error("Defina um nome para a campanha primeiro");
+      return;
+    }
+    setPreviewing(true);
+    const tId = toast.loading("Calculando audiência...");
+    try {
+      const id = await ensureSmsCampaign();
+      if (!id) throw new Error("Não foi possível criar a campanha");
+      const filters: any = buildFiltersObject();
+      const { data, error } = await supabase.functions.invoke("campaign-build-audience", {
+        body: { ...filters, campaign_id: id },
+      });
+      if (error) throw error;
+      const aud = (data as any)?.audience ?? { total: 0, com_telefone: 0 };
+      const sample = (data as any)?.sample ?? [];
+      const lead_ids = (data as any)?.lead_ids ?? [];
+      setAudiencePreview({
+        total: aud.total ?? 0,
+        com_telefone: aud.com_telefone ?? 0,
+        sample,
+        lead_ids,
+      });
+      toast.success(`Audiência: ${aud.total} leads (${aud.com_telefone} com telefone)`, { id: tId });
+    } catch (e) {
+      toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no preview"}`, { id: tId });
+    } finally {
+      setPreviewing(false);
     }
   };
 
