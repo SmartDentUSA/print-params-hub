@@ -255,7 +255,8 @@ export function SmartOpsFormBuilder() {
 
   const generateSlug = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
+      .replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "").trim();
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
