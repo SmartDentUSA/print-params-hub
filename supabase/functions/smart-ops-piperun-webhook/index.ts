@@ -485,7 +485,7 @@ Deno.serve(async (req) => {
       if (contacts?.contact_phones?.[0]?.number && !ids.companyPhone) {
         (ids as Record<string, unknown>).companyPhone = String(contacts.contact_phones[0].number);
       }
-      console.log(`[piperun-webhook] company-contacts fallback deal=${dealId} email=${ids.companyEmail || "null"} phone=${ids.companyPhone || "null"}`);
+      console.log(`[piperun-webhook] company-contacts fallback deal=${dealId} companyId=${ids.companyId} email=${ids.companyEmail || "null"} phone=${ids.companyPhone || "null"}`);
     }
 
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
