@@ -72,16 +72,24 @@ serve(async (req) => {
     for (let i = 0; i < flow.length; i++) {
       const node = flow[i]
       if (node.type === 'wait') {
-        accMs += ((node.days as number) ?? 1) * 86_400_000
+        const days  = (node.days  as number) ?? 0
+        const hours = (node.hours as number) ?? 0
+        accMs += days * 86_400_000 + hours * 3_600_000
         lastWait = node
         continue
       }
       let ts: Date
       if (lastWait) {
-        // Após um nó wait: usa o horário SP configurado no wait (timezone-aware).
-        const time = (lastWait.time as string) ?? '09:00'
-        const [hh, mm] = time.split(':').map(Number)
-        ts = spDateTimeToUtc(new Date(startTs + accMs), hh, mm)
+        const waitHours = (lastWait.hours as number) ?? 0
+        if (waitHours > 0) {
+          // Offset relativo (em horas): dispara exatamente após o intervalo, sem ancorar em horário do dia.
+          ts = new Date(startTs + accMs)
+        } else {
+          // Apenas dias: usa o horário SP configurado no wait (timezone-aware).
+          const time = (lastWait.time as string) ?? '09:00'
+          const [hh, mm] = time.split(':').map(Number)
+          ts = spDateTimeToUtc(new Date(startTs + accMs), hh, mm)
+        }
         if (lastWait.weekdays_only) {
           const d = spWeekday(ts)
           if (d === 0) ts = addDaysSp(ts, 1)
