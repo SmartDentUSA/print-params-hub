@@ -1,57 +1,60 @@
-## Diagnóstico
+## Objetivo
 
-O lead **Nilson Carlos da Silva Junior / florianopolis.sorrisofloripa@hotmail.com** (deal PipeRun **57764817**, pipeline "CS Onboarding", empresa SORRISO FLORIPA CLINICAS ODONTOLOGICAS) **nunca foi criado em `lia_attendances`**.
+No modal de agendamento de treinamento (`EnrollmentModal`), permitir que o operador:
+1. Busque por **PipeRun ID, Deal ID interno OU e-mail**;
+2. Veja uma **lista de deals** quando houver mais de um (típico de B2B: mesma empresa com vários deals, ou pessoa com histórico);
+3. Escolha o deal correto, mesmo quando o deal tem **apenas empresa**, **empresa + pessoa**, ou **apenas pessoa** (B2B/B2C).
 
-O `piperun-webhook` recebeu o evento **11+ vezes** desde 26/mai (último hoje 17:11) e em todas registrou:
+## Mudanças
 
-- `outcome = skipped_no_email`
-- `error = deal_without_email_after_hydration`
+### 1. Backend — nova RPC `fn_search_deals_for_training`
 
-Inspecionando o `raw_payload` do evento mais recente (id 13831):
+Substitui (mantém a antiga como wrapper) e retorna **lista** de deals candidatos:
 
-- `deal.person.contact_emails` = **vazio** (Pessoa "Nilson Carlos…" no PipeRun não tem email cadastrado)
-- `deal.person.contact_phones` = **vazio**
-- `deal.company.contact_emails[0].address` = `florianopolis.sorrisofloripa@hotmail.com` ✅
-- `deal.company.contact_phones[0].number` = `554833648633` ✅
-- `deal.company.company_name` = `FLORIANOPOLIS - SORRISO FLORIPA CLINICAS ODONTOLOGICAS LTDA`
-- `deal.company.cnpj` = `59.124.426/0001-08`
+```text
+input : p_query text  (ID numérico OU e-mail)
+output: jsonb { found: bool, results: [ { lead_id, deal_id, piperun_id, deal_title,
+                                          person_name, company_name, email,
+                                          telefone_fmt, deal_type: 'b2b'|'b2c'|'b2b2c',
+                                          status, value, updated_at } ] }
+```
 
-O extractor (`smart-ops-piperun-webhook/index.ts:62-77`) já lê `companyEmail` e `companyPhone`, mas o handler de auto-create (linha 465 / 512) só considera `personEmail`. Como o email existe **só na empresa**, o guard aborta antes de criar o lead.
+Estratégias de match (todas com `merged_into IS NULL`):
+- Se input é **só dígitos** → busca por `piperun_id`, `deals.piperun_deal_id`, e `piperun_deals_history[*].deal_id` (comportamento atual, agora retornando todos os matches do histórico).
+- Se input **contém `@`** → busca por `lia_attendances.email` (ILIKE), `piperun_emails_history`, e `deals` joined no lead pelo e-mail. Retorna **todos os deals abertos+ganhos** dos leads encontrados, ordenados por `updated_at DESC`, limite 50.
 
-Isso afeta todos os deals do CS Onboarding cuja Person foi criada vazia (padrão comum em deals criados a partir da empresa).
+Classificação `deal_type` por linha:
+- `b2b`  = tem `empresa_nome/cnpj` e **sem** `person_name`;
+- `b2c`  = tem `person_name` e **sem** `empresa_nome`;
+- `b2b2c`= tem ambos.
 
-## Mudança proposta
+A RPC já existente `fn_get_deal_from_history(lead_id, deal_id)` continua sendo usada para carregar o payload completo do deal escolhido — sem alteração.
 
-Arquivo único: `supabase/functions/smart-ops-piperun-webhook/index.ts`
+### 2. Hook `useDealSearch`
 
-1. **Cascade de email** (linha 465): se `personEmail` for nulo, usar `ids.companyEmail` como fallback.
-2. **Cascade de telefone** (linha 466 e 521): se `ids.personPhone` for nulo, usar `ids.companyPhone` como fallback (tanto na normalização para `findLeadByCascade` quanto no `validateLeadIdentity`).
-3. Marcar no log/`raw_payload` que o contato veio da empresa (campo `identity_source: "company_fallback"` nos logs `console.log`), para não confundir auditoria.
-4. **Não alterar** o `validateLeadIdentity` — ele continua exigindo nome+email+telefone reais; só passamos a alimentá-lo com os dados da empresa quando a pessoa estiver vazia.
+- Renomear `result` → `result` (single) + adicionar `results` (lista).
+- Após busca, popular `results`. Se 1 resultado, auto-selecionar (mantém UX atual para ID exato). Se vários, deixar UI escolher e então chamar `fn_get_deal_from_history` para hidratar o `matched_deal`.
+- Novo método `selectDeal(lead_id, deal_id)` que faz o fetch cirúrgico.
 
-Reprocessamento do deal 57764817:
-- O PipeRun continua disparando o webhook a cada mudança de etapa, então a próxima entrega já entrará no fluxo novo.
-- Para destravar imediatamente sem esperar nova entrega, depois do deploy chamamos `supabase--curl_edge_functions` no `smart-ops-piperun-webhook` com o `raw_payload` do evento 13831 (re-injetar manualmente). Opcional — confirmo com você se quer fazer isso na hora.
+### 3. Frontend — `EnrollmentModal` Step 1
 
-## Fora do escopo
-
-- Não mexer no `smart-ops-sync-piperun` (sync periódico) — ele tem lógica própria de skip e não é a fonte deste lead.
-- Não alterar regras de Person Origin nem Commercial Intent Guard — CS Onboarding é pipeline protegido e continua fora da régua VENDAS.
-- Não criar memory novo (a regra "fallback empresa→pessoa" é caso particular do extractor, não política global).
+- Trocar input: aceita dígitos **OU** e-mail (remover `replace(/\D/g, '')`).
+- Placeholder: `"PipeRun ID, Deal ID ou e-mail..."`.
+- Quando `results.length > 1`, renderizar lista de cards compactos com:
+  - Nome (pessoa ou empresa), badge `B2B`/`B2C`/`B2B2C`, deal_title, status, valor, updated_at;
+  - Botão "Selecionar" por linha → chama `selectDeal` → avança step 2.
+- Quando 1 resultado, fluxo atual (botão "Continuar").
+- Step 2 e seguintes: garantir que campos `person_name`, `email`, `telefone_br` aceitem deals **só-empresa** vazios sem travar validação (manter já editáveis pelo operador).
 
 ## Detalhes técnicos
 
-```ts
-// linha ~465
-const personEmail =
-  ids.personEmail ||
-  ((deal.person as Record<string, unknown>)?.email
-    ? String((deal.person as Record<string, unknown>).email)
-    : null) ||
-  ids.companyEmail; // NEW
+- A RPC é `SECURITY DEFINER`, search_path = public; segue padrão da `fn_search_deal_for_training`.
+- Index não é estritamente necessário (já existem em `piperun_id` e `email`), mas adicionar `CREATE INDEX IF NOT EXISTS idx_lia_email_lower ON lia_attendances (lower(email)) WHERE merged_into IS NULL` para acelerar busca por e-mail.
+- Cap de 50 resultados para evitar payload pesado.
+- Nenhuma alteração em `EnrollmentSubmit`, validação, ou backend de criação da matrícula.
 
-const personPhoneEffective = ids.personPhone || ids.companyPhone; // NEW
-const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);
-```
+## Fora de escopo
 
-E nas linhas 521/528/536/567/746-748 trocar `ids.personPhone` por `personPhoneEffective`.
+- Mudanças no fluxo PipeRun webhook / ingest.
+- Mudanças em outras telas (Kanban, Lead Card).
+- Permitir busca por telefone (pode ser próximo passo se pedido).

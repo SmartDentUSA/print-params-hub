@@ -24181,6 +24181,7 @@ export type Database = {
               lead_nome: string
             }[]
           }
+      fn_search_deals_for_training: { Args: { p_query: string }; Returns: Json }
       fn_search_leads_by_proposal_product: {
         Args: { deal_status?: string; product_search: string }
         Returns: {
