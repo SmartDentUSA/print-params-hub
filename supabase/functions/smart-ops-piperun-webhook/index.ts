@@ -462,8 +462,15 @@ Deno.serve(async (req) => {
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
 
     // ─── Identity Resolution (cascading search expandido) ───
-    const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const phoneNormalizedForCascade = normalizeBrazilianPhone(ids.personPhone);
+    // Fallback: quando a Pessoa do PipeRun não tem email/telefone, usa os
+    // contatos cadastrados na Empresa (comum em deals CS Onboarding criados
+    // direto a partir da company). Sem isso o auto-create aborta com
+    // `deal_without_email_after_hydration`.
+    const personEmailRaw = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
+    const personEmail = personEmailRaw || ids.companyEmail || null;
+    const personPhoneEffective = ids.personPhone || ids.companyPhone || null;
+    const identitySource = personEmailRaw ? "person" : (ids.companyEmail ? "company_fallback" : "none");
+    const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);
     const currentLead = await findLeadByCascade(
       supabase, dealId, ids.personHash, ids.personId, personEmail,
       {
