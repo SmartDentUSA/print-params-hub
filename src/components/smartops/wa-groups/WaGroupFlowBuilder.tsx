@@ -438,16 +438,23 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                     )}
 
                     {n.type === "wait" && (
-                      <div className="grid grid-cols-3 gap-2 items-end">
+                      <div className="grid grid-cols-4 gap-2 items-end">
                         <div>
                           <Label className="text-xs">Dias</Label>
                           <Input type="number" min={0} value={(n as WaitNode).days}
                             onChange={(e) => updateNode(n.id, { days: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
                         </div>
                         <div>
-                          <Label className="text-xs">Hora</Label>
+                          <Label className="text-xs">Horas</Label>
+                          <Input type="number" min={0} max={23} value={(n as WaitNode).hours ?? 0}
+                            onChange={(e) => updateNode(n.id, { hours: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hora do dia</Label>
                           <Input type="time" value={(n as WaitNode).time}
-                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)} />
+                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)}
+                            disabled={((n as WaitNode).hours ?? 0) > 0}
+                            title={((n as WaitNode).hours ?? 0) > 0 ? "Ignorado quando há horas configuradas (usa offset relativo)" : ""} />
                         </div>
                         <Label className="text-xs flex items-center gap-2 pb-2">
                           <Switch
