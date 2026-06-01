@@ -189,13 +189,22 @@ export function SmartOpsWaGroupCampaigns() {
   useEffect(() => {
     const channel = (supabase as any)
       .channel("wa-group-campaigns")
-      .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaigns" }, () => fetchRows())
-      .on("postgres_changes", { event: "*", schema: "public", table: "wa_message_queue" }, () => fetchRows())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaigns" }, () => {
+        fetchRows();
+        fetchShared();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "wa_message_queue" }, () => {
+        fetchRows();
+        fetchShared();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "wa_groups" }, () => fetchRows())
-      .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaign_groups" }, () => fetchRows())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wa_campaign_groups" }, () => {
+        fetchRows();
+        fetchShared();
+      })
       .subscribe();
     return () => { (supabase as any).removeChannel(channel); };
-  }, [fetchRows]);
+  }, [fetchRows, fetchShared]);
 
   const handleSync = async () => {
     setSyncing(true);

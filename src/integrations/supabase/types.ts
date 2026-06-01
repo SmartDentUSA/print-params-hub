@@ -17003,6 +17003,9 @@ export type Database = {
           created_at: string
           elevenlabs_voice_id: string | null
           email: string
+          evo_go_base_url: string | null
+          evo_go_instance_id: string | null
+          evo_go_instance_token: string | null
           evolution_api_key: string | null
           evolution_group_key_broken_at: string | null
           evolution_instance_name: string | null
@@ -17034,6 +17037,9 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email: string
+          evo_go_base_url?: string | null
+          evo_go_instance_id?: string | null
+          evo_go_instance_token?: string | null
           evolution_api_key?: string | null
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
@@ -17065,6 +17071,9 @@ export type Database = {
           created_at?: string
           elevenlabs_voice_id?: string | null
           email?: string
+          evo_go_base_url?: string | null
+          evo_go_instance_id?: string | null
+          evo_go_instance_token?: string | null
           evolution_api_key?: string | null
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
