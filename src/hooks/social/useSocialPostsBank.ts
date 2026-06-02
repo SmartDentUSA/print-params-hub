@@ -23,8 +23,8 @@ export function useSocialPostsBank(filters: BankFilters = {}) {
 
       let q = supabase.from('social_posts').select('*').limit(filters.limit ?? 60);
       if (filters.platforms?.length) q = q.in('platform', filters.platforms);
-      if (filters.format) q = q.eq('format', filters.format);
-      if (filters.product) q = q.ilike('product_name', `%${filters.product}%`);
+      if (filters.format) q = q.ilike('format', `%${filters.format}%`);
+      if (filters.product) q = q.or(`product_name.ilike.%${filters.product}%,caption.ilike.%${filters.product}%`);
       if (filters.from) q = q.gte('published_at', filters.from);
       if (filters.to)   q = q.lte('published_at', filters.to);
       switch (filters.orderBy) {
