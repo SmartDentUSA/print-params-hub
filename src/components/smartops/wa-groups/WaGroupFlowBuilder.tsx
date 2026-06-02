@@ -18,16 +18,18 @@ import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
   Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
-  Hand, List as ListIcon, LayoutList,
+  Hand, List as ListIcon, LayoutList, Instagram, Youtube,
 } from "lucide-react";
 import type {
   FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode,
   ButtonNode, ButtonItem, ButtonItemType,
   ListNode, ListSection, ListRow,
   CarouselNode, CarouselCard, CarouselCardButton,
+  SocialPostNode,
 } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
+import { SocialPostLinkPicker, type SocialPostPickResult } from "@/components/social/flows/SocialPostLinkPicker";
 
 interface Props {
   open: boolean;
@@ -50,6 +52,8 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string; 
   button:   { label: "Botões",    icon: Hand,          color: "text-indigo-600", isNew: true },
   list:     { label: "Lista",     icon: ListIcon,      color: "text-teal-600",   isNew: true },
   carousel: { label: "Carrossel", icon: LayoutList,    color: "text-fuchsia-600", isNew: true },
+  post_ig:  { label: "Postagem Instagram", icon: Instagram, color: "text-pink-600", isNew: true },
+  post_yt:  { label: "Postagem YouTube",   icon: Youtube,   color: "text-red-600",  isNew: true },
 };
 
 function newNode(type: FlowNodeType): FlowNode {
@@ -78,6 +82,9 @@ function newNode(type: FlowNodeType): FlowNode {
         id, type,
         cards: [{ body: "", image: "", buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }] }],
       };
+    case "post_ig":
+    case "post_yt":
+      return { id, type, post_url: "", caption: "", titulo: "" } as SocialPostNode;
   }
 }
 
@@ -96,6 +103,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
   const [campaignStartedAt, setCampaignStartedAt] = useState<string | null>(null);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
+  const [postPickerFor, setPostPickerFor] = useState<{ nodeId: string; platform: "instagram" | "youtube" } | null>(null);
   const [previewByNode, setPreviewByNode] = useState<Record<string, { loading: boolean; text?: string; provider?: string; error?: string }>>({});
 
   useEffect(() => {
@@ -190,6 +198,9 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
       if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
+      if ((n.type === "post_ig" || n.type === "post_yt") && !(n as SocialPostNode).post_url?.trim()) {
+        errors.push(`${tag}: selecione uma publicação.`);
+      }
       if (n.type === "wait") {
         const d = (n as WaitNode).days ?? 0;
         const h = (n as WaitNode).hours ?? 0;
@@ -687,6 +698,50 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                         onChange={(patch) => updateNode(n.id, patch as Partial<CarouselNode>)}
                       />
                     )}
+
+                    {(n.type === "post_ig" || n.type === "post_yt") && (() => {
+                      const sp = n as SocialPostNode;
+                      const platform: "instagram" | "youtube" = n.type === "post_ig" ? "instagram" : "youtube";
+                      return (
+                        <div className="space-y-2">
+                          {sp.post_url ? (
+                            <div className="flex gap-2.5 p-2 rounded-md border bg-muted/30">
+                              {sp.thumbnail_url ? (
+                                <img src={sp.thumbnail_url} alt="" loading="lazy" className="w-16 h-16 rounded object-cover bg-muted shrink-0" />
+                              ) : (
+                                <div className="w-16 h-16 rounded bg-muted flex items-center justify-center shrink-0">
+                                  {platform === "instagram"
+                                    ? <Instagram className="w-5 h-5 text-pink-600" />
+                                    : <Youtube className="w-5 h-5 text-red-600" />}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="text-xs font-medium truncate">{sp.titulo || "Publicação"}</div>
+                                <a href={sp.post_url} target="_blank" rel="noreferrer" className="text-[11px] text-primary underline truncate block">
+                                  {sp.post_url}
+                                </a>
+                              </div>
+                              <Button size="sm" variant="outline" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>
+                                Trocar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>
+                              {platform === "instagram"
+                                ? <Instagram className="w-3.5 h-3.5 mr-1.5 text-pink-600" />
+                                : <Youtube className="w-3.5 h-3.5 mr-1.5 text-red-600" />}
+                              Selecionar publicação do {platform === "instagram" ? "Instagram" : "YouTube"}
+                            </Button>
+                          )}
+                          <Textarea
+                            value={sp.caption ?? ""}
+                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<SocialPostNode>)}
+                            placeholder="Mensagem a enviar junto com o link (editável)"
+                            rows={3}
+                          />
+                        </div>
+                      );
+                    })()}
                   </Card>
                 );
               })}
@@ -729,6 +784,22 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                 ai_source_title: title,
               } as Partial<AiNode>);
             }
+          }}
+        />
+
+        <SocialPostLinkPicker
+          open={!!postPickerFor}
+          onOpenChange={(o) => { if (!o) setPostPickerFor(null); }}
+          platform={postPickerFor?.platform}
+          onSelect={(p: SocialPostPickResult) => {
+            if (!postPickerFor) return;
+            updateNode(postPickerFor.nodeId, {
+              social_post_id: p.post_id,
+              post_url: p.url,
+              caption: p.caption ?? "",
+              thumbnail_url: p.thumbnail_url,
+              titulo: p.titulo,
+            } as Partial<SocialPostNode>);
           }}
         />
       </DialogContent>

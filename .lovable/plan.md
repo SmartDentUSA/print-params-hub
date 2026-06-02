@@ -1,113 +1,55 @@
-## Contexto
+## Problema
 
-No editor de flows sociais (`SocialFlowEditor`) hoje só existem nós genéricos (Enviar DM, Aguardar, etc.) e o `LinkPicker` lê apenas da view `v_flow_link_picker` (loja/forms/base de conhecimento). Falta:
+O editor "Nova campanha" em `Grupos WA` (`WaGroupFlowBuilder.tsx`) é separado do `SocialFlowEditor` (onde os nós Instagram/YouTube já existem). Por isso, na sidebar `ADICIONAR NÓ` aparecem só: Mensagem, Aguardar, IA+Conteúdo, Imagem, Vídeo, Áudio, Documento, Link, Botões, Lista, Carrossel — sem Postagens IG/YT.
 
-1. **Nó "Link Instagram"** — escolher de uma lista de publicações reais do Instagram (já existem 17 em `public.social_posts` com `platform='instagram'`, mais o que vem por produto em `videos.instagram[]` do endpoint `knowledge-export-full`).
-2. **Nó "Link YouTube"** — mesma ideia (4 em `social_posts` + `videos.youtube[]` por produto).
-3. **Nó "Mensagem Promo (7)"** — disparar a sequência de 7 mensagens promocionais por produto (igual ao exemplo da Resina Bio Vitality que o usuário colou). Hoje o endpoint público devolve essas listas em `messages.cs[]` / `messages.aftersales[]` / `messages.spin[]` por produto — atualmente quase tudo vazio, então o nó precisa funcionar para qualquer um desses buckets e degradar bem quando faltar.
-4. **Histórico de postagens das contas → Grupos WA** — não existe UI hoje para selecionar posts históricos (IG/FB/YT/TikTok já sincronizados em `social_posts`) e mandar para grupos de WhatsApp. Precisa de um lugar próprio na Central de Campanhas → Grupos WA.
+## Escopo
 
-Tudo abaixo é frontend + um seletor leve apoiado em tabelas existentes. Nada de schema novo.
+Adicionar dois novos tipos de nó **`post_ig`** e **`post_yt`** ao builder de campanhas WA, alimentados pelo histórico já existente em `social_posts` (Instagram, YouTube). Sem mexer em CRM, sync ou lógica de negócio.
 
----
+## Alterações
 
-## Plano
+### 1. `src/components/smartops/wa-groups/types.ts`
+- Estender `FlowNodeType` com `"post_ig" | "post_yt"`.
+- Nova interface `SocialPostNode`:
+  ```ts
+  { id, type: "post_ig" | "post_yt",
+    social_post_id?: string,   // id em social_posts (referência)
+    post_url: string,          // link da publicação
+    caption?: string,          // texto a enviar (vem do post; editável)
+    thumbnail_url?: string,    // preview no card
+    titulo?: string }
+  ```
+- Acrescentar a união em `FlowNode`.
 
-### 1. Novos tipos de nó no canvas
+### 2. `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx`
+- Importar `Instagram`, `Youtube` do `lucide-react`.
+- Adicionar entradas em `nodeMeta`:
+  - `post_ig: { label: "Postagem Instagram", icon: Instagram, color: "text-pink-600", isNew: true }`
+  - `post_yt: { label: "Postagem YouTube",  icon: Youtube,   color: "text-red-600",  isNew: true }`
+- `newNode()`: criar nó vazio (`post_url:""`, `caption:""`).
+- Renderizador de nó: cartão com thumb + título + link e botões "Selecionar publicação" / "Trocar". O botão abre o `SocialPostLinkPicker` já existente (`src/components/social/flows/SocialPostLinkPicker.tsx`) filtrado por plataforma (`platform: "instagram" | "youtube"`).
+- Ao escolher, preencher `social_post_id`, `post_url`, `caption`, `thumbnail_url`, `titulo`. Permitir editar `caption` (Textarea) — texto final que vai para o grupo.
 
-Em `src/components/social/flows/SocialFlowEditor.tsx`, adicionar ao `NODE_TYPES`:
+### 3. `src/components/social/flows/SocialPostLinkPicker.tsx`
+- Aceitar prop opcional `platform?: "instagram" | "youtube"` para pré-filtrar a aba "Minhas contas" (já lê `social_posts`).
 
-- `link_instagram` → "Link de publicação Instagram"
-- `link_youtube` → "Link de vídeo YouTube"
-- `send_promo_sequence` → "Sequência promo (7 msgs)"
+### 4. `supabase/functions/wa-dispatcher/index.ts` (linha ~125, `switch item.node_type`)
+- Adicionar dois cases que reaproveitam o handler de `link`:
+  - `case "post_ig":` e `case "post_yt":` → montar payload de link Evolution com `title = node.titulo || "Publicação"`, `description = node.caption?.slice(0, 400)`, `url = node.post_url`. Se preferir imagem com legenda (quando `thumbnail_url` existir), enviar como image+caption. Manter `mention_all=false`.
+- Sem nova tabela; o dispatcher só lê do `flow_json`.
 
-Criar `NodeInspector` correspondente para cada um:
+### 5. `supabase/functions/wa-campaign-builder/index.ts` (se existir validação por tipo)
+- Aceitar os dois novos tipos na validação de schema (`post_ig`, `post_yt`) — campos obrigatórios: `post_url`.
 
-**a) `link_instagram` / `link_youtube`**
+## Fora de escopo
 
-- Abre um novo seletor `SocialPostLinkPicker` (componente novo) restrito por `platform` ('instagram' ou 'youtube').
-- Fonte de dados em duas abas dentro do picker:
-  - **"Minhas contas"** → `supabase.from('social_posts').select('id, caption, post_url, thumbnail_url, published_at, account_id').eq('platform', X).not('post_url','is',null).order('published_at desc').limit(50)` com busca por `caption ilike`.
-  - **"Do produto" (opcional)** → quando o flow tem `produto_slug`, chama `social-knowledge-fetch` (já existe) e lê `videos.instagram[]` ou `videos.youtube[]` do produto.
-- Ao selecionar, grava em `cfg`: `{ url, message_prefix, thumbnail_url, caption_preview, post_id }`.
-- Exibe thumbnail + caption truncada + botão "Trocar publicação".
-- No tempo de execução, esses nós devem montar uma mensagem com o link (a execução real ficará para o publisher; o inspector apenas guarda config). Sem mexer no runner.
+- Biblioteca de Conteúdo Sistema A (sequências CS/aftersales/promo) — depende de endpoint adicional do Sistema A e está em outra thread.
+- SMS para número avulso — pendente decisão.
+- `SocialFlowEditor` (DM Instagram) já tem os nós `link_instagram`/`link_youtube`; este plano só replica a ideia no builder de Grupos WA.
 
-**b) `send_promo_sequence`**
+## Validação
 
-- Inspector mostra:
-  - Select de produto (usa `social-knowledge-fetch` para listar slugs ou cai no produto vinculado ao flow).
-  - Select de "bucket": `aftersales` (default — é onde a sequência de 7 vive) | `cs` | `spin`.
-  - Preview das mensagens carregadas (ordenadas por `message_order`) com contagem e checkboxes para incluir/excluir.
-  - Campo "Intervalo entre mensagens (segundos)" para o runner futuro.
-- Grava em `cfg`: `{ produto_slug, bucket, messages: [{order, content, enabled}], interval_seconds }`.
-- Banner amarelo se o endpoint retornar 0 mensagens, sugerindo cadastrar no Sistema A.
-
-### 2. `SocialPostLinkPicker` (componente novo)
-
-Arquivo: `src/components/social/flows/SocialPostLinkPicker.tsx`.
-
-- Mesma estrutura visual de `LinkPicker` (Sheet lateral, busca, ScrollArea).
-- Props: `open, onOpenChange, onSelect, platform: 'instagram' | 'youtube', produtoSlug?`.
-- Duas abas: **Minhas contas** (lê `social_posts`) e **Do produto** (lê endpoint via hook existente `useProductKnowledgeCopies` estendido OU chamada direta a `social-knowledge-fetch`).
-- Cada item: thumbnail (fallback ícone), caption truncada (3 linhas), data, badge da plataforma. Ao clicar, devolve `{ url, titulo, thumbnail_url, tipo: 'publicacao' }`.
-
-Não tocar no `LinkPicker` existente.
-
-### 3. Histórico de postagens → Grupos WA
-
-Local: aba **Grupos WA** dentro da Central de Campanhas (rota atual `/admin?sub=grupos-wa&tab=campanhas`).
-
-Adicionar um card "Enviar publicação histórica para grupos":
-
-- Botão "Selecionar publicação" abre o `SocialPostLinkPicker` (reaproveitado, sem filtro de plataforma — mostra IG/YT/FB/TikTok).
-- Lista os grupos WA com checkboxes (lê `wa_groups`).
-- Caixa de texto opcional para legenda customizada (default = `caption` do post).
-- Botão "Enviar agora" → invoca edge function existente de broadcast WA (`wa-broadcast` ou `smart-ops-wa-send` — verificar qual já existe e usar) passando `{ group_ids, text, media_url }`. Se nenhuma função compatível existir, **parar e perguntar** antes de criar uma nova.
-
-Componente: `src/components/social/broadcasts/HistoricalPostBroadcast.tsx`, montado dentro do componente atual de Grupos WA.
-
-### 4. Persistência / tipos
-
-- Os 3 novos `nodeType` apenas viram entradas dentro do JSONB `nodes` de `social_flows` (campo `data.config`). Nada de migração.
-- Atualizar `src/lib/socialChannels.ts` apenas se houver lookup de ícones para os tipos novos — manter mudança mínima.
-
-### 5. Fora de escopo
-
-- Não implementar a execução runtime dos nós novos (publisher continua executando os tipos antigos; os novos viram dados aguardando o runner que o usuário pode pedir depois).
-- Não criar tabela nova nem mexer em `v_flow_link_picker`.
-- Não tocar em `social-caption-generator` / `social-knowledge-fetch` além de consumir o que já retorna.
-- Sem mudança no `LinkPicker` legado.
-
----
-
-## Detalhes técnicos
-
-```text
-SocialFlowEditor
- ├─ NODE_TYPES += [link_instagram, link_youtube, send_promo_sequence]
- └─ NodeInspector switch
-      ├─ link_instagram   → <SocialPostLinkPicker platform="instagram" />
-      ├─ link_youtube     → <SocialPostLinkPicker platform="youtube" />
-      └─ send_promo_sequence → <PromoSequenceInspector produtoSlug={...} />
-
-SocialPostLinkPicker
- ├─ tab "Minhas contas"  → from('social_posts')
- └─ tab "Do produto"     → social-knowledge-fetch → product.videos[platform]
-
-Grupos WA (Central de Campanhas)
- └─ HistoricalPostBroadcast
-      ├─ SocialPostLinkPicker (sem filtro)
-      ├─ checkboxes wa_groups
-      └─ invoke wa-broadcast (verificar nome real)
-```
-
-Fonte de dados de `messages.spin[]` / `aftersales[]` / `cs[]` por produto: `POST https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full` com `{ slug }` ou filtrando a lista — já chamado por `social-knowledge-fetch`.
-
-## Arquivos afetados
-
-- `src/components/social/flows/SocialFlowEditor.tsx` — novos `NODE_TYPES` + branches no `NodeInspector`
-- `src/components/social/flows/SocialPostLinkPicker.tsx` — novo
-- `src/components/social/flows/PromoSequenceInspector.tsx` — novo (ou inline no editor)
-- `src/components/social/broadcasts/HistoricalPostBroadcast.tsx` — novo
-- Componente atual da aba "Grupos WA" — montar o card novo (identificar arquivo após aprovação do plano)
+- Abrir `/admin?sub=grupos-wa&tab=campanhas` → Nova campanha → sidebar deve mostrar "Postagem Instagram" e "Postagem YouTube".
+- Adicionar nó IG, escolher post existente → cartão mostra thumb + caption editável.
+- Salvar campanha → conferir `wa_campaigns.flow_json` com `type:"post_ig"` e `post_url` populado.
+- Disparar no grupo de teste → mensagem de link/imagem com URL do post chega corretamente.
