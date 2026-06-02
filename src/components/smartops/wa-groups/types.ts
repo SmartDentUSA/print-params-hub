@@ -1,4 +1,8 @@
-export type FlowNodeType = "msg" | "wait" | "ai" | "image" | "video" | "audio" | "document" | "link";
+export type FlowNodeType =
+  | "msg" | "wait" | "ai"
+  | "image" | "video" | "audio" | "document"
+  | "link"
+  | "button" | "list" | "carousel";
 
 export interface FlowNodeBase {
   id: string;
@@ -43,7 +47,67 @@ export interface LinkNode extends FlowNodeBase {
   url: string;
 }
 
-export type FlowNode = MsgNode | WaitNode | AiNode | MediaNode | LinkNode;
+export type ButtonItemType = "reply" | "cta_url" | "cta_copy" | "cta_call" | "pix";
+
+export interface ButtonItem {
+  type: ButtonItemType;
+  id: string;
+  title: string;
+  url?: string;
+  copyCode?: string;
+  phoneNumber?: string;
+  pixKey?: string;
+  pixAmount?: number;
+}
+
+export interface ButtonNode extends FlowNodeBase {
+  type: "button";
+  body: string;
+  footer?: string;
+  buttons: ButtonItem[];
+}
+
+export interface ListRow {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface ListSection {
+  title: string;
+  rows: ListRow[];
+}
+
+export interface ListNode extends FlowNodeBase {
+  type: "list";
+  title?: string;
+  body: string;
+  footer?: string;
+  buttonText: string;
+  sections: ListSection[];
+}
+
+export interface CarouselCardButton {
+  type: "reply" | "cta_url";
+  id: string;
+  title: string;
+  url?: string;
+}
+
+export interface CarouselCard {
+  body: string;
+  image?: string;
+  buttons: CarouselCardButton[];
+}
+
+export interface CarouselNode extends FlowNodeBase {
+  type: "carousel";
+  cards: CarouselCard[];
+}
+
+export type FlowNode =
+  | MsgNode | WaitNode | AiNode | MediaNode | LinkNode
+  | ButtonNode | ListNode | CarouselNode;
 
 export interface WaGroupSummary {
   group_id: string;

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
   CheckCircle2, XCircle, Loader2, Timer,
+  Hand, List, LayoutList,
 } from "lucide-react";
 import type { WaQueueRow, WaCampaignRow } from "./types";
 
@@ -15,6 +16,7 @@ interface Props { campaignId: string }
 const typeIcon: Record<string, any> = {
   msg: MessageSquare, wait: Clock, ai: Sparkles,
   image: ImageIcon, video: Video, link: Link2,
+  button: Hand, list: List, carousel: LayoutList,
 };
 
 const statusVariant: Record<string, string> = {
