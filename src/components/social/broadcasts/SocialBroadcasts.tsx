@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Megaphone, Send, Instagram, Search, Loader2, RefreshCw, Info, ExternalLink } from 'lucide-react';
+import { Plus, Megaphone, Send, Instagram, Search, Loader2, RefreshCw, Info, ExternalLink, Smile } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,10 +14,61 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+
+const EMOJI_GROUPS: Record<string, string[]> = {
+  'Sorrisos': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾'],
+  'Mãos': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','💋','🩸'],
+  'Corações': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🈳','🈂','🛂','🛃','🛄','🛅','🛗','🟰'],
+  'Objetos': ['👓','🕶️','🥽','🥼','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻','🩱','🩲','🩳','👙','👚','👛','👜','👝','🛍️','🎒','🩴','👞','👟','🥾','🥿','👠','👡','🩰','👢','👑','👒','🎩','🎓','🧢','🪖','⛑️','📿','💄','💍','💎','🔇','🔈','🔉','🔊','📢','📣','📯','🔔','🔕','🎼','🎵','🎶','🎙️','🎚️','🎛️','🎤','🎧','📻','🎷','🪗','🎸','🎹','🎺','🎻','🪕','🥁','🪘','📱','📲','☎️','📞','📟','📠','🔋','🔌','💻','🖥️','🖨️','⌨️','🖱️','🖲️','💽','💾','💿','📀','🧮','🎥','🎞️','📽️','🎬','📺','📷','📸','📹','📼','🔍','🔎','🕯️','💡','🔦','🏮','🪔','📔','📕','📖','📗','📘','📙','📚','📓','📒','📃','📜','📄','📰','🗞️','📑','🔖','🏷️','💰','🪙','💴','💵','💶','💷','💸','💳','🧾','💹','✉️','📧','📨','📩','📤','📥','📦','📫','📪','📬','📭','📮','🗳️','✏️','✒️','🖋️','🖊️','🖌️','🖍️','📝','💼','📁','📂','🗂️','📅','📆','🗒️','🗓️','📇','📈','📉','📊','📋','📌','📍','📎','🖇️','📏','📐','✂️','🗃️','🗄️','🗑️','🔒','🔓','🔏','🗝️','🔑','🔨','🪓','⛏️','⚒️','🛠️','🗡️','⚔️','🔫','🪃','🏹','🛡️','🪚','🔧','🪛','🔩','⚙️','🗜️','⚖️','🦯','🔗','⛓️','🪝','🧰','🧲','🪜','⚗️','🧪','🧫','🧬','🔬','🔭','📡','💉','🩸','💊','🩹','🩼','🩺','🌡️','🧹','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🚽','🧻','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🧴','🛎️','🧳','🧸','🧵','🧶','👓','🕶️','🥽','🥼','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻','🩱','🩲','🩳','👙','👚','👛','👜','👝','🛍️','🎒','🩴','👞','👟','🥾','🥿','👠','👡','🩰','👢','👑','👒','🎩','🎓','🧢','🪖','⛑️'],
+  'Natureza': ['🌵','🎄','🌲','🌳','🌴','🌱','🌿','☘️','🍀','🎍','🎋','🍃','🍂','🍁','🍄','🌾','💐','🌷','🌹','🥀','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🌎','🌍','🌏','🪐','💫','⭐','🌟','✨','⚡','🔥','💥','☄️','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','☔','☂️','🌊','🌫️'],
+  'Comidas': ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🍍','🥝','🍅','🫒','🥥','🥑','🍆','🥔','🥕','🌽','🌶️','🫑','🥒','🥬','🥦','🧄','🧅','🍄','🥜','🌰','🍞','🥐','🥖','🫓','🥨','🥯','🥞','🧇','🧀','🍖','🍗','🥩','🥓','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🫔','🥙','🧆','🥚','🍳','🥘','🍲','🫕','🥣','🥗','🍿','🧈','🧂','🥫','🍱','🍘','🍙','🍚','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍥','🍡','🍦','🍧','🍨','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍼','🥛','☕','🫖','🍵','🍶','🍾','🍷','🍸','🍹','🍺','🍻','🥂','🥃','🥤','🧋','🧃','🧉','🧊','🥢','🍽️','🍴','🥄','🔪','🏺'],
+};
+
+function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
+  const [search, setSearch] = useState('');
+  const groups = useMemo(() => {
+    if (!search.trim()) return EMOJI_GROUPS;
+    const q = search.toLowerCase();
+    const out: Record<string, string[]> = {};
+    for (const [cat, emojis] of Object.entries(EMOJI_GROUPS)) {
+      const filtered = emojis.filter((e) => e.includes(q));
+      if (filtered.length) out[cat] = filtered;
+    }
+    return out;
+  }, [search]);
+  return (
+    <div className="space-y-2">
+      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar emoji…" className="h-8 text-sm" />
+      <ScrollArea className="h-64">
+        {Object.entries(groups).map(([cat, emojis]) => (
+          <div key={cat} className="mb-2">
+            <div className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">{cat}</div>
+            <div className="flex flex-wrap gap-1">
+              {emojis.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onSelect(emoji)}
+                  className="text-lg leading-none hover:bg-accent rounded px-1 py-0.5 transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {Object.keys(groups).length === 0 && (
+          <div className="text-xs text-muted-foreground text-center py-4">Nenhum emoji encontrado.</div>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
 
 export function SocialBroadcasts() {
   const qc = useQueryClient();
@@ -32,6 +83,7 @@ export function SocialBroadcasts() {
   const [scheduledAt, setScheduledAt] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contactSearch, setContactSearch] = useState('');
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: zernioAccounts } = useQuery({
     queryKey: ['zernio-accounts-ig'],
@@ -339,8 +391,33 @@ export function SocialBroadcasts() {
             )}
             {step === 2 && (
               <div className="space-y-3">
-                <Label>Mensagem</Label>
-                <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
+                <div className="flex items-center justify-between">
+                  <Label>Mensagem</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 gap-1">
+                        <Smile className="w-4 h-4" /> Emojis
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-3" align="end">
+                      <EmojiPicker onSelect={(emoji) => {
+                        const el = messageRef.current;
+                        if (!el) { setMessage((m) => m + emoji); return; }
+                        const start = el.selectionStart ?? el.value.length;
+                        const end = el.selectionEnd ?? el.value.length;
+                        const before = el.value.slice(0, start);
+                        const after = el.value.slice(end);
+                        const next = before + emoji + after;
+                        setMessage(next);
+                        requestAnimationFrame(() => {
+                          el.focus();
+                          el.setSelectionRange(start + emoji.length, start + emoji.length);
+                        });
+                      }} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Textarea ref={messageRef} value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
                 <p className="text-xs text-muted-foreground">Variáveis: {'{{first_name}}'}, {'{{name}}'} — preenchidas a partir do contato.</p>
               </div>
             )}
