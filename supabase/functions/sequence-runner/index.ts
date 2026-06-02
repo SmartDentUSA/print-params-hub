@@ -11,6 +11,41 @@ function template(str: string, ctx: Record<string, any>): string {
   return (str ?? '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => String(ctx?.[k] ?? ''));
 }
 
+const KNOWLEDGE_URL = Deno.env.get('SYSTEM_A_KNOWLEDGE_URL')
+  ?? 'https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full';
+const productCache = new Map<string, { at: number; data: any }>();
+async function getProduct(slug: string): Promise<any | null> {
+  const c = productCache.get(slug);
+  if (c && Date.now() - c.at < 5 * 60_000) return c.data;
+  try {
+    const r = await fetch(KNOWLEDGE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 500 }) });
+    const j = await r.json();
+    const prod = (j?.products ?? []).find((p: any) => p?.slug === slug) ?? null;
+    productCache.set(slug, { at: Date.now(), data: prod });
+    return prod;
+  } catch (e) { console.error('knowledge fetch fail', e); return null; }
+}
+
+async function renderStep(step: any): Promise<string> {
+  const kind = step?.kind ?? 'msg';
+  if (kind === 'link_ig' || kind === 'link_yt') {
+    const cap = (step.caption ?? '').trim();
+    return cap ? `${cap}\n\n${step.url}` : String(step.url ?? '');
+  }
+  if (kind === 'promo_seq') {
+    const prod = await getProduct(step.produto_slug);
+    const raw: any[] = prod?.messages?.[step.bucket] ?? [];
+    const enabledOrders = new Set((step.messages ?? []).filter((m: any) => m.enabled !== false).map((m: any) => Number(m.order)));
+    const msgs = raw
+      .map((m, i) => ({ order: Number(m?.message_order ?? i + 1), content: String(m?.message_content ?? m?.content ?? '') }))
+      .filter((m) => m.content.trim() && (enabledOrders.size === 0 || enabledOrders.has(m.order)))
+      .sort((a, b) => a.order - b.order)
+      .map((m) => m.content);
+    return msgs.join('\n\n———\n\n');
+  }
+  return template(step?.message ?? '', {});
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -40,7 +75,7 @@ serve(async (req) => {
         continue;
       }
       const step = steps[idx];
-      const text = template(step.message ?? '', {});
+      const text = await renderStep(step);
 
       if (seq.channel === 'whatsapp' && tm) {
         // Para WA precisamos do phone do lead — buscar via ig_user_id (workaround) ou lead_id
