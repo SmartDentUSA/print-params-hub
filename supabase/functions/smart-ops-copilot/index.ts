@@ -1270,7 +1270,6 @@ async function executeSearchContent(args: any) {
 async function executeSearchKnowledgeRag(args: any) {
   const query = String(args?.query || "").trim();
   if (!query) return { error: "query é obrigatório" };
-  // (delegado abaixo)
   const topK = Math.min(Number(args?.top_k) || 5, 10);
   const minSim = Math.max(0, Math.min(Number(args?.min_similarity) || 0.5, 1));
 
@@ -1300,6 +1299,66 @@ async function executeSearchKnowledgeRag(args: any) {
       };
     });
     return { count: results.length, results, _rag_hits: results.map((r: any) => ({ source: r.source, similarity: r.similarity })) };
+  } catch (e) {
+    return { error: (e as Error).message, count: 0, results: [] };
+  }
+}
+
+// ── Social Publisher: posts agendados/publicados (Smart Dent) ──
+async function executeSearchSocialPosts(args: any) {
+  const query = String(args?.query || "").trim();
+  const product = String(args?.product || "").trim();
+  const channel = String(args?.channel || "").trim().toLowerCase();
+  const status = String(args?.status || "").trim().toLowerCase();
+  const limit = Math.min(Number(args?.limit) || 10, 30);
+
+  try {
+    let q = supabase
+      .from("v_social_posts_for_ai")
+      .select("id, scheduled_at, published_at, status, product_ref, product_name, product_slug, product_category, caption, hashtags, first_comment, channels, post_type")
+      .order("scheduled_at", { ascending: false, nullsFirst: false })
+      .limit(limit);
+
+    if (status && ["scheduled", "publishing", "published"].includes(status)) {
+      q = q.eq("status", status);
+    }
+    if (product) {
+      const p = `%${product.replace(/[%_]/g, "")}%`;
+      q = q.or(`product_slug.ilike.${p},product_name.ilike.${p}`);
+    }
+    if (query) {
+      const p = `%${query.replace(/[%_]/g, "")}%`;
+      q = q.or(`caption.ilike.${p},product_name.ilike.${p},product_slug.ilike.${p}`);
+    }
+
+    const { data, error } = await q;
+    if (error) return { error: error.message, count: 0, results: [] };
+
+    let rows = data || [];
+    // Filtro por canal (jsonb) — feito em memória pois `channels` é jsonb array
+    if (channel) {
+      rows = rows.filter((r: any) =>
+        Array.isArray(r.channels) && r.channels.some((c: any) => String(c?.platform || "").toLowerCase() === channel),
+      );
+    }
+
+    const results = rows.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      when: r.published_at || r.scheduled_at,
+      product_name: r.product_name,
+      product_slug: r.product_slug,
+      product_category: r.product_category,
+      channels: Array.isArray(r.channels)
+        ? r.channels.map((c: any) => `${c?.platform}/${c?.format}`)
+        : [],
+      post_type: r.post_type,
+      caption: String(r.caption || "").slice(0, 280),
+      hashtags: (r.hashtags || []).slice(0, 15),
+      first_comment: String(r.first_comment || "").slice(0, 200),
+    }));
+
+    return { count: results.length, results };
   } catch (e) {
     return { error: (e as Error).message, count: 0, results: [] };
   }
