@@ -894,10 +894,8 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
   useEffect(() => {
     if (productOptions.length > 0) return;
     setLoadingProducts(true);
-    fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limit: 300 }),
+    fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full?limit=500&include=products", {
+      method: "GET",
     })
       .then((r) => r.json())
       .then((j) => {
@@ -915,10 +913,8 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
     if (!node.produto_slug) { toast.error("Selecione um produto"); return; }
     setLoadingMessages(true);
     try {
-      const res = await fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 300 }),
+      const res = await fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full?limit=500&include=products", {
+        method: "GET",
       });
       const json = await res.json();
       const prod = (json?.products ?? []).find((p: any) => p?.slug === node.produto_slug);
