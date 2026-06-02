@@ -368,3 +368,6 @@ verify_jwt = false
 
 [functions.wa-verify-lead]
 verify_jwt = false
+
+[functions.social-caption-generator]
+verify_jwt = false
