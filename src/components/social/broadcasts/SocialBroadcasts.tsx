@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Megaphone, Send, Instagram } from 'lucide-react';
+import { Plus, Megaphone, Send, Instagram, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDistanceToNowStrict } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 export function SocialBroadcasts() {
@@ -25,6 +29,8 @@ export function SocialBroadcasts() {
   const [onlyFollowers, setOnlyFollowers] = useState(false);
   const [onlySubscribed, setOnlySubscribed] = useState(true);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [contactSearch, setContactSearch] = useState('');
 
   const { data: zernioAccounts } = useQuery({
     queryKey: ['zernio-accounts-ig'],
@@ -51,15 +57,72 @@ export function SocialBroadcasts() {
     },
   });
 
+  const tagsArray = useMemo(
+    () => tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+    [tagsInput],
+  );
+
+  const { data: contacts, isFetching: contactsLoading } = useQuery({
+    queryKey: ['social-broadcast-contacts', zernioAccountId, onlyFollowers, onlySubscribed, tagsArray.join(',')],
+    enabled: open && step >= 1 && !!zernioAccountId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('social_contacts')
+        .select('ig_user_id, ig_username, is_follower, subscribed, tags, custom_fields, first_seen_at, last_seen_at')
+        .eq('channel', 'instagram')
+        .order('first_seen_at', { ascending: false, nullsFirst: false })
+        .limit(500);
+      if (onlySubscribed) q = q.eq('subscribed', true);
+      if (onlyFollowers) q = q.eq('is_follower', true);
+      if (tagsArray.length) q = q.overlaps('tags', tagsArray);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  // Default: select all eligible whenever the eligible list changes
+  useEffect(() => {
+    if (!contacts) return;
+    setSelectedIds(new Set(contacts.map((c) => c.ig_user_id)));
+  }, [contacts]);
+
+  const filteredContacts = useMemo(() => {
+    if (!contacts) return [];
+    const q = contactSearch.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter((c) =>
+      (c.ig_username ?? '').toLowerCase().includes(q) ||
+      (c.ig_user_id ?? '').toLowerCase().includes(q),
+    );
+  }, [contacts, contactSearch]);
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const resetWizard = () => {
+    setOpen(false); setStep(0); setName(''); setMessage(''); setScheduledAt('');
+    setTagsInput(''); setZernioAccountId(''); setOnlyFollowers(false); setOnlySubscribed(true);
+    setSelectedIds(new Set()); setContactSearch('');
+  };
+
   const create = async () => {
     try {
       if (!zernioAccountId) { toast.error('Selecione a conta Zernio do Instagram'); return; }
+      if (selectedIds.size === 0) { toast.error('Selecione ao menos 1 contato'); return; }
       const seg: any = {
         zernio_account_id: zernioAccountId,
         tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : [],
         is_follower: onlyFollowers,
         subscribed: onlySubscribed,
         message,
+        contact_ids: Array.from(selectedIds),
+        contacts_count: selectedIds.size,
       };
       const { error } = await supabase.from('social_broadcasts').insert({
         name, channel: 'instagram_dm',
@@ -69,8 +132,7 @@ export function SocialBroadcasts() {
       });
       if (error) throw error;
       toast.success('Broadcast criado');
-      setOpen(false); setStep(0); setName(''); setMessage(''); setScheduledAt('');
-      setTagsInput(''); setZernioAccountId(''); setOnlyFollowers(false); setOnlySubscribed(true);
+      resetWizard();
       qc.invalidateQueries({ queryKey: ['social-broadcasts'] });
     } catch (e: any) { toast.error(e.message); }
   };
@@ -94,10 +156,10 @@ export function SocialBroadcasts() {
             <Instagram className="w-3.5 h-3.5" /> Disparos em massa segmentados — Instagram Direct (via Zernio)
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetWizard(); }}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-1" /> Novo broadcast</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Novo broadcast — passo {step + 1}/3</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader><DialogTitle>Novo broadcast — passo {step + 1}/4</DialogTitle></DialogHeader>
             {step === 0 && (
               <div className="space-y-3">
                 <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -129,12 +191,82 @@ export function SocialBroadcasts() {
             )}
             {step === 1 && (
               <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={contactSearch}
+                      onChange={(e) => setContactSearch(e.target.value)}
+                      placeholder="Buscar por @handle ou IG ID…"
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                  <Badge variant="secondary" className="whitespace-nowrap">
+                    {selectedIds.size} selecionados / {contacts?.length ?? 0} elegíveis
+                  </Badge>
+                  <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set((contacts ?? []).map((c) => c.ig_user_id)))}>
+                    Todos
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+                    Limpar
+                  </Button>
+                </div>
+                <div className="rounded-md border border-border">
+                  <div className="grid grid-cols-[28px_1fr_140px_140px_1fr_110px] gap-2 px-3 py-2 text-[11px] font-semibold uppercase text-muted-foreground border-b">
+                    <div></div>
+                    <div>Handle</div>
+                    <div>Instagram ID</div>
+                    <div>ManyChat ID</div>
+                    <div>Tags</div>
+                    <div>Entrou há</div>
+                  </div>
+                  <ScrollArea className="h-[360px]">
+                    {contactsLoading && (
+                      <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                    )}
+                    {!contactsLoading && filteredContacts.length === 0 && (
+                      <div className="text-center text-sm text-muted-foreground py-10">
+                        Nenhum contato elegível com esses filtros.
+                      </div>
+                    )}
+                    {!contactsLoading && filteredContacts.map((c) => {
+                      const checked = selectedIds.has(c.ig_user_id);
+                      const mc = (c.custom_fields ?? {})?.manychat_id ?? null;
+                      const t = Array.isArray(c.tags) ? c.tags : [];
+                      return (
+                        <div
+                          key={c.ig_user_id}
+                          className="grid grid-cols-[28px_1fr_140px_140px_1fr_110px] gap-2 px-3 py-1.5 items-center text-xs border-b border-border/40 hover:bg-accent/40 cursor-pointer"
+                          onClick={() => toggleOne(c.ig_user_id)}
+                        >
+                          <Checkbox checked={checked} onCheckedChange={() => toggleOne(c.ig_user_id)} onClick={(e) => e.stopPropagation()} />
+                          <div className="truncate font-medium">@{c.ig_username ?? '—'}</div>
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">{c.ig_user_id}</div>
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">{mc ?? '—'}</div>
+                          <div className="truncate text-[10px] text-muted-foreground">
+                            {t.length ? t.slice(0, 3).join(', ') + (t.length > 3 ? ` +${t.length - 3}` : '') : '—'}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {c.first_seen_at ? formatDistanceToNowStrict(new Date(c.first_seen_at), { locale: ptBR }) : '—'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </ScrollArea>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Lista limitada a 500 contatos. Use tags ou filtros para refinar.
+                </p>
+              </div>
+            )}
+            {step === 2 && (
+              <div className="space-y-3">
                 <Label>Mensagem</Label>
                 <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
                 <p className="text-xs text-muted-foreground">Variáveis: {'{{first_name}}'}, {'{{name}}'} — preenchidas a partir do contato.</p>
               </div>
             )}
-            {step === 2 && (
+            {step === 3 && (
               <div className="space-y-3">
                 <Label>Data/hora (vazio = manual)</Label>
                 <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
@@ -147,14 +279,24 @@ export function SocialBroadcasts() {
                   <div className="text-muted-foreground text-xs">
                     Filtros: tags={tagsInput || '—'} · seguidores={onlyFollowers ? 'sim' : 'não'} · inscritos={onlySubscribed ? 'sim' : 'não'}
                   </div>
+                  <div className="text-muted-foreground text-xs">
+                    Destinatários: {selectedIds.size} contatos
+                  </div>
                   <p className="mt-2 text-xs whitespace-pre-wrap">{message}</p>
                 </CardContent></Card>
               </div>
             )}
             <DialogFooter>
               {step > 0 && <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>Voltar</Button>}
-              {step < 2 ? (
-                <Button onClick={() => setStep((s) => s + 1)} disabled={step === 0 ? (!name || !zernioAccountId) : !message}>Avançar</Button>
+              {step < 3 ? (
+                <Button
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={
+                    (step === 0 && (!name || !zernioAccountId)) ||
+                    (step === 1 && selectedIds.size === 0) ||
+                    (step === 2 && !message)
+                  }
+                >Avançar</Button>
               ) : (
                 <Button onClick={create}>Criar</Button>
               )}

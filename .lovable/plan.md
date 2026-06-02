@@ -1,55 +1,65 @@
 ## Problema
 
-O editor "Nova campanha" em `Grupos WA` (`WaGroupFlowBuilder.tsx`) é separado do `SocialFlowEditor` (onde os nós Instagram/YouTube já existem). Por isso, na sidebar `ADICIONAR NÓ` aparecem só: Mensagem, Aguardar, IA+Conteúdo, Imagem, Vídeo, Áudio, Documento, Link, Botões, Lista, Carrossel — sem Postagens IG/YT.
+No fluxo "Novo broadcast" (`/social/broadcasts`) o usuário define filtros (conta Zernio, tags, seguidores, opt-in) mas nunca vê QUAIS contatos serão atingidos. Falta também mostrar, em cada contato, há quanto tempo ele entrou (`first_seen_at`), o ID Instagram e o ID ManyChat.
 
-## Escopo
+## Solução
 
-Adicionar dois novos tipos de nó **`post_ig`** e **`post_yt`** ao builder de campanhas WA, alimentados pelo histórico já existente em `social_posts` (Instagram, YouTube). Sem mexer em CRM, sync ou lógica de negócio.
+Inserir uma nova etapa **"Contatos"** entre o passo de Segmentação e o de Mensagem no wizard, mostrando em tempo real a lista de contatos que casam com os filtros, e permitir override manual (selecionar/deselecionar individualmente).
 
-## Alterações
+Mudanças concentradas em `src/components/social/broadcasts/SocialBroadcasts.tsx` (frontend puro, sem mexer em edge functions ou schema).
 
-### 1. `src/components/smartops/wa-groups/types.ts`
-- Estender `FlowNodeType` com `"post_ig" | "post_yt"`.
-- Nova interface `SocialPostNode`:
-  ```ts
-  { id, type: "post_ig" | "post_yt",
-    social_post_id?: string,   // id em social_posts (referência)
-    post_url: string,          // link da publicação
-    caption?: string,          // texto a enviar (vem do post; editável)
-    thumbnail_url?: string,    // preview no card
-    titulo?: string }
-  ```
-- Acrescentar a união em `FlowNode`.
+### Alterações
 
-### 2. `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx`
-- Importar `Instagram`, `Youtube` do `lucide-react`.
-- Adicionar entradas em `nodeMeta`:
-  - `post_ig: { label: "Postagem Instagram", icon: Instagram, color: "text-pink-600", isNew: true }`
-  - `post_yt: { label: "Postagem YouTube",  icon: Youtube,   color: "text-red-600",  isNew: true }`
-- `newNode()`: criar nó vazio (`post_url:""`, `caption:""`).
-- Renderizador de nó: cartão com thumb + título + link e botões "Selecionar publicação" / "Trocar". O botão abre o `SocialPostLinkPicker` já existente (`src/components/social/flows/SocialPostLinkPicker.tsx`) filtrado por plataforma (`platform: "instagram" | "youtube"`).
-- Ao escolher, preencher `social_post_id`, `post_url`, `caption`, `thumbnail_url`, `titulo`. Permitir editar `caption` (Textarea) — texto final que vai para o grupo.
+**1. Novo step "Contatos" (step 1, passa wizard para 4 passos)**
 
-### 3. `src/components/social/flows/SocialPostLinkPicker.tsx`
-- Aceitar prop opcional `platform?: "instagram" | "youtube"` para pré-filtrar a aba "Minhas contas" (já lê `social_posts`).
+Query nova:
+- Source: `public.social_contacts`
+- Filtro base: `channel = 'instagram'` (broadcast é IG DM)
+- Junção lógica com a conta Zernio escolhida via `custom_fields->>'zernio_account_id'` (se existir) — fallback: todos os IG contacts se o campo não estiver populado.
+- Filtros do wizard:
+  - `onlySubscribed` → `subscribed = true`
+  - `onlyFollowers` → `is_follower = true`
+  - `tagsInput` → `tags && {tags_array}` (overlap)
+- Order: `first_seen_at DESC NULLS LAST`, limit 500.
 
-### 4. `supabase/functions/wa-dispatcher/index.ts` (linha ~125, `switch item.node_type`)
-- Adicionar dois cases que reaproveitam o handler de `link`:
-  - `case "post_ig":` e `case "post_yt":` → montar payload de link Evolution com `title = node.titulo || "Publicação"`, `description = node.caption?.slice(0, 400)`, `url = node.post_url`. Se preferir imagem com legenda (quando `thumbnail_url` existir), enviar como image+caption. Manter `mention_all=false`.
-- Sem nova tabela; o dispatcher só lê do `flow_json`.
+Renderização (tabela compacta com checkbox em cada linha):
 
-### 5. `supabase/functions/wa-campaign-builder/index.ts` (se existir validação por tipo)
-- Aceitar os dois novos tipos na validação de schema (`post_ig`, `post_yt`) — campos obrigatórios: `post_url`.
+| ☑ | Handle / IG | Instagram ID | ManyChat ID | Tags | Entrou há |
+|---|---|---|---|---|---|
+| ☑ | @joao | 178201… | 9988… | vip, lead_quente | 3 dias |
 
-## Fora de escopo
+- "Entrou há" = `formatDistanceToNow(first_seen_at, { locale: ptBR, addSuffix: false })`.
+- "ManyChat ID" lê de `custom_fields->>'manychat_id'`; mostra "—" se ausente.
+- Header da tabela: busca por handle, badge "X contatos selecionados / Y elegíveis", botões "Selecionar todos" / "Limpar".
+- Estado novo: `selectedIds: Set<string>` (default = todos os elegíveis). Persiste pelo wizard.
 
-- Biblioteca de Conteúdo Sistema A (sequências CS/aftersales/promo) — depende de endpoint adicional do Sistema A e está em outra thread.
-- SMS para número avulso — pendente decisão.
-- `SocialFlowEditor` (DM Instagram) já tem os nós `link_instagram`/`link_youtube`; este plano só replica a ideia no builder de Grupos WA.
+**2. Avançar exige ≥1 contato selecionado**
 
-## Validação
+Validação no botão "Avançar" do passo de contatos.
 
-- Abrir `/admin?sub=grupos-wa&tab=campanhas` → Nova campanha → sidebar deve mostrar "Postagem Instagram" e "Postagem YouTube".
-- Adicionar nó IG, escolher post existente → cartão mostra thumb + caption editável.
-- Salvar campanha → conferir `wa_campaigns.flow_json` com `type:"post_ig"` e `post_url` populado.
-- Disparar no grupo de teste → mensagem de link/imagem com URL do post chega corretamente.
+**3. Persistência no broadcast**
+
+No `create()`, salvar no `segment`:
+```ts
+segment.contact_ids = Array.from(selectedIds)   // override manual
+segment.contacts_count = selectedIds.size
+```
+Edge function `zernio-broadcast-dispatch` já lê `segment`; se houver `contact_ids` deve respeitar (fora deste escopo verificar — se hoje recomputa pelos filtros, vira melhoria futura; o frontend deixa a intenção explícita).
+
+**4. Passo de revisão (último) — mostra contagem**
+
+Card de resumo passa a incluir: "Destinatários: N contatos (selecionados manualmente / filtro automático)".
+
+### Fora de escopo
+
+- Editar `zernio-broadcast-dispatch` para respeitar `contact_ids` override (faço em iteração seguinte se a edge ainda recalcular pelos filtros).
+- Sincronizar `manychat_id` em `custom_fields` (já existe no sync; quem não tiver aparece como "—").
+- Mudanças no schema de `social_contacts`.
+
+### Validação
+
+- Abrir `/social/broadcasts` → "Novo broadcast" → preencher passo 1, avançar.
+- Conferir passo "Contatos" carrega lista com handle, IDs e tempo desde `first_seen_at`.
+- Mudar filtros volta e recarrega.
+- Selecionar/desmarcar persiste ao avançar/voltar.
+- Criar broadcast e validar em `social_broadcasts.segment` que `contact_ids` e `contacts_count` foram salvos.
