@@ -17311,6 +17311,7 @@ export type Database = {
           id: string
           media_items: Json | null
           per_channel_media: Json | null
+          post_type: string
           product_name: string | null
           product_slug: string | null
           publish_errors: Json | null
@@ -17333,6 +17334,7 @@ export type Database = {
           id?: string
           media_items?: Json | null
           per_channel_media?: Json | null
+          post_type?: string
           product_name?: string | null
           product_slug?: string | null
           publish_errors?: Json | null
@@ -17355,6 +17357,7 @@ export type Database = {
           id?: string
           media_items?: Json | null
           per_channel_media?: Json | null
+          post_type?: string
           product_name?: string | null
           product_slug?: string | null
           publish_errors?: Json | null

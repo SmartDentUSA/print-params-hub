@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Save, AlertCircle, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Save, AlertCircle, Lock, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { defaultPost, postSchema, type PostInput } from '@/lib/social/postSchema
 import { useCreateScheduledPost } from '@/hooks/social/useCreateScheduledPost';
 import { useUpdateScheduledPost } from '@/hooks/social/useUpdateScheduledPost';
 import { useScheduledPost } from '@/hooks/social/useScheduledPost';
+import { useMediaUpload } from '@/hooks/social/useMediaUpload';
+import type { MediaItem } from '@/lib/social/postSchema';
 import { StepContent } from './steps/StepContent';
 import { StepMedia } from './steps/StepMedia';
 import { StepChannels } from './steps/StepChannels';
@@ -32,8 +34,10 @@ export function SocialPostEditor() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<PostInput>(defaultPost);
   const [hydrated, setHydrated] = useState(false);
-  const { save, saving } = useCreateScheduledPost();
+  const { save, saveMany, saving } = useCreateScheduledPost();
   const { save: update, saving: updating } = useUpdateScheduledPost();
+  const { upload, uploading } = useMediaUpload();
+  const [splitQueue, setSplitQueue] = useState<MediaItem[] | null>(null);
 
   useEffect(() => {
     if (loaded && !hydrated) {
@@ -71,9 +75,25 @@ export function SocialPostEditor() {
     }
     if (isEdit && id) {
       await update(id, validation.data);
+    } else if (splitQueue && splitQueue.length > 0) {
+      const drafts: PostInput[] = splitQueue.map((m) => ({
+        ...validation.data,
+        media_items: [m],
+        per_channel_media: {},
+        post_type: 'feed',
+      }));
+      await saveMany(drafts);
     } else {
       await save(validation.data);
     }
+  };
+
+  const handleSplitIntoPosts = async (files: File[]) => {
+    const uploaded = await upload(files);
+    if (!uploaded.length) return;
+    setSplitQueue(uploaded);
+    onChange({ media_items: [uploaded[0]], post_type: 'feed' });
+    toast.success(`${uploaded.length} mídias enfileiradas. Será criado 1 post por mídia ao agendar.`);
   };
 
   if (isEdit && loadingPost) {
@@ -96,6 +116,18 @@ export function SocialPostEditor() {
         <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm flex items-center gap-2">
           <Lock className="w-4 h-4" />
           Este post está com status <b>{loaded?.status}</b> e não pode ser editado.
+        </div>
+      )}
+
+      {splitQueue && splitQueue.length > 0 && (
+        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            <span>
+              <b>Modo lote:</b> {splitQueue.length} posts serão criados (1 por mídia) usando a caption, canais e agendamento configurados aqui.
+            </span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setSplitQueue(null)}>Cancelar lote</Button>
         </div>
       )}
 
@@ -128,7 +160,7 @@ export function SocialPostEditor() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <Card className="p-4 md:p-6 space-y-6">
           {step === 0 && <StepContent value={data} onChange={onChange} />}
-          {step === 1 && <StepMedia value={data} onChange={onChange} />}
+          {step === 1 && <StepMedia value={data} onChange={onChange} onSplitIntoPosts={handleSplitIntoPosts} />}
           {step === 2 && <StepChannels value={data} onChange={onChange} />}
           {step === 3 && <StepSchedule value={data} onChange={onChange} />}
           {step === 4 && <StepReview value={data} />}

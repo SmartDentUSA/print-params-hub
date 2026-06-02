@@ -1,107 +1,69 @@
-## Objetivo
+## Upload múltiplo estilo mLabs — `/social/novo`
 
-Três frentes:
+Reformular o `MediaItemsEditor` (e o passo `StepMedia`) para suportar o fluxo de seleção múltipla com modal de decisão, controles por tile (excluir / cortar / reordenar) e validação por plataforma.
 
-1. **Broadcasts** — hoje rotulado como WhatsApp/Evolution; passar a disparar **Instagram Direct via Zernio**.
-2. **Contacts** — hoje só lê `social_contacts`; precisa **sincronizar contatos do Zernio (todas as plataformas)** e expor controles de refresh/busca.
-3. **LinkPicker** — já existe, mas falta aderir 100% à spec (filtro por `produto_slug`, destaque de formulário do fluxo, suporte a `send_document`/`send_buttons` e formato visual do snippet).
+### 1. Modal "Múltiplos posts vs Álbum"
+- Novo componente `MultiUploadChoiceDialog.tsx` (shadcn `Dialog`).
+- Disparado pelo `MediaItemsEditor` quando o usuário seleciona/arrasta **2+ arquivos** num editor vazio.
+- Opções:
+  - **Múltiplos Posts** (outline): callback `onSplitIntoPosts(files)` — apenas dispara um evento; o `SocialPostEditor` lida com a duplicação (ver §4).
+  - **Álbum/Carrossel** (primary): agrega tudo em `media_items[]` do post atual e seta `post_type = 'carousel'`.
+- Se já existirem mídias no editor, não pergunta — apenas anexa ao carrossel atual.
 
----
+### 2. `MediaItemsEditor` reescrito
+Mantém DnD existente e adiciona:
+- **Barra de progresso global** "Enviando X de N" + indicador por arquivo (lista lateral leve sobre o dropzone).
+- **Estado vazio**: dropzone tracejada, ícone `Upload`, copy "Arraste imagens e vídeos aqui / ou clique para selecionar".
+- **Tile (hover)**: 4 controles — drag handle (existente), `X` remover (sempre visível, canto sup. dir.), `Trash` excluir (canto inf. esq.), `Scissors` **Cortar** (botão central inferior).
+- **Botão `+ Adicionar mais`** como tile final do grid (desabilitado com tooltip se `items.length >= maxItems`).
+- **Badges de erro** no tile (ícone ⚠) para arquivos que violarem limites de tamanho/formato.
+- **Contador** `X/10 mídias` no topo.
 
-## 1) Broadcasts → Instagram DM via Zernio
+### 3. Crop inline
+- Adicionar dependência `react-image-crop` (não está no projeto).
+- Novo componente `MediaCropDialog.tsx` (overlay `Dialog`):
+  - `ReactCrop` controlado, presets de aspecto: Livre, 1:1, 4:5, 9:16, 16:9.
+  - Botões `Cancelar` / `Aplicar crop`.
+  - Ao aplicar: renderiza recorte num `<canvas>`, converte para `Blob`, reusa `useMediaUpload` para subir o recorte e substitui a entrada em `items[idx]` (mantém `type`, atualiza `url`/`path`/`width`/`height`).
+- Apenas habilitado para `type === 'image'`. Para vídeo, ícone fica desabilitado.
 
-### Frontend — `src/components/social/broadcasts/SocialBroadcasts.tsx`
-- Cabeçalho: "Broadcasts" → subtítulo **"Disparos em massa segmentados — Instagram Direct (via Zernio)"**.
-- Remover `Select` de canal (WhatsApp/IG). Fixar `channel = 'instagram_dm'`.
-- Step 1 (segmento): trocar inputs de `tags`/`lead_status` por:
-  - **Conta Zernio (origem do DM)** — `Select` populado por `social_zernio_accounts` (apenas `platform='instagram'` e `active=true`).
-  - **Tags do contato** (vírgula, opcional).
-  - **Apenas seguidores** (Switch → `is_follower=true`).
-  - **Inscritos** (Switch → `subscribed=true`).
-- Step 3: preview com contagem real (query em `social_contacts` filtrando pelos critérios acima).
-- Botão "Disparar" → `supabase.functions.invoke('zernio-broadcast-dispatch', { body: { broadcast_id } })`.
+### 4. Múltiplos Posts (split)
+- `SocialPostEditor` passa `onSplitIntoPosts` ao `StepMedia` / `MediaItemsEditor`.
+- Quando acionado: cria N drafts em memória, cada um clonando o estado atual do editor com `media_items = [file_i]` e `post_type = 'feed'`.
+- UX: navega para uma nova view "Lote de N posts" com tabs/lista por post (cada um permite editar caption antes de agendar). Mantém `scheduled_at` base; usuário pode escalonar manualmente.
+- Persistência: ao confirmar, dispara `useCreateScheduledPost` em loop, um insert por post em `social_scheduled_posts`.
 
-### Backend — nova edge function `supabase/functions/zernio-broadcast-dispatch/index.ts`
-- Substitui `wa-broadcast-dispatch` para fluxo IG (mantemos a função antiga viva para WA legado, sem alterar).
-- Lê `social_broadcasts` por id; valida `channel='instagram_dm'`.
-- Resolve público em `social_contacts` (filtros: `channel='instagram'`, `subscribed`, `is_follower`, `tags && segment.tags`).
-- Para cada contato envia DM via Zernio:
-  - `POST https://zernio.com/api/v1/dm` (ou endpoint correto — confirmar via `ZERNIO_API_KEY`) com `{ accountId, recipientId: ig_user_id, message }`.
-  - Aplica template `{{first_name}}` / `{{name}}` a partir do `ig_username`.
-  - Jitter 1–3s entre envios. Acumula `sent`/`errors`.
-- Atualiza `social_broadcasts.status='sent'`, `total_sent`, `segment.errors_count`.
-- Cron mode (sem `broadcast_id`): processa `status='scheduled' AND scheduled_at<=now()`.
+### 5. Compatibilidade por canal (carrossel)
+No `StepMedia`/`StepReview`, quando `post_type === 'carousel'`:
+- Aviso `Carrossel disponível em: Instagram, Facebook, LinkedIn`.
+- Auto-desmarca canais não suportados (`tiktok`, `youtube`, `pinterest`, `reddit`) e exibe badge ⚠ ao lado deles na seleção de canal.
+- Limites por canal aplicados no `mediaItemSchema.superRefine`: IG≤10, FB≤10, LI≤9.
 
-### Banco — migration
-- `social_broadcasts.segment` ganha shape `{ zernio_account_id, tags[], is_follower, subscribed, message }`. Sem mudança de schema (já é `jsonb`).
-- Sem alterações de tabelas.
+### 6. Validações por arquivo
+Helper `validateMediaFile(file)`:
+- Imagem: ≤8MB, mime `image/jpeg|png|webp`.
+- Vídeo: ≤100MB, mime `video/mp4|quicktime`.
+- Inválidos não vão pro upload; aparecem como tile com badge ⚠ + mensagem (removíveis).
 
----
+### 7. Banco
+Migração leve em `social_scheduled_posts`:
+- Adicionar coluna `post_type text default 'feed'` (valores: `feed`, `carousel`, `story`, `reels`).
+- `media_items jsonb` já existe — passar a salvar `{ type, url, path, order, crop? }`. `order` será o índice do array; `crop` opcional para histórico.
+- LinkedIn ainda não existe em `channelSchema.platform`: **fora do escopo desta iteração** (mantemos apenas o aviso textual). Se quiser incluir LinkedIn como canal de fato, abrir tarefa separada.
 
-## 2) Contacts — Sync Zernio (todas as plataformas)
+### Arquivos
+- novo: `src/components/social/editor/MultiUploadChoiceDialog.tsx`
+- novo: `src/components/social/editor/MediaCropDialog.tsx`
+- novo: `src/lib/social/mediaValidation.ts`
+- edit: `src/components/social/editor/MediaItemsEditor.tsx`
+- edit: `src/components/social/editor/steps/StepMedia.tsx`
+- edit: `src/components/social/editor/SocialPostEditor.tsx` (split flow + post_type)
+- edit: `src/lib/social/postSchema.ts` (post_type, limites carrossel)
+- edit: `src/hooks/social/useCreateScheduledPost.ts` (aceitar lote)
+- dep: `bun add react-image-crop`
+- migração: `ALTER TABLE social_scheduled_posts ADD COLUMN post_type text NOT NULL DEFAULT 'feed';`
 
-### Backend — nova edge function `supabase/functions/zernio-contacts-sync/index.ts`
-- Para cada conta em `social_zernio_accounts` (active), pagina `GET /accounts/{id}/contacts` no Zernio.
-- Upsert em `social_contacts` por `(channel, ig_user_id)` (a coluna `ig_user_id` é reaproveitada como **external_id** de qualquer plataforma; `ig_username` como handle):
-  - `channel` = platform (instagram/facebook/whatsapp/tiktok).
-  - `ig_user_id` = id externo retornado pelo Zernio.
-  - `ig_username` = `@handle` ou nome.
-  - `is_follower`, `subscribed`, `tags`, `custom_fields`, `last_seen_at` quando presentes.
-  - `custom_fields.manychat_id` preservado se vier do payload (campo legacy).
-- Idempotente, retorna `{ synced, per_account: [...] }`.
-
-### Cron — `supabase/functions/wa-contact-sync-cron/index.ts` (já existe)
-- Adicionar invocação periódica de `zernio-contacts-sync` (a cada 30 min) **ou** criar cron novo via `cron.schedule` (SQL no insert tool, não migration). Decisão: criar cron novo `zernio-contacts-sync-cron` para isolar do WA.
-
-### Frontend — `src/components/social/broadcasts/SocialContacts.tsx`
-- Header: "Manage contacts across all platforms (Zernio)".
-- Botão **"Sincronizar Zernio"** → invoca `zernio-contacts-sync`, mostra toast com `synced`, invalida query.
-- Filtro de **plataforma** (chips: Instagram / Facebook / WhatsApp / TikTok / Todas).
-- Coluna extra: **Plataforma** (badge colorida por `channel`).
-- Coluna extra: **ManyChat ID** (`custom_fields.manychat_id`, se houver), com cópia rápida.
-- Manter busca atual (estender para `ig_username`, `ig_user_id`, `custom_fields->>manychat_id`).
-
----
-
-## 3) LinkPicker — ajustes vs. spec
-
-Arquivo: `src/components/social/flows/LinkPicker.tsx` e `src/components/social/flows/SocialFlowEditor.tsx`.
-
-### Diferenças identificadas
-- **Filtro por produto do fluxo**: hoje aceita `filterProduto` como prop, mas o `SocialFlowEditor` não passa nada. Ler `social_flows.produto_slug` do fluxo carregado e propagar para todos os usos do LinkPicker (loja + publicações). Para "formulário do fluxo", destacar visualmente (highlight + badge "Sugerido") o item cujo `titulo` ≈ `form_name`.
-- **Integração ampliada**: hoje o botão "+ Adicionar um link" só aparece em `send_dm`/`send_comment_reply`. Adicionar também para:
-  - `send_document` → preenche `cfg.url` (PDF).
-  - `send_buttons` → cada botão ganha botão "Definir destino" abrindo LinkPicker e gravando `button.url`.
-- **Formato do snippet** no `cfg.message` (já feito): manter `📎 {titulo}\nURL: {url}` e separar com `\n\n` quando já houver texto.
-- **og:title opcional**: deixar comentado/no-op (não chamar edge function nova nesta rodada).
-
-### Banco
-- Não precisa mexer — `v_flow_link_picker` e `social_flow_links_manuais` já existem.
-
----
-
-## Resumo de arquivos
-
-**Editar**
-- `src/components/social/broadcasts/SocialBroadcasts.tsx` — copy + canal fixo IG + segmento Zernio + dispatch para nova função.
-- `src/components/social/broadcasts/SocialContacts.tsx` — botão sync, filtro plataforma, colunas plataforma/manychat_id.
-- `src/components/social/flows/SocialFlowEditor.tsx` — passar `filterProduto`, expandir LinkPicker para `send_document`/`send_buttons`.
-- `src/components/social/flows/LinkPicker.tsx` — destaque "Sugerido" no form do fluxo.
-
-**Criar**
-- `supabase/functions/zernio-broadcast-dispatch/index.ts`
-- `supabase/functions/zernio-contacts-sync/index.ts`
-- Cron job `zernio-contacts-sync-cron` (via insert tool, SQL pg_cron).
-
-**Sem mexer**
-- `wa-broadcast-dispatch` (legado WA, preservado).
-- `v_flow_link_picker`, `social_flow_links_manuais`, `social_contacts` (schema).
-
----
-
-## Confirmações antes de implementar
-
-1. **Endpoint Zernio para DM e listagem de contatos** — preciso validar os paths exatos (`/dm`, `/accounts/{id}/contacts`). Se você tiver a doc/coleção da API Zernio, anexe; caso contrário, faço probe via `code--exec` com `ZERNIO_API_KEY` no início da implementação.
-2. **Função `wa-broadcast-dispatch`**: manter viva ou remover? Plano atual = **manter** (não há UI WhatsApp neste módulo após a mudança, mas pode ser reutilizada por outros pontos).
-
-Pode aprovar?
+### Confirmações antes de eu começar
+1. **LinkedIn**: confirma que NÃO precisa virar canal real agora (só aviso textual no carrossel)? 
+2. **Fluxo "Múltiplos Posts"**: posso renderizar como uma nova tela em memória com tabs (1 por post) e um botão "Agendar todos" no final, ou prefere abrir N abas/modais?
+3. **Crop em vídeo**: deixar desabilitado (sem crop) — ok?
