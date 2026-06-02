@@ -191,6 +191,51 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         if (d < 0 || h < 0 || m < 0) errors.push(`${tag}: tempo inválido.`);
         if (d === 0 && h === 0 && m === 0) errors.push(`${tag}: defina dias, horas ou minutos (>0).`);
       }
+      if (n.type === "button") {
+        const b = n as ButtonNode;
+        if (!b.body.trim()) errors.push(`${tag}: corpo obrigatório.`);
+        if (!b.buttons?.length) errors.push(`${tag}: adicione ao menos um botão.`);
+        const replies = b.buttons.filter(x => x.type === "reply").length;
+        const ctas = b.buttons.length - replies;
+        if (replies > 0 && ctas > 0) errors.push(`${tag}: não misture reply com CTA/PIX.`);
+        if (replies > 3) errors.push(`${tag}: máximo 3 botões de reply.`);
+        if (ctas > 1) errors.push(`${tag}: apenas 1 botão CTA/PIX por mensagem.`);
+        b.buttons.forEach((bt, i) => {
+          if (!bt.title.trim()) errors.push(`${tag}: botão ${i + 1} sem título.`);
+          if (bt.type === "cta_url" && !bt.url?.trim()) errors.push(`${tag}: botão ${i + 1} URL obrigatória.`);
+          if (bt.type === "cta_copy" && !bt.copyCode?.trim()) errors.push(`${tag}: botão ${i + 1} código copiar obrigatório.`);
+          if (bt.type === "cta_call" && !bt.phoneNumber?.trim()) errors.push(`${tag}: botão ${i + 1} telefone obrigatório.`);
+          if (bt.type === "pix" && !bt.pixKey?.trim()) errors.push(`${tag}: botão ${i + 1} chave PIX obrigatória.`);
+        });
+      }
+      if (n.type === "list") {
+        const l = n as ListNode;
+        if (!l.body.trim()) errors.push(`${tag}: corpo obrigatório.`);
+        if (!l.buttonText.trim()) errors.push(`${tag}: texto do botão obrigatório.`);
+        if (l.buttonText.length > 20) errors.push(`${tag}: texto do botão até 20 caracteres.`);
+        if (!l.sections?.length) errors.push(`${tag}: adicione ao menos uma seção.`);
+        if (l.sections.length > 10) errors.push(`${tag}: máximo 10 seções.`);
+        l.sections.forEach((s, si) => {
+          if (!s.rows?.length) errors.push(`${tag}: seção ${si + 1} sem itens.`);
+          if (s.rows.length > 10) errors.push(`${tag}: seção ${si + 1} máximo 10 itens.`);
+          s.rows.forEach((r, ri) => {
+            if (!r.title.trim()) errors.push(`${tag}: seção ${si + 1} item ${ri + 1} sem título.`);
+          });
+        });
+      }
+      if (n.type === "carousel") {
+        const c = n as CarouselNode;
+        if (!c.cards?.length) errors.push(`${tag}: adicione ao menos um card.`);
+        if (c.cards.length > 10) errors.push(`${tag}: máximo 10 cards.`);
+        c.cards.forEach((card, ci) => {
+          if (!card.body.trim()) errors.push(`${tag}: card ${ci + 1} sem corpo.`);
+          if ((card.buttons?.length ?? 0) > 3) errors.push(`${tag}: card ${ci + 1} máximo 3 botões.`);
+          card.buttons?.forEach((bt, bi) => {
+            if (!bt.title.trim()) errors.push(`${tag}: card ${ci + 1} botão ${bi + 1} sem título.`);
+            if (bt.type === "cta_url" && !bt.url?.trim()) errors.push(`${tag}: card ${ci + 1} botão ${bi + 1} URL obrigatória.`);
+          });
+        });
+      }
     });
     return errors;
   }, [name, nodes]);
