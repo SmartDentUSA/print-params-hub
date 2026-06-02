@@ -742,6 +742,22 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
             }
           }}
         />
+
+        <SocialPostLinkPicker
+          open={!!postPickerFor}
+          onOpenChange={(o) => { if (!o) setPostPickerFor(null); }}
+          platform={postPickerFor?.platform}
+          onSelect={(p: SocialPostPickResult) => {
+            if (!postPickerFor) return;
+            updateNode(postPickerFor.nodeId, {
+              social_post_id: p.post_id,
+              post_url: p.url,
+              caption: p.caption ?? "",
+              thumbnail_url: p.thumbnail_url,
+              titulo: p.titulo,
+            } as Partial<SocialPostNode>);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
