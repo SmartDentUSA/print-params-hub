@@ -16791,16 +16791,105 @@ export type Database = {
           },
         ]
       }
+      social_flow_midias: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          ordem: number | null
+          produto_slug: string
+          thumbnail_url: string | null
+          tipo: string
+          titulo: string
+          url: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          ordem?: number | null
+          produto_slug: string
+          thumbnail_url?: string | null
+          tipo: string
+          titulo: string
+          url: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          ordem?: number | null
+          produto_slug?: string
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      social_flow_respostas: {
+        Row: {
+          ativo: boolean | null
+          categoria: string
+          created_at: string | null
+          form_name_override: string | null
+          icone: string | null
+          id: string
+          keywords: string[] | null
+          label: string
+          numero: number | null
+          ordem: number | null
+          produto_slug: string | null
+          valor_crm: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria: string
+          created_at?: string | null
+          form_name_override?: string | null
+          icone?: string | null
+          id?: string
+          keywords?: string[] | null
+          label: string
+          numero?: number | null
+          ordem?: number | null
+          produto_slug?: string | null
+          valor_crm: string
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string
+          created_at?: string | null
+          form_name_override?: string | null
+          icone?: string | null
+          id?: string
+          keywords?: string[] | null
+          label?: string
+          numero?: number | null
+          ordem?: number | null
+          produto_slug?: string | null
+          valor_crm?: string
+        }
+        Relationships: []
+      }
       social_flows: {
         Row: {
           channel: string
           created_at: string | null
           description: string | null
           edges: Json
+          form_name: string | null
           id: string
           is_active: boolean | null
           name: string
           nodes: Json
+          produto_categoria: string | null
+          produto_nome: string | null
+          produto_slug: string | null
+          tags_produto: string[] | null
           total_completed: number | null
           total_leads_converted: number | null
           total_triggered: number | null
@@ -16811,10 +16900,15 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           edges?: Json
+          form_name?: string | null
           id?: string
           is_active?: boolean | null
           name: string
           nodes?: Json
+          produto_categoria?: string | null
+          produto_nome?: string | null
+          produto_slug?: string | null
+          tags_produto?: string[] | null
           total_completed?: number | null
           total_leads_converted?: number | null
           total_triggered?: number | null
@@ -16825,10 +16919,15 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           edges?: Json
+          form_name?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
           nodes?: Json
+          produto_categoria?: string | null
+          produto_nome?: string | null
+          produto_slug?: string | null
+          tags_produto?: string[] | null
           total_completed?: number | null
           total_leads_converted?: number | null
           total_triggered?: number | null
