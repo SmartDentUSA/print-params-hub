@@ -16968,6 +16968,177 @@ export type Database = {
         }
         Relationships: []
       }
+      social_hashtag_monitors: {
+        Row: {
+          acao_comentario: string | null
+          acao_dm_text: string | null
+          ativo: boolean | null
+          comentarios_feitos: number | null
+          created_at: string | null
+          flow_id: string | null
+          hashtag: string
+          id: string
+          ig_hashtag_id: string | null
+          ig_hashtag_id_expires_at: string | null
+          posts_processados: number | null
+          ultima_varredura_at: string | null
+          ultimo_media_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          acao_comentario?: string | null
+          acao_dm_text?: string | null
+          ativo?: boolean | null
+          comentarios_feitos?: number | null
+          created_at?: string | null
+          flow_id?: string | null
+          hashtag: string
+          id?: string
+          ig_hashtag_id?: string | null
+          ig_hashtag_id_expires_at?: string | null
+          posts_processados?: number | null
+          ultima_varredura_at?: string | null
+          ultimo_media_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          acao_comentario?: string | null
+          acao_dm_text?: string | null
+          ativo?: boolean | null
+          comentarios_feitos?: number | null
+          created_at?: string | null
+          flow_id?: string | null
+          hashtag?: string
+          id?: string
+          ig_hashtag_id?: string | null
+          ig_hashtag_id_expires_at?: string | null
+          posts_processados?: number | null
+          ultima_varredura_at?: string | null
+          ultimo_media_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_hashtag_monitors_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "social_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_hashtag_posts_processados: {
+        Row: {
+          acao_executada: string | null
+          erro: string | null
+          hashtag_monitor_id: string | null
+          id: string
+          media_id: string
+          permalink: string | null
+          processado_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          acao_executada?: string | null
+          erro?: string | null
+          hashtag_monitor_id?: string | null
+          id?: string
+          media_id: string
+          permalink?: string | null
+          processado_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          acao_executada?: string | null
+          erro?: string | null
+          hashtag_monitor_id?: string | null
+          id?: string
+          media_id?: string
+          permalink?: string | null
+          processado_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_hashtag_posts_processados_hashtag_monitor_id_fkey"
+            columns: ["hashtag_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "social_hashtag_monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_ig_mentions: {
+        Row: {
+          caption: string | null
+          comentario_feito: boolean | null
+          created_at: string | null
+          dm_enviada: boolean | null
+          dm_texto: string | null
+          flow_id: string | null
+          hashtags_encontradas: string[] | null
+          id: string
+          ig_user_id: string
+          lead_criado: boolean | null
+          lead_id: string | null
+          media_id: string | null
+          media_type: string | null
+          permalink: string | null
+          processado_at: string | null
+          username: string | null
+          webhook_payload: Json | null
+        }
+        Insert: {
+          caption?: string | null
+          comentario_feito?: boolean | null
+          created_at?: string | null
+          dm_enviada?: boolean | null
+          dm_texto?: string | null
+          flow_id?: string | null
+          hashtags_encontradas?: string[] | null
+          id?: string
+          ig_user_id: string
+          lead_criado?: boolean | null
+          lead_id?: string | null
+          media_id?: string | null
+          media_type?: string | null
+          permalink?: string | null
+          processado_at?: string | null
+          username?: string | null
+          webhook_payload?: Json | null
+        }
+        Update: {
+          caption?: string | null
+          comentario_feito?: boolean | null
+          created_at?: string | null
+          dm_enviada?: boolean | null
+          dm_texto?: string | null
+          flow_id?: string | null
+          hashtags_encontradas?: string[] | null
+          id?: string
+          ig_user_id?: string
+          lead_criado?: boolean | null
+          lead_id?: string | null
+          media_id?: string | null
+          media_type?: string | null
+          permalink?: string | null
+          processado_at?: string | null
+          username?: string | null
+          webhook_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_ig_mentions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "social_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           account_id: string | null
@@ -17461,10 +17632,12 @@ export type Database = {
       }
       social_triggers: {
         Row: {
+          account_id: string | null
           active_from: string | null
           active_until: string | null
           created_at: string | null
           flow_id: string | null
+          hashtags: string[] | null
           id: string
           is_regex: boolean | null
           keywords: string[] | null
@@ -17473,10 +17646,12 @@ export type Database = {
           trigger_type: string
         }
         Insert: {
+          account_id?: string | null
           active_from?: string | null
           active_until?: string | null
           created_at?: string | null
           flow_id?: string | null
+          hashtags?: string[] | null
           id?: string
           is_regex?: boolean | null
           keywords?: string[] | null
@@ -17485,10 +17660,12 @@ export type Database = {
           trigger_type: string
         }
         Update: {
+          account_id?: string | null
           active_from?: string | null
           active_until?: string | null
           created_at?: string | null
           flow_id?: string | null
+          hashtags?: string[] | null
           id?: string
           is_regex?: boolean | null
           keywords?: string[] | null
