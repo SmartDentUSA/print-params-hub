@@ -2582,6 +2582,8 @@ serve(async (req) => {
     let modelId: ModelId =
       requestedModel === "gemini" ? "gemini"
       : requestedModel === "claude" ? "claude"
+      : requestedModel === "poe-claude" ? "poe-claude"
+      : requestedModel === "poe-gpt5" ? "poe-gpt5"
       : requestedModel === "deepseek-flash" ? "deepseek-flash"
       : requestedModel === "deepseek-pro" ? "deepseek-pro"
       : "deepseek-pro";
