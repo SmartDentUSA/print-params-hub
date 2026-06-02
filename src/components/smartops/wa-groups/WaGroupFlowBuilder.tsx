@@ -887,7 +887,8 @@ export default WaGroupFlowBuilder;
 
 // ============== Config: Sequência promo (7 msgs) ==============
 export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onChange: (p: Partial<PromoSeqNode>) => void }) {
-  const [productOptions, setProductOptions] = useState<Array<{ slug: string; name: string }>>([]);
+  type ProdOpt = { slug: string; name: string; counts: { aftersales: number; cs: number }; raw: any };
+  const [productOptions, setProductOptions] = useState<ProdOpt[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -899,8 +900,22 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
     })
       .then((r) => r.json())
       .then((j) => {
-        const opts = ((j?.products ?? []) as any[])
-          .map((p) => ({ slug: String(p?.slug ?? ""), name: String(p?.name ?? p?.slug ?? "") }))
+        const opts: ProdOpt[] = ((j?.products ?? []) as any[])
+          .map((p) => {
+            const validCount = (arr: any) => (Array.isArray(arr) ? arr.filter((m) => {
+              const c = String(m?.message_content ?? m?.content ?? "").trim();
+              return c && c !== "Digite sua mensagem aqui...";
+            }).length : 0);
+            return {
+              slug: String(p?.slug ?? ""),
+              name: String(p?.name ?? p?.slug ?? ""),
+              counts: {
+                aftersales: validCount(p?.messages?.aftersales),
+                cs: validCount(p?.messages?.cs),
+              },
+              raw: p,
+            };
+          })
           .filter((x) => x.slug)
           .sort((a, b) => a.name.localeCompare(b.name));
         setProductOptions(opts);
@@ -908,6 +923,23 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
       .catch((e) => toast.error("Falha ao listar produtos: " + (e?.message ?? e)))
       .finally(() => setLoadingProducts(false));
   }, [productOptions.length]);
+
+  const filteredOptions = productOptions.filter((p) => (p.counts as any)[node.bucket] > 0);
+  const totalInBucket = filteredOptions.length;
+
+  const loadFromCache = (slug: string) => {
+    const prod = productOptions.find((p) => p.slug === slug)?.raw;
+    const raw = prod?.messages?.[node.bucket] ?? [];
+    const mapped: PromoSeqMessage[] = (raw as any[])
+      .map((m, i) => ({
+        order: Number(m?.message_order ?? i + 1),
+        content: String(m?.message_content ?? m?.content ?? ""),
+        enabled: m?.is_active !== false,
+      }))
+      .filter((m) => m.content.trim() && m.content.trim() !== "Digite sua mensagem aqui...")
+      .sort((a, b) => a.order - b.order);
+    onChange({ messages: mapped, produto_name: prod?.name ?? slug, produto_slug: slug });
+  };
 
   const loadMessages = async () => {
     if (!node.produto_slug) { toast.error("Selecione um produto"); return; }
@@ -925,7 +957,7 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
           content: String(m?.message_content ?? m?.content ?? ""),
           enabled: m?.is_active !== false,
         }))
-        .filter((m) => m.content.trim())
+        .filter((m) => m.content.trim() && m.content.trim() !== "Digite sua mensagem aqui...")
         .sort((a, b) => a.order - b.order);
       onChange({ messages: mapped, produto_name: prod?.name ?? node.produto_slug });
       if (mapped.length === 0) toast.warning(`Nenhuma mensagem em ${node.bucket} para este produto.`);
@@ -944,22 +976,39 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
   return (
     <div className="space-y-3">
       <div>
-        <Label className="text-xs">Produto (Sistema A)</Label>
-        <Select value={node.produto_slug} onValueChange={(v) => onChange({ produto_slug: v, messages: [] })}>
-          <SelectTrigger><SelectValue placeholder={loadingProducts ? "Carregando..." : "Selecione..."} /></SelectTrigger>
-          <SelectContent className="max-h-64">
-            {productOptions.map((p) => <SelectItem key={p.slug} value={p.slug}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
         <Label className="text-xs">Bucket</Label>
-        <Select value={node.bucket} onValueChange={(v) => onChange({ bucket: v as PromoSeqNode["bucket"], messages: [] })}>
+        <Select value={node.bucket} onValueChange={(v) => {
+          const newBucket = v as PromoSeqNode["bucket"];
+          const stillValid = productOptions.find((p) => p.slug === node.produto_slug && (p.counts as any)[newBucket] > 0);
+          onChange({
+            bucket: newBucket,
+            messages: [],
+            produto_slug: stillValid ? node.produto_slug : "",
+            produto_name: stillValid ? node.produto_name : "",
+          });
+        }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="aftersales">Pós-venda (7 promo)</SelectItem>
             <SelectItem value="cs">CS / Atendimento</SelectItem>
-            <SelectItem value="spin">SPIN selling</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">
+          Produto (Sistema A){" "}
+          <span className="text-muted-foreground">· {totalInBucket} com mensagens</span>
+        </Label>
+        <Select value={node.produto_slug} onValueChange={(v) => loadFromCache(v)}>
+          <SelectTrigger>
+            <SelectValue placeholder={loadingProducts ? "Carregando..." : (totalInBucket === 0 ? "Nenhum produto com mensagens neste bucket" : "Selecione...")} />
+          </SelectTrigger>
+          <SelectContent className="max-h-64">
+            {filteredOptions.map((p) => (
+              <SelectItem key={p.slug} value={p.slug}>
+                {p.name} · {(p.counts as any)[node.bucket]} msgs
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -968,13 +1017,15 @@ export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onCh
         <Input type="number" value={node.interval_seconds} min={60} onChange={(e) => onChange({ interval_seconds: Number(e.target.value) })} />
         <p className="text-[10px] text-muted-foreground mt-0.5">86400 = 1 dia · 3600 = 1 hora</p>
       </div>
-      <Button variant="outline" size="sm" className="w-full" onClick={loadMessages} disabled={!node.produto_slug || loadingMessages}>
+      <Button variant="ghost" size="sm" className="w-full" onClick={loadMessages} disabled={!node.produto_slug || loadingMessages}>
         {loadingMessages ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
-        Carregar mensagens do Sistema A
+        Recarregar do Sistema A
       </Button>
       {node.messages.length === 0 ? (
         <div className="rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
-          Nenhuma mensagem carregada. Selecione produto + bucket e clique em "Carregar".
+          {totalInBucket === 0
+            ? `Nenhum produto possui mensagens cadastradas em "${node.bucket}" no Sistema A. Cadastre no painel do Sistema A.`
+            : "Selecione um produto acima — as mensagens carregam automaticamente."}
         </div>
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
