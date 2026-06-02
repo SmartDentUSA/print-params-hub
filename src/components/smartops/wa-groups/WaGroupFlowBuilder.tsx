@@ -103,6 +103,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
   const [campaignStartedAt, setCampaignStartedAt] = useState<string | null>(null);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
+  const [postPickerFor, setPostPickerFor] = useState<{ nodeId: string; platform: "instagram" | "youtube" } | null>(null);
   const [previewByNode, setPreviewByNode] = useState<Record<string, { loading: boolean; text?: string; provider?: string; error?: string }>>({});
 
   useEffect(() => {
@@ -197,6 +198,9 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (n.type === "ai" && !n.ai_source_id) errors.push(`${tag}: selecione um conteúdo.`);
       if ((n.type === "image" || n.type === "video" || n.type === "audio" || n.type === "document") && !n.media_url.trim()) errors.push(`${tag}: arquivo não enviado.`);
       if (n.type === "link" && (!n.url.trim() || !n.title.trim())) errors.push(`${tag}: título e URL obrigatórios.`);
+      if ((n.type === "post_ig" || n.type === "post_yt") && !(n as SocialPostNode).post_url?.trim()) {
+        errors.push(`${tag}: selecione uma publicação.`);
+      }
       if (n.type === "wait") {
         const d = (n as WaitNode).days ?? 0;
         const h = (n as WaitNode).hours ?? 0;
