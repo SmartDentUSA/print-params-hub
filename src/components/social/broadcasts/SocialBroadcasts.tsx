@@ -341,8 +341,33 @@ export function SocialBroadcasts() {
             )}
             {step === 2 && (
               <div className="space-y-3">
-                <Label>Mensagem</Label>
-                <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
+                <div className="flex items-center justify-between">
+                  <Label>Mensagem</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 gap-1">
+                        <Smile className="w-4 h-4" /> Emojis
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-3" align="end">
+                      <EmojiPicker onSelect={(emoji) => {
+                        const el = messageRef.current;
+                        if (!el) { setMessage((m) => m + emoji); return; }
+                        const start = el.selectionStart ?? el.value.length;
+                        const end = el.selectionEnd ?? el.value.length;
+                        const before = el.value.slice(0, start);
+                        const after = el.value.slice(end);
+                        const next = before + emoji + after;
+                        setMessage(next);
+                        requestAnimationFrame(() => {
+                          el.focus();
+                          el.setSelectionRange(start + emoji.length, start + emoji.length);
+                        });
+                      }} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Textarea ref={messageRef} value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
                 <p className="text-xs text-muted-foreground">Variáveis: {'{{first_name}}'}, {'{{name}}'} — preenchidas a partir do contato.</p>
               </div>
             )}
