@@ -8,13 +8,20 @@ export interface GenerateCaptionInput {
   instructions?: string;
   tone?: string;
   language?: string;
+  external_enrichment?: any;
 }
 
 export interface GenerateCaptionResult {
   caption: string;
   hashtags: string[];
   first_comment: string;
-  _meta?: { product_hits: number; rag_hits: number; model: string };
+  _meta?: {
+    product_hits: number;
+    rag_hits: number;
+    export_hits?: number;
+    export_matched_slug?: string | null;
+    model: string;
+  };
 }
 
 export function useGenerateCaption() {
