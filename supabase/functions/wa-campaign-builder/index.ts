@@ -129,6 +129,26 @@ serve(async (req) => {
         // Primeiro nó de conteúdo: respeita exatamente o started_at escolhido na UI
         ts = new Date(anchorTs)
       }
+      // Expansão do nó promo_seq em N mensagens sequenciais
+      if (node.type === 'promo_seq') {
+        const interval = Math.max(60, Number(node.interval_seconds ?? 86400)) * 1000
+        const msgs = ((node.messages as any[]) ?? []).filter(m => m?.enabled !== false && String(m?.content ?? '').trim())
+        for (let k = 0; k < msgs.length; k++) {
+          const subTs = new Date(ts.getTime() + k * interval)
+          queueRows.push({
+            campaign_id,
+            group_jid: tgt.group_jid,
+            node_index: i,
+            node_type: 'msg',
+            content_json: { text: String(msgs[k].content), mentions_everyone: false, _promo_seq: { produto_slug: node.produto_slug, bucket: node.bucket, order: msgs[k].order } },
+            scheduled_at: subTs.toISOString(),
+            status: 'pending',
+          })
+          accMs += interval
+        }
+        lastWait = null
+        continue
+      }
       queueRows.push({
         campaign_id,
         group_jid: tgt.group_jid,
@@ -193,6 +213,13 @@ function buildContent(node: Record<string, unknown>): Record<string, unknown> {
       titulo: node.titulo ?? '',
       thumbnail_url: node.thumbnail_url ?? null,
       social_post_id: node.social_post_id ?? null,
+    }
+    case 'link_ig':
+    case 'link_yt': return {
+      url: node.url,
+      caption: node.caption ?? '',
+      titulo: node.titulo ?? '',
+      thumbnail_url: node.thumbnail_url ?? null,
     }
     default:      return { raw: node }
   }
