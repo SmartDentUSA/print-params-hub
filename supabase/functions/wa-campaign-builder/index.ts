@@ -77,7 +77,9 @@ serve(async (req) => {
       .in('status', ['sent', 'sending'])
 
     const sentIndexes = new Set<number>((existing ?? []).map((r: any) => r.node_index as number))
-    let anchorTs = defaultStartTs
+    // Nunca ancorar no passado: started_at antigo (edição incremental de campanha
+    // criada dias atrás) causaria datas vencidas e disparo imediato/errado.
+    let anchorTs = Math.max(defaultStartTs, Date.now() + 15_000)
     if ((existing ?? []).length > 0) {
       const lastTs = (existing as any[])
         .map(r => new Date(r.sent_at ?? r.scheduled_at).getTime())
