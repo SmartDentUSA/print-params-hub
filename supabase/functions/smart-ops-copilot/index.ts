@@ -2544,20 +2544,23 @@ serve(async (req) => {
     const { messages, csv_data, model: requestedModel } = await req.json();
 
     // Determine which model to use (legacy "deepseek" → "deepseek-pro").
-    const modelId: ModelId =
+    let modelId: ModelId =
       requestedModel === "gemini" ? "gemini"
       : requestedModel === "claude" ? "claude"
       : requestedModel === "deepseek-flash" ? "deepseek-flash"
       : requestedModel === "deepseek-pro" ? "deepseek-pro"
       : "deepseek-pro";
-    const config = getModelConfig(modelId);
+    let config = getModelConfig(modelId);
+    const requestedModelId = modelId;
+    const fallbackChain = buildFallbackChain(modelId);
+    let providerSwitched = false;
+    let switchedFromLabel = "";
+    let switchedToLabel = "";
 
     // Validate API key
-    if (!config.apiKey) {
+    if (fallbackChain.length === 0) {
       const errorMsg =
-        modelId === "gemini" ? "LOVABLE_API_KEY não configurada. Gemini indisponível."
-        : modelId === "claude" ? "ANTHROPIC_API_KEY não configurada. Claude indisponível."
-        : "DEEPSEEK_API_KEY não configurada.";
+        "Nenhum provedor de IA configurado. Configure LOVABLE_API_KEY, DEEPSEEK_API_KEY ou ANTHROPIC_API_KEY.";
       return new Response(JSON.stringify({ error: errorMsg }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
