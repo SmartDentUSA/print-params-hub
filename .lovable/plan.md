@@ -1,33 +1,45 @@
-## Problema
+## Diagnóstico
 
-Em `/social/banco`, clicar nos chips 📸 Instagram / 👥 Facebook / 🎵 TikTok / ▶️ YouTube / 📌 Pinterest / 🔴 Reddit não dá feedback nem filtra visivelmente. Investigação:
+O botão “Gerar com IA” está chamando corretamente a Edge Function `social-caption-generator`, mas a função falha no backend com:
 
-1. **Classe inexistente** — `SOCIAL_CHANNELS[p].colorClass` aponta para `bg-social-instagram`, `bg-social-facebook`, etc. Nenhum desses tokens existe em `tailwind.config.ts` nem em `src/index.css`. Resultado: o chip "ativo" recebe `text-white border-transparent` mas sem cor de fundo — visualmente igual ao estado inativo.
-2. **Edge function fantasma** — `useSocialPostsBank` chama `supabase.functions.invoke('social-posts-search')` que não existe (apenas `social-caption-generator` e `social-publish-worker` no projeto). A cada mudança de filtro o SDK faz um round-trip 404 antes do fallback, atrasando a re-query e poluindo o Network.
-3. **Consulta real funciona** — testei `social_posts` com `platform IN ('instagram')` e período 30d: retorna registros corretamente. O bug é puramente do caminho cliente.
-
-## Correções (frontend apenas)
-
-### 1. `src/lib/socialChannels.ts`
-- Remover dependência de classes Tailwind inexistentes para colorir o chip ativo. Vamos passar a cor diretamente via `SOCIAL_BRAND_HEX` (já existe).
-
-### 2. `src/components/social/SocialPostsBank.tsx` — chips de canal
-- Substituir `cn('text-white border-transparent', meta.colorClass)` por `style={{ backgroundColor: SOCIAL_BRAND_HEX[p], color: '#fff', borderColor: SOCIAL_BRAND_HEX[p] }}` quando `active`.
-- Estado inativo continua `bg-background text-muted-foreground border-border` + hover sutil.
-- Adicionar contador no header dos filtros ("X canais") quando há seleção, e botão "Limpar" que reseta `selectedPlats`.
-
-### 3. `src/hooks/social/useSocialPostsBank.ts` — limpeza
-- Remover o bloco `try { supabase.functions.invoke('social-posts-search', ...) } catch {}`. Vai direto na tabela `social_posts` (consulta já validada).
-- Manter `placeholderData: keepPreviousData` para evitar flicker enquanto re-filtra.
-
-### 4. Garantia de re-render
-- Chave da query (`['social-posts-bank', filters]`) já reage a `selectedPlats` via objeto `effective`. Nada a mudar — só validar que `posts.length` (já no badge do título) atualiza ao alternar chip.
-
-## Arquivos tocados
-
-```
-src/components/social/SocialPostsBank.tsx    (estilo dos chips + botão limpar)
-src/hooks/social/useSocialPostsBank.ts       (remove invoke 404 + keepPreviousData)
+```text
+Créditos Lovable AI esgotados. Adicione créditos.
 ```
 
-Sem migrações, sem edge functions, sem mudanças em `socialChannels.ts` (tokens HEX já existem). Escopo cirúrgico em UI/data fetching.
+Hoje esse erro volta como HTTP 500 e a UI mostra uma falha genérica, então parece que o recurso “não funciona”. Também há um ponto técnico no backend: a função chama o Lovable AI Gateway com `Authorization: Bearer`, mas o padrão correto do Gateway é o header `Lovable-API-Key`.
+
+## Plano de correção
+
+1. **Corrigir a chamada ao Lovable AI Gateway**
+   - Trocar o header incorreto `Authorization: Bearer ...` por `Lovable-API-Key: ...`.
+   - Adicionar `X-Lovable-AIG-SDK` para telemetria correta.
+   - Trocar o modelo atual `google/gemini-2.5-flash` por um modelo mais leve/custo-eficiente para copy curta, reduzindo chance de falhas por crédito.
+
+2. **Retornar status HTTP correto da Edge Function**
+   - Quando o Gateway retornar falta de créditos, responder `402` em vez de `500`.
+   - Quando retornar rate limit, responder `429`.
+   - Preservar mensagem clara em JSON para o frontend.
+
+3. **Melhorar feedback no botão “Gerar com IA”**
+   - Ajustar `useGenerateCaption` para capturar status e payload da Edge Function.
+   - Mostrar erro específico quando faltar crédito: orientar “Adicionar créditos em Settings > Workspace > Usage”.
+   - Manter mensagem genérica apenas para erros inesperados.
+
+4. **Evitar retorno vazio quando a IA responder fora do formato**
+   - Validar se `caption`, `hashtags` e `first_comment` vieram preenchidos.
+   - Se o JSON vier inválido ou incompleto, retornar erro legível em vez de preencher campos vazios.
+
+5. **Validar a função após a alteração**
+   - Reimplantar/testar `social-caption-generator`.
+   - Fazer uma chamada real de teste com instruções simples.
+   - Confirmar que, se ainda não houver créditos, a UI/backend retornam `402` claro em vez de falha silenciosa/500.
+
+## Arquivos previstos
+
+- `supabase/functions/social-caption-generator/index.ts`
+- `src/hooks/social/useGenerateCaption.ts`
+- `src/components/social/editor/steps/StepContent.tsx`
+
+## Observação importante
+
+Se o workspace realmente estiver sem créditos, a correção não cria crédito automaticamente; ela transforma a falha em um erro claro e corrige a integração para funcionar assim que houver saldo disponível.

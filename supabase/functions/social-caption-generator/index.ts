@@ -204,9 +204,11 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Lovable-API-Key": LOVABLE_API_KEY,
+      "X-Lovable-AIG-SDK": "edge-function",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages: [
         { role: "system", content: "Você devolve SEMPRE JSON válido sem cercas de código." },
         { role: "user", content: prompt },
@@ -216,11 +218,18 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
     }),
   });
 
-  if (res.status === 402) throw new Error("Créditos Lovable AI esgotados. Adicione créditos.");
-  if (res.status === 429) throw new Error("Rate limit atingido. Tente novamente em alguns segundos.");
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`LLM ${res.status}: ${txt.slice(0, 200)}`);
+    console.error("[caption] LLM error", res.status, txt.slice(0, 500));
+    const err: any = new Error(
+      res.status === 402
+        ? "Créditos Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage."
+        : res.status === 429
+          ? "Limite de requisições atingido. Tente novamente em alguns segundos."
+          : `LLM ${res.status}: ${txt.slice(0, 200)}`,
+    );
+    err.status = res.status;
+    throw err;
   }
   const json = await res.json();
   const raw = json?.choices?.[0]?.message?.content || "{}";
@@ -232,11 +241,17 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
     const m = String(raw).match(/\{[\s\S]*\}/);
     parsed = m ? JSON.parse(m[0]) : {};
   }
-  return {
+  const out = {
     caption: String(parsed.caption || "").slice(0, MAX_CAPTION),
     hashtags: sanitizeHashtags(parsed.hashtags),
     first_comment: String(parsed.first_comment || "").slice(0, MAX_COMMENT),
   };
+  if (!out.caption) {
+    const err: any = new Error("A IA retornou uma resposta vazia. Tente novamente com outra instrução.");
+    err.status = 502;
+    throw err;
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -263,15 +278,16 @@ Deno.serve(async (req) => {
         _meta: {
           product_hits: productCtx.length,
           rag_hits: ragCtx.length,
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-flash-lite",
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    console.error("[social-caption-generator]", e);
+    const status = (e as any)?.status ?? 500;
+    console.error("[social-caption-generator]", status, (e as Error).message);
     return new Response(JSON.stringify({ error: (e as Error).message || "Erro interno" }), {
-      status: 500,
+      status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
