@@ -893,7 +893,12 @@ async function createNewDeal(
         }
       }
       // Add structured HTML note for PipeRun
-      await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
+      // Gate: briefing somente para criação em Funil Comercial (VENDAS) / Sem contato.
+      if (pipelineId === PIPELINES.VENDAS && stageId === STAGES_VENDAS.SEM_CONTATO) {
+        await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
+      } else {
+        console.log(`[lia-assign] Skip seller briefing on createNewDeal — pipeline=${pipelineId} stage=${stageId} (only VENDAS/SEM_CONTATO posts briefing)`);
+      }
       return dealId;
     }
   }
