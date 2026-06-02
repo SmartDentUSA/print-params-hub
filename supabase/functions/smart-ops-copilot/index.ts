@@ -2734,7 +2734,7 @@ serve(async (req) => {
           model: config.model,
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
-          metadata: { iterations: iteration + 1, modelId }
+          metadata: { iterations: iteration + 1, modelId, providerSwitched, requestedModelId }
         });
         
         // Simulate SSE stream from the existing content (no duplicate API call!)
