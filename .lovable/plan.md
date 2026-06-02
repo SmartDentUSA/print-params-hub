@@ -1,40 +1,16 @@
-# Fix UX — Novo broadcast (passo 1/4 e 2/4)
+## Alterações cirúrgicas em `smart-ops-lia-assign/index.ts`
 
-## Problema
+### FIX 1 — Briefing ao vendedor (~linha 3129)
+Substituir o bloco `triggerOutboundMessages` (WaLeads) por uma chamada `fetch` direta ao endpoint `smart-ops-lia-notify-seller`, passando `lead_id`, `team_member_id` e `trigger`. Skip quando `assignedTeamMemberId` é nulo ou `"fallback-admin"`. Log de status/body e catch não-fatal.
 
-O wizard é IG-only (hard-coded `channel='instagram'`), mas a UX não deixa isso claro e ainda exige seleção manual da conta Zernio mesmo quando só existe uma. Resultado: usuário chega ao passo 2/4, vê "Nenhum contato elegível" e não entende por quê.
+### FIX 2 — Dedup re-entrega Meta (dentro de `executarEnrichmentDealRoute`, antes do CASE B)
+Inserir guard antes do loop `for (const deal of otherOpenDeals)`:
+- Consultar `lead_activity_log` por `event_type IN ('deal_reativado_via_redelivery','deal_enriched_via_redelivery')` nas últimas 4h para o lead.
+- Se existir: adicionar nota no deal existente via `addDealNote` e retornar `{ flow_type: "dedup_skipped", piperun_id, created_new: false, closed_deals: [], reason: "redelivery_within_4h" }` sem fechar outros funis nem criar novo deal.
 
-## Mudanças (apenas UI, sem mexer em regra de negócio)
+### Deploy
+Após aplicar os dois patches, rodar deploy de `smart-ops-lia-assign` e confirmar sucesso. Sem migrations, sem mudanças de schema, sem alterações em outras funções.
 
-Arquivo único: `src/components/social/broadcasts/SocialBroadcasts.tsx`.
-
-### 1. Auto-select da conta IG única
-No `useEffect` disparado quando `zernioAccounts` carrega: se houver exatamente uma conta IG ativa e `zernioAccountId` ainda vazio, setar automaticamente. Elimina o passo manual mais comum.
-
-### 2. Header do passo 1 com escopo explícito
-Adicionar banner no topo do passo 0 (e subtítulo no header do Dialog):
-
-> "Disparo via Instagram Direct (Zernio). Contatos de WhatsApp, Facebook ou TikTok não são elegíveis neste canal."
-
-### 3. Contadores ao vivo no passo 1
-Ao lado de cada toggle, mostrar quantos contatos restam com o filtro ativo, lendo de uma segunda query leve (`select count head:true` filtrada). Ex.:
-- "Somente inscritos (opt-in) — 24 elegíveis"
-- "Apenas seguidores — 0 elegíveis" (em vermelho se zerar a lista)
-
-### 4. Empty state acionável no passo 2/4
-Hoje mostra só "Nenhum contato elegível com esses filtros." Trocar por bloco com:
-- Diagnóstico do motivo provável (conta não selecionada / filtro de followers zera tudo / nenhum IG contact em `social_contacts`).
-- Botão "Voltar e ajustar filtros" + botão "Sincronizar Zernio agora" (invoca `zernio-contacts-sync` e reexecuta a query).
-- Link para `/social/contatos` para inspecionar.
-
-### 5. Label do dropdown deixa claro o canal
-Mudar `<Label>Conta Zernio (Instagram)</Label>` para `<Label>Conta Instagram (Zernio) — único canal suportado</Label>` e desabilitar o select com tooltip "Conta única detectada — auto-selecionada" quando só houver uma.
-
-### 6. Badge de contagem no passo 2/4
-Atualizar `{selectedIds.size} selecionados / {contacts?.length ?? 0} elegíveis` para incluir total bruto IG no banco: `… de {totalIgInDb} contatos IG`, dando referência clara da diferença entre universo e elegíveis pós-filtros.
-
-## Fora do escopo
-
-- Não vou tornar o broadcast multi-canal (WhatsApp/FB/TikTok) — confirmado pelo usuário.
-- Sem mudanças no dispatcher (`zernio-broadcast-dispatch`), no schema ou em RLS.
-- Sem alteração de defaults de toggles (`subscribed=true` continua ligado).
+### Validação
+- Verificar logs da função após deploy para confirmar boot limpo.
+- Não há testes automatizados para esta rota; validação adicional depende da próxima re-entrega Meta real.
