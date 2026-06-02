@@ -7,6 +7,7 @@ import {
   Video, ChevronDown, GraduationCap, Map, Megaphone, Printer
 } from "lucide-react";
 import { BookOpen } from "lucide-react";
+import { Share2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -183,6 +184,12 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
         {!collapsed && (
           <p className="text-xs text-muted-foreground truncate px-2">{userEmail}</p>
         )}
+        <Link to="/social" className="block">
+          <Button variant="outline" size="sm" className="w-full">
+            <Share2 className="w-3.5 h-3.5" />
+            {!collapsed && <span className="ml-1.5">Social Publisher</span>}
+          </Button>
+        </Link>
         <div className={cn("flex gap-2", collapsed ? "flex-col items-center" : "")}>
           <Link to="/" className="flex-1">
             <Button variant="outline" size="sm" className="w-full">
