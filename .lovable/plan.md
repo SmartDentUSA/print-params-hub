@@ -1,35 +1,52 @@
-# Fix — Analytics Social vazia
+# Flows IG DM + Gerador de Legenda IA
 
-## Causa raiz
-- Os 4 posts publicados estão com `social_posts.published_at = NULL`.
-- O hook `useSocialAnalytics` filtra `.gte('published_at', since)` → todos descartados → cards zerados, gráficos vazios, top posts vazio.
-- A `zernio-metrics-sync` também filtra por `published_at`, então roda mas ignora os posts atuais (até resolvermos no sync de origem).
-- Bonus: warning de `key` no `Heatmap` (Fragment sem key dentro de `.map`).
+## Parte 1 — Botões no `SocialFlowsList`
 
-## Plano de correção (apenas 3 arquivos)
+Hoje cada card mostra só `Switch` + "Sessões". Adicionar ações inline:
 
-### 1. `src/hooks/social/useSocialAnalytics.ts`
-- Remover filtro server-side `gte('published_at', since)`.
-- Selecionar também `created_at` e `scheduled_at`.
-- Filtrar no client por `effective_at = published_at ?? scheduled_at ?? created_at >= since`, e expor esse campo derivado.
-- Mantém `.order('published_at', { ascending: false, nullsFirst: false })` + segunda ordem por `created_at`.
+- **Editar** — `<Link to="/social/flows/:id">` (rota já existe), botão ghost ícone `Pencil`.
+- **Sessões** — manter.
+- **Duplicar** (bônus simples) — insert clone via Supabase (`name + " (cópia)"`, `is_active=false`).
+- **Excluir** — `AlertDialog` confirmando, `supabase.from('social_flows').delete().eq('id', f.id)`.
+- **Ativar/Desativar** — já existe o `Switch`; manter, com tooltip "Ativar/Desativar".
 
-### 2. `src/components/social/SocialAnalytics.tsx`
-- Trocar todos os usos de `x.published_at` por `x.effective_at` (cards, série temporal, heatmap, top posts, export CSV mantém a coluna original `published_at` mas adiciona coluna `effective_at`).
-- Corrigir Heatmap: substituir `<>` por `<React.Fragment key={\`row-${di}\`}>` para eliminar warning.
-- Empty state melhor quando `posts.length===0` (mensagem "Sem posts no período" no topo).
+Layout: `Switch` + grupo de botões ícones (`Eye` sessões, `Pencil` editar, `Copy` duplicar, `Trash2` excluir). Usar `Tooltip` do shadcn.
 
-### 3. `supabase/functions/zernio-metrics-sync/index.ts`
-- Trocar o filtro de elegibilidade: usar `coalesce(published_at, created_at) >= since30d` via duas queries OR ou simplesmente `created_at >= since30d`. Mantém limite de 50.
-- Quando o insights da Zernio devolver `published_at` (campos comuns: `published_at`, `created_time`, `timestamp`), preencher `published_at` se atualmente NULL — backfill incremental e idempotente.
+Sem alterações de schema (todas as colunas necessárias já existem).
 
-## Não muda
-- Schema de banco intacto.
-- Crons, secrets, edge functions de flows/broadcasts/sequences intactos.
-- `useResyncMetrics` intacto.
+## Parte 2 — Gerador de legenda por IA no `StepContent`
+
+### UX (no `StepContent.tsx`)
+- Novo bloco acima da Legenda: card colapsável "Gerar com IA".
+  - `Textarea` curto **"Instruções/Ângulo"** (placeholder: "Ex.: foco em ortodontistas, tom consultivo, destacar precisão").
+  - Select de **tom** (Profissional / Educativo / Direto / Inspirador).
+  - Botão **"Gerar legenda + hashtags + 1º comentário"** (disabled se `product_name` e `product_slug` vazios e instruções vazias).
+  - Quando termina: preenche `caption`, `hashtags` (até 15 limpas, sem `#`), `first_comment` — sobrescrevendo somente se o usuário clicar "Aplicar" (mostra preview num diff simples) ou se os campos estiverem vazios. Toast de sucesso.
+- Indicador de loading no botão.
+
+### Edge Function: `supabase/functions/social-caption-generator/index.ts` (nova)
+- POST: `{ product_name?, product_slug?, platform: 'instagram'|'facebook'|..., instructions?, tone?, language? }`.
+- Pipeline:
+  1. **RAG produtos**: query Supabase em `system_a_catalog`, `products_catalog`, `resins` filtrando por `slug` exato e fallback ILIKE no nome. Pega `name, description/short_description, category, features/specs, processing_instructions, product_url`. **Sem preço** (cumpre regra Content Generation no Core memory).
+  2. **RAG conhecimento**: chamada vetorial em `agent_embeddings` via RPC `match_agent_embeddings` (mesma usada em `smart-ops-copilot`), top 5 chunks pelo nome do produto + instruções.
+  3. Monta prompt para **Lovable AI Gateway** (`google/gemini-3-flash-preview`) com:
+     - Persona "Smart Dent | Fluxo Digital" (brand voice).
+     - Restrições: SEM preços/valores comerciais (Core rule), sem promessas regulatórias, max 2200 chars, idioma pt-BR.
+     - Plataforma-aware: IG/FB = caption com quebras + CTA; TikTok/Reels = curto e direto; LinkedIn = mais formal.
+     - Output JSON estrito: `{ caption, hashtags: string[], first_comment }`.
+  4. Sanitiza: hashtags sem `#`, lowercase, dedupe, máx 15; trim caption ≤ 2200; first_comment ≤ 500.
+- Auth: `verify_jwt = false` no `config.toml` (consumido pelo editor logado, validação por anon key client-side). LOVABLE_API_KEY já existe nos secrets (verificar via `fetch_secrets`).
+- CORS padrão. Erros: 402/429 → mensagem clara.
+
+### Hook: `src/hooks/social/useGenerateCaption.ts` (novo)
+- Wrapper `supabase.functions.invoke('social-caption-generator', { body })`.
+- Retorna `mutateAsync` (react-query) para usar no `StepContent`.
+
+### Sem alteração em
+- `postSchema`, banco, demais steps, fluxo de publicação, crons, Zernio.
 
 ## Validação
-1. Após deploy, abrir `/social/analytics` → cards devem mostrar os 4 posts com reach/views/likes existentes.
-2. Clicar "Sync" → ver toast com contagem de atualizados.
-3. Conferir `social_posts.published_at` populado nas próximas execuções do cron (`*/30 * * * *`).
-4. Confirmar console limpo (sem warning de key).
+1. `/social/flows` → ver 4 botões (Sessões, Editar, Duplicar, Excluir) + Switch; testar excluir com confirmação.
+2. `/social/novo` → preencher produto "BLZ INO 200", clicar "Gerar com IA" → ver caption + hashtags + 1º comentário coerentes, sem preços.
+3. Trocar plataforma para TikTok → gerar de novo → caption mais curta.
+4. Verificar logs da função: RAG executado, JSON parseado.

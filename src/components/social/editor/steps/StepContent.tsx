@@ -1,9 +1,14 @@
 import { useState, KeyboardEvent } from 'react';
-import { X } from 'lucide-react';
+import { X, Sparkles, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
 import type { PostInput } from '@/lib/social/postSchema';
 
 interface Props {
@@ -13,6 +18,36 @@ interface Props {
 
 export function StepContent({ value, onChange }: Props) {
   const [tagInput, setTagInput] = useState('');
+  const [aiInstructions, setAiInstructions] = useState('');
+  const [aiTone, setAiTone] = useState('Profissional');
+  const generate = useGenerateCaption();
+
+  const platform = value.channels?.[0]?.platform || 'instagram';
+  const canGenerate = !!(value.product_name?.trim() || value.product_slug?.trim() || aiInstructions.trim());
+
+  const handleGenerate = async () => {
+    try {
+      const res = await generate.mutateAsync({
+        product_name: value.product_name || undefined,
+        product_slug: value.product_slug || undefined,
+        platform,
+        instructions: aiInstructions || undefined,
+        tone: aiTone,
+        language: 'pt-BR',
+      });
+      onChange({
+        caption: res.caption,
+        hashtags: res.hashtags || [],
+        first_comment: res.first_comment,
+      });
+      const meta = res._meta;
+      toast.success(
+        `Legenda gerada · ${meta?.product_hits ?? 0} fonte(s) de catálogo · ${meta?.rag_hits ?? 0} trecho(s) RAG`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao gerar legenda');
+    }
+  };
 
   const addTag = () => {
     const t = tagInput.trim().replace(/^#/, '');
@@ -34,6 +69,57 @@ export function StepContent({ value, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <Label className="text-sm font-semibold">Gerar com IA (RAG Smart Dent)</Label>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Usa o catálogo e a base de conhecimento para criar legenda + hashtags + 1º comentário. Preencha o
+            produto abaixo (nome ou slug) e/ou descreva o ângulo desejado.
+          </p>
+          <Textarea
+            rows={2}
+            placeholder="Ex.: foco em ortodontistas, destacar precisão e fluxo digital, tom consultivo"
+            value={aiInstructions}
+            onChange={(e) => setAiInstructions(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={aiTone} onValueChange={setAiTone}>
+              <SelectTrigger className="w-44 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Profissional">Profissional</SelectItem>
+                <SelectItem value="Educativo">Educativo</SelectItem>
+                <SelectItem value="Direto">Direto</SelectItem>
+                <SelectItem value="Inspirador">Inspirador</SelectItem>
+              </SelectContent>
+            </Select>
+            <Badge variant="outline" className="capitalize">{platform}</Badge>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={!canGenerate || generate.isPending}
+              className="ml-auto"
+            >
+              {generate.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Gerando...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 mr-1" /> Gerar legenda + hashtags + 1º comentário</>
+              )}
+            </Button>
+          </div>
+          {!canGenerate && (
+            <p className="text-xs text-muted-foreground">
+              Informe nome/slug do produto (campo abaixo) ou escreva uma instrução para habilitar.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label>Legenda</Label>
