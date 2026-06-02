@@ -22,6 +22,7 @@ interface ReqBody {
   instructions?: string;
   tone?: string;
   language?: string;
+  external_enrichment?: any;
 }
 
 function sanitizeHashtags(arr: unknown): string[] {
