@@ -1,7 +1,6 @@
-import { useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2 } from 'lucide-react';
+import { useEffect, useState, KeyboardEvent } from 'react';
+import { X, Sparkles, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
+import { SearchableProductSelect } from '@/components/SearchableProductSelect';
+import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
 
 interface Props {
@@ -23,7 +24,67 @@ export function StepContent({ value, onChange }: Props) {
   const generate = useGenerateCaption();
 
   const platform = value.channels?.[0]?.platform || 'instagram';
-  const canGenerate = !!(value.product_name?.trim() || value.product_slug?.trim() || aiInstructions.trim());
+
+  // Catálogo (Sistema A) + Resinas para o dropdown de produto
+  const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
+  const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [{ data: cat }, { data: res }] = await Promise.all([
+        supabase
+          .from('system_a_catalog')
+          .select('id,name,category,slug')
+          .eq('active', true)
+          .order('name', { ascending: true })
+          .limit(500),
+        supabase
+          .from('resins')
+          .select('id,name,manufacturer,slug,type')
+          .eq('active', true)
+          .order('name', { ascending: true })
+          .limit(500),
+      ]);
+      if (!mounted) return;
+      setProducts((cat ?? []) as any);
+      setResins((res ?? []) as any);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const hasProduct = !!(value.product_ref || value.product_slug || value.product_name);
+  const canGenerate = hasProduct;
+
+  const onProductChange = (val: string) => {
+    if (!val || val === 'none') {
+      onChange({ product_ref: '', product_name: '', product_slug: '', product_category: '' });
+      return;
+    }
+    if (val.startsWith('product:')) {
+      const id = val.slice('product:'.length);
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+      onChange({
+        product_ref: val,
+        product_name: p.name,
+        product_slug: p.slug || '',
+        product_category: p.category || '',
+      });
+    } else if (val.startsWith('resin:')) {
+      const id = val.slice('resin:'.length);
+      const r = resins.find((x) => x.id === id);
+      if (!r) return;
+      onChange({
+        product_ref: val,
+        product_name: `${r.manufacturer} ${r.name}`.trim(),
+        product_slug: r.slug || '',
+        product_category: r.type ? `Resina ${r.type}` : 'Resina',
+      });
+    }
+  };
 
   const handleGenerate = async () => {
     try {
@@ -76,9 +137,29 @@ export function StepContent({ value, onChange }: Props) {
             <Label className="text-sm font-semibold">Gerar com IA (RAG Smart Dent)</Label>
           </div>
           <p className="text-xs text-muted-foreground -mt-1">
-            Usa o catálogo e a base de conhecimento para criar legenda + hashtags + 1º comentário. Preencha o
-            produto abaixo (nome ou slug) e/ou descreva o ângulo desejado.
+            Usa o catálogo Smart Dent + base de conhecimento. <b>Selecione o produto</b> da publicação antes
+            de gerar.
           </p>
+
+          <div>
+            <Label className="text-xs flex items-center gap-1.5 mb-1">
+              <Package className="w-3.5 h-3.5" /> Produto da publicação
+              <span className="text-destructive">*</span>
+            </Label>
+            <SearchableProductSelect
+              value={value.product_ref || 'none'}
+              onValueChange={onProductChange}
+              products={products}
+              resins={resins as any}
+            />
+            {value.product_name && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Vinculado: <b>{value.product_name}</b>
+                {value.product_category ? ` · ${value.product_category}` : ''}
+              </p>
+            )}
+          </div>
+
           <Textarea
             rows={2}
             placeholder="Ex.: foco em ortodontistas, destacar precisão e fluxo digital, tom consultivo"
@@ -114,7 +195,7 @@ export function StepContent({ value, onChange }: Props) {
           </div>
           {!canGenerate && (
             <p className="text-xs text-muted-foreground">
-              Informe nome/slug do produto (campo abaixo) ou escreva uma instrução para habilitar.
+              Selecione o produto da publicação acima para habilitar a geração com IA.
             </p>
           )}
         </CardContent>
@@ -165,25 +246,6 @@ export function StepContent({ value, onChange }: Props) {
           value={value.first_comment ?? ''}
           onChange={(e) => onChange({ first_comment: e.target.value })}
         />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Produto (nome)</Label>
-          <Input
-            placeholder="Ex.: BLZ INO 200"
-            value={value.product_name ?? ''}
-            onChange={(e) => onChange({ product_name: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label>Slug do produto</Label>
-          <Input
-            placeholder="blz-ino-200"
-            value={value.product_slug ?? ''}
-            onChange={(e) => onChange({ product_slug: e.target.value })}
-          />
-        </div>
       </div>
     </div>
   );

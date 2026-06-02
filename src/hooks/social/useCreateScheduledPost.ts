@@ -25,6 +25,8 @@ export function useCreateScheduledPost() {
         status: data.publish_now ? 'publishing' : 'scheduled',
         product_name: data.product_name || null,
         product_slug: data.product_slug || null,
+        product_ref: data.product_ref || null,
+        product_category: data.product_category || null,
         post_type: data.post_type ?? 'feed',
         created_by: auth.user?.email ?? auth.user?.id ?? null,
       };
