@@ -3,7 +3,8 @@ export type FlowNodeType =
   | "image" | "video" | "audio" | "document"
   | "link"
   | "button" | "list" | "carousel"
-  | "post_ig" | "post_yt";
+  | "post_ig" | "post_yt"
+  | "link_ig" | "link_yt" | "promo_seq";
 
 export interface FlowNodeBase {
   id: string;
@@ -115,9 +116,33 @@ export interface SocialPostNode extends FlowNodeBase {
   titulo?: string;
 }
 
+export interface SocialLinkNode extends FlowNodeBase {
+  type: "link_ig" | "link_yt";
+  url: string;
+  caption?: string;
+  titulo?: string;
+  thumbnail_url?: string;
+}
+
+export interface PromoSeqMessage {
+  order: number;
+  content: string;
+  enabled: boolean;
+}
+
+export interface PromoSeqNode extends FlowNodeBase {
+  type: "promo_seq";
+  produto_slug: string;
+  produto_name?: string;
+  bucket: "aftersales" | "cs" | "spin";
+  messages: PromoSeqMessage[];
+  interval_seconds: number;
+}
+
 export type FlowNode =
   | MsgNode | WaitNode | AiNode | MediaNode | LinkNode
-  | ButtonNode | ListNode | CarouselNode | SocialPostNode;
+  | ButtonNode | ListNode | CarouselNode | SocialPostNode
+  | SocialLinkNode | PromoSeqNode;
 
 export interface WaGroupSummary {
   group_id: string;
