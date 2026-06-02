@@ -76,6 +76,18 @@ export interface WorkflowDiagnosis {
 
 export interface SpinBriefing {
   situacao: string;
+  timing?: {
+    faixa: "AGORA" | "CURTO" | "MEDIO" | "FRIO" | "TIMING_INDETERMINADO" | string;
+    justificativa: string;
+    acao_recomendada: string;
+  };
+  perfil_profissional?: {
+    persona: string;
+    porte: string;
+    maturidade_digital: string;
+    tom_recomendado: string;
+    gatilhos_de_valor: string[];
+  };
   dores_provaveis: Array<{ dor: string; evidencia: string }>;
   implicacoes: string[];
   ponte_produto: string;
@@ -873,6 +885,30 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     out.push(`<i>Concorrentes:</i> ${diag.concorrentes_detectados.map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ")}<br>`);
   }
 
+  // ── TIMING + PERFIL PROFISSIONAL (destaque no topo) ──
+  if (diag.spin?.timing) {
+    const faixaLabel: Record<string, string> = {
+      AGORA: "🔥 AGORA (≤7 dias)",
+      CURTO: "⚡ CURTO (8–30 dias)",
+      MEDIO: "🕐 MÉDIO (1–3 meses)",
+      FRIO: "❄️ FRIO (>3 meses)",
+      TIMING_INDETERMINADO: "❔ TIMING INDETERMINADO",
+    };
+    const label = faixaLabel[diag.spin.timing.faixa] || `⏱ ${escHtml(diag.spin.timing.faixa)}`;
+    out.push(`<br><b>⏱ TIMING:</b> ${label}<br>`);
+    if (diag.spin.timing.justificativa) out.push(`&nbsp;&nbsp;<i>Sinal:</i> ${escHtml(diag.spin.timing.justificativa)}<br>`);
+    if (diag.spin.timing.acao_recomendada) out.push(`&nbsp;&nbsp;<i>Ação:</i> ${escHtml(diag.spin.timing.acao_recomendada)}<br>`);
+  }
+  if (diag.spin?.perfil_profissional) {
+    const p = diag.spin.perfil_profissional;
+    out.push(`<br>👤 <b>PERFIL DO PROFISSIONAL</b><br>`);
+    out.push(`&nbsp;&nbsp;<i>Persona:</i> ${escHtml(p.persona)} · <i>Porte:</i> ${escHtml(p.porte)} · <i>Maturidade:</i> ${escHtml(p.maturidade_digital)}<br>`);
+    out.push(`&nbsp;&nbsp;<i>Tom recomendado:</i> ${escHtml(p.tom_recomendado)}<br>`);
+    if (p.gatilhos_de_valor?.length) {
+      out.push(`&nbsp;&nbsp;<i>Gatilhos de valor:</i> ${p.gatilhos_de_valor.map(escHtml).join(" · ")}<br>`);
+    }
+  }
+
   // ── ROTEIRO DE PERFILAMENTO (siga nesta ordem — espelha # - Formulário exocad I.A.) ──
   const rot = diag.spin?.roteiro_perfilamento;
   if (rot && rot.length) {
@@ -954,6 +990,13 @@ export function renderDiagnosisWhatsApp(diag: WorkflowDiagnosis): string {
   lines.push("🧭 *SPIN — Briefing do Lead*");
 
   if (diag.spin?.situacao) lines.push(`*Situação:* ${diag.spin.situacao}`);
+  if (diag.spin?.timing) {
+    lines.push(`*Timing:* ${diag.spin.timing.faixa} — ${diag.spin.timing.acao_recomendada || diag.spin.timing.justificativa || ""}`.trim());
+  }
+  if (diag.spin?.perfil_profissional) {
+    const p = diag.spin.perfil_profissional;
+    lines.push(`*Perfil:* ${p.persona} · ${p.porte} · ${p.maturidade_digital} (tom: ${p.tom_recomendado})`);
+  }
   if (diag.intent?.target_stage) {
     lines.push(`*Intenção:* ${diag.intent.produto} → ${STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage}`);
   } else if (diag.intent) {
@@ -1501,6 +1544,15 @@ Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico —
 DADOS DO LEAD:
 - Nome: ${lead.nome || "N/I"}
 - Especialidade/área: ${lead.especialidade || lead.area_atuacao || "N/I"}
+- Cargo/tipo declarado: ${lead.cargo || lead.tipo_profissional || lead.role || "N/I"}
+- Empresa / razão social: ${lead.empresa_nome || lead.empresa || "N/I"}
+- Cidade/UF: ${[lead.cidade, lead.uf || lead.estado].filter(Boolean).join("/") || "N/I"}
+- Tempo de profissão / maturidade declarada: ${lead.tempo_profissao || lead.maturidade_digital || "N/I"}
+- Urgência declarada: ${lead.urgency_level || lead.urgencia || "N/I"}
+- Motivação primária: ${lead.primary_motivation || lead.motivacao || "N/I"}
+- Primeiro contato: ${lead.first_contact_at || lead.primeiro_contato || lead.created_at || "N/I"}
+- Origem / form_name: ${lead.form_name || lead.origem_primeiro_contato || "N/I"}
+- Última interação: ${lead.last_interaction_at || lead.ultima_interacao || "N/I"}
 - Stack atual: ${stackSummary}
 - Concorrentes detectados: ${diag.concorrentes_detectados.map(c => c.label).join(", ") || "nenhum"}
 - Intenção declarada: ${diag.intent?.produto || "—"} (match no portfólio: ${diag.intent?.matched_product_label || "sem match"})
@@ -1513,6 +1565,8 @@ SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- LEITURA DE TIMING (obrigatória): combine "Primeiro contato", "Última interação", "Urgência declarada", "Motivação primária" e a origem para classificar a janela de compra em uma de 4 faixas: **AGORA (≤7d / urgência alta / pediu proposta), CURTO (8–30d / pesquisando ativo), MÉDIO (1–3 meses / mapeando opções), FRIO (>3 meses / só baixou material)**. Justifique em 1 frase citando o sinal usado. Se faltar dado, declare "TIMING_INDETERMINADO" e gere 1 pergunta de SITUAÇÃO que descubra o gatilho/prazo.
+- LEITURA DE PERFIL PROFISSIONAL (obrigatória): a partir de Especialidade, Cargo, Empresa, Cidade/UF, Tempo de profissão e Stack, classifique o lead em UMA persona: **CD generalista, CD especialista (qual?), TPD/laboratório, clínica/grupo, distribuidor, estudante**. Estime porte (solo, 2-5 cadeiras, 6+ cadeiras / lab pequeno-médio-grande) e maturidade digital (iniciante / intermediário / avançado) com base na stack declarada. Adapte o tom: avançado → técnico e específico; iniciante → didático e consultivo. Para TPD/lab → foco em produtividade, custo por peça e recorrência de insumos; para CD clínico → foco em hora-cadeira, previsibilidade e experiência do paciente.
 - ROTEIRO IMUTÁVEL: as perguntas de SITUAÇÃO devem cobrir EXATAMENTE os itens do "ROTEIRO DE PERFILAMENTO" cujo status é "❓ a descobrir" ou "⚠️ gap", NA MESMA ORDEM do roteiro (1→9). Para itens "✅ declarado" NÃO gere pergunta — só reconheça no campo "situacao". É proibido pular, reordenar ou substituir perguntas do roteiro.
 - Cada pergunta de SITUAÇÃO deve PREFIXAR com "Etapa <etapa_label> — <titulo>:" e manter a essência da "pergunta canônica" (você pode refinar o tom, sem perder o foco).
 - Itens "⚠️ gap" também viram 1 pergunta de PROBLEMA cada, atacando a terceirização/dependência e introduzindo o "gancho" Smart Dent listado no roteiro.
@@ -1539,6 +1593,18 @@ REGRAS DURAS:
 Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
 {
   "situacao": "string (1-2 frases — papel + stack-chave + intenção)",
+  "timing": {
+    "faixa": "AGORA | CURTO | MEDIO | FRIO | TIMING_INDETERMINADO",
+    "justificativa": "string curta citando os sinais (datas, urgência, motivação, origem)",
+    "acao_recomendada": "string — quando e como o vendedor deve abordar (ex.: 'ligar nas próximas 2h', 'mandar WA hoje', 'nutrir com case')"
+  },
+  "perfil_profissional": {
+    "persona": "CD generalista | CD especialista (X) | TPD/laboratório | clínica/grupo | distribuidor | estudante",
+    "porte": "solo | 2-5 cadeiras | 6+ cadeiras | lab pequeno | lab médio | lab grande | indefinido",
+    "maturidade_digital": "iniciante | intermediário | avançado",
+    "tom_recomendado": "didático | consultivo | técnico-pareado",
+    "gatilhos_de_valor": ["1-3 itens que mais ressoam com este perfil (ex.: 'previsibilidade clínica', 'custo por peça', 'hora-cadeira')"]
+  },
   "dores_provaveis": [{ "dor": "string", "evidencia": "string curta citando o que o lead tem" }],
   "implicacoes": ["string concreta", "string concreta"],
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
@@ -1587,6 +1653,20 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
         ? parsed.implicacoes.slice(0, 3).map((s: unknown) => String(s).slice(0, 250)).filter(Boolean)
         : seed.implicacoes,
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
+      timing: parsed.timing && typeof parsed.timing === "object" ? {
+        faixa: String((parsed.timing as Record<string, unknown>).faixa || "TIMING_INDETERMINADO").slice(0, 40),
+        justificativa: String((parsed.timing as Record<string, unknown>).justificativa || "").slice(0, 300),
+        acao_recomendada: String((parsed.timing as Record<string, unknown>).acao_recomendada || "").slice(0, 300),
+      } : undefined,
+      perfil_profissional: parsed.perfil_profissional && typeof parsed.perfil_profissional === "object" ? {
+        persona: String((parsed.perfil_profissional as Record<string, unknown>).persona || "").slice(0, 80),
+        porte: String((parsed.perfil_profissional as Record<string, unknown>).porte || "indefinido").slice(0, 40),
+        maturidade_digital: String((parsed.perfil_profissional as Record<string, unknown>).maturidade_digital || "indefinido").slice(0, 40),
+        tom_recomendado: String((parsed.perfil_profissional as Record<string, unknown>).tom_recomendado || "consultivo").slice(0, 40),
+        gatilhos_de_valor: Array.isArray((parsed.perfil_profissional as Record<string, unknown>).gatilhos_de_valor)
+          ? ((parsed.perfil_profissional as Record<string, unknown>).gatilhos_de_valor as unknown[]).slice(0, 4).map((x) => String(x).slice(0, 80)).filter(Boolean)
+          : [],
+      } : undefined,
       perguntas_spin: {
         situacao: arrStr(parsed.perguntas_spin?.situacao, 9) || seed.perguntas_spin.situacao,
         problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,

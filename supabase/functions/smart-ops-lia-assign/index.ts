@@ -786,8 +786,9 @@ async function updateExistingDeal(
     }
   }
 
-  // Add structured HTML note for PipeRun
-  await postRichSellerNote(apiToken, dealId, lead, supabase, formResponses);
+  // Briefing do vendedor: SOMENTE no momento de criação no Funil Comercial / Sem contato.
+  // updateExistingDeal NUNCA dispara briefing (regra do produto).
+  console.log(`[lia-assign] Skip seller briefing on updateExistingDeal (deal=${dealId}) — only created-in-VENDAS/SEM_CONTATO posts briefing.`);
 }
 
 /**
@@ -820,10 +821,14 @@ async function moveDealToVendas(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
-  // Add structured reactivation note (HTML)
-  await postRichSellerNote(apiToken, dealId, lead, supabase, formResponses, {
-    headerPrefix: `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>`,
-  });
+  // Briefing apenas se aterrissar em VENDAS/SEM_CONTATO.
+  if (stageId === STAGES_VENDAS.SEM_CONTATO) {
+    await postRichSellerNote(apiToken, dealId, lead, supabase, formResponses, {
+      headerPrefix: `<b>🔄 [Dra. L.I.A.] Deal reativado: Estagnados → Funil de Vendas (Sem contato)</b><br><br>`,
+    });
+  } else {
+    console.log(`[lia-assign] Skip seller briefing on moveDealToVendas — stage=${stageId} ≠ SEM_CONTATO`);
+  }
 }
 
 /**
@@ -888,7 +893,12 @@ async function createNewDeal(
         }
       }
       // Add structured HTML note for PipeRun
-      await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
+      // Gate: briefing somente para criação em Funil Comercial (VENDAS) / Sem contato.
+      if (pipelineId === PIPELINES.VENDAS && stageId === STAGES_VENDAS.SEM_CONTATO) {
+        await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
+      } else {
+        console.log(`[lia-assign] Skip seller briefing on createNewDeal — pipeline=${pipelineId} stage=${stageId} (only VENDAS/SEM_CONTATO posts briefing)`);
+      }
       return dealId;
     }
   }
