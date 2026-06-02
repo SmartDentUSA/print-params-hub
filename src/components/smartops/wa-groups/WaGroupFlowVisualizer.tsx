@@ -84,10 +84,20 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
   if (loading) return <Skeleton className="h-96 w-full" />;
   if (!campaign) return <p className="text-muted-foreground">Campanha não encontrada.</p>;
 
-  const total = queue.length;
-  const sent = queue.filter(q => q.status === "sent").length;
-  const failed = queue.filter(q => q.status === "failed").length;
-  const pending = queue.filter(q => q.status === "pending").length;
+  // Filtrar apenas linhas correspondentes a nós que ainda existem no editor de fluxo atual
+  const flowNodes: any[] = Array.isArray((campaign as any).flow_json) ? (campaign as any).flow_json : [];
+  const visibleQueue = queue.filter((row) => {
+    const node = flowNodes[row.node_index];
+    if (!node) return false;
+    // Defensive: se o tipo do nó mudou na mesma posição, esconde resíduo
+    if (node.type && row.node_type && node.type !== row.node_type) return false;
+    return true;
+  });
+
+  const total = visibleQueue.length;
+  const sent = visibleQueue.filter(q => q.status === "sent").length;
+  const failed = visibleQueue.filter(q => q.status === "failed").length;
+  const pending = visibleQueue.filter(q => q.status === "pending").length;
 
   return (
     <div className="space-y-4">
@@ -101,7 +111,15 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
               {campaign.started_at && <> · Iniciada em {new Date(campaign.started_at).toLocaleString("pt-BR")}</>}
             </p>
           </div>
-          <div className="flex gap-3 text-sm">
+          <div className="flex items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={fetchAll}
+              className="text-xs px-2 py-1 rounded border hover:bg-muted transition"
+              title="Atualizar agora"
+            >
+              ↻ Atualizar
+            </button>
             <div className="text-center"><div className="font-semibold text-emerald-600">{sent}</div><div className="text-[10px] text-muted-foreground">Enviadas</div></div>
             <div className="text-center"><div className="font-semibold">{pending}</div><div className="text-[10px] text-muted-foreground">Pendentes</div></div>
             <div className="text-center"><div className="font-semibold text-red-600">{failed}</div><div className="text-[10px] text-muted-foreground">Falhas</div></div>
@@ -113,10 +131,10 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
       {/* Timeline */}
       <div className="relative pl-6 space-y-3">
         <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
-        {queue.length === 0 && (
+        {visibleQueue.length === 0 && (
           <p className="text-sm text-muted-foreground italic">Nenhuma mensagem na fila.</p>
         )}
-        {queue.map((row) => {
+        {visibleQueue.map((row) => {
           const Icon = typeIcon[row.node_type] ?? MessageSquare;
           const StatusIcon =
             row.status === "sent" ? CheckCircle2 :
