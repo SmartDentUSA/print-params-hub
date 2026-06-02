@@ -23,6 +23,16 @@ interface Props {
   /** Quando true, o modal mostra um passo de segmentação (picker) incluindo grupos não-admin. */
   pickerMode?: boolean;
   instanceFilter?: string;
+  /** Valores iniciais para pré-preencher o blast (ex.: vindos de uma publicação histórica). */
+  initial?: {
+    type?: MsgType;
+    text?: string;
+    mediaUrl?: string;
+    caption?: string;
+    linkTitle?: string;
+    linkUrl?: string;
+    linkDesc?: string;
+  };
 }
 
 export function WaGroupBlastModal({
@@ -31,6 +41,7 @@ export function WaGroupBlastModal({
   selectedGroupNames: presetNames = [],
   pickerMode = false,
   instanceFilter,
+  initial,
 }: Props) {
   const [type, setType] = useState<MsgType>("msg");
   const [text, setText] = useState("");
@@ -47,6 +58,18 @@ export function WaGroupBlastModal({
   const [pickedIds, setPickedIds] = useState<string[]>([]);
   const [pickedJids, setPickedJids] = useState<string[]>([]);
   const [pickedNames, setPickedNames] = useState<string[]>([]);
+
+  // Aplica valores iniciais quando o modal abre
+  useEffect(() => {
+    if (!open || !initial) return;
+    if (initial.type) setType(initial.type);
+    if (initial.text !== undefined) setText(initial.text);
+    if (initial.mediaUrl !== undefined) setMediaUrl(initial.mediaUrl);
+    if (initial.caption !== undefined) setCaption(initial.caption);
+    if (initial.linkTitle !== undefined) setLinkTitle(initial.linkTitle);
+    if (initial.linkUrl !== undefined) setLinkUrl(initial.linkUrl);
+    if (initial.linkDesc !== undefined) setLinkDesc(initial.linkDesc);
+  }, [open, initial]);
 
   const selectedGroupJids = pickerMode ? pickedJids : presetJids;
   const selectedGroupNames = pickerMode ? pickedNames : presetNames;
