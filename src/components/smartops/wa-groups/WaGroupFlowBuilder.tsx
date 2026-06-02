@@ -630,6 +630,27 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                         />
                       </>
                     )}
+
+                    {n.type === "button" && (
+                      <ConfigButton
+                        node={n as ButtonNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<ButtonNode>)}
+                      />
+                    )}
+
+                    {n.type === "list" && (
+                      <ConfigList
+                        node={n as ListNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<ListNode>)}
+                      />
+                    )}
+
+                    {n.type === "carousel" && (
+                      <ConfigCarousel
+                        node={n as CarouselNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<CarouselNode>)}
+                      />
+                    )}
                   </Card>
                 );
               })}
