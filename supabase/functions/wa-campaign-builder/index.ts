@@ -186,6 +186,14 @@ function buildContent(node: Record<string, unknown>): Record<string, unknown> {
     case 'audio':
     case 'document': return { media_url: node.media_url, caption: node.caption ?? '', file_name: node.file_name ?? null, mime_type: node.mime_type ?? null }
     case 'link':  return { title: node.title, description: node.description, url: node.url }
+    case 'post_ig':
+    case 'post_yt': return {
+      post_url: node.post_url,
+      caption: node.caption ?? '',
+      titulo: node.titulo ?? '',
+      thumbnail_url: node.thumbnail_url ?? null,
+      social_post_id: node.social_post_id ?? null,
+    }
     default:      return { raw: node }
   }
 }
