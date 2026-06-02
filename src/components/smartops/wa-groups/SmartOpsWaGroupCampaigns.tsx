@@ -22,6 +22,7 @@ import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
 import { WaCampaignHealthBadge } from "./WaCampaignHealthBadge";
 import { WaGroupSessionBadge } from "./WaGroupSessionBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { HistoricalPostBroadcast } from "@/components/social/broadcasts/HistoricalPostBroadcast";
 
 const statusVariant: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
