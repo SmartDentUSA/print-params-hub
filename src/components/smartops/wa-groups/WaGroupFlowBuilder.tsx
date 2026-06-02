@@ -866,7 +866,11 @@ function ConfigCarousel({ node, onChange }: { node: CarouselNode; onChange: (p: 
               <Trash2 className="w-3 h-3" />
             </Button>
           </div>
-          <Input value={card.image ?? ""} onChange={(e) => updateCard(ci, { image: e.target.value })} placeholder="URL da imagem (opcional)" />
+          <WaMediaUploader
+            kind="image"
+            value={card.image ?? ""}
+            onChange={({ media_url }) => updateCard(ci, { image: media_url })}
+          />
           <Textarea value={card.body} onChange={(e) => updateCard(ci, { body: e.target.value })} placeholder="Texto do card" rows={2} />
           <div className="space-y-1.5 pl-2">
             {card.buttons.map((b, bi) => (
