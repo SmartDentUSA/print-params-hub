@@ -88,6 +88,23 @@ async function dispatch(supabase: any, apiKey: string, broadcastId: string): Pro
     });
   }
 
+  // Defensive: legacy rows may have stored profile/account as JSON objects instead of ID strings.
+  const extractId = (v: any): string => {
+    if (!v) return '';
+    if (typeof v === 'string') {
+      // Sometimes stored as a JSON-encoded object string
+      const t = v.trim();
+      if (t.startsWith('{')) {
+        try { const p = JSON.parse(t); return p?._id ?? p?.id ?? ''; } catch { return v; }
+      }
+      return v;
+    }
+    if (typeof v === 'object') return v._id ?? v.id ?? '';
+    return String(v);
+  };
+  const profileIdStr = extractId(acc.zernio_profile_id);
+  const accountIdStr = extractId(acc.zernio_account_id);
+
   await supabase.from('social_broadcasts').update({ status: 'dispatching' }).eq('id', broadcastId);
 
   // Audiência: social_contacts filtrado por canal + tags + flags
@@ -129,8 +146,8 @@ async function dispatch(supabase: any, apiKey: string, broadcastId: string): Pro
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      profileId: acc.zernio_profile_id,
-      accountId: acc.zernio_account_id,
+      profileId: profileIdStr,
+      accountId: accountIdStr,
       platform: acc.platform,
       name: b.name?.slice(0, 80) || `Broadcast ${broadcastId.slice(0, 6)}`,
       message: { text: finalText },
