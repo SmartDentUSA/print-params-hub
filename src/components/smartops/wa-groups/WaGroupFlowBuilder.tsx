@@ -209,6 +209,16 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if ((n.type === "post_ig" || n.type === "post_yt") && !(n as SocialPostNode).post_url?.trim()) {
         errors.push(`${tag}: selecione uma publicação.`);
       }
+      if ((n.type === "link_ig" || n.type === "link_yt") && !(n as SocialLinkNode).url?.trim()) {
+        errors.push(`${tag}: selecione um link.`);
+      }
+      if (n.type === "promo_seq") {
+        const p = n as PromoSeqNode;
+        if (!p.produto_slug) errors.push(`${tag}: selecione um produto.`);
+        const enabled = (p.messages ?? []).filter((m) => m.enabled && m.content.trim()).length;
+        if (enabled === 0) errors.push(`${tag}: carregue as mensagens do Sistema A.`);
+        if (!p.interval_seconds || p.interval_seconds < 60) errors.push(`${tag}: intervalo mínimo 60s.`);
+      }
       if (n.type === "wait") {
         const d = (n as WaitNode).days ?? 0;
         const h = (n as WaitNode).hours ?? 0;
