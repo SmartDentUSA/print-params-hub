@@ -18,7 +18,7 @@ async function getProduct(slug: string): Promise<any | null> {
   const c = productCache.get(slug);
   if (c && Date.now() - c.at < 5 * 60_000) return c.data;
   try {
-    const r = await fetch(KNOWLEDGE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 500 }) });
+    const r = await fetch(`${KNOWLEDGE_URL}?limit=500&include=products`, { method: 'GET' });
     const j = await r.json();
     const prod = (j?.products ?? []).find((p: any) => p?.slug === slug) ?? null;
     productCache.set(slug, { at: Date.now(), data: prod });
