@@ -78,6 +78,87 @@ function getModelConfig(modelId: ModelId) {
   };
 }
 
+// --- AUTO-FALLBACK ENTRE PROVEDORES ---
+// Quando o provedor solicitado responde 402 / "insufficient_credits" / "billing_error",
+// o Copilot escala automaticamente para o próximo provedor com API key configurada.
+// Ordem padrão (sem duplicar o solicitado):
+//   1) modelo pedido pelo usuário
+//   2) deepseek-pro
+//   3) claude (se COPILOT_ALLOW_CLAUDE e key)
+//   4) gemini-flash
+function buildFallbackChain(requested: ModelId): ModelId[] {
+  const order: ModelId[] = [requested, "deepseek-pro", "claude", "gemini-flash"];
+  const seen = new Set<string>();
+  const chain: ModelId[] = [];
+  for (const id of order) {
+    const cfg = getModelConfig(id);
+    if (!cfg.apiKey) continue;
+    const key = `${cfg.url}|${cfg.model}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    chain.push(id);
+  }
+  return chain;
+}
+
+function isOutOfCreditsError(status: number, bodyText: string): boolean {
+  if (status === 402) return true;
+  const t = (bodyText || "").toLowerCase();
+  if (status === 401 || status === 403 || status === 400 || status === 429) {
+    if (/insufficient|insufficient_balance|insufficient_quota|out of credit|credit|quota|billing|payment required|balance/.test(t)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function callChatWithFallback(
+  chain: ModelId[],
+  buildBody: (cfg: ReturnType<typeof getModelConfig>) => any,
+): Promise<{ ok: boolean; response?: Response; bodyText?: string; config: ReturnType<typeof getModelConfig>; modelId: ModelId; attempts: Array<{ modelId: ModelId; status: number; reason: string }>; exhausted?: boolean; lastStatus?: number; lastBody?: string }> {
+  const attempts: Array<{ modelId: ModelId; status: number; reason: string }> = [];
+  let lastStatus = 0;
+  let lastBody = "";
+  for (let i = 0; i < chain.length; i++) {
+    const modelId = chain[i];
+    const cfg = getModelConfig(modelId);
+    try {
+      const resp = await fetch(cfg.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${cfg.apiKey}` },
+        body: JSON.stringify(buildBody(cfg)),
+      });
+      if (resp.ok) {
+        return { ok: true, response: resp, config: cfg, modelId, attempts };
+      }
+      const txt = await resp.text();
+      lastStatus = resp.status;
+      lastBody = txt;
+      const credit = isOutOfCreditsError(resp.status, txt);
+      attempts.push({ modelId, status: resp.status, reason: credit ? "out_of_credits" : `http_${resp.status}` });
+      console.warn(`[Copilot/fallback] ${cfg.label} → HTTP ${resp.status} ${credit ? "(sem créditos, tentando próximo)" : "(erro não-fallback)"} ${txt.slice(0, 200)}`);
+      if (!credit) {
+        // Erro real (rate limit, schema, 5xx) → não escalonar, devolve agora.
+        return { ok: false, config: cfg, modelId, attempts, lastStatus: resp.status, lastBody: txt };
+      }
+      // Loga em system_health_logs (fire-and-forget) cada provedor sem crédito.
+      supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-copilot",
+        severity: "warning",
+        error_type: "provider_out_of_credits",
+        details: { provider: cfg.label, model: cfg.model, status: resp.status, body: txt.slice(0, 500) },
+      }).then(() => {}, () => {});
+    } catch (e: any) {
+      lastStatus = 0;
+      lastBody = e?.message || String(e);
+      attempts.push({ modelId, status: 0, reason: `exception:${lastBody.slice(0, 120)}` });
+      console.error(`[Copilot/fallback] ${cfg.label} → exception`, e);
+      // Continua para o próximo provedor em caso de exceção de rede também.
+    }
+  }
+  return { ok: false, config: getModelConfig(chain[chain.length - 1]), modelId: chain[chain.length - 1], attempts, exhausted: true, lastStatus, lastBody };
+}
+
 // --- TOOLS (same as before) ---
 const tools = [
   {
@@ -2463,20 +2544,23 @@ serve(async (req) => {
     const { messages, csv_data, model: requestedModel } = await req.json();
 
     // Determine which model to use (legacy "deepseek" → "deepseek-pro").
-    const modelId: ModelId =
+    let modelId: ModelId =
       requestedModel === "gemini" ? "gemini"
       : requestedModel === "claude" ? "claude"
       : requestedModel === "deepseek-flash" ? "deepseek-flash"
       : requestedModel === "deepseek-pro" ? "deepseek-pro"
       : "deepseek-pro";
-    const config = getModelConfig(modelId);
+    let config = getModelConfig(modelId);
+    const requestedModelId = modelId;
+    const fallbackChain = buildFallbackChain(modelId);
+    let providerSwitched = false;
+    let switchedFromLabel = "";
+    let switchedToLabel = "";
 
     // Validate API key
-    if (!config.apiKey) {
+    if (fallbackChain.length === 0) {
       const errorMsg =
-        modelId === "gemini" ? "LOVABLE_API_KEY não configurada. Gemini indisponível."
-        : modelId === "claude" ? "ANTHROPIC_API_KEY não configurada. Claude indisponível."
-        : "DEEPSEEK_API_KEY não configurada.";
+        "Nenhum provedor de IA configurado. Configure LOVABLE_API_KEY, DEEPSEEK_API_KEY ou ANTHROPIC_API_KEY.";
       return new Response(JSON.stringify({ error: errorMsg }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
@@ -2555,41 +2639,52 @@ serve(async (req) => {
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       console.log(`[Copilot] Iteration ${iteration + 1}/${MAX_ITERATIONS} using ${config.label}`);
-      
-      const response = await fetch(config.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          messages: currentMessages,
-          tools: actionTools,
-          tool_choice: "auto",
-          stream: false,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-        })
-      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`${config.label} error:`, response.status, errText);
-        
-        if (response.status === 429) {
+      // Cadeia começa pelo provedor ativo atual, depois os demais na ordem padrão.
+      const iterChain = buildFallbackChain(modelId);
+      const callRes = await callChatWithFallback(iterChain, (cfg) => ({
+        model: cfg.model,
+        messages: currentMessages,
+        tools: actionTools,
+        tool_choice: "auto",
+        stream: false,
+        temperature: cfg.temperature,
+        max_tokens: cfg.maxTokens,
+      }));
+
+      if (!callRes.ok) {
+        if (callRes.exhausted) {
+          return new Response(JSON.stringify({
+            reply: "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.",
+            error: "all_providers_exhausted",
+            attempts: callRes.attempts,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const status = callRes.lastStatus ?? 0;
+        if (status === 429) {
           return new Response(JSON.stringify({ reply: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ reply: "💳 Créditos insuficientes na Lovable AI. Adicione créditos em Settings → Workspace → Usage para continuar usando o Copilot.", error: "insufficient_credits" }), {
-            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-        
-        return new Response(JSON.stringify({ reply: `⚠️ Erro ao chamar ${config.label} (${response.status}). Tente novamente.`, error: `provider_${response.status}` }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({
+          reply: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
+          error: `provider_${status}`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // Se trocou de provedor, atualiza config ativa para próximas iterações.
+      if (callRes.modelId !== modelId) {
+        if (!providerSwitched) {
+          providerSwitched = true;
+          switchedFromLabel = config.label;
+        }
+        switchedToLabel = callRes.config.label;
+        modelId = callRes.modelId;
+        config = callRes.config;
+        console.log(`[Copilot] Provedor trocado → ${config.label}`);
+      }
+
+      const response = callRes.response!;
       const result = await response.json();
       const choice = result.choices?.[0];
       
@@ -2627,7 +2722,11 @@ serve(async (req) => {
           const canal = userAskedForSms ? "SMS" : "WhatsApp";
           content = `❌ Nenhum ${canal} foi disparado. O agente não executou a ferramenta de envio neste turno. Tente novamente com algo como: "envia ${canal} para o lead <email/telefone>: <mensagem>".`;
         }
-        
+
+        if (providerSwitched) {
+          content = `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n${content}`;
+        }
+
         // Log usage
         logAIUsage({
           functionName: "smart-ops-copilot",
@@ -2635,7 +2734,7 @@ serve(async (req) => {
           model: config.model,
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
-          metadata: { iterations: iteration + 1, modelId }
+          metadata: { iterations: iteration + 1, modelId, providerSwitched, requestedModelId }
         });
         
         // Simulate SSE stream from the existing content (no duplicate API call!)
@@ -2707,36 +2806,45 @@ serve(async (req) => {
     });
 
     try {
-      const summaryResp = await fetch(config.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          messages: currentMessages,
-          stream: false,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-        })
-      });
+      const sumChain = buildFallbackChain(modelId);
+      const sumRes = await callChatWithFallback(sumChain, (cfg) => ({
+        model: cfg.model,
+        messages: currentMessages,
+        stream: false,
+        temperature: cfg.temperature,
+        max_tokens: cfg.maxTokens,
+      }));
 
-      if (summaryResp.ok) {
-        const summaryResult = await summaryResp.json();
+      if (sumRes.ok && sumRes.response) {
+        if (sumRes.modelId !== modelId) {
+          if (!providerSwitched) {
+            providerSwitched = true;
+            switchedFromLabel = config.label;
+          }
+          switchedToLabel = sumRes.config.label;
+          modelId = sumRes.modelId;
+          config = sumRes.config;
+        }
+        const summaryResult = await sumRes.response.json();
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Operação concluída. Os dados foram processados com sucesso.";
-        
+
         const summaryUsage = extractUsage(summaryResult);
         totalPromptTokens += summaryUsage.prompt_tokens;
         totalCompletionTokens += summaryUsage.completion_tokens;
-        
+
         logAIUsage({
           functionName: "smart-ops-copilot",
           actionLabel: `copilot-chat-${config.label}-summary`,
           model: config.model,
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
-          metadata: { iterations: MAX_ITERATIONS, fallback: true, modelId }
+          metadata: { iterations: MAX_ITERATIONS, fallback: true, modelId, providerSwitched, requestedModelId }
         });
-        
-        const sseStream = createSSEFromText(summaryContent);
+
+        const banner = providerSwitched
+          ? `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n`
+          : "";
+        const sseStream = createSSEFromText(banner + summaryContent);
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
