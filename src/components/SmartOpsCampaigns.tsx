@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
 import { toast } from "sonner";
@@ -2159,7 +2160,14 @@ function CampaignHistory() {
 // MAIN COMPONENT
 // ══════════════════════════════════════════
 export function SmartOpsCampaigns() {
-  const [activeTab, setActiveTab] = useState("biblioteca");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("sub") || "biblioteca";
+  const setActiveTab = (val: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("sub", val);
+    if (!next.get("tab")) next.set("tab", "campanhas");
+    setSearchParams(next, { replace: true });
+  };
   const [preSelectedContent, setPreSelectedContent] = useState<ContentItem | null>(null);
 
   const handleSelectContent = (content: ContentItem) => {

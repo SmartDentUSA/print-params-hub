@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,13 @@ import { SmartOpsCampaigns } from "./SmartOpsCampaigns";
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "bowtie";
+  const setActiveTab = (val: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", val);
+    setSearchParams(next, { replace: true });
+  };
 
   const handleSyncPipeRun = async () => {
     setSyncing(true);
@@ -72,7 +80,7 @@ export function SmartOpsTab() {
         </div>
       </div>
 
-      <Tabs defaultValue="bowtie" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1" style={{ display: 'flex' }}>
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Público / Lista</TabsTrigger>
