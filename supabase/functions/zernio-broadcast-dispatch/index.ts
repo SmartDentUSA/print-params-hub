@@ -146,8 +146,8 @@ async function dispatch(supabase: any, apiKey: string, broadcastId: string): Pro
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      profileId: acc.zernio_profile_id,
-      accountId: acc.zernio_account_id,
+      profileId: profileIdStr,
+      accountId: accountIdStr,
       platform: acc.platform,
       name: b.name?.slice(0, 80) || `Broadcast ${broadcastId.slice(0, 6)}`,
       message: { text: finalText },
