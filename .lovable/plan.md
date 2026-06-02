@@ -1,61 +1,44 @@
-# IA + Conteúdo — mensagem estilo WA + link automático
+## Objetivo
 
-## Problema
-O nó "IA + Conteúdo" (Artigos | Produtos | Vídeos) já gera mensagem via IA (DeepSeek/Gemini), mas:
-1. Não inclui o **link público** do conteúdo no sistema.
-2. O tom não está calibrado como "mensagem de grupo de WhatsApp" (hoje é "marketing profissional", curto demais e sem chamada para clicar).
-
-## Escopo
-Backend apenas. Dois arquivos:
-- `supabase/functions/wa-dispatcher/index.ts` (envio real)
-- `supabase/functions/wa-ai-preview/index.ts` (preview no builder)
-
-Nenhuma mudança de schema, nenhuma mudança de frontend, nenhuma mudança no `wa-campaign-builder`.
+1. Ao clicar em **Voltar** no visualizador de fluxo, retornar para **Admin → aba Campanhas → sub-aba Grupos WA**, com o estado preservado (em vez de cair na aba Bowtie padrão).
+2. No **visualizador de fluxo**, adicionar um botão **Atualizar** e mostrar **apenas as mensagens que existem no editor de fluxo atual** (`flow_json` da campanha), escondendo linhas legadas da fila vindas de versões anteriores do fluxo.
 
 ## Mudanças
 
-### 1. Resolver URL pública por tipo
+### 1. Preservar aba via URL (`?tab=...&sub=...`)
 
-Estender as queries em ambas funções para também buscar slug/categoria e montar a URL canônica:
+**`src/components/SmartOpsTab.tsx`**
+- Trocar `<Tabs defaultValue="bowtie">` por um `Tabs` controlado lendo/escrevendo `searchParams.get("tab")` (`useSearchParams` do `react-router-dom`).
+- `onValueChange` faz `setSearchParams({ tab }, { replace: true })`, mantendo `sub` se presente.
+- Default continua `"bowtie"` quando não há param.
 
-- **article** (`knowledge_contents`): `select title, excerpt, content_html, slug, knowledge_categories!inner(letter)` → URL = `https://parametros.smartdent.com.br/base-conhecimento/{letter}/{slug}`
-- **product** (`system_a_catalog`): `select name, description, category, slug` → URL = `https://parametros.smartdent.com.br/produtos/{slug}` (omite se sem slug)
-- **video** (`knowledge_videos`): `select title, description, url, embed_url, content_id` → preferir `url` direta do vídeo (YouTube/Panda); se não houver, omitir link
+**`src/components/SmartOpsCampaigns.tsx`**
+- Tornar o `Tabs` interno também controlado pelo searchParam `sub` (default = `"biblioteca"`).
+- Ao trocar de sub-aba, atualizar `sub` na URL preservando `tab=campanhas`.
 
-Constante `PUBLIC_SITE_URL` no topo do arquivo, default `https://parametros.smartdent.com.br`, override via `Deno.env.get('PUBLIC_SITE_URL')`.
+### 2. Visualizador: voltar para o lugar certo + botão Atualizar
 
-### 2. System prompt — tom de grupo de WA
+**`src/pages/WaFlowVisualizerPage.tsx`**
+- Trocar `navigate(-1)` por `navigate("/admin?tab=campanhas&sub=grupos-wa")`.
+- Adicionar botão **Atualizar** (ícone `RefreshCw`) ao lado do "Voltar", que dispara um `refreshKey` passado ao `WaGroupFlowVisualizer` via prop (`key={refreshKey}` força refetch) ou expondo um `ref`/callback. Vou usar a abordagem simples de `key`.
 
-Substituir o atual por algo como:
+### 3. Filtrar somente nós do fluxo atual
 
-```
-Você escreve mensagens curtas para grupo de WhatsApp da Smart Dent
-(dentistas e laboratórios de prótese).
-Estilo: conversa de grupo — caloroso, direto, 1ª pessoa do plural ("a gente",
-"olha isso"), 1–3 linhas curtas, máximo 2 emojis no texto, sem hashtags,
-sem títulos formais, sem assinatura. Termine com chamada curta para o link
-(ex.: "Dá uma olhada aqui 👇", "Confere aí 👇"). Sem preços (política).
-O link será adicionado automaticamente na linha seguinte — NÃO insira URL no corpo.
-```
+**`src/components/smartops/wa-groups/WaGroupFlowVisualizer.tsx`**
+- Ao carregar a campanha, ler `campaign.flow_json` (array de nós).
+- Construir um set de `node_index` válidos: `validIdx = new Set(flow_json.map((_, i) => i))`.
+- Filtrar `queue` para manter apenas `row.node_index ∈ validIdx`.
+- Opcional defensivo: também checar que `row.node_type` casa com `flow_json[row.node_index].type` (se não bater → também esconder, é resíduo de versão antiga).
+- Botão Atualizar local também (header do card) chamando `fetchAll()` manualmente, em vez de só depender do `key` da página — assim o usuário tem refresh instantâneo sem perder scroll.
 
-### 3. Anexar link após a geração
+## Detalhes técnicos
 
-Depois da resposta da IA (DeepSeek/Gemini ou fallback):
-- Se houver `url` resolvida: `text = `${text.trim()}\n${url}``
-- Se não houver: retorna só o texto (comportamento atual).
+- `flow_json` já existe em `wa_campaigns` e é lido pelo builder; é a fonte de verdade do "fluxo em ação".
+- Nenhuma mudança no backend / `wa-dispatcher` / `wa-message-queue` — somente filtro de apresentação.
+- Realtime continua igual; o filtro é aplicado depois de cada `fetchAll`.
+- Os links que abrem o visualizador (em `SmartOpsWaGroupCampaigns.tsx` linhas 502 e 688) continuam iguais — quando a página `/admin` recarrega via Voltar, a URL `?tab=campanhas&sub=grupos-wa` restaura a posição.
 
-Fallback final quando IA falha:
-- Com link: `${title} — confere aí 👇\n${url}`
-- Sem link: mantém `${title} — confira o conteúdo completo em nosso portal! 📲`
+## Fora de escopo
 
-### 4. Manter compatibilidade
-
-- `ai_prompt_override` continua respeitado; quando usado, o link ainda é anexado ao final (a menos que o override já contenha `http`).
-- `max_tokens` aumenta de 150 → 220 no dispatcher (alinhar com preview) para acomodar mensagem 1–3 linhas + variação.
-- Preview e dispatcher devem usar **a mesma função** de resolução. Como hoje duplicam a lógica, vou extrair `resolveAIContent()` para `supabase/functions/_shared/wa-ai-content.ts` e importar nos dois — fonte única de verdade do prompt, da URL e do fallback.
-
-## Out of scope
-- Mudança no UI do builder.
-- Templates por categoria/idioma.
-- Encurtador de URL (deixa link cru; WhatsApp gera preview).
-- Mudança no schema do `flow_json`.
+- Não mexer em `wa-dispatcher`, builder, ou schema.
+- Não alterar comportamento de envio nem do modo incremental.
