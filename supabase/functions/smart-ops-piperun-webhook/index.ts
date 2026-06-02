@@ -1266,7 +1266,16 @@ Deno.serve(async (req) => {
     // ─── Seller Summary Note → PipeRun (idempotent via hash) ───
     try {
       const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
-      if (PIPERUN_API_KEY && dealId) {
+      // Gate: only post seller briefing when the deal is in Funil de Vendas (Comercial) → "Sem contato".
+      // Em qualquer outra etapa/funil, NÃO postar (regra do produto).
+      const briefingAllowed =
+        ids.pipelineId === PIPELINES.VENDAS && ids.stageId === STAGES_VENDAS.SEM_CONTATO;
+      if (!briefingAllowed) {
+        console.log(
+          `[piperun-webhook] Skip seller note — pipeline=${ids.pipelineId} stage=${ids.stageId} (only VENDAS/SEM_CONTATO allowed)`
+        );
+      }
+      if (PIPERUN_API_KEY && dealId && briefingAllowed) {
         const { data: fullLead } = await supabase
           .from("lia_attendances")
           .select("*")
