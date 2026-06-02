@@ -18,16 +18,18 @@ import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
   Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
-  Hand, List as ListIcon, LayoutList,
+  Hand, List as ListIcon, LayoutList, Instagram, Youtube,
 } from "lucide-react";
 import type {
   FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode,
   ButtonNode, ButtonItem, ButtonItemType,
   ListNode, ListSection, ListRow,
   CarouselNode, CarouselCard, CarouselCardButton,
+  SocialPostNode,
 } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
+import { SocialPostLinkPicker, type SocialPostPickResult } from "@/components/social/flows/SocialPostLinkPicker";
 
 interface Props {
   open: boolean;
