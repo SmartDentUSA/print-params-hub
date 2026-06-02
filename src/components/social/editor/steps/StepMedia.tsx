@@ -1,9 +1,19 @@
-import { useRef } from 'react';
-import { Upload, X, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { useMediaUpload } from '@/hooks/social/useMediaUpload';
-import type { PostInput, MediaItem } from '@/lib/social/postSchema';
+import { useState } from 'react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { MediaItemsEditor } from '../MediaItemsEditor';
+import type { PostInput } from '@/lib/social/postSchema';
+
+const PLATFORM_LIMITS: Record<string, { max: number; hint: string }> = {
+  instagram: { max: 10, hint: 'Carrossel IG: até 10 fotos/vídeos' },
+  facebook: { max: 10, hint: 'Até 10 itens' },
+  tiktok: { max: 1, hint: '1 vídeo (até 10 min)' },
+  youtube: { max: 1, hint: '1 vídeo (Shorts: vertical até 60s)' },
+  pinterest: { max: 1, hint: '1 imagem ou vídeo' },
+  reddit: { max: 1, hint: '1 mídia' },
+};
 
 interface Props {
   value: PostInput;
@@ -11,93 +21,84 @@ interface Props {
 }
 
 export function StepMedia({ value, onChange }: Props) {
-  const input = useRef<HTMLInputElement>(null);
-  const { upload, uploading, progress } = useMediaUpload();
+  const perChannel = value.per_channel_media ?? {};
+  const selectedPlatforms = Array.from(new Set(value.channels.map((c) => c.platform)));
+  const customEnabled = Object.keys(perChannel).length > 0;
+  const [showCustom, setShowCustom] = useState(customEnabled);
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const uploaded = await upload(files);
-    if (uploaded.length) onChange({ media_items: [...value.media_items, ...uploaded] });
+  const toggleCustom = (on: boolean) => {
+    setShowCustom(on);
+    if (!on) onChange({ per_channel_media: {} });
   };
 
-  const remove = (idx: number) =>
-    onChange({ media_items: value.media_items.filter((_, i) => i !== idx) });
-
-  const move = (idx: number, dir: -1 | 1) => {
-    const next: MediaItem[] = [...value.media_items];
-    const j = idx + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[idx], next[j]] = [next[j], next[idx]];
-    onChange({ media_items: next });
+  const setForPlatform = (platform: string, items: PostInput['media_items']) => {
+    const next = { ...perChannel };
+    if (items.length === 0) delete next[platform];
+    else next[platform] = items;
+    onChange({ per_channel_media: next });
   };
 
   return (
-    <div className="space-y-4">
-      <div
-        onClick={() => input.current?.click()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          handleFiles(e.dataTransfer.files);
-        }}
-        className={cn(
-          'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-          'hover:bg-muted/30',
-          uploading && 'pointer-events-none opacity-60',
-        )}
-      >
-        <input
-          ref={input}
-          type="file"
-          accept="image/*,video/*"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
+    <div className="space-y-6">
+      <div>
+        <Label className="text-sm font-medium">Mídia padrão (todas as plataformas sem override)</Label>
+        <p className="text-xs text-muted-foreground mb-2">
+          Para carrosséis do Instagram envie até 10 itens nesta lista.
+        </p>
+        <MediaItemsEditor
+          items={value.media_items}
+          onChange={(next) => onChange({ media_items: next })}
+          maxItems={10}
+          hint="Imagens ou vídeos (até 100MB cada)"
         />
-        {uploading ? (
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm">Enviando {progress}%</span>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <Upload className="w-8 h-8" />
-            <span className="text-sm">Arraste arquivos ou clique para selecionar</span>
-            <span className="text-xs">Imagens ou vídeos (até 100MB cada)</span>
-          </div>
-        )}
       </div>
 
-      {value.media_items.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {value.media_items.map((m, idx) => {
-            const vertical = m.width && m.height && m.height > m.width;
-            return (
-              <div key={`${m.url}-${idx}`} className="relative group border rounded-md overflow-hidden bg-muted">
-                <div className={cn(vertical ? 'aspect-[9/16]' : 'aspect-square')}>
-                  {m.type === 'video' ? (
-                    <video src={m.url} className="w-full h-full object-cover" muted />
-                  ) : (
-                    <img src={m.url} className="w-full h-full object-cover" alt="" />
-                  )}
-                </div>
-                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => move(idx, -1)} disabled={idx === 0}>
-                    <ArrowLeft className="w-3 h-3" />
-                  </Button>
-                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => move(idx, 1)} disabled={idx === value.media_items.length - 1}>
-                    <ArrowRight className="w-3 h-3" />
-                  </Button>
-                  <Button size="icon" variant="destructive" className="h-7 w-7" onClick={() => remove(idx)}>
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-                <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[10px] bg-black/60 text-white">
-                  {m.type} {idx + 1}
-                </span>
-              </div>
-            );
-          })}
+      {selectedPlatforms.length > 1 && (
+        <div className="border-t pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Customizar mídia por plataforma</Label>
+              <p className="text-xs text-muted-foreground">
+                Útil para TikTok vertical vs Instagram quadrado, por exemplo.
+              </p>
+            </div>
+            <Switch checked={showCustom} onCheckedChange={toggleCustom} />
+          </div>
+
+          {showCustom && (
+            <Tabs defaultValue={selectedPlatforms[0]}>
+              <TabsList className="w-full justify-start flex-wrap h-auto">
+                {selectedPlatforms.map((p) => (
+                  <TabsTrigger key={p} value={p} className="capitalize">
+                    {p}
+                    {perChannel[p]?.length ? (
+                      <Badge variant="secondary" className="ml-2">
+                        {perChannel[p].length}
+                      </Badge>
+                    ) : null}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {selectedPlatforms.map((p) => {
+                const limit = PLATFORM_LIMITS[p];
+                return (
+                  <TabsContent key={p} value={p} className="mt-3">
+                    <MediaItemsEditor
+                      items={perChannel[p] ?? []}
+                      onChange={(next) => setForPlatform(p, next)}
+                      maxItems={limit?.max}
+                      hint={limit?.hint}
+                    />
+                    {(perChannel[p]?.length ?? 0) === 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Sem override — usará a mídia padrão acima.
+                      </p>
+                    )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
+          )}
         </div>
       )}
     </div>
