@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Info } from 'lucide-react';
 import { MediaItemsEditor } from '../MediaItemsEditor';
 import type { PostInput } from '@/lib/social/postSchema';
 
@@ -18,13 +19,35 @@ const PLATFORM_LIMITS: Record<string, { max: number; hint: string }> = {
 interface Props {
   value: PostInput;
   onChange: (patch: Partial<PostInput>) => void;
+  onSplitIntoPosts?: (files: File[]) => void;
 }
 
-export function StepMedia({ value, onChange }: Props) {
+const CAROUSEL_SUPPORTED = ['instagram', 'facebook'];
+
+export function StepMedia({ value, onChange, onSplitIntoPosts }: Props) {
   const perChannel = value.per_channel_media ?? {};
   const selectedPlatforms = Array.from(new Set(value.channels.map((c) => c.platform)));
   const customEnabled = Object.keys(perChannel).length > 0;
   const [showCustom, setShowCustom] = useState(customEnabled);
+  const isCarousel = value.post_type === 'carousel' || value.media_items.length > 1;
+
+  useEffect(() => {
+    if (value.media_items.length > 1 && value.post_type !== 'carousel') {
+      onChange({ post_type: 'carousel' });
+    } else if (value.media_items.length <= 1 && value.post_type === 'carousel') {
+      onChange({ post_type: 'feed' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.media_items.length]);
+
+  useEffect(() => {
+    if (!isCarousel) return;
+    const filtered = value.channels.filter((c) => CAROUSEL_SUPPORTED.includes(c.platform));
+    if (filtered.length !== value.channels.length) {
+      onChange({ channels: filtered });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCarousel]);
 
   const toggleCustom = (on: boolean) => {
     setShowCustom(on);
@@ -40,6 +63,17 @@ export function StepMedia({ value, onChange }: Props) {
 
   return (
     <div className="space-y-6">
+      {isCarousel && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
+          <Info className="w-4 h-4 text-primary mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">Modo carrossel ativo</p>
+            <p className="text-muted-foreground">
+              Disponível em Instagram e Facebook. Canais não compatíveis (TikTok, YouTube, Pinterest, Reddit) foram removidos automaticamente.
+            </p>
+          </div>
+        </div>
+      )}
       <div>
         <Label className="text-sm font-medium">Mídia padrão (todas as plataformas sem override)</Label>
         <p className="text-xs text-muted-foreground mb-2">
@@ -50,6 +84,7 @@ export function StepMedia({ value, onChange }: Props) {
           onChange={(next) => onChange({ media_items: next })}
           maxItems={10}
           hint="Imagens ou vídeos (até 100MB cada)"
+          onSplitIntoPosts={onSplitIntoPosts}
         />
       </div>
 
