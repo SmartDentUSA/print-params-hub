@@ -1,45 +1,80 @@
-## Diagnóstico
+## Objetivo
 
-O botão “Gerar com IA” está chamando corretamente a Edge Function `social-caption-generator`, mas a função falha no backend com:
+Construir o componente `LinkPicker` — painel lateral com 4 fontes de links (manual, loja, formulários, publicações) — e plugá-lo no editor de fluxos sociais, dentro dos nós que enviam mensagem.
 
-```text
-Créditos Lovable AI esgotados. Adicione créditos.
+## Observação importante sobre o escopo
+
+A spec menciona a rota `/automacoes/[id]` e os tipos de nó `send_text`, `send_document`, `send_buttons`. Esses não existem no projeto hoje. O editor de fluxos atual é `/social/flows/:id` (`SocialFlowEditor.tsx`) e usa nós `send_dm`, `send_comment_reply`, `wait`, `condition`, `collect_input`, `set_tag`, `create_lead`, `end`.
+
+Plano: implemento o LinkPicker como componente reutilizável e o integro nos nós atuais que têm campo de mensagem (`send_dm`, `send_comment_reply`). Quando os nós `send_text`/`send_document`/`send_buttons` forem criados, basta importar o mesmo componente. **Confirme se quer que eu também crie esses novos tipos de nó nesta tarefa.**
+
+## Arquivos a criar
+
+- `src/components/social/flows/LinkPicker.tsx` — componente principal
+- `src/components/social/flows/link-picker/TabColarLink.tsx`
+- `src/components/social/flows/link-picker/TabLoja.tsx`
+- `src/components/social/flows/link-picker/TabFormularios.tsx`
+- `src/components/social/flows/link-picker/TabPublicacoes.tsx`
+- `src/hooks/social/useFlowLinkPicker.ts` — queries em `v_flow_link_picker` por `tipo`, com filtro de busca e debounce
+
+## Arquivos a editar
+
+- `src/components/social/flows/SocialFlowEditor.tsx` — no `NodeInspector` dos tipos `send_dm` e `send_comment_reply`, adicionar botão `+ Adicionar um link` abaixo do textarea de mensagem; ao selecionar, apenda no campo `message` e grava `link_url`, `link_titulo`, `link_tipo`, `link_thumbnail` em `cfg`.
+
+## Comportamento do componente
+
+Props:
+```ts
+{
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onSelect: (link: { url: string; titulo: string; tipo: 'manual'|'loja'|'formulario'|'publicacao'; thumbnail_url?: string }) => void;
+  initialTab?: 'manual' | 'loja' | 'formulario' | 'publicacao';
+  filterProduto?: string;
+}
 ```
 
-Hoje esse erro volta como HTTP 500 e a UI mostra uma falha genérica, então parece que o recurso “não funciona”. Também há um ponto técnico no backend: a função chama o Lovable AI Gateway com `Authorization: Bearer`, mas o padrão correto do Gateway é o header `Lovable-API-Key`.
+UI: `Sheet` (shadcn) lateral direito, largura 400px. Header `🔗 Adicionar link` + botão fechar. `Tabs` com 4 abas mostrando contagem dinâmica (`SELECT tipo, count(*) FROM v_flow_link_picker GROUP BY tipo`, cacheado).
 
-## Plano de correção
+### Aba "Colar link" (default)
+- Lista de "Links salvos anteriormente" no topo (query `social_flow_links_manuais ORDER BY created_at DESC LIMIT 10`), cada um com botão remover (DELETE).
+- Form com URL, Texto do link, Descrição (opcional), Switch "Salvar para usar em outros fluxos".
+- Botão `Inserir link`: se switch ligado → `INSERT social_flow_links_manuais` antes de chamar `onSelect`.
 
-1. **Corrigir a chamada ao Lovable AI Gateway**
-   - Trocar o header incorreto `Authorization: Bearer ...` por `Lovable-API-Key: ...`.
-   - Adicionar `X-Lovable-AIG-SDK` para telemetria correta.
-   - Trocar o modelo atual `google/gemini-2.5-flash` por um modelo mais leve/custo-eficiente para copy curta, reduzindo chance de falhas por crédito.
+### Aba "Loja"
+- Busca com debounce 300ms + `Select` de categorias (distinct da view).
+- Query `v_flow_link_picker WHERE tipo='loja' AND (titulo ILIKE %q% OR categoria ILIKE %q%) ORDER BY titulo LIMIT 50`.
+- Item: thumbnail 40x40 (fallback ícone 🛒), título, host extraído da url, chevron.
+- Se `filterProduto` definido, pré-preenche busca.
 
-2. **Retornar status HTTP correto da Edge Function**
-   - Quando o Gateway retornar falta de créditos, responder `402` em vez de `500`.
-   - Quando retornar rate limit, responder `429`.
-   - Preservar mensagem clara em JSON para o frontend.
+### Aba "Formulários"
+- Sem busca. Query `WHERE tipo='formulario' ORDER BY titulo`.
+- Item: ícone 📋 azul 36x36, título, host da url.
 
-3. **Melhorar feedback no botão “Gerar com IA”**
-   - Ajustar `useGenerateCaption` para capturar status e payload da Edge Function.
-   - Mostrar erro específico quando faltar crédito: orientar “Adicionar créditos em Settings > Workspace > Usage”.
-   - Manter mensagem genérica apenas para erros inesperados.
+### Aba "Publicações"
+- Busca debounce 300ms em `titulo` e `descricao`.
+- Query `WHERE tipo='publicacao' AND (titulo ILIKE %q% OR descricao ILIKE %q%) ORDER BY titulo LIMIT 20`.
+- Lista scroll max-h 280px. Item: thumbnail 44x44 (fallback 📖), título truncado 2 linhas, badge "Base de Conhecimento".
 
-4. **Evitar retorno vazio quando a IA responder fora do formato**
-   - Validar se `caption`, `hashtags` e `first_comment` vieram preenchidos.
-   - Se o JSON vier inválido ou incompleto, retornar erro legível em vez de preencher campos vazios.
+### Ao selecionar (qualquer aba)
+1. Fecha o sheet.
+2. Chama `onSelect({ url, titulo, tipo, thumbnail_url? })`.
+3. O caller (NodeInspector) apenda no `cfg.message`:
+   ```
+   📎 {titulo}
+   URL: {url}
+   ```
+   e grava `cfg.link_url`, `cfg.link_titulo`, `cfg.link_tipo`, `cfg.link_thumbnail`.
 
-5. **Validar a função após a alteração**
-   - Reimplantar/testar `social-caption-generator`.
-   - Fazer uma chamada real de teste com instruções simples.
-   - Confirmar que, se ainda não houver créditos, a UI/backend retornam `402` claro em vez de falha silenciosa/500.
+## Stack visual
+- shadcn `Sheet`, `Tabs`, `Input`, `Select`, `Switch`, `ScrollArea`, `Badge`.
+- Tokens semânticos (`bg-primary/10`, `border-primary`, `text-muted-foreground`) — sem cores hard-coded.
+- Debounce com `setTimeout` local (sem nova dep).
 
-## Arquivos previstos
+## Fora de escopo
+- Worker `social-flow-engine` (apenas consome `link_url` quando existir — sem alteração necessária agora).
+- Extração `og:title` ao colar URL: deixo como TODO comentado (exigiria edge function de unfurl).
+- Criação dos nós `send_text`/`send_document`/`send_buttons` — só se confirmado.
 
-- `supabase/functions/social-caption-generator/index.ts`
-- `src/hooks/social/useGenerateCaption.ts`
-- `src/components/social/editor/steps/StepContent.tsx`
-
-## Observação importante
-
-Se o workspace realmente estiver sem créditos, a correção não cria crédito automaticamente; ela transforma a falha em um erro claro e corrige a integração para funcionar assim que houver saldo disponível.
+## Validação
+- Carregar editor `/social/flows/:id`, abrir um nó `send_dm`, clicar `+ Adicionar um link`, testar as 4 abas, busca e seleção. Verificar persistência após salvar e reabrir.
