@@ -428,6 +428,24 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_social_posts",
+      description: "Busca posts de redes sociais (Instagram, Facebook, TikTok, YouTube, LinkedIn, Pinterest etc.) que a Smart Dent agendou ou publicou via o Social Publisher. Use para responder 'quais posts publicamos sobre X?', 'tem post recente do produto Y?', 'última campanha no Reels'. Retorna caption, hashtags, canais e produto vinculado.",
+      parameters: {
+        type: "object",
+        properties: {
+          query:    { type: "string", description: "Termo livre — busca em caption, hashtags, product_name e product_slug" },
+          product:  { type: "string", description: "Filtra por slug ou nome do produto" },
+          channel:  { type: "string", description: "Filtra por plataforma (instagram, facebook, tiktok, youtube, linkedin, pinterest, twitter, gmb)" },
+          status:   { type: "string", description: "scheduled | publishing | published (padrão: todos)" },
+          limit:    { type: "number", description: "Máx resultados (padrão 10, máx 30)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "query_table",
       description: "Consulta genérica em qualquer tabela do sistema. Retorna até 50 registros.",
       parameters: {
