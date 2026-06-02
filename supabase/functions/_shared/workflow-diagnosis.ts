@@ -885,6 +885,30 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     out.push(`<i>Concorrentes:</i> ${diag.concorrentes_detectados.map(c => `${escHtml(c.label)} (${escHtml(STAGE_LABEL[c.stage] || c.stage)})`).join(", ")}<br>`);
   }
 
+  // ── TIMING + PERFIL PROFISSIONAL (destaque no topo) ──
+  if (diag.spin?.timing) {
+    const faixaLabel: Record<string, string> = {
+      AGORA: "🔥 AGORA (≤7 dias)",
+      CURTO: "⚡ CURTO (8–30 dias)",
+      MEDIO: "🕐 MÉDIO (1–3 meses)",
+      FRIO: "❄️ FRIO (>3 meses)",
+      TIMING_INDETERMINADO: "❔ TIMING INDETERMINADO",
+    };
+    const label = faixaLabel[diag.spin.timing.faixa] || `⏱ ${escHtml(diag.spin.timing.faixa)}`;
+    out.push(`<br><b>⏱ TIMING:</b> ${label}<br>`);
+    if (diag.spin.timing.justificativa) out.push(`&nbsp;&nbsp;<i>Sinal:</i> ${escHtml(diag.spin.timing.justificativa)}<br>`);
+    if (diag.spin.timing.acao_recomendada) out.push(`&nbsp;&nbsp;<i>Ação:</i> ${escHtml(diag.spin.timing.acao_recomendada)}<br>`);
+  }
+  if (diag.spin?.perfil_profissional) {
+    const p = diag.spin.perfil_profissional;
+    out.push(`<br>👤 <b>PERFIL DO PROFISSIONAL</b><br>`);
+    out.push(`&nbsp;&nbsp;<i>Persona:</i> ${escHtml(p.persona)} · <i>Porte:</i> ${escHtml(p.porte)} · <i>Maturidade:</i> ${escHtml(p.maturidade_digital)}<br>`);
+    out.push(`&nbsp;&nbsp;<i>Tom recomendado:</i> ${escHtml(p.tom_recomendado)}<br>`);
+    if (p.gatilhos_de_valor?.length) {
+      out.push(`&nbsp;&nbsp;<i>Gatilhos de valor:</i> ${p.gatilhos_de_valor.map(escHtml).join(" · ")}<br>`);
+    }
+  }
+
   // ── ROTEIRO DE PERFILAMENTO (siga nesta ordem — espelha # - Formulário exocad I.A.) ──
   const rot = diag.spin?.roteiro_perfilamento;
   if (rot && rot.length) {
