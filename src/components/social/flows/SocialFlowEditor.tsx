@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { LinkPicker, type LinkPickerSelection } from './LinkPicker';
 
 const NODE_TYPES = [
   { type: 'send_dm', label: 'Enviar DM', color: 'hsl(var(--primary))' },
@@ -253,6 +254,19 @@ export function SocialFlowEditor() {
 function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => void }) {
   const cfg: any = (node.data as any).config ?? {};
   const type = (node.data as any).nodeType;
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const handleLink = (l: LinkPickerSelection) => {
+    const prefix = cfg.message ? cfg.message.trimEnd() + '\n\n' : '';
+    const appended = `${prefix}📎 ${l.titulo}\nURL: ${l.url}`;
+    onUpdate({
+      message: appended,
+      link_url: l.url,
+      link_titulo: l.titulo,
+      link_tipo: l.tipo,
+      link_thumbnail: l.thumbnail_url ?? null,
+    });
+  };
 
   switch (type) {
     case 'send_dm':
@@ -261,6 +275,16 @@ function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => v
         <div className="space-y-3">
           <div><Label className="text-xs">Mensagem</Label>
             <Textarea value={cfg.message ?? ''} onChange={(e) => onUpdate({ message: e.target.value })} rows={5} placeholder="Olá {{name}}, …" /></div>
+          <Button variant="outline" size="sm" className="w-full" onClick={() => setPickerOpen(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar um link
+          </Button>
+          {cfg.link_url && (
+            <div className="text-xs text-muted-foreground p-2 rounded border border-border bg-muted/30">
+              <div className="font-medium text-foreground truncate">📎 {cfg.link_titulo}</div>
+              <div className="truncate">{cfg.link_url}</div>
+            </div>
+          )}
+          <LinkPicker open={pickerOpen} onOpenChange={setPickerOpen} onSelect={handleLink} />
         </div>
       );
     case 'wait':
