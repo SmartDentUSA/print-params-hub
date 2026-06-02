@@ -32,7 +32,7 @@ export function useCreateScheduledPost() {
       };
       const { data: inserted, error } = await supabase
         .from('social_scheduled_posts')
-        .insert(row)
+        .insert(row as any)
         .select('id')
         .single();
       if (error) throw error;

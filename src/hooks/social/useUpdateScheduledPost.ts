@@ -37,7 +37,7 @@ export function useUpdateScheduledPost() {
       };
       const { error } = await supabase
         .from('social_scheduled_posts')
-        .update(row)
+        .update(row as any)
         .eq('id', id);
       if (error) throw error;
       toast.success('Post atualizado');
