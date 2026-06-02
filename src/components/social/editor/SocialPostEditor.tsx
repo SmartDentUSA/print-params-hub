@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Save, AlertCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, Save, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { defaultPost, postSchema, type PostInput } from '@/lib/social/postSchema';
 import { useCreateScheduledPost } from '@/hooks/social/useCreateScheduledPost';
+import { useUpdateScheduledPost } from '@/hooks/social/useUpdateScheduledPost';
+import { useScheduledPost } from '@/hooks/social/useScheduledPost';
 import { StepContent } from './steps/StepContent';
 import { StepMedia } from './steps/StepMedia';
 import { StepChannels } from './steps/StepChannels';
@@ -24,9 +26,24 @@ const STEPS = [
 
 export function SocialPostEditor() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = !!id;
+  const { data: loaded, isLoading: loadingPost } = useScheduledPost(id);
   const [step, setStep] = useState(0);
   const [data, setData] = useState<PostInput>(defaultPost);
+  const [hydrated, setHydrated] = useState(false);
   const { save, saving } = useCreateScheduledPost();
+  const { save: update, saving: updating } = useUpdateScheduledPost();
+
+  useEffect(() => {
+    if (loaded && !hydrated) {
+      setData(loaded.data);
+      setHydrated(true);
+    }
+  }, [loaded, hydrated]);
+
+  const editable = !isEdit || (loaded && ['scheduled', 'failed', 'draft'].includes(loaded.status));
+  const readOnly = isEdit && !!loaded && !editable;
 
   const onChange = (patch: Partial<PostInput>) => setData((d) => ({ ...d, ...patch }));
 
@@ -52,18 +69,35 @@ export function SocialPostEditor() {
       toast.error(validation.error.issues[0]?.message ?? 'Verifique os campos');
       return;
     }
-    await save(validation.data);
+    if (isEdit && id) {
+      await update(id, validation.data);
+    } else {
+      await save(validation.data);
+    }
   };
+
+  if (isEdit && loadingPost) {
+    return <div className="p-10 text-center text-sm text-muted-foreground">Carregando post…</div>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Criar Post</h1>
-          <p className="text-sm text-muted-foreground">Publique ou agende em múltiplos canais</p>
+          <h1 className="text-2xl font-bold">{isEdit ? 'Editar Post' : 'Criar Post'}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isEdit ? `Status atual: ${loaded?.status ?? '—'}` : 'Publique ou agende em múltiplos canais'}
+          </p>
         </div>
         <Button variant="ghost" onClick={() => navigate('/social')}>Cancelar</Button>
       </div>
+
+      {readOnly && (
+        <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm flex items-center gap-2">
+          <Lock className="w-4 h-4" />
+          Este post está com status <b>{loaded?.status}</b> e não pode ser editado.
+        </div>
+      )}
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {STEPS.map((s, i) => {
@@ -114,13 +148,13 @@ export function SocialPostEditor() {
               <ArrowLeft className="w-4 h-4" /> Voltar
             </Button>
             {step < STEPS.length - 1 ? (
-              <Button disabled={!canAdvance} onClick={() => setStep((s) => s + 1)}>
+              <Button disabled={!canAdvance || readOnly} onClick={() => setStep((s) => s + 1)}>
                 Avançar <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button disabled={!validation.success || saving} onClick={handleSave}>
+              <Button disabled={!validation.success || saving || updating || readOnly} onClick={handleSave}>
                 <Save className="w-4 h-4" />
-                {saving ? 'Salvando...' : data.publish_now ? 'Publicar agora' : 'Agendar'}
+                {saving || updating ? 'Salvando...' : isEdit ? 'Salvar alterações' : data.publish_now ? 'Publicar agora' : 'Agendar'}
               </Button>
             )}
           </div>
