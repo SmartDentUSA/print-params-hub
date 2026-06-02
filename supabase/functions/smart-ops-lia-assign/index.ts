@@ -1966,11 +1966,16 @@ async function executarEnrichmentDealRoute(
         supabase,
         [],
       );
-      await addDealNote(
-        apiToken,
-        Number(vendaDeal.id),
-        `🔁 [Dra. L.I.A.] ${enrichTag}`,
-      );
+      // Only post the visible PipeRun note when there was actual enrichment.
+      // Re-deliveries that change nothing still log the activity event below
+      // for audit, but must not spam the deal timeline.
+      if (enrichedFields.length > 0) {
+        await addDealNote(
+          apiToken,
+          Number(vendaDeal.id),
+          `🔁 [Dra. L.I.A.] ${enrichTag}`,
+        );
+      }
     } catch (e) {
       console.error("[lia-assign] enrichment-route: updateExistingDeal failed:", e);
     }

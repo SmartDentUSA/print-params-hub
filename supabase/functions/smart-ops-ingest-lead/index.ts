@@ -1263,8 +1263,10 @@ Deno.serve(async (req) => {
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
 
-      // If canonical already has a PipeRun deal, post a note documenting this new submission
-      if (existingLead.piperun_id && (formName || source === "form")) {
+      // If canonical already has a PipeRun deal, post a note documenting this new submission.
+      // Skip for Meta lead ads: smart-ops-lia-assign owns the seller summary for that path
+      // and posting here causes a duplicate "Resumo do Lead" note (race on hash dedup).
+      if (existingLead.piperun_id && (formName || source === "form") && source !== "meta_lead_ads") {
         const responses: Array<{ label: string; value: string }> = Array.isArray(payload.form_responses)
           ? payload.form_responses.map((r: any) => ({
               label: String(r.label ?? r.name ?? r.field ?? ""),
