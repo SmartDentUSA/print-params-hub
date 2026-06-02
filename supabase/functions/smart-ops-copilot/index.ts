@@ -78,6 +78,87 @@ function getModelConfig(modelId: ModelId) {
   };
 }
 
+// --- AUTO-FALLBACK ENTRE PROVEDORES ---
+// Quando o provedor solicitado responde 402 / "insufficient_credits" / "billing_error",
+// o Copilot escala automaticamente para o próximo provedor com API key configurada.
+// Ordem padrão (sem duplicar o solicitado):
+//   1) modelo pedido pelo usuário
+//   2) deepseek-pro
+//   3) claude (se COPILOT_ALLOW_CLAUDE e key)
+//   4) gemini-flash
+function buildFallbackChain(requested: ModelId): ModelId[] {
+  const order: ModelId[] = [requested, "deepseek-pro", "claude", "gemini-flash"];
+  const seen = new Set<string>();
+  const chain: ModelId[] = [];
+  for (const id of order) {
+    const cfg = getModelConfig(id);
+    if (!cfg.apiKey) continue;
+    const key = `${cfg.url}|${cfg.model}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    chain.push(id);
+  }
+  return chain;
+}
+
+function isOutOfCreditsError(status: number, bodyText: string): boolean {
+  if (status === 402) return true;
+  const t = (bodyText || "").toLowerCase();
+  if (status === 401 || status === 403 || status === 400 || status === 429) {
+    if (/insufficient|insufficient_balance|insufficient_quota|out of credit|credit|quota|billing|payment required|balance/.test(t)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function callChatWithFallback(
+  chain: ModelId[],
+  buildBody: (cfg: ReturnType<typeof getModelConfig>) => any,
+): Promise<{ ok: boolean; response?: Response; bodyText?: string; config: ReturnType<typeof getModelConfig>; modelId: ModelId; attempts: Array<{ modelId: ModelId; status: number; reason: string }>; exhausted?: boolean; lastStatus?: number; lastBody?: string }> {
+  const attempts: Array<{ modelId: ModelId; status: number; reason: string }> = [];
+  let lastStatus = 0;
+  let lastBody = "";
+  for (let i = 0; i < chain.length; i++) {
+    const modelId = chain[i];
+    const cfg = getModelConfig(modelId);
+    try {
+      const resp = await fetch(cfg.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${cfg.apiKey}` },
+        body: JSON.stringify(buildBody(cfg)),
+      });
+      if (resp.ok) {
+        return { ok: true, response: resp, config: cfg, modelId, attempts };
+      }
+      const txt = await resp.text();
+      lastStatus = resp.status;
+      lastBody = txt;
+      const credit = isOutOfCreditsError(resp.status, txt);
+      attempts.push({ modelId, status: resp.status, reason: credit ? "out_of_credits" : `http_${resp.status}` });
+      console.warn(`[Copilot/fallback] ${cfg.label} → HTTP ${resp.status} ${credit ? "(sem créditos, tentando próximo)" : "(erro não-fallback)"} ${txt.slice(0, 200)}`);
+      if (!credit) {
+        // Erro real (rate limit, schema, 5xx) → não escalonar, devolve agora.
+        return { ok: false, config: cfg, modelId, attempts, lastStatus: resp.status, lastBody: txt };
+      }
+      // Loga em system_health_logs (fire-and-forget) cada provedor sem crédito.
+      supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-copilot",
+        severity: "warning",
+        error_type: "provider_out_of_credits",
+        details: { provider: cfg.label, model: cfg.model, status: resp.status, body: txt.slice(0, 500) },
+      }).then(() => {}, () => {});
+    } catch (e: any) {
+      lastStatus = 0;
+      lastBody = e?.message || String(e);
+      attempts.push({ modelId, status: 0, reason: `exception:${lastBody.slice(0, 120)}` });
+      console.error(`[Copilot/fallback] ${cfg.label} → exception`, e);
+      // Continua para o próximo provedor em caso de exceção de rede também.
+    }
+  }
+  return { ok: false, config: getModelConfig(chain[chain.length - 1]), modelId: chain[chain.length - 1], attempts, exhausted: true, lastStatus, lastBody };
+}
+
 // --- TOOLS (same as before) ---
 const tools = [
   {
