@@ -886,7 +886,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
 export default WaGroupFlowBuilder;
 
 // ============== Config: Sequência promo (7 msgs) ==============
-function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onChange: (p: Partial<PromoSeqNode>) => void }) {
+export function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onChange: (p: Partial<PromoSeqNode>) => void }) {
   const [productOptions, setProductOptions] = useState<Array<{ slug: string; name: string }>>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
