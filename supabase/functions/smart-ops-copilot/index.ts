@@ -2666,20 +2666,24 @@ serve(async (req) => {
 
       if (!callRes.ok) {
         if (callRes.exhausted) {
+          const allTransient = callRes.attempts.every((a) => a.reason === "transient_gateway");
+          const msg = allTransient
+            ? "⚠️ Provedores de IA temporariamente indisponíveis (Gateway em reconstrução). Tente novamente em ~30s."
+            : "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.";
           return new Response(JSON.stringify({
-            reply: "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.",
-            error: "all_providers_exhausted",
+            content: msg,
+            error: allTransient ? "all_providers_transient" : "all_providers_exhausted",
             attempts: callRes.attempts,
           }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         const status = callRes.lastStatus ?? 0;
         if (status === 429) {
-          return new Response(JSON.stringify({ reply: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
+          return new Response(JSON.stringify({ content: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
         return new Response(JSON.stringify({
-          reply: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
+          content: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
           error: `provider_${status}`,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
