@@ -46,6 +46,8 @@ export function SocialFlowEditor() {
   const [description, setDescription] = useState('');
   const [channel, setChannel] = useState('instagram');
   const [isActive, setIsActive] = useState(false);
+  const [produtoSlug, setProdutoSlug] = useState<string | undefined>();
+  const [formName, setFormName] = useState<string | undefined>();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [triggers, setTriggers] = useState<any[]>([]);
@@ -60,6 +62,8 @@ export function SocialFlowEditor() {
       if (error) { toast.error(error.message); setLoading(false); return; }
       setName(data.name); setDescription(data.description ?? ''); setChannel(data.channel ?? 'instagram');
       setIsActive(!!data.is_active);
+      setProdutoSlug((data as any).produto_slug ?? undefined);
+      setFormName((data as any).form_name ?? undefined);
       const rawNodes = Array.isArray(data.nodes) ? (data.nodes as any[]) : [];
       const normalized = rawNodes.map((n, i) => ({
         ...n,
@@ -200,7 +204,12 @@ export function SocialFlowEditor() {
                 <Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge>
                 <Button variant="ghost" size="sm" onClick={() => deleteNode(selectedNode.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
-              <NodeInspector node={selectedNode} onUpdate={(p) => updateNodeConfig(selectedNode.id, p)} />
+              <NodeInspector
+                node={selectedNode}
+                onUpdate={(p) => updateNodeConfig(selectedNode.id, p)}
+                produtoSlug={produtoSlug}
+                formName={formName}
+              />
             </aside>
           )}
         </TabsContent>
@@ -251,7 +260,7 @@ export function SocialFlowEditor() {
   );
 }
 
-function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => void }) {
+function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; onUpdate: (p: any) => void; produtoSlug?: string; formName?: string }) {
   const cfg: any = (node.data as any).config ?? {};
   const type = (node.data as any).nodeType;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -284,7 +293,13 @@ function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => v
               <div className="truncate">{cfg.link_url}</div>
             </div>
           )}
-          <LinkPicker open={pickerOpen} onOpenChange={setPickerOpen} onSelect={handleLink} />
+          <LinkPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            onSelect={handleLink}
+            filterProduto={produtoSlug}
+            highlightFormName={formName}
+          />
         </div>
       );
     case 'wait':

@@ -31,6 +31,8 @@ interface Props {
   onSelect: (link: LinkPickerSelection) => void;
   initialTab?: LinkPickerTab;
   filterProduto?: string;
+  /** Se setado, destaca o formulário cujo titulo bate aproximadamente com este nome (form_name do fluxo). */
+  highlightFormName?: string;
 }
 
 interface ViewRow {
@@ -58,7 +60,7 @@ function useDebounced<T>(value: T, ms = 300) {
   return v;
 }
 
-export function LinkPicker({ open, onOpenChange, onSelect, initialTab = 'manual', filterProduto }: Props) {
+export function LinkPicker({ open, onOpenChange, onSelect, initialTab = 'manual', filterProduto, highlightFormName }: Props) {
   const [tab, setTab] = useState<LinkPickerTab>(initialTab);
   const [counts, setCounts] = useState<Record<LinkPickerTab, number>>({ manual: 0, loja: 0, formulario: 0, publicacao: 0 });
 
@@ -117,7 +119,7 @@ export function LinkPicker({ open, onOpenChange, onSelect, initialTab = 'manual'
             <TabList tipo="loja" filterProduto={filterProduto} onSelect={handleSelect} placeholder="Buscar produto da loja..." showCategory />
           </TabsContent>
           <TabsContent value="formulario" className="flex-1 min-h-0 m-0 mt-3 px-4 pb-4 overflow-hidden flex flex-col">
-            <TabList tipo="formulario" filterProduto={filterProduto} onSelect={handleSelect} />
+            <TabList tipo="formulario" filterProduto={filterProduto} onSelect={handleSelect} highlight={highlightFormName} />
           </TabsContent>
           <TabsContent value="publicacao" className="flex-1 min-h-0 m-0 mt-3 px-4 pb-4 overflow-hidden flex flex-col">
             <TabList tipo="publicacao" filterProduto={filterProduto} onSelect={handleSelect} placeholder={`Buscar em ${counts.publicacao || 591} publicações...`} limit={20} />
@@ -220,7 +222,7 @@ function TabManual({ onSelect }: { onSelect: (l: LinkPickerSelection) => void })
 /* ───────────── Aba genérica (loja/forms/publicações) ───────────── */
 
 function TabList({
-  tipo, onSelect, filterProduto, placeholder, showCategory, limit = 50,
+  tipo, onSelect, filterProduto, placeholder, showCategory, limit = 50, highlight,
 }: {
   tipo: 'loja' | 'formulario' | 'publicacao';
   onSelect: (l: LinkPickerSelection) => void;
@@ -228,6 +230,7 @@ function TabList({
   placeholder?: string;
   showCategory?: boolean;
   limit?: number;
+  highlight?: string;
 }) {
   const [busca, setBusca] = useState(filterProduto ?? '');
   const [categoria, setCategoria] = useState<string>('__all__');
@@ -299,26 +302,32 @@ function TabList({
           {!loading && items.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-6">Nenhum item encontrado</div>
           )}
-          {!loading && items.map((it) => (
-            <button
-              key={`${it.tipo}-${it.id}`}
-              onClick={() => onSelect({ url: it.url, titulo: it.titulo, tipo: it.tipo, thumbnail_url: it.thumbnail_url ?? undefined, descricao: it.descricao ?? undefined })}
-              className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent text-left transition-colors"
-            >
-              <Thumb tipo={it.tipo} url={it.thumbnail_url} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium line-clamp-2 leading-tight">{it.titulo}</div>
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                  {tipo === 'publicacao' ? (
-                    <span className="flex items-center gap-1">
-                      <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">Base de Conhecimento</Badge>
-                    </span>
-                  ) : hostOf(it.url)}
+          {!loading && items.map((it) => {
+            const isSuggested = !!highlight && it.titulo.toLowerCase().includes(highlight.toLowerCase().replace(/^#/, ''));
+            return (
+              <button
+                key={`${it.tipo}-${it.id}`}
+                onClick={() => onSelect({ url: it.url, titulo: it.titulo, tipo: it.tipo, thumbnail_url: it.thumbnail_url ?? undefined, descricao: it.descricao ?? undefined })}
+                className={`w-full flex items-center gap-2.5 p-2 rounded-md text-left transition-colors ${isSuggested ? 'bg-primary/10 hover:bg-primary/15 ring-1 ring-primary/30' : 'hover:bg-accent'}`}
+              >
+                <Thumb tipo={it.tipo} url={it.thumbnail_url} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium line-clamp-2 leading-tight flex items-center gap-1.5">
+                    {it.titulo}
+                    {isSuggested && <Badge className="text-[10px] px-1 py-0 h-4 bg-primary/20 text-primary border-primary/30">Sugerido</Badge>}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate mt-0.5">
+                    {tipo === 'publicacao' ? (
+                      <span className="flex items-center gap-1">
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">Base de Conhecimento</Badge>
+                      </span>
+                    ) : hostOf(it.url)}
+                  </div>
                 </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-          ))}
+                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </button>
+            );
+          })}
         </div>
       </ScrollArea>
     </>
