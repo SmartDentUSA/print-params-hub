@@ -4,6 +4,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
+import { resolveAiContent } from '../_shared/wa-ai-content.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -244,7 +245,7 @@ serve(async (req) => {
             break
           }
           case 'ai': {
-            const txt = await resolveAIContent(supabase, item.content_json)
+            const { text: txt } = await resolveAiContent(supabase, item.content_json as any)
             evoId = await sendWithSessionRetry((k) => sendText(item.group_jid, txt, instance, k))
             await supabase.from('wa_message_queue')
               .update({ content_json: { ...item.content_json, _resolved_text: txt } })
