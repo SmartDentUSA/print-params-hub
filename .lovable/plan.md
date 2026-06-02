@@ -1,72 +1,82 @@
-## Objetivo
+## Problemas
 
-Na geração de post, oferecer 3 caminhos lado-a-lado:
-1. **Usar uma copy pronta** vinda do endpoint `knowledge-export-full` do Sistema A (mensagens CS/aftersales, Google Ads, SEO description) — usuário escolhe e ela cai direto na legenda.
-2. **Gerar com IA** — agora com cara de Instagram (emojis, bullets, unicode estilizado, hashtags em bloco) e enriquecida com os mesmos dados do endpoint.
-3. **Escrever do zero** — caminho atual (textarea já existente).
+**1. Post recém-publicado não aparece no Dashboard nem no Calendário**
 
-## Fonte de dados (mesma para os 3 caminhos)
+O post criado (`d9aa73d1...`) foi salvo com `publish_now=true`, `status='published'` e `scheduled_at=null`. As queries atuais filtram por `scheduled_at`:
 
-`POST https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full` retorna por produto:
-- `messages.cs[]` e `messages.aftersales[]` → cada item `{ message_content, message_order, is_active }` (copy de WhatsApp/CS pronta — inclui mensagens tipo "Comente X").
-- `google_ads` → headlines/descriptions de campanha.
-- `seo.seo_description`.
-- Enriquecimento: `description`, `applications`, `benefits[]`, `features[]`, `keywords[]`, `target_audience`, `tags[]`, `faq[]` (top 3), `videos.youtube[].title/description` (até 3), `ctas.product_url`.
+- `useUpcomingPosts` — `.in('status', ['scheduled','publishing','failed'])` + `.gte('scheduled_at', now)`. Posts `published` ou com `scheduled_at=null` são excluídos.
+- `useCalendarPosts` — `.gte('scheduled_at', from).lte(...)`. Posts com `scheduled_at=null` somem. A query secundária em `social_posts` (histórico Zernio) só popula depois do sync, então recém-publicados ficam invisíveis até a sincronização.
 
-Match por `slug` exato → fallback `name ILIKE`. Cache em memória 10 min, soft-fail.
+**2. Biblioteca de Conteúdo vazia**
 
-## Backend
+`sync-content-from-a` depende do segredo `SISTEMA_A_ANON_KEY` (não configurado) para puxar das tabelas internas (`cs_messages`, `aftersales_messages`, etc.) e do `content_bridge` local (também vazio). Resultado: 0 itens. O usuário quer as mensagens de WhatsApp (CS/pós-venda) de cada produto vindas do endpoint público `knowledge-export-full` — o mesmo já usado pelo gerador de legendas.
 
-### Novo edge function `social-knowledge-fetch`
-- Input: `{ product_slug?, product_name? }`.
-- Chama `knowledge-export-full`, encontra o produto, devolve payload já normalizado:
-  ```ts
-  { product: { name, slug, category, url },
-    ready_copies: [
-      { id, source: 'cs'|'aftersales'|'google_ads'|'seo', label, text }
-    ],
-    enrichment: { description, benefits, features, faq_top, videos_top, keywords, target_audience }
-  }
-  ```
-- Soft-fail (200 com `ready_copies: []` se 404/timeout).
+---
 
-### `social-caption-generator/index.ts`
-- Recebe opcional `external_enrichment` (já buscado pelo front, evita duplicar chamada). Se ausente, faz fetch interno.
-- Adiciona no prompt um bloco `EXPORT SISTEMA A (knowledge-export-full)` com benefícios, features, FAQ-top, vídeos relacionados, keywords, público.
-- Reescreve `buildPrompt` para platform `instagram|facebook` em modo Instagram-rich:
-  - 1ª linha = gancho com 1 emoji forte
-  - 3–6 bullets `▸`/`✔️` com 1 emoji cada
-  - Frase de transformação/prova
-  - CTA destacado (ex.: `👉 Saiba mais no link da bio`)
-  - Separador `━━━━━━━━━━━━━━━`
-  - Bloco hashtags separado por linha em branco
-  - Permitir 1–2 palavras em unicode estilizado (𝗻𝗲𝗴𝗿𝗶𝘁𝗼 / 𝘪𝘵á𝘭𝘪𝘤𝘰) — sem markdown, que Instagram renderiza literal
-  - 6–12 emojis contextuais (não decorativos)
-- Mantém regras de proibição de preço e promessas regulatórias.
-- `_meta` ganha `export_hits` e `export_matched_slug`.
+## Plano de correção
 
-## Frontend (`StepContent.tsx`)
+### A. Tornar posts publicados visíveis imediatamente
 
-Após o `SearchableProductSelect`, quando um produto é selecionado:
+**A1. `useUpcomingPosts`** — incluir publicados recentes como linha do tempo:
+- Manter o bloco atual de agendados próximos.
+- Adicionar segunda query: `status='published'` ordenado por `updated_at` desc, últimos 7 dias, limit 10. Mesclar e ordenar pela data efetiva (`scheduled_at ?? updated_at`).
+- Dashboard exibirá o post recém-enfileirado/publicado sem esperar o sync Zernio.
 
-1. **Auto-fetch** via novo hook `useProductKnowledgeCopies(product_slug, product_name)` que chama `social-knowledge-fetch`.
-2. **Nova seção "Copies prontas do Sistema A"** dentro do card "Gerar com IA":
-   - Lista compacta de chips/cards horizontais (até 8), cada um com:
-     - Badge da origem (`CS`, `Pós-venda`, `Google Ads`, `SEO`)
-     - Preview de 2 linhas do texto
-     - Botão **"Usar esta copy"** → preenche `caption` (mantendo `hashtags` e `first_comment` vazios para o usuário ajustar).
-   - Mensagem vazia se 0 copies: "Sem copies prontas para este produto. Gere com IA ou escreva abaixo."
-3. **Botão "Gerar com IA"** continua igual, mas passa `external_enrichment` no body (evita 2ª chamada externa).
-4. **Toast** ao usar copy pronta: "Copy do Sistema A aplicada — ajuste e publique".
+**A2. `useCalendarPosts`** — não perder posts sem `scheduled_at`:
+- No bloco `social_scheduled_posts`, usar `or('scheduled_at.gte.X,and(scheduled_at.is.null,updated_at.gte.X)')` e mapear `effective_at = scheduled_at ?? updated_at` para posicioná-los no calendário (no dia do publish_now).
+- Garantir que `status='published'` também entra (hoje só `scheduled|publishing|failed|draft` aparecem porque o segundo bloco depende de `social_posts`, que ainda está vazio).
 
-## Out of scope
-- Editar a copy do Sistema A no painel (read-only aqui).
-- Salvar de volta a copy escolhida no Sistema A.
-- Mudanças nos ícones de canal, schema do banco, ou no publisher.
-- Autenticação no endpoint (assume público; warning + skip se 401).
+**A3. Métricas (`useSocialMetrics`)** — confirmar que `published` deste mês conta `social_scheduled_posts.status='published'` além de `social_posts` (ajuste mínimo se necessário).
 
-## Validação
-1. Deploy `social-knowledge-fetch` e `social-caption-generator`.
-2. `curl` em `social-knowledge-fetch` com slug `nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool` → deve trazer vídeo no enrichment.
-3. `curl` em `social-caption-generator` com platform `instagram` → caption volta com bullets `▸`, emojis e bloco final de hashtags; `_meta.export_hits >= 1`.
-4. UI: selecionar produto → ver chips de copies prontas; clicar "Usar esta copy" preenche a legenda; clicar "Gerar com IA" gera versão estilo Instagram.
+> Nada do publisher real é alterado; apenas as leituras de exibição.
+
+### B. Reescrever sync de conteúdo para usar `knowledge-export-full`
+
+**B1. Reescrever `supabase/functions/sync-content-from-a/index.ts`**:
+- Substituir as chamadas a tabelas internas (que exigem `SISTEMA_A_ANON_KEY`) por `POST` em `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full` com `{ limit: 500 }`.
+- Para cada produto retornado, iterar `messages.cs[]` e `messages.aftersales[]` e gerar linhas para upsert em `system_a_content_library`:
+  - `source_table` = `'knowledge_export_cs'` ou `'knowledge_export_aftersales'`
+  - `source_id` = `${product.slug}:${m.message_order}` (estável)
+  - `product_id`, `product_name`, `product_slug`, `product_category` ← do produto
+  - `content_type` = `'cs'` ou `'aftersales'`
+  - `channel` = `'whatsapp'`
+  - `title` = `${product.name} — Msg ${order}`
+  - `content_text` = `m.message_content`
+  - `cta_url` = `product.ctas?.product_url || product.product_url`
+  - `is_active` = `m.is_active !== false`
+  - `content_data` = `{ message_order, raw: m }`
+  - `synced_at` = `now()`
+- Ingerir também (com `content_type` apropriado, todos `channel='whatsapp'` ou o canal natural):
+  - `messages.spin[]` (se existir) → `content_type='spin'`
+  - `seo.seo_description` → `content_type='seo'`, `channel='web'` (um por produto)
+  - `google_ads` (headlines/descrições) → `content_type='google_ads'`, `channel='ads'` (um por item)
+- Manter o bloco de fallback do `content_bridge` para não perder o que já funciona.
+- Upsert com `onConflict: 'source_table,source_id,channel'` (índice já existente conforme a função atual).
+- Retornar `{ inserted, products_processed, errors }`.
+
+**B2. Sem novas migrações** — esquema atual já suporta tudo. Nenhum segredo novo (endpoint é público).
+
+**B3. UI (`SmartOpsCampaigns › ContentLibrary`)** — sem mudança estrutural; após o sync, o botão "Sincronizar do Sistema A" passa a popular itens (`content_type` 'cs', 'aftersales', etc., filtros existentes já cobrem). Apenas garantir que o seletor `typeFilter` inclui as opções `cs` e `aftersales` (ler trecho de filtros para confirmar e ajustar se necessário).
+
+### C. Validação
+
+- Após deploy, clicar "Sincronizar do Sistema A" → toast com nº inserido > 0; itens com `channel=whatsapp` e mensagens CS/pós-venda aparecem.
+- Criar novo post com `publish_now` → aparece imediatamente em Dashboard ("Próximos posts" ou nova seção "Recentes") e no Calendário no dia atual.
+- Edge function logs sem erro 4xx.
+
+---
+
+## Fora de escopo
+
+- Não mexer no publisher Zernio nem em schemas.
+- Não alterar `social-caption-generator` nem `social-knowledge-fetch` (já funcionam).
+- Não criar novos secrets nem novas tabelas.
+- Ícones de canal, identidade visual etc. — fora.
+
+## Arquivos afetados
+
+- `src/hooks/social/useUpcomingPosts.ts` — incluir publicados recentes
+- `src/hooks/social/useCalendarPosts.ts` — incluir posts `published` com `scheduled_at` nulo via `updated_at`
+- `src/hooks/social/useSocialMetrics.ts` — ajuste se necessário (verificar)
+- `supabase/functions/sync-content-from-a/index.ts` — reescrita para usar `knowledge-export-full`
+- `src/components/SmartOpsCampaigns.tsx` — apenas adicionar opções `cs`/`aftersales` no filtro de tipo se faltarem
