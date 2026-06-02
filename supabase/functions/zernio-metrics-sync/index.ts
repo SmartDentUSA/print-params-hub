@@ -29,22 +29,23 @@ serve(async (req) => {
     try { onlyPostId = (await req.json())?.post_id ?? null; } catch { /* ignore */ }
   }
 
-  // Posts publicados nos últimos 30 dias que precisam de refresh (>1h sem sync)
+  // Posts dos últimos 30 dias que precisam de refresh (>1h sem sync)
+  // Usa created_at como fallback porque published_at pode estar NULL em posts ingeridos via Zernio
   const since30d = new Date(Date.now() - 30 * 86400_000).toISOString();
   const stale = new Date(Date.now() - 3600_000).toISOString();
 
   let q = supabase
     .from('social_posts')
-    .select('id, zernio_post_id, platform, analytics_synced_at, published_at')
+    .select('id, zernio_post_id, platform, analytics_synced_at, published_at, created_at')
     .not('zernio_post_id', 'is', null)
-    .gte('published_at', since30d)
-    .order('published_at', { ascending: false })
+    .gte('created_at', since30d)
+    .order('created_at', { ascending: false })
     .limit(50);
 
   if (onlyPostId) {
     q = supabase
       .from('social_posts')
-      .select('id, zernio_post_id, platform, analytics_synced_at, published_at')
+      .select('id, zernio_post_id, platform, analytics_synced_at, published_at, created_at')
       .eq('id', onlyPostId)
       .not('zernio_post_id', 'is', null);
   } else {
@@ -80,7 +81,7 @@ serve(async (req) => {
       const m = data?.insights ?? data?.metrics ?? data ?? {};
 
       const num = (v: any) => (typeof v === 'number' ? v : Number(v) || 0);
-      const patch = {
+      const patch: Record<string, any> = {
         likes: num(m.likes ?? m.like_count),
         comments: num(m.comments ?? m.comment_count),
         shares: num(m.shares ?? m.share_count),
@@ -90,6 +91,21 @@ serve(async (req) => {
         views: num(m.views ?? m.video_views ?? m.plays),
         analytics_synced_at: new Date().toISOString(),
       };
+      // Backfill published_at se ainda NULL e a API devolveu timestamp
+      if (!(p as any).published_at) {
+        const ts =
+          data?.published_at ??
+          data?.created_time ??
+          data?.timestamp ??
+          m?.published_at ??
+          m?.created_time ??
+          m?.timestamp ??
+          null;
+        if (ts) {
+          const d = new Date(ts);
+          if (!isNaN(d.getTime())) patch.published_at = d.toISOString();
+        }
+      }
       await supabase.from('social_posts').update(patch).eq('id', p.id);
       updated++;
       console.log(JSON.stringify({ event: 'metrics.ok', post_id: p.id, platform: p.platform }));
