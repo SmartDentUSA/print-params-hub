@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { SOCIAL_CHANNELS, type SocialPlatform } from '@/lib/socialChannels';
+import { SOCIAL_CHANNELS, SOCIAL_BRAND_HEX, type SocialPlatform } from '@/lib/socialChannels';
 import { defaultChannelFor, type ChannelInput, type PostInput } from '@/lib/social/postSchema';
 
 interface Props {
@@ -34,17 +34,25 @@ export function StepChannels({ value, onChange }: Props) {
         {PLATFORMS.map((p) => {
           const meta = SOCIAL_CHANNELS[p];
           const active = value.channels.some((c) => c.platform === p);
+          const brand = SOCIAL_BRAND_HEX[p];
           return (
             <button
               key={p}
               type="button"
               onClick={() => toggle(p)}
               className={cn(
-                'flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all',
-                active ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30',
+                'flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all duration-200',
+                active ? 'shadow-soft scale-[1.02]' : 'border-border opacity-70 hover:opacity-100',
               )}
+              style={active ? { borderColor: brand, backgroundColor: `${brand}0d` } : undefined}
             >
-              <span className={cn('w-8 h-8 rounded-full flex items-center justify-center text-base text-white', meta.colorClass)}>
+              <span
+                className={cn(
+                  'w-11 h-11 rounded-full flex items-center justify-center text-lg text-white transition-transform',
+                  active ? 'scale-100' : 'scale-90',
+                )}
+                style={{ backgroundColor: brand }}
+              >
                 {meta.emoji}
               </span>
               <div className="flex-1 min-w-0">
@@ -61,10 +69,18 @@ export function StepChannels({ value, onChange }: Props) {
           <h3 className="text-sm font-semibold text-muted-foreground">Configuração por canal</h3>
           {value.channels.map((c) => {
             const meta = SOCIAL_CHANNELS[c.platform];
+            const brand = SOCIAL_BRAND_HEX[c.platform];
             return (
-              <div key={c.platform} className="border rounded-md p-3 space-y-3 bg-card">
+              <div
+                key={c.platform}
+                className="border rounded-md p-3 space-y-3 bg-card border-l-4"
+                style={{ borderLeftColor: brand }}
+              >
                 <div className="flex items-center gap-2">
-                  <span className={cn('w-6 h-6 rounded-full flex items-center justify-center text-xs text-white', meta.colorClass)}>
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
+                    style={{ backgroundColor: brand }}
+                  >
                     {meta.emoji}
                   </span>
                   <span className="font-medium text-sm">{meta.label}</span>
