@@ -31,9 +31,15 @@ serve(async (req) => {
     const body = await res.json();
     const accounts: any[] = body.accounts || body.data || [];
 
+    const extractId = (v: any): string => {
+      if (!v) return '';
+      if (typeof v === 'string') return v;
+      if (typeof v === 'object') return v._id ?? v.id ?? '';
+      return String(v);
+    };
     const rows = accounts.map((a) => ({
-      zernio_account_id: a._id ?? a.id,
-      zernio_profile_id: a.profileId ?? a.profile_id ?? a.profile?._id ?? '',
+      zernio_account_id: extractId(a._id ?? a.id),
+      zernio_profile_id: extractId(a.profileId ?? a.profile_id ?? a.profile),
       platform: a.platform,
       handle: a.handle ?? a.username ?? a.name ?? null,
       display_name: a.displayName ?? a.name ?? null,
