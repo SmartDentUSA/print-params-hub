@@ -22,6 +22,7 @@ interface ReqBody {
   instructions?: string;
   tone?: string;
   language?: string;
+  external_enrichment?: any;
 }
 
 function sanitizeHashtags(arr: unknown): string[] {
@@ -141,7 +142,19 @@ function platformGuidance(platform: string): string {
   switch ((platform || "").toLowerCase()) {
     case "instagram":
     case "facebook":
-      return "Plataforma: Instagram/Facebook. Use quebras de linha, emojis com parcimônia, CTA claro ao final, 4-7 linhas curtas.";
+      return [
+        "Plataforma: Instagram/Facebook — modo INSTAGRAM-RICH obrigatório:",
+        "• 1ª linha = gancho forte com 1 emoji marcante (ex.: 🚀 ✨ 🦷 🔬 💡 ⚡ 🎯).",
+        "• Linha em branco depois do gancho.",
+        "• 3 a 6 bullets começando com '▸ ' OU '✔️ ', cada um com 1 emoji contextual.",
+        "• Frase curta de transformação ou prova social.",
+        "• CTA destacado em linha própria (ex.: '👉 Saiba mais no link da bio' ou '💬 Comenta AQUI que te envio').",
+        "• Separador visual: linha exata '━━━━━━━━━━━━━━━'.",
+        "• Depois do separador, linha em branco e o bloco de hashtags (todas juntas, prefixadas com #, separadas por espaço).",
+        "• Use 6 a 12 emojis no TOTAL, contextuais (não decorativos genéricos).",
+        "• Permitido (opcional, no MÁXIMO 2 ocorrências) destacar 1-2 palavras-chave com unicode estilizado tipo '𝗻𝗲𝗴𝗿𝗶𝘁𝗼' (Mathematical Sans-Serif Bold) ou '𝘪𝘵á𝘭𝘪𝘤𝘰' (Mathematical Sans-Serif Italic). NUNCA use markdown (**, __, ##) — Instagram renderiza literal.",
+        "• NÃO use # nas hashtags do array JSON 'hashtags' (apenas a palavra). MAS dentro da caption pode colocar 1 hashtag-âncora opcional após o CTA.",
+      ].join("\n");
     case "tiktok":
       return "Plataforma: TikTok. Caption curta (até 150 chars), gancho forte na 1ª frase, sem formatação longa.";
     case "youtube":
@@ -155,7 +168,29 @@ function platformGuidance(platform: string): string {
   }
 }
 
-function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[]): string {
+function buildExportBlock(enr: any): string {
+  if (!enr || typeof enr !== "object") return "(sem export Sistema A)";
+  const parts: string[] = [];
+  if (enr.name) parts.push(`Nome: ${enr.name}${enr.category ? " · " + enr.category : ""}`);
+  if (enr.description) parts.push(`Descrição: ${enr.description}`);
+  if (Array.isArray(enr.benefits) && enr.benefits.length) parts.push(`Benefícios: ${enr.benefits.join(" | ")}`);
+  if (Array.isArray(enr.features) && enr.features.length) parts.push(`Features: ${enr.features.join(" | ")}`);
+  if (enr.applications) parts.push(`Aplicações: ${enr.applications}`);
+  if (enr.target_audience) parts.push(`Público-alvo: ${enr.target_audience}`);
+  if (Array.isArray(enr.keywords) && enr.keywords.length) parts.push(`Keywords SEO: ${enr.keywords.join(", ")}`);
+  if (Array.isArray(enr.tags) && enr.tags.length) parts.push(`Tags: ${enr.tags.join(", ")}`);
+  if (Array.isArray(enr.faq_top) && enr.faq_top.length) {
+    parts.push("FAQ-top:\n" + enr.faq_top.map((f: any) => `  Q: ${f.q}\n  A: ${f.a}`).join("\n"));
+  }
+  const yt = enr?.videos_top?.youtube || [];
+  if (yt.length) {
+    parts.push("Vídeos YouTube relacionados:\n" + yt.map((v: any) => `  - ${v.title || "(sem título)"} — ${v.url}`).join("\n"));
+  }
+  if (enr.product_url) parts.push(`URL do produto: ${enr.product_url}`);
+  return parts.join("\n");
+}
+
+function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr: any): string {
   const tone = body.tone || "Profissional";
   const lang = body.language || "pt-BR";
   const product = body.product_name || body.product_slug || "(produto não especificado)";
@@ -169,6 +204,8 @@ function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[]): string {
   const ragBlock = ragCtx.length
     ? ragCtx.map((c) => `- [${c.source}] ${c.title}: ${c.text}`).join("\n")
     : "(sem trechos adicionais)";
+
+  const exportBlock = buildExportBlock(exportEnr);
 
   return `Você é o copywriter da marca **Smart Dent | Fluxo Digital** (impressão 3D e fluxo digital odontológico).
 
@@ -186,6 +223,9 @@ REGRAS OBRIGATÓRIAS:
 
 CONTEXTO DO PRODUTO (catálogo Smart Dent):
 ${productBlock}
+
+EXPORT SISTEMA A (knowledge-export-full):
+${exportBlock}
 
 CONTEXTO ADICIONAL (base de conhecimento):
 ${ragBlock}
@@ -252,7 +292,28 @@ Deno.serve(async (req) => {
     const ragQuery = [body.product_name, body.product_slug, body.instructions].filter(Boolean).join(" ").trim();
     const ragCtx = await fetchKnowledgeRag(ragQuery);
 
-    const prompt = buildPrompt(body, productCtx, ragCtx);
+    let exportEnr: any = body.external_enrichment || null;
+    let exportMatchedSlug: string | null = exportEnr?.slug || null;
+    if (!exportEnr && (body.product_slug || body.product_name)) {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/functions/v1/social-knowledge-fetch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+          body: JSON.stringify({ product_slug: body.product_slug, product_name: body.product_name }),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.matched) {
+            exportEnr = j.enrichment;
+            exportMatchedSlug = j?.product?.slug || null;
+          }
+        }
+      } catch (e) {
+        console.warn("[caption] social-knowledge-fetch failed", (e as Error).message);
+      }
+    }
+
+    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr);
     const result = await callLLM(prompt);
 
     return new Response(
@@ -263,6 +324,8 @@ Deno.serve(async (req) => {
         _meta: {
           product_hits: productCtx.length,
           rag_hits: ragCtx.length,
+          export_hits: exportEnr ? 1 : 0,
+          export_matched_slug: exportMatchedSlug,
           model: result._model,
         },
       }),
