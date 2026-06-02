@@ -23,8 +23,14 @@ export function useGenerateCaption() {
       const { data, error } = await supabase.functions.invoke("social-caption-generator", {
         body: input,
       });
+      // supabase-js stuffs the function's JSON error body into `data` even on non-2xx,
+      // and `error` only carries the generic "Edge Function returned a non-2xx status".
+      const serverMsg =
+        (data && typeof data === "object" && "error" in data && (data as any).error) ||
+        (error && (error as any).context?.responseJson?.error) ||
+        null;
+      if (serverMsg) throw new Error(String(serverMsg));
       if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
       return data as GenerateCaptionResult;
     },
   });
