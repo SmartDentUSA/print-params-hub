@@ -1,5 +1,5 @@
 import { useEffect, useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2, Package } from 'lucide-react';
+import { X, Sparkles, Loader2, Package, Library, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
+import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/useProductKnowledgeCopies';
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -58,6 +59,9 @@ export function StepContent({ value, onChange }: Props) {
   const hasProduct = !!(value.product_ref || value.product_slug || value.product_name);
   const canGenerate = hasProduct;
 
+  const knowledge = useProductKnowledgeCopies(value.product_slug || undefined, value.product_name || undefined);
+  const readyCopies: ReadyCopy[] = knowledge.data?.ready_copies ?? [];
+
   const onProductChange = (val: string) => {
     if (!val || val === 'none') {
       onChange({ product_ref: '', product_name: '', product_slug: '', product_category: '' });
@@ -95,6 +99,7 @@ export function StepContent({ value, onChange }: Props) {
         instructions: aiInstructions || undefined,
         tone: aiTone,
         language: 'pt-BR',
+        external_enrichment: knowledge.data?.enrichment || undefined,
       });
       onChange({
         caption: res.caption,
@@ -103,11 +108,23 @@ export function StepContent({ value, onChange }: Props) {
       });
       const meta = res._meta;
       toast.success(
-        `Legenda gerada · ${meta?.product_hits ?? 0} fonte(s) de catálogo · ${meta?.rag_hits ?? 0} trecho(s) RAG`,
+        `Legenda gerada · catálogo: ${meta?.product_hits ?? 0} · RAG: ${meta?.rag_hits ?? 0}${meta?.export_hits ? ' · Sistema A ✓' : ''}`,
       );
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao gerar legenda');
     }
+  };
+
+  const applyReadyCopy = (c: ReadyCopy) => {
+    onChange({ caption: c.text });
+    toast.success('Copy do Sistema A aplicada — ajuste e publique');
+  };
+
+  const sourceBadge: Record<ReadyCopy['source'], { label: string; cls: string }> = {
+    cs: { label: 'CS', cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30' },
+    aftersales: { label: 'Pós-venda', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
+    google_ads: { label: 'Google Ads', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+    seo: { label: 'SEO', cls: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30' },
   };
 
   const addTag = () => {
@@ -159,6 +176,51 @@ export function StepContent({ value, onChange }: Props) {
               </p>
             )}
           </div>
+
+          {hasProduct && (
+            <div className="rounded-md border bg-background/60 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Library className="w-3.5 h-3.5 text-primary" />
+                <Label className="text-xs font-semibold">Copies prontas do Sistema A</Label>
+                {knowledge.isLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                {knowledge.data?.matched && (
+                  <Badge variant="outline" className="text-[10px] gap-1">
+                    <Check className="w-3 h-3" /> {readyCopies.length} copy(ies)
+                  </Badge>
+                )}
+              </div>
+              {!knowledge.isLoading && readyCopies.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Sem copies prontas para este produto. Gere com IA ou escreva você mesmo abaixo.
+                </p>
+              )}
+              {readyCopies.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {readyCopies.map((c) => {
+                    const b = sourceBadge[c.source];
+                    return (
+                      <div key={c.id} className="rounded-md border bg-card p-2 flex flex-col gap-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${b.cls}`}>{b.label}</Badge>
+                          <span className="text-[10px] text-muted-foreground truncate">{c.label}</span>
+                        </div>
+                        <p className="text-[11px] line-clamp-3 whitespace-pre-wrap leading-snug">{c.text}</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 self-end text-[11px]"
+                          onClick={() => applyReadyCopy(c)}
+                        >
+                          Usar esta copy
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <Textarea
             rows={2}
