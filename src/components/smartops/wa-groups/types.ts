@@ -2,7 +2,8 @@ export type FlowNodeType =
   | "msg" | "wait" | "ai"
   | "image" | "video" | "audio" | "document"
   | "link"
-  | "button" | "list" | "carousel";
+  | "button" | "list" | "carousel"
+  | "post_ig" | "post_yt";
 
 export interface FlowNodeBase {
   id: string;
@@ -105,9 +106,18 @@ export interface CarouselNode extends FlowNodeBase {
   cards: CarouselCard[];
 }
 
+export interface SocialPostNode extends FlowNodeBase {
+  type: "post_ig" | "post_yt";
+  social_post_id?: string;
+  post_url: string;
+  caption?: string;
+  thumbnail_url?: string;
+  titulo?: string;
+}
+
 export type FlowNode =
   | MsgNode | WaitNode | AiNode | MediaNode | LinkNode
-  | ButtonNode | ListNode | CarouselNode;
+  | ButtonNode | ListNode | CarouselNode | SocialPostNode;
 
 export interface WaGroupSummary {
   group_id: string;
