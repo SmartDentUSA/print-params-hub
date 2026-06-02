@@ -218,7 +218,11 @@ export function SocialSequences() {
                 <Button variant="outline" size="sm" onClick={() => setSteps((sx) => [...sx, { delay_minutes: 60, message: '' }])}><Plus className="w-4 h-4 mr-1" /> Adicionar passo</Button>
               </div>
             </div>
-            <DialogFooter><Button onClick={create} disabled={!name || steps.some((s) => !s.message)}>Criar</Button></DialogFooter>
+            <DialogFooter>
+              <Button onClick={create} disabled={!name || steps.some((s) => !s.message) || selectedIds.size === 0}>
+                Criar ({selectedIds.size} contato{selectedIds.size === 1 ? '' : 's'})
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </header>
