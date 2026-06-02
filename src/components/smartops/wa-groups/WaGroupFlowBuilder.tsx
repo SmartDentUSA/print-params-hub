@@ -413,6 +413,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
                 </div>
                 <div className="pt-3 border-t space-y-2">
+                  {campaignId && (
+                    (campaignStartedAt && new Date(campaignStartedAt).getTime() <= Date.now()) ||
+                    ["active", "paused", "finished", "error"].includes(campaignStatus ?? "")
+                  ) ? (
+                    <div className="rounded border border-dashed p-2 bg-muted/30">
+                      <Label className="text-xs">Edição incremental</Label>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-1">
+                        A campanha já foi iniciada. Novos nós serão enfileirados após o último envio, seguindo a sequência de "Aguardar". Nós já enviados não serão reenviados.
+                      </p>
+                    </div>
+                  ) : (
+                  <>
                   <div className="flex items-center justify-between">
                     <Label className="text-xs">Início da automação</Label>
                     <div className="flex items-center gap-1.5">
@@ -473,6 +485,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                     <p className="text-[10px] text-muted-foreground leading-tight">
                       Ao ativar, a primeira mensagem é enviada em ~15 segundos.
                     </p>
+                  )}
+                  </>
                   )}
                 </div>
               </div>
