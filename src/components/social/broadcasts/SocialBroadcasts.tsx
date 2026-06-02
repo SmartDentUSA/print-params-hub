@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Megaphone, Send } from 'lucide-react';
+import { Plus, Megaphone, Send, Instagram } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export function SocialBroadcasts() {
@@ -18,10 +19,25 @@ export function SocialBroadcasts() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
-  const [channel, setChannel] = useState('whatsapp');
+  const [zernioAccountId, setZernioAccountId] = useState<string>('');
   const [message, setMessage] = useState('');
-  const [segment, setSegment] = useState<{ tags: string; lead_status: string }>({ tags: '', lead_status: '' });
+  const [tagsInput, setTagsInput] = useState('');
+  const [onlyFollowers, setOnlyFollowers] = useState(false);
+  const [onlySubscribed, setOnlySubscribed] = useState(true);
   const [scheduledAt, setScheduledAt] = useState('');
+
+  const { data: zernioAccounts } = useQuery({
+    queryKey: ['zernio-accounts-ig'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('social_zernio_accounts')
+        .select('id, platform, handle, display_name, active')
+        .eq('platform', 'instagram').eq('active', true)
+        .order('display_name');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { data: broadcasts, isLoading } = useQuery({
     queryKey: ['social-broadcasts'],
@@ -37,26 +53,33 @@ export function SocialBroadcasts() {
 
   const create = async () => {
     try {
-      const seg: any = {};
-      if (segment.tags) seg.tags = segment.tags.split(',').map((t) => t.trim()).filter(Boolean);
-      if (segment.lead_status) seg.lead_status = segment.lead_status;
+      if (!zernioAccountId) { toast.error('Selecione a conta Zernio do Instagram'); return; }
+      const seg: any = {
+        zernio_account_id: zernioAccountId,
+        tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : [],
+        is_follower: onlyFollowers,
+        subscribed: onlySubscribed,
+        message,
+      };
       const { error } = await supabase.from('social_broadcasts').insert({
-        name, channel,
-        segment: { ...seg, message },
+        name, channel: 'instagram_dm',
+        segment: seg,
         scheduled_at: scheduledAt || null,
         status: scheduledAt ? 'scheduled' : 'draft',
       });
       if (error) throw error;
       toast.success('Broadcast criado');
       setOpen(false); setStep(0); setName(''); setMessage(''); setScheduledAt('');
+      setTagsInput(''); setZernioAccountId(''); setOnlyFollowers(false); setOnlySubscribed(true);
       qc.invalidateQueries({ queryKey: ['social-broadcasts'] });
     } catch (e: any) { toast.error(e.message); }
   };
 
   const dispatch = async (id: string) => {
     try {
-      const { error } = await supabase.functions.invoke('wa-broadcast-dispatch', { body: { broadcast_id: id } });
+      const { data, error } = await supabase.functions.invoke('zernio-broadcast-dispatch', { body: { broadcast_id: id } });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
       toast.success('Disparo enfileirado');
       qc.invalidateQueries({ queryKey: ['social-broadcasts'] });
     } catch (e: any) { toast.error(e.message); }
@@ -67,7 +90,9 @@ export function SocialBroadcasts() {
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Megaphone className="w-6 h-6" /> Broadcasts</h1>
-          <p className="text-sm text-muted-foreground">Disparos em massa segmentados (WhatsApp via Evolution)</p>
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Instagram className="w-3.5 h-3.5" /> Disparos em massa segmentados — Instagram Direct (via Zernio)
+          </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-1" /> Novo broadcast</Button></DialogTrigger>
@@ -76,24 +101,37 @@ export function SocialBroadcasts() {
             {step === 0 && (
               <div className="space-y-3">
                 <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-                <div><Label>Canal</Label>
-                  <Select value={channel} onValueChange={setChannel}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <div><Label>Conta Zernio (Instagram)</Label>
+                  <Select value={zernioAccountId} onValueChange={setZernioAccountId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a conta…" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                      <SelectItem value="instagram_dm">Instagram DM</SelectItem>
+                      {(zernioAccounts ?? []).length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground">Nenhuma conta IG sincronizada. Rode "Sincronizar Zernio" em Contatos.</div>
+                      )}
+                      {(zernioAccounts ?? []).map((a: any) => (
+                        <SelectItem key={a.id} value={a.id}>{a.display_name ?? a.handle ?? a.id}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Tags (vírgula)</Label><Input value={segment.tags} onChange={(e) => setSegment({ ...segment, tags: e.target.value })} placeholder="vip, ativo, cliente" /></div>
-                <div><Label>Status do lead</Label><Input value={segment.lead_status} onChange={(e) => setSegment({ ...segment, lead_status: e.target.value })} placeholder="ex: CLIENTE_ativo" /></div>
+                <div><Label>Tags dos contatos (vírgula, opcional)</Label>
+                  <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="vip, lead_quente" />
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-border p-2.5">
+                  <Label className="cursor-pointer text-sm">Apenas seguidores</Label>
+                  <Switch checked={onlyFollowers} onCheckedChange={setOnlyFollowers} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-border p-2.5">
+                  <Label className="cursor-pointer text-sm">Somente inscritos (opt-in)</Label>
+                  <Switch checked={onlySubscribed} onCheckedChange={setOnlySubscribed} />
+                </div>
               </div>
             )}
             {step === 1 && (
               <div className="space-y-3">
                 <Label>Mensagem</Label>
                 <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} placeholder="Olá {{first_name}}, …" />
-                <p className="text-xs text-muted-foreground">Variáveis: {'{{first_name}}'}, {'{{name}}'}, {'{{tag}}'}</p>
+                <p className="text-xs text-muted-foreground">Variáveis: {'{{first_name}}'}, {'{{name}}'} — preenchidas a partir do contato.</p>
               </div>
             )}
             {step === 2 && (
@@ -102,8 +140,13 @@ export function SocialBroadcasts() {
                 <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
                 <Card><CardContent className="p-3 text-sm">
                   <div className="font-semibold mb-1">{name || 'Sem nome'}</div>
-                  <div className="text-muted-foreground text-xs">Canal: {channel}</div>
-                  <div className="text-muted-foreground text-xs">Segmento: tags={segment.tags || '—'}, status={segment.lead_status || '—'}</div>
+                  <div className="text-muted-foreground text-xs">Canal: Instagram Direct (Zernio)</div>
+                  <div className="text-muted-foreground text-xs">
+                    Conta: {(zernioAccounts ?? []).find((a: any) => a.id === zernioAccountId)?.display_name ?? '—'}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    Filtros: tags={tagsInput || '—'} · seguidores={onlyFollowers ? 'sim' : 'não'} · inscritos={onlySubscribed ? 'sim' : 'não'}
+                  </div>
                   <p className="mt-2 text-xs whitespace-pre-wrap">{message}</p>
                 </CardContent></Card>
               </div>
@@ -111,7 +154,7 @@ export function SocialBroadcasts() {
             <DialogFooter>
               {step > 0 && <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>Voltar</Button>}
               {step < 2 ? (
-                <Button onClick={() => setStep((s) => s + 1)} disabled={step === 0 ? !name : !message}>Avançar</Button>
+                <Button onClick={() => setStep((s) => s + 1)} disabled={step === 0 ? (!name || !zernioAccountId) : !message}>Avançar</Button>
               ) : (
                 <Button onClick={create}>Criar</Button>
               )}
@@ -124,7 +167,7 @@ export function SocialBroadcasts() {
         <Card><CardContent className="py-12 text-center space-y-3">
           <Megaphone className="w-12 h-12 mx-auto text-muted-foreground" />
           <h3 className="font-semibold">Nenhum broadcast</h3>
-          <p className="text-sm text-muted-foreground">Crie seu primeiro disparo segmentado.</p>
+          <p className="text-sm text-muted-foreground">Crie seu primeiro DM em massa pelo Instagram.</p>
         </CardContent></Card>
       ) : (
         <div className="space-y-2">
@@ -134,7 +177,7 @@ export function SocialBroadcasts() {
                 <div>
                   <div className="font-medium">{b.name}</div>
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                    <Badge variant="outline">{b.channel}</Badge>
+                    <Badge variant="outline" className="flex items-center gap-1"><Instagram className="w-3 h-3" /> {b.channel === 'instagram_dm' ? 'IG Direct' : b.channel}</Badge>
                     <Badge variant="secondary">{b.status}</Badge>
                     {b.scheduled_at && <span>{new Date(b.scheduled_at).toLocaleString('pt-BR')}</span>}
                     <span>Enviados: {b.total_sent ?? 0}</span>
