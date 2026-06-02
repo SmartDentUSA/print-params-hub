@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { aiComplete } from "../_shared/ai-router.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
 const MAX_CAPTION = 2200;
@@ -197,42 +197,24 @@ Responda APENAS com um JSON válido, sem markdown, no formato:
 {"caption":"...","hashtags":["...","..."],"first_comment":"..."}`;
 }
 
-async function callLLM(prompt: string): Promise<{ caption: string; hashtags: string[]; first_comment: string }> {
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Lovable-API-Key": LOVABLE_API_KEY,
-      "X-Lovable-AIG-SDK": "edge-function",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
-      messages: [
-        { role: "system", content: "Você devolve SEMPRE JSON válido sem cercas de código." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-    }),
+async function callLLM(prompt: string): Promise<{ caption: string; hashtags: string[]; first_comment: string; _model: string }> {
+  const r = await aiComplete({
+    task: "social_caption",
+    functionName: "social-caption-generator",
+    messages: [
+      { role: "system", content: "Você devolve SEMPRE JSON válido sem cercas de código." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.7,
   });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    console.error("[caption] LLM error", res.status, txt.slice(0, 500));
-    const err: any = new Error(
-      res.status === 402
-        ? "Créditos Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage."
-        : res.status === 429
-          ? "Limite de requisições atingido. Tente novamente em alguns segundos."
-          : `LLM ${res.status}: ${txt.slice(0, 200)}`,
-    );
-    err.status = res.status;
+  if (!r.ok) {
+    console.error("[caption] ai-router falhou", JSON.stringify(r.attempts));
+    const err: any = new Error(r.error || "Falha ao chamar IA");
+    err.status = 502;
     throw err;
   }
-  const json = await res.json();
-  const raw = json?.choices?.[0]?.message?.content || "{}";
+  const raw = r.text || "{}";
   let parsed: any;
   try {
     parsed = JSON.parse(raw);
@@ -245,6 +227,7 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
     caption: String(parsed.caption || "").slice(0, MAX_CAPTION),
     hashtags: sanitizeHashtags(parsed.hashtags),
     first_comment: String(parsed.first_comment || "").slice(0, MAX_COMMENT),
+    _model: `${r.provider_used}/${r.model_used}`,
   };
   if (!out.caption) {
     const err: any = new Error("A IA retornou uma resposta vazia. Tente novamente com outra instrução.");
@@ -274,11 +257,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        ...result,
+        caption: result.caption,
+        hashtags: result.hashtags,
+        first_comment: result.first_comment,
         _meta: {
           product_hits: productCtx.length,
           rag_hits: ragCtx.length,
-          model: "google/gemini-2.5-flash-lite",
+          model: result._model,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
