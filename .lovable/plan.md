@@ -1,55 +1,61 @@
+# IA + Conteúdo — mensagem estilo WA + link automático
+
 ## Problema
+O nó "IA + Conteúdo" (Artigos | Produtos | Vídeos) já gera mensagem via IA (DeepSeek/Gemini), mas:
+1. Não inclui o **link público** do conteúdo no sistema.
+2. O tom não está calibrado como "mensagem de grupo de WhatsApp" (hoje é "marketing profissional", curto demais e sem chamada para clicar).
 
-Hoje, ao editar uma campanha já ativa/finalizada e adicionar novos nós:
+## Escopo
+Backend apenas. Dois arquivos:
+- `supabase/functions/wa-dispatcher/index.ts` (envio real)
+- `supabase/functions/wa-ai-preview/index.ts` (preview no builder)
 
-1. A UI exige nova **data de início futura** (`computeStartedAt` valida `> Date.now()`).
-2. O `wa-campaign-builder` apaga todos os `pending` e **recria a fila do índice 0**, ancorada em `started_at`. Como as linhas `sent` permanecem, os nós já enviados ganham linhas duplicadas (`sent` antiga + `pending` nova) e seriam reenviadas.
+Nenhuma mudança de schema, nenhuma mudança de frontend, nenhuma mudança no `wa-campaign-builder`.
 
-O comportamento esperado: ao adicionar nós no fim do fluxo, o sistema deve **manter o que já foi enviado**, **não pedir nova data**, e **agendar apenas os novos nós** seguindo a sequência de `wait` a partir do último ponto.
+## Mudanças
 
-## Fix (frontend + edge function, escopo cirúrgico)
+### 1. Resolver URL pública por tipo
 
-### 1. `WaGroupFlowBuilder.tsx` — não exigir nova data ao editar campanha já iniciada
+Estender as queries em ambas funções para também buscar slug/categoria e montar a URL canônica:
 
-No carregamento (`useEffect` em `campaignId`), detectar se a campanha já foi iniciada (`started_at` no passado OU status ∈ `active|paused|finished|error`) e marcar um flag `isIncrementalEdit`.
+- **article** (`knowledge_contents`): `select title, excerpt, content_html, slug, knowledge_categories!inner(letter)` → URL = `https://parametros.smartdent.com.br/base-conhecimento/{letter}/{slug}`
+- **product** (`system_a_catalog`): `select name, description, category, slug` → URL = `https://parametros.smartdent.com.br/produtos/{slug}` (omite se sem slug)
+- **video** (`knowledge_videos`): `select title, description, url, embed_url, content_id` → preferir `url` direta do vídeo (YouTube/Panda); se não houver, omitir link
 
-No `handleSave`:
-- Se `isIncrementalEdit`: **não** enviar `started_at` no payload, **não** rodar `computeStartedAt`, manter `status = 'draft'` apenas para destravar o builder.
-- O `scheduleEnabled`/`scheduleDate` na UI só aparece para campanhas novas ou que ainda não dispararam.
+Constante `PUBLIC_SITE_URL` no topo do arquivo, default `https://parametros.smartdent.com.br`, override via `Deno.env.get('PUBLIC_SITE_URL')`.
 
-### 2. `wa-campaign-builder/index.ts` — modo incremental
+### 2. System prompt — tom de grupo de WA
 
-Detectar incremental quando já existem linhas em `wa_message_queue` para o `campaign_id` com status `sent` ou `sending`:
+Substituir o atual por algo como:
 
-```text
-Para cada grupo alvo:
-  1. Buscar índices já enviados/em envio: SELECT node_index FROM wa_message_queue
-     WHERE campaign_id=$1 AND group_jid=$2 AND status IN ('sent','sending')
-  2. Buscar maior scheduled_at já existente (sent OR pending) → anchorTs
-     (fallback: now() + 15s)
-  3. Apagar APENAS pending desse grupo (já é o caso)
-  4. Iterar flow_json:
-       - Se node_index ∈ enviados → skip (não re-enfileira, mas continua acumulando waits posteriores)
-       - Se é wait → acumula accMs (como hoje)
-       - Senão → ts = anchorTs + accMs (ou regra spDateTimeToUtc para waits só-em-dias),
-                 insere pending com node_index original
+```
+Você escreve mensagens curtas para grupo de WhatsApp da Smart Dent
+(dentistas e laboratórios de prótese).
+Estilo: conversa de grupo — caloroso, direto, 1ª pessoa do plural ("a gente",
+"olha isso"), 1–3 linhas curtas, máximo 2 emojis no texto, sem hashtags,
+sem títulos formais, sem assinatura. Termine com chamada curta para o link
+(ex.: "Dá uma olhada aqui 👇", "Confere aí 👇"). Sem preços (política).
+O link será adicionado automaticamente na linha seguinte — NÃO insira URL no corpo.
 ```
 
-Resultado:
-- Nós já enviados não são tocados (linha `sent` preservada, sem `pending` duplicada).
-- Novos nós após o último wait são agendados a partir do âncora.
-- Funciona também para campanha `finished`: novos nós voltam a campanha para `active` com `next_send_at` no primeiro pending novo.
+### 3. Anexar link após a geração
 
-### 3. Ajuste UI menor
+Depois da resposta da IA (DeepSeek/Gemini ou fallback):
+- Se houver `url` resolvida: `text = `${text.trim()}\n${url}``
+- Se não houver: retorna só o texto (comportamento atual).
 
-Esconder/desabilitar o bloco "Agendar início" quando `isIncrementalEdit` e mostrar uma nota: *"Edição incremental — novos nós serão enfileirados após o último envio. Nós já enviados não serão reenviados."*
+Fallback final quando IA falha:
+- Com link: `${title} — confere aí 👇\n${url}`
+- Sem link: mantém `${title} — confira o conteúdo completo em nosso portal! 📲`
 
-## Arquivos afetados
+### 4. Manter compatibilidade
 
-- `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` (flag `isIncrementalEdit`, branch no save, UI do agendador)
-- `supabase/functions/wa-campaign-builder/index.ts` (lógica incremental por grupo)
+- `ai_prompt_override` continua respeitado; quando usado, o link ainda é anexado ao final (a menos que o override já contenha `http`).
+- `max_tokens` aumenta de 150 → 220 no dispatcher (alinhar com preview) para acomodar mensagem 1–3 linhas + variação.
+- Preview e dispatcher devem usar **a mesma função** de resolução. Como hoje duplicam a lógica, vou extrair `resolveAIContent()` para `supabase/functions/_shared/wa-ai-content.ts` e importar nos dois — fonte única de verdade do prompt, da URL e do fallback.
 
-## Fora de escopo
-
-- Reordenação/edição de nós já enviados (mantém intocado — quem edita um nó já enviado não vê efeito retroativo).
-- Mudança no schema de `wa_message_queue`.
+## Out of scope
+- Mudança no UI do builder.
+- Templates por categoria/idioma.
+- Encurtador de URL (deixa link cru; WhatsApp gera preview).
+- Mudança no schema do `flow_json`.
