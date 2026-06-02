@@ -17366,7 +17366,9 @@ export type Database = {
           media_items: Json | null
           per_channel_media: Json | null
           post_type: string
+          product_category: string | null
           product_name: string | null
+          product_ref: string | null
           product_slug: string | null
           publish_errors: Json | null
           publish_now: boolean | null
@@ -17389,7 +17391,9 @@ export type Database = {
           media_items?: Json | null
           per_channel_media?: Json | null
           post_type?: string
+          product_category?: string | null
           product_name?: string | null
+          product_ref?: string | null
           product_slug?: string | null
           publish_errors?: Json | null
           publish_now?: boolean | null
@@ -17412,7 +17416,9 @@ export type Database = {
           media_items?: Json | null
           per_channel_media?: Json | null
           post_type?: string
+          product_category?: string | null
           product_name?: string | null
+          product_ref?: string | null
           product_slug?: string | null
           publish_errors?: Json | null
           publish_now?: boolean | null
@@ -23044,6 +23050,60 @@ export type Database = {
           produto: string | null
           proprietario_lead_crm: string | null
           seller_name: string | null
+        }
+        Relationships: []
+      }
+      v_social_posts_for_ai: {
+        Row: {
+          caption: string | null
+          channels: Json | null
+          created_at: string | null
+          first_comment: string | null
+          hashtags: string[] | null
+          id: string | null
+          media_items: Json | null
+          post_type: string | null
+          product_category: string | null
+          product_name: string | null
+          product_ref: string | null
+          product_slug: string | null
+          published_at: string | null
+          scheduled_at: string | null
+          status: string | null
+        }
+        Insert: {
+          caption?: string | null
+          channels?: Json | null
+          created_at?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string | null
+          media_items?: Json | null
+          post_type?: string | null
+          product_category?: string | null
+          product_name?: string | null
+          product_ref?: string | null
+          product_slug?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          caption?: string | null
+          channels?: Json | null
+          created_at?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string | null
+          media_items?: Json | null
+          post_type?: string | null
+          product_category?: string | null
+          product_name?: string | null
+          product_ref?: string | null
+          product_slug?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string | null
         }
         Relationships: []
       }
