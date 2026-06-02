@@ -8,8 +8,6 @@ import { resolveAiContent } from '../_shared/wa-ai-content.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const DEEPSEEK_KEY     = Deno.env.get('DEEPSEEK_API_KEY') ?? ''
-const GEMINI_KEY       = Deno.env.get('GEMINI_API_KEY') ?? Deno.env.get('GOOGLE_AI_KEY') ?? ''
 const MAX_PER_RUN      = 5
 
 serve(async (req) => {
