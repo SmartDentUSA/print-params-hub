@@ -459,6 +459,9 @@ export function SmartOpsWaGroupCampaigns() {
         </div>
       </div>
 
+      {/* Card: enviar publicação histórica das contas sociais */}
+      <HistoricalPostBroadcast instanceFilter={selectedInstance || undefined} />
+
       {/* Réguas compartilhadas (multi-grupo) */}
       {sharedCampaigns.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
