@@ -1,0 +1,1 @@
+ALTER TABLE public.social_scheduled_posts ADD COLUMN IF NOT EXISTS post_type text NOT NULL DEFAULT 'feed';
