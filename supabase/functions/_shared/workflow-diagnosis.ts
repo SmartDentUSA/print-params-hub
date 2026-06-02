@@ -990,6 +990,13 @@ export function renderDiagnosisWhatsApp(diag: WorkflowDiagnosis): string {
   lines.push("🧭 *SPIN — Briefing do Lead*");
 
   if (diag.spin?.situacao) lines.push(`*Situação:* ${diag.spin.situacao}`);
+  if (diag.spin?.timing) {
+    lines.push(`*Timing:* ${diag.spin.timing.faixa} — ${diag.spin.timing.acao_recomendada || diag.spin.timing.justificativa || ""}`.trim());
+  }
+  if (diag.spin?.perfil_profissional) {
+    const p = diag.spin.perfil_profissional;
+    lines.push(`*Perfil:* ${p.persona} · ${p.porte} · ${p.maturidade_digital} (tom: ${p.tom_recomendado})`);
+  }
   if (diag.intent?.target_stage) {
     lines.push(`*Intenção:* ${diag.intent.produto} → ${STAGE_LABEL[diag.intent.target_stage] || diag.intent.target_stage}`);
   } else if (diag.intent) {
