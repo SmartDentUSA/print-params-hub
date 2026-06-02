@@ -103,6 +103,10 @@ serve(async (req) => {
     try {
       const channels: any[] = Array.isArray(post.channels) ? post.channels : [];
       const mediaItems: any[] = Array.isArray(post.media_items) ? post.media_items : [];
+      const perChannelMedia: Record<string, any[]> =
+        post.per_channel_media && typeof post.per_channel_media === 'object'
+          ? post.per_channel_media
+          : {};
 
       const platforms: any[] = [];
       const skipped: any[] = [];
@@ -128,54 +132,79 @@ serve(async (req) => {
           : '',
       ].filter(Boolean).join('\n\n');
 
-      const zernioMedia = mediaItems
-        .map((m) => {
-          const url = m.url ?? m.public_url ?? m.publicUrl;
-          if (!url) return null;
-          return { url, type: m.type ?? inferMediaType(url) };
-        })
-        .filter(Boolean);
+      const mapMedia = (items: any[]) =>
+        items
+          .map((m) => {
+            const url = m.url ?? m.public_url ?? m.publicUrl;
+            if (!url) return null;
+            return { url, type: m.type ?? inferMediaType(url) };
+          })
+          .filter(Boolean);
+      const defaultMedia = mapMedia(mediaItems);
 
-      const payload: any = {
-        content,
-        publishNow: true,
-        timezone: post.timezone ?? 'America/Sao_Paulo',
-        platforms,
-      };
-      if (zernioMedia.length > 0) payload.mediaItems = zernioMedia;
-      if (post.first_comment) payload.firstComment = post.first_comment;
-
-      const res = await fetch(`${ZERNIO_BASE}/posts`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(`Zernio ${res.status}: ${JSON.stringify(data)}`);
+      // Agrupa: plataformas SEM override entram em 1 chamada bulk; cada override = chamada própria
+      const groups: Array<{ platforms: any[]; media: any[]; label: string }> = [];
+      const bulkPlatforms: any[] = [];
+      for (const p of platforms) {
+        const override = perChannelMedia[p.platform];
+        if (Array.isArray(override) && override.length > 0) {
+          groups.push({ platforms: [p], media: mapMedia(override), label: p.platform });
+        } else {
+          bulkPlatforms.push(p);
+        }
+      }
+      if (bulkPlatforms.length > 0) {
+        groups.unshift({ platforms: bulkPlatforms, media: defaultMedia, label: 'default' });
       }
 
-      const zernioId = data?.post?._id ?? data?.post?.id ?? data?._id ?? null;
       const idsMap: Record<string, string> = {};
-      for (const p of platforms) idsMap[p.platform] = zernioId;
+      const groupErrors: any[] = [];
+
+      for (const g of groups) {
+        const payload: any = {
+          content,
+          publishNow: true,
+          timezone: post.timezone ?? 'America/Sao_Paulo',
+          platforms: g.platforms,
+        };
+        if (g.media.length > 0) payload.mediaItems = g.media;
+        if (post.first_comment) payload.firstComment = post.first_comment;
+
+        const res = await fetch(`${ZERNIO_BASE}/posts`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          groupErrors.push({ group: g.label, status: res.status, response: data });
+          continue;
+        }
+        const zernioId = data?.post?._id ?? data?.post?.id ?? data?._id ?? null;
+        for (const p of g.platforms) idsMap[p.platform] = zernioId;
+      }
+
+      if (Object.keys(idsMap).length === 0) {
+        throw new Error(`Zernio falhou em todos os grupos: ${JSON.stringify(groupErrors)}`);
+      }
 
       await supabase
         .from('social_scheduled_posts')
         .update({
-          status: 'published',
+          status: groupErrors.length > 0 ? 'partial' : 'published',
           published_at: new Date().toISOString(),
           zernio_post_ids: idsMap,
-          publish_errors: skipped.length > 0 ? skipped : null,
+          publish_errors: [...skipped, ...groupErrors].length > 0 ? [...skipped, ...groupErrors] : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', post.id);
 
-      console.log(JSON.stringify({ event: 'publish.ok', post_id: post.id, zernio_id: zernioId, platforms: platforms.map((p) => p.platform) }));
-      results.push({ id: post.id, status: 'published' });
+      console.log(JSON.stringify({ event: 'publish.ok', post_id: post.id, platforms: Object.keys(idsMap), errors: groupErrors.length }));
+      results.push({ id: post.id, status: 'published', errors: groupErrors.length });
     } catch (err: any) {
       console.error(JSON.stringify({ event: 'publish.fail', post_id: post.id, error: String(err?.message ?? err) }));
       await supabase
