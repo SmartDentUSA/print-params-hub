@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Workflow as WorkflowIcon } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Workflow as WorkflowIcon, Loader2 } from 'lucide-react';
 import {
   ReactFlow, Background, Controls, MiniMap, addEdge, useNodesState, useEdgesState,
   type Connection, type Edge, type Node,
