@@ -23,10 +23,12 @@ export function useCalendarPosts(from: Date, to: Date) {
       const [schedRes, pubRes] = await Promise.all([
         supabase
           .from('social_scheduled_posts')
-          .select('id, caption, channels, media_items, scheduled_at, status, product_name, publish_errors')
-          .gte('scheduled_at', from.toISOString())
-          .lte('scheduled_at', to.toISOString())
-          .order('scheduled_at', { ascending: true }),
+          .select('id, caption, channels, media_items, scheduled_at, published_at, updated_at, status, product_name, publish_errors')
+          .or(
+            `and(scheduled_at.gte.${from.toISOString()},scheduled_at.lte.${to.toISOString()}),` +
+            `and(scheduled_at.is.null,published_at.gte.${from.toISOString()},published_at.lte.${to.toISOString()})`,
+          )
+          .order('scheduled_at', { ascending: true, nullsFirst: false }),
         supabase
           .from('social_posts')
           .select('id, caption, platform, thumbnail_url, media_url, post_url, published_at, format, product_name')
@@ -39,6 +41,7 @@ export function useCalendarPosts(from: Date, to: Date) {
 
       const scheduled: CalendarPost[] = (schedRes.data ?? []).map((p: any) => ({
         ...p,
+        scheduled_at: p.scheduled_at ?? p.published_at ?? p.updated_at,
         channels: Array.isArray(p.channels) ? p.channels : [],
         media_items: Array.isArray(p.media_items) ? p.media_items : [],
         source: 'scheduled' as const,
