@@ -760,6 +760,53 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                         </div>
                       );
                     })()}
+
+                    {(n.type === "link_ig" || n.type === "link_yt") && (() => {
+                      const ln = n as SocialLinkNode;
+                      const platform: "instagram" | "youtube" = n.type === "link_ig" ? "instagram" : "youtube";
+                      return (
+                        <div className="space-y-2">
+                          {ln.url ? (
+                            <div className="flex gap-2.5 p-2 rounded-md border bg-muted/30">
+                              {ln.thumbnail_url ? (
+                                <img src={ln.thumbnail_url} alt="" loading="lazy" className="w-14 h-14 rounded object-cover bg-muted shrink-0" />
+                              ) : (
+                                <div className="w-14 h-14 rounded bg-muted flex items-center justify-center shrink-0">
+                                  {platform === "instagram"
+                                    ? <Instagram className="w-5 h-5 text-pink-600" />
+                                    : <Youtube className="w-5 h-5 text-red-600" />}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium truncate">{ln.titulo || "Link"}</div>
+                                <a href={ln.url} target="_blank" rel="noreferrer" className="text-[11px] text-primary underline truncate block">{ln.url}</a>
+                              </div>
+                              <Button size="sm" variant="outline" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>Trocar</Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>
+                              {platform === "instagram"
+                                ? <Instagram className="w-3.5 h-3.5 mr-1.5 text-pink-600" />
+                                : <Youtube className="w-3.5 h-3.5 mr-1.5 text-red-600" />}
+                              Selecionar link do {platform === "instagram" ? "Instagram" : "YouTube"}
+                            </Button>
+                          )}
+                          <Textarea
+                            value={ln.caption ?? ""}
+                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<SocialLinkNode>)}
+                            placeholder="Mensagem que acompanha o link (editável)"
+                            rows={3}
+                          />
+                        </div>
+                      );
+                    })()}
+
+                    {n.type === "promo_seq" && (
+                      <PromoSeqInspector
+                        node={n as PromoSeqNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<PromoSeqNode>)}
+                      />
+                    )}
                   </Card>
                 );
               })}
