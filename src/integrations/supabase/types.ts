@@ -17007,6 +17007,7 @@ export type Database = {
           hashtags: string[] | null
           id: string
           media_items: Json | null
+          per_channel_media: Json | null
           product_name: string | null
           product_slug: string | null
           publish_errors: Json | null
@@ -17028,6 +17029,7 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
+          per_channel_media?: Json | null
           product_name?: string | null
           product_slug?: string | null
           publish_errors?: Json | null
@@ -17049,6 +17051,7 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
+          per_channel_media?: Json | null
           product_name?: string | null
           product_slug?: string | null
           publish_errors?: Json | null
