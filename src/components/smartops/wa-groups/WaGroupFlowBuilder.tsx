@@ -52,6 +52,8 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string; 
   button:   { label: "Botões",    icon: Hand,          color: "text-indigo-600", isNew: true },
   list:     { label: "Lista",     icon: ListIcon,      color: "text-teal-600",   isNew: true },
   carousel: { label: "Carrossel", icon: LayoutList,    color: "text-fuchsia-600", isNew: true },
+  post_ig:  { label: "Postagem Instagram", icon: Instagram, color: "text-pink-600", isNew: true },
+  post_yt:  { label: "Postagem YouTube",   icon: Youtube,   color: "text-red-600",  isNew: true },
 };
 
 function newNode(type: FlowNodeType): FlowNode {
@@ -80,6 +82,9 @@ function newNode(type: FlowNodeType): FlowNode {
         id, type,
         cards: [{ body: "", image: "", buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }] }],
       };
+    case "post_ig":
+    case "post_yt":
+      return { id, type, post_url: "", caption: "", titulo: "" } as SocialPostNode;
   }
 }
 
