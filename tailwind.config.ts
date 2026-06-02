@@ -74,6 +74,14 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				social: {
+					instagram: '#E1306C',
+					facebook: '#1877F2',
+					tiktok: '#000000',
+					youtube: '#FF0000',
+					pinterest: '#E60023',
+					reddit: '#FF4500'
 				}
 			},
 			backgroundImage: {

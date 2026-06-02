@@ -21,6 +21,10 @@ import WaFlowVisualizerPage from "./pages/WaFlowVisualizerPage";
 import DraLIA from "./components/DraLIA";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
+import { SocialLayout } from "./components/social/SocialLayout";
+import { SocialDashboard } from "./components/social/SocialDashboard";
+import { SocialPostsBank } from "./components/social/SocialPostsBank";
+import { ComingSoon } from "./components/social/ComingSoon";
 
 function PageTracker() {
   usePageTracking();
@@ -37,6 +41,15 @@ const App = () => (
       <Route path="/admin" element={<AdminViewSecure />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
+
+      {/* Social Publisher */}
+      <Route path="/social" element={<SocialLayout />}>
+        <Route index element={<SocialDashboard />} />
+        <Route path="banco" element={<SocialPostsBank />} />
+        <Route path="novo" element={<ComingSoon title="Criar Post" />} />
+        <Route path="calendario" element={<ComingSoon title="Calendário" />} />
+        <Route path="analytics" element={<ComingSoon title="Analytics" />} />
+      </Route>
       
       {/* Portuguese routes (default) */}
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
@@ -103,13 +116,13 @@ const App = () => (
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname === '/agenda') return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
   return <DraLIA />;
 }
 
 function FooterGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname === '/agenda') return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
   return <Footer />;
 }
 
