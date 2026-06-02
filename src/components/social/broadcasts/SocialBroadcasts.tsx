@@ -33,6 +33,7 @@ export function SocialBroadcasts() {
   const [scheduledAt, setScheduledAt] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contactSearch, setContactSearch] = useState('');
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: zernioAccounts } = useQuery({
     queryKey: ['zernio-accounts-ig'],
