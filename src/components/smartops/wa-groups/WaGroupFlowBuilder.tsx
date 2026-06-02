@@ -270,6 +270,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         started_at: sched.iso,
       };
       if (cid) {
+        payload.status = "draft";
         const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
         if (error) throw error;
       } else {
