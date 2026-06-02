@@ -147,28 +147,44 @@ function formatDate(d: string | null) {
 // ══════════════════════════════════════════
 // SUB-TAB 1: Content Library
 // ══════════════════════════════════════════
+const SEQUENCE_TYPES = ["cs", "aftersales", "spin", "promo"] as const;
+const SEQUENCE_LABELS: Record<string, string> = {
+  cs: "Sequência CS (7 msgs)",
+  aftersales: "Pós-venda",
+  spin: "SPIN",
+  promo: "Promo (Gerador)",
+};
+
+interface ProductGroup {
+  product_name: string;
+  thumbnail_url: string | null;
+  total: number;
+  byType: Record<string, ContentItem[]>;
+  lastSync: string | null;
+}
+
 function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem) => void }) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
-
-  // Filters
-  const [channelFilter, setChannelFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [productSearch, setProductSearch] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const fetchContent = useCallback(async () => {
     setLoading(true);
+    // Apenas mensagens de WhatsApp (sequências e promos) agrupadas por produto.
     let query = supabase
       .from("system_a_content_library")
       .select("id, title, channel, content_type, content_text, product_name, thumbnail_url, quality_score, media_url, cta_url, synced_at, is_active")
       .eq("is_active", true)
+      .eq("channel", "whatsapp")
+      .in("content_type", SEQUENCE_TYPES as unknown as string[])
       .order("synced_at", { ascending: false })
-      .limit(200);
+      .limit(2000);
 
-    if (channelFilter !== "all") query = query.eq("channel", channelFilter);
     if (typeFilter !== "all") query = query.eq("content_type", typeFilter);
     if (productSearch.trim()) query = query.ilike("product_name", `%${productSearch.trim()}%`);
 
@@ -176,17 +192,52 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
     if (error) { toast.error("Erro ao carregar conteúdo"); console.error(error); }
     setItems(data || []);
     setLoading(false);
-  }, [channelFilter, typeFilter, productSearch]);
+  }, [typeFilter, productSearch]);
 
   const fetchMeta = useCallback(async () => {
-    const { count } = await supabase.from("system_a_content_library").select("id", { count: "exact", head: true });
+    const { count } = await supabase
+      .from("system_a_content_library")
+      .select("id", { count: "exact", head: true })
+      .eq("channel", "whatsapp")
+      .in("content_type", SEQUENCE_TYPES as unknown as string[]);
     setTotalCount(count || 0);
-    const { data } = await supabase.from("system_a_content_library").select("synced_at").order("synced_at", { ascending: false }).limit(1);
+    const { data } = await supabase
+      .from("system_a_content_library")
+      .select("synced_at")
+      .order("synced_at", { ascending: false })
+      .limit(1);
     if (data?.[0]) setLastSync(data[0].synced_at);
   }, []);
 
   useEffect(() => { fetchContent(); }, [fetchContent]);
   useEffect(() => { fetchMeta(); }, [fetchMeta]);
+
+  const productGroups: ProductGroup[] = useMemo(() => {
+    const map = new Map<string, ProductGroup>();
+    for (const it of items) {
+      const name = (it.product_name || "Sem produto").trim();
+      if (!map.has(name)) {
+        map.set(name, {
+          product_name: name,
+          thumbnail_url: it.thumbnail_url,
+          total: 0,
+          byType: {},
+          lastSync: it.synced_at,
+        });
+      }
+      const g = map.get(name)!;
+      g.total += 1;
+      (g.byType[it.content_type] ||= []).push(it);
+      if (!g.thumbnail_url && it.thumbnail_url) g.thumbnail_url = it.thumbnail_url;
+    }
+    // Ordena as mensagens internas por message_order/título
+    for (const g of map.values()) {
+      for (const k of Object.keys(g.byType)) {
+        g.byType[k].sort((a, b) => (a.title || "").localeCompare(b.title || "", "pt-BR", { numeric: true }));
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.product_name.localeCompare(b.product_name, "pt-BR"));
+  }, [items]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -207,7 +258,10 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Cloud className="w-16 h-16 text-muted-foreground/40" />
-        <p className="text-muted-foreground text-lg">Nenhum conteúdo sincronizado ainda</p>
+        <p className="text-muted-foreground text-lg">Nenhuma sequência de WhatsApp sincronizada ainda</p>
+        <p className="text-xs text-muted-foreground max-w-md text-center">
+          Sincronize do Sistema A para listar os produtos que possuem Sequência de 7 Mensagens, Pós-venda, SPIN ou Promo.
+        </p>
         <Button onClick={handleSync} disabled={syncing}>
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Sincronizando..." : "Sincronizar do Sistema A"}
@@ -221,8 +275,8 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold">Biblioteca de Conteúdo do Sistema A</h3>
-          <Badge variant="secondary">{totalCount} itens</Badge>
+          <h3 className="text-lg font-semibold">Sequências WhatsApp por Produto</h3>
+          <Badge variant="secondary">{productGroups.length} produtos · {totalCount} mensagens</Badge>
         </div>
         <div className="flex items-center gap-3">
           {lastSync && <span className="text-xs text-muted-foreground">Último sync: {formatDate(lastSync)}</span>}
@@ -235,31 +289,14 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <Select value={channelFilter} onValueChange={setChannelFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Canal" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os canais</SelectItem>
-            <SelectItem value="whatsapp">WhatsApp</SelectItem>
-            <SelectItem value="instagram">Instagram</SelectItem>
-            <SelectItem value="tiktok">TikTok</SelectItem>
-            <SelectItem value="linkedin">LinkedIn</SelectItem>
-            <SelectItem value="google_ads">Google Ads</SelectItem>
-            <SelectItem value="blog">Blog</SelectItem>
-            <SelectItem value="youtube">YouTube</SelectItem>
-          </SelectContent>
-        </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tipo de sequência" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            <SelectItem value="campaign">Campaign</SelectItem>
-            <SelectItem value="blog">Blog</SelectItem>
-            <SelectItem value="landing_page">Landing Page</SelectItem>
-            <SelectItem value="spin">SPIN</SelectItem>
-            <SelectItem value="cs">CS</SelectItem>
+            <SelectItem value="all">Todas as sequências</SelectItem>
+            <SelectItem value="cs">Sequência CS (7 msgs)</SelectItem>
             <SelectItem value="aftersales">Pós-venda</SelectItem>
-            <SelectItem value="ads">Ads</SelectItem>
-            <SelectItem value="social">Social</SelectItem>
+            <SelectItem value="spin">SPIN</SelectItem>
+            <SelectItem value="promo">Promo (Gerador WhatsApp)</SelectItem>
           </SelectContent>
         </Select>
         <div className="relative flex-1 min-w-[200px]">
@@ -273,50 +310,89 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Grid de produtos */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => <div key={i} className="h-48 rounded-lg bg-muted animate-pulse" />)}
         </div>
+      ) : productGroups.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          Nenhum produto com sequências encontrado para os filtros atuais.
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map(item => (
-            <Card key={item.id} className="flex flex-col hover:shadow-md transition-shadow">
-              {item.thumbnail_url && (
-                <div className="h-32 overflow-hidden rounded-t-lg bg-muted">
-                  <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-              <CardHeader className="pb-2">
-                <div className="flex gap-2 flex-wrap">
-                  {item.channel && (
-                    <Badge variant="outline" className={channelColors[item.channel] || ""}>
-                      {item.channel}
-                    </Badge>
+        <div className="space-y-3">
+          {productGroups.map(group => {
+            const isOpen = expanded === group.product_name;
+            return (
+              <Card key={group.product_name} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isOpen ? null : group.product_name)}
+                  className="w-full text-left flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                >
+                  {group.thumbnail_url ? (
+                    <img src={group.thumbnail_url} alt="" className="w-14 h-14 rounded-md object-cover bg-muted shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-md bg-muted shrink-0 flex items-center justify-center">
+                      <Smartphone className="w-5 h-5 text-muted-foreground" />
+                    </div>
                   )}
-                  <Badge variant="outline">{item.content_type}</Badge>
-                </div>
-                <CardTitle className="text-sm line-clamp-2">{item.title || "Sem título"}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col gap-2 pt-0">
-                {item.content_text && (
-                  <p className="text-xs text-muted-foreground line-clamp-3">{item.content_text.slice(0, 120)}</p>
-                )}
-                {item.product_name && (
-                  <span className="text-xs font-medium text-primary">{item.product_name}</span>
-                )}
-                {item.quality_score != null && (
-                  <div className="flex items-center gap-2">
-                    <Progress value={item.quality_score} className="h-1.5 flex-1" />
-                    <span className="text-[10px] text-muted-foreground">{item.quality_score}%</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{group.product_name}</div>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {SEQUENCE_TYPES.map(t => {
+                        const n = group.byType[t]?.length ?? 0;
+                        if (!n) return null;
+                        return (
+                          <Badge key={t} variant="outline" className="text-[10px]">
+                            {SEQUENCE_LABELS[t]}: {n}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground shrink-0">{group.total} msgs</div>
+                  <ArrowRight className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                </button>
+
+                {isOpen && (
+                  <div className="border-t bg-muted/20 p-4 space-y-4">
+                    {SEQUENCE_TYPES.map(t => {
+                      const msgs = group.byType[t];
+                      if (!msgs?.length) return null;
+                      return (
+                        <div key={t}>
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                            {SEQUENCE_LABELS[t]} · {msgs.length}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {msgs.map((m, idx) => (
+                              <div key={m.id} className="rounded-md border bg-background p-3 flex flex-col gap-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium truncate">
+                                    #{idx + 1} {m.title || "Sem título"}
+                                  </span>
+                                  <Badge variant="outline" className={channelColors.whatsapp}>WhatsApp</Badge>
+                                </div>
+                                {m.content_text && (
+                                  <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                                    {m.content_text}
+                                  </p>
+                                )}
+                                <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onSelectContent(m); }}>
+                                  <Send className="w-3 h-3 mr-1.5" /> Usar em Campanha
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-                <Button size="sm" className="mt-auto" onClick={() => onSelectContent(item)}>
-                  <Send className="w-3 h-3 mr-1.5" /> Usar em Campanha
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
