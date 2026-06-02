@@ -10,7 +10,7 @@ export function useUpcomingPosts() {
       const { data, error } = await supabase
         .from('social_scheduled_posts')
         .select('id, caption, channels, media_items, scheduled_at, status, product_name')
-        .eq('status', 'scheduled')
+        .in('status', ['scheduled', 'publishing', 'failed'])
         .gte('scheduled_at', now)
         .lte('scheduled_at', in7d)
         .order('scheduled_at', { ascending: true })
