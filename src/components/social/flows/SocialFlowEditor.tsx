@@ -268,6 +268,7 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   const cfg: any = (node.data as any).config ?? {};
   const type = (node.data as any).nodeType;
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [socialPickerOpen, setSocialPickerOpen] = useState(false);
 
   const handleLink = (l: LinkPickerSelection) => {
     const prefix = cfg.message ? cfg.message.trimEnd() + '\n\n' : '';
@@ -278,6 +279,18 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
       link_titulo: l.titulo,
       link_tipo: l.tipo,
       link_thumbnail: l.thumbnail_url ?? null,
+    });
+  };
+
+  const handleSocialPick = (p: SocialPostPickResult) => {
+    onUpdate({
+      post_url: p.url,
+      post_titulo: p.titulo,
+      post_thumbnail: p.thumbnail_url ?? null,
+      post_caption: p.caption ?? null,
+      post_platform: p.platform,
+      post_source: p.source,
+      message: cfg.message ?? `Olha esse conteúdo 👇\n${p.url}`,
     });
   };
 
@@ -344,6 +357,46 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
           <div><Label className="text-xs">Form name</Label><Input value={cfg.form_name ?? 'social_flow'} onChange={(e) => onUpdate({ form_name: e.target.value })} /></div>
           <p className="text-xs text-muted-foreground">Lead criado via smart-ops-ingest-lead com dados coletados.</p>
         </div>
+      );
+    case 'link_instagram':
+    case 'link_youtube': {
+      const platform = type === 'link_instagram' ? 'instagram' : 'youtube';
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Mensagem que acompanha o link</Label>
+            <Textarea value={cfg.message ?? ''} onChange={(e) => onUpdate({ message: e.target.value })} rows={4} placeholder={`Olha esse ${platform === 'instagram' ? 'reel' : 'vídeo'} 👇`} />
+          </div>
+          {cfg.post_url ? (
+            <div className="rounded border border-border bg-muted/30 p-2 flex gap-2">
+              {cfg.post_thumbnail ? (
+                <img src={cfg.post_thumbnail} alt="" className="w-14 h-14 rounded object-cover bg-muted shrink-0" />
+              ) : null}
+              <div className="flex-1 min-w-0">
+                <Badge variant="secondary" className="text-[10px] capitalize">{cfg.post_platform ?? platform}</Badge>
+                <div className="text-xs font-medium truncate mt-1">{cfg.post_titulo}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{cfg.post_url}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic">Nenhuma publicação selecionada.</div>
+          )}
+          <Button variant="outline" size="sm" className="w-full" onClick={() => setSocialPickerOpen(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1" /> {cfg.post_url ? 'Trocar publicação' : `Selecionar ${platform === 'instagram' ? 'post do Instagram' : 'vídeo do YouTube'}`}
+          </Button>
+          <SocialPostLinkPicker
+            open={socialPickerOpen}
+            onOpenChange={setSocialPickerOpen}
+            onSelect={handleSocialPick}
+            platform={platform}
+            produtoSlug={produtoSlug}
+          />
+        </div>
+      );
+    }
+    case 'send_promo_sequence':
+      return (
+        <PromoSequenceInspector cfg={cfg} onUpdate={onUpdate} produtoSlug={produtoSlug} />
       );
     default:
       return <p className="text-xs text-muted-foreground">Sem configuração.</p>;
