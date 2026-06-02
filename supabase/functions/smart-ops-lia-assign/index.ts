@@ -2003,6 +2003,39 @@ async function executarEnrichmentDealRoute(
   }
 
   // CASE B — outros funis abertos → fecha como Perdido (espelho SDR-CAPTAÇÃO)
+  // DEDUP GUARD: se já existe deal em Vendas criado nas últimas 4h para este lead, é loop de re-entrega —
+  // só adicionar nota e sair (não fechar outros funis nem criar novo deal)
+  {
+    const cutoff4h = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const { data: recentVendasDeal } = await supabase
+      .from("lead_activity_log")
+      .select("entity_id, event_timestamp")
+      .eq("lead_id", leadId)
+      .in("event_type", ["deal_reativado_via_redelivery", "deal_enriched_via_redelivery"])
+      .gte("event_timestamp", cutoff4h)
+      .limit(1)
+      .maybeSingle();
+    if (recentVendasDeal?.entity_id) {
+      const existingId = recentVendasDeal.entity_id;
+      console.log(`[lia-assign] enrichment-route DEDUP: deal ${existingId} já criado em ${recentVendasDeal.event_timestamp} (<4h) — apenas nota, sem novo deal`);
+      try {
+        await addDealNote(
+          apiToken,
+          Number(existingId),
+          `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}") — deduplicada. Deal preservado.`,
+        );
+      } catch (e) {
+        console.warn("[lia-assign] enrichment-route DEDUP: addDealNote falhou:", e);
+      }
+      return {
+        flow_type: "dedup_skipped",
+        piperun_id: String(existingId),
+        created_new: false,
+        closed_deals: [],
+        reason: "redelivery_within_4h",
+      };
+    }
+  }
   const closedDeals: Array<{ id: string; pipeline_id: number }> = [];
   for (const deal of otherOpenDeals) {
     try {
@@ -3137,8 +3170,26 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
-    if (WALEADS_ENABLED) {
-      await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
+    // WaLeads pausado — usar smart-ops-lia-notify-seller (Evolution API, instância Danilo Henrique)
+    if (assignedTeamMemberId && assignedTeamMemberId !== "fallback-admin") {
+      try {
+        const notifyRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-notify-seller`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            team_member_id: assignedTeamMemberId,
+            trigger: trigger || "lia_assign",
+          }),
+        });
+        const notifyBody = await notifyRes.text();
+        console.log(`[lia-assign] notify-seller: status=${notifyRes.status} body=${notifyBody.slice(0, 300)}`);
+      } catch (notifyErr) {
+        console.warn("[lia-assign] notify-seller call failed (non-fatal):", notifyErr);
+      }
     }
 
     return new Response(
