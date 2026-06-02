@@ -3,6 +3,21 @@ project_id = "okeogjgqijbfkudfjadz"
 [functions.generate-veredict-data]
 verify_jwt = false
 
+[functions.zernio-webhook]
+verify_jwt = false
+
+[functions.flow-executor]
+verify_jwt = false
+
+[functions.wa-broadcast-dispatch]
+verify_jwt = false
+
+[functions.sequence-runner]
+verify_jwt = false
+
+[functions.zernio-metrics-sync]
+verify_jwt = false
+
 [functions.smart-ops-preview-seller-note]
 verify_jwt = false
 
