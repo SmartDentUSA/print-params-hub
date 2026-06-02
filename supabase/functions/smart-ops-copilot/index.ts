@@ -2722,7 +2722,11 @@ serve(async (req) => {
           const canal = userAskedForSms ? "SMS" : "WhatsApp";
           content = `❌ Nenhum ${canal} foi disparado. O agente não executou a ferramenta de envio neste turno. Tente novamente com algo como: "envia ${canal} para o lead <email/telefone>: <mensagem>".`;
         }
-        
+
+        if (providerSwitched) {
+          content = `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n${content}`;
+        }
+
         // Log usage
         logAIUsage({
           functionName: "smart-ops-copilot",
