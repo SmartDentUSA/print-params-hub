@@ -46,6 +46,8 @@ export function SocialFlowEditor() {
   const [description, setDescription] = useState('');
   const [channel, setChannel] = useState('instagram');
   const [isActive, setIsActive] = useState(false);
+  const [produtoSlug, setProdutoSlug] = useState<string | undefined>();
+  const [formName, setFormName] = useState<string | undefined>();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [triggers, setTriggers] = useState<any[]>([]);
@@ -60,6 +62,8 @@ export function SocialFlowEditor() {
       if (error) { toast.error(error.message); setLoading(false); return; }
       setName(data.name); setDescription(data.description ?? ''); setChannel(data.channel ?? 'instagram');
       setIsActive(!!data.is_active);
+      setProdutoSlug((data as any).produto_slug ?? undefined);
+      setFormName((data as any).form_name ?? undefined);
       const rawNodes = Array.isArray(data.nodes) ? (data.nodes as any[]) : [];
       const normalized = rawNodes.map((n, i) => ({
         ...n,
@@ -200,7 +204,12 @@ export function SocialFlowEditor() {
                 <Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge>
                 <Button variant="ghost" size="sm" onClick={() => deleteNode(selectedNode.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
-              <NodeInspector node={selectedNode} onUpdate={(p) => updateNodeConfig(selectedNode.id, p)} />
+              <NodeInspector
+                node={selectedNode}
+                onUpdate={(p) => updateNodeConfig(selectedNode.id, p)}
+                produtoSlug={produtoSlug}
+                formName={formName}
+              />
             </aside>
           )}
         </TabsContent>
