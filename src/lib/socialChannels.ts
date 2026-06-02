@@ -10,6 +10,52 @@ export const SOCIAL_CHANNELS: Record<SocialPlatform, { label: string; handle: st
   reddit:    { label: 'Reddit',    handle: '@smartdent',        emoji: '🔴', colorClass: 'bg-social-reddit',    formats: ['Texto', 'Link', 'Imagem'] },
 };
 
+// Brand HEX colors — exceção semântica: cores de marca de redes sociais são fixas
+// e usadas apenas em ícones/badges de marca via style={{ color }} ou borderColor.
+export const SOCIAL_BRAND_HEX: Record<SocialPlatform, string> = {
+  instagram: '#E1306C',
+  facebook:  '#1877F2',
+  tiktok:    '#000000',
+  youtube:   '#FF0000',
+  pinterest: '#E60023',
+  reddit:    '#FF4500',
+};
+
+export type SocialFormat = 'feed' | 'image' | 'reel' | 'story' | 'video' | 'carousel' | 'short' | 'pin' | 'text';
+
+export function classifyFormat(format?: string | null): SocialFormat {
+  if (!format) return 'feed';
+  const k = format.toLowerCase();
+  if (k.includes('carro') || k.includes('carousel') || k.includes('álbum') || k.includes('album')) return 'carousel';
+  if (k.includes('reel'))   return 'reel';
+  if (k.includes('stor'))   return 'story';
+  if (k.includes('short'))  return 'short';
+  if (k.includes('idea pin') || k.includes('pin')) return 'pin';
+  if (k.includes('vídeo') || k.includes('video')) return 'video';
+  if (k.includes('text'))   return 'text';
+  if (k.includes('image') || k.includes('feed') || k.includes('post')) return 'feed';
+  return 'feed';
+}
+
+/** Retorna a aspect ratio CSS apropriada para um formato. */
+export function aspectRatioFor(format?: string | null): string {
+  switch (classifyFormat(format)) {
+    case 'reel':
+    case 'story':
+    case 'short':
+      return '9 / 16';
+    case 'video':
+      return '16 / 9';
+    case 'pin':
+      return '2 / 3';
+    case 'carousel':
+    case 'feed':
+    case 'image':
+    default:
+      return '1 / 1';
+  }
+}
+
 export function normalizePlatform(p?: string | null): SocialPlatform | null {
   if (!p) return null;
   const k = p.toLowerCase().trim();
