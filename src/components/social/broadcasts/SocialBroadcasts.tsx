@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Megaphone, Send, Instagram, Search, Loader2 } from 'lucide-react';
+import { Plus, Megaphone, Send, Instagram, Search, Loader2, RefreshCw, Info, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
 export function SocialBroadcasts() {
   const qc = useQueryClient();
@@ -44,6 +45,44 @@ export function SocialBroadcasts() {
       return data ?? [];
     },
   });
+
+  // Auto-select the only IG account, when there is exactly one.
+  useEffect(() => {
+    if (!open) return;
+    if (zernioAccountId) return;
+    if ((zernioAccounts ?? []).length === 1) {
+      setZernioAccountId(zernioAccounts![0].id);
+    }
+  }, [open, zernioAccounts, zernioAccountId]);
+
+  // Universe counter — total IG contacts in DB (ignoring filters), for context.
+  const { data: totalIgInDb } = useQuery({
+    queryKey: ['social-contacts-ig-total'],
+    enabled: open,
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from('social_contacts')
+        .select('ig_user_id', { count: 'exact', head: true })
+        .eq('channel', 'instagram');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const [syncing, setSyncing] = useState(false);
+  const runSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('zernio-contacts-sync', { body: {} });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Sincronizados ${(data as any)?.synced ?? 0} contatos do Zernio`);
+      qc.invalidateQueries({ queryKey: ['social-broadcast-contacts'] });
+      qc.invalidateQueries({ queryKey: ['social-contacts-ig-total'] });
+    } catch (e: any) {
+      toast.error(`Falha ao sincronizar: ${e.message ?? e}`);
+    } finally { setSyncing(false); }
+  };
 
   const { data: broadcasts, isLoading } = useQuery({
     queryKey: ['social-broadcasts'],
