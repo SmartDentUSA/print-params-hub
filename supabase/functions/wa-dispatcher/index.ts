@@ -141,6 +141,14 @@ serve(async (req) => {
             evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
             break
           }
+          case 'post_ig': case 'post_yt': {
+            const cap = (c.caption ?? '') as string
+            const url = (c.post_url ?? '') as string
+            if (!url) throw new Error('post_url vazio')
+            const txt = [cap, url].filter(Boolean).join('\n\n')
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            break
+          }
           case 'ai': {
             const { text: txt } = await resolveAiContent(supabase, c as any)
             evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
