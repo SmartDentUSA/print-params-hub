@@ -22,6 +22,7 @@ import { WaGroupMultiSelect } from "./WaGroupMultiSelect";
 import { WaCampaignHealthBadge } from "./WaCampaignHealthBadge";
 import { WaGroupSessionBadge } from "./WaGroupSessionBadge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { HistoricalPostBroadcast } from "@/components/social/broadcasts/HistoricalPostBroadcast";
 
 const statusVariant: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -457,6 +458,9 @@ export function SmartOpsWaGroupCampaigns() {
           </button>
         </div>
       </div>
+
+      {/* Card: enviar publicação histórica das contas sociais */}
+      <HistoricalPostBroadcast instanceFilter={selectedInstance || undefined} />
 
       {/* Réguas compartilhadas (multi-grupo) */}
       {sharedCampaigns.length > 0 && (
