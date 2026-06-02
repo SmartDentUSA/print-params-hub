@@ -1,80 +1,107 @@
 ## Objetivo
 
-Construir o componente `LinkPicker` — painel lateral com 4 fontes de links (manual, loja, formulários, publicações) — e plugá-lo no editor de fluxos sociais, dentro dos nós que enviam mensagem.
+Três frentes:
 
-## Observação importante sobre o escopo
+1. **Broadcasts** — hoje rotulado como WhatsApp/Evolution; passar a disparar **Instagram Direct via Zernio**.
+2. **Contacts** — hoje só lê `social_contacts`; precisa **sincronizar contatos do Zernio (todas as plataformas)** e expor controles de refresh/busca.
+3. **LinkPicker** — já existe, mas falta aderir 100% à spec (filtro por `produto_slug`, destaque de formulário do fluxo, suporte a `send_document`/`send_buttons` e formato visual do snippet).
 
-A spec menciona a rota `/automacoes/[id]` e os tipos de nó `send_text`, `send_document`, `send_buttons`. Esses não existem no projeto hoje. O editor de fluxos atual é `/social/flows/:id` (`SocialFlowEditor.tsx`) e usa nós `send_dm`, `send_comment_reply`, `wait`, `condition`, `collect_input`, `set_tag`, `create_lead`, `end`.
+---
 
-Plano: implemento o LinkPicker como componente reutilizável e o integro nos nós atuais que têm campo de mensagem (`send_dm`, `send_comment_reply`). Quando os nós `send_text`/`send_document`/`send_buttons` forem criados, basta importar o mesmo componente. **Confirme se quer que eu também crie esses novos tipos de nó nesta tarefa.**
+## 1) Broadcasts → Instagram DM via Zernio
 
-## Arquivos a criar
+### Frontend — `src/components/social/broadcasts/SocialBroadcasts.tsx`
+- Cabeçalho: "Broadcasts" → subtítulo **"Disparos em massa segmentados — Instagram Direct (via Zernio)"**.
+- Remover `Select` de canal (WhatsApp/IG). Fixar `channel = 'instagram_dm'`.
+- Step 1 (segmento): trocar inputs de `tags`/`lead_status` por:
+  - **Conta Zernio (origem do DM)** — `Select` populado por `social_zernio_accounts` (apenas `platform='instagram'` e `active=true`).
+  - **Tags do contato** (vírgula, opcional).
+  - **Apenas seguidores** (Switch → `is_follower=true`).
+  - **Inscritos** (Switch → `subscribed=true`).
+- Step 3: preview com contagem real (query em `social_contacts` filtrando pelos critérios acima).
+- Botão "Disparar" → `supabase.functions.invoke('zernio-broadcast-dispatch', { body: { broadcast_id } })`.
 
-- `src/components/social/flows/LinkPicker.tsx` — componente principal
-- `src/components/social/flows/link-picker/TabColarLink.tsx`
-- `src/components/social/flows/link-picker/TabLoja.tsx`
-- `src/components/social/flows/link-picker/TabFormularios.tsx`
-- `src/components/social/flows/link-picker/TabPublicacoes.tsx`
-- `src/hooks/social/useFlowLinkPicker.ts` — queries em `v_flow_link_picker` por `tipo`, com filtro de busca e debounce
+### Backend — nova edge function `supabase/functions/zernio-broadcast-dispatch/index.ts`
+- Substitui `wa-broadcast-dispatch` para fluxo IG (mantemos a função antiga viva para WA legado, sem alterar).
+- Lê `social_broadcasts` por id; valida `channel='instagram_dm'`.
+- Resolve público em `social_contacts` (filtros: `channel='instagram'`, `subscribed`, `is_follower`, `tags && segment.tags`).
+- Para cada contato envia DM via Zernio:
+  - `POST https://zernio.com/api/v1/dm` (ou endpoint correto — confirmar via `ZERNIO_API_KEY`) com `{ accountId, recipientId: ig_user_id, message }`.
+  - Aplica template `{{first_name}}` / `{{name}}` a partir do `ig_username`.
+  - Jitter 1–3s entre envios. Acumula `sent`/`errors`.
+- Atualiza `social_broadcasts.status='sent'`, `total_sent`, `segment.errors_count`.
+- Cron mode (sem `broadcast_id`): processa `status='scheduled' AND scheduled_at<=now()`.
 
-## Arquivos a editar
+### Banco — migration
+- `social_broadcasts.segment` ganha shape `{ zernio_account_id, tags[], is_follower, subscribed, message }`. Sem mudança de schema (já é `jsonb`).
+- Sem alterações de tabelas.
 
-- `src/components/social/flows/SocialFlowEditor.tsx` — no `NodeInspector` dos tipos `send_dm` e `send_comment_reply`, adicionar botão `+ Adicionar um link` abaixo do textarea de mensagem; ao selecionar, apenda no campo `message` e grava `link_url`, `link_titulo`, `link_tipo`, `link_thumbnail` em `cfg`.
+---
 
-## Comportamento do componente
+## 2) Contacts — Sync Zernio (todas as plataformas)
 
-Props:
-```ts
-{
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  onSelect: (link: { url: string; titulo: string; tipo: 'manual'|'loja'|'formulario'|'publicacao'; thumbnail_url?: string }) => void;
-  initialTab?: 'manual' | 'loja' | 'formulario' | 'publicacao';
-  filterProduto?: string;
-}
-```
+### Backend — nova edge function `supabase/functions/zernio-contacts-sync/index.ts`
+- Para cada conta em `social_zernio_accounts` (active), pagina `GET /accounts/{id}/contacts` no Zernio.
+- Upsert em `social_contacts` por `(channel, ig_user_id)` (a coluna `ig_user_id` é reaproveitada como **external_id** de qualquer plataforma; `ig_username` como handle):
+  - `channel` = platform (instagram/facebook/whatsapp/tiktok).
+  - `ig_user_id` = id externo retornado pelo Zernio.
+  - `ig_username` = `@handle` ou nome.
+  - `is_follower`, `subscribed`, `tags`, `custom_fields`, `last_seen_at` quando presentes.
+  - `custom_fields.manychat_id` preservado se vier do payload (campo legacy).
+- Idempotente, retorna `{ synced, per_account: [...] }`.
 
-UI: `Sheet` (shadcn) lateral direito, largura 400px. Header `🔗 Adicionar link` + botão fechar. `Tabs` com 4 abas mostrando contagem dinâmica (`SELECT tipo, count(*) FROM v_flow_link_picker GROUP BY tipo`, cacheado).
+### Cron — `supabase/functions/wa-contact-sync-cron/index.ts` (já existe)
+- Adicionar invocação periódica de `zernio-contacts-sync` (a cada 30 min) **ou** criar cron novo via `cron.schedule` (SQL no insert tool, não migration). Decisão: criar cron novo `zernio-contacts-sync-cron` para isolar do WA.
 
-### Aba "Colar link" (default)
-- Lista de "Links salvos anteriormente" no topo (query `social_flow_links_manuais ORDER BY created_at DESC LIMIT 10`), cada um com botão remover (DELETE).
-- Form com URL, Texto do link, Descrição (opcional), Switch "Salvar para usar em outros fluxos".
-- Botão `Inserir link`: se switch ligado → `INSERT social_flow_links_manuais` antes de chamar `onSelect`.
+### Frontend — `src/components/social/broadcasts/SocialContacts.tsx`
+- Header: "Manage contacts across all platforms (Zernio)".
+- Botão **"Sincronizar Zernio"** → invoca `zernio-contacts-sync`, mostra toast com `synced`, invalida query.
+- Filtro de **plataforma** (chips: Instagram / Facebook / WhatsApp / TikTok / Todas).
+- Coluna extra: **Plataforma** (badge colorida por `channel`).
+- Coluna extra: **ManyChat ID** (`custom_fields.manychat_id`, se houver), com cópia rápida.
+- Manter busca atual (estender para `ig_username`, `ig_user_id`, `custom_fields->>manychat_id`).
 
-### Aba "Loja"
-- Busca com debounce 300ms + `Select` de categorias (distinct da view).
-- Query `v_flow_link_picker WHERE tipo='loja' AND (titulo ILIKE %q% OR categoria ILIKE %q%) ORDER BY titulo LIMIT 50`.
-- Item: thumbnail 40x40 (fallback ícone 🛒), título, host extraído da url, chevron.
-- Se `filterProduto` definido, pré-preenche busca.
+---
 
-### Aba "Formulários"
-- Sem busca. Query `WHERE tipo='formulario' ORDER BY titulo`.
-- Item: ícone 📋 azul 36x36, título, host da url.
+## 3) LinkPicker — ajustes vs. spec
 
-### Aba "Publicações"
-- Busca debounce 300ms em `titulo` e `descricao`.
-- Query `WHERE tipo='publicacao' AND (titulo ILIKE %q% OR descricao ILIKE %q%) ORDER BY titulo LIMIT 20`.
-- Lista scroll max-h 280px. Item: thumbnail 44x44 (fallback 📖), título truncado 2 linhas, badge "Base de Conhecimento".
+Arquivo: `src/components/social/flows/LinkPicker.tsx` e `src/components/social/flows/SocialFlowEditor.tsx`.
 
-### Ao selecionar (qualquer aba)
-1. Fecha o sheet.
-2. Chama `onSelect({ url, titulo, tipo, thumbnail_url? })`.
-3. O caller (NodeInspector) apenda no `cfg.message`:
-   ```
-   📎 {titulo}
-   URL: {url}
-   ```
-   e grava `cfg.link_url`, `cfg.link_titulo`, `cfg.link_tipo`, `cfg.link_thumbnail`.
+### Diferenças identificadas
+- **Filtro por produto do fluxo**: hoje aceita `filterProduto` como prop, mas o `SocialFlowEditor` não passa nada. Ler `social_flows.produto_slug` do fluxo carregado e propagar para todos os usos do LinkPicker (loja + publicações). Para "formulário do fluxo", destacar visualmente (highlight + badge "Sugerido") o item cujo `titulo` ≈ `form_name`.
+- **Integração ampliada**: hoje o botão "+ Adicionar um link" só aparece em `send_dm`/`send_comment_reply`. Adicionar também para:
+  - `send_document` → preenche `cfg.url` (PDF).
+  - `send_buttons` → cada botão ganha botão "Definir destino" abrindo LinkPicker e gravando `button.url`.
+- **Formato do snippet** no `cfg.message` (já feito): manter `📎 {titulo}\nURL: {url}` e separar com `\n\n` quando já houver texto.
+- **og:title opcional**: deixar comentado/no-op (não chamar edge function nova nesta rodada).
 
-## Stack visual
-- shadcn `Sheet`, `Tabs`, `Input`, `Select`, `Switch`, `ScrollArea`, `Badge`.
-- Tokens semânticos (`bg-primary/10`, `border-primary`, `text-muted-foreground`) — sem cores hard-coded.
-- Debounce com `setTimeout` local (sem nova dep).
+### Banco
+- Não precisa mexer — `v_flow_link_picker` e `social_flow_links_manuais` já existem.
 
-## Fora de escopo
-- Worker `social-flow-engine` (apenas consome `link_url` quando existir — sem alteração necessária agora).
-- Extração `og:title` ao colar URL: deixo como TODO comentado (exigiria edge function de unfurl).
-- Criação dos nós `send_text`/`send_document`/`send_buttons` — só se confirmado.
+---
 
-## Validação
-- Carregar editor `/social/flows/:id`, abrir um nó `send_dm`, clicar `+ Adicionar um link`, testar as 4 abas, busca e seleção. Verificar persistência após salvar e reabrir.
+## Resumo de arquivos
+
+**Editar**
+- `src/components/social/broadcasts/SocialBroadcasts.tsx` — copy + canal fixo IG + segmento Zernio + dispatch para nova função.
+- `src/components/social/broadcasts/SocialContacts.tsx` — botão sync, filtro plataforma, colunas plataforma/manychat_id.
+- `src/components/social/flows/SocialFlowEditor.tsx` — passar `filterProduto`, expandir LinkPicker para `send_document`/`send_buttons`.
+- `src/components/social/flows/LinkPicker.tsx` — destaque "Sugerido" no form do fluxo.
+
+**Criar**
+- `supabase/functions/zernio-broadcast-dispatch/index.ts`
+- `supabase/functions/zernio-contacts-sync/index.ts`
+- Cron job `zernio-contacts-sync-cron` (via insert tool, SQL pg_cron).
+
+**Sem mexer**
+- `wa-broadcast-dispatch` (legado WA, preservado).
+- `v_flow_link_picker`, `social_flow_links_manuais`, `social_contacts` (schema).
+
+---
+
+## Confirmações antes de implementar
+
+1. **Endpoint Zernio para DM e listagem de contatos** — preciso validar os paths exatos (`/dm`, `/accounts/{id}/contacts`). Se você tiver a doc/coleção da API Zernio, anexe; caso contrário, faço probe via `code--exec` com `ZERNIO_API_KEY` no início da implementação.
+2. **Função `wa-broadcast-dispatch`**: manter viva ou remover? Plano atual = **manter** (não há UI WhatsApp neste módulo após a mudança, mas pode ser reutilizada por outros pontos).
+
+Pode aprovar?
