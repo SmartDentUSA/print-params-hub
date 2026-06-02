@@ -1270,6 +1270,7 @@ async function executeSearchContent(args: any) {
 async function executeSearchKnowledgeRag(args: any) {
   const query = String(args?.query || "").trim();
   if (!query) return { error: "query é obrigatório" };
+  // (delegado abaixo)
   const topK = Math.min(Number(args?.top_k) || 5, 10);
   const minSim = Math.max(0, Math.min(Number(args?.min_similarity) || 0.5, 1));
 
@@ -2405,6 +2406,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   search_courses: executeSearchCourses,
   search_faqs: executeSearchFaqs,
   search_success_stories: executeSearchSuccessStories,
+  search_social_posts: executeSearchSocialPosts,
   query_table: executeQueryTable,
   describe_table: executeDescribeTable,
   query_stats: executeQueryStats,
