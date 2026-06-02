@@ -1,101 +1,142 @@
-# Social Publisher — Fases 1C, 1D e 2 (sequencial)
+# Fase 2 — IG Flow Engine via **Zernio** (substitui Meta Graph)
 
-Implementação encadeada das três próximas fases. Cada fase é independente, com validação antes de avançar.
+Como todas as contas sociais já estão conectadas no Zernio (Instagram, Facebook, TikTok, YouTube, Pinterest, Reddit, LinkedIn, Threads…), o worker delega 100% da publicação para a API do Zernio. Uma única integração resolve todos os canais.
 
----
-
-## Fase 1C — Calendário com Drag & Drop
-
-**Rota:** novo toggle `Lista | Calendário` em `/social` (header do `SocialDashboard`).
-
-**Componentes novos:**
-- `src/components/social/calendar/SocialCalendar.tsx` — grade mês/semana usando `date-fns` + grid Tailwind (sem libs novas).
-- `src/components/social/calendar/CalendarDayCell.tsx` — célula com posts do dia, accept de drop.
-- `src/components/social/calendar/CalendarPostChip.tsx` — chip arrastável (canal + horário + 1ª linha caption).
-- `src/components/social/calendar/CalendarFilters.tsx` — filtros canal/status/produto.
-
-**DnD:** HTML5 nativo (`draggable`, `onDragStart`, `onDrop`) — sem dependência externa. Drop em outro dia abre modal `RescheduleDialog` pedindo horário (mantém hora original por padrão).
-
-**Hook novo:** `useReschedulePost.ts` — `UPDATE social_scheduled_posts SET scheduled_at=..., status='scheduled' WHERE id=...` (só permite quando `status IN ('scheduled','failed')`).
-
-**View modes:**
-- Mês (default): 7×6 grid.
-- Semana: 7 colunas com slots de hora (06h-22h).
-
-**Estado:** `useUpcomingPosts` já busca próximos posts; estendido para receber range `{from,to}` opcional.
+Base URL: `https://zernio.com/api/v1`
+Auth: `Authorization: Bearer $ZERNIO_API_KEY`
 
 ---
 
-## Fase 1D — Editar post existente
+## 1. Secret necessária
 
-**Rota nova:** `/social/:id/editar` em `App.tsx`.
+- `ZERNIO_API_KEY` (formato `sk_…`) — pedida via `add_secret` no início.
 
-**Reaproveitamento:** `SocialPostEditor` recebe prop opcional `initialPost?: PostInput & {id, status}`. Quando preenchido:
-- Carrega dados via novo hook `useScheduledPost(id)`.
-- Bloqueia edição se `status NOT IN ('scheduled','failed','draft')` (exibe banner read-only).
-- Substitui `useCreateScheduledPost` por `useUpdateScheduledPost` (`UPDATE` em vez de `INSERT`).
-
-**Trigger de edição:** botão "Editar" em `SocialPostCard` (já existe na lista) → `navigate('/social/'+id+'/editar')`.
-
-**Hooks novos:**
-- `useScheduledPost.ts` — fetch single + parse `media_items`/`channels` de jsonb para o shape de `PostInput`.
-- `useUpdateScheduledPost.ts` — `.update()` + invalidação de cache.
-
-**Reagendamento de falha:** quando `status='failed'`, botão extra "Reenfileirar" volta para `status='publishing'`.
+Já existe referência no hook `useZernioSync`. Se a chave já estiver salva, reaproveitamos.
 
 ---
 
-## Fase 2 — IG Flow Engine (publicação real)
+## 2. Sincronização de contas (catálogo local)
 
-Worker que consome `social_scheduled_posts` e publica no Instagram via Graph API.
+Para o editor saber qual `accountId` mandar pra cada canal, criamos uma tabela espelho:
 
-### Secrets necessárias (pedidas via `add_secret` no início da fase)
-- `META_GRAPH_ACCESS_TOKEN` — token de longa duração (Page/IG Business).
-- `META_IG_BUSINESS_ACCOUNT_ID` — ID da conta IG Business.
+```sql
+CREATE TABLE public.social_zernio_accounts (
+  id uuid PK default gen_random_uuid(),
+  zernio_account_id text UNIQUE NOT NULL,   -- acc_xxx
+  zernio_profile_id text NOT NULL,          -- prof_xxx
+  platform text NOT NULL,                   -- instagram, facebook, tiktok…
+  handle text,
+  display_name text,
+  avatar_url text,
+  active boolean default true,
+  last_synced_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+```
++ GRANT, RLS, policy (`authenticated SELECT`, edge function via service_role).
 
-Se faltar qualquer uma, paramos antes de criar edge function.
-
-### Edge Function: `supabase/functions/social-publish-worker/index.ts`
-
-Fluxo por execução:
-1. `SELECT` posts onde:
-   - `publish_now=true AND status='publishing'`, OU
-   - `status='scheduled' AND scheduled_at <= now()`
-   - `LIMIT 10`, lock via `UPDATE ... SET status='publishing' RETURNING *` (claim atômico).
-2. Para cada post, iterar `channels`:
-   - `instagram_feed` → criar container `POST /{ig_id}/media` (image_url ou video_url + caption) → `POST /{ig_id}/media_publish`.
-   - `instagram_reels` → container com `media_type=REELS`.
-   - `instagram_stories` → `media_type=STORIES`.
-   - Outros canais ficam `status='not_implemented'` no `publish_errors` (fora do escopo desta fase).
-3. Multi-mídia (carousel): criar 1 container por item com `is_carousel_item=true`, depois container `CAROUSEL` com `children=...`.
-4. `first_comment` → após publish, `POST /{ig_media_id}/comments`.
-5. Salvar `social_post_ids[]` (IG media ids) + `published_at=now()` + `status='published'`.
-6. Erros: `publish_errors` jsonb com `{channel, code, message, at}` + `status='failed'` (mantém para retry manual).
-
-### Cron (via `pg_cron` + `pg_net`)
-- Job `social-publish-worker` a cada 1 min: `POST` para a edge function. SQL gravado via `supabase--read_query` insert-side (não migration — contém anon key).
-
-### Hook frontend `useRetryPublish(id)`
-- Botão "Republicar" em `SocialPostCard` quando `status='failed'`: marca `status='publishing'`, `publish_errors=null`.
-
-### Observabilidade
-- Logs estruturados (`console.log` JSON) no worker para `supabase--edge_function_logs`.
-- Badge de status atualizado em tempo real via `supabase.channel('social-posts').on('postgres_changes',...)` em `useUpcomingPosts`.
-
-### Fora do escopo desta fase
-- Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Threads (ficarão com `not_implemented`).
-- Métricas pós-publicação (likes/reach) — fase futura.
+### Edge function nova: `zernio-accounts-sync`
+- `GET /api/v1/accounts` → upsert na tabela.
+- Invocada pelo botão "Sincronizar" existente (`useZernioSync` será desdobrado para chamar **tanto** `social-posts-sync` quanto `zernio-accounts-sync`).
 
 ---
 
-## Ordem de execução e checkpoints
+## 3. Edge function principal: `social-publish-worker`
 
-```text
-Fase 1C  →  você valida no preview (DnD + filtros)
-   ↓
-Fase 1D  →  você valida edição/republicação
-   ↓
-Pedimos secrets META_*  →  Fase 2 worker + cron  →  publish real de teste
+Roda a cada minuto (cron). Em cada execução:
+
+1. **Claim atômico** de até 10 posts elegíveis:
+   ```sql
+   UPDATE social_scheduled_posts
+   SET status='publishing'
+   WHERE id IN (
+     SELECT id FROM social_scheduled_posts
+     WHERE (publish_now=true AND status='publishing')
+        OR (status='scheduled' AND scheduled_at <= now())
+     ORDER BY scheduled_at NULLS FIRST
+     LIMIT 10
+     FOR UPDATE SKIP LOCKED
+   )
+   RETURNING *;
+   ```
+2. Para cada post: monta payload **único** ao Zernio:
+   ```json
+   POST /api/v1/posts
+   {
+     "content": "<caption>\n\n<hashtags juntos>",
+     "publishNow": true,                  // sempre true; já fizemos o "agendamento" local
+     "timezone": "America/Sao_Paulo",
+     "mediaItems": [
+       { "url": "<public_url do wa-media>", "type": "image" | "video" }
+     ],
+     "platforms": [
+       { "platform": "instagram", "accountId": "acc_xxx" },
+       { "platform": "tiktok",    "accountId": "acc_yyy" }
+     ],
+     "firstComment": "<first_comment>"   // quando suportado
+   }
+   ```
+   - Mapeia `channels[].platform` → `accountId` via `social_zernio_accounts`. Se algum canal não tiver conta ativa, registra erro mas tenta o resto.
+   - URLs do bucket `wa-media` já são públicas → passamos direto, sem reupload.
+3. **Sucesso**: grava `zernio_post_ids = { "<channel>": "<post._id>" }`, `published_at=now()`, `status='published'`.
+4. **Erro parcial**: `status='failed'`, `publish_errors=[{channel, code, message, at}]` (preserva contexto pra retry manual).
+5. Logs JSON estruturados (`console.log({ event:'publish.ok'|'publish.fail', post_id, ... })`).
+
+CORS habilitado para chamadas manuais via dashboard ("Forçar publicação").
+
+---
+
+## 4. Cron job
+
+Via SQL insert direto (pg_cron + pg_net), não-migração (contém anon key):
+
+```sql
+SELECT cron.schedule(
+  'social-publish-worker',
+  '* * * * *',
+  $$ SELECT net.http_post(
+       url:='https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/social-publish-worker',
+       headers:='{"Content-Type":"application/json","apikey":"<ANON>"}'::jsonb,
+       body:='{}'::jsonb
+     ) $$
+);
 ```
 
-Após cada fase paro para você testar antes de seguir. Se preferir não pausar, avise e emendo direto.
+Extensions `pg_cron` e `pg_net` ativadas (verifica antes; se faltar, migration habilita).
+
+---
+
+## 5. Frontend — pequenas adições
+
+- **`StepChannels`**: dropdown de conta agora carrega `social_zernio_accounts` por plataforma (filtra `active=true`). Hook novo `useZernioAccounts(platform?)`.
+- **Banner em `/social`**: se nenhuma conta sincronizada existir, CTA "Sincronizar contas Zernio".
+- **`SocialPostCard` failed**: botão "Republicar" já adicionado na Fase 1D — só funcionar automático com o cron rodando.
+- **Realtime** (opcional, leve): `supabase.channel('social_scheduled_posts')` no dashboard para refletir mudanças de status sem refresh.
+
+---
+
+## 6. Fora de escopo desta fase
+
+- Carrosséis multi-mídia com `customMedia` por canal (1 mídia única atende a maioria; multi-canal complexo fica pra Fase 2.1).
+- Métricas pós-publicação (likes, alcance) — virão via outro endpoint Zernio (`/analytics`) numa fase futura.
+- Reuploads de mídia via `media/presign` — usamos URL pública do `wa-media`. Só viramos para presign se algum canal recusar a URL do Supabase.
+
+---
+
+## Ordem de execução
+
+```text
+1. add_secret ZERNIO_API_KEY  (pausa pra você colar)
+   ↓
+2. migration: social_zernio_accounts + extensions
+   ↓
+3. deploy zernio-accounts-sync  →  você clica "Sincronizar" e valida lista
+   ↓
+4. deploy social-publish-worker
+   ↓
+5. schedule cron (insert SQL, sem migration)
+   ↓
+6. teste manual: criar post Instagram "publicar agora" → ver published_at + zernio_post_ids preenchidos
+```
+
+Posso emendar após você aprovar. Pode confirmar?
