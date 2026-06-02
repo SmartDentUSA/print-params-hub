@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Eye, Link as LinkIcon, Image as ImageIcon, Layers, Video, Film } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Link as LinkIcon, Image as ImageIcon, Layers, Video, Film, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -93,6 +93,17 @@ export function SocialPostCard({ post }: { post: any }) {
         )}
       </div>
       <div className="p-3 space-y-2">
+        {post.product_name && (
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: `${brandHex}1a`, color: brandHex }}
+              title={post.product_category ?? 'Produto vinculado'}
+            >
+              <Package className="w-3 h-3" /> {post.product_name}
+            </span>
+          </div>
+        )}
         <p className="text-sm line-clamp-2 min-h-[2.5rem]">
           {post.caption || <span className="italic text-muted-foreground">Sem legenda</span>}
         </p>

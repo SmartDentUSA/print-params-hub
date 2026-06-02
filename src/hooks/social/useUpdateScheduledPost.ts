@@ -31,11 +31,13 @@ export function useUpdateScheduledPost() {
         status: data.publish_now ? 'publishing' : 'scheduled',
         product_name: data.product_name || null,
         product_slug: data.product_slug || null,
+        product_ref: data.product_ref || null,
+        product_category: data.product_category || null,
         publish_errors: null,
       };
       const { error } = await supabase
         .from('social_scheduled_posts')
-        .update(row)
+        .update(row as any)
         .eq('id', id);
       if (error) throw error;
       toast.success('Post atualizado');

@@ -34,6 +34,8 @@ export function useScheduledPost(id: string | undefined) {
         first_comment: data.first_comment ?? '',
         product_name: data.product_name ?? '',
         product_slug: data.product_slug ?? '',
+        product_ref: (data as any).product_ref ?? '',
+        product_category: (data as any).product_category ?? '',
         media_items: Array.isArray(data.media_items) ? (data.media_items as any) : [],
         channels: Array.isArray(data.channels) ? (data.channels as any) : [],
         publish_now: !!data.publish_now,

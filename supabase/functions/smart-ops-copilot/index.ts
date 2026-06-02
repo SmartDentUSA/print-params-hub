@@ -428,6 +428,24 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_social_posts",
+      description: "Busca posts de redes sociais (Instagram, Facebook, TikTok, YouTube, LinkedIn, Pinterest etc.) que a Smart Dent agendou ou publicou via o Social Publisher. Use para responder 'quais posts publicamos sobre X?', 'tem post recente do produto Y?', 'última campanha no Reels'. Retorna caption, hashtags, canais e produto vinculado.",
+      parameters: {
+        type: "object",
+        properties: {
+          query:    { type: "string", description: "Termo livre — busca em caption, hashtags, product_name e product_slug" },
+          product:  { type: "string", description: "Filtra por slug ou nome do produto" },
+          channel:  { type: "string", description: "Filtra por plataforma (instagram, facebook, tiktok, youtube, linkedin, pinterest, twitter, gmb)" },
+          status:   { type: "string", description: "scheduled | publishing | published (padrão: todos)" },
+          limit:    { type: "number", description: "Máx resultados (padrão 10, máx 30)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "query_table",
       description: "Consulta genérica em qualquer tabela do sistema. Retorna até 50 registros.",
       parameters: {
@@ -1281,6 +1299,66 @@ async function executeSearchKnowledgeRag(args: any) {
       };
     });
     return { count: results.length, results, _rag_hits: results.map((r: any) => ({ source: r.source, similarity: r.similarity })) };
+  } catch (e) {
+    return { error: (e as Error).message, count: 0, results: [] };
+  }
+}
+
+// ── Social Publisher: posts agendados/publicados (Smart Dent) ──
+async function executeSearchSocialPosts(args: any) {
+  const query = String(args?.query || "").trim();
+  const product = String(args?.product || "").trim();
+  const channel = String(args?.channel || "").trim().toLowerCase();
+  const status = String(args?.status || "").trim().toLowerCase();
+  const limit = Math.min(Number(args?.limit) || 10, 30);
+
+  try {
+    let q = supabase
+      .from("v_social_posts_for_ai")
+      .select("id, scheduled_at, published_at, status, product_ref, product_name, product_slug, product_category, caption, hashtags, first_comment, channels, post_type")
+      .order("scheduled_at", { ascending: false, nullsFirst: false })
+      .limit(limit);
+
+    if (status && ["scheduled", "publishing", "published"].includes(status)) {
+      q = q.eq("status", status);
+    }
+    if (product) {
+      const p = `%${product.replace(/[%_]/g, "")}%`;
+      q = q.or(`product_slug.ilike.${p},product_name.ilike.${p}`);
+    }
+    if (query) {
+      const p = `%${query.replace(/[%_]/g, "")}%`;
+      q = q.or(`caption.ilike.${p},product_name.ilike.${p},product_slug.ilike.${p}`);
+    }
+
+    const { data, error } = await q;
+    if (error) return { error: error.message, count: 0, results: [] };
+
+    let rows = data || [];
+    // Filtro por canal (jsonb) — feito em memória pois `channels` é jsonb array
+    if (channel) {
+      rows = rows.filter((r: any) =>
+        Array.isArray(r.channels) && r.channels.some((c: any) => String(c?.platform || "").toLowerCase() === channel),
+      );
+    }
+
+    const results = rows.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      when: r.published_at || r.scheduled_at,
+      product_name: r.product_name,
+      product_slug: r.product_slug,
+      product_category: r.product_category,
+      channels: Array.isArray(r.channels)
+        ? r.channels.map((c: any) => `${c?.platform}/${c?.format}`)
+        : [],
+      post_type: r.post_type,
+      caption: String(r.caption || "").slice(0, 280),
+      hashtags: (r.hashtags || []).slice(0, 15),
+      first_comment: String(r.first_comment || "").slice(0, 200),
+    }));
+
+    return { count: results.length, results };
   } catch (e) {
     return { error: (e as Error).message, count: 0, results: [] };
   }
@@ -2387,6 +2465,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   search_courses: executeSearchCourses,
   search_faqs: executeSearchFaqs,
   search_success_stories: executeSearchSuccessStories,
+  search_social_posts: executeSearchSocialPosts,
   query_table: executeQueryTable,
   describe_table: executeDescribeTable,
   query_stats: executeQueryStats,
