@@ -1,65 +1,29 @@
 ## Diagnóstico
 
-O Copilot tem **3 provedores configurados** (`DEEPSEEK_API_KEY`, `LOVABLE_API_KEY/Gemini`, `ANTHROPIC_API_KEY/Claude`), mas o código usa **apenas o que o usuário pediu** (default `deepseek-pro`). Quando esse provedor retorna 402 (`insufficient_credits`), a função para e devolve a mensagem de erro — não tenta os outros.
+Olhando os **network requests** atuais: as chamadas a `smart-ops-copilot` estão retornando **HTTP 200** com SSE válido. O Copilot **não está quebrado** — o que aparece como "Rebuilding" é o **LLM ecoando** mensagens antigas do histórico do chat (o usuário envia "s", "ss", "e", "de" — entradas vazias — e o Gemini repete o último padrão de assistente que vê: o erro antigo de "Rebuilding").
 
-A solução é trocar a chamada única por uma **cascata automática**: tenta o modelo solicitado e, se ele falhar por falta de crédito, escalona para o próximo provedor com chave configurada.
+Causa raiz real do problema original (que poluiu o histórico):
 
-## Plano
+1. Em `supabase/functions/smart-ops-copilot/index.ts`, `isOutOfCreditsError` (linhas 104–113) só dispara cascata para **402 / "credits"**. Quando o Lovable AI Gateway retorna **`HTTP 503 {"error":"Rebuilding - please redeploy from Lovable"}`**, a função trata como "erro real", não cascateia para DeepSeek/Claude, e devolve o corpo bruto ao frontend.
+2. O backend devolve esse erro no campo `reply`, mas `SmartOpsCopilot.tsx:232` lê `data.content || data.error` — então mostra o JSON cru `❌ Erro: {"error":"Rebuilding..."}`.
+3. Essas mensagens ficam salvas em `localStorage` e são reenviadas a cada turno, fazendo o LLM imitar o padrão.
 
-### 1. Helper `runWithFallback` em `supabase/functions/smart-ops-copilot/index.ts`
+## Correção
 
-Substituir as duas chamadas a `fetch(config.url, …)` (loop principal linha ~2559 e summary linha ~2710) por uma função utilitária que percorre uma cadeia de provedores até obter sucesso:
+Editar apenas `supabase/functions/smart-ops-copilot/index.ts`:
 
-```ts
-async function callWithFallback(payload, requestedModelId): Promise<{ response, configUsed, attempts }>
-```
+1. **Nova função `isTransientGatewayError(status, bodyText)`** — retorna `true` para:
+   - `503` + corpo contendo `rebuilding`, `redeploy`, `unavailable`, `bad gateway`
+   - `502`, `504`
+2. **`callChatWithFallback`** — tratar resultado transiente igual a `out_of_credits`: escalona para o próximo provedor da cadeia (não devolve no `attempts[0]`). Loga em `system_health_logs` como `error_type: "provider_transient"`.
+3. **Mensagem final** quando toda a cadeia falha por motivo transitório: `content: "⚠️ Provedores de IA temporariamente indisponíveis (Gateway em reconstrução). Tente novamente em ~30s."`, `error: "all_providers_transient"`.
+4. **Normalizar contrato com frontend** — trocar `reply:` por `content:` nas linhas 2657–2672 (e qualquer outro retorno JSON de erro) para que `data.content || data.error` no frontend exiba a mensagem amigável em vez do JSON técnico.
 
-**Ordem da cascata** (pula automaticamente o provedor sem API key):
-1. Modelo pedido pelo usuário (preserva preferência).
-2. `deepseek-pro` (raciocínio + tools).
-3. `claude` (Anthropic — só se a key existir).
-4. `gemini-flash` (Lovable Gateway — barato).
+Validação:
+- Redeploy de `smart-ops-copilot`.
+- Verificar com `curl_edge_functions` enviando uma pergunta simples.
+- Pedir ao usuário para **limpar o histórico do Copilot** (botão "Novo chat" ou apagar `localStorage["copilot-chat-history"]`) para parar o eco das mensagens antigas.
 
-Sem duplicar o `requestedModelId` na cadeia.
-
-### 2. Critério de "sem crédito"
-
-Considerar o provedor esgotado e pular para o próximo quando:
-- HTTP `402`, **OU**
-- HTTP `401/403` com body contendo `insufficient`, `balance`, `credit`, `quota`, `billing`, **OU**
-- HTTP `400` da Anthropic com `error.type === "billing_error"` (padrão deles).
-
-Demais erros (rate limit `429`, 5xx, schema inválido) **não** disparam fallback — retornam como hoje, para não mascarar bugs reais.
-
-### 3. Resposta ao usuário
-
-Quando o fallback for acionado:
-- Logar em `system_health_logs` cada tentativa (provider, status, motivo).
-- Prefixar a primeira resposta do turno com badge discreta:
-  `> 🔄 _Provedor primário sem créditos — respondi via **{label}**._`
-  (apenas na primeira mensagem do turno; nas demais iterações silencioso).
-
-### 4. Mensagem de exaustão total
-
-Se **todos** os provedores da cascata estiverem sem crédito, retornar:
-```
-💳 Todos os provedores de IA configurados estão sem créditos no momento.
-Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.
-```
-com `error: "all_providers_exhausted"`.
-
-### 5. Tracking
-
-- `logAIUsage` passa a receber `modelId` efetivo (não o requested), para o painel mostrar quem realmente respondeu.
-- `executedActions` e o restante do loop continuam usando `config` atualizado, sem mudança de contrato.
-
-## Fora de escopo
-
-- Não muda contrato da request/response do frontend.
-- Não cria UI de seleção manual (o dropdown atual continua funcionando).
-- Não mexe em Dra. LIA, lia-assign, ou qualquer outro agente — só o `smart-ops-copilot`.
-- Não tenta provisionar/comprar créditos automaticamente.
-
-## Arquivos a alterar
-
-- `supabase/functions/smart-ops-copilot/index.ts` (apenas).
+### Fora de escopo
+- Sem mudanças em UI (apenas o contrato de campo), schema, secrets, ou outras edge functions.
+- Sem mudança na ordem de cascata.

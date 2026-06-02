@@ -112,6 +112,16 @@ function isOutOfCreditsError(status: number, bodyText: string): boolean {
   return false;
 }
 
+function isTransientGatewayError(status: number, bodyText: string): boolean {
+  if (status === 502 || status === 504) return true;
+  const t = (bodyText || "").toLowerCase();
+  if (status === 503) {
+    if (/rebuilding|redeploy|unavailable|bad gateway|temporarily/.test(t)) return true;
+    return true; // 503 sempre transitório
+  }
+  return false;
+}
+
 async function callChatWithFallback(
   chain: ModelId[],
   buildBody: (cfg: ReturnType<typeof getModelConfig>) => any,
@@ -135,17 +145,19 @@ async function callChatWithFallback(
       lastStatus = resp.status;
       lastBody = txt;
       const credit = isOutOfCreditsError(resp.status, txt);
-      attempts.push({ modelId, status: resp.status, reason: credit ? "out_of_credits" : `http_${resp.status}` });
-      console.warn(`[Copilot/fallback] ${cfg.label} → HTTP ${resp.status} ${credit ? "(sem créditos, tentando próximo)" : "(erro não-fallback)"} ${txt.slice(0, 200)}`);
-      if (!credit) {
+      const transient = !credit && isTransientGatewayError(resp.status, txt);
+      const reason = credit ? "out_of_credits" : transient ? "transient_gateway" : `http_${resp.status}`;
+      attempts.push({ modelId, status: resp.status, reason });
+      console.warn(`[Copilot/fallback] ${cfg.label} → HTTP ${resp.status} ${credit ? "(sem créditos, tentando próximo)" : transient ? "(gateway transitório, tentando próximo)" : "(erro não-fallback)"} ${txt.slice(0, 200)}`);
+      if (!credit && !transient) {
         // Erro real (rate limit, schema, 5xx) → não escalonar, devolve agora.
         return { ok: false, config: cfg, modelId, attempts, lastStatus: resp.status, lastBody: txt };
       }
-      // Loga em system_health_logs (fire-and-forget) cada provedor sem crédito.
+      // Loga em system_health_logs (fire-and-forget) cada provedor que falhou.
       supabase.from("system_health_logs").insert({
         function_name: "smart-ops-copilot",
         severity: "warning",
-        error_type: "provider_out_of_credits",
+        error_type: credit ? "provider_out_of_credits" : "provider_transient",
         details: { provider: cfg.label, model: cfg.model, status: resp.status, body: txt.slice(0, 500) },
       }).then(() => {}, () => {});
     } catch (e: any) {
@@ -2654,20 +2666,24 @@ serve(async (req) => {
 
       if (!callRes.ok) {
         if (callRes.exhausted) {
+          const allTransient = callRes.attempts.every((a) => a.reason === "transient_gateway");
+          const msg = allTransient
+            ? "⚠️ Provedores de IA temporariamente indisponíveis (Gateway em reconstrução). Tente novamente em ~30s."
+            : "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.";
           return new Response(JSON.stringify({
-            reply: "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.",
-            error: "all_providers_exhausted",
+            content: msg,
+            error: allTransient ? "all_providers_transient" : "all_providers_exhausted",
             attempts: callRes.attempts,
           }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         const status = callRes.lastStatus ?? 0;
         if (status === 429) {
-          return new Response(JSON.stringify({ reply: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
+          return new Response(JSON.stringify({ content: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
         return new Response(JSON.stringify({
-          reply: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
+          content: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
           error: `provider_${status}`,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
