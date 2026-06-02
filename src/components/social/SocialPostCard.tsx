@@ -1,8 +1,7 @@
-import { Heart, MessageCircle, Eye, Link as LinkIcon, Send, Image as ImageIcon, Layers, Video, Film } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Link as LinkIcon, Image as ImageIcon, Layers, Video, Film } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import {
   normalizePlatform, SOCIAL_CHANNELS, SOCIAL_BRAND_HEX,
   aspectRatioFor, classifyFormat,
