@@ -16791,6 +16791,39 @@ export type Database = {
           },
         ]
       }
+      social_flow_links_manuais: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          id: string
+          thumbnail_url: string | null
+          titulo: string
+          updated_at: string | null
+          url: string
+          usado_em: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          thumbnail_url?: string | null
+          titulo: string
+          updated_at?: string | null
+          url: string
+          usado_em?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          thumbnail_url?: string | null
+          titulo?: string
+          updated_at?: string | null
+          url?: string
+          usado_em?: number | null
+        }
+        Relationships: []
+      }
       social_flow_midias: {
         Row: {
           ativo: boolean | null
@@ -21072,6 +21105,20 @@ export type Database = {
           model_field: string | null
           serial_field: string | null
           subcategoria: string | null
+        }
+        Relationships: []
+      }
+      v_flow_link_picker: {
+        Row: {
+          categoria: string | null
+          created_at: string | null
+          descricao: string | null
+          id: string | null
+          preco: string | null
+          thumbnail_url: string | null
+          tipo: string | null
+          titulo: string | null
+          url: string | null
         }
         Relationships: []
       }
