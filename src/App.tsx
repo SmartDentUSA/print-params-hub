@@ -26,6 +26,7 @@ import { SocialDashboard } from "./components/social/SocialDashboard";
 import { SocialPostsBank } from "./components/social/SocialPostsBank";
 import { ComingSoon } from "./components/social/ComingSoon";
 import { SocialPostEditor } from "./components/social/editor/SocialPostEditor";
+import { SocialCalendar } from "./components/social/calendar/SocialCalendar";
 
 function PageTracker() {
   usePageTracking();
@@ -48,7 +49,8 @@ const App = () => (
         <Route index element={<SocialDashboard />} />
         <Route path="banco" element={<SocialPostsBank />} />
         <Route path="novo" element={<SocialPostEditor />} />
-        <Route path="calendario" element={<ComingSoon title="Calendário" />} />
+        <Route path=":id/editar" element={<SocialPostEditor />} />
+        <Route path="calendario" element={<SocialCalendar />} />
         <Route path="analytics" element={<ComingSoon title="Analytics" />} />
       </Route>
       

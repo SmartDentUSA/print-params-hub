@@ -2,10 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Plus, CheckCircle2, Clock, AlertTriangle, History } from 'lucide-react';
+import { RefreshCw, Plus, CheckCircle2, Clock, AlertTriangle, History, Pencil, RotateCcw } from 'lucide-react';
 import { useSocialMetrics } from '@/hooks/social/useSocialMetrics';
 import { useUpcomingPosts } from '@/hooks/social/useUpcomingPosts';
 import { useZernioSync } from '@/hooks/social/useZernioSync';
+import { useRetryPublish } from '@/hooks/social/useReschedulePost';
 import { MetricCard } from './MetricCard';
 import { normalizePlatform, SOCIAL_CHANNELS } from '@/lib/socialChannels';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function SocialDashboard() {
   const { data: m } = useSocialMetrics();
   const { data: upcoming = [], isLoading } = useUpcomingPosts();
   const { sync, syncing } = useZernioSync();
+  const retry = useRetryPublish();
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -103,6 +105,16 @@ export function SocialDashboard() {
                     </div>
                     <div className="text-xs text-muted-foreground shrink-0 hidden sm:block">{fmtSchedule(p.scheduled_at)}</div>
                     <Badge variant="outline" className={cn('shrink-0', statusBadgeClass[p.status ?? 'draft'])}>{p.status}</Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/social/${p.id}/editar`)} title="Editar">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      {p.status === 'failed' && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => retry.mutate(p.id)} title="Reenfileirar">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
