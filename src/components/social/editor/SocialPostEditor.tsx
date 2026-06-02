@@ -34,6 +34,7 @@ export function SocialPostEditor() {
   const [hydrated, setHydrated] = useState(false);
   const { save, saving } = useCreateScheduledPost();
   const { save: update, saving: updating } = useUpdateScheduledPost();
+  const { saveMany, saving: savingMany } = useCreateScheduledPost();
 
   useEffect(() => {
     if (loaded && !hydrated) {
@@ -74,6 +75,37 @@ export function SocialPostEditor() {
     } else {
       await save(validation.data);
     }
+  };
+
+  const handleSplitIntoPosts = async (files: File[]) => {
+    // Upload all files, then create N drafts (one per file) cloning current data
+    const { useMediaUploadInline } = await import('@/hooks/social/useMediaUpload').then(() => ({ useMediaUploadInline: null }));
+    // We cannot call a hook here — fall back to a lightweight direct upload via supabase storage
+    const { supabase } = await import('@/integrations/supabase/client');
+    toast.message(`Enviando ${files.length} arquivos…`);
+    const uploaded: PostInput['media_items'] = [];
+    for (const file of files) {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `social/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('wa-media').upload(path, file, {
+        contentType: file.type, upsert: false, cacheControl: '3600',
+      });
+      if (error) { toast.error(`Falha no upload: ${error.message}`); return; }
+      const { data: pub } = supabase.storage.from('wa-media').getPublicUrl(path);
+      uploaded.push({ url: pub.publicUrl, path, type: file.type.startsWith('video/') ? 'video' : 'image' });
+    }
+    const drafts: PostInput[] = uploaded.map((item) => ({
+      ...data,
+      media_items: [item],
+      per_channel_media: {},
+      post_type: 'feed',
+    }));
+    const baseValid = drafts.every((d) => postSchema.safeParse(d).success);
+    if (!baseValid) {
+      toast.error('Configure caption, canais e agendamento antes de dividir em múltiplos posts.');
+      return;
+    }
+    await saveMany(drafts);
   };
 
   if (isEdit && loadingPost) {
@@ -128,7 +160,7 @@ export function SocialPostEditor() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <Card className="p-4 md:p-6 space-y-6">
           {step === 0 && <StepContent value={data} onChange={onChange} />}
-          {step === 1 && <StepMedia value={data} onChange={onChange} />}
+          {step === 1 && <StepMedia value={data} onChange={onChange} onSplitIntoPosts={handleSplitIntoPosts} />}
           {step === 2 && <StepChannels value={data} onChange={onChange} />}
           {step === 3 && <StepSchedule value={data} onChange={onChange} />}
           {step === 4 && <StepReview value={data} />}
