@@ -858,13 +858,24 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
           platform={postPickerFor?.platform}
           onSelect={(p: SocialPostPickResult) => {
             if (!postPickerFor) return;
-            updateNode(postPickerFor.nodeId, {
-              social_post_id: p.post_id,
-              post_url: p.url,
-              caption: p.caption ?? "",
-              thumbnail_url: p.thumbnail_url,
-              titulo: p.titulo,
-            } as Partial<SocialPostNode>);
+            const target = nodes.find((nn) => nn.id === postPickerFor.nodeId);
+            if (target && (target.type === "link_ig" || target.type === "link_yt")) {
+              updateNode(postPickerFor.nodeId, {
+                url: p.url,
+                caption: p.caption ?? "",
+                thumbnail_url: p.thumbnail_url,
+                titulo: p.titulo,
+              } as Partial<SocialLinkNode>);
+            } else {
+              updateNode(postPickerFor.nodeId, {
+                social_post_id: p.post_id,
+                post_url: p.url,
+                caption: p.caption ?? "",
+                thumbnail_url: p.thumbnail_url,
+                titulo: p.titulo,
+              } as Partial<SocialPostNode>);
+            }
+            setPostPickerFor(null);
           }}
         />
       </DialogContent>
@@ -873,6 +884,118 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
 }
 
 export default WaGroupFlowBuilder;
+
+// ============== Config: Sequência promo (7 msgs) ==============
+function PromoSeqInspector({ node, onChange }: { node: PromoSeqNode; onChange: (p: Partial<PromoSeqNode>) => void }) {
+  const [productOptions, setProductOptions] = useState<Array<{ slug: string; name: string }>>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  useEffect(() => {
+    if (productOptions.length > 0) return;
+    setLoadingProducts(true);
+    fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: 300 }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        const opts = ((j?.products ?? []) as any[])
+          .map((p) => ({ slug: String(p?.slug ?? ""), name: String(p?.name ?? p?.slug ?? "") }))
+          .filter((x) => x.slug)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setProductOptions(opts);
+      })
+      .catch((e) => toast.error("Falha ao listar produtos: " + (e?.message ?? e)))
+      .finally(() => setLoadingProducts(false));
+  }, [productOptions.length]);
+
+  const loadMessages = async () => {
+    if (!node.produto_slug) { toast.error("Selecione um produto"); return; }
+    setLoadingMessages(true);
+    try {
+      const res = await fetch("https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 300 }),
+      });
+      const json = await res.json();
+      const prod = (json?.products ?? []).find((p: any) => p?.slug === node.produto_slug);
+      const raw = prod?.messages?.[node.bucket] ?? [];
+      const mapped: PromoSeqMessage[] = (raw as any[])
+        .map((m, i) => ({
+          order: Number(m?.message_order ?? i + 1),
+          content: String(m?.message_content ?? m?.content ?? ""),
+          enabled: m?.is_active !== false,
+        }))
+        .filter((m) => m.content.trim())
+        .sort((a, b) => a.order - b.order);
+      onChange({ messages: mapped, produto_name: prod?.name ?? node.produto_slug });
+      if (mapped.length === 0) toast.warning(`Nenhuma mensagem em ${node.bucket} para este produto.`);
+      else toast.success(`${mapped.length} mensagem(ns) carregada(s)`);
+    } catch (e: any) {
+      toast.error("Falha: " + (e?.message ?? e));
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const toggleMsg = (order: number) => {
+    onChange({ messages: node.messages.map((m) => m.order === order ? { ...m, enabled: !m.enabled } : m) });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Produto (Sistema A)</Label>
+        <Select value={node.produto_slug} onValueChange={(v) => onChange({ produto_slug: v, messages: [] })}>
+          <SelectTrigger><SelectValue placeholder={loadingProducts ? "Carregando..." : "Selecione..."} /></SelectTrigger>
+          <SelectContent className="max-h-64">
+            {productOptions.map((p) => <SelectItem key={p.slug} value={p.slug}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">Bucket</Label>
+        <Select value={node.bucket} onValueChange={(v) => onChange({ bucket: v as PromoSeqNode["bucket"], messages: [] })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="aftersales">Pós-venda (7 promo)</SelectItem>
+            <SelectItem value="cs">CS / Atendimento</SelectItem>
+            <SelectItem value="spin">SPIN selling</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">Intervalo entre mensagens (segundos)</Label>
+        <Input type="number" value={node.interval_seconds} min={60} onChange={(e) => onChange({ interval_seconds: Number(e.target.value) })} />
+        <p className="text-[10px] text-muted-foreground mt-0.5">86400 = 1 dia · 3600 = 1 hora</p>
+      </div>
+      <Button variant="outline" size="sm" className="w-full" onClick={loadMessages} disabled={!node.produto_slug || loadingMessages}>
+        {loadingMessages ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+        Carregar mensagens do Sistema A
+      </Button>
+      {node.messages.length === 0 ? (
+        <div className="rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+          Nenhuma mensagem carregada. Selecione produto + bucket e clique em "Carregar".
+        </div>
+      ) : (
+        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {node.messages.map((m) => (
+            <label key={m.order} className="flex gap-2 p-2 rounded border border-border text-xs cursor-pointer hover:bg-accent/50">
+              <input type="checkbox" checked={m.enabled} onChange={() => toggleMsg(m.order)} className="mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground">Mensagem {m.order}</div>
+                <div className="text-muted-foreground line-clamp-3 whitespace-pre-wrap">{m.content}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============== Config: Button ==============
 function ConfigButton({ node, onChange }: { node: ButtonNode; onChange: (p: Partial<ButtonNode>) => void }) {
