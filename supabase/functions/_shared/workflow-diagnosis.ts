@@ -76,6 +76,18 @@ export interface WorkflowDiagnosis {
 
 export interface SpinBriefing {
   situacao: string;
+  timing?: {
+    faixa: "AGORA" | "CURTO" | "MEDIO" | "FRIO" | "TIMING_INDETERMINADO" | string;
+    justificativa: string;
+    acao_recomendada: string;
+  };
+  perfil_profissional?: {
+    persona: string;
+    porte: string;
+    maturidade_digital: string;
+    tom_recomendado: string;
+    gatilhos_de_valor: string[];
+  };
   dores_provaveis: Array<{ dor: string; evidencia: string }>;
   implicacoes: string[];
   ponte_produto: string;
