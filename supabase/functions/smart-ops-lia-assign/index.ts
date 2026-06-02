@@ -3137,8 +3137,26 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
-    if (WALEADS_ENABLED) {
-      await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
+    // WaLeads pausado — usar smart-ops-lia-notify-seller (Evolution API, instância Danilo Henrique)
+    if (assignedTeamMemberId && assignedTeamMemberId !== "fallback-admin") {
+      try {
+        const notifyRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-notify-seller`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            team_member_id: assignedTeamMemberId,
+            trigger: trigger || "lia_assign",
+          }),
+        });
+        const notifyBody = await notifyRes.text();
+        console.log(`[lia-assign] notify-seller: status=${notifyRes.status} body=${notifyBody.slice(0, 300)}`);
+      } catch (notifyErr) {
+        console.warn("[lia-assign] notify-seller call failed (non-fatal):", notifyErr);
+      }
     }
 
     return new Response(
