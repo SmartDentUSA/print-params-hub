@@ -25,6 +25,7 @@ export function useCreateScheduledPost() {
         status: data.publish_now ? 'publishing' : 'scheduled',
         product_name: data.product_name || null,
         product_slug: data.product_slug || null,
+        post_type: data.post_type ?? 'feed',
         created_by: auth.user?.email ?? auth.user?.id ?? null,
       };
       const { data: inserted, error } = await supabase
@@ -44,5 +45,21 @@ export function useCreateScheduledPost() {
     }
   };
 
-  return { save, saving };
+  const saveMany = async (items: PostInput[], opts?: { redirect?: boolean }) => {
+    setSaving(true);
+    let ok = 0;
+    try {
+      for (const data of items) {
+        const r = await save(data, { redirect: false });
+        if (r) ok++;
+      }
+      if (ok > 0) toast.success(`${ok} post(s) criados`);
+      if (opts?.redirect !== false && ok > 0) navigate('/social');
+    } finally {
+      setSaving(false);
+    }
+    return ok;
+  };
+
+  return { save, saveMany, saving };
 }
