@@ -108,7 +108,9 @@ function getModelConfig(modelId: ModelId) {
 //   3) claude (se COPILOT_ALLOW_CLAUDE e key)
 //   4) gemini-flash
 function buildFallbackChain(requested: ModelId): ModelId[] {
-  const order: ModelId[] = [requested, "deepseek-pro", "claude", "gemini-flash"];
+  // Ordem padrão: pedido → DeepSeek → Poe Claude → Anthropic Claude → Gemini Flash.
+  // Poe entra antes do Claude direto pois usa créditos compartilhados (mais flexível).
+  const order: ModelId[] = [requested, "deepseek-pro", "poe-claude", "claude", "gemini-flash"];
   const seen = new Set<string>();
   const chain: ModelId[] = [];
   for (const id of order) {
