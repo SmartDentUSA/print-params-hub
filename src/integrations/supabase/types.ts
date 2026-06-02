@@ -17472,6 +17472,10 @@ export type Database = {
       }
       social_sequences: {
         Row: {
+          audience_contact_ids: string[]
+          audience_count: number
+          audience_filters: Json
+          audience_source: string | null
           channel: string | null
           created_at: string | null
           id: string
@@ -17480,6 +17484,10 @@ export type Database = {
           steps: Json | null
         }
         Insert: {
+          audience_contact_ids?: string[]
+          audience_count?: number
+          audience_filters?: Json
+          audience_source?: string | null
           channel?: string | null
           created_at?: string | null
           id?: string
@@ -17488,6 +17496,10 @@ export type Database = {
           steps?: Json | null
         }
         Update: {
+          audience_contact_ids?: string[]
+          audience_count?: number
+          audience_filters?: Json
+          audience_source?: string | null
           channel?: string | null
           created_at?: string | null
           id?: string
