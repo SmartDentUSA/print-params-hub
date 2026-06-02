@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,8 +44,9 @@ export function SocialAnalytics() {
     // Série diária (engagement por dia)
     const byDay = new Map<string, number>();
     p.forEach((x) => {
-      if (!x.published_at) return;
-      const d = new Date(x.published_at).toISOString().slice(0, 10);
+      const ts = (x as any).effective_at ?? x.published_at;
+      if (!ts) return;
+      const d = new Date(ts).toISOString().slice(0, 10);
       const eng = (x.likes ?? 0) + (x.comments ?? 0) + (x.shares ?? 0) + (x.saves ?? 0);
       byDay.set(d, (byDay.get(d) ?? 0) + eng);
     });
@@ -56,8 +57,9 @@ export function SocialAnalytics() {
     // Heatmap dia da semana × hora
     const heat: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
     p.forEach((x) => {
-      if (!x.published_at) return;
-      const d = new Date(x.published_at);
+      const ts = (x as any).effective_at ?? x.published_at;
+      if (!ts) return;
+      const d = new Date(ts);
       const eng = (x.likes ?? 0) + (x.comments ?? 0) + (x.shares ?? 0) + (x.saves ?? 0);
       heat[d.getDay()][d.getHours()] += eng;
     });
@@ -84,9 +86,9 @@ export function SocialAnalytics() {
 
   const handleExport = () => {
     const rows = [
-      ['platform', 'published_at', 'likes', 'comments', 'shares', 'saves', 'reach', 'impressions', 'views', 'post_url'],
+      ['platform', 'effective_at', 'published_at', 'likes', 'comments', 'shares', 'saves', 'reach', 'impressions', 'views', 'post_url'],
       ...(posts ?? []).map((p) => [
-        p.platform, p.published_at, p.likes, p.comments, p.shares, p.saves, p.reach, p.impressions, p.views, p.post_url ?? '',
+        p.platform, (p as any).effective_at, p.published_at, p.likes, p.comments, p.shares, p.saves, p.reach, p.impressions, p.views, p.post_url ?? '',
       ]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -214,7 +216,7 @@ export function SocialAnalytics() {
                         ) : <div className="w-10 h-10 bg-muted rounded" />}
                       </td>
                       <td className="p-2"><Badge variant="outline" className="capitalize">{p.platform}</Badge></td>
-                      <td className="p-2 text-muted-foreground">{p.published_at ? new Date(p.published_at).toLocaleDateString('pt-BR') : '—'}</td>
+                     <td className="p-2 text-muted-foreground">{(p as any).effective_at ? new Date((p as any).effective_at).toLocaleDateString('pt-BR') : '—'}</td>
                       <td className="p-2 text-right font-medium">{p.engagement.toLocaleString('pt-BR')}</td>
                       <td className="p-2 text-right">{(p.reach ?? 0).toLocaleString('pt-BR')}</td>
                       <td className="p-2 text-right">{(p.views ?? 0).toLocaleString('pt-BR')}</td>
@@ -256,8 +258,8 @@ function Heatmap({ data }: { data: number[][] }) {
           <div key={h} className="text-[9px] text-muted-foreground text-center">{h}</div>
         ))}
         {data.map((row, di) => (
-          <>
-            <div key={`d-${di}`} className="text-[10px] text-muted-foreground pr-1 flex items-center">{days[di]}</div>
+          <Fragment key={`row-${di}`}>
+            <div className="text-[10px] text-muted-foreground pr-1 flex items-center">{days[di]}</div>
             {row.map((v, hi) => {
               const opacity = v === 0 ? 0.06 : 0.15 + 0.85 * (v / max);
               return (
@@ -269,7 +271,7 @@ function Heatmap({ data }: { data: number[][] }) {
                 />
               );
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>
