@@ -369,7 +369,10 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                       <Button key={t} size="sm" variant="outline" className="justify-start" onClick={() => addNode(t)}>
                         <Plus className="w-3 h-3 mr-1.5" />
                         <Icon className={`w-3.5 h-3.5 mr-1.5 ${nodeMeta[t].color}`} />
-                        {nodeMeta[t].label}
+                        <span className="flex-1 text-left">{nodeMeta[t].label}</span>
+                        {nodeMeta[t].isNew && (
+                          <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">Novo</Badge>
+                        )}
                       </Button>
                     );
                   })}
