@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BankFilters {
@@ -14,13 +14,8 @@ export interface BankFilters {
 export function useSocialPostsBank(filters: BankFilters = {}) {
   return useQuery({
     queryKey: ['social-posts-bank', filters],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
-      // Try edge function first; fall back to direct table query
-      try {
-        const { data, error } = await supabase.functions.invoke('social-posts-search', { body: { filters } });
-        if (!error && data) return (data as any).posts ?? data ?? [];
-      } catch { /* fallback */ }
-
       let q = supabase.from('social_posts').select('*').limit(filters.limit ?? 60);
       if (filters.platforms?.length) q = q.in('platform', filters.platforms);
       if (filters.format) q = q.ilike('format', `%${filters.format}%`);
