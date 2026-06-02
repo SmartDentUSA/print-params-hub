@@ -1,5 +1,15 @@
 // Channel metadata for Social Publisher
-export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'pinterest' | 'reddit';
+export type SocialPlatform =
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'youtube'
+  | 'pinterest'
+  | 'reddit'
+  | 'twitter'
+  | 'linkedin'
+  | 'gmb'
+  | 'gallery';
 
 export const SOCIAL_CHANNELS: Record<SocialPlatform, { label: string; handle: string; emoji: string; colorClass: string; formats: string[] }> = {
   instagram: { label: 'Instagram', handle: '@smartdentoficial', emoji: '📸', colorClass: 'bg-social-instagram', formats: ['Feed', 'Reels', 'Stories', 'Carrossel'] },
@@ -8,6 +18,10 @@ export const SOCIAL_CHANNELS: Record<SocialPlatform, { label: string; handle: st
   youtube:   { label: 'YouTube',   handle: '@smartdentcadcam',  emoji: '▶️', colorClass: 'bg-social-youtube',   formats: ['Vídeo', 'Shorts'] },
   pinterest: { label: 'Pinterest', handle: '@smartdentcadcam',  emoji: '📌', colorClass: 'bg-social-pinterest', formats: ['Image Pin', 'Video Pin', 'Idea Pin'] },
   reddit:    { label: 'Reddit',    handle: '@smartdent',        emoji: '🔴', colorClass: 'bg-social-reddit',    formats: ['Texto', 'Link', 'Imagem'] },
+  twitter:   { label: 'X / Twitter', handle: '@smartdent',     emoji: '𝕏',  colorClass: 'bg-social-twitter',   formats: ['Post'] },
+  linkedin:  { label: 'LinkedIn',  handle: 'smart-dent',        emoji: '💼', colorClass: 'bg-social-linkedin',  formats: ['Post'] },
+  gmb:       { label: 'Google Meu Negócio', handle: 'Smart Dent', emoji: '🏪', colorClass: 'bg-social-gmb',     formats: ['Update'] },
+  gallery:   { label: 'Galeria',   handle: 'mídia interna',     emoji: '🖼️', colorClass: 'bg-social-gallery',   formats: ['Mídia'] },
 };
 
 // Brand HEX colors — exceção semântica: cores de marca de redes sociais são fixas
@@ -19,6 +33,10 @@ export const SOCIAL_BRAND_HEX: Record<SocialPlatform, string> = {
   youtube:   '#FF0000',
   pinterest: '#E60023',
   reddit:    '#FF4500',
+  twitter:   '#000000',
+  linkedin:  '#0A66C2',
+  gmb:       '#4285F4',
+  gallery:   '#6B7280',
 };
 
 export type SocialFormat = 'feed' | 'image' | 'reel' | 'story' | 'video' | 'carousel' | 'short' | 'pin' | 'text';
@@ -65,6 +83,10 @@ export function normalizePlatform(p?: string | null): SocialPlatform | null {
   if (k.startsWith('yt') || k === 'youtube') return 'youtube';
   if (k.startsWith('pt') || k === 'pinterest' || k.startsWith('pin')) return 'pinterest';
   if (k.startsWith('rd') || k === 'reddit') return 'reddit';
+  if (k === 'x' || k.startsWith('tw') || k === 'twitter') return 'twitter';
+  if (k === 'in' || k.startsWith('li') || k === 'linkedin') return 'linkedin';
+  if (k === 'gmb' || k.includes('google')) return 'gmb';
+  if (k === 'gallery' || k === 'galeria') return 'gallery';
   return null;
 }
 

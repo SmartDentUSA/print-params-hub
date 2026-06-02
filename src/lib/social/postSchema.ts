@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { SocialPlatform } from '@/lib/socialChannels';
 
 export const channelSchema = z.object({
-  platform: z.enum(['instagram', 'facebook', 'tiktok', 'youtube', 'pinterest', 'reddit']),
+  platform: z.enum(['instagram', 'facebook', 'tiktok', 'youtube', 'pinterest', 'reddit', 'twitter', 'linkedin', 'gmb', 'gallery']),
   format: z.string().min(1, 'Formato obrigatório'),
   title: z.string().max(120).optional(),
   pinterest_board: z.string().optional(),
@@ -32,6 +32,8 @@ export const postSchema = z
     first_comment: z.string().trim().max(2200).optional().default(''),
     product_name: z.string().trim().max(120).optional().default(''),
     product_slug: z.string().trim().max(160).optional().default(''),
+    product_ref: z.string().trim().max(80).optional().default(''),
+    product_category: z.string().trim().max(120).optional().default(''),
     media_items: z.array(mediaItemSchema).default([]),
     per_channel_media: z.record(z.string(), z.array(mediaItemSchema)).default({}),
     channels: z.array(channelSchema).min(1, 'Selecione pelo menos 1 canal'),
@@ -92,6 +94,8 @@ export const defaultPost: PostInput = {
   first_comment: '',
   product_name: '',
   product_slug: '',
+  product_ref: '',
+  product_category: '',
   media_items: [],
   per_channel_media: {},
   channels: [],
@@ -109,6 +113,10 @@ export const defaultChannelFor = (platform: SocialPlatform): ChannelInput => {
     youtube: 'Shorts',
     pinterest: 'Image Pin',
     reddit: 'Texto',
+    twitter: 'Post',
+    linkedin: 'Post',
+    gmb: 'Update',
+    gallery: 'Mídia',
   };
   return {
     platform,
