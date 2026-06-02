@@ -1622,6 +1622,20 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
         ? parsed.implicacoes.slice(0, 3).map((s: unknown) => String(s).slice(0, 250)).filter(Boolean)
         : seed.implicacoes,
       ponte_produto: String(parsed.ponte_produto || seed.ponte_produto).slice(0, 500),
+      timing: parsed.timing && typeof parsed.timing === "object" ? {
+        faixa: String((parsed.timing as Record<string, unknown>).faixa || "TIMING_INDETERMINADO").slice(0, 40),
+        justificativa: String((parsed.timing as Record<string, unknown>).justificativa || "").slice(0, 300),
+        acao_recomendada: String((parsed.timing as Record<string, unknown>).acao_recomendada || "").slice(0, 300),
+      } : undefined,
+      perfil_profissional: parsed.perfil_profissional && typeof parsed.perfil_profissional === "object" ? {
+        persona: String((parsed.perfil_profissional as Record<string, unknown>).persona || "").slice(0, 80),
+        porte: String((parsed.perfil_profissional as Record<string, unknown>).porte || "indefinido").slice(0, 40),
+        maturidade_digital: String((parsed.perfil_profissional as Record<string, unknown>).maturidade_digital || "indefinido").slice(0, 40),
+        tom_recomendado: String((parsed.perfil_profissional as Record<string, unknown>).tom_recomendado || "consultivo").slice(0, 40),
+        gatilhos_de_valor: Array.isArray((parsed.perfil_profissional as Record<string, unknown>).gatilhos_de_valor)
+          ? ((parsed.perfil_profissional as Record<string, unknown>).gatilhos_de_valor as unknown[]).slice(0, 4).map((x) => String(x).slice(0, 80)).filter(Boolean)
+          : [],
+      } : undefined,
       perguntas_spin: {
         situacao: arrStr(parsed.perguntas_spin?.situacao, 9) || seed.perguntas_spin.situacao,
         problema: arrStr(parsed.perguntas_spin?.problema, 3) || seed.perguntas_spin.problema,
