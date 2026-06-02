@@ -22249,7 +22249,7 @@ export type Database = {
         Insert: {
           e1_acessorios_raw?: string | null
           e1_notebook?: string | null
-          e1_scanner_bancada?: never
+          e1_scanner_bancada?: string | null
           e1_scanner_intraoral?: never
           e1_sdr_scanner?: string | null
           e1_sdr_scanner_modelo?: string | null
@@ -22291,7 +22291,7 @@ export type Database = {
         Update: {
           e1_acessorios_raw?: string | null
           e1_notebook?: string | null
-          e1_scanner_bancada?: never
+          e1_scanner_bancada?: string | null
           e1_scanner_intraoral?: never
           e1_sdr_scanner?: string | null
           e1_sdr_scanner_modelo?: string | null
