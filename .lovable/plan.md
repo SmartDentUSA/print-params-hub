@@ -1,40 +1,38 @@
 ## Problema
 
-No `PromoSeqInspector` (dentro de `WaGroupFlowBuilder.tsx`) o select de "Produto (Sistema A)" fica travado em **Carregando...**.
+O dropdown lista todos os 120 produtos do Sistema A, mas o endpoint `knowledge-export-full` retorna mensagens prontas para muito poucos:
 
-Causa: o componente faz `fetch(... , { method: "POST", headers: { "Content-Type": "application/json" }, body: ... })` para `knowledge-export-full`. A função responde com `access-control-allow-methods: GET, OPTIONS` — então o preflight CORS do POST com `Content-Type: application/json` falha no browser e a promise nunca resolve (o `.catch` recebe o erro CORS silencioso e fica em loading; em alguns horários o backend também responde 520 ao POST). Via GET o endpoint funciona normalmente e devolve `products[]` (testado: 120 produtos).
+- `aftersales`: 3 produtos
+- `cs`: 2 produtos
+- `spin`: 0 produtos
 
-## Plano
+Quando se seleciona um produto sem mensagens, aparece o toast "Nenhuma mensagem em aftersales para este produto." — está correto, mas a UX deixa o usuário tentando às cegas. Além disso, "SPIN selling" no bucket nunca tem conteúdo.
 
-### 1. `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` — `PromoSeqInspector`
+## Plano (somente UI no `PromoSeqInspector`)
 
-Trocar as duas chamadas (`useEffect` que lista produtos e `loadMessages`) por GET com query params, sem `Content-Type` (evita preflight):
+1. **Carregar produtos com contagem de mensagens.**
+   - No `useEffect` que busca produtos, salvar também `counts = { aftersales, cs }` por slug a partir do mesmo payload (já vem em `p.messages`). Sem fetch extra.
 
-```ts
-fetch(
-  "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full?limit=500&include=products",
-  { method: "GET" }
-)
-```
+2. **Filtrar o dropdown de produtos pelo bucket selecionado.**
+   - Mostrar só produtos onde `counts[node.bucket] > 0`.
+   - Exibir contagem ao lado do nome: `Nome do produto · 7 msgs`.
+   - Placeholder vazio: "Nenhum produto com mensagens neste bucket".
 
-Manter o resto da lógica (map → slug/name, filtro/sort, `messages[node.bucket]`).
+3. **Remover bucket `spin`** do select (não existe no endpoint). Manter só `aftersales` e `cs`. Atualizar `types.ts` (`PromoSeqNode.bucket`) e o default em `WaGroupFlowBuilder` (`bucket: "aftersales"`).
 
-### 2. `supabase/functions/sequence-runner/index.ts` — `getProduct(slug)`
+4. **Trocar bucket reseta `produto_slug`** quando o atual não tem mensagens no novo bucket — evita estado inválido.
 
-Mesma troca para consistência (edge → edge não tem CORS, mas o POST está retornando 520 esporadicamente):
+5. **Auto-carregar mensagens** ao selecionar produto (já que temos o payload em cache na lista), tornando o botão "Carregar mensagens" opcional / fallback.
 
-```ts
-const r = await fetch(`${KNOWLEDGE_URL}?limit=500&include=products`, { method: 'GET' });
-```
-
-Remove o body JSON.
-
-### 3. Sem mudanças adicionais
-
-Não mexer em UI, schema, runtime de envio, nem outros componentes. `SocialSequences.tsx` reusa o mesmo `PromoSeqInspector`, então a correção já cobre as duas telas (WA Groups e Sequências sociais).
+6. **Mensagem do estado vazio** mais clara: "Este bucket tem mensagens em apenas N produtos no Sistema A. Cadastre mais no painel do Sistema A se precisar de outros."
 
 ## Fora de escopo
 
-- Adicionar paginação ao endpoint.
-- Cache compartilhado entre componentes (já existe `staleTime` curto via cache local do componente).
-- Trocar para Supabase RPC direto.
+- Alterações no `sequence-runner` (continua usando `bucket` aftersales/cs).
+- Edição/criação de mensagens promo no Sistema A pelo painel.
+- Mudanças no fluxo de Sequências Sociais (mesmo componente é reusado, herda o fix automaticamente).
+
+## Arquivos a alterar
+
+- `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` — `PromoSeqInspector` + default node.
+- `src/components/smartops/wa-groups/types.ts` — restringir `bucket` a `"aftersales" | "cs"`.
