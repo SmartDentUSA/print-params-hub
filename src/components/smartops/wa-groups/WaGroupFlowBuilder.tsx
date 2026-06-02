@@ -93,6 +93,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
+  const [campaignStartedAt, setCampaignStartedAt] = useState<string | null>(null);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
   const [previewByNode, setPreviewByNode] = useState<Record<string, { loading: boolean; text?: string; provider?: string; error?: string }>>({});
 
@@ -111,6 +113,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
+        setCampaignStatus(data.status ?? null);
+        setCampaignStartedAt(data.started_at ?? null);
         // Pré-carrega agendamento: só faz sentido enquanto for futuro e ainda não rodou.
         if (data.started_at && new Date(data.started_at).getTime() > Date.now()) {
           const d = new Date(data.started_at);
@@ -129,6 +133,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes([]);
         setDailyLimit(50);
         setDelaySeconds(30);
+        setCampaignStatus(null);
+        setCampaignStartedAt(null);
         setScheduleEnabled(false);
         setScheduleDate(undefined);
         setScheduleTime("09:00");
@@ -256,8 +262,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       toast.error(validation[0]);
       return;
     }
-    const sched = computeStartedAt();
-    if (sched.error) { toast.error(sched.error); return; }
+    const isIncrementalEdit =
+      !!campaignId &&
+      (
+        (campaignStartedAt && new Date(campaignStartedAt).getTime() <= Date.now()) ||
+        ["active", "paused", "finished", "error"].includes(campaignStatus ?? "")
+      );
+    let schedIso: string | null = null;
+    if (!isIncrementalEdit) {
+      const sched = computeStartedAt();
+      if (sched.error) { toast.error(sched.error); return; }
+      schedIso = sched.iso;
+    }
     setSaving(true);
     try {
       let cid = campaignId;
@@ -267,8 +283,10 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         flow_json: nodes,
         daily_limit: dailyLimit,
         delay_seconds: delaySeconds,
-        started_at: sched.iso,
       };
+      if (!isIncrementalEdit) {
+        payload.started_at = schedIso;
+      }
       if (cid) {
         payload.status = "draft";
         const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
