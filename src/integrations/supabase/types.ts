@@ -17371,6 +17371,48 @@ export type Database = {
           },
         ]
       }
+      social_zernio_accounts: {
+        Row: {
+          active: boolean
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          handle: string | null
+          id: string
+          last_synced_at: string
+          platform: string
+          raw: Json | null
+          zernio_account_id: string
+          zernio_profile_id: string
+        }
+        Insert: {
+          active?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          handle?: string | null
+          id?: string
+          last_synced_at?: string
+          platform: string
+          raw?: Json | null
+          zernio_account_id: string
+          zernio_profile_id: string
+        }
+        Update: {
+          active?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          handle?: string | null
+          id?: string
+          last_synced_at?: string
+          platform?: string
+          raw?: Json | null
+          zernio_account_id?: string
+          zernio_profile_id?: string
+        }
+        Relationships: []
+      }
       success_stories: {
         Row: {
           challenge: string | null

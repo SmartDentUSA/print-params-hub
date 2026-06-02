@@ -10,12 +10,18 @@ export function useZernioSync() {
   const sync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('social-posts-sync', { body: {} });
-      if (error) throw error;
-      const count = (data as any)?.synced ?? (data as any)?.count ?? 0;
-      toast.success(`${count} posts sincronizados`);
+      const [postsRes, accountsRes] = await Promise.all([
+        supabase.functions.invoke('social-posts-sync', { body: {} }),
+        supabase.functions.invoke('zernio-accounts-sync', { body: {} }),
+      ]);
+      if (postsRes.error) throw postsRes.error;
+      if (accountsRes.error) throw accountsRes.error;
+      const postsCount = (postsRes.data as any)?.synced ?? (postsRes.data as any)?.count ?? 0;
+      const accountsCount = (accountsRes.data as any)?.synced ?? 0;
+      toast.success(`${postsCount} posts • ${accountsCount} contas sincronizadas`);
       qc.invalidateQueries({ queryKey: ['social-posts-bank'] });
       qc.invalidateQueries({ queryKey: ['social-metrics'] });
+      qc.invalidateQueries({ queryKey: ['social-zernio-accounts'] });
     } catch (err: any) {
       const msg = String(err?.message ?? err);
       if (msg.includes('ZERNIO_API_KEY') || msg.includes('401') || msg.includes('unauthorized')) {
