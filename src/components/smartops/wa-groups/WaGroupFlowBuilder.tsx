@@ -93,6 +93,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
+  const [campaignStartedAt, setCampaignStartedAt] = useState<string | null>(null);
   const [selectorOpenFor, setSelectorOpenFor] = useState<string | null>(null);
   const [previewByNode, setPreviewByNode] = useState<Record<string, { loading: boolean; text?: string; provider?: string; error?: string }>>({});
 
@@ -111,6 +113,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
+        setCampaignStatus(data.status ?? null);
+        setCampaignStartedAt(data.started_at ?? null);
         // Pré-carrega agendamento: só faz sentido enquanto for futuro e ainda não rodou.
         if (data.started_at && new Date(data.started_at).getTime() > Date.now()) {
           const d = new Date(data.started_at);
@@ -129,6 +133,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes([]);
         setDailyLimit(50);
         setDelaySeconds(30);
+        setCampaignStatus(null);
+        setCampaignStartedAt(null);
         setScheduleEnabled(false);
         setScheduleDate(undefined);
         setScheduleTime("09:00");
@@ -256,8 +262,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       toast.error(validation[0]);
       return;
     }
-    const sched = computeStartedAt();
-    if (sched.error) { toast.error(sched.error); return; }
+    const isIncrementalEdit =
+      !!campaignId &&
+      (
+        (campaignStartedAt && new Date(campaignStartedAt).getTime() <= Date.now()) ||
+        ["active", "paused", "finished", "error"].includes(campaignStatus ?? "")
+      );
+    let schedIso: string | null = null;
+    if (!isIncrementalEdit) {
+      const sched = computeStartedAt();
+      if (sched.error) { toast.error(sched.error); return; }
+      schedIso = sched.iso;
+    }
     setSaving(true);
     try {
       let cid = campaignId;
@@ -267,8 +283,10 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         flow_json: nodes,
         daily_limit: dailyLimit,
         delay_seconds: delaySeconds,
-        started_at: sched.iso,
       };
+      if (!isIncrementalEdit) {
+        payload.started_at = schedIso;
+      }
       if (cid) {
         payload.status = "draft";
         const { error } = await (supabase as any).from("wa_campaigns").update(payload).eq("id", cid);
@@ -395,6 +413,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
                 </div>
                 <div className="pt-3 border-t space-y-2">
+                  {campaignId && (
+                    (campaignStartedAt && new Date(campaignStartedAt).getTime() <= Date.now()) ||
+                    ["active", "paused", "finished", "error"].includes(campaignStatus ?? "")
+                  ) ? (
+                    <div className="rounded border border-dashed p-2 bg-muted/30">
+                      <Label className="text-xs">Edição incremental</Label>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-1">
+                        A campanha já foi iniciada. Novos nós serão enfileirados após o último envio, seguindo a sequência de "Aguardar". Nós já enviados não serão reenviados.
+                      </p>
+                    </div>
+                  ) : (
+                  <>
                   <div className="flex items-center justify-between">
                     <Label className="text-xs">Início da automação</Label>
                     <div className="flex items-center gap-1.5">
@@ -455,6 +485,8 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                     <p className="text-[10px] text-muted-foreground leading-tight">
                       Ao ativar, a primeira mensagem é enviada em ~15 segundos.
                     </p>
+                  )}
+                  </>
                   )}
                 </div>
               </div>

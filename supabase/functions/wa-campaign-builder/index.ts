@@ -63,10 +63,29 @@ serve(async (req) => {
   await supabase.from('wa_message_queue')
     .delete().eq('campaign_id', campaign_id).eq('status', 'pending')
 
-  const startTs = camp.started_at ? new Date(camp.started_at).getTime() : Date.now() + 15_000
+  const defaultStartTs = camp.started_at ? new Date(camp.started_at).getTime() : Date.now() + 15_000
   const queueRows: Array<Record<string, unknown>> = []
 
   for (const tgt of targets) {
+    // Modo incremental: se já existem mensagens sent/sending para esse grupo,
+    // pular esses node_indexes e ancorar os novos após o último envio.
+    const { data: existing } = await supabase
+      .from('wa_message_queue')
+      .select('node_index, status, scheduled_at, sent_at')
+      .eq('campaign_id', campaign_id)
+      .eq('group_jid', tgt.group_jid)
+      .in('status', ['sent', 'sending'])
+
+    const sentIndexes = new Set<number>((existing ?? []).map((r: any) => r.node_index as number))
+    let anchorTs = defaultStartTs
+    if ((existing ?? []).length > 0) {
+      const lastTs = (existing as any[])
+        .map(r => new Date(r.sent_at ?? r.scheduled_at).getTime())
+        .filter(n => !Number.isNaN(n))
+        .reduce((a, b) => Math.max(a, b), 0)
+      if (lastTs > 0) anchorTs = Math.max(lastTs, Date.now()) + 15_000
+    }
+
     let accMs = 0
     let lastWait: Record<string, unknown> | null = null
     for (let i = 0; i < flow.length; i++) {
@@ -79,18 +98,25 @@ serve(async (req) => {
         lastWait = node
         continue
       }
+      // Skip nós já enviados: preserva a linha sent existente e zera o acumulador
+      // de wait (waits anteriores ao último sent não devem afetar os novos nós).
+      if (sentIndexes.has(i)) {
+        accMs = 0
+        lastWait = null
+        continue
+      }
       let ts: Date
       if (lastWait) {
         const waitHours = (lastWait.hours as number) ?? 0
         const waitMinutes = (lastWait.minutes as number) ?? 0
         if (waitHours > 0 || waitMinutes > 0) {
           // Offset relativo (horas/minutos): dispara exatamente após o intervalo, sem ancorar em horário do dia.
-          ts = new Date(startTs + accMs)
+          ts = new Date(anchorTs + accMs)
         } else {
           // Apenas dias: usa o horário SP configurado no wait (timezone-aware).
           const time = (lastWait.time as string) ?? '09:00'
           const [hh, mm] = time.split(':').map(Number)
-          ts = spDateTimeToUtc(new Date(startTs + accMs), hh, mm)
+          ts = spDateTimeToUtc(new Date(anchorTs + accMs), hh, mm)
         }
         if (lastWait.weekdays_only) {
           const d = spWeekday(ts)
@@ -99,7 +125,7 @@ serve(async (req) => {
         }
       } else {
         // Primeiro nó de conteúdo: respeita exatamente o started_at escolhido na UI
-        ts = new Date(startTs)
+        ts = new Date(anchorTs)
       }
       queueRows.push({
         campaign_id,
@@ -114,7 +140,9 @@ serve(async (req) => {
   }
 
   if (queueRows.length === 0) {
-    return Response.json({ ok: false, error: 'Nenhum nó de conteúdo no fluxo' }, { status: 400, headers: corsHeaders })
+    // Edição incremental sem novos nós: apenas reativa a campanha sem fila nova.
+    await supabase.from('wa_campaigns').update({ status: 'active' }).eq('id', campaign_id)
+    return Response.json({ ok: true, campaign: campaign_id, groups: targets.length, queued: 0, note: 'Sem novos nós para enfileirar' }, { headers: corsHeaders })
   }
 
   const { error: insertErr } = await supabase.from('wa_message_queue').insert(queueRows)
