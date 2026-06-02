@@ -1,82 +1,113 @@
-## Problemas
+## Contexto
 
-**1. Post recém-publicado não aparece no Dashboard nem no Calendário**
+No editor de flows sociais (`SocialFlowEditor`) hoje só existem nós genéricos (Enviar DM, Aguardar, etc.) e o `LinkPicker` lê apenas da view `v_flow_link_picker` (loja/forms/base de conhecimento). Falta:
 
-O post criado (`d9aa73d1...`) foi salvo com `publish_now=true`, `status='published'` e `scheduled_at=null`. As queries atuais filtram por `scheduled_at`:
+1. **Nó "Link Instagram"** — escolher de uma lista de publicações reais do Instagram (já existem 17 em `public.social_posts` com `platform='instagram'`, mais o que vem por produto em `videos.instagram[]` do endpoint `knowledge-export-full`).
+2. **Nó "Link YouTube"** — mesma ideia (4 em `social_posts` + `videos.youtube[]` por produto).
+3. **Nó "Mensagem Promo (7)"** — disparar a sequência de 7 mensagens promocionais por produto (igual ao exemplo da Resina Bio Vitality que o usuário colou). Hoje o endpoint público devolve essas listas em `messages.cs[]` / `messages.aftersales[]` / `messages.spin[]` por produto — atualmente quase tudo vazio, então o nó precisa funcionar para qualquer um desses buckets e degradar bem quando faltar.
+4. **Histórico de postagens das contas → Grupos WA** — não existe UI hoje para selecionar posts históricos (IG/FB/YT/TikTok já sincronizados em `social_posts`) e mandar para grupos de WhatsApp. Precisa de um lugar próprio na Central de Campanhas → Grupos WA.
 
-- `useUpcomingPosts` — `.in('status', ['scheduled','publishing','failed'])` + `.gte('scheduled_at', now)`. Posts `published` ou com `scheduled_at=null` são excluídos.
-- `useCalendarPosts` — `.gte('scheduled_at', from).lte(...)`. Posts com `scheduled_at=null` somem. A query secundária em `social_posts` (histórico Zernio) só popula depois do sync, então recém-publicados ficam invisíveis até a sincronização.
-
-**2. Biblioteca de Conteúdo vazia**
-
-`sync-content-from-a` depende do segredo `SISTEMA_A_ANON_KEY` (não configurado) para puxar das tabelas internas (`cs_messages`, `aftersales_messages`, etc.) e do `content_bridge` local (também vazio). Resultado: 0 itens. O usuário quer as mensagens de WhatsApp (CS/pós-venda) de cada produto vindas do endpoint público `knowledge-export-full` — o mesmo já usado pelo gerador de legendas.
+Tudo abaixo é frontend + um seletor leve apoiado em tabelas existentes. Nada de schema novo.
 
 ---
 
-## Plano de correção
+## Plano
 
-### A. Tornar posts publicados visíveis imediatamente
+### 1. Novos tipos de nó no canvas
 
-**A1. `useUpcomingPosts`** — incluir publicados recentes como linha do tempo:
-- Manter o bloco atual de agendados próximos.
-- Adicionar segunda query: `status='published'` ordenado por `updated_at` desc, últimos 7 dias, limit 10. Mesclar e ordenar pela data efetiva (`scheduled_at ?? updated_at`).
-- Dashboard exibirá o post recém-enfileirado/publicado sem esperar o sync Zernio.
+Em `src/components/social/flows/SocialFlowEditor.tsx`, adicionar ao `NODE_TYPES`:
 
-**A2. `useCalendarPosts`** — não perder posts sem `scheduled_at`:
-- No bloco `social_scheduled_posts`, usar `or('scheduled_at.gte.X,and(scheduled_at.is.null,updated_at.gte.X)')` e mapear `effective_at = scheduled_at ?? updated_at` para posicioná-los no calendário (no dia do publish_now).
-- Garantir que `status='published'` também entra (hoje só `scheduled|publishing|failed|draft` aparecem porque o segundo bloco depende de `social_posts`, que ainda está vazio).
+- `link_instagram` → "Link de publicação Instagram"
+- `link_youtube` → "Link de vídeo YouTube"
+- `send_promo_sequence` → "Sequência promo (7 msgs)"
 
-**A3. Métricas (`useSocialMetrics`)** — confirmar que `published` deste mês conta `social_scheduled_posts.status='published'` além de `social_posts` (ajuste mínimo se necessário).
+Criar `NodeInspector` correspondente para cada um:
 
-> Nada do publisher real é alterado; apenas as leituras de exibição.
+**a) `link_instagram` / `link_youtube`**
 
-### B. Reescrever sync de conteúdo para usar `knowledge-export-full`
+- Abre um novo seletor `SocialPostLinkPicker` (componente novo) restrito por `platform` ('instagram' ou 'youtube').
+- Fonte de dados em duas abas dentro do picker:
+  - **"Minhas contas"** → `supabase.from('social_posts').select('id, caption, post_url, thumbnail_url, published_at, account_id').eq('platform', X).not('post_url','is',null).order('published_at desc').limit(50)` com busca por `caption ilike`.
+  - **"Do produto" (opcional)** → quando o flow tem `produto_slug`, chama `social-knowledge-fetch` (já existe) e lê `videos.instagram[]` ou `videos.youtube[]` do produto.
+- Ao selecionar, grava em `cfg`: `{ url, message_prefix, thumbnail_url, caption_preview, post_id }`.
+- Exibe thumbnail + caption truncada + botão "Trocar publicação".
+- No tempo de execução, esses nós devem montar uma mensagem com o link (a execução real ficará para o publisher; o inspector apenas guarda config). Sem mexer no runner.
 
-**B1. Reescrever `supabase/functions/sync-content-from-a/index.ts`**:
-- Substituir as chamadas a tabelas internas (que exigem `SISTEMA_A_ANON_KEY`) por `POST` em `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full` com `{ limit: 500 }`.
-- Para cada produto retornado, iterar `messages.cs[]` e `messages.aftersales[]` e gerar linhas para upsert em `system_a_content_library`:
-  - `source_table` = `'knowledge_export_cs'` ou `'knowledge_export_aftersales'`
-  - `source_id` = `${product.slug}:${m.message_order}` (estável)
-  - `product_id`, `product_name`, `product_slug`, `product_category` ← do produto
-  - `content_type` = `'cs'` ou `'aftersales'`
-  - `channel` = `'whatsapp'`
-  - `title` = `${product.name} — Msg ${order}`
-  - `content_text` = `m.message_content`
-  - `cta_url` = `product.ctas?.product_url || product.product_url`
-  - `is_active` = `m.is_active !== false`
-  - `content_data` = `{ message_order, raw: m }`
-  - `synced_at` = `now()`
-- Ingerir também (com `content_type` apropriado, todos `channel='whatsapp'` ou o canal natural):
-  - `messages.spin[]` (se existir) → `content_type='spin'`
-  - `seo.seo_description` → `content_type='seo'`, `channel='web'` (um por produto)
-  - `google_ads` (headlines/descrições) → `content_type='google_ads'`, `channel='ads'` (um por item)
-- Manter o bloco de fallback do `content_bridge` para não perder o que já funciona.
-- Upsert com `onConflict: 'source_table,source_id,channel'` (índice já existente conforme a função atual).
-- Retornar `{ inserted, products_processed, errors }`.
+**b) `send_promo_sequence`**
 
-**B2. Sem novas migrações** — esquema atual já suporta tudo. Nenhum segredo novo (endpoint é público).
+- Inspector mostra:
+  - Select de produto (usa `social-knowledge-fetch` para listar slugs ou cai no produto vinculado ao flow).
+  - Select de "bucket": `aftersales` (default — é onde a sequência de 7 vive) | `cs` | `spin`.
+  - Preview das mensagens carregadas (ordenadas por `message_order`) com contagem e checkboxes para incluir/excluir.
+  - Campo "Intervalo entre mensagens (segundos)" para o runner futuro.
+- Grava em `cfg`: `{ produto_slug, bucket, messages: [{order, content, enabled}], interval_seconds }`.
+- Banner amarelo se o endpoint retornar 0 mensagens, sugerindo cadastrar no Sistema A.
 
-**B3. UI (`SmartOpsCampaigns › ContentLibrary`)** — sem mudança estrutural; após o sync, o botão "Sincronizar do Sistema A" passa a popular itens (`content_type` 'cs', 'aftersales', etc., filtros existentes já cobrem). Apenas garantir que o seletor `typeFilter` inclui as opções `cs` e `aftersales` (ler trecho de filtros para confirmar e ajustar se necessário).
+### 2. `SocialPostLinkPicker` (componente novo)
 
-### C. Validação
+Arquivo: `src/components/social/flows/SocialPostLinkPicker.tsx`.
 
-- Após deploy, clicar "Sincronizar do Sistema A" → toast com nº inserido > 0; itens com `channel=whatsapp` e mensagens CS/pós-venda aparecem.
-- Criar novo post com `publish_now` → aparece imediatamente em Dashboard ("Próximos posts" ou nova seção "Recentes") e no Calendário no dia atual.
-- Edge function logs sem erro 4xx.
+- Mesma estrutura visual de `LinkPicker` (Sheet lateral, busca, ScrollArea).
+- Props: `open, onOpenChange, onSelect, platform: 'instagram' | 'youtube', produtoSlug?`.
+- Duas abas: **Minhas contas** (lê `social_posts`) e **Do produto** (lê endpoint via hook existente `useProductKnowledgeCopies` estendido OU chamada direta a `social-knowledge-fetch`).
+- Cada item: thumbnail (fallback ícone), caption truncada (3 linhas), data, badge da plataforma. Ao clicar, devolve `{ url, titulo, thumbnail_url, tipo: 'publicacao' }`.
+
+Não tocar no `LinkPicker` existente.
+
+### 3. Histórico de postagens → Grupos WA
+
+Local: aba **Grupos WA** dentro da Central de Campanhas (rota atual `/admin?sub=grupos-wa&tab=campanhas`).
+
+Adicionar um card "Enviar publicação histórica para grupos":
+
+- Botão "Selecionar publicação" abre o `SocialPostLinkPicker` (reaproveitado, sem filtro de plataforma — mostra IG/YT/FB/TikTok).
+- Lista os grupos WA com checkboxes (lê `wa_groups`).
+- Caixa de texto opcional para legenda customizada (default = `caption` do post).
+- Botão "Enviar agora" → invoca edge function existente de broadcast WA (`wa-broadcast` ou `smart-ops-wa-send` — verificar qual já existe e usar) passando `{ group_ids, text, media_url }`. Se nenhuma função compatível existir, **parar e perguntar** antes de criar uma nova.
+
+Componente: `src/components/social/broadcasts/HistoricalPostBroadcast.tsx`, montado dentro do componente atual de Grupos WA.
+
+### 4. Persistência / tipos
+
+- Os 3 novos `nodeType` apenas viram entradas dentro do JSONB `nodes` de `social_flows` (campo `data.config`). Nada de migração.
+- Atualizar `src/lib/socialChannels.ts` apenas se houver lookup de ícones para os tipos novos — manter mudança mínima.
+
+### 5. Fora de escopo
+
+- Não implementar a execução runtime dos nós novos (publisher continua executando os tipos antigos; os novos viram dados aguardando o runner que o usuário pode pedir depois).
+- Não criar tabela nova nem mexer em `v_flow_link_picker`.
+- Não tocar em `social-caption-generator` / `social-knowledge-fetch` além de consumir o que já retorna.
+- Sem mudança no `LinkPicker` legado.
 
 ---
 
-## Fora de escopo
+## Detalhes técnicos
 
-- Não mexer no publisher Zernio nem em schemas.
-- Não alterar `social-caption-generator` nem `social-knowledge-fetch` (já funcionam).
-- Não criar novos secrets nem novas tabelas.
-- Ícones de canal, identidade visual etc. — fora.
+```text
+SocialFlowEditor
+ ├─ NODE_TYPES += [link_instagram, link_youtube, send_promo_sequence]
+ └─ NodeInspector switch
+      ├─ link_instagram   → <SocialPostLinkPicker platform="instagram" />
+      ├─ link_youtube     → <SocialPostLinkPicker platform="youtube" />
+      └─ send_promo_sequence → <PromoSequenceInspector produtoSlug={...} />
+
+SocialPostLinkPicker
+ ├─ tab "Minhas contas"  → from('social_posts')
+ └─ tab "Do produto"     → social-knowledge-fetch → product.videos[platform]
+
+Grupos WA (Central de Campanhas)
+ └─ HistoricalPostBroadcast
+      ├─ SocialPostLinkPicker (sem filtro)
+      ├─ checkboxes wa_groups
+      └─ invoke wa-broadcast (verificar nome real)
+```
+
+Fonte de dados de `messages.spin[]` / `aftersales[]` / `cs[]` por produto: `POST https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full` com `{ slug }` ou filtrando a lista — já chamado por `social-knowledge-fetch`.
 
 ## Arquivos afetados
 
-- `src/hooks/social/useUpcomingPosts.ts` — incluir publicados recentes
-- `src/hooks/social/useCalendarPosts.ts` — incluir posts `published` com `scheduled_at` nulo via `updated_at`
-- `src/hooks/social/useSocialMetrics.ts` — ajuste se necessário (verificar)
-- `supabase/functions/sync-content-from-a/index.ts` — reescrita para usar `knowledge-export-full`
-- `src/components/SmartOpsCampaigns.tsx` — apenas adicionar opções `cs`/`aftersales` no filtro de tipo se faltarem
+- `src/components/social/flows/SocialFlowEditor.tsx` — novos `NODE_TYPES` + branches no `NodeInspector`
+- `src/components/social/flows/SocialPostLinkPicker.tsx` — novo
+- `src/components/social/flows/PromoSequenceInspector.tsx` — novo (ou inline no editor)
+- `src/components/social/broadcasts/HistoricalPostBroadcast.tsx` — novo
+- Componente atual da aba "Grupos WA" — montar o card novo (identificar arquivo após aprovação do plano)
