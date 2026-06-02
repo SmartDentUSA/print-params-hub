@@ -1501,6 +1501,15 @@ Sua tarefa: gerar um briefing SPIN ESPECÍFICO deste lead — não genérico —
 DADOS DO LEAD:
 - Nome: ${lead.nome || "N/I"}
 - Especialidade/área: ${lead.especialidade || lead.area_atuacao || "N/I"}
+- Cargo/tipo declarado: ${lead.cargo || lead.tipo_profissional || lead.role || "N/I"}
+- Empresa / razão social: ${lead.empresa_nome || lead.empresa || "N/I"}
+- Cidade/UF: ${[lead.cidade, lead.uf || lead.estado].filter(Boolean).join("/") || "N/I"}
+- Tempo de profissão / maturidade declarada: ${lead.tempo_profissao || lead.maturidade_digital || "N/I"}
+- Urgência declarada: ${lead.urgency_level || lead.urgencia || "N/I"}
+- Motivação primária: ${lead.primary_motivation || lead.motivacao || "N/I"}
+- Primeiro contato: ${lead.first_contact_at || lead.primeiro_contato || lead.created_at || "N/I"}
+- Origem / form_name: ${lead.form_name || lead.origem_primeiro_contato || "N/I"}
+- Última interação: ${lead.last_interaction_at || lead.ultima_interacao || "N/I"}
 - Stack atual: ${stackSummary}
 - Concorrentes detectados: ${diag.concorrentes_detectados.map(c => c.label).join(", ") || "nenhum"}
 - Intenção declarada: ${diag.intent?.produto || "—"} (match no portfólio: ${diag.intent?.matched_product_label || "sem match"})
@@ -1513,6 +1522,8 @@ SEED HEURÍSTICO (use como base, REFINE com a stack específica do lead):
 ${JSON.stringify(seed, null, 2)}
 
 REGRAS DURAS:
+- LEITURA DE TIMING (obrigatória): combine "Primeiro contato", "Última interação", "Urgência declarada", "Motivação primária" e a origem para classificar a janela de compra em uma de 4 faixas: **AGORA (≤7d / urgência alta / pediu proposta), CURTO (8–30d / pesquisando ativo), MÉDIO (1–3 meses / mapeando opções), FRIO (>3 meses / só baixou material)**. Justifique em 1 frase citando o sinal usado. Se faltar dado, declare "TIMING_INDETERMINADO" e gere 1 pergunta de SITUAÇÃO que descubra o gatilho/prazo.
+- LEITURA DE PERFIL PROFISSIONAL (obrigatória): a partir de Especialidade, Cargo, Empresa, Cidade/UF, Tempo de profissão e Stack, classifique o lead em UMA persona: **CD generalista, CD especialista (qual?), TPD/laboratório, clínica/grupo, distribuidor, estudante**. Estime porte (solo, 2-5 cadeiras, 6+ cadeiras / lab pequeno-médio-grande) e maturidade digital (iniciante / intermediário / avançado) com base na stack declarada. Adapte o tom: avançado → técnico e específico; iniciante → didático e consultivo. Para TPD/lab → foco em produtividade, custo por peça e recorrência de insumos; para CD clínico → foco em hora-cadeira, previsibilidade e experiência do paciente.
 - ROTEIRO IMUTÁVEL: as perguntas de SITUAÇÃO devem cobrir EXATAMENTE os itens do "ROTEIRO DE PERFILAMENTO" cujo status é "❓ a descobrir" ou "⚠️ gap", NA MESMA ORDEM do roteiro (1→9). Para itens "✅ declarado" NÃO gere pergunta — só reconheça no campo "situacao". É proibido pular, reordenar ou substituir perguntas do roteiro.
 - Cada pergunta de SITUAÇÃO deve PREFIXAR com "Etapa <etapa_label> — <titulo>:" e manter a essência da "pergunta canônica" (você pode refinar o tom, sem perder o foco).
 - Itens "⚠️ gap" também viram 1 pergunta de PROBLEMA cada, atacando a terceirização/dependência e introduzindo o "gancho" Smart Dent listado no roteiro.
@@ -1539,6 +1550,18 @@ REGRAS DURAS:
 Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
 {
   "situacao": "string (1-2 frases — papel + stack-chave + intenção)",
+  "timing": {
+    "faixa": "AGORA | CURTO | MEDIO | FRIO | TIMING_INDETERMINADO",
+    "justificativa": "string curta citando os sinais (datas, urgência, motivação, origem)",
+    "acao_recomendada": "string — quando e como o vendedor deve abordar (ex.: 'ligar nas próximas 2h', 'mandar WA hoje', 'nutrir com case')"
+  },
+  "perfil_profissional": {
+    "persona": "CD generalista | CD especialista (X) | TPD/laboratório | clínica/grupo | distribuidor | estudante",
+    "porte": "solo | 2-5 cadeiras | 6+ cadeiras | lab pequeno | lab médio | lab grande | indefinido",
+    "maturidade_digital": "iniciante | intermediário | avançado",
+    "tom_recomendado": "didático | consultivo | técnico-pareado",
+    "gatilhos_de_valor": ["1-3 itens que mais ressoam com este perfil (ex.: 'previsibilidade clínica', 'custo por peça', 'hora-cadeira')"]
+  },
   "dores_provaveis": [{ "dor": "string", "evidencia": "string curta citando o que o lead tem" }],
   "implicacoes": ["string concreta", "string concreta"],
   "ponte_produto": "string (1-2 frases ligando intenção a benefício do dossiê RAG)",
