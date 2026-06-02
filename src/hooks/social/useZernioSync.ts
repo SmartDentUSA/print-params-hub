@@ -10,17 +10,22 @@ export function useZernioSync() {
   const sync = async () => {
     setSyncing(true);
     try {
-      const [postsRes, accountsRes] = await Promise.all([
-        supabase.functions.invoke('social-posts-sync', { body: {} }),
+      const [metricsRes, accountsRes] = await Promise.all([
+        supabase.functions.invoke('zernio-metrics-sync', { body: {} }),
         supabase.functions.invoke('zernio-accounts-sync', { body: {} }),
       ]);
-      if (postsRes.error) throw postsRes.error;
+      if (metricsRes.error) throw metricsRes.error;
       if (accountsRes.error) throw accountsRes.error;
-      const postsCount = (postsRes.data as any)?.synced ?? (postsRes.data as any)?.count ?? 0;
+      const postsCount =
+        (metricsRes.data as any)?.updated ??
+        (metricsRes.data as any)?.synced ??
+        (metricsRes.data as any)?.count ?? 0;
       const accountsCount = (accountsRes.data as any)?.synced ?? 0;
-      toast.success(`${postsCount} posts • ${accountsCount} contas sincronizadas`);
+      toast.success(`${postsCount} posts atualizados • ${accountsCount} contas`);
       qc.invalidateQueries({ queryKey: ['social-posts-bank'] });
       qc.invalidateQueries({ queryKey: ['social-metrics'] });
+      qc.invalidateQueries({ queryKey: ['social-calendar-posts'] });
+      qc.invalidateQueries({ queryKey: ['social-analytics'] });
       qc.invalidateQueries({ queryKey: ['social-zernio-accounts'] });
     } catch (err: any) {
       const msg = String(err?.message ?? err);
