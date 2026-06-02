@@ -25,7 +25,7 @@ import type {
   ButtonNode, ButtonItem, ButtonItemType,
   ListNode, ListSection, ListRow,
   CarouselNode, CarouselCard, CarouselCardButton,
-  SocialPostNode,
+  SocialPostNode, SocialLinkNode, PromoSeqNode, PromoSeqMessage,
 } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
@@ -54,6 +54,9 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string; 
   carousel: { label: "Carrossel", icon: LayoutList,    color: "text-fuchsia-600", isNew: true },
   post_ig:  { label: "Postagem Instagram", icon: Instagram, color: "text-pink-600", isNew: true },
   post_yt:  { label: "Postagem YouTube",   icon: Youtube,   color: "text-red-600",  isNew: true },
+  link_ig:  { label: "Link Instagram",     icon: Instagram, color: "text-pink-600", isNew: true },
+  link_yt:  { label: "Link YouTube",       icon: Youtube,   color: "text-red-600",  isNew: true },
+  promo_seq:{ label: "Sequência promo (7 msgs)", icon: Sparkles, color: "text-purple-600", isNew: true },
 };
 
 function newNode(type: FlowNodeType): FlowNode {
@@ -85,6 +88,11 @@ function newNode(type: FlowNodeType): FlowNode {
     case "post_ig":
     case "post_yt":
       return { id, type, post_url: "", caption: "", titulo: "" } as SocialPostNode;
+    case "link_ig":
+    case "link_yt":
+      return { id, type, url: "", caption: "", titulo: "" } as SocialLinkNode;
+    case "promo_seq":
+      return { id, type, produto_slug: "", produto_name: "", bucket: "aftersales", messages: [], interval_seconds: 86400 } as PromoSeqNode;
   }
 }
 
