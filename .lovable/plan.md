@@ -1,142 +1,169 @@
-# Fase 2 — IG Flow Engine via **Zernio** (substitui Meta Graph)
+# Roadmap completo — Fases 3 → 6 do Social Publisher
 
-Como todas as contas sociais já estão conectadas no Zernio (Instagram, Facebook, TikTok, YouTube, Pinterest, Reddit, LinkedIn, Threads…), o worker delega 100% da publicação para a API do Zernio. Uma única integração resolve todos os canais.
-
-Base URL: `https://zernio.com/api/v1`
-Auth: `Authorization: Bearer $ZERNIO_API_KEY`
+Todas as 14 tabelas já existem (criadas na Fase 0). Falta motor de execução, edge functions, workers, UI builders e polish.
 
 ---
 
-## 1. Secret necessária
+## Fase 3 — IG DM Flow Engine (`/social/flows`)
 
-- `ZERNIO_API_KEY` (formato `sk_…`) — pedida via `add_secret` no início.
+**Objetivo**: capturar comentários e DMs do Instagram (via Zernio webhooks) e disparar flows visuais que enviam DM, coletam respostas, atribuem tags e convertem em lead no CRM.
 
-Já existe referência no hook `useZernioSync`. Se a chave já estiver salva, reaproveitamos.
+### 3.1 Webhook receiver
+- Edge function `zernio-webhook` (public, sem JWT): recebe `comment.created`, `dm.received`, `dm.delivered` da Zernio. Valida assinatura HMAC (`ZERNIO_WEBHOOK_SECRET`, novo).
+- Upsert em `social_contacts` (chave `ig_user_id`) + append em `social_sessions` (uma por contato+flow ativo).
+- Cria `social_triggers.event_log` (novo jsonb append-only) com o payload bruto.
 
----
+### 3.2 Trigger matcher
+- `social_triggers` (já existe) tem `type` (`comment_keyword`|`dm_keyword`|`story_reply`|`mention`), `match_rules` (jsonb com keywords/regex), `flow_id`.
+- Função `match-trigger` (chamada inline pelo webhook): percorre triggers ativos do canal, faz match em `text` normalizado, enfileira execução do flow.
 
-## 2. Sincronização de contas (catálogo local)
+### 3.3 Flow engine
+- Edge function `flow-executor` (cron a cada 30s + invocação direta pós-trigger).
+- Estado em `social_sessions` (`current_node_id`, `context jsonb`, `status`, `next_run_at`).
+- Tipos de nó implementados em `nodes` (jsonb React Flow): `send_dm`, `send_comment_reply`, `wait` (delay), `condition` (if/else baseado em `context`), `collect_input` (aguarda próxima mensagem), `set_tag`, `set_field`, `create_lead` (chama `smart-ops-ingest-lead`), `goto_flow`, `end`.
+- Cada execução: roda nós síncronos em loop até bater em `wait` ou `collect_input`, persiste estado, agenda próximo run.
+- Envio de DM via `POST zernio.com/api/v1/dm` (ou endpoint equivalente — confirmar no painel; fallback graph IG se Zernio não tiver).
 
-Para o editor saber qual `accountId` mandar pra cada canal, criamos uma tabela espelho:
+### 3.4 UI Flow Builder (`/social/flows`)
+- Lista de flows (tabela com nome, canal, trigger, execuções, conversões, toggle ativo).
+- `/social/flows/novo` e `/social/flows/:id`: canvas React Flow (`reactflow` já instalado? senão `bun add reactflow`) com node palette à esquerda, propriedades à direita.
+- Preview de DM (mock do device IG).
+- Página `/social/flows/:id/sessions`: lista sessões ativas/completas com replay do contexto.
 
-```sql
-CREATE TABLE public.social_zernio_accounts (
-  id uuid PK default gen_random_uuid(),
-  zernio_account_id text UNIQUE NOT NULL,   -- acc_xxx
-  zernio_profile_id text NOT NULL,          -- prof_xxx
-  platform text NOT NULL,                   -- instagram, facebook, tiktok…
-  handle text,
-  display_name text,
-  avatar_url text,
-  active boolean default true,
-  last_synced_at timestamptz default now(),
-  created_at timestamptz default now()
-);
-```
-+ GRANT, RLS, policy (`authenticated SELECT`, edge function via service_role).
-
-### Edge function nova: `zernio-accounts-sync`
-- `GET /api/v1/accounts` → upsert na tabela.
-- Invocada pelo botão "Sincronizar" existente (`useZernioSync` será desdobrado para chamar **tanto** `social-posts-sync` quanto `zernio-accounts-sync`).
+### 3.5 Hooks/components
+- `useFlows`, `useFlow(id)`, `useSaveFlow`, `useToggleFlow`, `useFlowSessions(id)`, `useTriggers`.
+- Componentes: `FlowCanvas`, `FlowNodePalette`, `FlowNodeInspector`, nodes (`SendDmNode`, `WaitNode`, `ConditionNode`, …), `TriggerEditor`.
 
 ---
 
-## 3. Edge function principal: `social-publish-worker`
+## Fase 4 — Broadcasts & Sequences WhatsApp (`/social/broadcasts`)
 
-Roda a cada minuto (cron). Em cada execução:
+**Objetivo**: disparos em massa segmentados e sequências automáticas via Evolution API (já em uso no projeto), com fila confiável.
 
-1. **Claim atômico** de até 10 posts elegíveis:
-   ```sql
-   UPDATE social_scheduled_posts
-   SET status='publishing'
-   WHERE id IN (
-     SELECT id FROM social_scheduled_posts
-     WHERE (publish_now=true AND status='publishing')
-        OR (status='scheduled' AND scheduled_at <= now())
-     ORDER BY scheduled_at NULLS FIRST
-     LIMIT 10
-     FOR UPDATE SKIP LOCKED
-   )
-   RETURNING *;
-   ```
-2. Para cada post: monta payload **único** ao Zernio:
-   ```json
-   POST /api/v1/posts
-   {
-     "content": "<caption>\n\n<hashtags juntos>",
-     "publishNow": true,                  // sempre true; já fizemos o "agendamento" local
-     "timezone": "America/Sao_Paulo",
-     "mediaItems": [
-       { "url": "<public_url do wa-media>", "type": "image" | "video" }
-     ],
-     "platforms": [
-       { "platform": "instagram", "accountId": "acc_xxx" },
-       { "platform": "tiktok",    "accountId": "acc_yyy" }
-     ],
-     "firstComment": "<first_comment>"   // quando suportado
-   }
-   ```
-   - Mapeia `channels[].platform` → `accountId` via `social_zernio_accounts`. Se algum canal não tiver conta ativa, registra erro mas tenta o resto.
-   - URLs do bucket `wa-media` já são públicas → passamos direto, sem reupload.
-3. **Sucesso**: grava `zernio_post_ids = { "<channel>": "<post._id>" }`, `published_at=now()`, `status='published'`.
-4. **Erro parcial**: `status='failed'`, `publish_errors=[{channel, code, message, at}]` (preserva contexto pra retry manual).
-5. Logs JSON estruturados (`console.log({ event:'publish.ok'|'publish.fail', post_id, ... })`).
+### 4.1 Worker
+- Edge function `wa-message-worker` (cron 30s): claim atômico (`FOR UPDATE SKIP LOCKED`) de até 25 mensagens de `wa_message_queue` com `status='pending' AND send_after<=now()`.
+- Para cada msg: lê `team_member.evolution_instance_name`, monta payload `/message/sendText` ou `/message/sendMedia`, respeita rate-limit por instância (Redis-less: contador em `wa_send_counters` por minuto/hora).
+- Sucesso → `status='sent'`, `wa_message_id` salvo. Erro → retry exponencial (max 3), depois `failed` com `error_code`.
 
-CORS habilitado para chamadas manuais via dashboard ("Forçar publicação").
+### 4.2 Broadcast engine
+- Edge function `wa-broadcast-dispatch`: dado um `broadcast_id`, resolve `segment` (jsonb com filtros: `tags`, `last_seen`, `lead_status`, `funnel_stage`, `has_won`, …) para lista de `social_contacts`+`lia_attendances`, gera N linhas em `wa_message_queue` com `send_after` espalhado (anti-ban, jitter).
+- Cron de "agendados": `wa-broadcast-cron` a cada 1 min escala `social_broadcasts` com `status='scheduled' AND scheduled_at<=now()`.
+
+### 4.3 Sequences
+- `social_sequences` (steps em jsonb: array de `{delay_minutes, channel, message, condition?}`) + `social_sequence_enrollments` (lead_id, step_index, next_run_at, status).
+- Edge function `sequence-runner` (cron 1min): avança enrollments, gera mensagens em `wa_message_queue`. Pausar/cancelar via UI.
+- Triggers de enrollment: manual (UI), tag aplicada via flow, evento de funil (já temos `lead_activity_log`).
+
+### 4.4 Grupos WA
+- `wa_groups` espelha grupos da Evolution. Sync via `wa-groups-sync` (botão + cron diário).
+- `wa_campaign_groups`: many-to-many entre `wa_campaigns` e `wa_groups` para envio em grupos selecionados (suporte a "mensagem para grupos VIP").
+
+### 4.5 UI (`/social/broadcasts`, `/social/sequences`, `/social/contatos`)
+- **Broadcasts**: wizard 3 passos (segmento → mensagem → agendamento + preview), tabela de execuções, métricas (enviadas/entregues/respondidas).
+- **Sequences**: timeline editor vertical (passos sequenciais), modal de inscrição manual, lista de enrollments.
+- **Contatos WA**: tabela com filtros, tags inline, ação "Adicionar à sequência".
 
 ---
 
-## 4. Cron job
+## Fase 5 — Analytics & Métricas Zernio (`/social/analytics`)
 
-Via SQL insert direto (pg_cron + pg_net), não-migração (contém anon key):
+### 5.1 Métricas backend
+- Edge function `zernio-metrics-sync` (cron a cada 30 min): para cada `social_posts` com `published_at` < 7 dias e `analytics_synced_at IS NULL OR < now()-interval'1h'`, busca `GET zernio.com/api/v1/posts/:id/insights` por plataforma. Persiste `likes/comments/shares/saves/reach/impressions/views`.
+- Botão "Sync agora" no card de cada post.
 
-```sql
-SELECT cron.schedule(
-  'social-publish-worker',
-  '* * * * *',
-  $$ SELECT net.http_post(
-       url:='https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/social-publish-worker',
-       headers:='{"Content-Type":"application/json","apikey":"<ANON>"}'::jsonb,
-       body:='{}'::jsonb
-     ) $$
-);
-```
+### 5.2 Página analytics
+- Cards de topo: alcance total 7/30d, engajamento médio, top platform, melhor horário (derivado de `published_at` vs engajamento).
+- Charts (recharts já no projeto):
+  - Linha: engajamento ao longo do tempo (filtros: plataforma, período, conta).
+  - Barra empilhada: posts por plataforma × status.
+  - Heatmap: dia da semana × hora (melhores janelas).
+- Tabela "Top posts" com thumb, métricas, link para edição.
+- Export CSV.
 
-Extensions `pg_cron` e `pg_net` ativadas (verifica antes; se faltar, migration habilita).
-
----
-
-## 5. Frontend — pequenas adições
-
-- **`StepChannels`**: dropdown de conta agora carrega `social_zernio_accounts` por plataforma (filtra `active=true`). Hook novo `useZernioAccounts(platform?)`.
-- **Banner em `/social`**: se nenhuma conta sincronizada existir, CTA "Sincronizar contas Zernio".
-- **`SocialPostCard` failed**: botão "Republicar" já adicionado na Fase 1D — só funcionar automático com o cron rodando.
-- **Realtime** (opcional, leve): `supabase.channel('social_scheduled_posts')` no dashboard para refletir mudanças de status sem refresh.
+### 5.3 Hooks/components
+- `useSocialAnalytics(filters)`, `usePostMetrics(id)`, `useResyncMetrics()`.
+- `AnalyticsHero`, `EngagementChart`, `PlatformBreakdown`, `BestTimeHeatmap`, `TopPostsTable`.
 
 ---
 
-## 6. Fora de escopo desta fase
+## Fase 6 — Carrosséis multi-mídia + customMedia por canal
 
-- Carrosséis multi-mídia com `customMedia` por canal (1 mídia única atende a maioria; multi-canal complexo fica pra Fase 2.1).
-- Métricas pós-publicação (likes, alcance) — virão via outro endpoint Zernio (`/analytics`) numa fase futura.
-- Reuploads de mídia via `media/presign` — usamos URL pública do `wa-media`. Só viramos para presign se algum canal recusar a URL do Supabase.
+### 6.1 Schema
+- Migration: `social_scheduled_posts.media_items` (jsonb array `[{url,type,order}]`) e `per_channel_media` (jsonb `{instagram:[…], tiktok:[…]}`). Manter `media_url` legacy.
+
+### 6.2 Worker (atualizar `social-publish-worker`)
+- Para cada post: se `per_channel_media[channel]` existir, usa-o; senão usa `media_items`. Mapeia para `mediaItems` ou `customMedia` do payload Zernio conforme spec.
+- Validação por plataforma: IG carrossel máx 10 itens, TikTok 1 vídeo, etc. Posts inválidos → `status='failed'` com `publish_errors.code='media_validation'`.
+
+### 6.3 Editor (`SocialPostEditor`)
+- Substituir uploader único por `MediaCarouselUploader`: drag-drop ordenável (`@dnd-kit/sortable`), preview, remoção, suporte a vídeo+imagem misturados.
+- Toggle "Customizar por canal" → abre `PerChannelMediaTabs` (1 tab por plataforma selecionada, cada uma com seu próprio uploader).
+- Validações inline (contagem/tipo/tamanho) por canal.
+
+### 6.4 Preview
+- `PostPreviewCarousel` no painel direito: simulador IG carrossel (swipe), TikTok vertical, Reels.
 
 ---
 
-## Ordem de execução
+## Cron jobs novos (SQL insert, sem migration)
 
 ```text
-1. add_secret ZERNIO_API_KEY  (pausa pra você colar)
-   ↓
-2. migration: social_zernio_accounts + extensions
-   ↓
-3. deploy zernio-accounts-sync  →  você clica "Sincronizar" e valida lista
-   ↓
-4. deploy social-publish-worker
-   ↓
-5. schedule cron (insert SQL, sem migration)
-   ↓
-6. teste manual: criar post Instagram "publicar agora" → ver published_at + zernio_post_ids preenchidos
+zernio-webhook            → não tem cron (público)
+flow-executor             → */30s (via 2 jobs a cada minuto deslocados, ou 1 min)
+wa-message-worker         → */30s
+wa-broadcast-cron         → '* * * * *' (1 min)
+sequence-runner           → '* * * * *'
+zernio-metrics-sync       → '*/30 * * * *'
+wa-groups-sync            → '0 3 * * *' (diário)
 ```
 
-Posso emendar após você aprovar. Pode confirmar?
+---
+
+## Polish global
+
+- Realtime (`supabase.channel`) em: lista de flows (status sessões), broadcasts (progresso de envio), posts (status publicação).
+- Empty states ilustrados em cada nova página.
+- Toasts consistentes (sucesso/erro/loading) via `sonner`.
+- Loading skeletons em todas tabelas.
+- Dark-mode garantido (tokens HSL já existentes).
+- Logs JSON estruturados em todas edge functions.
+- Rate-limit anti-abuso em `zernio-webhook` (IP + assinatura).
+
+---
+
+## Detalhes técnicos / dependências
+
+- Bibliotecas a instalar: `reactflow`, `@dnd-kit/core`, `@dnd-kit/sortable` (se ausentes).
+- Secrets novos: `ZERNIO_WEBHOOK_SECRET` (Fase 3, pedido via `add_secret`).
+- Confirmação necessária da Zernio: endpoint exato de DM out (`/dm/send`?) e payload de webhooks. Plano: detectar via tentativa + fallback para Instagram Graph se Zernio não suportar DM out (improvável; tem features de Inbox).
+- Todas tabelas novas/alteradas seguem padrão GRANT + RLS (authenticated read; service_role write para queues internas).
+
+---
+
+## Ordem de execução (estimativa: 12-15 mensagens)
+
+```text
+A. Fase 6 (carrosséis)  ← menor risco, melhora editor já existente
+   1. migration colunas mídia
+   2. atualizar worker + editor + preview
+
+B. Fase 5 (analytics)   ← read-only, valida antes de flows
+   3. edge zernio-metrics-sync + cron
+   4. UI /social/analytics
+
+C. Fase 3 (flows)       ← core do IG DM
+   5. add_secret ZERNIO_WEBHOOK_SECRET
+   6. edges zernio-webhook + flow-executor
+   7. UI flow builder (canvas + nodes)
+   8. UI sessões + triggers
+
+D. Fase 4 (WA broadcasts)
+   9. edges wa-message-worker + wa-broadcast-dispatch + sequence-runner + wa-groups-sync
+   10. crons
+   11. UI broadcasts (wizard) + sequences + grupos + contatos
+
+E. Polish final
+   12. realtime + empty states + skeletons em todas páginas novas
+```
+
+Pronto pra rodar tudo na sequência após sua aprovação.

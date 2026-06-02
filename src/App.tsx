@@ -27,6 +27,13 @@ import { SocialPostsBank } from "./components/social/SocialPostsBank";
 import { ComingSoon } from "./components/social/ComingSoon";
 import { SocialPostEditor } from "./components/social/editor/SocialPostEditor";
 import { SocialCalendar } from "./components/social/calendar/SocialCalendar";
+import { SocialAnalytics } from "./components/social/SocialAnalytics";
+import { SocialFlowsList } from "./components/social/flows/SocialFlowsList";
+import { SocialFlowEditor } from "./components/social/flows/SocialFlowEditor";
+import { SocialFlowSessions } from "./components/social/flows/SocialFlowSessions";
+import { SocialBroadcasts } from "./components/social/broadcasts/SocialBroadcasts";
+import { SocialSequences } from "./components/social/broadcasts/SocialSequences";
+import { SocialContacts } from "./components/social/broadcasts/SocialContacts";
 
 function PageTracker() {
   usePageTracking();
@@ -51,7 +58,14 @@ const App = () => (
         <Route path="novo" element={<SocialPostEditor />} />
         <Route path=":id/editar" element={<SocialPostEditor />} />
         <Route path="calendario" element={<SocialCalendar />} />
-        <Route path="analytics" element={<ComingSoon title="Analytics" />} />
+        <Route path="analytics" element={<SocialAnalytics />} />
+        <Route path="flows" element={<SocialFlowsList />} />
+        <Route path="flows/novo" element={<SocialFlowEditor />} />
+        <Route path="flows/:id" element={<SocialFlowEditor />} />
+        <Route path="flows/:id/sessoes" element={<SocialFlowSessions />} />
+        <Route path="broadcasts" element={<SocialBroadcasts />} />
+        <Route path="sequencias" element={<SocialSequences />} />
+        <Route path="contatos" element={<SocialContacts />} />
       </Route>
       
       {/* Portuguese routes (default) */}

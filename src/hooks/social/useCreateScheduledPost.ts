@@ -17,6 +17,7 @@ export function useCreateScheduledPost() {
         hashtags: data.hashtags,
         first_comment: data.first_comment || null,
         media_items: data.media_items as any,
+        per_channel_media: data.per_channel_media as any,
         channels: data.channels as any,
         scheduled_at: data.publish_now ? null : data.scheduled_at,
         timezone: data.timezone,
