@@ -18,8 +18,14 @@ import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
   Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
+  Hand, List as ListIcon, LayoutList,
 } from "lucide-react";
-import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
+import type {
+  FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode,
+  ButtonNode, ButtonItem, ButtonItemType,
+  ListNode, ListSection, ListRow,
+  CarouselNode, CarouselCard, CarouselCardButton,
+} from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
 
@@ -32,7 +38,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }> = {
+const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string; isNew?: boolean }> = {
   msg:   { label: "Mensagem",     icon: MessageSquare, color: "text-blue-600" },
   wait:  { label: "Aguardar",     icon: Clock,         color: "text-amber-600" },
   ai:    { label: "IA + Conteúdo", icon: Sparkles,     color: "text-purple-600" },
@@ -41,6 +47,9 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }
   audio: { label: "Áudio",        icon: Mic,           color: "text-pink-600" },
   document: { label: "Documento", icon: Paperclip,     color: "text-slate-600" },
   link:  { label: "Link",         icon: Link2,         color: "text-cyan-600" },
+  button:   { label: "Botões",    icon: Hand,          color: "text-indigo-600", isNew: true },
+  list:     { label: "Lista",     icon: ListIcon,      color: "text-teal-600",   isNew: true },
+  carousel: { label: "Carrossel", icon: LayoutList,    color: "text-fuchsia-600", isNew: true },
 };
 
 function newNode(type: FlowNodeType): FlowNode {
@@ -54,6 +63,21 @@ function newNode(type: FlowNodeType): FlowNode {
     case "audio":
     case "document": return { id, type, media_url: "", caption: "" };
     case "link":  return { id, type, title: "", description: "", url: "" };
+    case "button":
+      return {
+        id, type, body: "", footer: "",
+        buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }],
+      };
+    case "list":
+      return {
+        id, type, title: "", body: "", footer: "", buttonText: "Ver opções",
+        sections: [{ title: "Opções", rows: [{ id: crypto.randomUUID(), title: "", description: "" }] }],
+      };
+    case "carousel":
+      return {
+        id, type,
+        cards: [{ body: "", image: "", buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }] }],
+      };
   }
 }
 
