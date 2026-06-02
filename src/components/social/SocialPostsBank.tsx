@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useSocialPostsBank, BankFilters } from '@/hooks/social/useSocialPostsBank';
 import { useZernioSync } from '@/hooks/social/useZernioSync';
-import { SOCIAL_CHANNELS, SocialPlatform } from '@/lib/socialChannels';
+import { SOCIAL_CHANNELS, SOCIAL_BRAND_HEX, SocialPlatform } from '@/lib/socialChannels';
 import { SocialPostCard } from './SocialPostCard';
 
 const PLATS: SocialPlatform[] = ['instagram', 'facebook', 'tiktok', 'youtube', 'pinterest', 'reddit'];
@@ -79,17 +79,28 @@ export function SocialPostsBank() {
           {PLATS.map((p) => {
             const meta = SOCIAL_CHANNELS[p];
             const active = selectedPlats.includes(p);
+            const brand = SOCIAL_BRAND_HEX[p];
             return (
               <button key={p} onClick={() => togglePlat(p)}
                 className={cn(
                   'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
-                  active ? cn('text-white border-transparent', meta.colorClass)
-                         : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
-                )}>
+                  active
+                    ? 'text-white border-transparent shadow-sm'
+                    : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
+                )}
+                style={active ? { backgroundColor: brand, borderColor: brand } : undefined}>
                 {meta.emoji} {meta.label}
               </button>
             );
           })}
+          {selectedPlats.length > 0 && (
+            <button
+              onClick={() => setSelectedPlats([])}
+              className="px-2 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Limpar ({selectedPlats.length})
+            </button>
+          )}
         </div>
         <div className="h-6 w-px bg-border mx-1" />
         <Input
