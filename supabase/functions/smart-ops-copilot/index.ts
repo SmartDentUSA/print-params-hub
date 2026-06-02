@@ -2806,36 +2806,45 @@ serve(async (req) => {
     });
 
     try {
-      const summaryResp = await fetch(config.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          messages: currentMessages,
-          stream: false,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-        })
-      });
+      const sumChain = buildFallbackChain(modelId);
+      const sumRes = await callChatWithFallback(sumChain, (cfg) => ({
+        model: cfg.model,
+        messages: currentMessages,
+        stream: false,
+        temperature: cfg.temperature,
+        max_tokens: cfg.maxTokens,
+      }));
 
-      if (summaryResp.ok) {
-        const summaryResult = await summaryResp.json();
+      if (sumRes.ok && sumRes.response) {
+        if (sumRes.modelId !== modelId) {
+          if (!providerSwitched) {
+            providerSwitched = true;
+            switchedFromLabel = config.label;
+          }
+          switchedToLabel = sumRes.config.label;
+          modelId = sumRes.modelId;
+          config = sumRes.config;
+        }
+        const summaryResult = await sumRes.response.json();
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Operação concluída. Os dados foram processados com sucesso.";
-        
+
         const summaryUsage = extractUsage(summaryResult);
         totalPromptTokens += summaryUsage.prompt_tokens;
         totalCompletionTokens += summaryUsage.completion_tokens;
-        
+
         logAIUsage({
           functionName: "smart-ops-copilot",
           actionLabel: `copilot-chat-${config.label}-summary`,
           model: config.model,
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
-          metadata: { iterations: MAX_ITERATIONS, fallback: true, modelId }
+          metadata: { iterations: MAX_ITERATIONS, fallback: true, modelId, providerSwitched, requestedModelId }
         });
-        
-        const sseStream = createSSEFromText(summaryContent);
+
+        const banner = providerSwitched
+          ? `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n`
+          : "";
+        const sseStream = createSSEFromText(banner + summaryContent);
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
