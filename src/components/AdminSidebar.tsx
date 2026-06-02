@@ -6,6 +6,7 @@ import {
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
   Video, ChevronDown, GraduationCap, Map, Megaphone, Printer
 } from "lucide-react";
+import { Network } from "lucide-react";
 import { BookOpen } from "lucide-react";
 import { Share2 } from "lucide-react";
 import {
@@ -88,6 +89,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-formularios", title: "Formulários", icon: ClipboardList },
       { id: "so-treinamentos", title: "Treinamentos", icon: GraduationCap },
       { id: "so-tokens-ia", title: "Tokens IA", icon: Coins },
+      { id: "so-ai-routing", title: "AI Routing", icon: Network },
       { id: "so-intelligence", title: "Intelligence", icon: BrainCircuit },
       { id: "so-roi", title: "ROI", icon: LineChart },
       { id: "so-mapeamento", title: "Mapeamento 7×3", icon: Map },

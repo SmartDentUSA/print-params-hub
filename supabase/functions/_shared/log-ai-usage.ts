@@ -6,9 +6,12 @@ const COST_RATES: Record<string, { input: number; output: number }> = {
   "deepseek": { input: 0.14, output: 0.28 },
   "google": { input: 0.01, output: 0.01 },
   "anthropic": { input: 3.00, output: 15.00 },
+  // Poe.com — rates por modelo são fornecidas via metadata; default genérico aqui.
+  "poe": { input: 2.50, output: 12.50 },
 };
 
 function detectProvider(model: string): string {
+  if (model.startsWith("poe/")) return "poe";
   if (model.startsWith("google/")) return "lovable";
   if (model.startsWith("openai/")) return "lovable";
   if (model.includes("claude") || model.startsWith("anthropic/")) return "anthropic";

@@ -11,6 +11,7 @@ const corsHeaders = {
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const POE_API_KEY = Deno.env.get("POE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -22,9 +23,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 //   gemini-flash   → lookups rápidos e baratos
 //   gemini         → alias mantido para compatibilidade
 //   claude         → apenas com COPILOT_ALLOW_CLAUDE=true (caro, ~20× DeepSeek)
-type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini-flash" | "gemini" | "claude";
+type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini-flash" | "gemini" | "claude" | "poe-claude" | "poe-gpt5";
 
 function getModelConfig(modelId: ModelId) {
+  if (modelId === "poe-claude") {
+    return {
+      url: "https://api.poe.com/v1/chat/completions",
+      model: "claude-sonnet-4.6",
+      apiKey: POE_API_KEY!,
+      label: "poe-claude",
+      temperature: 0.3,
+      maxTokens: 4096,
+    };
+  }
+  if (modelId === "poe-gpt5") {
+    return {
+      url: "https://api.poe.com/v1/chat/completions",
+      model: "gpt-5.5",
+      apiKey: POE_API_KEY!,
+      label: "poe-gpt5",
+      temperature: 0.3,
+      maxTokens: 4096,
+    };
+  }
   if (modelId === "gemini") {
     return {
       url: "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -87,7 +108,9 @@ function getModelConfig(modelId: ModelId) {
 //   3) claude (se COPILOT_ALLOW_CLAUDE e key)
 //   4) gemini-flash
 function buildFallbackChain(requested: ModelId): ModelId[] {
-  const order: ModelId[] = [requested, "deepseek-pro", "claude", "gemini-flash"];
+  // Ordem padrão: pedido → DeepSeek → Poe Claude → Anthropic Claude → Gemini Flash.
+  // Poe entra antes do Claude direto pois usa créditos compartilhados (mais flexível).
+  const order: ModelId[] = [requested, "deepseek-pro", "poe-claude", "claude", "gemini-flash"];
   const seen = new Set<string>();
   const chain: ModelId[] = [];
   for (const id of order) {
@@ -2559,6 +2582,8 @@ serve(async (req) => {
     let modelId: ModelId =
       requestedModel === "gemini" ? "gemini"
       : requestedModel === "claude" ? "claude"
+      : requestedModel === "poe-claude" ? "poe-claude"
+      : requestedModel === "poe-gpt5" ? "poe-gpt5"
       : requestedModel === "deepseek-flash" ? "deepseek-flash"
       : requestedModel === "deepseek-pro" ? "deepseek-pro"
       : "deepseek-pro";

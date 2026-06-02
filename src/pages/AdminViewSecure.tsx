@@ -42,6 +42,7 @@ import { SmartOpsWhatsAppInbox } from "@/components/SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "@/components/SmartOpsFormBuilder";
 import { SmartOpsCourses } from "@/components/SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "@/components/SmartOpsAIUsageDashboard";
+import { SmartOpsAIRouting } from "@/components/SmartOpsAIRouting";
 import { SmartOpsIntelligenceDashboard } from "@/components/SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "@/components/SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalytics";
@@ -320,6 +321,7 @@ export default function AdminViewSecure() {
       case 'so-formularios': return <SmartOpsFormBuilder key={`forms-${refreshKey}`} />;
       case 'so-treinamentos': return <SmartOpsCourses key={`training-${refreshKey}`} />;
       case 'so-tokens-ia': return <SmartOpsAIUsageDashboard />;
+      case 'so-ai-routing': return <SmartOpsAIRouting />;
       case 'so-intelligence': return <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />;
       case 'so-roi': return <SmartOpsSmartFlowAnalytics />;
       case 'so-copilot': return <SmartOpsCopilot />;

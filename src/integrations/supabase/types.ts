@@ -621,6 +621,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_routing: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          fallback_model: string | null
+          fallback_provider: string | null
+          input_cost_per_m: number | null
+          max_tokens: number | null
+          modality: string
+          notes: string | null
+          output_cost_per_m: number | null
+          primary_model: string
+          primary_provider: string
+          task_type: string
+          temperature: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          input_cost_per_m?: number | null
+          max_tokens?: number | null
+          modality?: string
+          notes?: string | null
+          output_cost_per_m?: number | null
+          primary_model: string
+          primary_provider: string
+          task_type: string
+          temperature?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          input_cost_per_m?: number | null
+          max_tokens?: number | null
+          modality?: string
+          notes?: string | null
+          output_cost_per_m?: number | null
+          primary_model?: string
+          primary_provider?: string
+          task_type?: string
+          temperature?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_token_usage: {
         Row: {
           action_label: string
