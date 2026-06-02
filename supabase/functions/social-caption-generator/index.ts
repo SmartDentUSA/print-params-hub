@@ -292,7 +292,28 @@ Deno.serve(async (req) => {
     const ragQuery = [body.product_name, body.product_slug, body.instructions].filter(Boolean).join(" ").trim();
     const ragCtx = await fetchKnowledgeRag(ragQuery);
 
-    const prompt = buildPrompt(body, productCtx, ragCtx);
+    let exportEnr: any = body.external_enrichment || null;
+    let exportMatchedSlug: string | null = exportEnr?.slug || null;
+    if (!exportEnr && (body.product_slug || body.product_name)) {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/functions/v1/social-knowledge-fetch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+          body: JSON.stringify({ product_slug: body.product_slug, product_name: body.product_name }),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.matched) {
+            exportEnr = j.enrichment;
+            exportMatchedSlug = j?.product?.slug || null;
+          }
+        }
+      } catch (e) {
+        console.warn("[caption] social-knowledge-fetch failed", (e as Error).message);
+      }
+    }
+
+    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr);
     const result = await callLLM(prompt);
 
     return new Response(
@@ -303,6 +324,8 @@ Deno.serve(async (req) => {
         _meta: {
           product_hits: productCtx.length,
           rag_hits: ragCtx.length,
+          export_hits: exportEnr ? 1 : 0,
+          export_matched_slug: exportMatchedSlug,
           model: result._model,
         },
       }),
