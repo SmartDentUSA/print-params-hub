@@ -59,8 +59,24 @@ export function SocialFlowEditor() {
       if (error) { toast.error(error.message); setLoading(false); return; }
       setName(data.name); setDescription(data.description ?? ''); setChannel(data.channel ?? 'instagram');
       setIsActive(!!data.is_active);
-      setNodes(Array.isArray(data.nodes) ? data.nodes as any : []);
-      setEdges(Array.isArray(data.edges) ? data.edges as any : []);
+      const rawNodes = Array.isArray(data.nodes) ? (data.nodes as any[]) : [];
+      const normalized = rawNodes.map((n, i) => ({
+        ...n,
+        id: String(n?.id ?? `n_${i}`),
+        type: n?.type && ['default', 'input', 'output', 'group'].includes(n.type) ? n.type : 'default',
+        position:
+          n?.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
+            ? n.position
+            : { x: 80 + (i % 4) * 240, y: 80 + Math.floor(i / 4) * 140 },
+        data: n?.data ?? {
+          label: n?.label ?? n?.type ?? `Nó ${i + 1}`,
+          nodeType: n?.type,
+          config: n,
+        },
+      })) as Node[];
+      setNodes(normalized);
+      const rawEdges = Array.isArray(data.edges) ? (data.edges as any[]) : [];
+      setEdges(rawEdges.filter((e) => e?.source && e?.target) as Edge[]);
       const { data: trg } = await supabase.from('social_triggers').select('*').eq('flow_id', id);
       setTriggers(trg ?? []);
       setLoading(false);
