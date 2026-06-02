@@ -1,69 +1,40 @@
 ## Problema
 
-Na página `/social/sequences` (componente `SocialSequences.tsx`) cada card de sequência só mostra nome + switch ativo/inativo. Não dá para:
-- Renomear
-- Editar passos (delays / mensagens)
-- Editar público-alvo
-- Duplicar
-- Excluir
+No `PromoSeqInspector` (dentro de `WaGroupFlowBuilder.tsx`) o select de "Produto (Sistema A)" fica travado em **Carregando...**.
 
-E os passos só aceitam **mensagem de texto** — não dá para usar Link Instagram, Link YouTube ou Sequência promo (7 msgs), que já existem no builder de grupos WhatsApp.
+Causa: o componente faz `fetch(... , { method: "POST", headers: { "Content-Type": "application/json" }, body: ... })` para `knowledge-export-full`. A função responde com `access-control-allow-methods: GET, OPTIONS` — então o preflight CORS do POST com `Content-Type: application/json` falha no browser e a promise nunca resolve (o `.catch` recebe o erro CORS silencioso e fica em loading; em alguns horários o backend também responde 520 ao POST). Via GET o endpoint funciona normalmente e devolve `products[]` (testado: 120 produtos).
 
 ## Plano
 
-### 1. Ações no card da sequência (`SocialSequences.tsx`)
+### 1. `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` — `PromoSeqInspector`
 
-Adicionar no canto direito de cada card, ao lado do Switch:
-
-- Botão **Renomear** (ícone Pencil) → abre `Dialog` simples com Input + Salvar (`update social_sequences set name`).
-- Botão **Editar** (ícone Settings2) → reabre o mesmo diálogo "Nova sequência" pré-preenchido com nome, canal, filtros de público, contatos selecionados e passos.
-- Botão **Duplicar** (ícone Copy) → cria nova linha com `name = "<nome> (cópia)"`, `is_active=false`, mesmos `steps` / `audience_*`.
-- Botão **Excluir** (ícone Trash2, vermelho) → `AlertDialog` de confirmação → `delete` em `social_sequences` (cascade já remove `social_sequence_enrollments`).
-
-Refatorar o `Dialog` atual de criação em um componente `<SequenceEditorDialog mode="create"|"edit" sequence={...} />` que cobre os dois fluxos. No modo `edit`:
-- Pula a tela de seleção de público se `audience_contact_ids` já existir (mostra contagem + botão "Re-selecionar público").
-- Faz `update` em vez de `insert`, mantendo `id`.
-- Não re-inscreve contatos já em `social_sequence_enrollments` (idempotência por `(sequence_id, contact_id)`).
-
-### 2. Passos ricos (mensagem, link IG, link YT, sequência promo)
-
-Hoje `steps: [{ delay_minutes, message }]`. Trocar por união discriminada:
+Trocar as duas chamadas (`useEffect` que lista produtos e `loadMessages`) por GET com query params, sem `Content-Type` (evita preflight):
 
 ```ts
-type SequenceStep =
-  | { kind: 'msg';      delay_minutes: number; message: string }
-  | { kind: 'link_ig';  delay_minutes: number; url: string; caption: string }
-  | { kind: 'link_yt';  delay_minutes: number; url: string; caption: string }
-  | { kind: 'promo_seq';delay_minutes: number; product_slug: string; product_name: string; interval_seconds: number };
+fetch(
+  "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-export-full?limit=500&include=products",
+  { method: "GET" }
+)
 ```
 
-No editor de passos: dropdown "Tipo" + inspector dedicado por tipo (reaproveitando `SocialPostLinkPicker` e o `PromoSeqInspector` já criados no `WaGroupFlowBuilder`).
+Manter o resto da lógica (map → slug/name, filtro/sort, `messages[node.bucket]`).
 
-Backward compat: passos antigos sem `kind` são tratados como `kind: 'msg'`.
+### 2. `supabase/functions/sequence-runner/index.ts` — `getProduct(slug)`
 
-### 3. Runtime
+Mesma troca para consistência (edge → edge não tem CORS, mas o POST está retornando 520 esporadicamente):
 
-Atualizar `supabase/functions/sequence-runner/index.ts` para despachar cada `kind`:
-- `msg` → comportamento atual.
-- `link_ig` / `link_yt` → envia `caption\n\n{url}` via Evolution (mesmo padrão de `wa-dispatcher`).
-- `promo_seq` → busca produto via endpoint `knowledge-export-full` (cache curto), pega `messages.whatsapp_7msgs[]` e enfileira cada msg com `interval_seconds`. Para Instagram DM (Zernio) usa o canal correspondente.
+```ts
+const r = await fetch(`${KNOWLEDGE_URL}?limit=500&include=products`, { method: 'GET' });
+```
 
-Reusar utilitários já existentes em `wa-dispatcher` extraindo para `_shared/social-send.ts` (texto / link / promo_seq).
+Remove o body JSON.
 
-### 4. Sem novas migrations
+### 3. Sem mudanças adicionais
 
-`steps` já é `jsonb`, comporta a nova união. `audience_*` já existem. Só código frontend + edge function.
-
-## Detalhes técnicos
-
-- `SequenceEditorDialog` recebe `sequence?: SocialSequence`; estado interno espelha campos atuais.
-- Excluir usa `AlertDialog` shadcn — não usar `confirm()`.
-- Cache do endpoint `knowledge-export-full` no editor: 5 min via `react-query` `staleTime`.
-- `sequence-runner` precisa de `Deno.env.get('SYSTEM_A_KNOWLEDGE_URL')` (fallback para a URL fixa informada).
-- Tipos: atualizar `src/components/social/broadcasts/types.ts` (se existir) ou inline.
+Não mexer em UI, schema, runtime de envio, nem outros componentes. `SocialSequences.tsx` reusa o mesmo `PromoSeqInspector`, então a correção já cobre as duas telas (WA Groups e Sequências sociais).
 
 ## Fora de escopo
 
-- Mudar schema do banco.
-- Editar mensagens individuais de `promo_seq` (sempre vêm do produto).
-- Logs/analytics por passo.
+- Adicionar paginação ao endpoint.
+- Cache compartilhado entre componentes (já existe `staleTime` curto via cache local do componente).
+- Trocar para Supabase RPC direto.
