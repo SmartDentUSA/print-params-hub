@@ -1,38 +1,40 @@
+# Fix UX — Novo broadcast (passo 1/4 e 2/4)
+
 ## Problema
 
-O dropdown lista todos os 120 produtos do Sistema A, mas o endpoint `knowledge-export-full` retorna mensagens prontas para muito poucos:
+O wizard é IG-only (hard-coded `channel='instagram'`), mas a UX não deixa isso claro e ainda exige seleção manual da conta Zernio mesmo quando só existe uma. Resultado: usuário chega ao passo 2/4, vê "Nenhum contato elegível" e não entende por quê.
 
-- `aftersales`: 3 produtos
-- `cs`: 2 produtos
-- `spin`: 0 produtos
+## Mudanças (apenas UI, sem mexer em regra de negócio)
 
-Quando se seleciona um produto sem mensagens, aparece o toast "Nenhuma mensagem em aftersales para este produto." — está correto, mas a UX deixa o usuário tentando às cegas. Além disso, "SPIN selling" no bucket nunca tem conteúdo.
+Arquivo único: `src/components/social/broadcasts/SocialBroadcasts.tsx`.
 
-## Plano (somente UI no `PromoSeqInspector`)
+### 1. Auto-select da conta IG única
+No `useEffect` disparado quando `zernioAccounts` carrega: se houver exatamente uma conta IG ativa e `zernioAccountId` ainda vazio, setar automaticamente. Elimina o passo manual mais comum.
 
-1. **Carregar produtos com contagem de mensagens.**
-   - No `useEffect` que busca produtos, salvar também `counts = { aftersales, cs }` por slug a partir do mesmo payload (já vem em `p.messages`). Sem fetch extra.
+### 2. Header do passo 1 com escopo explícito
+Adicionar banner no topo do passo 0 (e subtítulo no header do Dialog):
 
-2. **Filtrar o dropdown de produtos pelo bucket selecionado.**
-   - Mostrar só produtos onde `counts[node.bucket] > 0`.
-   - Exibir contagem ao lado do nome: `Nome do produto · 7 msgs`.
-   - Placeholder vazio: "Nenhum produto com mensagens neste bucket".
+> "Disparo via Instagram Direct (Zernio). Contatos de WhatsApp, Facebook ou TikTok não são elegíveis neste canal."
 
-3. **Remover bucket `spin`** do select (não existe no endpoint). Manter só `aftersales` e `cs`. Atualizar `types.ts` (`PromoSeqNode.bucket`) e o default em `WaGroupFlowBuilder` (`bucket: "aftersales"`).
+### 3. Contadores ao vivo no passo 1
+Ao lado de cada toggle, mostrar quantos contatos restam com o filtro ativo, lendo de uma segunda query leve (`select count head:true` filtrada). Ex.:
+- "Somente inscritos (opt-in) — 24 elegíveis"
+- "Apenas seguidores — 0 elegíveis" (em vermelho se zerar a lista)
 
-4. **Trocar bucket reseta `produto_slug`** quando o atual não tem mensagens no novo bucket — evita estado inválido.
+### 4. Empty state acionável no passo 2/4
+Hoje mostra só "Nenhum contato elegível com esses filtros." Trocar por bloco com:
+- Diagnóstico do motivo provável (conta não selecionada / filtro de followers zera tudo / nenhum IG contact em `social_contacts`).
+- Botão "Voltar e ajustar filtros" + botão "Sincronizar Zernio agora" (invoca `zernio-contacts-sync` e reexecuta a query).
+- Link para `/social/contatos` para inspecionar.
 
-5. **Auto-carregar mensagens** ao selecionar produto (já que temos o payload em cache na lista), tornando o botão "Carregar mensagens" opcional / fallback.
+### 5. Label do dropdown deixa claro o canal
+Mudar `<Label>Conta Zernio (Instagram)</Label>` para `<Label>Conta Instagram (Zernio) — único canal suportado</Label>` e desabilitar o select com tooltip "Conta única detectada — auto-selecionada" quando só houver uma.
 
-6. **Mensagem do estado vazio** mais clara: "Este bucket tem mensagens em apenas N produtos no Sistema A. Cadastre mais no painel do Sistema A se precisar de outros."
+### 6. Badge de contagem no passo 2/4
+Atualizar `{selectedIds.size} selecionados / {contacts?.length ?? 0} elegíveis` para incluir total bruto IG no banco: `… de {totalIgInDb} contatos IG`, dando referência clara da diferença entre universo e elegíveis pós-filtros.
 
-## Fora de escopo
+## Fora do escopo
 
-- Alterações no `sequence-runner` (continua usando `bucket` aftersales/cs).
-- Edição/criação de mensagens promo no Sistema A pelo painel.
-- Mudanças no fluxo de Sequências Sociais (mesmo componente é reusado, herda o fix automaticamente).
-
-## Arquivos a alterar
-
-- `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` — `PromoSeqInspector` + default node.
-- `src/components/smartops/wa-groups/types.ts` — restringir `bucket` a `"aftersales" | "cs"`.
+- Não vou tornar o broadcast multi-canal (WhatsApp/FB/TikTok) — confirmado pelo usuário.
+- Sem mudanças no dispatcher (`zernio-broadcast-dispatch`), no schema ou em RLS.
+- Sem alteração de defaults de toggles (`subscribed=true` continua ligado).

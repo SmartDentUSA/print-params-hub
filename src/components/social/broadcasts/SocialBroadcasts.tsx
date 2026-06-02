@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Megaphone, Send, Instagram, Search, Loader2 } from 'lucide-react';
+import { Plus, Megaphone, Send, Instagram, Search, Loader2, RefreshCw, Info, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
 export function SocialBroadcasts() {
   const qc = useQueryClient();
@@ -44,6 +45,44 @@ export function SocialBroadcasts() {
       return data ?? [];
     },
   });
+
+  // Auto-select the only IG account, when there is exactly one.
+  useEffect(() => {
+    if (!open) return;
+    if (zernioAccountId) return;
+    if ((zernioAccounts ?? []).length === 1) {
+      setZernioAccountId(zernioAccounts![0].id);
+    }
+  }, [open, zernioAccounts, zernioAccountId]);
+
+  // Universe counter — total IG contacts in DB (ignoring filters), for context.
+  const { data: totalIgInDb } = useQuery({
+    queryKey: ['social-contacts-ig-total'],
+    enabled: open,
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from('social_contacts')
+        .select('ig_user_id', { count: 'exact', head: true })
+        .eq('channel', 'instagram');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const [syncing, setSyncing] = useState(false);
+  const runSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('zernio-contacts-sync', { body: {} });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Sincronizados ${(data as any)?.synced ?? 0} contatos do Zernio`);
+      qc.invalidateQueries({ queryKey: ['social-broadcast-contacts'] });
+      qc.invalidateQueries({ queryKey: ['social-contacts-ig-total'] });
+    } catch (e: any) {
+      toast.error(`Falha ao sincronizar: ${e.message ?? e}`);
+    } finally { setSyncing(false); }
+  };
 
   const { data: broadcasts, isLoading } = useQuery({
     queryKey: ['social-broadcasts'],
@@ -162,10 +201,22 @@ export function SocialBroadcasts() {
             <DialogHeader><DialogTitle>Novo broadcast — passo {step + 1}/4</DialogTitle></DialogHeader>
             {step === 0 && (
               <div className="space-y-3">
+                <div className="flex gap-2 items-start rounded-md border border-pink-500/30 bg-pink-500/5 p-2.5 text-xs text-foreground/80">
+                  <Info className="w-4 h-4 mt-0.5 text-pink-500 flex-shrink-0" />
+                  <div>
+                    Disparo via <strong>Instagram Direct (Zernio)</strong>. Contatos de WhatsApp, Facebook ou TikTok <strong>não são elegíveis</strong> neste canal.
+                    {typeof totalIgInDb === 'number' && (
+                      <> Universo atual: <strong>{totalIgInDb}</strong> contatos IG sincronizados.</>
+                    )}
+                  </div>
+                </div>
                 <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-                <div><Label>Conta Zernio (Instagram)</Label>
-                  <Select value={zernioAccountId} onValueChange={setZernioAccountId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a conta…" /></SelectTrigger>
+                <div>
+                  <Label>Conta Instagram (Zernio) — único canal suportado</Label>
+                  <Select value={zernioAccountId} onValueChange={setZernioAccountId} disabled={(zernioAccounts ?? []).length === 1}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta…" />
+                    </SelectTrigger>
                     <SelectContent>
                       {(zernioAccounts ?? []).length === 0 && (
                         <div className="p-2 text-xs text-muted-foreground">Nenhuma conta IG sincronizada. Rode "Sincronizar Zernio" em Contatos.</div>
@@ -175,16 +226,25 @@ export function SocialBroadcasts() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {(zernioAccounts ?? []).length === 1 && (
+                    <p className="text-[11px] text-muted-foreground mt-1">Conta única detectada — selecionada automaticamente.</p>
+                  )}
                 </div>
                 <div><Label>Tags dos contatos (vírgula, opcional)</Label>
                   <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="vip, lead_quente" />
                 </div>
                 <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-                  <Label className="cursor-pointer text-sm">Apenas seguidores</Label>
+                  <Label className="cursor-pointer text-sm">
+                    Apenas seguidores
+                    <span className="text-[11px] text-muted-foreground ml-2">(filtra por <code>is_follower</code>)</span>
+                  </Label>
                   <Switch checked={onlyFollowers} onCheckedChange={setOnlyFollowers} />
                 </div>
                 <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-                  <Label className="cursor-pointer text-sm">Somente inscritos (opt-in)</Label>
+                  <Label className="cursor-pointer text-sm">
+                    Somente inscritos (opt-in)
+                    <span className="text-[11px] text-muted-foreground ml-2">recomendado</span>
+                  </Label>
                   <Switch checked={onlySubscribed} onCheckedChange={setOnlySubscribed} />
                 </div>
               </div>
@@ -202,7 +262,7 @@ export function SocialBroadcasts() {
                     />
                   </div>
                   <Badge variant="secondary" className="whitespace-nowrap">
-                    {selectedIds.size} selecionados / {contacts?.length ?? 0} elegíveis
+                    {selectedIds.size} sel. · {contacts?.length ?? 0} elegíveis{typeof totalIgInDb === 'number' ? ` de ${totalIgInDb} IG` : ''}
                   </Badge>
                   <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set((contacts ?? []).map((c) => c.ig_user_id)))}>
                     Todos
@@ -225,8 +285,26 @@ export function SocialBroadcasts() {
                       <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
                     )}
                     {!contactsLoading && filteredContacts.length === 0 && (
-                      <div className="text-center text-sm text-muted-foreground py-10">
-                        Nenhum contato elegível com esses filtros.
+                      <div className="py-8 px-6 space-y-3 text-sm">
+                        <div className="font-semibold text-foreground">Nenhum contato elegível com esses filtros.</div>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          {!zernioAccountId && <li>Nenhuma conta Instagram selecionada no passo anterior.</li>}
+                          {onlyFollowers && <li><strong>“Apenas seguidores”</strong> está ligado — desligue se a base não tem followers marcados.</li>}
+                          {onlySubscribed && <li><strong>“Somente inscritos (opt-in)”</strong> está ligado — contatos sem <code>subscribed=true</code> ficam de fora.</li>}
+                          {tagsArray.length > 0 && <li>Filtro por tags ativo: <code>{tagsArray.join(', ')}</code>.</li>}
+                          {typeof totalIgInDb === 'number' && totalIgInDb === 0 && <li>Não há contatos Instagram em <code>social_contacts</code>. Rode a sincronização do Zernio.</li>}
+                          {typeof totalIgInDb === 'number' && totalIgInDb > 0 && contacts?.length === 0 && <li>Existem {totalIgInDb} contatos IG no banco, mas nenhum passou pelos filtros acima.</li>}
+                        </ul>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button size="sm" variant="outline" onClick={() => setStep(0)}>Voltar e ajustar filtros</Button>
+                          <Button size="sm" variant="outline" onClick={runSync} disabled={syncing}>
+                            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
+                            {syncing ? 'Sincronizando…' : 'Sincronizar Zernio agora'}
+                          </Button>
+                          <Button size="sm" variant="ghost" asChild>
+                            <Link to="/social/contatos"><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Inspecionar contatos</Link>
+                          </Button>
+                        </div>
                       </div>
                     )}
                     {!contactsLoading && filteredContacts.map((c) => {
