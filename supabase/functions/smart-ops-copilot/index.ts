@@ -2639,41 +2639,52 @@ serve(async (req) => {
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       console.log(`[Copilot] Iteration ${iteration + 1}/${MAX_ITERATIONS} using ${config.label}`);
-      
-      const response = await fetch(config.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          messages: currentMessages,
-          tools: actionTools,
-          tool_choice: "auto",
-          stream: false,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-        })
-      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`${config.label} error:`, response.status, errText);
-        
-        if (response.status === 429) {
+      // Cadeia começa pelo provedor ativo atual, depois os demais na ordem padrão.
+      const iterChain = buildFallbackChain(modelId);
+      const callRes = await callChatWithFallback(iterChain, (cfg) => ({
+        model: cfg.model,
+        messages: currentMessages,
+        tools: actionTools,
+        tool_choice: "auto",
+        stream: false,
+        temperature: cfg.temperature,
+        max_tokens: cfg.maxTokens,
+      }));
+
+      if (!callRes.ok) {
+        if (callRes.exhausted) {
+          return new Response(JSON.stringify({
+            reply: "💳 Todos os provedores de IA configurados estão sem créditos no momento. Recarregue um destes: Lovable AI (Gemini), DeepSeek ou Anthropic.",
+            error: "all_providers_exhausted",
+            attempts: callRes.attempts,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const status = callRes.lastStatus ?? 0;
+        if (status === 429) {
           return new Response(JSON.stringify({ reply: "⏳ Limite de requisições atingido. Aguarde alguns segundos e tente de novo.", error: "rate_limit" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ reply: "💳 Créditos insuficientes na Lovable AI. Adicione créditos em Settings → Workspace → Usage para continuar usando o Copilot.", error: "insufficient_credits" }), {
-            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-        
-        return new Response(JSON.stringify({ reply: `⚠️ Erro ao chamar ${config.label} (${response.status}). Tente novamente.`, error: `provider_${response.status}` }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({
+          reply: `⚠️ Erro ao chamar ${callRes.config.label} (${status}). Tente novamente.`,
+          error: `provider_${status}`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // Se trocou de provedor, atualiza config ativa para próximas iterações.
+      if (callRes.modelId !== modelId) {
+        if (!providerSwitched) {
+          providerSwitched = true;
+          switchedFromLabel = config.label;
+        }
+        switchedToLabel = callRes.config.label;
+        modelId = callRes.modelId;
+        config = callRes.config;
+        console.log(`[Copilot] Provedor trocado → ${config.label}`);
+      }
+
+      const response = callRes.response!;
       const result = await response.json();
       const choice = result.choices?.[0];
       
