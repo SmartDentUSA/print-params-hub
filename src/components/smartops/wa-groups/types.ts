@@ -134,7 +134,7 @@ export interface PromoSeqNode extends FlowNodeBase {
   type: "promo_seq";
   produto_slug: string;
   produto_name?: string;
-  bucket: "aftersales" | "cs" | "spin";
+  bucket: "aftersales" | "cs";
   messages: PromoSeqMessage[];
   interval_seconds: number;
 }
