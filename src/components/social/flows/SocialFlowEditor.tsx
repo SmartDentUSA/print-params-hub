@@ -260,7 +260,7 @@ export function SocialFlowEditor() {
   );
 }
 
-function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => void }) {
+function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; onUpdate: (p: any) => void; produtoSlug?: string; formName?: string }) {
   const cfg: any = (node.data as any).config ?? {};
   const type = (node.data as any).nodeType;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -293,7 +293,13 @@ function NodeInspector({ node, onUpdate }: { node: Node; onUpdate: (p: any) => v
               <div className="truncate">{cfg.link_url}</div>
             </div>
           )}
-          <LinkPicker open={pickerOpen} onOpenChange={setPickerOpen} onSelect={handleLink} />
+          <LinkPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            onSelect={handleLink}
+            filterProduto={produtoSlug}
+            highlightFormName={formName}
+          />
         </div>
       );
     case 'wait':
