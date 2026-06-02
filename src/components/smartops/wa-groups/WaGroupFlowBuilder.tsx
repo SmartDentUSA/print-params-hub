@@ -698,6 +698,50 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                         onChange={(patch) => updateNode(n.id, patch as Partial<CarouselNode>)}
                       />
                     )}
+
+                    {(n.type === "post_ig" || n.type === "post_yt") && (() => {
+                      const sp = n as SocialPostNode;
+                      const platform: "instagram" | "youtube" = n.type === "post_ig" ? "instagram" : "youtube";
+                      return (
+                        <div className="space-y-2">
+                          {sp.post_url ? (
+                            <div className="flex gap-2.5 p-2 rounded-md border bg-muted/30">
+                              {sp.thumbnail_url ? (
+                                <img src={sp.thumbnail_url} alt="" loading="lazy" className="w-16 h-16 rounded object-cover bg-muted shrink-0" />
+                              ) : (
+                                <div className="w-16 h-16 rounded bg-muted flex items-center justify-center shrink-0">
+                                  {platform === "instagram"
+                                    ? <Instagram className="w-5 h-5 text-pink-600" />
+                                    : <Youtube className="w-5 h-5 text-red-600" />}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="text-xs font-medium truncate">{sp.titulo || "Publicação"}</div>
+                                <a href={sp.post_url} target="_blank" rel="noreferrer" className="text-[11px] text-primary underline truncate block">
+                                  {sp.post_url}
+                                </a>
+                              </div>
+                              <Button size="sm" variant="outline" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>
+                                Trocar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => setPostPickerFor({ nodeId: n.id, platform })}>
+                              {platform === "instagram"
+                                ? <Instagram className="w-3.5 h-3.5 mr-1.5 text-pink-600" />
+                                : <Youtube className="w-3.5 h-3.5 mr-1.5 text-red-600" />}
+                              Selecionar publicação do {platform === "instagram" ? "Instagram" : "YouTube"}
+                            </Button>
+                          )}
+                          <Textarea
+                            value={sp.caption ?? ""}
+                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<SocialPostNode>)}
+                            placeholder="Mensagem a enviar junto com o link (editável)"
+                            rows={3}
+                          />
+                        </div>
+                      );
+                    })()}
                   </Card>
                 );
               })}
