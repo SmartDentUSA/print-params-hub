@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LinkPicker, type LinkPickerSelection } from './LinkPicker';
+import { SocialPostLinkPicker, type SocialPostPickResult } from './SocialPostLinkPicker';
 
 const NODE_TYPES = [
   { type: 'send_dm', label: 'Enviar DM', color: 'hsl(var(--primary))' },
@@ -27,6 +28,9 @@ const NODE_TYPES = [
   { type: 'collect_input', label: 'Coletar resposta', color: 'hsl(217 91% 60%)' },
   { type: 'set_tag', label: 'Aplicar tag', color: 'hsl(142 70% 45%)' },
   { type: 'create_lead', label: 'Criar lead no CRM', color: 'hsl(142 70% 45%)' },
+  { type: 'link_instagram', label: 'Link Instagram', color: 'hsl(330 80% 55%)' },
+  { type: 'link_youtube', label: 'Link YouTube', color: 'hsl(0 84% 55%)' },
+  { type: 'send_promo_sequence', label: 'Sequência promo (7 msgs)', color: 'hsl(280 70% 55%)' },
   { type: 'end', label: 'Fim', color: 'hsl(var(--destructive))' },
 ];
 
