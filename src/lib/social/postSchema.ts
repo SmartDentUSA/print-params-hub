@@ -19,6 +19,9 @@ export const mediaItemSchema = z.object({
   path: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
+  crop: z
+    .object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
+    .optional(),
 });
 export type MediaItem = z.infer<typeof mediaItemSchema>;
 
@@ -35,6 +38,7 @@ export const postSchema = z
     publish_now: z.boolean().default(false),
     scheduled_at: z.string().optional(),
     timezone: z.string().default('America/Sao_Paulo'),
+    post_type: z.enum(['feed', 'carousel', 'story', 'reels']).default('feed'),
   })
   .superRefine((data, ctx) => {
     if (!data.publish_now && !data.scheduled_at) {
@@ -94,6 +98,7 @@ export const defaultPost: PostInput = {
   publish_now: false,
   scheduled_at: '',
   timezone: 'America/Sao_Paulo',
+  post_type: 'feed',
 };
 
 export const defaultChannelFor = (platform: SocialPlatform): ChannelInput => {
