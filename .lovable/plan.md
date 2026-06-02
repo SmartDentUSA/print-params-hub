@@ -1,31 +1,65 @@
 ## Objetivo
-Gerar **um arquivo spreadsheet único** (`produtos-mapeamento-mestre.xlsx`) em `/mnt/documents/` para download — sem criar edge function, sem UI, sem ferramenta no app.
 
-## Fontes de dados
-1. **Sistema A (canônico)** — `system_a_catalog` no Supabase (~360 produtos, `category='product'`): `external_id`, `name`, `product_category`, `product_subcategory`, `cta_1_url`, `price`.
-2. **Loja Integrada** — API `https://api.awsli.com.br/v1/produto/?limit=100&offset=N` (paginada, ~435 produtos), usando `LOJA_INTEGRADA_API_KEY` + `LOJA_INTEGRADA_APP_KEY` já presentes no projeto.
-3. **Workflow 7×3** — taxonomia por `product_category` + fallback `workflow_cell_mappings` (Jaccard ≥ 0.7 por nome normalizado).
+Adicionar três tipos de nó interativos — **button**, **list**, **carousel** — ao Builder de campanhas WhatsApp. **Apenas frontend** — backend já está em produção.
 
-## Colunas do XLSX
-`nome | sistema_a_id | loja_integrada_id | loja_integrada_sku | loja_integrada_url | piperun_id | sistema_b_id | product_category | product_subcategory | workflow_etapa | workflow_celula | match_source | match_confidence`
+## Backend já deployado (NÃO TOCAR)
 
-- `piperun_id` e `sistema_b_id` ficam **vazios** (preenchimento manual posterior).
-- `match_source`: `system_a+loja` | `system_a_only` | `loja_only`.
-- Linhas de Loja Integrada sem match em Sistema A são incluídas no final.
+| Função | Versão | Status |
+|---|---|---|
+| `wa-dispatcher` | v58 | 3 cases novos + mapeamento `body→title`/`body→description` |
+| `wa-campaign-builder` | v54 | `buildContent` suporta `body`, `sections`, `cards` |
+| `_shared/evolution.ts` | v4.0 | `sendButtonEvoGo` / `sendListEvoGo` / `sendCarouselEvoGo` com endpoints `/send/button`, `/send/list`, `/send/carousel` (Evolution Go porta 8081) |
 
-## Execução (script local, sem deploy)
-1. Script Python em `/tmp/build_master.py`:
-   - `psql` → dump `system_a_catalog` (category='product') em CSV.
-   - `curl` paginado na Loja Integrada (header `Authorization: chave_api ... aplicacao ...`).
-   - Normalização (lowercase, sem acento, sem pontuação) + Jaccard para cross-ref.
-   - Aplica taxonomia 7×3 (Scanners→Etapa 1, CAD→Etapa 2, Impressão 3D→Etapa 3, Pós-impressão→Etapa 4, Caracterização→Etapa 5, Cursos→Etapa 6, Fresagem→Etapa 7).
-   - Escreve `/mnt/documents/produtos-mapeamento-mestre.xlsx` (openpyxl, header em negrito, freeze panes, autofiltro).
-2. QA: abrir o XLSX, validar contagens (Sistema A, Loja Integrada, matched), conferir as 7 etapas distribuídas.
-3. Entregar via `<presentation-artifact>`.
+**Não regenerar nenhum desses arquivos.** Não deploiar `wa-dispatcher`.
 
-## Não inclui
-- Nenhum componente React, nenhum edge function, nenhuma alteração de schema.
-- Sem chamadas Piperun / Sistema B (colunas em branco como você confirmou).
+## Escopo (apenas 3 arquivos frontend)
 
-## Saída final
-1 arquivo: `produtos-mapeamento-mestre.xlsx` para download direto.
+### 1) `src/components/smartops/wa-groups/types.ts`
+Estender união discriminada (padrão `{ id, type, ...fields }`, sem envelope `data`):
+
+```ts
+type FlowNodeType = "msg"|"wait"|"ai"|"image"|"video"|"audio"
+                  |"document"|"link"|"button"|"list"|"carousel";
+
+interface ButtonItem {
+  type: "reply"|"cta_url"|"cta_copy"|"cta_call"|"pix";
+  id: string; title: string;
+  url?: string; copyCode?: string;
+  phoneNumber?: string; pixKey?: string; pixAmount?: number;
+}
+interface ButtonNode  { id; type:"button"; body: string; footer?: string; buttons: ButtonItem[] }
+
+interface ListRow     { id: string; title: string; description?: string }
+interface ListSection { title: string; rows: ListRow[] }
+interface ListNode    { id; type:"list"; title?: string; body: string; footer?: string;
+                        buttonText: string; sections: ListSection[] }
+
+interface CarouselCard{ body: string; image?: string;
+                        buttons: Array<{ type: string; id: string; title: string; url?: string }> }
+interface CarouselNode{ id; type:"carousel"; cards: CarouselCard[] }
+```
+
+Adicionar ao `FlowNode` union.
+
+### 2) `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx`
+- 3 entradas em `nodeMeta` (ícones `Hand` / `List` / `LayoutList`, cor accent + badge "Novo").
+- Defaults em `newNode()` para `button`/`list`/`carousel`.
+- Componentes inline `ConfigButton`, `ConfigList`, `ConfigCarousel` (adaptados do `WaFlowVisualizer.tsx` enviado para o shape discriminado — sem `node.data.*`, direto em `node.field`).
+- `validation` estendido:
+  - **button**: body ≥1 char; máx 3 reply OU 1 CTA/PIX isolado (não misturar).
+  - **list**: ≥1 seção × ≥1 row; máx 10 × 10; `buttonText` ≤ 20 chars.
+  - **carousel**: 1–10 cards; cada card com body; ≤3 botões por card.
+
+### 3) `src/components/smartops/wa-groups/WaGroupFlowVisualizer.tsx`
+- Adicionar `Hand` / `List` / `LayoutList` ao `typeIcon` map (cosmético).
+
+## Fora de escopo
+- Não tocar em `_shared/evolution.ts`, `wa-dispatcher`, `wa-campaign-builder`.
+- Não substituir `WaGroupFlowVisualizer.tsx` pelo arquivo enviado (só ícones).
+- Não mexer em `WaContentNodeSelector`, `WaMediaUploader`, `wa-ai-preview`.
+- Sem migração de DB.
+
+## Entregáveis
+1. `types.ts` com 3 novas interfaces na union
+2. `WaGroupFlowBuilder.tsx` com 3 editores + validação
+3. `WaGroupFlowVisualizer.tsx` com 3 ícones novos

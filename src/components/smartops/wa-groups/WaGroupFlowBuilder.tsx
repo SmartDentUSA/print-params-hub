@@ -18,8 +18,14 @@ import { ptBR } from "date-fns/locale";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
   Plus, Trash2, ArrowUp, ArrowDown, Save, Loader2, FileText, Eye, Mic, Paperclip, CalendarIcon,
+  Hand, List as ListIcon, LayoutList,
 } from "lucide-react";
-import type { FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode } from "./types";
+import type {
+  FlowNode, FlowNodeType, MsgNode, WaitNode, AiNode, MediaNode, LinkNode,
+  ButtonNode, ButtonItem, ButtonItemType,
+  ListNode, ListSection, ListRow,
+  CarouselNode, CarouselCard, CarouselCardButton,
+} from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
 
@@ -32,7 +38,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }> = {
+const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string; isNew?: boolean }> = {
   msg:   { label: "Mensagem",     icon: MessageSquare, color: "text-blue-600" },
   wait:  { label: "Aguardar",     icon: Clock,         color: "text-amber-600" },
   ai:    { label: "IA + Conteúdo", icon: Sparkles,     color: "text-purple-600" },
@@ -41,6 +47,9 @@ const nodeMeta: Record<FlowNodeType, { label: string; icon: any; color: string }
   audio: { label: "Áudio",        icon: Mic,           color: "text-pink-600" },
   document: { label: "Documento", icon: Paperclip,     color: "text-slate-600" },
   link:  { label: "Link",         icon: Link2,         color: "text-cyan-600" },
+  button:   { label: "Botões",    icon: Hand,          color: "text-indigo-600", isNew: true },
+  list:     { label: "Lista",     icon: ListIcon,      color: "text-teal-600",   isNew: true },
+  carousel: { label: "Carrossel", icon: LayoutList,    color: "text-fuchsia-600", isNew: true },
 };
 
 function newNode(type: FlowNodeType): FlowNode {
@@ -54,6 +63,21 @@ function newNode(type: FlowNodeType): FlowNode {
     case "audio":
     case "document": return { id, type, media_url: "", caption: "" };
     case "link":  return { id, type, title: "", description: "", url: "" };
+    case "button":
+      return {
+        id, type, body: "", footer: "",
+        buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }],
+      };
+    case "list":
+      return {
+        id, type, title: "", body: "", footer: "", buttonText: "Ver opções",
+        sections: [{ title: "Opções", rows: [{ id: crypto.randomUUID(), title: "", description: "" }] }],
+      };
+    case "carousel":
+      return {
+        id, type,
+        cards: [{ body: "", image: "", buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }] }],
+      };
   }
 }
 
@@ -166,6 +190,51 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         const m = (n as WaitNode).minutes ?? 0;
         if (d < 0 || h < 0 || m < 0) errors.push(`${tag}: tempo inválido.`);
         if (d === 0 && h === 0 && m === 0) errors.push(`${tag}: defina dias, horas ou minutos (>0).`);
+      }
+      if (n.type === "button") {
+        const b = n as ButtonNode;
+        if (!b.body.trim()) errors.push(`${tag}: corpo obrigatório.`);
+        if (!b.buttons?.length) errors.push(`${tag}: adicione ao menos um botão.`);
+        const replies = b.buttons.filter(x => x.type === "reply").length;
+        const ctas = b.buttons.length - replies;
+        if (replies > 0 && ctas > 0) errors.push(`${tag}: não misture reply com CTA/PIX.`);
+        if (replies > 3) errors.push(`${tag}: máximo 3 botões de reply.`);
+        if (ctas > 1) errors.push(`${tag}: apenas 1 botão CTA/PIX por mensagem.`);
+        b.buttons.forEach((bt, i) => {
+          if (!bt.title.trim()) errors.push(`${tag}: botão ${i + 1} sem título.`);
+          if (bt.type === "cta_url" && !bt.url?.trim()) errors.push(`${tag}: botão ${i + 1} URL obrigatória.`);
+          if (bt.type === "cta_copy" && !bt.copyCode?.trim()) errors.push(`${tag}: botão ${i + 1} código copiar obrigatório.`);
+          if (bt.type === "cta_call" && !bt.phoneNumber?.trim()) errors.push(`${tag}: botão ${i + 1} telefone obrigatório.`);
+          if (bt.type === "pix" && !bt.pixKey?.trim()) errors.push(`${tag}: botão ${i + 1} chave PIX obrigatória.`);
+        });
+      }
+      if (n.type === "list") {
+        const l = n as ListNode;
+        if (!l.body.trim()) errors.push(`${tag}: corpo obrigatório.`);
+        if (!l.buttonText.trim()) errors.push(`${tag}: texto do botão obrigatório.`);
+        if (l.buttonText.length > 20) errors.push(`${tag}: texto do botão até 20 caracteres.`);
+        if (!l.sections?.length) errors.push(`${tag}: adicione ao menos uma seção.`);
+        if (l.sections.length > 10) errors.push(`${tag}: máximo 10 seções.`);
+        l.sections.forEach((s, si) => {
+          if (!s.rows?.length) errors.push(`${tag}: seção ${si + 1} sem itens.`);
+          if (s.rows.length > 10) errors.push(`${tag}: seção ${si + 1} máximo 10 itens.`);
+          s.rows.forEach((r, ri) => {
+            if (!r.title.trim()) errors.push(`${tag}: seção ${si + 1} item ${ri + 1} sem título.`);
+          });
+        });
+      }
+      if (n.type === "carousel") {
+        const c = n as CarouselNode;
+        if (!c.cards?.length) errors.push(`${tag}: adicione ao menos um card.`);
+        if (c.cards.length > 10) errors.push(`${tag}: máximo 10 cards.`);
+        c.cards.forEach((card, ci) => {
+          if (!card.body.trim()) errors.push(`${tag}: card ${ci + 1} sem corpo.`);
+          if ((card.buttons?.length ?? 0) > 3) errors.push(`${tag}: card ${ci + 1} máximo 3 botões.`);
+          card.buttons?.forEach((bt, bi) => {
+            if (!bt.title.trim()) errors.push(`${tag}: card ${ci + 1} botão ${bi + 1} sem título.`);
+            if (bt.type === "cta_url" && !bt.url?.trim()) errors.push(`${tag}: card ${ci + 1} botão ${bi + 1} URL obrigatória.`);
+          });
+        });
       }
     });
     return errors;
@@ -300,7 +369,10 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                       <Button key={t} size="sm" variant="outline" className="justify-start" onClick={() => addNode(t)}>
                         <Plus className="w-3 h-3 mr-1.5" />
                         <Icon className={`w-3.5 h-3.5 mr-1.5 ${nodeMeta[t].color}`} />
-                        {nodeMeta[t].label}
+                        <span className="flex-1 text-left">{nodeMeta[t].label}</span>
+                        {nodeMeta[t].isNew && (
+                          <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">Novo</Badge>
+                        )}
                       </Button>
                     );
                   })}
@@ -561,6 +633,27 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                         />
                       </>
                     )}
+
+                    {n.type === "button" && (
+                      <ConfigButton
+                        node={n as ButtonNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<ButtonNode>)}
+                      />
+                    )}
+
+                    {n.type === "list" && (
+                      <ConfigList
+                        node={n as ListNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<ListNode>)}
+                      />
+                    )}
+
+                    {n.type === "carousel" && (
+                      <ConfigCarousel
+                        node={n as CarouselNode}
+                        onChange={(patch) => updateNode(n.id, patch as Partial<CarouselNode>)}
+                      />
+                    )}
                   </Card>
                 );
               })}
@@ -611,3 +704,199 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
 }
 
 export default WaGroupFlowBuilder;
+
+// ============== Config: Button ==============
+function ConfigButton({ node, onChange }: { node: ButtonNode; onChange: (p: Partial<ButtonNode>) => void }) {
+  const setButtons = (buttons: ButtonItem[]) => onChange({ buttons });
+  const updateBtn = (i: number, patch: Partial<ButtonItem>) =>
+    setButtons(node.buttons.map((b, idx) => idx === i ? { ...b, ...patch } : b));
+  const addBtn = () =>
+    setButtons([...node.buttons, { type: "reply", id: crypto.randomUUID(), title: "" }]);
+  const removeBtn = (i: number) => setButtons(node.buttons.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={node.body}
+        onChange={(e) => onChange({ body: e.target.value })}
+        placeholder="Corpo da mensagem"
+        rows={2}
+      />
+      <Input
+        value={node.footer ?? ""}
+        onChange={(e) => onChange({ footer: e.target.value })}
+        placeholder="Rodapé (opcional)"
+      />
+      <div className="space-y-2 pt-1">
+        {node.buttons.map((b, i) => (
+          <div key={b.id} className="rounded border p-2 space-y-2 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Select value={b.type} onValueChange={(v) => updateBtn(i, { type: v as ButtonItemType })}>
+                <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reply">Reply</SelectItem>
+                  <SelectItem value="cta_url">CTA URL</SelectItem>
+                  <SelectItem value="cta_copy">CTA Copiar</SelectItem>
+                  <SelectItem value="cta_call">CTA Ligar</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                className="h-8"
+                value={b.title}
+                onChange={(e) => updateBtn(i, { title: e.target.value })}
+                placeholder="Título do botão"
+              />
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeBtn(i)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+            {b.type === "cta_url" && (
+              <Input className="h-8" value={b.url ?? ""} onChange={(e) => updateBtn(i, { url: e.target.value })} placeholder="https://..." />
+            )}
+            {b.type === "cta_copy" && (
+              <Input className="h-8" value={b.copyCode ?? ""} onChange={(e) => updateBtn(i, { copyCode: e.target.value })} placeholder="Código a copiar" />
+            )}
+            {b.type === "cta_call" && (
+              <Input className="h-8" value={b.phoneNumber ?? ""} onChange={(e) => updateBtn(i, { phoneNumber: e.target.value })} placeholder="+5511999999999" />
+            )}
+            {b.type === "pix" && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input className="h-8" value={b.pixKey ?? ""} onChange={(e) => updateBtn(i, { pixKey: e.target.value })} placeholder="Chave PIX" />
+                <Input className="h-8" type="number" value={b.pixAmount ?? ""} onChange={(e) => updateBtn(i, { pixAmount: Number(e.target.value) || undefined })} placeholder="Valor (R$)" />
+              </div>
+            )}
+          </div>
+        ))}
+        <Button size="sm" variant="outline" onClick={addBtn}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar botão
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============== Config: List ==============
+function ConfigList({ node, onChange }: { node: ListNode; onChange: (p: Partial<ListNode>) => void }) {
+  const setSections = (sections: ListSection[]) => onChange({ sections });
+  const updateSection = (si: number, patch: Partial<ListSection>) =>
+    setSections(node.sections.map((s, i) => i === si ? { ...s, ...patch } : s));
+  const addSection = () =>
+    setSections([...node.sections, { title: "", rows: [{ id: crypto.randomUUID(), title: "" }] }]);
+  const removeSection = (si: number) => setSections(node.sections.filter((_, i) => i !== si));
+  const updateRow = (si: number, ri: number, patch: Partial<ListRow>) =>
+    updateSection(si, { rows: node.sections[si].rows.map((r, i) => i === ri ? { ...r, ...patch } : r) });
+  const addRow = (si: number) =>
+    updateSection(si, { rows: [...node.sections[si].rows, { id: crypto.randomUUID(), title: "" }] });
+  const removeRow = (si: number, ri: number) =>
+    updateSection(si, { rows: node.sections[si].rows.filter((_, i) => i !== ri) });
+
+  return (
+    <div className="space-y-2">
+      <Input value={node.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Título (opcional)" />
+      <Textarea value={node.body} onChange={(e) => onChange({ body: e.target.value })} placeholder="Corpo da mensagem" rows={2} />
+      <Input value={node.footer ?? ""} onChange={(e) => onChange({ footer: e.target.value })} placeholder="Rodapé (opcional)" />
+      <Input
+        value={node.buttonText}
+        onChange={(e) => onChange({ buttonText: e.target.value })}
+        placeholder="Texto do botão (até 20 chars)"
+        maxLength={20}
+      />
+      <div className="space-y-2 pt-1">
+        {node.sections.map((s, si) => (
+          <div key={si} className="rounded border p-2 space-y-2 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Input
+                className="h-8"
+                value={s.title}
+                onChange={(e) => updateSection(si, { title: e.target.value })}
+                placeholder={`Seção ${si + 1}`}
+              />
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeSection(si)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+            <div className="space-y-1.5 pl-2">
+              {s.rows.map((r, ri) => (
+                <div key={r.id} className="flex items-center gap-2">
+                  <Input className="h-8" value={r.title} onChange={(e) => updateRow(si, ri, { title: e.target.value })} placeholder="Título do item" />
+                  <Input className="h-8" value={r.description ?? ""} onChange={(e) => updateRow(si, ri, { description: e.target.value })} placeholder="Descrição (opcional)" />
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeRow(si, ri)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button size="sm" variant="ghost" onClick={() => addRow(si)}>
+                <Plus className="w-3 h-3 mr-1" /> Item
+              </Button>
+            </div>
+          </div>
+        ))}
+        <Button size="sm" variant="outline" onClick={addSection}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar seção
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============== Config: Carousel ==============
+function ConfigCarousel({ node, onChange }: { node: CarouselNode; onChange: (p: Partial<CarouselNode>) => void }) {
+  const setCards = (cards: CarouselCard[]) => onChange({ cards });
+  const updateCard = (ci: number, patch: Partial<CarouselCard>) =>
+    setCards(node.cards.map((c, i) => i === ci ? { ...c, ...patch } : c));
+  const addCard = () =>
+    setCards([...node.cards, { body: "", image: "", buttons: [{ type: "reply", id: crypto.randomUUID(), title: "" }] }]);
+  const removeCard = (ci: number) => setCards(node.cards.filter((_, i) => i !== ci));
+  const updateBtn = (ci: number, bi: number, patch: Partial<CarouselCardButton>) =>
+    updateCard(ci, { buttons: node.cards[ci].buttons.map((b, i) => i === bi ? { ...b, ...patch } : b) });
+  const addBtn = (ci: number) =>
+    updateCard(ci, { buttons: [...node.cards[ci].buttons, { type: "reply", id: crypto.randomUUID(), title: "" }] });
+  const removeBtn = (ci: number, bi: number) =>
+    updateCard(ci, { buttons: node.cards[ci].buttons.filter((_, i) => i !== bi) });
+
+  return (
+    <div className="space-y-2">
+      {node.cards.map((card, ci) => (
+        <div key={ci} className="rounded border p-2 space-y-2 bg-muted/30">
+          <div className="flex items-center justify-between">
+            <Badge variant="outline" className="text-[10px]">Card #{ci + 1}</Badge>
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeCard(ci)}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+          <Input value={card.image ?? ""} onChange={(e) => updateCard(ci, { image: e.target.value })} placeholder="URL da imagem (opcional)" />
+          <Textarea value={card.body} onChange={(e) => updateCard(ci, { body: e.target.value })} placeholder="Texto do card" rows={2} />
+          <div className="space-y-1.5 pl-2">
+            {card.buttons.map((b, bi) => (
+              <div key={b.id} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Select value={b.type} onValueChange={(v) => updateBtn(ci, bi, { type: v as CarouselCardButton["type"] })}>
+                    <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reply">Reply</SelectItem>
+                      <SelectItem value="cta_url">CTA URL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input className="h-8" value={b.title} onChange={(e) => updateBtn(ci, bi, { title: e.target.value })} placeholder="Título" />
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeBtn(ci, bi)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+                {b.type === "cta_url" && (
+                  <Input className="h-8" value={b.url ?? ""} onChange={(e) => updateBtn(ci, bi, { url: e.target.value })} placeholder="https://..." />
+                )}
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" onClick={() => addBtn(ci)} disabled={card.buttons.length >= 3}>
+              <Plus className="w-3 h-3 mr-1" /> Botão
+            </Button>
+          </div>
+        </div>
+      ))}
+      <Button size="sm" variant="outline" onClick={addCard} disabled={node.cards.length >= 10}>
+        <Plus className="w-3 h-3 mr-1" /> Adicionar card
+      </Button>
+    </div>
+  );
+}
