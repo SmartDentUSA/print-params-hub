@@ -1823,6 +1823,62 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_content_posts: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          id: string
+          mensagem_custom: string | null
+          ordem: number | null
+          social_post_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          id?: string
+          mensagem_custom?: string | null
+          ordem?: number | null
+          social_post_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          id?: string
+          mensagem_custom?: string | null
+          ordem?: number | null
+          social_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_content_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_combined_campaigns"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_content_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "campaign_content_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_posts_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_links: {
         Row: {
           ativo: boolean
@@ -2297,14 +2353,20 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           descricao: string | null
+          first_comment: string | null
+          hashtags: string[] | null
           id: string
           lead_filter: Json | null
+          media_items: Json | null
           media_url_override: string | null
           mensagem_template: string | null
           nome: string
           notes: string | null
           objetivo: string | null
+          platforms: Json | null
+          post_caption: string | null
           scheduled_at: string | null
+          social_post_id: string | null
           started_at: string | null
           status: string | null
           total_delivered: number | null
@@ -2312,6 +2374,8 @@ export type Database = {
           total_leads: number | null
           total_sent: number | null
           updated_at: string | null
+          zernio_post_id: string | null
+          zernio_status: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -2324,14 +2388,20 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
           id?: string
           lead_filter?: Json | null
+          media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
           nome: string
           notes?: string | null
           objetivo?: string | null
+          platforms?: Json | null
+          post_caption?: string | null
           scheduled_at?: string | null
+          social_post_id?: string | null
           started_at?: string | null
           status?: string | null
           total_delivered?: number | null
@@ -2339,6 +2409,8 @@ export type Database = {
           total_leads?: number | null
           total_sent?: number | null
           updated_at?: string | null
+          zernio_post_id?: string | null
+          zernio_status?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -2351,14 +2423,20 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           descricao?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
           id?: string
           lead_filter?: Json | null
+          media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
           nome?: string
           notes?: string | null
           objetivo?: string | null
+          platforms?: Json | null
+          post_caption?: string | null
           scheduled_at?: string | null
+          social_post_id?: string | null
           started_at?: string | null
           status?: string | null
           total_delivered?: number | null
@@ -2366,6 +2444,8 @@ export type Database = {
           total_leads?: number | null
           total_sent?: number | null
           updated_at?: string | null
+          zernio_post_id?: string | null
+          zernio_status?: string | null
         }
         Relationships: [
           {
@@ -2373,6 +2453,13 @@ export type Database = {
             columns: ["content_bridge_id"]
             isOneToOne: false
             referencedRelation: "content_bridge"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -16474,6 +16561,391 @@ export type Database = {
           },
         ]
       }
+      social_broadcasts: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          flow_id: string | null
+          id: string
+          name: string
+          scheduled_at: string | null
+          segment: Json | null
+          status: string | null
+          total_opened: number | null
+          total_sent: number | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          name: string
+          scheduled_at?: string | null
+          segment?: Json | null
+          status?: string | null
+          total_opened?: number | null
+          total_sent?: number | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          name?: string
+          scheduled_at?: string | null
+          segment?: Json | null
+          status?: string | null
+          total_opened?: number | null
+          total_sent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_broadcasts_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "social_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_contacts: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          custom_fields: Json | null
+          first_seen_at: string | null
+          ig_user_id: string
+          ig_username: string | null
+          is_follower: boolean | null
+          last_seen_at: string | null
+          lead_id: string | null
+          subscribed: boolean | null
+          tags: string[] | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          first_seen_at?: string | null
+          ig_user_id: string
+          ig_username?: string | null
+          is_follower?: boolean | null
+          last_seen_at?: string | null
+          lead_id?: string | null
+          subscribed?: boolean | null
+          tags?: string[] | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          first_seen_at?: string | null
+          ig_user_id?: string
+          ig_username?: string | null
+          is_follower?: boolean | null
+          last_seen_at?: string | null
+          lead_id?: string | null
+          subscribed?: boolean | null
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_flows: {
+        Row: {
+          channel: string
+          created_at: string | null
+          description: string | null
+          edges: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          nodes: Json
+          total_completed: number | null
+          total_leads_converted: number | null
+          total_triggered: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel?: string
+          created_at?: string | null
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          nodes?: Json
+          total_completed?: number | null
+          total_leads_converted?: number | null
+          total_triggered?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          nodes?: Json
+          total_completed?: number | null
+          total_leads_converted?: number | null
+          total_triggered?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          account_id: string | null
+          analytics_synced_at: string | null
+          campaign_id: string | null
+          caption: string | null
+          comments: number | null
+          created_at: string | null
+          format: string | null
+          id: string
+          impressions: number | null
+          likes: number | null
+          media_type: string | null
+          media_url: string | null
+          media_urls: Json | null
+          platform: string
+          post_url: string | null
+          product_id: string | null
+          product_name: string | null
+          product_slug: string | null
+          published_at: string | null
+          reach: number | null
+          saves: number | null
+          scheduled_at: string | null
+          shares: number | null
+          short_link: string | null
+          source: string | null
+          status: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          views: number | null
+          zernio_post_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          analytics_synced_at?: string | null
+          campaign_id?: string | null
+          caption?: string | null
+          comments?: number | null
+          created_at?: string | null
+          format?: string | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          media_urls?: Json | null
+          platform: string
+          post_url?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          published_at?: string | null
+          reach?: number | null
+          saves?: number | null
+          scheduled_at?: string | null
+          shares?: number | null
+          short_link?: string | null
+          source?: string | null
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          views?: number | null
+          zernio_post_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          analytics_synced_at?: string | null
+          campaign_id?: string | null
+          caption?: string | null
+          comments?: number | null
+          created_at?: string | null
+          format?: string | null
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          media_urls?: Json | null
+          platform?: string
+          post_url?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          published_at?: string | null
+          reach?: number | null
+          saves?: number | null
+          scheduled_at?: string | null
+          shares?: number | null
+          short_link?: string | null
+          source?: string | null
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          views?: number | null
+          zernio_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_proof_snippets: {
         Row: {
           active: boolean | null
@@ -16524,6 +16996,380 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      social_scheduled_posts: {
+        Row: {
+          caption: string | null
+          channels: Json
+          created_at: string | null
+          created_by: string | null
+          first_comment: string | null
+          hashtags: string[] | null
+          id: string
+          media_items: Json | null
+          product_name: string | null
+          product_slug: string | null
+          publish_errors: Json | null
+          publish_now: boolean | null
+          published_at: string | null
+          scheduled_at: string | null
+          social_post_ids: string[] | null
+          status: string | null
+          timezone: string | null
+          updated_at: string | null
+          zernio_post_ids: Json | null
+        }
+        Insert: {
+          caption?: string | null
+          channels?: Json
+          created_at?: string | null
+          created_by?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_items?: Json | null
+          product_name?: string | null
+          product_slug?: string | null
+          publish_errors?: Json | null
+          publish_now?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          social_post_ids?: string[] | null
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          zernio_post_ids?: Json | null
+        }
+        Update: {
+          caption?: string | null
+          channels?: Json
+          created_at?: string | null
+          created_by?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_items?: Json | null
+          product_name?: string | null
+          product_slug?: string | null
+          publish_errors?: Json | null
+          publish_now?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          social_post_ids?: string[] | null
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          zernio_post_ids?: Json | null
+        }
+        Relationships: []
+      }
+      social_sequence_enrollments: {
+        Row: {
+          created_at: string | null
+          current_step: number | null
+          id: string
+          ig_user_id: string
+          next_step_at: string | null
+          sequence_id: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          ig_user_id: string
+          next_step_at?: string | null
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_step?: number | null
+          id?: string
+          ig_user_id?: string
+          next_step_at?: string | null
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "social_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_sequences: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          steps: Json | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          steps?: Json | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          steps?: Json | null
+        }
+        Relationships: []
+      }
+      social_sessions: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          current_node_id: string | null
+          expires_at: string | null
+          flow_id: string | null
+          human_takeover: boolean | null
+          id: string
+          ig_user_id: string
+          ig_username: string | null
+          lead_id: string | null
+          state: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          current_node_id?: string | null
+          expires_at?: string | null
+          flow_id?: string | null
+          human_takeover?: boolean | null
+          id?: string
+          ig_user_id: string
+          ig_username?: string | null
+          lead_id?: string | null
+          state?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          current_node_id?: string | null
+          expires_at?: string | null
+          flow_id?: string | null
+          human_takeover?: boolean | null
+          id?: string
+          ig_user_id?: string
+          ig_username?: string | null
+          lead_id?: string | null
+          state?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_sessions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "social_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_triggers: {
+        Row: {
+          active_from: string | null
+          active_until: string | null
+          created_at: string | null
+          flow_id: string | null
+          id: string
+          is_regex: boolean | null
+          keywords: string[] | null
+          post_ids: string[] | null
+          priority: number | null
+          trigger_type: string
+        }
+        Insert: {
+          active_from?: string | null
+          active_until?: string | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          is_regex?: boolean | null
+          keywords?: string[] | null
+          post_ids?: string[] | null
+          priority?: number | null
+          trigger_type: string
+        }
+        Update: {
+          active_from?: string | null
+          active_until?: string | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          is_regex?: boolean | null
+          keywords?: string[] | null
+          post_ids?: string[] | null
+          priority?: number | null
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_triggers_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "social_flows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       success_stories: {
         Row: {
@@ -18254,9 +19100,11 @@ export type Database = {
           id: string
           name: string
           next_send_at: string | null
+          social_post_ids: string[] | null
           started_at: string | null
           status: string
           updated_at: string
+          wa_type: string | null
         }
         Insert: {
           campaign_type?: string
@@ -18271,9 +19119,11 @@ export type Database = {
           id?: string
           name: string
           next_send_at?: string | null
+          social_post_ids?: string[] | null
           started_at?: string | null
           status?: string
           updated_at?: string
+          wa_type?: string | null
         }
         Update: {
           campaign_type?: string
@@ -18288,9 +19138,11 @@ export type Database = {
           id?: string
           name?: string
           next_send_at?: string | null
+          social_post_ids?: string[] | null
           started_at?: string | null
           status?: string
           updated_at?: string
+          wa_type?: string | null
         }
         Relationships: [
           {
