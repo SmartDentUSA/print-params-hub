@@ -1091,6 +1091,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'brand', name: brand.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
+  ${buildHreflang({ pt: `${baseUrl}/${brandSlug}` })}
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`}" />
@@ -1174,6 +1175,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: model.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
+  ${buildHreflang({ pt: `${baseUrl}/${brandSlug}/${modelSlug}` })}
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
   <meta property="og:image" content="${ogImage}" />
@@ -1281,6 +1283,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: resinName })}
   <link rel="canonical" href="${canonicalUrl}" />
+  ${buildHreflang({ pt: canonicalUrl })}
   <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
   <meta property="og:image" content="${ogImage}" />
