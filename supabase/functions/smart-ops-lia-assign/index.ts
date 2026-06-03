@@ -1955,6 +1955,9 @@ async function executarEnrichmentDealRoute(
   // CASE A — Deal aberto em VENDAS → preserva owner + atualiza
   if (vendaDeal) {
     const dealOwnerId = Number(vendaDeal.owner_id ?? 0);
+    console.log(
+      `[lia-assign] CASE A preserve_vendas: deal=${vendaDeal.id} enrichedFields=${enrichedFields.length} (${enrichedFields.join(",") || "—"})`,
+    );
     try {
       await updateExistingDeal(
         apiToken,
