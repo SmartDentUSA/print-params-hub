@@ -1,62 +1,73 @@
-## Ajustes no `vercel.json`
+## Diagnóstico do erro do GSC
 
-Aplicar duas correções para garantir que TODAS as rotas funcionem no deploy Vercel (`print-params-hub.vercel.app` e futuro `parametros.smartdent.com.br`).
+O GSC mostra:
+- Tipo: **Desconhecido**
+- Última leitura: **19/mai/2026** (anterior aos fixes recentes)
+- Status: **Não foi possível buscar o sitemap**
 
-### 1. SPA fallback genérico
+Testando agora em produção (`https://parametros.smartdent.com.br/sitemap.xml`):
 
-Adicionar no final do array `rewrites` (depois do `/f/:path*` e antes do bot-detection):
+| Item | Estado | Observação |
+|---|---|---|
+| HTTP status | 200 OK | OK |
+| Tamanho | 372 KB | OK |
+| Conteúdo XML válido | Sim | OK |
+| `robots.txt` lista sitemaps | Sim (5 URLs) | OK |
+| Content-Type | **DUPLICADO** (`text/xml` + `application/xml`) | Problema |
+| `/video-sitemap.xml` | **`text/plain`** | Problema |
+| `/sitemap-laudos.xml`, `-resinas`, `-artigos`, `-parametros` | 200 com Content-Type duplicado | Problema |
 
-```json
-{
-  "source": "/((?!api/|.*\\.[a-zA-Z0-9]+$).*)",
-  "destination": "/index.html"
-}
+### Causas raiz
+
+1. **Cabeçalho Content-Type duplicado**: a edge function `generate-sitemap` já emite `application/xml`, e o nginx upstream também injeta `text/xml`. Alguns parsers (incluindo o do GSC) leem o primeiro header (`text/xml`) — ainda é XML válido, mas em combinação com a leitura antiga gera erro.
+
+2. **`/video-sitemap.xml`** responde `text/plain` apesar do header definido no `vercel.json`. O rewrite vai para `/api/video-sitemap` (Vercel function) e essa função seta o próprio Content-Type, sobrescrevendo o header do `vercel.json`.
+
+3. **Sitemaps órfãos no vercel.json**: o arquivo declara headers para `/sitemap-conhecimento-:lang.xml` e `/sitemap-documentos.xml` (que não existem no `robots.txt`), mas **não declara** os 4 sitemaps reais listados no `robots.txt` (`-laudos`, `-resinas`, `-artigos`, `-parametros`). Isso significa que esses sitemaps reais não passam por nenhum rewrite/header da Vercel — devem estar sendo capturados pelo fallback de bot ou pelo `seo-proxy`.
+
+4. **Última leitura 19/mai**: anterior aos fixes de Content-Type e dos novos rewrites. O próprio botão "Enviar novamente" no GSC normalmente resolve, mas vale corrigir os 3 itens acima antes.
+
+## Plano de correção
+
+### 1. Edge function `generate-sitemap` — remover duplicação de Content-Type
+Garantir que a função retorne **apenas** `application/xml; charset=utf-8` e nenhum `text/xml` adicional (verificar se algum middleware/CORS helper está injetando o segundo header). Aplicar o mesmo a `generate-knowledge-sitemap`, `-en`, `-es` e `generate-documents-sitemap`.
+
+### 2. Função `/api/video-sitemap` — corrigir Content-Type
+Forçar dentro do handler:
+```ts
+res.setHeader('Content-Type', 'application/xml; charset=utf-8')
 ```
+(Os headers do `vercel.json` não sobrescrevem o que a função emite.)
 
-Captura todas as rotas SPA não mapeadas: `/base-conhecimento/*`, `/support-resources`, `/admin`, `/produtos/*`, `/social/*`, `/about`, `/auth`, etc. Exclui requests para `/api/*` e arquivos com extensão (`.js`, `.css`, `.png`, `.xml`, `.txt`...).
+### 3. `vercel.json` — alinhar com o que existe de verdade
 
-### 2. Content-Type XML para sitemaps
+a) **Adicionar rewrites + headers** para os 4 sitemaps reais listados no `robots.txt`:
+- `/sitemap-laudos.xml`
+- `/sitemap-resinas.xml`
+- `/sitemap-artigos.xml`
+- `/sitemap-parametros.xml`
 
-Adicionar no array `headers`:
+Direcioná-los para a(s) edge function(s) que efetivamente os geram (precisa investigar — provavelmente uma única função paramétrica) e fixar `Content-Type: application/xml; charset=utf-8`.
 
-```json
-{
-  "source": "/sitemap-conhecimento-:lang.xml",
-  "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
-},
-{
-  "source": "/sitemap-documentos.xml",
-  "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
-}
+b) **Remover (ou manter, mas não usar)** os headers órfãos de `/sitemap-conhecimento-:lang.xml` e `/sitemap-documentos.xml` se essas URLs realmente não forem servidas.
+
+c) **Adicionar header global** para qualquer `/sitemap*.xml` como fallback, garantindo Content-Type correto.
+
+### 4. Validação pós-deploy
+Após o redeploy:
+```bash
+curl -sI https://parametros.smartdent.com.br/sitemap.xml
+# Esperado: 1 único Content-Type: application/xml
 ```
+Depois, no GSC, clicar em **"Enviar novamente"** no sitemap. Em até 24h o status deve mudar para "Sucesso" e Tipo "Índice de sitemap" ou "Sitemap".
 
-Hoje os sitemaps de conhecimento e documentos são servidos como `text/plain`, o que prejudica parsing por Googlebot.
+### 5. Bônus opcional — converter em sitemap index
+Como hoje existem 5 sitemaps independentes listados separadamente no `robots.txt`, faz sentido criar `/sitemap.xml` como um **sitemap index** (`<sitemapindex>`) referenciando os outros 4. Isso simplifica a leitura pelo Google e centraliza o monitoramento numa única entrada do GSC. Posso implementar se quiser.
 
-### Ordem de execução
+## O que NÃO mudar
+- Conteúdo dos sitemaps (URLs, prioridades, lastmod) — já estão corretos.
+- `robots.txt`.
+- SSR/`seo-proxy`.
+- Edge functions de SEO já corrigidas anteriormente (JSON-LD, schema, hreflang).
 
-1. Editar `vercel.json` com os dois ajustes acima
-2. Commit automático → Vercel redeploy (~1 min)
-3. Re-rodar bateria de curl em todas as rotas testadas anteriormente para confirmar 20/20 200
-4. Confirmar headers XML corretos nos sitemaps
-
----
-
-## Sobre compartilhar URLs de formulários
-
-**Resposta direta: SIM, pode compartilhar o URL Vercel** (`https://print-params-hub.vercel.app/f/{slug}`) enquanto o DNS de `parametros.smartdent.com.br` não estiver apontado para a Vercel.
-
-Recomendação:
-
-- **Curto prazo (antes do DNS)**: use o domínio Vercel diretamente — `print-params-hub.vercel.app/f/ioconnect`. É estável (20/20 200 nos testes) e funciona em paid traffic, QR codes, links no WhatsApp.
-- **Longo prazo (após DNS)**: assim que apontarmos `parametros.smartdent.com.br` para `cname.vercel-dns.com`, o mesmo URL funcionará em ambos os domínios. **Não quebra nada compartilhar agora com domínio Vercel** — o roteamento `/f/:slug` é idêntico nos dois.
-
-**Atenção (importante para tracking)**:
-- Se você já tem campanhas Meta/Google Ads usando `parametros.smartdent.com.br/f/...`, mantenha esses URLs e migre o DNS antes — eles continuarão funcionando após a mudança.
-- Se for criar campanhas novas agora, pode usar `print-params-hub.vercel.app/f/...` sem problema; depois do DNS, ambos resolvem para o mesmo destino.
-- Pixels e UTMs funcionam normalmente em ambos os domínios.
-
-### Detalhes técnicos
-
-- Os formulários são roteados pelo rewrite `/f/:path* → /index.html` que já existe no `vercel.json`.
-- O SPA fallback novo (item 1) é defensivo — `/f/*` já funciona, mas garante que rotas fora de `/f/*` (ex: `/base-conhecimento/g/exocad/parametros-3d`) também não quebrem.
-- Nenhuma mudança em Supabase, edge functions ou código frontend é necessária.
+Posso prosseguir com os passos 1–4 (e o 5 se quiser o sitemap index)?
