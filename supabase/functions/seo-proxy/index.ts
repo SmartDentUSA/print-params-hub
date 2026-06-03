@@ -1004,6 +1004,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Impressão 3D Odontológica' })}
   <link rel="canonical" href="${baseUrl}/" />
+  ${buildHreflang({ pt: `${baseUrl}/`, en: `${baseUrl}/en`, es: `${baseUrl}/es` })}
   <meta property="og:title" content="Hub de Fluxo Digital e Parâmetros 3D | Smart Dent" />
   <meta property="og:description" content="Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design." />
   <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
