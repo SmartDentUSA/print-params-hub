@@ -46,7 +46,7 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
           {/* Imagem de destaque */}
           {(content.content_image_url || content.og_image_url) && (
             <div className="w-full aspect-[1.91/1] overflow-hidden relative">
-              <img 
+              <img loading="lazy" decoding="async" 
                 src={content.content_image_url || content.og_image_url} 
                 alt={content.title}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"

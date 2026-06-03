@@ -44,7 +44,7 @@ export default function About() {
         {/* Hero Section */}
         <section className="text-center space-y-4">
           {company.logo_url && (
-            <img src={company.logo_url} alt={company.name} className="h-20 w-auto object-contain mx-auto" />
+            <img loading="lazy" decoding="async" src={company.logo_url} alt={company.name} className="h-20 w-auto object-contain mx-auto" />
           )}
           <h1 className="text-4xl font-bold text-foreground">{company.name}</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">{company.description}</p>
@@ -167,7 +167,7 @@ export default function About() {
                   <CardContent className="p-4">
                     <a href={video.url} target="_blank" rel="noopener noreferrer" className="block space-y-2 hover:opacity-80 transition-opacity">
                       {video.thumbnail && (
-                        <img src={video.thumbnail} alt={video.title} className="w-full h-48 object-cover rounded" />
+                        <img loading="lazy" decoding="async" src={video.thumbnail} alt={video.title} className="w-full h-48 object-cover rounded" />
                       )}
                       <h3 className="font-semibold text-foreground">{video.title}</h3>
                     </a>

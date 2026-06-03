@@ -124,7 +124,7 @@ export function AuthorImageUpload({
     <div className="space-y-4">
       {previewUrl ? (
         <div className="relative inline-block">
-          <img
+          <img loading="lazy" decoding="async"
             src={previewUrl}
             alt="Preview"
             className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
