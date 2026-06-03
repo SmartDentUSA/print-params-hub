@@ -85,20 +85,22 @@ Deno.serve(async (req) => {
       noteText = built.html;
       hash = built.hash;
 
-      // ── Idempotency: skip if same hash was just posted (re-delivery loop) ──
-      const lastHash = (fullLead as Record<string, unknown>).last_seller_note_hash as string | null;
-      const lastAt = (fullLead as Record<string, unknown>).last_seller_note_at as string | null;
-      if (lastHash && lastHash === hash) {
-        console.log(`[deal-form-note] Skipping duplicate note (hash match) for lead ${lead_id}`);
+      // ── Atomic claim of the seller-note slot (prevents parallel duplicates with lia-assign) ──
+      const nowIso = new Date().toISOString();
+      const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: claimed, error: claimErr } = await supabase
+        .from("lia_attendances")
+        .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
+        .eq("id", lead_id)
+        .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
+        .neq("last_seller_note_hash", hash)
+        .select("id")
+        .maybeSingle();
+      if (claimErr) {
+        console.warn(`[deal-form-note] claim update failed for lead ${lead_id} (proceeding without lock):`, claimErr);
+      } else if (!claimed) {
+        console.log(`[deal-form-note] Seller note slot busy/duplicate — skipping for lead ${lead_id}`);
         return json({ ok: true, deal_id: dealId, duplicate_skipped: true });
-      }
-      // Floor: never post two notes within 5 minutes for the same lead
-      if (lastAt) {
-        const ageMs = Date.now() - new Date(lastAt).getTime();
-        if (ageMs < 5 * 60 * 1000) {
-          console.log(`[deal-form-note] Skipping note (posted ${Math.round(ageMs / 1000)}s ago) for lead ${lead_id}`);
-          return json({ ok: true, deal_id: dealId, throttled: true });
-        }
       }
     } else {
       const lines = responses.map(
