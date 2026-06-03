@@ -804,19 +804,19 @@ async function moveDealToVendas(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
-  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
+  // ORIGIN FROZEN: do NOT overwrite origin when moving an existing deal
+  // across pipelines — only stage/owner/pipeline change.
   const cfPayload = customFieldsToDealPayload(customFields);
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
     owner_id: ownerId,
-    origin_id: formOriginId,
     freezed: 0,
   };
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (companyId) updatePayload.company_id = companyId;
 
-  console.log(`[lia-assign] Moving deal ${dealId} from Estagnados → Vendas, owner=${ownerId}`);
+  console.log(`[lia-assign] Moving deal ${dealId} from Estagnados → Vendas, owner=${ownerId}, origin=PRESERVED`);
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
