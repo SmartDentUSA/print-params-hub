@@ -1674,6 +1674,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
       alerta_lacuna: parsed.alerta_lacuna ? String(parsed.alerta_lacuna).slice(0, 300) : seed.alerta_lacuna,
       // Roteiro é determinístico — NUNCA confiar no LLM para reordenar/inventar.
       roteiro_perfilamento: seed.roteiro_perfilamento,
+      llm_succeeded: true,
     };
   } catch (e) {
     console.warn("[spin-enrich] failed:", e);
