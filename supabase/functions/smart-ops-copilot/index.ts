@@ -2753,11 +2753,18 @@ serve(async (req) => {
     }
 
     // Carrega o Cérebro Comercial uma vez por turno e injeta como contexto.
-    const brain = await loadBrainContext();
+    const [brain, capabilities] = await Promise.all([
+      loadBrainContext(),
+      fetchCapabilitiesSnapshot().catch((e) => {
+        console.warn("[Capabilities] snapshot failed:", e?.message || e);
+        return null;
+      }),
+    ]);
     const brainSystemMsg = buildBrainSystemMessage(brain.json, brain.updatedAt);
 
     const allMessages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      ...(capabilities ? [{ role: "system", content: buildCapabilitySystemMessage(capabilities) }] : []),
       { role: "system", content: brainSystemMsg },
       ...messages
     ];
