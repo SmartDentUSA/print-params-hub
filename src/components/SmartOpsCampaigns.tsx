@@ -1001,7 +1001,7 @@ function CreateCampaign({
     }
     const { data, error } = await supabase
       .from("campaigns" as any)
-      .insert({ ...payload, status: "draft" })
+      .insert({ ...payload, status: "rascunho" })
       .select("id")
       .single();
     if (error || !data) throw new Error(error?.message ?? "Erro ao criar campanha");
