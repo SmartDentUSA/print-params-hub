@@ -1,73 +1,35 @@
-## Diagnóstico do erro do GSC
+## Diagnóstico
 
-O GSC mostra:
-- Tipo: **Desconhecido**
-- Última leitura: **19/mai/2026** (anterior aos fixes recentes)
-- Status: **Não foi possível buscar o sitemap**
+O loop vem do nosso `smart-ops-lia-assign`: em atualizações de oportunidade existente ele está enviando `origin_id` novamente para o PipeRun com base no `form_name` atual. Quando outro sync/webhook lê a origem real do PipeRun de volta, os dois lados passam a alternar a origem entre `BLZ- Smart Dent` e `# - FACE - BLZ INO110 PLUS + NOTEBOOK`.
 
-Testando agora em produção (`https://parametros.smartdent.com.br/sitemap.xml`):
-
-| Item | Estado | Observação |
-|---|---|---|
-| HTTP status | 200 OK | OK |
-| Tamanho | 372 KB | OK |
-| Conteúdo XML válido | Sim | OK |
-| `robots.txt` lista sitemaps | Sim (5 URLs) | OK |
-| Content-Type | **DUPLICADO** (`text/xml` + `application/xml`) | Problema |
-| `/video-sitemap.xml` | **`text/plain`** | Problema |
-| `/sitemap-laudos.xml`, `-resinas`, `-artigos`, `-parametros` | 200 com Content-Type duplicado | Problema |
-
-### Causas raiz
-
-1. **Cabeçalho Content-Type duplicado**: a edge function `generate-sitemap` já emite `application/xml`, e o nginx upstream também injeta `text/xml`. Alguns parsers (incluindo o do GSC) leem o primeiro header (`text/xml`) — ainda é XML válido, mas em combinação com a leitura antiga gera erro.
-
-2. **`/video-sitemap.xml`** responde `text/plain` apesar do header definido no `vercel.json`. O rewrite vai para `/api/video-sitemap` (Vercel function) e essa função seta o próprio Content-Type, sobrescrevendo o header do `vercel.json`.
-
-3. **Sitemaps órfãos no vercel.json**: o arquivo declara headers para `/sitemap-conhecimento-:lang.xml` e `/sitemap-documentos.xml` (que não existem no `robots.txt`), mas **não declara** os 4 sitemaps reais listados no `robots.txt` (`-laudos`, `-resinas`, `-artigos`, `-parametros`). Isso significa que esses sitemaps reais não passam por nenhum rewrite/header da Vercel — devem estar sendo capturados pelo fallback de bot ou pelo `seo-proxy`.
-
-4. **Última leitura 19/mai**: anterior aos fixes de Content-Type e dos novos rewrites. O próprio botão "Enviar novamente" no GSC normalmente resolve, mas vale corrigir os 3 itens acima antes.
+Regra correta: origem de oportunidade existente deve ser preservada. Origem só deve ser definida na criação de uma nova oportunidade.
 
 ## Plano de correção
 
-### 1. Edge function `generate-sitemap` — remover duplicação de Content-Type
-Garantir que a função retorne **apenas** `application/xml; charset=utf-8` e nenhum `text/xml` adicional (verificar se algum middleware/CORS helper está injetando o segundo header). Aplicar o mesmo a `generate-knowledge-sitemap`, `-en`, `-es` e `generate-documents-sitemap`.
+1. **Congelar origem em oportunidades existentes**
+   - Remover `origin_id` do payload de `updateExistingDeal` em `supabase/functions/smart-ops-lia-assign/index.ts`.
+   - Assim, enriquecimentos, redeliveries Meta e atualizações de campos continuam funcionando, mas não mexem mais na origem do negócio.
 
-### 2. Função `/api/video-sitemap` — corrigir Content-Type
-Forçar dentro do handler:
-```ts
-res.setHeader('Content-Type', 'application/xml; charset=utf-8')
-```
-(Os headers do `vercel.json` não sobrescrevem o que a função emite.)
+2. **Evitar troca de origem em reativação/movimentação**
+   - Remover `origin_id` do payload de `moveDealToVendas` quando a oportunidade já existe e apenas muda de funil/etapa.
+   - Preservar `origin_id` apenas em `createNewDeal`, pois nesse caso a oportunidade é nova.
 
-### 3. `vercel.json` — alinhar com o que existe de verdade
+3. **Limpar enriquecimento pós-criação**
+   - Em `createNewDeal`, manter `origin_id` no payload inicial de criação.
+   - Remover `origin_id` do segundo PUT de enriquecimento pós-criação, para evitar uma segunda alteração desnecessária na timeline do PipeRun.
 
-a) **Adicionar rewrites + headers** para os 4 sitemaps reais listados no `robots.txt`:
-- `/sitemap-laudos.xml`
-- `/sitemap-resinas.xml`
-- `/sitemap-artigos.xml`
-- `/sitemap-parametros.xml`
+4. **Neutralizar helper legado compartilhado**
+   - Ajustar `supabase/functions/_shared/piperun-hierarchy.ts` para não enviar `origin_id` em updates/moves de negócios existentes, mantendo apenas em criação.
+   - Isso impede regressão se algum fluxo voltar a usar esse helper.
 
-Direcioná-los para a(s) edge function(s) que efetivamente os geram (precisa investigar — provavelmente uma única função paramétrica) e fixar `Content-Type: application/xml; charset=utf-8`.
+5. **Adicionar auditoria/log preventivo**
+   - Adicionar log explícito indicando `origin=PRESERVED` em updates de oportunidades existentes.
+   - Facilita validar nos logs que o sistema parou de enviar `origin_id`.
 
-b) **Remover (ou manter, mas não usar)** os headers órfãos de `/sitemap-conhecimento-:lang.xml` e `/sitemap-documentos.xml` se essas URLs realmente não forem servidas.
+6. **Deploy e validação**
+   - Deploy da Edge Function `smart-ops-lia-assign`.
+   - Checar logs recentes buscando `origin_id`; o esperado é aparecer somente em criação de novo deal, não em `Updating deal`.
 
-c) **Adicionar header global** para qualquer `/sitemap*.xml` como fallback, garantindo Content-Type correto.
+## Resultado esperado
 
-### 4. Validação pós-deploy
-Após o redeploy:
-```bash
-curl -sI https://parametros.smartdent.com.br/sitemap.xml
-# Esperado: 1 único Content-Type: application/xml
-```
-Depois, no GSC, clicar em **"Enviar novamente"** no sitemap. Em até 24h o status deve mudar para "Sucesso" e Tipo "Índice de sitemap" ou "Sitemap".
-
-### 5. Bônus opcional — converter em sitemap index
-Como hoje existem 5 sitemaps independentes listados separadamente no `robots.txt`, faz sentido criar `/sitemap.xml` como um **sitemap index** (`<sitemapindex>`) referenciando os outros 4. Isso simplifica a leitura pelo Google e centraliza o monitoramento numa única entrada do GSC. Posso implementar se quiser.
-
-## O que NÃO mudar
-- Conteúdo dos sitemaps (URLs, prioridades, lastmod) — já estão corretos.
-- `robots.txt`.
-- SSR/`seo-proxy`.
-- Edge functions de SEO já corrigidas anteriormente (JSON-LD, schema, hreflang).
-
-Posso prosseguir com os passos 1–4 (e o 5 se quiser o sitemap index)?
+A timeline do PipeRun deixa de registrar alterações repetidas de origem. O sistema ainda atualiza vendedor, empresa, etapa, campos customizados e notas, mas a origem histórica da oportunidade fica estável.

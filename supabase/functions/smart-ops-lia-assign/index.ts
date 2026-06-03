@@ -761,16 +761,16 @@ async function updateExistingDeal(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
-  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
+  // ORIGIN FROZEN: never overwrite origin of an existing deal — this caused
+  // a ping-pong loop in PipeRun's timeline between form_name and the PipeRun
+  // origin read back by webhooks. Origin is set only on createNewDeal.
   const cfPayload = customFieldsToDealPayload(customFields);
-  const updatePayload: Record<string, unknown> = {
-    origin_id: formOriginId,
-  };
+  const updatePayload: Record<string, unknown> = {};
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
 
-  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId ?? "PRESERVED"}, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
+  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId ?? "PRESERVED"}, origin=PRESERVED, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})${!updateRes.success ? " body=" + JSON.stringify(updateRes.data).slice(0, 400) : ""}`);
   // Persist successfully sent custom fields locally for audit / dedupe
