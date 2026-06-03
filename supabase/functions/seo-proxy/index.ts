@@ -1601,6 +1601,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'category', name: category.name })}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
+  ${buildHreflang({ pt: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`, en: `${baseUrl}/en/knowledge-base/${letter.toLowerCase()}`, es: `${baseUrl}/es/base-conocimiento/${letter.toLowerCase()}` })}
   <meta property="og:title" content="${escapeHtml(category.name)} - Base de Conhecimento" />
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
