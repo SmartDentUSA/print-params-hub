@@ -255,6 +255,7 @@ interface LeadRecord {
   lead_status: string;
   tags_crm: string[] | null;
   piperun_deals_history: unknown[] | null;
+  piperun_id: string | null;
 }
 
 async function findLeadByCascade(
