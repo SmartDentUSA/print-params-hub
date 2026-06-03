@@ -270,7 +270,7 @@ async function findLeadByCascade(
     dealHash?: string | null;
   },
 ): Promise<LeadRecord | null> {
-  const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history";
+  const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history, piperun_id";
 
   // 1. By piperun_id (current deal)
   const { data: byDeal } = await supabase
