@@ -871,7 +871,10 @@ async function createNewDeal(
       const dealId = String(dealData.id);
       const cfPayload = customFieldsToDealPayload(customFields);
       if (cfPayload.length > 0 || companyId) {
-        const enrichPayload: Record<string, unknown> = { origin_id: formOriginId };
+        // ORIGIN FROZEN: origin already set on POST /deals; do NOT resend on
+        // the enrichment PUT — that would create a redundant origin-change
+        // event in the PipeRun timeline.
+        const enrichPayload: Record<string, unknown> = {};
         if (cfPayload.length > 0) enrichPayload.custom_fields = cfPayload;
         if (companyId) enrichPayload.company_id = companyId;
         console.log(`[lia-assign] Enriching new deal ${dealId} with ${cfPayload.length} custom fields`);
