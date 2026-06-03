@@ -1304,7 +1304,9 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
           "availability": "https://schema.org/InStock",
           "url": canonicalUrl,
           "price": resinData?.price || undefined,
-          "priceCurrency": resinData?.price ? "BRL" : undefined
+          "priceCurrency": resinData?.price ? "BRL" : undefined,
+          "itemCondition": "https://schema.org/NewCondition",
+          ...merchantOfferExtras()
         },
         "additionalProperty": [
           { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
