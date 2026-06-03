@@ -616,7 +616,11 @@ Deno.serve(async (req) => {
         lead_status: resolvedStatus,
         produto_interesse: customFields.produtoInteresse || null,
         area_atuacao: ids.personJobTitle || null,
-        proprietario_lead_crm: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+        proprietario_lead_crm: (() => {
+          const cand = ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null;
+          // Guard: never persist a purely numeric owner name (PipeRun user ID leak)
+          return cand && !/^\d+$/.test(String(cand).trim()) ? cand : null;
+        })(),
         status_atual_lead_crm: ids.stageName || null,
         funil_entrada_crm: ids.pipelineName || (ids.pipelineId ? PIPELINE_NAMES[ids.pipelineId] : null) || null,
         cidade: ids.personCity || null,
