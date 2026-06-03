@@ -951,7 +951,10 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
 
   // ── PERGUNTAS SPIN ──
   const spinQ = diag.spin?.perguntas_spin;
-  if (spinQ && (spinQ.situacao.length || spinQ.problema.length || spinQ.implicacao.length || spinQ.necessidade.length)) {
+  // Only render LLM-enriched questions. The deterministic seed leaks placeholders
+  // ("[object Object]", duplicated stems) and adds noise — when the LLM is down
+  // we fall back to the canonical roteiro instead.
+  if (diag.spin?.llm_succeeded && spinQ && (spinQ.situacao.length || spinQ.problema.length || spinQ.implicacao.length || spinQ.necessidade.length)) {
     out.push(`<br>📋 <b>PERGUNTAS SPIN</b> <i>(na ordem)</i><br>`);
     const row = (tag: string, qs: string[]) => qs.forEach(q => out.push(`&nbsp;&nbsp;<b>${tag}</b> → ${escHtml(q)}<br>`));
     row("S", spinQ.situacao);
@@ -962,6 +965,8 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     // fallback antigo
     out.push(`<br>📋 <b>Pergunte ao lead:</b><br>`);
     diag.perguntas_qualificacao.forEach((q, i) => out.push(`&nbsp;&nbsp;${i + 1}. ${escHtml(q)}<br>`));
+  } else {
+    out.push(`<br>🤖 <i>Análise IA indisponível agora — use o roteiro acima (perguntas canônicas do formulário exocad I.A.).</i><br>`);
   }
 
   // ── COMBO ──
