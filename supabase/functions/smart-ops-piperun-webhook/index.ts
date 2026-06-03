@@ -1283,20 +1283,37 @@ Deno.serve(async (req) => {
           .single();
         if (fullLead) {
           const { html, hash } = await buildSellerDealSummaryHTML(supabase, fullLead as Record<string, unknown>);
-          const lastHash = (fullLead as Record<string, unknown>).last_seller_note_hash as string | null;
-          if (hash !== lastHash) {
+          // Atomic claim shared with lia-assign and deal-form-note: only one
+          // worker per 5-minute window posts a Resumo do Lead, regardless of
+          // hash changes mid-race (CRM/history updates between concurrent
+          // builds would otherwise yield two near-simultaneous duplicates).
+          const nowIso = new Date().toISOString();
+          const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+          const { data: claimed, error: claimErr } = await supabase
+            .from("lia_attendances")
+            .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
+            .eq("id", leadId)
+            .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
+            .select("id")
+            .maybeSingle();
+          if (claimErr) {
+            console.warn(`[piperun-webhook] seller-note claim update failed (proceeding without lock):`, claimErr);
+          }
+          if (!claimErr && !claimed) {
+            console.log(`[piperun-webhook] Seller note slot busy/recent (<5min) — skip deal ${dealId}`);
+          } else {
             const noteRes = await addDealNote(PIPERUN_API_KEY, Number(dealId), html);
             if (noteRes.success) {
-              await supabase.from("lia_attendances").update({
-                last_seller_note_hash: hash,
-                last_seller_note_at: new Date().toISOString(),
-              }).eq("id", leadId);
               console.log(`[piperun-webhook] Seller summary posted to deal ${dealId}`);
             } else {
               console.warn(`[piperun-webhook] addDealNote failed (${noteRes.status})`);
+              // Release claim so a retry can post later.
+              await supabase
+                .from("lia_attendances")
+                .update({ last_seller_note_hash: null, last_seller_note_at: null })
+                .eq("id", leadId)
+                .eq("last_seller_note_hash", hash);
             }
-          } else {
-            console.log(`[piperun-webhook] Seller summary unchanged (hash match) — skip`);
           }
         }
       }
