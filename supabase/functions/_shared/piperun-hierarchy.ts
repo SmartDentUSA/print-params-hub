@@ -222,9 +222,8 @@ export async function updateExistingDeal(
   buildNotification: (lead: Record<string, unknown>, supabase: SupabaseClient) => Promise<string>
 ): Promise<void> {
   const cfPayload = customFieldsToDealPayload(customFields);
-  const updatePayload: Record<string, unknown> = {
-    origin_id: ORIGINS.DRA_LIA.id,
-  };
+  // ORIGIN FROZEN on existing deals — origin is set only on createNewDeal.
+  const updatePayload: Record<string, unknown> = {};
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
@@ -247,11 +246,11 @@ export async function moveDealToVendas(
   buildNotification: (lead: Record<string, unknown>, supabase: SupabaseClient) => Promise<string>
 ): Promise<void> {
   const cfPayload = customFieldsToDealPayload(customFields);
+  // ORIGIN FROZEN on existing deals — only stage/owner/pipeline change here.
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
     owner_id: ownerId,
-    origin_id: ORIGINS.DRA_LIA.id,
     freezed: 0,
   };
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
