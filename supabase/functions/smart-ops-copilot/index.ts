@@ -2645,6 +2645,75 @@ function buildBrainSystemMessage(brain: any, updatedAt: string | null): string {
   ].join("\n");
 }
 
+// --- CAPABILITY SNAPSHOT ---
+// Volumes reais das fontes de conhecimento, injetados a cada turno (cache 5 min).
+// Existe para impedir autoavaliações alucinadas ("0 FAQs", "zero casos") quando
+// na verdade as tabelas estão populadas.
+type CapabilitySnapshot = {
+  faqs: number;
+  success_stories: number;
+  knowledge_contents: number;
+  knowledge_videos: number;
+  smartops_courses: number;
+  astron_courses: number;
+  products_catalog: number;
+  system_a_catalog: number;
+  updated_at: string;
+};
+let CAPABILITY_CACHE: { data: CapabilitySnapshot; ts: number } | null = null;
+const CAPABILITY_TTL_MS = 5 * 60 * 1000;
+
+async function fetchCapabilitiesSnapshot(): Promise<CapabilitySnapshot> {
+  if (CAPABILITY_CACHE && Date.now() - CAPABILITY_CACHE.ts < CAPABILITY_TTL_MS) {
+    return CAPABILITY_CACHE.data;
+  }
+  const counters = await Promise.all([
+    supabase.from("commercial_faqs").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase.from("success_stories").select("*", { count: "exact", head: true }).eq("published", true),
+    supabase.from("knowledge_contents").select("*", { count: "exact", head: true }),
+    supabase.from("knowledge_videos").select("*", { count: "exact", head: true }),
+    supabase.from("smartops_courses").select("*", { count: "exact", head: true }),
+    supabase.from("astron_courses").select("*", { count: "exact", head: true }),
+    supabase.from("products_catalog").select("*", { count: "exact", head: true }),
+    supabase.from("system_a_catalog").select("*", { count: "exact", head: true }),
+  ]);
+  const data: CapabilitySnapshot = {
+    faqs: counters[0].count ?? 0,
+    success_stories: counters[1].count ?? 0,
+    knowledge_contents: counters[2].count ?? 0,
+    knowledge_videos: counters[3].count ?? 0,
+    smartops_courses: counters[4].count ?? 0,
+    astron_courses: counters[5].count ?? 0,
+    products_catalog: counters[6].count ?? 0,
+    system_a_catalog: counters[7].count ?? 0,
+    updated_at: new Date().toISOString(),
+  };
+  CAPABILITY_CACHE = { data, ts: Date.now() };
+  return data;
+}
+
+function buildCapabilitySystemMessage(snap: CapabilitySnapshot): string {
+  return [
+    "# CAPABILITY SNAPSHOT — MINHAS FONTES DE CONHECIMENTO (ao vivo)",
+    `Atualizado em: ${snap.updated_at}`,
+    "Estes são os volumes REAIS indexados. NUNCA diga que algo está em 0 / não indexado / 'não sei nada sobre' se aparece com contagem > 0 aqui — chame a tool antes.",
+    "",
+    `- commercial_faqs (ativos) → ${snap.faqs} | tool: search_faqs`,
+    `- success_stories (publicados) → ${snap.success_stories} | tool: search_success_stories`,
+    `- knowledge_contents → ${snap.knowledge_contents} | tool: search_content`,
+    `- knowledge_videos → ${snap.knowledge_videos} | tool: search_videos`,
+    `- smartops_courses → ${snap.smartops_courses} | tool: search_courses`,
+    `- astron_courses → ${snap.astron_courses} | tool: search_courses`,
+    `- products_catalog → ${snap.products_catalog} | tool: search_products`,
+    `- system_a_catalog (anti-hallucination) → ${snap.system_a_catalog} | tool: get_product_anti_hallucination`,
+    "",
+    "🚫 Omie/dados financeiros: bloqueado por política — não é falta de dado, é decisão.",
+    "🚫 Forecast/projeção de receita: não implementado — informe ao usuário.",
+    "",
+    "Quando o usuário pedir autoavaliação do seu conhecimento, use ESTES números (não invente notas /10).",
+  ].join("\n");
+}
+
 // Acesso total: Cérebro como contexto + todas as tools de leitura/ação habilitadas.
 // Mantemos o conjunto explícito apenas para excluir tools que não devem ser expostas ao LLM.
 const TOOLS_BLOCKLIST = new Set<string>([
