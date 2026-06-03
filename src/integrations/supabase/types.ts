@@ -3365,6 +3365,78 @@ export type Database = {
           },
         ]
       }
+      cs_onboarding_mover_control: {
+        Row: {
+          ativo: boolean
+          batch_size: number
+          created_at: string
+          etapa_destino: number
+          etapa_origem: number
+          id: number
+          total_erros: number
+          total_movidos: number
+          ultima_execucao: string | null
+          ultima_execucao_result: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          batch_size?: number
+          created_at?: string
+          etapa_destino?: number
+          etapa_origem?: number
+          id?: number
+          total_erros?: number
+          total_movidos?: number
+          ultima_execucao?: string | null
+          ultima_execucao_result?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          batch_size?: number
+          created_at?: string
+          etapa_destino?: number
+          etapa_origem?: number
+          id?: number
+          total_erros?: number
+          total_movidos?: number
+          ultima_execucao?: string | null
+          ultima_execucao_result?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cs_onboarding_mover_queue: {
+        Row: {
+          created_at: string
+          erro: string | null
+          id: number
+          piperun_deal_id: string
+          processado_em: string | null
+          status: string
+          tentativas: number
+        }
+        Insert: {
+          created_at?: string
+          erro?: string | null
+          id?: number
+          piperun_deal_id: string
+          processado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Update: {
+          created_at?: string
+          erro?: string | null
+          id?: number
+          piperun_deal_id?: string
+          processado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Relationships: []
+      }
       deal_items: {
         Row: {
           cod_produto: string | null
