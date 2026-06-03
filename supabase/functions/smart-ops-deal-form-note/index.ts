@@ -110,11 +110,13 @@ Deno.serve(async (req) => {
     }
 
     const result = await addDealNote(PIPERUN_API_KEY, dealId, noteText);
-    if (result.success && hash) {
-      await supabase.from("lia_attendances").update({
-        last_seller_note_hash: hash,
-        last_seller_note_at: new Date().toISOString(),
-      }).eq("id", lead_id);
+    // Claim already persisted hash + timestamp atomically; release on failure so retries succeed.
+    if (!result.success && hash) {
+      await supabase
+        .from("lia_attendances")
+        .update({ last_seller_note_hash: null, last_seller_note_at: null })
+        .eq("id", lead_id)
+        .eq("last_seller_note_hash", hash);
     }
 
     console.log(`[deal-form-note] Note added to deal ${dealId} for lead ${lead_id}:`, result.success);
