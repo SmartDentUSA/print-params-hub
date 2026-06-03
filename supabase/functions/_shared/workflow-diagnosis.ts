@@ -1393,15 +1393,8 @@ function seedSpinBriefing(
     }
     const docSpecs = live.document_extracts
       .flatMap((d) => d.key_specs || [])
-      .map((s: unknown) => {
-        if (typeof s === "string") return s;
-        if (s && typeof s === "object") {
-          const o = s as Record<string, unknown>;
-          return String(o.label ?? o.name ?? o.spec ?? o.title ?? o.value ?? "");
-        }
-        return "";
-      })
-      .filter((s) => s && s.length > 2)
+      .map((s: unknown) => flattenSpecToken(s))
+      .filter((s) => s && s.length > 2 && !s.includes("[object"))
       .slice(0, 2);
     for (const ds of docSpecs) {
       problemaQ.push(`Qual "${ds.slice(0, 80)}" você usa hoje? Preciso confirmar a compatibilidade.`);
