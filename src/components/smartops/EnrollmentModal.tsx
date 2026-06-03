@@ -321,7 +321,14 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                       {dealSearch.results.length} deals encontrados — selecione o correto:
                     </p>
                     {dealSearch.results.map((r) => (
-                      <Card key={`${r.lead_id}-${r.deal_id}`} className="hover:border-primary/50 transition">
+                      <Card
+                        key={`${r.lead_id}-${r.deal_id}`}
+                        className={
+                          r.status === 'ganha'
+                            ? "border-emerald-500/60 bg-emerald-500/5 hover:border-emerald-500 transition"
+                            : "hover:border-primary/50 transition"
+                        }
+                      >
                         <CardContent className="pt-3 pb-3 space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -351,7 +358,13 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                               )}
                             </span>
                             <div className="flex items-center gap-2 shrink-0">
-                              {r.status && <Badge variant="secondary" className="text-[10px]">{r.status}</Badge>}
+                              {r.status === 'ganha' ? (
+                                <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600 text-white">
+                                  ✓ Ganha{r.closed_at ? ` · ${new Date(r.closed_at).toLocaleDateString('pt-BR')}` : ''}
+                                </Badge>
+                              ) : r.status ? (
+                                <Badge variant="secondary" className="text-[10px]">{r.status}</Badge>
+                              ) : null}
                               {typeof r.value === 'number' && r.value > 0 && (
                                 <span>R$ {r.value.toLocaleString('pt-BR')}</span>
                               )}
