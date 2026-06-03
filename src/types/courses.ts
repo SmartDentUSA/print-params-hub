@@ -246,5 +246,6 @@ export interface DealSearchListItem {
   status: string | null;
   value: number | null;
   updated_at: string | null;
+  closed_at: string | null;
   deal_type: DealType;
 }
