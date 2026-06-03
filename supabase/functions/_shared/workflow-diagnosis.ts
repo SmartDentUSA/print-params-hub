@@ -1688,3 +1688,39 @@ function arrStr(v: unknown, max: number): string[] | null {
   const out = v.slice(0, max).map(x => String(x).trim()).filter(Boolean);
   return out.length ? out : null;
 }
+
+/**
+ * Defensive flattener for `key_specs` entries coming from System A live.
+ * They can be plain strings, `{ label, value }`, `{ name: { pt: "..." } }`,
+ * etc. We must NEVER let an object slip through as `[object Object]` because
+ * it leaks into seller-facing SPIN questions.
+ */
+function flattenSpecToken(s: unknown, depth = 0): string {
+  if (s === null || s === undefined) return "";
+  if (typeof s === "string") return s.trim();
+  if (typeof s === "number" || typeof s === "boolean") return String(s);
+  if (depth > 3) return "";
+  if (Array.isArray(s)) {
+    for (const item of s) {
+      const r = flattenSpecToken(item, depth + 1);
+      if (r && !r.includes("[object")) return r;
+    }
+    return "";
+  }
+  if (typeof s === "object") {
+    const o = s as Record<string, unknown>;
+    // Preferred semantic keys
+    for (const k of ["label", "name", "spec", "title", "value", "text", "pt", "pt-BR", "ptbr", "default"]) {
+      if (k in o) {
+        const r = flattenSpecToken(o[k], depth + 1);
+        if (r && !r.includes("[object")) return r;
+      }
+    }
+    // Last-ditch: first scalar value we can find
+    for (const v of Object.values(o)) {
+      const r = flattenSpecToken(v, depth + 1);
+      if (r && !r.includes("[object")) return r;
+    }
+  }
+  return "";
+}
