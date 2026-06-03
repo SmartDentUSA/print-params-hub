@@ -546,6 +546,31 @@ Deno.serve(async (req) => {
             console.warn("[ingest-lead] universal redelivery enrichment failed:", e);
           }
           const enrichedFields = Object.keys(enrichmentDiff);
+          // ── NO-OP REDELIVERY SHORT-CIRCUIT ──
+          // Meta re-delivers the same leadgen_id every few minutes. When the
+          // payload adds nothing new (enrichedFields=[]), invoking lia-assign
+          // still PUTs the deal in PipeRun and inserts a `lead_activity_log`
+          // row → Smart Ops timeline spam. Short-circuit here: no logs, no
+          // downstream invocation. Audit trail is preserved via the
+          // `FAMILY_DEDUPE_LIFETIME_SKIPPED` / `HARD_DEDUPE_DEFERRED` console
+          // lines printed earlier in this block.
+          if (enrichedFields.length === 0) {
+            console.log(
+              `[ingest-lead] redelivery NO-OP (no new fields) → skipping lia-assign + system_health_logs for lead ${canon.id}`,
+            );
+            return new Response(
+              JSON.stringify({
+                success: true,
+                duplicate_skipped: true,
+                noop: true,
+                dedupe_id: dedupeId ? String(dedupeId) : null,
+                dedupe_via: deferredRedeliveryVia,
+                lead_id: canon.id,
+                incremental_enrichment: [],
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
           try {
             await supabase.from("system_health_logs").insert({
               function_name: "smart-ops-ingest-lead",
