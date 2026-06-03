@@ -701,46 +701,46 @@ async function postRichSellerNote(
     }
   }
 
-  // Idempotency: skip if same hash already posted (Meta redelivery loop)
+  // ── Atomic claim: prevents parallel Meta redelivery invocations from posting twice ──
+  // Read-then-write was racy; here we attempt a conditional UPDATE that only succeeds if
+  // either no note was posted in the last 5 minutes or the previous hash differs. PostgreSQL
+  // serializes per-row UPDATEs, so exactly one concurrent worker wins the slot.
+  const finalHtml = opts.headerPrefix ? `${opts.headerPrefix}${html}` : html;
   if (hash && leadId) {
+    const nowIso = new Date().toISOString();
+    const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     try {
-      const { data: existing } = await supabase
+      const { data: claimed, error: claimErr } = await supabase
         .from("lia_attendances")
-        .select("last_seller_note_hash,last_seller_note_at")
+        .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
         .eq("id", leadId)
+        .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
+        .neq("last_seller_note_hash", hash)
+        .select("id")
         .maybeSingle();
-      const lastHash = (existing as Record<string, unknown> | null)?.last_seller_note_hash as string | null;
-      const lastAt = (existing as Record<string, unknown> | null)?.last_seller_note_at as string | null;
-      if (lastHash && lastHash === hash) {
-        console.log(`[lia-assign] Skipping duplicate seller note (hash match) for lead ${leadId} deal ${dealId}`);
+      if (claimErr) {
+        console.warn("[lia-assign] seller-note claim update failed (proceeding without lock):", claimErr);
+      } else if (!claimed) {
+        console.log(`[lia-assign] Seller note slot busy/duplicate — skipping for lead ${leadId} deal ${dealId}`);
         return;
       }
-      if (lastAt) {
-        const ageMs = Date.now() - new Date(lastAt).getTime();
-        if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
-          console.log(`[lia-assign] Throttling seller note (${Math.round(ageMs / 1000)}s since last) lead ${leadId}`);
-          return;
-        }
-      }
     } catch (e) {
-      console.warn("[lia-assign] hash dedupe lookup failed:", e);
+      console.warn("[lia-assign] seller-note claim threw (proceeding without lock):", e);
     }
   }
 
-  const finalHtml = opts.headerPrefix ? `${opts.headerPrefix}${html}` : html;
   const result = await addDealNote(apiToken, dealId, finalHtml);
 
-  if (result?.success && hash && leadId) {
+  // If the note actually failed to post, release the claim so a retry can succeed.
+  if (!result?.success && hash && leadId) {
     try {
       await supabase
         .from("lia_attendances")
-        .update({
-          last_seller_note_hash: hash,
-          last_seller_note_at: new Date().toISOString(),
-        })
-        .eq("id", leadId);
+        .update({ last_seller_note_hash: null, last_seller_note_at: null })
+        .eq("id", leadId)
+        .eq("last_seller_note_hash", hash);
     } catch (e) {
-      console.warn("[lia-assign] Failed to persist seller note hash:", e);
+      console.warn("[lia-assign] Failed to release seller note claim after addDealNote failure:", e);
     }
   }
 }
