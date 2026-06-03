@@ -470,6 +470,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_1_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
@@ -487,6 +488,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_2_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
@@ -504,6 +506,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_3_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
