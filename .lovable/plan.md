@@ -1,35 +1,59 @@
 ## Diagnóstico
 
-O loop vem do nosso `smart-ops-lia-assign`: em atualizações de oportunidade existente ele está enviando `origin_id` novamente para o PipeRun com base no `form_name` atual. Quando outro sync/webhook lê a origem real do PipeRun de volta, os dois lados passam a alternar a origem entre `BLZ- Smart Dent` e `# - FACE - BLZ INO110 PLUS + NOTEBOOK`.
+Olhando os logs e o código:
 
-Regra correta: origem de oportunidade existente deve ser preservada. Origem só deve ser definida na criação de uma nova oportunidade.
+1. **Spam de "deal enriched via redelivery" na timeline a cada minuto** — Meta re-entrega o mesmo `leadgen_id` continuamente. Hoje, mesmo quando o payload chega 100% idêntico ao já persistido (nada para enriquecer), `smart-ops-ingest-lead` ainda invoca `smart-ops-lia-assign` na rota universal de redelivery. Os logs confirmam: `ENRICHMENT_ROUTE: lead=... fields=[]` se repetindo a cada poucos minutos para os mesmos leads. Cada execução faz:
+   - PUT no deal no PipeRun (sem mudança real)
+   - `INSERT` em `lead_activity_log` com `event_type=deal_enriched_via_redelivery` → é o que aparece como evento na timeline do Smart Ops
+
+2. **Vários deals abertos para "lucas Freitas"** — a tela do PipeRun mostra deals abertos simultâneos em Sem contato, Proposta enviada (TEMP) × N, C2 × N, Apresentação, Estagnados. O CASE A da `routeDealForEnrichment` só pega UM deal aberto em VENDAS (`openDeals.find(...)`); se já existem N abertos em VENDAS, os outros nunca são reconciliados.
 
 ## Plano de correção
 
-1. **Congelar origem em oportunidades existentes**
-   - Remover `origin_id` do payload de `updateExistingDeal` em `supabase/functions/smart-ops-lia-assign/index.ts`.
-   - Assim, enriquecimentos, redeliveries Meta e atualizações de campos continuam funcionando, mas não mexem mais na origem do negócio.
+### Fix 1 — Curto-circuito de redelivery no-op (raiz do spam)
+Arquivo: `supabase/functions/smart-ops-ingest-lead/index.ts` (~linha 548-590)
 
-2. **Evitar troca de origem em reativação/movimentação**
-   - Remover `origin_id` do payload de `moveDealToVendas` quando a oportunidade já existe e apenas muda de funil/etapa.
-   - Preservar `origin_id` apenas em `createNewDeal`, pois nesse caso a oportunidade é nova.
+- Calcular `enrichedFields` **antes** de invocar `smart-ops-lia-assign`.
+- Se `enrichedFields.length === 0` AND `deferredRedeliveryVia` é redelivery puro (hard/family dedupe): **não** invocar `lia-assign`, **não** gravar `system_health_logs` repetidamente.
+- Retornar imediatamente `{ success: true, duplicate_skipped: true, dedupe_via, lead_id, incremental_enrichment: [] }`.
+- Continuar invocando `lia-assign` somente quando houver pelo menos um campo realmente enriquecido.
 
-3. **Limpar enriquecimento pós-criação**
-   - Em `createNewDeal`, manter `origin_id` no payload inicial de criação.
-   - Remover `origin_id` do segundo PUT de enriquecimento pós-criação, para evitar uma segunda alteração desnecessária na timeline do PipeRun.
+### Fix 2 — Guard de no-op dentro do CASE A
+Arquivo: `supabase/functions/smart-ops-lia-assign/index.ts` (~linha 1957-2013)
 
-4. **Neutralizar helper legado compartilhado**
-   - Ajustar `supabase/functions/_shared/piperun-hierarchy.ts` para não enviar `origin_id` em updates/moves de negócios existentes, mantendo apenas em criação.
-   - Isso impede regressão se algum fluxo voltar a usar esse helper.
+- Logo após localizar `vendaDeal`, se a invocação veio com `enriched_fields=[]` (rota de re-entrega Meta sem mudança):
+  - Pular o `updateExistingDeal` (PUT PipeRun)
+  - Pular o `INSERT` em `lead_activity_log`
+  - Apenas garantir que `lia_attendances.piperun_id` aponta para o `vendaDeal.id` (já costuma estar correto — fazer só se divergente).
+  - Retornar `{ flow_type: "preserve_vendas_noop", piperun_id, created_new: false, closed_deals: [] }`.
+- Assim, mesmo se algum fluxo legado ainda chamar a rota, não há mais escrita.
 
-5. **Adicionar auditoria/log preventivo**
-   - Adicionar log explícito indicando `origin=PRESERVED` em updates de oportunidades existentes.
-   - Facilita validar nos logs que o sistema parou de enviar `origin_id`.
+### Fix 3 — Consolidar múltiplos deals abertos em VENDAS
+Arquivo: `supabase/functions/smart-ops-lia-assign/index.ts` (mesma função `routeDealForEnrichment`, antes do CASE A)
 
-6. **Deploy e validação**
-   - Deploy da Edge Function `smart-ops-lia-assign`.
-   - Checar logs recentes buscando `origin_id`; o esperado é aparecer somente em criação de novo deal, não em `Updating deal`.
+- Detectar `openVendasDeals = openDeals.filter(d => pipeline_id === VENDAS && !freezed)`.
+- Se `openVendasDeals.length > 1`:
+  - Manter o mais recente como `vendaDeal` (ordenar por `updated_at` desc, fallback `created_at`).
+  - Fechar os demais com `status: 2` (Perdido) e `lost_reason: "duplicado_redelivery_meta"`.
+  - Adicionar nota curta no deal preservado: `"⚠️ [Dra. L.I.A.] N deal(s) duplicado(s) fechado(s): ID …"`.
+  - Registrar 1 entrada em `lead_activity_log` `event_type="vendas_duplicates_consolidated"`.
+- Não rodar este passo se `enriched_fields=[]` (combina com Fix 2 — ficar 100% silencioso em redelivery puro).
+
+### Fix 4 — Validação e deploy
+- Deploy de `smart-ops-ingest-lead` + `smart-ops-lia-assign`.
+- Conferir nos logs após 10 min: linhas `ENRICHMENT_ROUTE: ... fields=[]` devem sumir (o ingest passa a short-circuitar antes).
+- Conferir na timeline do Smart Ops: novas entradas `deal_enriched_via_redelivery` só devem aparecer quando há campo novo de fato (raro).
+- Para lucas Freitas (deal_id alvo a confirmar via Smart Ops Copilot), rodar uma re-entrega forçada para acionar Fix 3 e confirmar que sobra 1 deal aberto em VENDAS.
 
 ## Resultado esperado
 
-A timeline do PipeRun deixa de registrar alterações repetidas de origem. O sistema ainda atualiza vendedor, empresa, etapa, campos customizados e notas, mas a origem histórica da oportunidade fica estável.
+- Smart Ops timeline para de receber dezenas de eventos `deal_enriched_via_redelivery` por hora.
+- PipeRun para de receber PUTs idênticos sem mudança.
+- Leads com múltiplos deals abertos em VENDAS são consolidados em 1 só na próxima re-entrega legítima.
+- Comportamento de enriquecimento real (quando o lead realmente preenche um novo campo) permanece intacto.
+
+## Detalhes técnicos
+
+- `enrichmentDiff` já é calculado em `smart-ops-ingest-lead` (linha ~516); usar `Object.keys(enrichmentDiff).length === 0` como gate.
+- `lead_activity_log` continua recebendo `meta_family_dedupe_lifetime` (em `system_health_logs`) para auditoria, mas só 1x por leadgen_id novo (já é o caso).
+- Fix 3 é puramente reativo: roda quando há enriquecimento real, evitando loop entre redeliveries.
