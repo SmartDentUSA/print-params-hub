@@ -2032,6 +2032,26 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     
     ${content.content_html || ''}
     
+    ${(videos || []).filter((v: any) => v.embed_url || v.url).length > 0 ? `
+    <section data-section="videos" aria-label="Vídeos do artigo" style="margin:2rem 0">
+      <h2>Vídeos relacionados</h2>
+      ${(videos || []).filter((v: any) => v.embed_url || v.url).map((v: any, idx: number) => {
+        const src = (v.url || '').includes('youtube.com/watch?v=')
+          ? (v.url as string).replace('watch?v=', 'embed/')
+          : (v.embed_url || v.url);
+        const title = escapeHtml(v.title || `${content.title} - Vídeo ${idx + 1}`);
+        const poster = v.thumbnail_url ? `<img src="${escapeHtml(v.thumbnail_url)}" alt="${title}" loading="lazy" decoding="async" width="640" height="360" style="width:100%;max-width:640px;height:auto;border-radius:8px" />` : '';
+        return `<figure style="margin:1rem 0">
+          <div style="position:relative;width:100%;max-width:960px;aspect-ratio:16/9">
+            <iframe src="${escapeHtml(src)}" title="${title}" loading="lazy" allowfullscreen
+              style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px"></iframe>
+          </div>
+          <figcaption style="font-size:0.875rem;color:#555;margin-top:0.5rem">${title}</figcaption>
+          ${poster ? `<noscript>${poster}</noscript>` : ''}
+        </figure>`;
+      }).join('')}
+    </section>` : ''}
+
     ${recommendedResins.length > 0 ? `
     <section style="background:#f9f9f9;padding:1.5rem;margin:2rem 0;border-left:4px solid #007bff">
       <h2>Resinas Recomendadas para Este Artigo</h2>
