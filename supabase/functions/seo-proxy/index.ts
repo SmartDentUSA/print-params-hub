@@ -1418,6 +1418,7 @@ async function generateSystemACatalogHTML(
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: category === 'product' ? 'product' : 'review', name: item.name })}
   <link rel="canonical" href="${canonicalUrl}" />
+  ${buildHreflang({ pt: canonicalUrl })}
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
   <meta property="og:image" content="${ogImage}" />
@@ -1434,7 +1435,7 @@ async function generateSystemACatalogHTML(
         "description": item.description,
         "image": ogImage,
         "brand": { "@type": "Brand", "name": "Smart Dent" },
-        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock" },
+        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", ...merchantOfferExtras() },
         ...(item.rating && item.review_count > 0 && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": item.rating, "reviewCount": item.review_count, "bestRating": 5, "worstRating": 1 } }),
         ...(faqs.length > 0 && { "mainEntity": faqs.map((faq: any) => ({ "@type": "Question", "name": faq.question, "acceptedAnswer": { "@type": "Answer", "text": faq.answer } })) })
       },
