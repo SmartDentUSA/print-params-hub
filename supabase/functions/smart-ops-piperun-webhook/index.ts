@@ -800,9 +800,22 @@ Deno.serve(async (req) => {
     if (ids.companyHash) updateData.empresa_hash = ids.companyHash;
     if (ids.companyId) updateData.empresa_piperun_id = ids.companyId;
 
-    // Owner
-    if (ids.ownerName) updateData.proprietario_lead_crm = ids.ownerName;
-    else if (ids.ownerId && PIPERUN_USERS[ids.ownerId]) updateData.proprietario_lead_crm = PIPERUN_USERS[ids.ownerId].name;
+    // Owner — only overwrite when the webhook fires for the lead's PRIMARY deal
+    // (lead.piperun_id === dealId). Sibling deals keep their owner only inside
+    // piperun_deals_history; without this guard the lead.proprietario_lead_crm
+    // flaps every time a cron touches a non-primary deal with a different owner.
+    // Also reject purely numeric owner names (PipeRun user-ID leaks like "102594").
+    {
+      const isPrimaryDeal = String(currentLead?.piperun_id ?? "") === String(dealId);
+      const candidateOwner = ids.ownerName ?? (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null);
+      if (
+        isPrimaryDeal &&
+        candidateOwner &&
+        !/^\d+$/.test(String(candidateOwner).trim())
+      ) {
+        updateData.proprietario_lead_crm = candidateOwner;
+      }
+    }
     if (ids.stageName) updateData.status_atual_lead_crm = ids.stageName;
     if (ids.pipelineName) updateData.funil_entrada_crm = ids.pipelineName;
     else if (ids.pipelineId && PIPELINE_NAMES[ids.pipelineId]) updateData.funil_entrada_crm = PIPELINE_NAMES[ids.pipelineId];
