@@ -1,82 +1,51 @@
-## Diagnóstico
+## Problema
 
-Lead exemplo `9837dbad… (Thaís Mendonça)` está com `proprietario_lead_crm` alternando entre dois vendedores a cada hora, em ciclo:
+Notas de "Resumo do Lead / briefing" estão sendo postadas em duplicidade no PipeRun. A investigação encontrou **três edge functions independentes** que postam a mesma nota usando **dois sistemas de lock incompatíveis** entre si.
 
-```
-XX:20  → "102594"      (deal 60434744)
-XX:30  → "Lucas Silva" (deal 60237308)
-```
+## Causa raiz
 
-Cada flip dispara o trigger `fn_log_form_submission_to_timeline`, que insere um novo `seller_assigned` em `lead_activity_log`. Como o dedupe é por `(lead_id, entity_name=seller, 1h)` e o **nome muda a cada flip**, o dedupe nunca casa. Resultado: 150 eventos `seller_assigned` em 3 h e a timeline parece um loop infinito.
+| # | Path | Lock usado |
+|---|------|------------|
+| 1 | `smart-ops-lia-assign` (`postRichSellerNote`) | `smartops_deal_note_locks` (via `claimSellerNoteSlot`) |
+| 2 | `smart-ops-deal-form-note` | `smartops_deal_note_locks` (mesmo) |
+| 3 | `smart-ops-piperun-webhook` (linhas 1287–1334) | `lia_attendances.last_seller_note_hash/at` (5 min TTL) |
 
-### Causa raiz (duas, somadas)
+Como (3) não consulta a tabela usada por (1)/(2) e vice-versa, qualquer ciclo "lia-assign cria deal → PipeRun dispara webhook → piperun-webhook posta de novo" gera **2 notas idênticas**. Além disso, `claimSellerNoteSlot` em `_shared/seller-note-lock.ts:37–76` tem **race TOCTOU** (read → decide → upsert não atômico), então `deal-form-note` e `lia-assign` rodando em paralelo no mesmo deal também conseguem postar duas vezes.
 
-1. **Lead tem 2 deals ativos no PipeRun** (60434744 + 60237308) com donos diferentes. `smart-ops-piperun-webhook` (linhas 798–800) **sobrescreve `proprietario_lead_crm` sempre que QUALQUER deal vinculado é tocado**, sem checar se é o deal canônico (`piperun_id`). Como a integração nativa do PipeRun + crons (`smart-ops-piperun-funnel-reconciler` `*/20`, `smart-ops-piperun-retry-failed-leads` `*/15`, etc.) tocam ambos os deals dentro da mesma hora, o dono alterna determinístico entre os dois.
-2. **`ids.ownerName` chega como string numérica `"102594"`** (ID do usuário PipeRun cru). A linha 799 grava esse valor sem validar, produzindo `proprietario_lead_crm = "102594"` — que então aparece como "vendedor" na timeline.
+Notas administrativas adicionais em `lia-assign:2040, 2094, 2158` (`🔁 Re-entrega Meta…`) também rodam sem lock.
 
-Sem dados perdidos; é poluição de timeline + flapping inútil. O mesmo padrão se repete para Marcia Veraldi, Dr. Cauê Navarro, Adriano Leite, Dra Marcela Rabelo, etc. (todos com múltiplos deals).
+## Plano de correção
 
-## Correção
+### 1. Unificar lock em `smartops_deal_note_locks` (fim do split brain)
+- **`smart-ops-piperun-webhook/index.ts:1287–1334`**: remover o lock baseado em `lia_attendances.last_seller_note_*` e usar `claimSellerNoteSlot()` de `_shared/seller-note-lock.ts`.
+- Manter o gate de pipeline VENDAS + stage SEM_CONTATO.
+- Manter as colunas em `lia_attendances` por compatibilidade histórica (sem migração destrutiva agora).
 
-### 1. Migration — guardar contra nome numérico no trigger
+### 2. Tornar `claimSellerNoteSlot` atômico (fim do TOCTOU)
+- Criar função SQL `public.try_claim_seller_note_slot(p_deal_id, p_hash, p_ttl_seconds)` que faz `INSERT ... ON CONFLICT (deal_id) DO UPDATE ... WHERE last_hash IS DISTINCT FROM EXCLUDED.last_hash OR last_at < now() - interval ... RETURNING (xmax = 0 OR last_hash IS DISTINCT FROM ...)` num único statement.
+- Reescrever `_shared/seller-note-lock.ts:claimSellerNoteSlot` para chamar essa RPC em vez do read+upsert atual.
 
-Editar `fn_log_form_submission_to_timeline`: antes de inserir `seller_assigned`, rejeitar quando `NEW.proprietario_lead_crm ~ '^\d+$'`. Não mascara o problema upstream, mas impede que strings tipo `"102594"` virem evento de timeline mesmo se algum writer falhar no futuro.
+### 3. Guard adicional no piperun-webhook contra updates de deal
+- Após o gate atual, ler `deal.created_at` do payload do webhook e só permitir post se `now() - deal.created_at < 10 min` (i.e., é evento de criação, não update). Isso protege contra o webhook disparar nota nova a cada update de custom field feito pelo próprio lia-assign.
 
-Também: dedupe **adicional** por `(lead_id, 10 min)` independente do nome — qualquer `seller_assigned` no mesmo lead nos últimos 10 min bloqueia novo log. Reassignments reais não acontecem em janelas tão curtas; flapping cron sim.
+### 4. Throttle das notas de re-entrega Meta
+- **`smart-ops-lia-assign/index.ts:2040, 2094, 2158`**: envolver cada `addDealNote('🔁 Re-entrega Meta…')` numa checagem rápida em `lead_activity_log` (já existe parcialmente em 2086–2100). Padronizar: se já houve evento `deal_note_redelivery` para o mesmo `deal_id` nas últimas 24h, pular.
 
-### 2. `smart-ops-piperun-webhook` — só atualizar owner quando o deal é o primário do lead
+### 5. Limpeza opcional (não destrutiva)
+- Adicionar entrada em `system_health_logs` (`error_type='note_duplicate_skipped'`) toda vez que um lock bloqueia, para medirmos quantos duplicatas o fix evitou.
 
-Na rota de UPDATE (linhas 777–803), trocar:
+## Arquivos afetados
+- `supabase/functions/smart-ops-piperun-webhook/index.ts` (lock unificado + guard de update)
+- `supabase/functions/_shared/seller-note-lock.ts` (atomicidade via RPC)
+- `supabase/functions/smart-ops-lia-assign/index.ts` (throttle das notas de re-entrega)
+- 1 nova migração SQL: função `try_claim_seller_note_slot` + (opcional) índice em `smartops_deal_note_locks(deal_id)` se faltar
 
-```ts
-if (ids.ownerName) updateData.proprietario_lead_crm = ids.ownerName;
-else if (ids.ownerId && PIPERUN_USERS[ids.ownerId]) updateData.proprietario_lead_crm = PIPERUN_USERS[ids.ownerId].name;
-```
+## O que NÃO mexer
+- Tabela `smartops_deal_note_locks` (schema atual já serve)
+- Colunas `lia_attendances.last_seller_note_*` (manter por compatibilidade)
+- Fluxo de `dra-lia` / `ingest-lead` que dispara `lia-assign`/`deal-form-note` — apenas o lock muda
 
-por:
-
-```ts
-// Só sobrescreve owner do LEAD quando o webhook é do deal canônico
-// (lead.piperun_id === dealId). Caso contrário, owner do sibling fica só
-// no piperun_deals_history; lead.proprietario_lead_crm permanece estável.
-const isPrimaryDeal = String(currentLead?.piperun_id ?? "") === String(dealId);
-const candidateOwner =
-  ids.ownerName ??
-  (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null);
-
-if (isPrimaryDeal && candidateOwner && !/^\d+$/.test(String(candidateOwner))) {
-  updateData.proprietario_lead_crm = candidateOwner;
-}
-// piperun_owner_id continua sendo gravado abaixo (linha 813) p/ histórico.
-```
-
-Idem para o ramo "novo lead" (linha 618): rejeitar nome puramente numérico (`candidateOwner.match(/^\d+$/) ? null : candidateOwner`).
-
-### 3. Higienização one-off (mesma migration)
-
-```sql
--- Limpa "vendedores" numéricos que já vazaram
-UPDATE public.lia_attendances
-   SET proprietario_lead_crm = NULL
- WHERE proprietario_lead_crm ~ '^\d+$';
-
--- Purga seller_assigned com entity_name numérico das últimas 48 h
-DELETE FROM public.lead_activity_log
- WHERE event_type = 'seller_assigned'
-   AND entity_name ~ '^\d+$'
-   AND created_at > now() - interval '48 hours';
-```
-
-## Validação pós-deploy
-
-1. Consultar lead `9837dbad…` após o próximo ciclo (`:20`/`:30`): `proprietario_lead_crm` deve manter um único valor.
-2. `SELECT COUNT(*) FROM lead_activity_log WHERE event_type='seller_assigned' AND created_at > now() - interval '1 hour'` deve cair de ~50/h para dezenas por dia.
-3. Nenhum `entity_name` numérico em novos `seller_assigned`.
-4. Reassignments reais (mudança manual de vendedor no PipeRun para o deal primário) continuam sendo logados.
-
-## Fora de escopo
-
-- Resolver o `PIPERUN_USERS[102594]` faltando (adicionar mapping) — pode ser feito depois; o guard numérico já protege.
-- Diagnosticar por que o lead tem 2 deals abertos (consolidação de duplicates já roda em outro pipeline).
-- Bug `function row_to_jsonb(record) does not exist` e fix do `fn_notify_treinamento_agendado` (já tratados em planos anteriores).
-- Nenhuma mudança de frontend.
+## Validação
+1. Após deploy, monitorar `lead_activity_log` por evento `deal_note_posted` para confirmar que cada `deal_id` recebe no máximo uma nota de briefing por ciclo de criação.
+2. Verificar `system_health_logs` por `note_duplicate_skipped` para confirmar que os locks estão sendo acionados.
+3. Conferir manualmente 5 deals novos criados após o fix no PipeRun para garantir 1 nota só.
