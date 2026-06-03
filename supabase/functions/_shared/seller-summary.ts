@@ -8,6 +8,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diagnoseLead, renderDiagnosisHTML } from "./workflow-diagnosis.ts";
+import { fetchProductDossier } from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -46,6 +47,9 @@ export interface SellerSummaryOptions {
   /** Optional latest form submission to highlight at the top (e.g., the one that just triggered the note). */
   highlightFormResponses?: Array<{ label: string; value: string }>;
   highlightFormName?: string;
+  /** PipeRun deal id this note is being posted on — used only for hashing
+   * so the same content posted on two different deals counts as two notes. */
+  dealId?: number | null;
 }
 
 export async function buildSellerDealSummaryHTML(
@@ -320,6 +324,8 @@ export async function buildSellerDealSummaryHTML(
   // identical content don't trigger a fresh PipeRun note. Without this,
   // every Meta webhook redelivery posted a new identical "Resumo do Lead".
   const hashable = html.replace(/<i>Atualizado em [^<]*<\/i><br>/g, "");
-  const hash = await sha256Hex(hashable);
+  // Include dealId in the hash space so the same content posted on two
+  // different deals counts as two distinct notes (per-deal lock semantics).
+  const hash = await sha256Hex(`${opts.dealId ?? ""}::${hashable}`);
   return { html, hash };
 }
