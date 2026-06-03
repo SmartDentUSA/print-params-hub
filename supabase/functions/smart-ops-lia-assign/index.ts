@@ -715,7 +715,6 @@ async function postRichSellerNote(
         .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
         .eq("id", leadId)
         .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
-        .neq("last_seller_note_hash", hash)
         .select("id")
         .maybeSingle();
       if (claimErr) {

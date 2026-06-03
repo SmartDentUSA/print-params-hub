@@ -93,7 +93,6 @@ Deno.serve(async (req) => {
         .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
         .eq("id", lead_id)
         .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
-        .neq("last_seller_note_hash", hash)
         .select("id")
         .maybeSingle();
       if (claimErr) {
