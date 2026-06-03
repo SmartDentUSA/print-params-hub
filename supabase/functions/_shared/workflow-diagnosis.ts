@@ -106,6 +106,11 @@ export interface SpinBriefing {
    * (`gap_ofensivo` — terceiriza/não internalizou → ofensiva comercial).
    */
   roteiro_perfilamento?: RoteiroItem[];
+  /** True when Gemini enrichment actually returned a usable briefing.
+   * When false/undefined the caller should NOT render the seed `perguntas_spin`
+   * to the seller — they tend to leak placeholders like `[object Object]`.
+   */
+  llm_succeeded?: boolean;
 }
 
 export interface RoteiroItem {
