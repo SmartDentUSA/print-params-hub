@@ -32,7 +32,7 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
       <div className="flex gap-4 items-start">
         {/* Foto do autor */}
         {author.photo_url ? (
-          <img 
+          <img loading="lazy" decoding="async" 
             src={author.photo_url} 
             alt={author.name}
             className="w-20 h-20 rounded-full object-cover border-2 border-black flex-shrink-0"

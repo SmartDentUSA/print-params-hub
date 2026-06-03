@@ -53,6 +53,53 @@ const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 
 // Favicon Tags para SEO
 const BASE_URL = 'https://parametros.smartdent.com.br';
+
+// ===== JSON-LD SAFETY =====
+// Evita "Erro de análise" no GSC quando o conteúdo contém `<`, `>`, `&`
+// ou (pior) a substring `</script>` que quebra o bloco JSON-LD inline.
+// Sempre usar safeLd(obj) ao injetar JSON-LD em <script type="application/ld+json">.
+function safeLd(obj: unknown): string {
+  return JSON.stringify(obj)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+// Renderiza <link rel="alternate" hreflang> para um conjunto de URLs por idioma
+function buildHreflang(urls: { pt: string; en?: string; es?: string }): string {
+  const tags: string[] = [`<link rel="alternate" hreflang="pt-BR" href="${urls.pt}" />`];
+  if (urls.en) tags.push(`<link rel="alternate" hreflang="en-US" href="${urls.en}" />`);
+  if (urls.es) tags.push(`<link rel="alternate" hreflang="es-ES" href="${urls.es}" />`);
+  tags.push(`<link rel="alternate" hreflang="x-default" href="${urls.pt}" />`);
+  return tags.join('\n  ');
+}
+
+// Bloco de envio/devolução exigido pelo Google Merchant Listings (smartdent.com.br/BR)
+function merchantOfferExtras() {
+  return {
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "BR",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 7,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn"
+    },
+    shippingDetails: {
+      "@type": "OfferShippingDetails",
+      shippingRate: { "@type": "MonetaryAmount", value: "0", currency: "BRL" },
+      shippingDestination: { "@type": "DefinedRegion", addressCountry: "BR" },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+        transitTime:  { "@type": "QuantitativeValue", minValue: 2, maxValue: 7, unitCode: "DAY" }
+      }
+    }
+  };
+}
+
 const FAVICON_TAGS = `
   <link rel="icon" type="image/x-icon" href="${BASE_URL}/favicon.ico?v=6">
   <link rel="icon" type="image/png" sizes="16x16" href="${BASE_URL}/favicon-16x16.png?v=6">
@@ -139,7 +186,7 @@ function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): 
   const schema: Record<string, unknown> = { "@context": "https://schema.org" };
   if (about.length > 0) schema.about = about;
   if (mentions.length > 0) schema.mentions = mentions;
-  return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+  return `<script type="application/ld+json">${safeLd(schema)}</script>`;
 }
 
 // ===== KNOWLEDGE CONTEXT: Dynamic data from system =====
@@ -345,7 +392,7 @@ function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
   });
   
   if (nodes.length === 0) return '';
-  return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
+  return `<script type="application/ld+json">${safeLd({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
 }
 
 function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
@@ -957,13 +1004,14 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Impressão 3D Odontológica' })}
   <link rel="canonical" href="${baseUrl}/" />
+  ${buildHreflang({ pt: `${baseUrl}/`, en: `${baseUrl}/en`, es: `${baseUrl}/es` })}
   <meta property="og:title" content="Hub de Fluxo Digital e Parâmetros 3D | Smart Dent" />
   <meta property="og:description" content="Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design." />
   <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1043,13 +1091,14 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'brand', name: brand.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
+  ${buildHreflang({ pt: `${baseUrl}/${brandSlug}` })}
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`}" />
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "Organization", "name": escapeHtml(brand.name), "url": `${baseUrl}/${brandSlug}`, "logo": brand.logo_url },
@@ -1126,13 +1175,14 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: model.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
+  ${buildHreflang({ pt: `${baseUrl}/${brandSlug}/${modelSlug}` })}
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
   ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: `${baseUrl}/${brandSlug}/${modelSlug}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1233,13 +1283,14 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: resinName })}
   <link rel="canonical" href="${canonicalUrl}" />
+  ${buildHreflang({ pt: canonicalUrl })}
   <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
   ${buildAIHeadTags({ context: contextText, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1253,7 +1304,9 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
           "availability": "https://schema.org/InStock",
           "url": canonicalUrl,
           "price": resinData?.price || undefined,
-          "priceCurrency": resinData?.price ? "BRL" : undefined
+          "priceCurrency": resinData?.price ? "BRL" : undefined,
+          "itemCondition": "https://schema.org/NewCondition",
+          ...merchantOfferExtras()
         },
         "additionalProperty": [
           { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
@@ -1367,6 +1420,7 @@ async function generateSystemACatalogHTML(
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: category === 'product' ? 'product' : 'review', name: item.name })}
   <link rel="canonical" href="${canonicalUrl}" />
+  ${buildHreflang({ pt: canonicalUrl })}
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
   <meta property="og:image" content="${ogImage}" />
@@ -1374,7 +1428,7 @@ async function generateSystemACatalogHTML(
   <meta property="og:type" content="${category === 'product' ? 'product' : 'article'}" />
   ${buildAIHeadTags({ context: aiContext, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
-  ${JSON.stringify(category === 'product' ? {
+  ${safeLd(category === 'product' ? {
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1383,7 +1437,7 @@ async function generateSystemACatalogHTML(
         "description": item.description,
         "image": ogImage,
         "brand": { "@type": "Brand", "name": "Smart Dent" },
-        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock" },
+        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", ...merchantOfferExtras() },
         ...(item.rating && item.review_count > 0 && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": item.rating, "reviewCount": item.review_count, "bestRating": 5, "worstRating": 1 } }),
         ...(faqs.length > 0 && { "mainEntity": faqs.map((faq: any) => ({ "@type": "Question", "name": faq.question, "acceptedAnswer": { "@type": "Answer", "text": faq.answer } })) })
       },
@@ -1480,7 +1534,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "WebSite", "name": "Base de Conhecimento Smart Dent", "url": `${baseUrl}/base-conhecimento`, "description": "Artigos e tutoriais sobre impressão 3D odontológica" },
@@ -1547,13 +1601,14 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'category', name: category.name })}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
+  ${buildHreflang({ pt: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`, en: `${baseUrl}/en/knowledge-base/${letter.toLowerCase()}`, es: `${baseUrl}/es/base-conocimiento/${letter.toLowerCase()}` })}
   <meta property="og:title" content="${escapeHtml(category.name)} - Base de Conhecimento" />
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "CollectionPage", "name": `${category.letter} - ${category.name}`, "description": description, "url": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`, "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl } },
@@ -1897,7 +1952,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       }
     ];
     
-    return JSON.stringify({
+    return safeLd({
       "@context": "https://schema.org",
       "@graph": graph
     });
@@ -1977,6 +2032,26 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     
     ${content.content_html || ''}
     
+    ${(videos || []).filter((v: any) => v.embed_url || v.url).length > 0 ? `
+    <section data-section="videos" aria-label="Vídeos do artigo" style="margin:2rem 0">
+      <h2>Vídeos relacionados</h2>
+      ${(videos || []).filter((v: any) => v.embed_url || v.url).map((v: any, idx: number) => {
+        const src = (v.url || '').includes('youtube.com/watch?v=')
+          ? (v.url as string).replace('watch?v=', 'embed/')
+          : (v.embed_url || v.url);
+        const title = escapeHtml(v.title || `${content.title} - Vídeo ${idx + 1}`);
+        const poster = v.thumbnail_url ? `<img src="${escapeHtml(v.thumbnail_url)}" alt="${title}" loading="lazy" decoding="async" width="640" height="360" style="width:100%;max-width:640px;height:auto;border-radius:8px" />` : '';
+        return `<figure style="margin:1rem 0">
+          <div style="position:relative;width:100%;max-width:960px;aspect-ratio:16/9">
+            <iframe src="${escapeHtml(src)}" title="${title}" loading="lazy" allowfullscreen
+              style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px"></iframe>
+          </div>
+          <figcaption style="font-size:0.875rem;color:#555;margin-top:0.5rem">${title}</figcaption>
+          ${poster ? `<noscript>${poster}</noscript>` : ''}
+        </figure>`;
+      }).join('')}
+    </section>` : ''}
+
     ${recommendedResins.length > 0 ? `
     <section style="background:#f9f9f9;padding:1.5rem;margin:2rem 0;border-left:4px solid #007bff">
       <h2>Resinas Recomendadas para Este Artigo</h2>

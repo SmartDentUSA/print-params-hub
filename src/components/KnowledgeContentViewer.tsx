@@ -471,6 +471,10 @@ ${processedHTML}
               src={content.content_image_url || content.og_image_url} 
               alt={content.content_image_alt || content.title}
               loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              width={1200}
+              height={675}
               style={{ aspectRatio: '16/9', objectFit: 'cover' }}
             />
           </div>
@@ -564,6 +568,7 @@ ${processedHTML}
                     src={getVideoEmbedUrl(video, language)}
                     className="w-full h-full"
                     allowFullScreen
+                    loading="lazy"
                     title={video.title || `Vídeo ${idx + 1}`}
                   />
                   {video.is_premium && gatedVideoIds.has(video.id) && (
@@ -664,6 +669,10 @@ ${processedHTML}
                       src={article.og_image_url} 
                       alt={article.title} 
                       className="w-full h-40 object-cover rounded-t-lg"
+                      loading="lazy"
+                      decoding="async"
+                      width={400}
+                      height={160}
                     />
                   )}
                   <CardContent className="p-4">

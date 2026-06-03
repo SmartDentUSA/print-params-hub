@@ -151,6 +151,28 @@ const generateAIContext = (
 export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOHeadProps) => {
   const baseUrl = 'https://parametros.smartdent.com.br';
   const { data: companyData } = useCompanyData();
+
+  // Campos obrigatórios do Google Merchant Listings (BR)
+  const merchantOfferExtras = {
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "BR",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 7,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn"
+    },
+    shippingDetails: {
+      "@type": "OfferShippingDetails",
+      shippingRate: { "@type": "MonetaryAmount", value: "0", currency: "BRL" },
+      shippingDestination: { "@type": "DefinedRegion", addressCountry: "BR" },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+        transitTime:  { "@type": "QuantitativeValue", minValue: 2, maxValue: 7, unitCode: "DAY" }
+      }
+    }
+  } as const;
   
   // Generate dynamic title and description
   let title = 'Hub de Fluxo Digital e Parâmetros 3D | Smart Dent';
@@ -310,6 +332,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
           "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
           "itemCondition": "https://schema.org/NewCondition",
+          ...merchantOfferExtras,
           "description": resin.cta_1_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
@@ -327,6 +350,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
           "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
           "itemCondition": "https://schema.org/NewCondition",
+          ...merchantOfferExtras,
           "description": resin.cta_2_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
@@ -344,6 +368,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
           "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
           "itemCondition": "https://schema.org/NewCondition",
+          ...merchantOfferExtras,
           "description": resin.cta_3_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
@@ -448,6 +473,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_1_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
@@ -465,6 +491,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_2_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
@@ -482,6 +509,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
               "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
               "itemCondition": "https://schema.org/NewCondition",
+              ...merchantOfferExtras,
               "description": resin.cta_3_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",

@@ -23,7 +23,7 @@ export function AuthorBio({ author }: AuthorBioProps) {
       <div className="flex flex-col items-center text-center space-y-4">
         {/* Foto do autor */}
         {author.photo_url ? (
-          <img 
+          <img loading="lazy" decoding="async" 
             src={author.photo_url} 
             alt={author.name}
             className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
