@@ -53,6 +53,53 @@ const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 
 // Favicon Tags para SEO
 const BASE_URL = 'https://parametros.smartdent.com.br';
+
+// ===== JSON-LD SAFETY =====
+// Evita "Erro de análise" no GSC quando o conteúdo contém `<`, `>`, `&`
+// ou (pior) a substring `</script>` que quebra o bloco JSON-LD inline.
+// Sempre usar safeLd(obj) ao injetar JSON-LD em <script type="application/ld+json">.
+function safeLd(obj: unknown): string {
+  return JSON.stringify(obj)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+// Renderiza <link rel="alternate" hreflang> para um conjunto de URLs por idioma
+function buildHreflang(urls: { pt: string; en?: string; es?: string }): string {
+  const tags: string[] = [`<link rel="alternate" hreflang="pt-BR" href="${urls.pt}" />`];
+  if (urls.en) tags.push(`<link rel="alternate" hreflang="en-US" href="${urls.en}" />`);
+  if (urls.es) tags.push(`<link rel="alternate" hreflang="es-ES" href="${urls.es}" />`);
+  tags.push(`<link rel="alternate" hreflang="x-default" href="${urls.pt}" />`);
+  return tags.join('\n  ');
+}
+
+// Bloco de envio/devolução exigido pelo Google Merchant Listings (smartdent.com.br/BR)
+function merchantOfferExtras() {
+  return {
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "BR",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 7,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn"
+    },
+    shippingDetails: {
+      "@type": "OfferShippingDetails",
+      shippingRate: { "@type": "MonetaryAmount", value: "0", currency: "BRL" },
+      shippingDestination: { "@type": "DefinedRegion", addressCountry: "BR" },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+        transitTime:  { "@type": "QuantitativeValue", minValue: 2, maxValue: 7, unitCode: "DAY" }
+      }
+    }
+  };
+}
+
 const FAVICON_TAGS = `
   <link rel="icon" type="image/x-icon" href="${BASE_URL}/favicon.ico?v=6">
   <link rel="icon" type="image/png" sizes="16x16" href="${BASE_URL}/favicon-16x16.png?v=6">
