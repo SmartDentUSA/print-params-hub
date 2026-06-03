@@ -1926,9 +1926,18 @@ async function executarEnrichmentDealRoute(
 
   const allDeals = await findPersonDeals(apiToken, personId);
   const openDeals = allDeals.filter((d) => Number(d.status) === 0);
-  const vendaDeal = openDeals.find(
-    (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed,
-  );
+  // Multiple open VENDAS deals can pile up over time (CSV imports + form
+  // re-deliveries + manual re-opens). Sort by updated_at desc and keep ONE
+  // canonical; the others will be closed as duplicates further below.
+  const openVendasDeals = openDeals
+    .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed)
+    .sort((a, b) => {
+      const at = String((a.updated_at as string) || (a.created_at as string) || "");
+      const bt = String((b.updated_at as string) || (b.created_at as string) || "");
+      return bt.localeCompare(at);
+    });
+  const vendaDeal = openVendasDeals[0];
+  const duplicateVendasDeals = openVendasDeals.slice(1);
   // Pipelines protegidos: NUNCA fechados por re-entrega Meta. Cliente em
   // onboarding/CS pode receber novo deal em VENDAS (nova intenção comercial)
   // mas o trabalho de CS é preservado intacto.
@@ -1957,6 +1966,76 @@ async function executarEnrichmentDealRoute(
   // CASE A — Deal aberto em VENDAS → preserva owner + atualiza
   if (vendaDeal) {
     const dealOwnerId = Number(vendaDeal.owner_id ?? 0);
+    // ── NO-OP REDELIVERY GUARD ──
+    // If the upstream invocation reports zero enriched fields AND there are
+    // no duplicate VENDAS deals to clean up, this is a pure Meta re-delivery
+    // with nothing to do. Skip the PipeRun PUT + lead_activity_log insert to
+    // stop the Smart Ops timeline spam.
+    if (enrichedFields.length === 0 && duplicateVendasDeals.length === 0) {
+      console.log(
+        `[lia-assign] CASE A NO-OP: deal=${vendaDeal.id} (no enrichment, no dupes) — skipping PUT + activity log`,
+      );
+      // Keep piperun_id pointer in sync only if drifted.
+      if (Number(lead.piperun_id ?? 0) !== Number(vendaDeal.id)) {
+        await supabase
+          .from("lia_attendances")
+          .update({ piperun_id: Number(vendaDeal.id) })
+          .eq("id", leadId);
+      }
+      return {
+        flow_type: "preserve_vendas_noop",
+        piperun_id: String(vendaDeal.id),
+        created_new: false,
+        closed_deals: [],
+      };
+    }
+    // ── CONSOLIDATE DUPLICATE OPEN VENDAS DEALS ──
+    const consolidatedDupes: Array<{ id: string }> = [];
+    if (duplicateVendasDeals.length > 0) {
+      console.log(
+        `[lia-assign] CASE A consolidating ${duplicateVendasDeals.length} duplicate open VENDAS deals (keeping ${vendaDeal.id})`,
+      );
+      for (const dup of duplicateVendasDeals) {
+        try {
+          await piperunPut(apiToken, `deals/${dup.id}`, {
+            status: 2,
+            lost_reason: "duplicado_redelivery_meta",
+          });
+          consolidatedDupes.push({ id: String(dup.id) });
+        } catch (e) {
+          console.warn(`[lia-assign] failed to close duplicate deal ${dup.id}:`, e);
+        }
+      }
+      if (consolidatedDupes.length > 0) {
+        try {
+          await addDealNote(
+            apiToken,
+            Number(vendaDeal.id),
+            `⚠️ [Dra. L.I.A.] ${consolidatedDupes.length} deal(s) duplicado(s) em VENDAS fechado(s) como Perdido: ${consolidatedDupes.map((d) => d.id).join(", ")}.`,
+          );
+        } catch (e) {
+          console.warn("[lia-assign] failed to add consolidation note:", e);
+        }
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: leadId,
+            event_type: "vendas_duplicates_consolidated",
+            entity_type: "deal",
+            entity_id: String(vendaDeal.id),
+            entity_name: "Deals duplicados consolidados",
+            event_data: {
+              kept_deal: String(vendaDeal.id),
+              closed_deals: consolidatedDupes,
+              motivo: "duplicado_redelivery_meta",
+            },
+            source_channel: "form",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.warn("[lia-assign] failed to log consolidation:", e);
+        }
+      }
+    }
     console.log(
       `[lia-assign] CASE A preserve_vendas: deal=${vendaDeal.id} enrichedFields=${enrichedFields.length} (${enrichedFields.join(",") || "—"})`,
     );
