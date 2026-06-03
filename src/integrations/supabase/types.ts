@@ -26456,6 +26456,10 @@ export type Database = {
         Args: { target_lead_id: string }
         Returns: boolean
       }
+      release_seller_note_slot: {
+        Args: { p_content_hash: string; p_deal_id: number }
+        Returns: undefined
+      }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
         Returns: {
@@ -26479,6 +26483,19 @@ export type Database = {
       try_claim_lia_note: {
         Args: { p_lead_id: string; p_note_type?: string }
         Returns: boolean
+      }
+      try_claim_seller_note_slot: {
+        Args: {
+          p_burst_floor_seconds?: number
+          p_content_hash: string
+          p_deal_id: number
+          p_lead_id: string
+          p_ttl_seconds?: number
+        }
+        Returns: {
+          claimed: boolean
+          reason: string
+        }[]
       }
       try_lock_cognitive_analysis: {
         Args: { target_lead_id: string }

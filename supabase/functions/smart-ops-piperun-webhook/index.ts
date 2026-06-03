@@ -23,6 +23,7 @@ import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
+import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1301,36 +1302,25 @@ Deno.serve(async (req) => {
           .single();
         if (fullLead) {
           const { html, hash } = await buildSellerDealSummaryHTML(supabase, fullLead as Record<string, unknown>);
-          // Atomic claim shared with lia-assign and deal-form-note: only one
-          // worker per 5-minute window posts a Resumo do Lead, regardless of
-          // hash changes mid-race (CRM/history updates between concurrent
-          // builds would otherwise yield two near-simultaneous duplicates).
-          const nowIso = new Date().toISOString();
-          const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-          const { data: claimed, error: claimErr } = await supabase
-            .from("lia_attendances")
-            .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
-            .eq("id", leadId)
-            .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
-            .select("id")
-            .maybeSingle();
-          if (claimErr) {
-            console.warn(`[piperun-webhook] seller-note claim update failed (proceeding without lock):`, claimErr);
-          }
-          if (!claimErr && !claimed) {
-            console.log(`[piperun-webhook] Seller note slot busy/recent (<5min) — skip deal ${dealId}`);
+          // Unified atomic claim — same lock as lia-assign and deal-form-note.
+          // Prevents the previous split-brain (lia_attendances columns vs.
+          // smartops_deal_note_locks) that caused duplicate notes whenever a
+          // deal was created by lia-assign and PipeRun fired this webhook
+          // moments later.
+          const claim = await claimSellerNoteSlot(supabase, {
+            dealId: Number(dealId),
+            leadId,
+            contentHash: hash,
+          });
+          if (!claim.ok) {
+            console.log(`[piperun-webhook] Seller note slot busy (${claim.reason}) — skip deal ${dealId}`);
           } else {
             const noteRes = await addDealNote(PIPERUN_API_KEY, Number(dealId), html);
             if (noteRes.success) {
               console.log(`[piperun-webhook] Seller summary posted to deal ${dealId}`);
             } else {
               console.warn(`[piperun-webhook] addDealNote failed (${noteRes.status})`);
-              // Release claim so a retry can post later.
-              await supabase
-                .from("lia_attendances")
-                .update({ last_seller_note_hash: null, last_seller_note_at: null })
-                .eq("id", leadId)
-                .eq("last_seller_note_hash", hash);
+              await releaseSellerNoteSlot(supabase, { dealId: Number(dealId), contentHash: hash });
             }
           }
         }
