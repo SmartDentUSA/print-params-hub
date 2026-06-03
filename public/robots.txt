@@ -54,13 +54,7 @@ Disallow: /admin
 Disallow: /admin/
 
 # ==== SITEMAPS ====
-Sitemap: https://parametros.smartdent.com.br/sitemap-index.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap.xml
-Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-pt.xml
-Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-en.xml
-Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-es.xml
-Sitemap: https://parametros.smartdent.com.br/sitemap-documentos.xml
-Sitemap: https://parametros.smartdent.com.br/video-sitemap.xml
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 
 # ==== LLMs.txt ====
@@ -69,24 +63,3 @@ Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 # Available at: https://parametros.smartdent.com.br/llms.txt
 LLMs: /llms.txt
 LLMs-Full: /llms-full.txt
-
-# Agentes de IA
-User-agent: GPTBot
-Allow: /
-
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: Anthropic-ai
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-LLMs: /llms.txt
