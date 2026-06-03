@@ -255,6 +255,7 @@ interface LeadRecord {
   lead_status: string;
   tags_crm: string[] | null;
   piperun_deals_history: unknown[] | null;
+  piperun_id: string | null;
 }
 
 async function findLeadByCascade(
@@ -270,7 +271,7 @@ async function findLeadByCascade(
     dealHash?: string | null;
   },
 ): Promise<LeadRecord | null> {
-  const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history";
+  const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history, piperun_id";
 
   // 1. By piperun_id (current deal)
   const { data: byDeal } = await supabase
@@ -615,7 +616,11 @@ Deno.serve(async (req) => {
         lead_status: resolvedStatus,
         produto_interesse: customFields.produtoInteresse || null,
         area_atuacao: ids.personJobTitle || null,
-        proprietario_lead_crm: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+        proprietario_lead_crm: (() => {
+          const cand = ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null;
+          // Guard: never persist a purely numeric owner name (PipeRun user ID leak)
+          return cand && !/^\d+$/.test(String(cand).trim()) ? cand : null;
+        })(),
         status_atual_lead_crm: ids.stageName || null,
         funil_entrada_crm: ids.pipelineName || (ids.pipelineId ? PIPELINE_NAMES[ids.pipelineId] : null) || null,
         cidade: ids.personCity || null,
@@ -795,9 +800,22 @@ Deno.serve(async (req) => {
     if (ids.companyHash) updateData.empresa_hash = ids.companyHash;
     if (ids.companyId) updateData.empresa_piperun_id = ids.companyId;
 
-    // Owner
-    if (ids.ownerName) updateData.proprietario_lead_crm = ids.ownerName;
-    else if (ids.ownerId && PIPERUN_USERS[ids.ownerId]) updateData.proprietario_lead_crm = PIPERUN_USERS[ids.ownerId].name;
+    // Owner — only overwrite when the webhook fires for the lead's PRIMARY deal
+    // (lead.piperun_id === dealId). Sibling deals keep their owner only inside
+    // piperun_deals_history; without this guard the lead.proprietario_lead_crm
+    // flaps every time a cron touches a non-primary deal with a different owner.
+    // Also reject purely numeric owner names (PipeRun user-ID leaks like "102594").
+    {
+      const isPrimaryDeal = String(currentLead?.piperun_id ?? "") === String(dealId);
+      const candidateOwner = ids.ownerName ?? (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null);
+      if (
+        isPrimaryDeal &&
+        candidateOwner &&
+        !/^\d+$/.test(String(candidateOwner).trim())
+      ) {
+        updateData.proprietario_lead_crm = candidateOwner;
+      }
+    }
     if (ids.stageName) updateData.status_atual_lead_crm = ids.stageName;
     if (ids.pipelineName) updateData.funil_entrada_crm = ids.pipelineName;
     else if (ids.pipelineId && PIPELINE_NAMES[ids.pipelineId]) updateData.funil_entrada_crm = PIPELINE_NAMES[ids.pipelineId];

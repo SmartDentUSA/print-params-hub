@@ -1,69 +1,82 @@
 ## Diagnóstico
 
-Verifiquei a tabela `smartops_course_enrollments` e seus triggers. O último agendamento gravado foi em **28/05/2026** — nenhum INSERT bem-sucedido desde então, embora o usuário esteja clicando em "Confirmar".
-
-Nos logs do Postgres aparecem, recorrentes nas últimas horas:
+Lead exemplo `9837dbad… (Thaís Mendonça)` está com `proprietario_lead_crm` alternando entre dois vendedores a cada hora, em ciclo:
 
 ```
-function net.http_post(url => unknown, headers => jsonb, body => text) does not exist
+XX:20  → "102594"      (deal 60434744)
+XX:30  → "Lucas Silva" (deal 60237308)
 ```
 
-### Causa raiz
+Cada flip dispara o trigger `fn_log_form_submission_to_timeline`, que insere um novo `seller_assigned` em `lead_activity_log`. Como o dedupe é por `(lead_id, entity_name=seller, 1h)` e o **nome muda a cada flip**, o dedupe nunca casa. Resultado: 150 eventos `seller_assigned` em 3 h e a timeline parece um loop infinito.
 
-O trigger `trg_wa_treinamento_agendado` (AFTER INSERT) chama a função `fn_notify_treinamento_agendado`, que invoca:
+### Causa raiz (duas, somadas)
 
-```sql
-net.http_post(
-  url     := 'https://.../cs-treinamento-agendado',
-  headers := '{...}'::jsonb,
-  body    := jsonb_build_object('enrollment_id', NEW.id)::text   -- ❌ text
-);
-```
+1. **Lead tem 2 deals ativos no PipeRun** (60434744 + 60237308) com donos diferentes. `smart-ops-piperun-webhook` (linhas 798–800) **sobrescreve `proprietario_lead_crm` sempre que QUALQUER deal vinculado é tocado**, sem checar se é o deal canônico (`piperun_id`). Como a integração nativa do PipeRun + crons (`smart-ops-piperun-funnel-reconciler` `*/20`, `smart-ops-piperun-retry-failed-leads` `*/15`, etc.) tocam ambos os deals dentro da mesma hora, o dono alterna determinístico entre os dois.
+2. **`ids.ownerName` chega como string numérica `"102594"`** (ID do usuário PipeRun cru). A linha 799 grava esse valor sem validar, produzindo `proprietario_lead_crm = "102594"` — que então aparece como "vendedor" na timeline.
 
-A assinatura real do `pg_net` é `(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds int)`. Como a função passa `body` como **text**, o Postgres não resolve nenhum overload e lança `ERROR`. Por ser AFTER trigger sem `EXCEPTION` block, a exceção propaga e **faz rollback do INSERT inteiro** — o agendamento nunca é gravado, mas o frontend pode receber resposta confusa porque o cliente PostgREST do `.insert().select().single()` retorna erro do trigger (provavelmente vindo como toast genérico que o usuário não associa ao trigger).
-
-Os demais triggers (`fn_enrollment_writeback`, `fn_sync_enrollment_count`, `set_updated_at`) estão íntegros.
+Sem dados perdidos; é poluição de timeline + flapping inútil. O mesmo padrão se repete para Marcia Veraldi, Dr. Cauê Navarro, Adriano Leite, Dra Marcela Rabelo, etc. (todos com múltiplos deals).
 
 ## Correção
 
-**Nova migration** recriando `public.fn_notify_treinamento_agendado` com dois ajustes:
+### 1. Migration — guardar contra nome numérico no trigger
 
-1. Passar `body` como `jsonb` (sem `::text`), na ordem correta dos parâmetros nomeados do `pg_net`.
-2. Envolver a chamada em `BEGIN ... EXCEPTION WHEN OTHERS THEN ... END` que apenas loga em `system_health_logs` (`error_type='enrollment_notify_failed'`) e **nunca propaga** — assim qualquer falha futura na função edge `cs-treinamento-agendado` ou no pg_net jamais voltará a bloquear o INSERT do agendamento.
+Editar `fn_log_form_submission_to_timeline`: antes de inserir `seller_assigned`, rejeitar quando `NEW.proprietario_lead_crm ~ '^\d+$'`. Não mascara o problema upstream, mas impede que strings tipo `"102594"` virem evento de timeline mesmo se algum writer falhar no futuro.
 
-```sql
-CREATE OR REPLACE FUNCTION public.fn_notify_treinamento_agendado()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-  IF NEW.status = 'agendado'
-     AND (OLD.status IS DISTINCT FROM 'agendado')
-     AND NEW.wa_sent_at IS NULL
-     AND NEW.lead_id IS NOT NULL
-  THEN
-    BEGIN
-      PERFORM net.http_post(
-        url     := 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/cs-treinamento-agendado',
-        body    := jsonb_build_object('enrollment_id', NEW.id),
-        headers := '{"Content-Type":"application/json"}'::jsonb
-      );
-    EXCEPTION WHEN OTHERS THEN
-      INSERT INTO public.system_health_logs(error_type, error_message, context)
-      VALUES ('enrollment_notify_failed', SQLERRM,
-              jsonb_build_object('enrollment_id', NEW.id, 'sqlstate', SQLSTATE));
-    END;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+Também: dedupe **adicional** por `(lead_id, 10 min)` independente do nome — qualquer `seller_assigned` no mesmo lead nos últimos 10 min bloqueia novo log. Reassignments reais não acontecem em janelas tão curtas; flapping cron sim.
+
+### 2. `smart-ops-piperun-webhook` — só atualizar owner quando o deal é o primário do lead
+
+Na rota de UPDATE (linhas 777–803), trocar:
+
+```ts
+if (ids.ownerName) updateData.proprietario_lead_crm = ids.ownerName;
+else if (ids.ownerId && PIPERUN_USERS[ids.ownerId]) updateData.proprietario_lead_crm = PIPERUN_USERS[ids.ownerId].name;
 ```
 
-## Validação pós-migration
+por:
 
-1. Rodar um INSERT de teste manual em `smartops_course_enrollments` e confirmar que a linha persiste.
-2. Pedir ao usuário para tentar agendar novamente — esperar `status='agendado'` gravado e toast "Agendamento confirmado!".
-3. Conferir `system_health_logs` por `error_type='enrollment_notify_failed'` (se a edge function ainda tiver problema, agora apenas loga sem travar).
+```ts
+// Só sobrescreve owner do LEAD quando o webhook é do deal canônico
+// (lead.piperun_id === dealId). Caso contrário, owner do sibling fica só
+// no piperun_deals_history; lead.proprietario_lead_crm permanece estável.
+const isPrimaryDeal = String(currentLead?.piperun_id ?? "") === String(dealId);
+const candidateOwner =
+  ids.ownerName ??
+  (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null);
+
+if (isPrimaryDeal && candidateOwner && !/^\d+$/.test(String(candidateOwner))) {
+  updateData.proprietario_lead_crm = candidateOwner;
+}
+// piperun_owner_id continua sendo gravado abaixo (linha 813) p/ histórico.
+```
+
+Idem para o ramo "novo lead" (linha 618): rejeitar nome puramente numérico (`candidateOwner.match(/^\d+$/) ? null : candidateOwner`).
+
+### 3. Higienização one-off (mesma migration)
+
+```sql
+-- Limpa "vendedores" numéricos que já vazaram
+UPDATE public.lia_attendances
+   SET proprietario_lead_crm = NULL
+ WHERE proprietario_lead_crm ~ '^\d+$';
+
+-- Purga seller_assigned com entity_name numérico das últimas 48 h
+DELETE FROM public.lead_activity_log
+ WHERE event_type = 'seller_assigned'
+   AND entity_name ~ '^\d+$'
+   AND created_at > now() - interval '48 hours';
+```
+
+## Validação pós-deploy
+
+1. Consultar lead `9837dbad…` após o próximo ciclo (`:20`/`:30`): `proprietario_lead_crm` deve manter um único valor.
+2. `SELECT COUNT(*) FROM lead_activity_log WHERE event_type='seller_assigned' AND created_at > now() - interval '1 hour'` deve cair de ~50/h para dezenas por dia.
+3. Nenhum `entity_name` numérico em novos `seller_assigned`.
+4. Reassignments reais (mudança manual de vendedor no PipeRun para o deal primário) continuam sendo logados.
 
 ## Fora de escopo
 
-- O erro `column v.closed_at does not exist` vem de `check_copilot_brain_drift` (Copilot Brain) — não tem relação com agendamento e fica para outra tarefa.
+- Resolver o `PIPERUN_USERS[102594]` faltando (adicionar mapping) — pode ser feito depois; o guard numérico já protege.
+- Diagnosticar por que o lead tem 2 deals abertos (consolidação de duplicates já roda em outro pipeline).
+- Bug `function row_to_jsonb(record) does not exist` e fix do `fn_notify_treinamento_agendado` (já tratados em planos anteriores).
 - Nenhuma mudança de frontend.
