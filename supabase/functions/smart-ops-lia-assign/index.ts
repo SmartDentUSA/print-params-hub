@@ -12,6 +12,7 @@ import {
 } from "../_shared/lead-enrichment.ts";
 import { diagnoseLead, renderDiagnosisWhatsApp } from "../_shared/workflow-diagnosis.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
+import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -688,6 +689,7 @@ async function postRichSellerNote(
     const built = await buildSellerDealSummaryHTML(supabase, lead, {
       highlightFormName: lead.form_name as string | undefined,
       highlightFormResponses: highlightFormResponses.length ? highlightFormResponses : undefined,
+      dealId,
     });
     html = built.html;
     hash = built.hash;
@@ -701,46 +703,27 @@ async function postRichSellerNote(
     }
   }
 
-  // ── Atomic claim: prevents parallel Meta redelivery invocations from posting twice ──
-  // Read-then-write was racy; here we attempt a conditional UPDATE that only succeeds if
-  // either no note was posted in the last 5 minutes or the previous hash differs. PostgreSQL
-  // serializes per-row UPDATEs, so exactly one concurrent worker wins the slot.
+  // ── Per-deal claim: 1 note per (deal_id, content_hash) + 60s burst floor per lead ──
+  // The previous per-lead lock let duplicates through whenever a single lead had
+  // multiple open deals, because each deal produced a different content hash.
   const finalHtml = opts.headerPrefix ? `${opts.headerPrefix}${html}` : html;
-  if (hash && leadId) {
-    const nowIso = new Date().toISOString();
-    const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    try {
-      const { data: claimed, error: claimErr } = await supabase
-        .from("lia_attendances")
-        .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
-        .eq("id", leadId)
-        .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
-        .select("id")
-        .maybeSingle();
-      if (claimErr) {
-        console.warn("[lia-assign] seller-note claim update failed (proceeding without lock):", claimErr);
-      } else if (!claimed) {
-        console.log(`[lia-assign] Seller note slot busy/duplicate — skipping for lead ${leadId} deal ${dealId}`);
-        return;
-      }
-    } catch (e) {
-      console.warn("[lia-assign] seller-note claim threw (proceeding without lock):", e);
+  if (hash) {
+    const claim = await claimSellerNoteSlot(supabase, {
+      dealId,
+      leadId: (leadId as string | undefined) ?? null,
+      contentHash: hash,
+    });
+    if (!claim.ok) {
+      console.log(`[lia-assign] Seller note skipped (${claim.reason}) — deal=${dealId} lead=${leadId}`);
+      return;
     }
   }
 
   const result = await addDealNote(apiToken, dealId, finalHtml);
 
   // If the note actually failed to post, release the claim so a retry can succeed.
-  if (!result?.success && hash && leadId) {
-    try {
-      await supabase
-        .from("lia_attendances")
-        .update({ last_seller_note_hash: null, last_seller_note_at: null })
-        .eq("id", leadId)
-        .eq("last_seller_note_hash", hash);
-    } catch (e) {
-      console.warn("[lia-assign] Failed to release seller note claim after addDealNote failure:", e);
-    }
+  if (!result?.success && hash) {
+    await releaseSellerNoteSlot(supabase, { dealId, contentHash: hash });
   }
 }
 

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
+import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,26 +81,16 @@ Deno.serve(async (req) => {
       const built = await buildSellerDealSummaryHTML(
         supabase,
         fullLead as Record<string, unknown>,
-        { highlightFormName: form_name, highlightFormResponses: responses },
+        { highlightFormName: form_name, highlightFormResponses: responses, dealId: dealId },
       );
       noteText = built.html;
       hash = built.hash;
 
-      // ── Atomic claim of the seller-note slot (prevents parallel duplicates with lia-assign) ──
-      const nowIso = new Date().toISOString();
-      const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      const { data: claimed, error: claimErr } = await supabase
-        .from("lia_attendances")
-        .update({ last_seller_note_hash: hash, last_seller_note_at: nowIso })
-        .eq("id", lead_id)
-        .or(`last_seller_note_at.is.null,last_seller_note_at.lt.${cutoffIso}`)
-        .select("id")
-        .maybeSingle();
-      if (claimErr) {
-        console.warn(`[deal-form-note] claim update failed for lead ${lead_id} (proceeding without lock):`, claimErr);
-      } else if (!claimed) {
-        console.log(`[deal-form-note] Seller note slot busy/duplicate — skipping for lead ${lead_id}`);
-        return json({ ok: true, deal_id: dealId, duplicate_skipped: true });
+      // ── Per-deal claim: 1 note per (deal_id, content_hash), 60s burst floor per lead ──
+      const claim = await claimSellerNoteSlot(supabase, { dealId, leadId: lead_id, contentHash: hash });
+      if (!claim.ok) {
+        console.log(`[deal-form-note] Skipping (${claim.reason}) — deal=${dealId} lead=${lead_id}`);
+        return json({ ok: true, deal_id: dealId, duplicate_skipped: true, reason: claim.reason });
       }
     } else {
       const lines = responses.map(
@@ -109,13 +100,9 @@ Deno.serve(async (req) => {
     }
 
     const result = await addDealNote(PIPERUN_API_KEY, dealId, noteText);
-    // Claim already persisted hash + timestamp atomically; release on failure so retries succeed.
+    // Release the per-deal slot if the actual POST failed so retries can succeed.
     if (!result.success && hash) {
-      await supabase
-        .from("lia_attendances")
-        .update({ last_seller_note_hash: null, last_seller_note_at: null })
-        .eq("id", lead_id)
-        .eq("last_seller_note_hash", hash);
+      await releaseSellerNoteSlot(supabase, { dealId, contentHash: hash });
     }
 
     console.log(`[deal-form-note] Note added to deal ${dealId} for lead ${lead_id}:`, result.success);

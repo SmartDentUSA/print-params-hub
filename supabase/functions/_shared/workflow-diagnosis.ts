@@ -106,6 +106,11 @@ export interface SpinBriefing {
    * (`gap_ofensivo` — terceiriza/não internalizou → ofensiva comercial).
    */
   roteiro_perfilamento?: RoteiroItem[];
+  /** True when Gemini enrichment actually returned a usable briefing.
+   * When false/undefined the caller should NOT render the seed `perguntas_spin`
+   * to the seller — they tend to leak placeholders like `[object Object]`.
+   */
+  llm_succeeded?: boolean;
 }
 
 export interface RoteiroItem {
@@ -946,7 +951,10 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
 
   // ── PERGUNTAS SPIN ──
   const spinQ = diag.spin?.perguntas_spin;
-  if (spinQ && (spinQ.situacao.length || spinQ.problema.length || spinQ.implicacao.length || spinQ.necessidade.length)) {
+  // Only render LLM-enriched questions. The deterministic seed leaks placeholders
+  // ("[object Object]", duplicated stems) and adds noise — when the LLM is down
+  // we fall back to the canonical roteiro instead.
+  if (diag.spin?.llm_succeeded && spinQ && (spinQ.situacao.length || spinQ.problema.length || spinQ.implicacao.length || spinQ.necessidade.length)) {
     out.push(`<br>📋 <b>PERGUNTAS SPIN</b> <i>(na ordem)</i><br>`);
     const row = (tag: string, qs: string[]) => qs.forEach(q => out.push(`&nbsp;&nbsp;<b>${tag}</b> → ${escHtml(q)}<br>`));
     row("S", spinQ.situacao);
@@ -957,6 +965,8 @@ export function renderDiagnosisHTML(diag: WorkflowDiagnosis): string {
     // fallback antigo
     out.push(`<br>📋 <b>Pergunte ao lead:</b><br>`);
     diag.perguntas_qualificacao.forEach((q, i) => out.push(`&nbsp;&nbsp;${i + 1}. ${escHtml(q)}<br>`));
+  } else {
+    out.push(`<br>🤖 <i>Análise IA indisponível agora — use o roteiro acima (perguntas canônicas do formulário exocad I.A.).</i><br>`);
   }
 
   // ── COMBO ──
@@ -1388,15 +1398,8 @@ function seedSpinBriefing(
     }
     const docSpecs = live.document_extracts
       .flatMap((d) => d.key_specs || [])
-      .map((s: unknown) => {
-        if (typeof s === "string") return s;
-        if (s && typeof s === "object") {
-          const o = s as Record<string, unknown>;
-          return String(o.label ?? o.name ?? o.spec ?? o.title ?? o.value ?? "");
-        }
-        return "";
-      })
-      .filter((s) => s && s.length > 2)
+      .map((s: unknown) => flattenSpecToken(s))
+      .filter((s) => s && s.length > 2 && !s.includes("[object"))
       .slice(0, 2);
     for (const ds of docSpecs) {
       problemaQ.push(`Qual "${ds.slice(0, 80)}" você usa hoje? Preciso confirmar a compatibilidade.`);
@@ -1676,6 +1679,7 @@ Responda APENAS com JSON válido (sem markdown, sem comentários), neste schema:
       alerta_lacuna: parsed.alerta_lacuna ? String(parsed.alerta_lacuna).slice(0, 300) : seed.alerta_lacuna,
       // Roteiro é determinístico — NUNCA confiar no LLM para reordenar/inventar.
       roteiro_perfilamento: seed.roteiro_perfilamento,
+      llm_succeeded: true,
     };
   } catch (e) {
     console.warn("[spin-enrich] failed:", e);
@@ -1689,4 +1693,40 @@ function arrStr(v: unknown, max: number): string[] | null {
   if (!Array.isArray(v)) return null;
   const out = v.slice(0, max).map(x => String(x).trim()).filter(Boolean);
   return out.length ? out : null;
+}
+
+/**
+ * Defensive flattener for `key_specs` entries coming from System A live.
+ * They can be plain strings, `{ label, value }`, `{ name: { pt: "..." } }`,
+ * etc. We must NEVER let an object slip through as `[object Object]` because
+ * it leaks into seller-facing SPIN questions.
+ */
+function flattenSpecToken(s: unknown, depth = 0): string {
+  if (s === null || s === undefined) return "";
+  if (typeof s === "string") return s.trim();
+  if (typeof s === "number" || typeof s === "boolean") return String(s);
+  if (depth > 3) return "";
+  if (Array.isArray(s)) {
+    for (const item of s) {
+      const r = flattenSpecToken(item, depth + 1);
+      if (r && !r.includes("[object")) return r;
+    }
+    return "";
+  }
+  if (typeof s === "object") {
+    const o = s as Record<string, unknown>;
+    // Preferred semantic keys
+    for (const k of ["label", "name", "spec", "title", "value", "text", "pt", "pt-BR", "ptbr", "default"]) {
+      if (k in o) {
+        const r = flattenSpecToken(o[k], depth + 1);
+        if (r && !r.includes("[object")) return r;
+      }
+    }
+    // Last-ditch: first scalar value we can find
+    for (const v of Object.values(o)) {
+      const r = flattenSpecToken(v, depth + 1);
+      if (r && !r.includes("[object")) return r;
+    }
+  }
+  return "";
 }

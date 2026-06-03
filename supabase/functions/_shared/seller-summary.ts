@@ -8,6 +8,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diagnoseLead, renderDiagnosisHTML } from "./workflow-diagnosis.ts";
+import { fetchProductDossier } from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -46,6 +47,9 @@ export interface SellerSummaryOptions {
   /** Optional latest form submission to highlight at the top (e.g., the one that just triggered the note). */
   highlightFormResponses?: Array<{ label: string; value: string }>;
   highlightFormName?: string;
+  /** PipeRun deal id this note is being posted on — used only for hashing
+   * so the same content posted on two different deals counts as two notes. */
+  dealId?: number | null;
 }
 
 export async function buildSellerDealSummaryHTML(
@@ -134,6 +138,78 @@ export async function buildSellerDealSummaryHTML(
     `• Campanha: ${esc(lead.utm_campaign || lead.origem_campanha)}<br>` +
     `• Formulário inicial: ${esc(lead.form_name)}<br>`,
   );
+
+  // ── 2b. PITCH ACIONÁVEL (cabeçalho — o vendedor lê isso primeiro) ──
+  // Built once via diagnoseLead so we can surface the LLM's TIMING, persona,
+  // ponte, alerta + the RAG benefits of the matched product. The full SPIN
+  // diagnostic still runs below (idempotent via cache inside diagnoseLead's
+  // dependencies), but this short header is what the seller actually reads.
+  let diagForHeader: Awaited<ReturnType<typeof diagnoseLead>> | null = null;
+  try {
+    diagForHeader = await diagnoseLead(supabase, lead, { enableLLM: true });
+  } catch (e) {
+    console.warn("[seller-summary] diagnoseLead failed (header skipped):", e);
+  }
+  if (diagForHeader) {
+    const pitch: string[] = [];
+    const intent = diagForHeader.intent;
+    const spin = diagForHeader.spin;
+    const produto = intent?.matched_product_label || intent?.produto || null;
+    pitch.push(`<b>🎯 PITCH — ${esc(produto || "Produto a confirmar")}</b>`);
+
+    if (spin?.timing) {
+      const faixa: Record<string, string> = {
+        AGORA: "🔥 AGORA (≤7d)",
+        CURTO: "⚡ CURTO (8-30d)",
+        MEDIO: "🕐 MÉDIO (1-3m)",
+        FRIO: "❄️ FRIO (>3m)",
+        TIMING_INDETERMINADO: "❔ TIMING indef.",
+      };
+      const label = faixa[spin.timing.faixa] || `⏱ ${esc(spin.timing.faixa)}`;
+      const acao = spin.timing.acao_recomendada ? ` · ${esc(spin.timing.acao_recomendada)}` : "";
+      pitch.push(`• ${label}${acao}`);
+    }
+    if (spin?.perfil_profissional) {
+      const p = spin.perfil_profissional;
+      pitch.push(`• 👤 ${esc(p.persona)} · ${esc(p.porte)} · ${esc(p.maturidade_digital)} (tom: ${esc(p.tom_recomendado)})`);
+    }
+    if (spin?.ponte_produto) {
+      pitch.push(`• 💡 ${esc(spin.ponte_produto)}`);
+    }
+    if (spin?.alerta_lacuna) {
+      pitch.push(`• 🚨 ${esc(spin.alerta_lacuna)}`);
+    }
+
+    // Top 3 perguntas SPIN priorizadas (apenas se LLM funcionou)
+    if (spin?.llm_succeeded) {
+      const top3: Array<{ tag: string; q: string }> = [];
+      const sq = spin.perguntas_spin;
+      if (sq?.situacao?.[0]) top3.push({ tag: "S", q: sq.situacao[0] });
+      if (sq?.problema?.[0]) top3.push({ tag: "P", q: sq.problema[0] });
+      if (sq?.necessidade?.[0]) top3.push({ tag: "N", q: sq.necessidade[0] });
+      if (top3.length) {
+        pitch.push(`<b>💬 3 perguntas-chave:</b>`);
+        for (const t of top3) pitch.push(`&nbsp;&nbsp;${t.tag} → ${esc(t.q)}`);
+      }
+    }
+
+    // RAG: top 3 benefícios do produto-alvo (oficial Smart Dent)
+    if (produto) {
+      try {
+        const dossier = await fetchProductDossier(supabase, produto);
+        if (dossier?.benefits?.length) {
+          pitch.push(`<b>📚 RAG (${esc(dossier.name)}):</b>`);
+          for (const b of dossier.benefits.slice(0, 3)) {
+            pitch.push(`&nbsp;&nbsp;◦ ${esc(String(b).slice(0, 160))}`);
+          }
+        }
+      } catch (e) {
+        console.warn("[seller-summary] RAG dossier fetch failed:", e);
+      }
+    }
+
+    sections.push(pitch.join("<br>") + "<br>");
+  }
 
   // 3. CRM histórico (a partir do piperun_deals_history)
   const history = (lead.piperun_deals_history as Array<Record<string, unknown>> | null) || [];
@@ -301,7 +377,9 @@ export async function buildSellerDealSummaryHTML(
 
   // 8b. Diagnóstico Fluxo Digital 7×3 (cross-ref Motor de Regras)
   try {
-    const diag = await diagnoseLead(supabase, lead, { enableLLM: true });
+    // Reuse the header diagnosis when available — avoids paying for the
+    // expensive LLM enrichment twice in the same note.
+    const diag = diagForHeader ?? await diagnoseLead(supabase, lead, { enableLLM: true });
     const diagHtml = renderDiagnosisHTML(diag);
     if (diagHtml) sections.push(diagHtml);
   } catch (e) {
@@ -320,6 +398,8 @@ export async function buildSellerDealSummaryHTML(
   // identical content don't trigger a fresh PipeRun note. Without this,
   // every Meta webhook redelivery posted a new identical "Resumo do Lead".
   const hashable = html.replace(/<i>Atualizado em [^<]*<\/i><br>/g, "");
-  const hash = await sha256Hex(hashable);
+  // Include dealId in the hash space so the same content posted on two
+  // different deals counts as two distinct notes (per-deal lock semantics).
+  const hash = await sha256Hex(`${opts.dealId ?? ""}::${hashable}`);
   return { html, hash };
 }
