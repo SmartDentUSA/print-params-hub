@@ -186,7 +186,7 @@ function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): 
   const schema: Record<string, unknown> = { "@context": "https://schema.org" };
   if (about.length > 0) schema.about = about;
   if (mentions.length > 0) schema.mentions = mentions;
-  return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+  return `<script type="application/ld+json">${safeLd(schema)}</script>`;
 }
 
 // ===== KNOWLEDGE CONTEXT: Dynamic data from system =====
@@ -392,7 +392,7 @@ function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
   });
   
   if (nodes.length === 0) return '';
-  return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
+  return `<script type="application/ld+json">${safeLd({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
 }
 
 function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
@@ -1010,7 +1010,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1096,7 +1096,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "Organization", "name": escapeHtml(brand.name), "url": `${baseUrl}/${brandSlug}`, "logo": brand.logo_url },
@@ -1179,7 +1179,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <meta property="og:type" content="product" />
   ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: `${baseUrl}/${brandSlug}/${modelSlug}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1286,7 +1286,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta property="og:type" content="product" />
   ${buildAIHeadTags({ context: contextText, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1421,7 +1421,7 @@ async function generateSystemACatalogHTML(
   <meta property="og:type" content="${category === 'product' ? 'product' : 'article'}" />
   ${buildAIHeadTags({ context: aiContext, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
-  ${JSON.stringify(category === 'product' ? {
+  ${safeLd(category === 'product' ? {
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -1527,7 +1527,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "WebSite", "name": "Base de Conhecimento Smart Dent", "url": `${baseUrl}/base-conhecimento`, "description": "Artigos e tutoriais sobre impressão 3D odontológica" },
@@ -1600,7 +1600,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` })}
   <script type="application/ld+json">
-  ${JSON.stringify({
+  ${safeLd({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "CollectionPage", "name": `${category.letter} - ${category.name}`, "description": description, "url": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`, "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl } },
@@ -1944,7 +1944,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       }
     ];
     
-    return JSON.stringify({
+    return safeLd({
       "@context": "https://schema.org",
       "@graph": graph
     });
