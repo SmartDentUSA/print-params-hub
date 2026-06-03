@@ -15959,6 +15959,30 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_deal_note_locks: {
+        Row: {
+          content_hash: string
+          deal_id: number
+          lead_id: string | null
+          posted_at: string
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          deal_id: number
+          lead_id?: string | null
+          posted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          deal_id?: number
+          lead_id?: string | null
+          posted_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smartops_enrollment_companions: {
         Row: {
           area_atuacao: string | null

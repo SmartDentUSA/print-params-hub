@@ -1,59 +1,77 @@
 ## Diagnóstico
 
-Olhando os logs e o código:
+Olhando o timeline que você colou + o código atual:
 
-1. **Spam de "deal enriched via redelivery" na timeline a cada minuto** — Meta re-entrega o mesmo `leadgen_id` continuamente. Hoje, mesmo quando o payload chega 100% idêntico ao já persistido (nada para enriquecer), `smart-ops-ingest-lead` ainda invoca `smart-ops-lia-assign` na rota universal de redelivery. Os logs confirmam: `ENRICHMENT_ROUTE: lead=... fields=[]` se repetindo a cada poucos minutos para os mesmos leads. Cada execução faz:
-   - PUT no deal no PipeRun (sem mudança real)
-   - `INSERT` em `lead_activity_log` com `event_type=deal_enriched_via_redelivery` → é o que aparece como evento na timeline do Smart Ops
+1. **Spam de notas idênticas no mesmo lead**
+   - O lock anti-duplicação fica em `lia_attendances.last_seller_note_hash/_at` (por lead).
+   - Esse lead tem **5 deals abertos** em pipelines diferentes. Cada novo deal dispara `postRichSellerNote`, gera um hash diferente (o resumo CRM muda — "5 deals" vs "4 deals") e o lock por lead não impede nada.
+   - Resultado: a cada nova entrada de Meta/redelivery, o vendedor recebe N notas de "Resumo do Lead" no mesmo dia.
 
-2. **Vários deals abertos para "lucas Freitas"** — a tela do PipeRun mostra deals abertos simultâneos em Sem contato, Proposta enviada (TEMP) × N, C2 × N, Apresentação, Estagnados. O CASE A da `routeDealForEnrichment` só pega UM deal aberto em VENDAS (`openDeals.find(...)`); se já existem N abertos em VENDAS, os outros nunca são reconciliados.
+2. **Análise SPIN ruim e fora de contexto**
+   - O LLM (`enrichSpinWithLLM`) está caindo/timeoutando — o que aparece na nota é o **seed determinístico** (`buildSpinBriefing`).
+   - O seed produz `Qual "[object Object]" você usa hoje?` em `workflow-diagnosis.ts:1402` quando `key_specs` traz objetos aninhados (`o.label = { pt: "..." }`).
+   - Não há uso real da RAG (Knowledge Base / dossiês do System A) na nota; tudo é heurístico estático.
 
-## Plano de correção
+3. **Pouco valor para o vendedor**
+   - Nota tem ~80 linhas com roteiro, diagnóstico, alerta. O vendedor não consegue acionar nada em 10 segundos.
 
-### Fix 1 — Curto-circuito de redelivery no-op (raiz do spam)
-Arquivo: `supabase/functions/smart-ops-ingest-lead/index.ts` (~linha 548-590)
+## Plano
 
-- Calcular `enrichedFields` **antes** de invocar `smart-ops-lia-assign`.
-- Se `enrichedFields.length === 0` AND `deferredRedeliveryVia` é redelivery puro (hard/family dedupe): **não** invocar `lia-assign`, **não** gravar `system_health_logs` repetidamente.
-- Retornar imediatamente `{ success: true, duplicate_skipped: true, dedupe_via, lead_id, incremental_enrichment: [] }`.
-- Continuar invocando `lia-assign` somente quando houver pelo menos um campo realmente enriquecido.
+### 1. Eliminar duplicidade real (por deal, não por lead)
 
-### Fix 2 — Guard de no-op dentro do CASE A
-Arquivo: `supabase/functions/smart-ops-lia-assign/index.ts` (~linha 1957-2013)
+`supabase/functions/_shared/seller-summary.ts` + `smart-ops-lia-assign/index.ts` + `smart-ops-deal-form-note/index.ts`:
 
-- Logo após localizar `vendaDeal`, se a invocação veio com `enriched_fields=[]` (rota de re-entrega Meta sem mudança):
-  - Pular o `updateExistingDeal` (PUT PipeRun)
-  - Pular o `INSERT` em `lead_activity_log`
-  - Apenas garantir que `lia_attendances.piperun_id` aponta para o `vendaDeal.id` (já costuma estar correto — fazer só se divergente).
-  - Retornar `{ flow_type: "preserve_vendas_noop", piperun_id, created_new: false, closed_deals: [] }`.
-- Assim, mesmo se algum fluxo legado ainda chamar a rota, não há mais escrita.
+- Criar tabela `smartops_deal_note_locks (deal_id bigint PK, lead_id uuid, content_hash text, posted_at timestamptz)` com GRANTs e RLS (service_role only).
+- Em `postRichSellerNote`, substituir o "atomic claim" em `lia_attendances` por `upsert` em `smartops_deal_note_locks` com `WHERE content_hash IS DISTINCT FROM :hash OR posted_at < now() - interval '24h'`.
+- Manter um **floor por lead** de 60s (qualquer deal) apenas para amortecer bursts de redelivery — sem bloquear notas legítimas em deals distintos.
 
-### Fix 3 — Consolidar múltiplos deals abertos em VENDAS
-Arquivo: `supabase/functions/smart-ops-lia-assign/index.ts` (mesma função `routeDealForEnrichment`, antes do CASE A)
+### 2. Reescrever a nota: cabeçalho acionável + RAG
 
-- Detectar `openVendasDeals = openDeals.filter(d => pipeline_id === VENDAS && !freezed)`.
-- Se `openVendasDeals.length > 1`:
-  - Manter o mais recente como `vendaDeal` (ordenar por `updated_at` desc, fallback `created_at`).
-  - Fechar os demais com `status: 2` (Perdido) e `lost_reason: "duplicado_redelivery_meta"`.
-  - Adicionar nota curta no deal preservado: `"⚠️ [Dra. L.I.A.] N deal(s) duplicado(s) fechado(s): ID …"`.
-  - Registrar 1 entrada em `lead_activity_log` `event_type="vendas_duplicates_consolidated"`.
-- Não rodar este passo se `enriched_fields=[]` (combina com Fix 2 — ficar 100% silencioso em redelivery puro).
+`supabase/functions/_shared/seller-summary.ts` — nova estrutura:
 
-### Fix 4 — Validação e deploy
-- Deploy de `smart-ops-ingest-lead` + `smart-ops-lia-assign`.
-- Conferir nos logs após 10 min: linhas `ENRICHMENT_ROUTE: ... fields=[]` devem sumir (o ingest passa a short-circuitar antes).
-- Conferir na timeline do Smart Ops: novas entradas `deal_enriched_via_redelivery` só devem aparecer quando há campo novo de fato (raro).
-- Para lucas Freitas (deal_id alvo a confirmar via Smart Ops Copilot), rodar uma re-entrega forçada para acionar Fix 3 e confirmar que sobra 1 deal aberto em VENDAS.
+```text
+🎯 PITCH — <produto-alvo>
+⏱ <TIMING> · <ação recomendada em 1 linha>
+👤 <persona> · <porte> · <maturidade>
+📞 PRÓXIMA AÇÃO: <verbo + canal + janela>
+💡 3 PERGUNTAS-CHAVE: ...
+🧱 2 OBJEÇÕES PROVÁVEIS + resposta da RAG: ...
+📚 RAG (Smart Dent): 3 cards [título — 140 chars — link interno]
+─────────────
+<details>📋 Diagnóstico completo (roteiro 7×3, todas as perguntas SPIN, histórico)</details>
+```
 
-## Resultado esperado
+- Puxar top-3 entradas da RAG via RPC já existente (`search_knowledge_rag`) usando como query o `produto_interesse` ou `intent.matched_product_label`.
+- Pré-trabalhar 2 objeções pedindo ao LLM um JSON adicional `{ objecoes: [{ objeção, resposta_rag, link }] }` baseado na RAG carregada.
+- Cabeçalho fica fora do `<details>` e é o que o vendedor lê primeiro.
 
-- Smart Ops timeline para de receber dezenas de eventos `deal_enriched_via_redelivery` por hora.
-- PipeRun para de receber PUTs idênticos sem mudança.
-- Leads com múltiplos deals abertos em VENDAS são consolidados em 1 só na próxima re-entrega legítima.
-- Comportamento de enriquecimento real (quando o lead realmente preenche um novo campo) permanece intacto.
+### 3. Corrigir bug "[object Object]"
+
+`workflow-diagnosis.ts:1389-1402`:
+- Achatar `key_specs` recursivamente: se `String(x) === "[object Object]"`, tentar `x.pt || x.value || Object.values(x).find(v=>typeof v==='string')`.
+- Filtrar qualquer item resultante que ainda contenha `[object` ou tenha < 3 chars.
+- Adicionar teste unitário leve em `_shared/__tests__/workflow-diagnosis_test.ts`.
+
+### 4. Suprimir seed quando LLM falha
+
+`seller-summary.ts` + `workflow-diagnosis.ts`:
+- Se `enrichSpinWithLLM` retornar `null`, **não** renderizar o bloco "PERGUNTAS SPIN" com o seed cru — em vez disso, mostrar só "🤖 Análise IA indisponível agora — perguntas-chave estão no roteiro abaixo" e manter apenas o roteiro determinístico.
+- Garante que nunca mais sai `Qual "[object Object]"...`.
+
+### 5. Telemetria
+
+- Logar em `system_health_logs`: `seller_note_skipped_duplicate` (com `deal_id`, `lead_id`, `reason`) e `seller_note_llm_unavailable` para monitorar quanto da degradação vem do gateway.
 
 ## Detalhes técnicos
 
-- `enrichmentDiff` já é calculado em `smart-ops-ingest-lead` (linha ~516); usar `Object.keys(enrichmentDiff).length === 0` como gate.
-- `lead_activity_log` continua recebendo `meta_family_dedupe_lifetime` (em `system_health_logs`) para auditoria, mas só 1x por leadgen_id novo (já é o caso).
-- Fix 3 é puramente reativo: roda quando há enriquecimento real, evitando loop entre redeliveries.
+- **Migration** (nova): `smartops_deal_note_locks` + índice em `lead_id`, `posted_at`. GRANT só para `service_role`.
+- **Edge functions a redeployar**: `smart-ops-lia-assign`, `smart-ops-deal-form-note`, `smart-ops-preview-seller-note`.
+- **Sem mudança de schema** em `lia_attendances` — colunas `last_seller_note_*` ficam como legado (não removo nesta iteração para evitar bater em código fora do escopo).
+- **RAG**: usar `search_knowledge_rag` com `match_count=3` e `min_similarity=0.55`. Se vier vazio, cair para `search_knowledge_content` (FTS) — mesma política do Dra. LIA (Complete Collection).
+- **Memória do projeto**: atualizar `mem://architecture/seller-note-pipeline` (novo) com a regra "1 nota por (deal_id, content_hash) + janela 60s por lead".
+
+## Fora do escopo
+
+- Não vou tocar na lógica de criação/merge de deals do PipeRun.
+- Não vou alterar a política Golden Rule de freeze de VENDAS.
+- Não vou refatorar `workflow-diagnosis.ts` inteiro — só os pontos 3 e 4.
