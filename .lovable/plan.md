@@ -1,99 +1,51 @@
-## Problema identificado
+## Diagnóstico
 
-Ao clonar os 52 formulários a partir do template `# - Formulário Padrão` (`63ecb106-c297-46de-b8d3-77f94a9c0e5f`), os novos campos receberam **novos UUIDs**, mas a coluna `conditions.show_if.rules[].field_id` **não foi remapeada** — continua apontando para os UUIDs dos campos do template original.
+O PipeRun não está parado: o webhook `smart-ops-piperun-webhook` recebeu eventos até `04/06 02:40:43 UTC`.
 
-Resultado no `SmartOpsFormFlowPreview`:
-- O visualizador procura o `field_id` referenciado e não encontra no formulário atual.
-- As condicionais ficam **órfãs** → cada campo vira "coluna principal", sem setas verdes ligando pergunta → resposta → próxima pergunta.
-- Os campos mapeados (badge laranja 🗺️) aparecem soltos, sem a lógica de quando devem aparecer.
-- A "rota" (ordem condicional) é exibida como se tudo fosse linear.
+O problema é que os eventos recentes estão sendo descartados antes de atualizar `lia_attendances`:
 
-Exemplo concreto (form `# - FORMS - Ativação exocad DentalCad I.A.`):
-- Campo `Qual sua especialidade?` tem `show_if.rules[0].field_id = d28da69a-...` → esse UUID pertence ao campo `Qual sua área de atuação` do **template**, não deste form.
-- O campo equivalente neste form clonado é `9cb2012a-8048-4b38-ac93-99158ef29928`.
+- Últimos eventos do deal `56872930` chegaram no webhook.
+- Resultado registrado em `piperun_webhook_events`: `skipped_no_email`.
+- Erro: `deal_without_email_after_hydration`.
+- A função hidrata o deal via API PipeRun, mas a versão hidratada vem sem contatos e sobrescreve o payload original que tinha:
+  - `person.contact_emails`: `marcosptavares.paulo@gmail.comm`
+  - `person.contact_phones`: `5515991478813`
+  - `person.fields`: `ID Banco de Dados = 6843`
+- Como o e-mail/telefone somem depois da hidratação, a função entende que não há identidade e ignora o evento.
 
-Além disso, algumas linhas têm chaves legadas no topo de `conditions` (`field`, `operator`, `value`) misturadas com `show_if` — lixo de migração antiga.
+Também há um segundo risco: o e-mail no PipeRun está com typo `.comm`, enquanto o CDP tem `marcosptavares.paulo@gmail.com`. Se eu só preservar o contato sem normalizar, o sistema pode criar/vincular errado ou duplicar.
 
-## Plano de correção (1 migration SQL, somente dados)
+## Plano de correção
 
-Migration única que percorre todos os formulários clonados e:
+1. Ajustar a hidratação do PipeRun
+   - Em `supabase/functions/_shared/piperun-deal-hydrate.ts`, preservar `person.contact_emails`, `person.contact_phones`, `company.contact_emails` e `company.contact_phones` do webhook quando a resposta hidratada vier vazia.
+   - Evitar que a hidratação apague identidade válida enviada pelo próprio PipeRun.
 
-1. **Constrói o mapeamento template → clone por `order_index`**
-   - Template = `63ecb106-c297-46de-b8d3-77f94a9c0e5f`.
-   - Para cada form com `name LIKE '# - FORMS - %'`, monta `(template_field_id → cloned_field_id)` usando `order_index` como chave (todos têm os mesmos 17 campos na mesma ordem — já validado).
+2. Fortalecer resolução de identidade no webhook
+   - Em `supabase/functions/smart-ops-piperun-webhook/index.ts`, normalizar e-mail antes de buscar/criar lead.
+   - Corrigir typos comuns e seguros como `gmail.comm` → `gmail.com`.
+   - Buscar também por `astron_email`, não apenas por `email`, respeitando `merged_into IS NULL`.
+   - Usar telefone normalizado como fallback depois de pessoa/e-mail.
 
-2. **Reescreve `conditions` campo a campo** com `jsonb_set`:
-   - Para cada rule em `conditions->'show_if'->'rules'`, troca `field_id` pelo equivalente no clone via o mapa.
-   - Se a rule não bater no mapa (caso raro), mantém intacta para não destruir dado.
+3. Extrair campos úteis que hoje estão sendo ignorados
+   - Ler `person.fields` além de `custom_fields/customFields`.
+   - Capturar `ID Banco de Dados` para `id_cliente_smart` quando existir.
+   - Isso melhora o vínculo de casos vindos de curso/Astron/CS.
 
-3. **Limpa chaves legadas de topo** (`field`, `operator`, `value`) em `conditions`, mantendo apenas `show_if`.
+4. Reprocessar os eventos recentes ignorados
+   - Após o ajuste, criar uma forma segura de reprocessar os últimos eventos `skipped_no_email` do PipeRun usando o `raw_payload` salvo em `piperun_webhook_events`.
+   - Começar pelo deal `56872930` e validar que ele vincula no lead canônico `af81dcd1-48f6-408c-8f53-a5576c96a30e`, sem criar duplicata.
 
-4. **NÃO altera o template** (`# - Formulário Padrão`) — ele já está consistente.
+5. Validar
+   - Conferir logs do edge function.
+   - Conferir `piperun_webhook_events` saindo de `skipped_no_email` para `updated`.
+   - Conferir `lia_attendances` do Marcos com `piperun_id=56872930`, `pessoa_piperun_id=44688425`, histórico de deals e dados CS Onboarding preenchidos.
 
-5. **NÃO altera nenhum código frontend** — o `SmartOpsFormFlowPreview`, `SmartOpsFormEditor`, `formConditions.ts` já funcionam corretamente; o problema é exclusivamente de dados.
+## Arquivos previstos
 
-### Implementação técnica
+- `supabase/functions/_shared/piperun-deal-hydrate.ts`
+- `supabase/functions/smart-ops-piperun-webhook/index.ts`
 
-```sql
--- Pseudocódigo da migration
-DO $$
-DECLARE
-  v_form record;
-  v_map jsonb;
-BEGIN
-  FOR v_form IN
-    SELECT id FROM smartops_forms
-    WHERE name LIKE '# - FORMS - %'
-  LOOP
-    -- monta { "<template_field_id>": "<clone_field_id>", ... }
-    SELECT jsonb_object_agg(tpl.id::text, clone.id::text) INTO v_map
-    FROM smartops_form_fields tpl
-    JOIN smartops_form_fields clone
-      ON clone.form_id = v_form.id
-     AND clone.order_index = tpl.order_index
-    WHERE tpl.form_id = '63ecb106-c297-46de-b8d3-77f94a9c0e5f';
+## Resultado esperado
 
-    -- aplica o remap + remove chaves legadas
-    UPDATE smartops_form_fields f
-    SET conditions = jsonb_build_object(
-      'show_if', jsonb_set(
-        f.conditions->'show_if',
-        '{rules}',
-        (
-          SELECT jsonb_agg(
-            CASE
-              WHEN v_map ? (rule->>'field_id')
-                THEN jsonb_set(rule, '{field_id}', to_jsonb(v_map->>(rule->>'field_id')))
-              ELSE rule
-            END
-          )
-          FROM jsonb_array_elements(f.conditions->'show_if'->'rules') AS rule
-        )
-      )
-    )
-    WHERE f.form_id = v_form.id
-      AND f.conditions ? 'show_if'
-      AND jsonb_typeof(f.conditions->'show_if'->'rules') = 'array';
-  END LOOP;
-END $$;
-```
-
-### Verificação pós-migration
-
-```sql
--- deve retornar 0 linhas (nenhum field_id órfão)
-SELECT f.name, ff.label, rule->>'field_id' AS orphan_field_id
-FROM smartops_forms f
-JOIN smartops_form_fields ff ON ff.form_id = f.id
-CROSS JOIN LATERAL jsonb_array_elements(ff.conditions->'show_if'->'rules') AS rule
-WHERE f.name LIKE '# - FORMS - %'
-  AND NOT EXISTS (
-    SELECT 1 FROM smartops_form_fields x
-    WHERE x.form_id = f.id AND x.id::text = rule->>'field_id'
-  );
-```
-
-## Arquivos
-
-- **Nova migration**: `supabase/migrations/<timestamp>_fix_cloned_form_conditional_field_ids.sql`
-- Nenhum arquivo frontend é tocado.
+O webhook volta a aceitar eventos PipeRun com payload parcial/hidratado sem perder identidade, vincula o Marcos corretamente ao lead existente e reduz os descartes `deal_without_email_after_hydration` sem abrir brecha para duplicação.
