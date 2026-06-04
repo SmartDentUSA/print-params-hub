@@ -360,6 +360,16 @@ async function findLeadByCascade(
       .is("merged_into", null)
       .maybeSingle();
     if (byEmail) return byEmail as LeadRecord;
+    // 4b. By astron_email (Astron Academy users sem deal vinculado)
+    const { data: byAstron } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("astron_email", email.toLowerCase().trim())
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byAstron) return byAstron as LeadRecord;
   }
 
   // 5. By deal hash (deals never change hash, mesmo se piperun_id mudar)
