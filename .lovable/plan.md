@@ -1,55 +1,99 @@
-## Veredito
+## Problema identificado
 
-**Sim — os 52 formulários clonados entram na base de leads e disparam o mesmo fluxo do `# - Formulário IoConnect` / `# - Formulário exocad I.A.`**, com 2 pontos de atenção (não bloqueantes) listados ao final.
+Ao clonar os 52 formulários a partir do template `# - Formulário Padrão` (`63ecb106-c297-46de-b8d3-77f94a9c0e5f`), os novos campos receberam **novos UUIDs**, mas a coluna `conditions.show_if.rules[].field_id` **não foi remapeada** — continua apontando para os UUIDs dos campos do template original.
 
-## O que foi verificado
+Resultado no `SmartOpsFormFlowPreview`:
+- O visualizador procura o `field_id` referenciado e não encontra no formulário atual.
+- As condicionais ficam **órfãs** → cada campo vira "coluna principal", sem setas verdes ligando pergunta → resposta → próxima pergunta.
+- Os campos mapeados (badge laranja 🗺️) aparecem soltos, sem a lógica de quando devem aparecer.
+- A "rota" (ordem condicional) é exibida como se tudo fosse linear.
 
-### 1. Roteamento da submissão (frontend)
-`src/pages/PublicFormPage.tsx` (rota `/f/:slug`) é o único runtime público. Para qualquer slug ele:
-- Lê `smartops_forms` pelo `slug`
-- Monta o payload com `form_name = f.name` e `source = "form"`
-- Chama `supabase.functions.invoke("smart-ops-ingest-lead", ...)`
-- Após receber `lead_id`, persiste respostas em `smartops_form_field_responses` e chama `smart-ops-deal-form-note` (nota PipeRun)
+Exemplo concreto (form `# - FORMS - Ativação exocad DentalCad I.A.`):
+- Campo `Qual sua especialidade?` tem `show_if.rules[0].field_id = d28da69a-...` → esse UUID pertence ao campo `Qual sua área de atuação` do **template**, não deste form.
+- O campo equivalente neste form clonado é `9cb2012a-8048-4b38-ac93-99158ef29928`.
 
-→ Não há código específico do `ioconnect`/`exocad`. O fluxo é genérico, dirigido pelo registro.
+Além disso, algumas linhas têm chaves legadas no topo de `conditions` (`field`, `operator`, `value`) misturadas com `show_if` — lixo de migração antiga.
 
-### 2. Paridade de schema dos 52 clones
-Query confirmando paridade com o template `ioconnect` (17 campos, mesmas `db_column`):
+## Plano de correção (1 migration SQL, somente dados)
 
+Migration única que percorre todos os formulários clonados e:
+
+1. **Constrói o mapeamento template → clone por `order_index`**
+   - Template = `63ecb106-c297-46de-b8d3-77f94a9c0e5f`.
+   - Para cada form com `name LIKE '# - FORMS - %'`, monta `(template_field_id → cloned_field_id)` usando `order_index` como chave (todos têm os mesmos 17 campos na mesma ordem — já validado).
+
+2. **Reescreve `conditions` campo a campo** com `jsonb_set`:
+   - Para cada rule em `conditions->'show_if'->'rules'`, troca `field_id` pelo equivalente no clone via o mapa.
+   - Se a rule não bater no mapa (caso raro), mantém intacta para não destruir dado.
+
+3. **Limpa chaves legadas de topo** (`field`, `operator`, `value`) em `conditions`, mantendo apenas `show_if`.
+
+4. **NÃO altera o template** (`# - Formulário Padrão`) — ele já está consistente.
+
+5. **NÃO altera nenhum código frontend** — o `SmartOpsFormFlowPreview`, `SmartOpsFormEditor`, `formConditions.ts` já funcionam corretamente; o problema é exclusivamente de dados.
+
+### Implementação técnica
+
+```sql
+-- Pseudocódigo da migration
+DO $$
+DECLARE
+  v_form record;
+  v_map jsonb;
+BEGIN
+  FOR v_form IN
+    SELECT id FROM smartops_forms
+    WHERE name LIKE '# - FORMS - %'
+  LOOP
+    -- monta { "<template_field_id>": "<clone_field_id>", ... }
+    SELECT jsonb_object_agg(tpl.id::text, clone.id::text) INTO v_map
+    FROM smartops_form_fields tpl
+    JOIN smartops_form_fields clone
+      ON clone.form_id = v_form.id
+     AND clone.order_index = tpl.order_index
+    WHERE tpl.form_id = '63ecb106-c297-46de-b8d3-77f94a9c0e5f';
+
+    -- aplica o remap + remove chaves legadas
+    UPDATE smartops_form_fields f
+    SET conditions = jsonb_build_object(
+      'show_if', jsonb_set(
+        f.conditions->'show_if',
+        '{rules}',
+        (
+          SELECT jsonb_agg(
+            CASE
+              WHEN v_map ? (rule->>'field_id')
+                THEN jsonb_set(rule, '{field_id}', to_jsonb(v_map->>(rule->>'field_id')))
+              ELSE rule
+            END
+          )
+          FROM jsonb_array_elements(f.conditions->'show_if'->'rules') AS rule
+        )
+      )
+    )
+    WHERE f.form_id = v_form.id
+      AND f.conditions ? 'show_if'
+      AND jsonb_typeof(f.conditions->'show_if'->'rules') = 'array';
+  END LOOP;
+END $$;
 ```
-keys_match=true → 55 forms (todos os clones + ioconnect + RayShape + Padrão)
-keys_match=false → 1 form (# - Formulário exocad I.A., 12 campos — original mais enxuto, pré-existente)
+
+### Verificação pós-migration
+
+```sql
+-- deve retornar 0 linhas (nenhum field_id órfão)
+SELECT f.name, ff.label, rule->>'field_id' AS orphan_field_id
+FROM smartops_forms f
+JOIN smartops_form_fields ff ON ff.form_id = f.id
+CROSS JOIN LATERAL jsonb_array_elements(ff.conditions->'show_if'->'rules') AS rule
+WHERE f.name LIKE '# - FORMS - %'
+  AND NOT EXISTS (
+    SELECT 1 FROM smartops_form_fields x
+    WHERE x.form_id = f.id AND x.id::text = rule->>'field_id'
+  );
 ```
 
-- Todos os 52 clones têm os **mesmos 17 `db_column`** do template.
-- `name` é **único** em toda a tabela (sem colisões → nomes válidos para resolver origem PipeRun).
-- 50/56 com `product_catalog_id` (5 nulos são cursos/acessos, esperado).
+## Arquivos
 
-### 3. Guarda de intenção comercial (PipeRun)
-`supabase/functions/_shared/commercial-intent.ts` aceita o lead como Deal quando:
-```
-lead.form_name && String(lead.form_name).trim().length > 0
-  → eligible = true (reason: "form_submission")
-```
-Como toda submissão de `/f/:slug` envia `form_name = f.name`, **todos os 52 clones passam o guard** sem depender de whitelist de `source`.
-
-### 4. Resolução de origem no PipeRun
-Per `piperun-deal-metadata-rules`: `resolveOriginId(form_name)` faz lookup por nome exato + **criação dinâmica** com cache. Como cada clone tem `name` único e ativo, o PipeRun criará automaticamente a Origem na primeira submissão (sem fallback genérico).
-
-### 5. Persistência de respostas e histórico
-`form_data` por `form_name` é mergeado (cap 20 snapshots) e `raw_payload.custom_fields_history` cresce em append (cap 50), conforme memória `form-data-merge-and-custom-fields-history`. Como o discriminador é `form_name` (único), **não há colisão de bucket entre clones**.
-
-## Pontos de atenção (não bloqueantes)
-
-**A. 5 formulários sem `product_catalog_id`** — `Curso-presencial`, `curso-presencial-imersao-3-dias-chairside`, `print-make-imersao-clinica`, `acess-grupo-smartdent`, `acesso-smart-dent-academy`. Eles ingerem normalmente; só não terão o enrichment `produto_interesse_auto` via catálogo. Isso é correto (cursos têm domínio próprio em `smartops_courses`), mas vale confirmar se você quer mantê-los assim.
-
-**B. Origens PipeRun serão criadas on-demand** — A primeira submissão de cada clone cria uma nova Origem ativa no PipeRun (52 novas origens). Comportamento esperado, mas gera ruído inicial no relatório de Origens. Alternativa: pré-criar via script antes de divulgar os formulários.
-
-## Recomendação de validação ao vivo (opcional, fase build)
-
-Smoke-test em 1 clone qualquer (ex.: `/f/ios-medit-i900`) com e-mail real:
-1. Verificar `lia_attendances` ← novo registro com `form_name` correto e `piperun_id` populado em segundos.
-2. Conferir nota "Resumo do Lead" no Deal PipeRun (via `smart-ops-deal-form-note`).
-3. Validar `raw_payload.custom_fields_history[0].form_name` = nome do clone.
-
-Sem código a alterar para que o fluxo funcione — a infra é genérica e os 52 clones já satisfazem todos os contratos.
+- **Nova migration**: `supabase/migrations/<timestamp>_fix_cloned_form_conditional_field_ids.sql`
+- Nenhum arquivo frontend é tocado.
