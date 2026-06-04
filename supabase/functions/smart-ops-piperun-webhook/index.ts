@@ -30,6 +30,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Corrige typos comuns de digitação em domínios populares (gmail.comm, hotmail.con, etc).
+// Não altera domínios desconhecidos.
+function normalizeEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let e = String(raw).toLowerCase().trim();
+  if (!e || !e.includes("@")) return null;
+  const [local, domainRaw] = e.split("@");
+  if (!local || !domainRaw) return null;
+  let domain = domainRaw.replace(/\.+$/, "");
+  const TYPO_MAP: Record<string, string> = {
+    "gmail.comm": "gmail.com",
+    "gmail.con": "gmail.com",
+    "gmail.co": "gmail.com",
+    "gmail.cm": "gmail.com",
+    "gmal.com": "gmail.com",
+    "gnail.com": "gmail.com",
+    "hotmail.comm": "hotmail.com",
+    "hotmail.con": "hotmail.com",
+    "hotnail.com": "hotmail.com",
+    "outlook.comm": "outlook.com",
+    "outlook.con": "outlook.com",
+    "yahoo.comm": "yahoo.com",
+    "yahoo.con": "yahoo.com",
+  };
+  if (TYPO_MAP[domain]) domain = TYPO_MAP[domain];
+  return `${local}@${domain}`;
+}
+
 function isStagnantPipeline(pipelineId: number | undefined): boolean {
   return pipelineId === PIPELINES.ESTAGNADOS;
 }
@@ -220,6 +248,7 @@ function extractWebhookCustomFields(deal: Record<string, unknown>) {
 
   const extractByName = (fieldName: string): string | null => {
     const person = deal.person as Record<string, unknown> | undefined;
+    const company = (deal.company || person?.company) as Record<string, unknown> | undefined;
     const customs = (
       person?.customFields || deal.customFields || deal.custom_fields || []
     ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
@@ -231,6 +260,23 @@ function extractWebhookCustomFields(deal: Record<string, unknown>) {
       if (field) {
         const val = field.value ?? field.raw_value;
         if (val != null) return String(val);
+      }
+    }
+    // PipeRun also exposes person.fields/company.fields with shape
+    //   { id, nome, tipo, valor, valores }
+    for (const block of [deal, person, company] as Array<Record<string, unknown> | undefined>) {
+      const fields = block?.fields as
+        | Array<{ nome?: string; name?: string; label?: string; valor?: unknown; value?: unknown }>
+        | undefined;
+      if (Array.isArray(fields)) {
+        const field = fields.find((f) => {
+          const name = (f.nome || f.name || f.label || "").toString().toLowerCase();
+          return name.includes(fieldName.toLowerCase());
+        });
+        if (field) {
+          const val = field.valor ?? field.value;
+          if (val != null && String(val).trim().length > 0) return String(val);
+        }
       }
     }
     return null;
@@ -314,6 +360,16 @@ async function findLeadByCascade(
       .is("merged_into", null)
       .maybeSingle();
     if (byEmail) return byEmail as LeadRecord;
+    // 4b. By astron_email (Astron Academy users sem deal vinculado)
+    const { data: byAstron } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .eq("astron_email", email.toLowerCase().trim())
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byAstron) return byAstron as LeadRecord;
   }
 
   // 5. By deal hash (deals never change hash, mesmo se piperun_id mudar)
@@ -499,7 +555,7 @@ Deno.serve(async (req) => {
     // direto a partir da company). Sem isso o auto-create aborta com
     // `deal_without_email_after_hydration`.
     const personEmailRaw = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const personEmail = personEmailRaw || ids.companyEmail || null;
+    const personEmail = normalizeEmail(personEmailRaw || ids.companyEmail || null);
     const personPhoneEffective = ids.personPhone || ids.companyPhone || null;
     const identitySource = personEmailRaw ? "person" : (ids.companyEmail ? "company_fallback" : "none");
     const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);

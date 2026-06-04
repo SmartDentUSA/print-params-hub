@@ -122,6 +122,54 @@ export async function hydrateDealPayload(
       if (fetchedEmpty && webhookHas) merged[k] = webhookVal;
     }
 
+    // ─── Identity preservation ───
+    // O GET /deals/{id} frequentemente devolve person/company SEM contact_emails
+    // ou contact_phones (mesmo com with[]), o que apagaria a identidade que o
+    // próprio webhook entregou. Se o webhook trouxe contatos e o GET veio sem,
+    // preservamos os contatos originais por bloco.
+    const preserveContactArrays = (
+      blockKey: "person" | "company",
+    ) => {
+      const fetchedBlock = merged[blockKey] as Record<string, unknown> | undefined;
+      const webhookBlock = webhookDeal[blockKey] as Record<string, unknown> | undefined;
+      if (!webhookBlock || typeof webhookBlock !== "object") return;
+      const target = (fetchedBlock && typeof fetchedBlock === "object") ? { ...fetchedBlock } : {};
+
+      for (const arrKey of ["contact_emails", "contact_phones"]) {
+        const fetchedArr = target[arrKey] as unknown[] | undefined;
+        const webhookArr = webhookBlock[arrKey] as unknown[] | undefined;
+        const fetchedEmpty = !Array.isArray(fetchedArr) || fetchedArr.length === 0;
+        const webhookHas = Array.isArray(webhookArr) && webhookArr.length > 0;
+        if (fetchedEmpty && webhookHas) target[arrKey] = webhookArr;
+      }
+      // Scalars de fallback (email/phone/mobile no person)
+      for (const sKey of ["email", "phone", "mobile"]) {
+        if (!target[sKey] && webhookBlock[sKey]) target[sKey] = webhookBlock[sKey];
+      }
+      merged[blockKey] = target;
+    };
+    preserveContactArrays("person");
+    preserveContactArrays("company");
+
+    // Person.company também pode trazer contatos — mescla se o bloco company
+    // mesclado acima ainda estiver sem.
+    const mergedPerson = merged.person as Record<string, unknown> | undefined;
+    const webhookPerson = webhookDeal.person as Record<string, unknown> | undefined;
+    const personCompanyWebhook = webhookPerson?.company as Record<string, unknown> | undefined;
+    if (mergedPerson && personCompanyWebhook && typeof personCompanyWebhook === "object") {
+      const mergedPersonCompany = (mergedPerson.company as Record<string, unknown> | undefined) || {};
+      const personCompany: Record<string, unknown> = { ...personCompanyWebhook, ...mergedPersonCompany };
+      for (const arrKey of ["contact_emails", "contact_phones"]) {
+        const fa = personCompany[arrKey] as unknown[] | undefined;
+        const wa = personCompanyWebhook[arrKey] as unknown[] | undefined;
+        if ((!Array.isArray(fa) || fa.length === 0) && Array.isArray(wa) && wa.length > 0) {
+          personCompany[arrKey] = wa;
+        }
+      }
+      (mergedPerson as Record<string, unknown>).company = personCompany;
+      merged.person = mergedPerson;
+    }
+
     return { deal: merged, hydrated: true };
   } catch (e) {
     return { deal: webhookDeal, hydrated: false, error: String(e) };
