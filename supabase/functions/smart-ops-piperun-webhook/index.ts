@@ -264,7 +264,7 @@ function extractWebhookCustomFields(deal: Record<string, unknown>) {
     }
     // PipeRun also exposes person.fields/company.fields with shape
     //   { id, nome, tipo, valor, valores }
-    for (const block of [person, company] as Array<Record<string, unknown> | undefined>) {
+    for (const block of [deal, person, company] as Array<Record<string, unknown> | undefined>) {
       const fields = block?.fields as
         | Array<{ nome?: string; name?: string; label?: string; valor?: unknown; value?: unknown }>
         | undefined;
