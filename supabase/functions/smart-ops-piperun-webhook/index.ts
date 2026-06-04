@@ -220,6 +220,7 @@ function extractWebhookCustomFields(deal: Record<string, unknown>) {
 
   const extractByName = (fieldName: string): string | null => {
     const person = deal.person as Record<string, unknown> | undefined;
+    const company = (deal.company || person?.company) as Record<string, unknown> | undefined;
     const customs = (
       person?.customFields || deal.customFields || deal.custom_fields || []
     ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
@@ -231,6 +232,23 @@ function extractWebhookCustomFields(deal: Record<string, unknown>) {
       if (field) {
         const val = field.value ?? field.raw_value;
         if (val != null) return String(val);
+      }
+    }
+    // PipeRun also exposes person.fields/company.fields with shape
+    //   { id, nome, tipo, valor, valores }
+    for (const block of [person, company] as Array<Record<string, unknown> | undefined>) {
+      const fields = block?.fields as
+        | Array<{ nome?: string; name?: string; label?: string; valor?: unknown; value?: unknown }>
+        | undefined;
+      if (Array.isArray(fields)) {
+        const field = fields.find((f) => {
+          const name = (f.nome || f.name || f.label || "").toString().toLowerCase();
+          return name.includes(fieldName.toLowerCase());
+        });
+        if (field) {
+          const val = field.valor ?? field.value;
+          if (val != null && String(val).trim().length > 0) return String(val);
+        }
       }
     }
     return null;
