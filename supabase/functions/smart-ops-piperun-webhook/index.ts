@@ -545,7 +545,7 @@ Deno.serve(async (req) => {
     // direto a partir da company). Sem isso o auto-create aborta com
     // `deal_without_email_after_hydration`.
     const personEmailRaw = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const personEmail = personEmailRaw || ids.companyEmail || null;
+    const personEmail = normalizeEmail(personEmailRaw || ids.companyEmail || null);
     const personPhoneEffective = ids.personPhone || ids.companyPhone || null;
     const identitySource = personEmailRaw ? "person" : (ids.companyEmail ? "company_fallback" : "none");
     const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);
