@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
         });
       }
       // Throttle ~5 req/s
-      await sleep(200);
+      await sleep(120);
     } catch (e) {
       stats.failed++;
       errors.push({ deal_id: dealId, error: String(e) });
