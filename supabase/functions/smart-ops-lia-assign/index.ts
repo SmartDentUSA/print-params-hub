@@ -2492,7 +2492,7 @@ Deno.serve(async (req) => {
             piperun_id: lead.piperun_id,
             current_owner: lead.proprietario_lead_crm,
             trigger,
-            source,
+            source: (lead as Record<string, unknown>).source,
           },
         });
       } catch {}
