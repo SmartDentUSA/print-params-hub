@@ -26514,10 +26514,22 @@ export type Database = {
         Args: { p_name: string; p_secret: string }
         Returns: undefined
       }
+      vendas_restore_candidates_at: {
+        Args: { cutoff: string }
+        Returns: {
+          deal_id: string
+          from_pipeline: number
+          from_stage: string
+          from_stage_id: number
+          local_status: string
+          stage_0606: string
+        }[]
+      }
       vendas_snapshot_at: {
         Args: { cutoff: string }
         Returns: {
           deal_id: string
+          deal_status: number
           stage_to_name: string
         }[]
       }
