@@ -49,16 +49,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // 1. Discover first stage (Novos Leads)
-  const firstStage = await getFirstStageId(pipelineId);
-  if (!firstStage) {
-    return new Response(JSON.stringify({ error: "Could not load stages for pipeline " + pipelineId }), {
-      status: 502,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // 2. Fetch ALL auto_trigger transitions in window, paginated (PostgREST caps at 1000/page)
+  // 1. Fetch ALL auto_trigger transitions in window, paginated (PostgREST caps at 1000/page)
   const sinceISO = new Date(Date.now() - hours * 3600 * 1000).toISOString();
   const PAGE = 1000;
   let offset = 0;
