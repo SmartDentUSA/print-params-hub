@@ -27,6 +27,27 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PIPELINE_VENDAS = 18784;
+const PIPELINE_ESTAGNADOS = 72938;
+const PIPELINE_CS_ONBOARDING = 83896;
+
+// Ordem canônica do Funil de Vendas (18784). "Sem contato" (0) é INTOCÁVEL.
+const STAGE_ORDER: Record<string, number> = {
+  "Sem contato": 0,
+  "sem_contato": 0,
+  "Novos Leads": 0,
+  "C1": 1,
+  "Contato Feito": 1,
+  "C2": 2,
+  "C3": 3,
+  "SDR / Nutrição": 4,
+  "Em Contato": 4,
+  "Apresentação/Visita": 5,
+  "Proposta enviada": 6,
+  "Proposta enviada (TEMP)": 6,
+  "Negociação": 7,
+  "LTV": 8,
+  "Fechamento": 9,
+};
 
 // Mapa nome (como gravado em piperun_stage_transitions.stage_to_name) → stage_id no 18784
 const STAGE_NAME_TO_ID: Record<string, number> = {
@@ -38,6 +59,7 @@ const STAGE_NAME_TO_ID: Record<string, number> = {
   "Em Contato": STAGES_VENDAS.EM_CONTATO,       // legacy = SDR_NUTRICAO
   "Apresentação/Visita": STAGES_VENDAS.APRESENTACAO_VISITA,
   "Proposta enviada": STAGES_VENDAS.PROPOSTA_ENVIADA,
+  "Proposta enviada (TEMP)": STAGES_VENDAS.PROPOSTA_ENVIADA, // alias → canônico
   "Negociação": STAGES_VENDAS.NEGOCIACAO,
 };
 
@@ -65,76 +87,38 @@ Deno.serve(async (req) => {
   // Pull all snapshot rows first, then deals locally.
   const snapshotCutoff = `${snapshotDate} 23:59:59+00`;
 
-  // Single-call snapshot via SECURITY DEFINER RPC
-  const { data: snapRows, error: snapErr } = await supabase.rpc("vendas_snapshot_at", {
-    cutoff: snapshotCutoff,
-  });
-  if (snapErr) {
-    return new Response(JSON.stringify({ error: snapErr.message }), {
+  // RPC retorna apenas candidatos finais (snapshot ABERTOS 06/06 que hoje estão
+  // em Estagnados OU regrediram no 18784, excluindo won/lost, CS Onboarding e
+  // primeira etapa). Cabe em <1000 linhas.
+  const { data: candidatesRaw, error: rpcErr } = await supabase.rpc(
+    "vendas_restore_candidates_at", { cutoff: snapshotCutoff },
+  );
+  if (rpcErr) {
+    return new Response(JSON.stringify({ error: rpcErr.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const validSnapshot = new Map<string, string>();
-  for (const r of (snapRows ?? []) as any[]) {
-    if (ELIGIBLE_NAMES.includes(r.stage_to_name)) {
-      validSnapshot.set(String(r.deal_id), r.stage_to_name);
-    }
-  }
 
-  // 2) Pull current local deals for those IDs (batched)
-  const allIds = Array.from(validSnapshot.keys());
-  const locals = new Map<string, { pipeline_id: number | null; stage_id: number | null; stage_name: string | null; status: string | null }>();
-  for (let i = 0; i < allIds.length; i += 500) {
-    const chunk = allIds.slice(i, i + 500);
-    const { data } = await supabase
-      .from("deals")
-      .select("piperun_deal_id, pipeline_id, stage_id, stage_name, status")
-      .in("piperun_deal_id", chunk);
-    for (const d of (data ?? []) as any[]) {
-      locals.set(String(d.piperun_deal_id), {
-        pipeline_id: d.pipeline_id, stage_id: d.stage_id, stage_name: d.stage_name, status: d.status,
-      });
-    }
-  }
-
-  // 3) Build action list
   type Action = { deal_id: string; from_pipeline: number | null; from_stage: string | null; target_stage_name: string; target_stage_id: number };
   const actions: Action[] = [];
   const stats = {
     snapshot_date: snapshotDate,
     dry_run: dryRun,
-    snapshot_deals_in_eligible_stages: validSnapshot.size,
-    skipped_no_local: 0,
-    skipped_won_lost: 0,
-    skipped_cs_onboarding: 0,
-    skipped_already_correct: 0,
-    skipped_other_pipeline: 0,
+    candidates_from_rpc: (candidatesRaw ?? []).length,
+    skipped_no_target_stage: 0,
     candidates: 0,
     restored: 0,
     failed: 0,
   };
 
-  for (const [dealId, snapStage] of validSnapshot) {
-    const local = locals.get(dealId);
-    if (!local) { stats.skipped_no_local++; continue; }
-    if (["won","lost","ganha","perdida"].includes(String(local.status ?? "").toLowerCase())) {
-      stats.skipped_won_lost++; continue;
-    }
-    if (local.pipeline_id === 83896) { stats.skipped_cs_onboarding++; continue; }
-    if (local.pipeline_id !== PIPELINE_VENDAS && local.pipeline_id !== 72938) {
-      stats.skipped_other_pipeline++; continue;
-    }
+  for (const c of (candidatesRaw ?? []) as any[]) {
+    const snapStage = String(c.stage_0606 ?? "");
     const targetId = STAGE_NAME_TO_ID[snapStage];
-    if (!targetId) continue;
-    // Already correct: same pipeline AND (same stage_id OR same canonical name).
-    // Local stage_id is unreliable (NULLs + legacy ids), so name match suffices when pipeline matches.
-    if (local.pipeline_id === PIPELINE_VENDAS && (local.stage_id === targetId || local.stage_name === snapStage)) {
-      stats.skipped_already_correct++; continue;
-    }
+    if (!targetId) { stats.skipped_no_target_stage++; continue; }
     actions.push({
-      deal_id: dealId,
-      from_pipeline: local.pipeline_id,
-      from_stage: local.stage_name,
+      deal_id: String(c.deal_id),
+      from_pipeline: c.from_pipeline ?? null,
+      from_stage: c.from_stage ?? null,
       target_stage_name: snapStage,
       target_stage_id: targetId,
     });

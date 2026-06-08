@@ -1,83 +1,81 @@
-## Diagnóstico
+## Contexto
 
-A régua de auto-avanço (que rodou em massa entre 04 e 08/06) moveu **cross-pipeline** centenas de deals do Funil de Vendas (18784) para o Funil Estagnados (72938). A função anterior só revertia transições dentro do pipeline 18784 — por isso pegou apenas 69 deals.
+A análise atual (snapshot 06/06 × hoje, pipeline 18784, apenas `deal_status = 0` = abertos, excluindo "Sem contato"):
 
-Snapshot de 06/06 vs hoje confirma o impacto:
-- **Contato Feito**: 806 → 122 (684 perdidos)
-- **C1**: 391 → 53 (338 perdidos)
-- **Em Contato**: 263 → 80 (183 perdidos)
-- **Apresentação/Visita**: 44 → 16
-- **Fechamento → CS Onboarding** (254 deals) = legítimo, **NÃO mexer**.
+| Etapa em 06/06 | Abertos 06/06 | OK mesma etapa | Em Estagnados | No 18784 outra etapa | Won | Lost | CS Onb |
+|---|---|---|---|---|---|---|---|
+| Contato Feito | 803 | 323 | **336** | 125 | 0 | 29 | 0 |
+| C1 | 388 | 29 | **340** | 12 | 0 | 41 | 0 |
+| Em Contato | 258 | 125 | **84** | 44 | 0 | 10 | 0 |
+| SDR / Nutrição | 91 | 19 | **69** | 2 | 0 | 6 | 0 |
+| Apresentação/Visita | 44 | 19 | **21** | 3 | 0 | 1 | 0 |
+| Proposta enviada | 63 | 24 | **22** | 12 | 5 | 2 | 5 |
+| Proposta enviada (TEMP) | 26 | 15 | **11** | 0 | 0 | 2 | 0 |
+| Negociação | 99 | 69 | 0 | 1 | 22 | 0 | 22 |
+| C2 | 77 | 74 | 1 | 2 | 0 | 4 | 0 |
+| C3 | 72 | 72 | 0 | 0 | 0 | 1 | 0 |
+| Fechamento | 264 | 12 | 1 | 1 | 231 | 0 | 227 |
+
+**~884 deals ainda em Estagnados (72938)** que estavam abertos em 06/06. O restore anterior (721) **não cobriu todos** — provavelmente filtros do RPC `vendas_snapshot_at` perderam parte da população (não filtra por `deal_status`, mapeamento de nomes incompleto, etc.).
 
 ## Objetivo
 
-Restaurar ao Funil de Vendas (18784) todos os deals que:
-1. Estavam em uma etapa produtiva (C1, C2, C3, Contato Feito, Em Contato, SDR / Nutrição, Apresentação/Visita, Proposta enviada, Negociação) em **06/06/2026**.
-2. Hoje estão no Funil Estagnados (72938) **OU** em etapa regressiva dentro do 18784.
-3. Devolver à etapa exata que ocupavam em 06/06, **sem alterar proprietário, valor ou custom_fields**.
+Restaurar ao Funil de Vendas (18784) **apenas deals que estavam abertos em 06/06** (`deal_status = 0`) e que hoje:
+- estão em **Estagnados (72938)**, OU
+- estão em outra etapa do 18784 considerada **regressão** vs. 06/06.
+
+**Não mexer** em: primeira etapa ("Sem contato" / Novos Leads), won/lost (hoje), CS Onboarding (83896), e deals que avançaram legitimamente (ex.: 06/06 em "C1", hoje em "Negociação").
 
 ## Escopo
 
 **Incluído:**
-- Pipelines de origem candidato: `72938` (Estagnados) e `18784` (Funil de Vendas).
-- Etapas-alvo de restauração: C1, C2, C3, Contato Feito, Em Contato, SDR / Nutrição, Apresentação/Visita, Proposta enviada, Negociação.
-- PUT `/deals/{id}` apenas com `pipeline_id: 18784` + `stage_id` (resolvido a partir do nome 06/06).
+- População-base: snapshot 06/06 com `deal_status = 0` e `stage_to_name` em: C1, Contato Feito, Em Contato, SDR/Nutrição, Apresentação/Visita, Proposta enviada, Proposta enviada (TEMP), Negociação, C2, C3, Fechamento.
+- Origem hoje: pipeline 72938 (Estagnados) **ou** 18784 em etapa de menor ordem que a do 06/06.
+- Restauração: PUT no PipeRun apenas com `pipeline_id=18784` + `stage_id` da etapa de 06/06.
 
 **Excluído (intocado):**
-- Deals que hoje estão em **CS Onboarding (83896)** — promoções de fechamento legítimas.
-- Deals fechados ganhos/perdidos (`status = won` ou `lost`).
-- Deals que em 06/06 estavam em Fechamento (já correto, ou foram para CS).
-- Deals atualmente em "Novos Leads" do 18784 (preservar conforme regra anterior).
-- Proprietário, valor, custom_fields, título — nada disso é tocado.
+- Primeira etapa "Sem contato" / Novos Leads (ordem mais baixa do pipeline) — não mexer em nada que estava lá em 06/06 nem que está lá hoje.
+- Deals hoje com `status` won/lost ou `deal_status` 1/2.
+- Deals hoje em CS Onboarding (83896) — promoções legítimas de Fechamento.
+- Deals que avançaram (hoje em etapa de ordem maior que a do 06/06 dentro do 18784).
+- Proprietário, valor, custom_fields, título — **nada disso é tocado**.
 
 ## Passos
 
-1. **Carregar mapa nome → stage_id** do pipeline 18784 via PipeRun API (`GET /stages?pipeline_id=18784`). Cachear o mapping (`{ 'C1': xxx, 'C2': xxx, ... }`).
+1. **Reescrever o RPC `vendas_snapshot_at`** para incluir `deal_status` e todos os `stage_to_name` da população-base. Retornar `(deal_id, stage_0606, deal_status_0606)`.
 
-2. **Construir lista de candidatos** com SQL:
-   ```sql
-   WITH snap AS (
-     SELECT DISTINCT ON (deal_id) deal_id, stage_to_name AS stage_0606
-     FROM piperun_stage_transitions
-     WHERE pipeline_id = 18784
-       AND created_at <= '2026-06-06 23:59:59+00'
-     ORDER BY deal_id, created_at DESC
-   )
-   SELECT s.deal_id, s.stage_0606, d.pipeline_id, d.stage_name, d.status
-   FROM snap s
-   JOIN deals d ON d.piperun_deal_id::text = s.deal_id
-   WHERE s.stage_0606 IN ('C1','C2','C3','Contato Feito','Em Contato',
-                          'SDR / Nutrição','Apresentação/Visita',
-                          'Proposta enviada','Negociação')
-     AND d.pipeline_id IN (18784, 72938)
-     AND d.pipeline_id <> 83896  -- nunca puxar de CS Onboarding
-     AND COALESCE(d.status,'') NOT IN ('won','lost','ganha','perdida')
-     AND (d.stage_name IS NULL OR d.stage_name <> s.stage_0606);
-   ```
+2. **Construir hierarquia de ordem das etapas do 18784** (mapa `stage_name → ordem`) carregada do PipeRun `GET /stages?pipeline_id=18784` e cacheada no início da função. Define "regressão" e bloqueia "avanço".
 
-3. **Edge function `smart-ops-restore-vendas-snapshot`**:
-   - Inputs: `?dry_run=1` (default), `?snapshot_date=2026-06-06`, `?limit=2000`.
-   - Para cada candidato: resolver `target_stage_id` no mapa; PUT no PipeRun com `{ pipeline_id: 18784, stage_id }`; espelho local; log em `system_health_logs`.
-   - Throttle 5 req/s (120ms). Idempotente (skip noop).
-   - Resposta: `{ stats: { candidates, restored, skipped_*, failed }, sample, errors }`.
+3. **Refatorar `smart-ops-restore-vendas-snapshot`**:
+   - Filtra snapshot por `deal_status = 0`.
+   - Para cada candidato, decide ação:
+     - hoje em 72938 → **restaurar** para etapa 06/06.
+     - hoje em 18784, etapa atual de **ordem menor** que 06/06 → **restaurar**.
+     - hoje em 18784, etapa atual de ordem **≥** 06/06 → **skip (avanço legítimo)**.
+     - hoje em 83896 (CS) ou won/lost → **skip**.
+     - hoje em "Sem contato" → **skip** (primeira etapa preservada).
+   - PUT no PipeRun + espelho local + log em `system_health_logs`.
+   - Throttle 120ms, `?dry_run=1` default, paginação por `?offset`/`?limit`.
 
-4. **Execução faseada** (timeout 60s ≈ 480 deals por chamada):
-   - Chamada 1: `?dry_run=1` → revisar contagem total (esperado ~900) e amostra.
-   - Você aprova → chamadas reais sucessivas em loop até `restored=0` (idempotência cobre).
+4. **Execução faseada**:
+   - Chamada 1: `?dry_run=1` → confirmar contagem esperada (~360 restantes, possivelmente até ~900 se a operação anterior não tiver coberto).
+   - Após aprovação, rodar real em lotes de ~400 (60s timeout) até `candidates=0`.
 
-5. **Pré-requisito crítico:** a régua do Funil Estagnados precisa estar **pausada no painel PipeRun**. Se não estiver, no próximo ciclo ela move tudo de novo.
+5. **Pré-requisito**: régua do Funil Estagnados **continua pausada** no PipeRun.
 
 ## Detalhes técnicos
 
-- Reaproveita o helper `piperunPut` de `_shared/piperun-field-map.ts`.
-- Espelho local: `UPDATE deals SET pipeline_id=18784, pipeline_name='Funil de vendas', stage_id=?, stage_name=?, last_stage_updated_at=now() WHERE piperun_deal_id=?`.
-- Audit: `system_health_logs` com `function_name='smart-ops-restore-vendas-snapshot'`, `error_type='restore_vendas_snapshot'`, severity `info`.
-- **Sem mudanças** em `lia-assign`, `sync-piperun`, webhook, Golden Rule, owners.
+- Atualização do RPC `vendas_snapshot_at(cutoff timestamptz)` para retornar coluna extra `deal_status`.
+- Mapa de ordem do 18784 carregado uma vez por invocação via `piperunGet("stages", { pipeline_id: 18784 })`.
+- Aliases de etapa preservados: "Contato Feito" = "C1" (mesmo `stage_id` lógico); "Em Contato" = "SDR/Nutrição".
+- "Proposta enviada (TEMP)" → restaurar para "Proposta enviada" (ordem equivalente).
+- Resposta da função: `{ stats: { snapshot_open, candidates, restored, skipped_advanced, skipped_won_lost, skipped_cs, skipped_sem_contato, failed }, sample, errors }`.
+- Audit: `function_name='smart-ops-restore-vendas-snapshot'`, `error_type='restore_open_0606'`.
 
 ## O que NÃO faremos
 
-- Não tocar em deals do CS Onboarding (83896).
-- Não restaurar Fechamento (já correto via promoção CS).
-- Não alterar owner_id de ninguém.
-- Não restaurar deals com status won/lost.
-- Não mexer em deals fora do snapshot 06/06.
+- Não tocar em "Sem contato" / Novos Leads (nenhuma direção).
+- Não reverter avanços legítimos (deal hoje em etapa de ordem maior).
+- Não restaurar deals que em 06/06 já estavam fechados (`deal_status ≠ 0`).
+- Não tocar em owner, valor, custom_fields, título, status.
+- Não mexer em pipelines diferentes de 18784/72938 (CS, Reativação, etc.).
