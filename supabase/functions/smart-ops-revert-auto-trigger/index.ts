@@ -188,9 +188,9 @@ Deno.serve(async (req) => {
           .eq("piperun_deal_id", dealId);
 
         await supabase.from("system_health_logs").insert({
-          event_type: "revert_auto_trigger",
-          source: "smart-ops-revert-auto-trigger",
-          status: "ok",
+          function_name: "smart-ops-revert-auto-trigger",
+          error_type: "revert_auto_trigger",
+          severity: "info",
           details: {
             deal_id: dealId,
             from_stage_id: currentStageId,
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
         });
       }
       // Throttle ~5 req/s
-      await sleep(200);
+      await sleep(120);
     } catch (e) {
       stats.failed++;
       errors.push({ deal_id: dealId, error: String(e) });
@@ -209,9 +209,9 @@ Deno.serve(async (req) => {
   }
 
   await supabase.from("system_health_logs").insert({
-    event_type: "revert_auto_trigger_summary",
-    source: "smart-ops-revert-auto-trigger",
-    status: stats.failed > 0 ? "partial" : "ok",
+    function_name: "smart-ops-revert-auto-trigger",
+    error_type: "revert_auto_trigger_summary",
+    severity: stats.failed > 0 ? "warning" : "info",
     details: stats as any,
   });
 
