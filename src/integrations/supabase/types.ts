@@ -26514,6 +26514,13 @@ export type Database = {
         Args: { p_name: string; p_secret: string }
         Returns: undefined
       }
+      vendas_snapshot_at: {
+        Args: { cutoff: string }
+        Returns: {
+          deal_id: string
+          stage_to_name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "author"
