@@ -20,6 +20,10 @@ import { piperunPut } from "../_shared/piperun-field-map.ts";
  *   ?limit=2000                       (default 2000)
  *   ?offset=0                         (default 0)
  *   ?owner_ids=100952,102594,...      (default = 7 vendedores Smart Dent)
+ *
+ * Mode `estagnados_since` (devolve deals que foram para 72938 desde uma data
+ * de volta para a etapa original em 18784, mantendo owner atual):
+ *   ?mode=estagnados_since&cutoff=2026-06-07
  */
 
 const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY")!;
@@ -45,6 +49,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const url = new URL(req.url);
+  const mode = url.searchParams.get("mode") ?? "snapshot";
   const dryRun = url.searchParams.get("dry_run") !== "0";
   const snapshotDate = url.searchParams.get("snapshot_date") ?? "2026-06-05";
   const limit = Math.max(1, Math.min(5000, Number(url.searchParams.get("limit") ?? "2000")));
@@ -62,6 +67,83 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // ---------- MODE: estagnados_since ----------
+  if (mode === "estagnados_since") {
+    const cutoff = url.searchParams.get("cutoff") ?? "2026-06-07";
+    const cutoffTs = `${cutoff} 00:00:00-03`;
+    const { data: cands, error: rpcE } = await supabase.rpc(
+      "vendas_restore_from_estagnados_since",
+      { cutoff: cutoffTs },
+    );
+    if (rpcE) {
+      return new Response(JSON.stringify({ error: rpcE.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const list = (cands ?? []) as any[];
+    const slice2 = list.slice(offset, offset + limit);
+    const stats2: any = { mode, cutoff, dry_run: dryRun, total: list.length, processed: slice2.length, restored: 0, failed: 0 };
+    const errs: any[] = [];
+    if (!dryRun) {
+      for (const c of slice2) {
+        try {
+          const put = await piperunPut(PIPERUN_API_KEY, `deals/${c.deal_id}`, {
+            pipeline_id: PIPELINE_VENDAS,
+            stage_id: Number(c.target_stage_id),
+            owner_id: Number(c.current_owner_id),
+            freezed: 0,
+          });
+          if (!put.success) {
+            stats2.failed++;
+            errs.push({ deal_id: c.deal_id, status: put.status, data: put.data });
+          } else {
+            stats2.restored++;
+            if (c.lead_id) {
+              await supabase.from("lia_attendances").update({
+                piperun_pipeline_id: PIPELINE_VENDAS,
+                piperun_pipeline_name: "Funil de vendas",
+                piperun_stage_id: Number(c.target_stage_id),
+                piperun_stage_name: String(c.target_stage_name ?? ""),
+              }).eq("id", c.lead_id);
+            }
+            await supabase.from("deals").update({
+              pipeline_id: PIPELINE_VENDAS,
+              pipeline_name: "Funil de vendas",
+              stage_id: Number(c.target_stage_id),
+              stage_name: String(c.target_stage_name ?? ""),
+              last_stage_updated_at: new Date().toISOString(),
+            }).eq("piperun_deal_id", String(c.deal_id));
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-restore-vendas-snapshot",
+              error_type: "restore_estagnados_since",
+              severity: "info",
+              details: {
+                deal_id: c.deal_id, lead_id: c.lead_id,
+                from_pipeline: c.current_pipeline_id, from_stage_id: c.current_stage_id,
+                from_stage_name: c.current_stage_name,
+                to_pipeline: PIPELINE_VENDAS, to_stage_id: c.target_stage_id, to_stage_name: c.target_stage_name,
+                owner_id: c.current_owner_id,
+              } as any,
+            });
+          }
+          await sleep(150);
+        } catch (e) {
+          stats2.failed++;
+          errs.push({ deal_id: c.deal_id, error: String(e) });
+        }
+      }
+    }
+    await supabase.from("system_health_logs").insert({
+      function_name: "smart-ops-restore-vendas-snapshot",
+      error_type: "restore_estagnados_since_summary",
+      severity: stats2.failed > 0 ? "warning" : "info",
+      details: stats2,
+    });
+    return new Response(JSON.stringify({ stats: stats2, sample: list.slice(0, 10), errors: errs.slice(0, 20) }, null, 2), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   // Cutoff = fim do dia em America/Sao_Paulo (UTC-3).
   const snapshotCutoff = `${snapshotDate} 23:59:59-03`;
