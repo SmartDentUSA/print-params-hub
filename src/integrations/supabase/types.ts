@@ -26525,6 +26525,20 @@ export type Database = {
           stage_0606: string
         }[]
       }
+      vendas_restore_from_estagnados_since: {
+        Args: { cutoff: string }
+        Returns: {
+          current_owner_id: number
+          current_pipeline_id: number
+          current_stage_id: number
+          current_stage_name: string
+          deal_id: string
+          lead_id: string
+          origin_first_entry_at: string
+          target_stage_id: number
+          target_stage_name: string
+        }[]
+      }
       vendas_restore_owner_stage_at: {
         Args: { cutoff: string; owner_ids: number[] }
         Returns: {
