@@ -167,6 +167,8 @@ async function dispatch(supabase: any, apiKey: string, broadcastId: string): Pro
 
   // 2) Recipients (em lotes de 500)
   let added = 0;
+  const recipientErrors: any[] = [];
+  const recipientResponses: any[] = [];
   for (let i = 0; i < contactIds.length; i += 500) {
     const chunk = contactIds.slice(i, i + 500);
     const r = await fetch(`${ZERNIO_BASE}/broadcasts/${zernioId}/recipients`, {
@@ -174,9 +176,46 @@ async function dispatch(supabase: any, apiKey: string, broadcastId: string): Pro
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ contactIds: chunk }),
     });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok) added += Number(j.added ?? chunk.length);
-    else console.error('[zernio-broadcast] recipients error', r.status, j);
+    const rawText = await r.text();
+    let j: any = {};
+    try { j = rawText ? JSON.parse(rawText) : {}; } catch { j = { raw: rawText }; }
+    const chunkAdded = r.ok ? Number(j.added ?? j.recipients_added ?? 0) : 0;
+    const sample = chunk.slice(0, 3);
+    console.log('[zernio-broadcast] recipients', JSON.stringify({
+      status: r.status, ok: r.ok, chunk_size: chunk.length, added: chunkAdded, body: j, sample_ids: sample,
+    }));
+    recipientResponses.push({ status: r.status, chunk_size: chunk.length, added: chunkAdded, body: j, sample_ids: sample });
+    if (r.ok) {
+      added += chunkAdded;
+      if (chunkAdded === 0) recipientErrors.push({ status: r.status, chunk_size: chunk.length, body: j, sample_ids: sample, reason: 'added_zero' });
+    } else {
+      recipientErrors.push({ status: r.status, chunk_size: chunk.length, body: j, sample_ids: sample });
+    }
+  }
+
+  // Fail-fast: nenhum recipient anexado → não chama /send, registra erro detalhado
+  if (added === 0) {
+    await supabase.from('social_broadcasts').update({
+      status: 'failed',
+      total_sent: 0,
+      segment: {
+        ...seg,
+        error: 'no_recipients_attached',
+        zernio_broadcast_id: zernioId,
+        total_targets: contactIds.length,
+        recipients_added: 0,
+        recipient_errors: recipientErrors,
+        recipient_responses: recipientResponses,
+      },
+    }).eq('id', broadcastId);
+    return new Response(JSON.stringify({
+      error: 'no_recipients_attached',
+      zernio_broadcast_id: zernioId,
+      total_targets: contactIds.length,
+      recipient_errors: recipientErrors,
+    }), {
+      status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   // 3) Send
