@@ -1,81 +1,64 @@
-## Contexto
+# Blindar o Funil de Vendas (18784) — sem redistribuição, sem auto-estagnação
 
-A análise atual (snapshot 06/06 × hoje, pipeline 18784, apenas `deal_status = 0` = abertos, excluindo "Sem contato"):
+## Diagnóstico
 
-| Etapa em 06/06 | Abertos 06/06 | OK mesma etapa | Em Estagnados | No 18784 outra etapa | Won | Lost | CS Onb |
-|---|---|---|---|---|---|---|---|
-| Contato Feito | 803 | 323 | **336** | 125 | 0 | 29 | 0 |
-| C1 | 388 | 29 | **340** | 12 | 0 | 41 | 0 |
-| Em Contato | 258 | 125 | **84** | 44 | 0 | 10 | 0 |
-| SDR / Nutrição | 91 | 19 | **69** | 2 | 0 | 6 | 0 |
-| Apresentação/Visita | 44 | 19 | **21** | 3 | 0 | 1 | 0 |
-| Proposta enviada | 63 | 24 | **22** | 12 | 5 | 2 | 5 |
-| Proposta enviada (TEMP) | 26 | 15 | **11** | 0 | 0 | 2 | 0 |
-| Negociação | 99 | 69 | 0 | 1 | 22 | 0 | 22 |
-| C2 | 77 | 74 | 1 | 2 | 0 | 4 | 0 |
-| C3 | 72 | 72 | 0 | 0 | 0 | 1 | 0 |
-| Fechamento | 264 | 12 | 1 | 1 | 231 | 0 | 227 |
+Hoje **duas peças automáticas mexem em deals no Funil de Vendas**:
 
-**~884 deals ainda em Estagnados (72938)** que estavam abertos em 06/06. O restore anterior (721) **não cobriu todos** — provavelmente filtros do RPC `vendas_snapshot_at` perderam parte da população (não filtra por `deal_status`, mapeamento de nomes incompleto, etc.).
+1. **Cron `stagnant-processor-cron`** (a cada 6h) — `smart-ops-stagnant-processor` faz `UPDATE lead_status` em qualquer lead `lead_status LIKE 'est%'` e dá `moveDealToStage` no PipeRun, empurrando deals para o pipeline Estagnados (72938). Foi a origem dos ~884 deals que saíram do 18784 desde 06/06.
 
-## Objetivo
+2. **`smart-ops-lia-assign` (round-robin)** — quando um lead reentra (Meta redelivery, formulário, SDR captação) e o `proprietario_lead_crm` atual:
+   - não bate com nenhum `team_members.nome_completo` ativo, OU
+   - é um ID numérico cru (bug de sync), OU
+   - é blocked seller,
+   
+   então faz `pickRandomActiveVendedor()` e regrava `owner_id` no deal — mesmo que o deal esteja aberto no 18784. Foi o que tirou ~168 deals da Janaina.
 
-Restaurar ao Funil de Vendas (18784) **apenas deals que estavam abertos em 06/06** (`deal_status = 0`) e que hoje:
-- estão em **Estagnados (72938)**, OU
-- estão em outra etapa do 18784 considerada **regressão** vs. 06/06.
+Régua nativa do PipeRun (UI) já está pausada — o usuário deve manter assim.
 
-**Não mexer** em: primeira etapa ("Sem contato" / Novos Leads), won/lost (hoje), CS Onboarding (83896), e deals que avançaram legitimamente (ex.: 06/06 em "C1", hoje em "Negociação").
+## Mudanças
 
-## Escopo
+### 1. Desativar o cron `stagnant-processor-cron`
+`SELECT cron.unschedule('stagnant-processor-cron');` via `supabase--insert`.
 
-**Incluído:**
-- População-base: snapshot 06/06 com `deal_status = 0` e `stage_to_name` em: C1, Contato Feito, Em Contato, SDR/Nutrição, Apresentação/Visita, Proposta enviada, Proposta enviada (TEMP), Negociação, C2, C3, Fechamento.
-- Origem hoje: pipeline 72938 (Estagnados) **ou** 18784 em etapa de menor ordem que a do 06/06.
-- Restauração: PUT no PipeRun apenas com `pipeline_id=18784` + `stage_id` da etapa de 06/06.
+Funções one-off (`smart-ops-reassign-danilo-vendas`, `smart-ops-cs-processor` etc.) ficam intactas — só rodam quando invocadas manualmente.
 
-**Excluído (intocado):**
-- Primeira etapa "Sem contato" / Novos Leads (ordem mais baixa do pipeline) — não mexer em nada que estava lá em 06/06 nem que está lá hoje.
-- Deals hoje com `status` won/lost ou `deal_status` 1/2.
-- Deals hoje em CS Onboarding (83896) — promoções legítimas de Fechamento.
-- Deals que avançaram (hoje em etapa de ordem maior que a do 06/06 dentro do 18784).
-- Proprietário, valor, custom_fields, título — **nada disso é tocado**.
+### 2. Guard "Vendas é intocável" em `smart-ops-stagnant-processor`
+No `select` inicial, **excluir** qualquer lead cujo deal canônico esteja em `piperun_pipeline_id = 18784` E `piperun_status` aberto. Mesmo que alguém reative o cron, o processador para de migrar.
 
-## Passos
+### 3. Guard "Vendas é intocável" em `smart-ops-lia-assign`
+Antes do bloco round-robin (linha ~2470-2524), verificar se o lead tem deal aberto no 18784. Se sim:
+- **Não** trocar `owner_id`. Mantém o `proprietario_lead_crm` atual, mesmo se ID numérico ou fora de `team_members` — apenas loga `health_log` para revisão manual.
+- **Não** abrir novo deal nem fechar o existente.
 
-1. **Reescrever o RPC `vendas_snapshot_at`** para incluir `deal_status` e todos os `stage_to_name` da população-base. Retornar `(deal_id, stage_0606, deal_status_0606)`.
+O fluxo `enrichment-route` já tem `CASE A — preserve_vendas` (linha 2050) que cobre re-entrega Meta. Confirmar que `CASE C — Fresh Round Robin` (linha 2127) só dispara quando NÃO existe deal aberto no 18784.
 
-2. **Construir hierarquia de ordem das etapas do 18784** (mapa `stage_name → ordem`) carregada do PipeRun `GET /stages?pipeline_id=18784` e cacheada no início da função. Define "regressão" e bloqueia "avanço".
+### 4. Mesma proteção em `smart-ops-reassign-danilo-vendas` e similares
+Já são one-off e exigem invocação manual — manter como está, sem cron. (Não precisa código novo.)
 
-3. **Refatorar `smart-ops-restore-vendas-snapshot`**:
-   - Filtra snapshot por `deal_status = 0`.
-   - Para cada candidato, decide ação:
-     - hoje em 72938 → **restaurar** para etapa 06/06.
-     - hoje em 18784, etapa atual de **ordem menor** que 06/06 → **restaurar**.
-     - hoje em 18784, etapa atual de ordem **≥** 06/06 → **skip (avanço legítimo)**.
-     - hoje em 83896 (CS) ou won/lost → **skip**.
-     - hoje em "Sem contato" → **skip** (primeira etapa preservada).
-   - PUT no PipeRun + espelho local + log em `system_health_logs`.
-   - Throttle 120ms, `?dry_run=1` default, paginação por `?offset`/`?limit`.
+### 5. Memory
+Adicionar `mem://architecture/vendas-pipeline-immutability` na Core:
 
-4. **Execução faseada**:
-   - Chamada 1: `?dry_run=1` → confirmar contagem esperada (~360 restantes, possivelmente até ~900 se a operação anterior não tiver coberto).
-   - Após aprovação, rodar real em lotes de ~400 (60s timeout) até `candidates=0`.
-
-5. **Pré-requisito**: régua do Funil Estagnados **continua pausada** no PipeRun.
+> **Vendas Pipeline Immutability**: Pipeline 18784 (Funil de Vendas) é INTOCÁVEL por automações. Crons de estagnação (stagnant-processor) estão desativados. lia-assign NUNCA troca owner de deal já em 18784, mesmo se owner atual não bate com team_members. Toda redistribuição em 18784 é manual via Copilot/UI.
 
 ## Detalhes técnicos
 
-- Atualização do RPC `vendas_snapshot_at(cutoff timestamptz)` para retornar coluna extra `deal_status`.
-- Mapa de ordem do 18784 carregado uma vez por invocação via `piperunGet("stages", { pipeline_id: 18784 })`.
-- Aliases de etapa preservados: "Contato Feito" = "C1" (mesmo `stage_id` lógico); "Em Contato" = "SDR/Nutrição".
-- "Proposta enviada (TEMP)" → restaurar para "Proposta enviada" (ordem equivalente).
-- Resposta da função: `{ stats: { snapshot_open, candidates, restored, skipped_advanced, skipped_won_lost, skipped_cs, skipped_sem_contato, failed }, sample, errors }`.
-- Audit: `function_name='smart-ops-restore-vendas-snapshot'`, `error_type='restore_open_0606'`.
+- **Cron unschedule**: `select cron.unschedule('stagnant-processor-cron');` — usar `supabase--insert` (não migration), pois é dado de runtime do projeto.
+- **stagnant-processor select**: adicionar `.is('piperun_pipeline_id', null).or('piperun_pipeline_id.neq.18784')` ou filtro pós-fetch que descarta `piperun_pipeline_id === 18784 && piperun_status in ('aberto','open','sem_contato',null)`.
+- **lia-assign guard**: nova função helper `isLeadInVendas(lead)` retorna `true` se `lead.piperun_pipeline_id === 18784` E `lead.piperun_status` ∉ {'ganha','perdida','won','lost'}. Quando true, no bloco "Select owner via Round Robin", forçar `assignedOwnerId = lead.proprietario_lead_crm` resolvido (ou skip total da reatribuição) e pular `createNewDeal`/`moveDealToVendas`.
+- **Log**: cada skip grava em `system_health_logs` com `error_type='vendas_immutability_skip'` para auditoria.
 
 ## O que NÃO faremos
 
-- Não tocar em "Sem contato" / Novos Leads (nenhuma direção).
-- Não reverter avanços legítimos (deal hoje em etapa de ordem maior).
-- Não restaurar deals que em 06/06 já estavam fechados (`deal_status ≠ 0`).
-- Não tocar em owner, valor, custom_fields, título, status.
-- Não mexer em pipelines diferentes de 18784/72938 (CS, Reativação, etc.).
+- Não desativar `smart-ops-lia-assign` por completo — ele segue criando deals novos para leads que ainda não têm pipeline.
+- Não mexer em CS Onboarding (83896), Reativação, Distribuidor.
+- Não tocar na régua do PipeRun (já pausada via UI).
+- Não reverter automaticamente nenhum deal — restore manual via função existente.
+- Não alterar owners atuais (mesmo os com ID numérico cru) — só impedir novas trocas.
+
+## Passos de execução
+
+1. Unschedule do cron.
+2. Patch em `smart-ops-stagnant-processor/index.ts` (filtro Vendas).
+3. Patch em `smart-ops-lia-assign/index.ts` (guard `isLeadInVendas`).
+4. Memory file + index update.
+5. Deploy das 2 functions e validação (curl com lead-teste em 18784, esperar `vendas_immutability_skip` no log).
