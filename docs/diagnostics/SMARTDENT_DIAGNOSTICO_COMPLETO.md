@@ -67,6 +67,24 @@
 
 **Domínio**: loja.smartdent.com.br ✅ | Subdomínio LI: smart-dent.lojaintegrada.com.br
 
+### Apps instalados na Loja Integrada (confirmados em 08/06/2026)
+
+| App | Status | Observação |
+|-----|--------|------------|
+| Login Social via Google | ✅ Instalado | — |
+| Google Wallet | ✅ Instalado | — |
+| Google Analytics 4 (GA4) | ✅ Instalado | Botão "Configurar" disponível |
+| Google Search Console | ✅ Instalado | — |
+| Facebook Verificação de Domínio | ✅ Instalado | — |
+| Facebook Anúncios Dinâmicos | ✅ Instalado | Feed XML para catálogo |
+| Google Merchant Center | ✅ Instalado | — |
+| **Meta Pixel** | ❌ **NÃO instalado** | Rastreado apenas via GTM server-side |
+| **Google Tag Manager** | ❌ **NÃO instalado** | Instalado manualmente via HTML |
+
+**Impacto das integrações faltantes:**
+- Sem Meta Pixel nativo → eventos de e-commerce podem não ser enviados corretamente → EMQ baixo (3.7–5.1/10)
+- Sem GTM nativo → risco de conflito/perda de dados em deploys da LI
+
 ### Google Tag Manager
 - **Container ID**: GTM-MNPGDCH
 - **Instalação**: Manual via HTML personalizado (app GTM não instalado)
@@ -353,6 +371,8 @@ smartdent.com.br, loja.smartdent.com.br, idpnp.involve.me, dentala.com.br, miniv
 | 12 | Corrigir sitemaps quebrados: mediti600, mediti700, smartdent.com.br | DNS/servidor | Indexação destes domínios | 1h |
 | 13 | Configurar redirecionamentos 301 para 404s em massa | Servidores | Link equity | 2h |
 | 14 | Revisar script COD SMA (referência "Moda Masculina") | LI HTML | Integridade do tema | 30 min |
+| 15 | Avaliar instalação do app Meta Pixel nativo na LI (se disponível na loja) | Loja Integrada | EMQ +20% estimado | 10 min |
+| 16 | Avaliar app GTM nativo na LI para substituir instalação manual | Loja Integrada | Reduz risco de deploy | 15 min |
 
 ### Metas após correções
 
