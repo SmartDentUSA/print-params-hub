@@ -124,11 +124,12 @@ Deno.serve(async (req) => {
     if (local.pipeline_id !== PIPELINE_VENDAS && local.pipeline_id !== 72938) {
       stats.skipped_other_pipeline++; continue;
     }
-    if (local.pipeline_id === PIPELINE_VENDAS && local.stage_name === snapStage) {
-      stats.skipped_already_correct++; continue;
-    }
     const targetId = STAGE_NAME_TO_ID[snapStage];
     if (!targetId) continue;
+    // Already correct: same pipeline AND same stage_id (label may differ, e.g. C1 vs Contato Feito share id 99294)
+    if (local.pipeline_id === PIPELINE_VENDAS && local.stage_id === targetId) {
+      stats.skipped_already_correct++; continue;
+    }
     actions.push({
       deal_id: dealId,
       from_pipeline: local.pipeline_id,
