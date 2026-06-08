@@ -232,44 +232,193 @@ smartdent.com.br, loja.smartdent.com.br, idpnp.involve.me, dentala.com.br, miniv
 
 ---
 
-## 6. GOOGLE TAG MANAGER (GTM)
+## 6. GOOGLE TAG MANAGER (GTM) — Análise Completa dos 3 Containers
 
-### Container principal (site)
-- **Container ID**: GTM-NZ64Q899
-- **URL**: www.smartdent.com.br
-- **Versão publicada**: 52 (publicada em 08/06/2026)
+### Container 1: GTM-NZ64Q899 (www.smartdent.com.br) — v52
 
-### Container Loja Integrada
-- **Container ID**: GTM-MNPGDCH
+**Conta GTM**: 6315186944 | Container: 231172453
 
-### Container Server-Side
-- **Container ID**: GTM-MFN4T8P4
-- **URL servidor**: https://server-side-tagging-eeaflmcg6a-uc.a.run.app
+#### Tags — Status completo
 
-### Tags — Status
+| Tag ID | Nome | Tipo | GA4 ID / Config | Gatilho | Status |
+|--------|------|------|-----------------|---------|--------|
+| 5 | GA4 - Tag do Google (G-59WWJQN34P) Global | googtag | G-59WWJQN34P | Initialization All Pages | ✅ Ativo |
+| 6 | Ads - Vinculador de Conversões | gclidw | — | Initialization All Pages | ✅ Ativo |
+| 7 | Ads - Remarketing Global | sp | **AW-1203384992** ⚠️ | Initialization All Pages | ✅ Ativo |
+| 9 | GA4 - Evento Lead (generate_lead) | gaawe | **G-1411Z6YVPY** | Sucesso Lead (/obrigado-lead) | ✅ Ativo |
+| 11 | GA4 - Tag do Google (Base Unificada) | googtag | **G-1411Z6YVPY** | Initialization All Pages | ✅ Ativo |
+| 15 | Tag GA4 - Evento Compra (Purchase) UNIFICADO | gaawe | G-1411Z6YVPY | CE - purchase | ✅ Ativo (setupTag!) |
+| 24 | GA4 - Event - view_item | gaawe | G-1411Z6YVPY | CE - view_item | ✅ Ativo |
+| 25 | GA4 - Event - add_to_cart | gaawe | G-1411Z6YVPY | CE - add_to_cart | ✅ Ativo |
+| 26 | GA4 - Event - begin_checkout | gaawe | G-1411Z6YVPY | CE - begin_checkout | ✅ Ativo |
+| 27 | Meta Pixel - Base. | html | Pixel 167413567155597 | All Pages (consent) | ⚠️ **PAUSADA** |
+| 41 | FB_CONVERSIONS_API-167413567155597-Web-Tag-Pixel_Setup | html | Pixel 167413567155597 | DOM Ready | ✅ Ativo |
+| 42 | FB_CONVERSIONS_API-167413567155597-Web-Tag-ParamBuilder | html | capiParamBuilder | DOM Ready | ✅ Ativo |
+| 45 | **LI - Capturar User Data** | html | user_data push | /finalizacao (pageview) | 🔴 **PAUSADA + QUEBRADA** |
+| 50 | GA4 - SPA Page View (parametros) | gaawe | G-1411Z6YVPY | CE - HISTORY_CHANGE | ✅ Ativo |
+| 52 | GA4 - Event - parameter_card_view | gaawe | G-1411Z6YVPY | CE - parameter_card_view | ✅ Ativo |
+| 54 | GA4 - Event - parameter_copied | gaawe | G-1411Z6YVPY | CE - parameter_copied | ✅ Ativo |
+| 59 | GA4 - Update User Properties | gaawe | **G-59WWJQN34P** | All Pages (consent) | ✅ Ativo |
+| 60 | Meta - Push Custom Context to dataLayer | html | — | Initialization All Pages | ✅ Ativo |
+| 74 | FB_CONVERSIONS_API-837797892060098-Web-Tag-GA4_Config | googtag | **G-59WWJQN34P** | DOM Ready (pixel 837…) | ✅ Ativo |
+| 75 | FB_CONVERSIONS_API-837797892060098-Web-Tag-GA4_Event | gaawe | **G-59WWJQN34P** | DOM Ready + Custom Events | ✅ Ativo |
+| 77 | FB_CONVERSIONS_API-837797892060098-Web-Tag-Pixel_Template | cvt | Pixel 837797892060098 | DOM Ready + Custom Events | ✅ Ativo |
+| 78 | Meta Pixel ID 837797892060098 | html | Pixel 837797892060098 | All Pages (consent) | ✅ Ativo |
+| 79 | [META] Lead Event - Sucesso Lead | html | fbq Lead | /obrigado-lead | ✅ Ativo |
 
-| Tag | ID/Config | Status |
-|-----|-----------|--------|
-| GA4 - Tag Base Unificada | G-1411Z6YVPY | ⚠️ Investigar origem |
-| GA4 - Tag Global | G-59WWJQN34P | ✅ Ativa |
-| Meta Pixel | 837797892060098 | ✅ Ativa |
-| FB Conversions API (3 tags) | 167413567155597 | ✅ Ativas |
-| GA4 - Evento Lead | generate_lead | ✅ Ativa |
-| GA4 - SPA Page View | parametros | ✅ Ativa |
-| GA4 - Update User Properties | — | ✅ Ativa |
-| Ads - Remarketing Global | — | ✅ Ativa |
-| Ads - Vinculador de Conversões | — | ✅ Ativa |
-| GA4 - Purchase UNIFICADO | — | ✅ Ativa |
-| GA4 - add_to_cart/begin_checkout/view_item | — | ✅ Ativas |
-| **Meta Pixel - Base** | — | ⚠️ **PAUSADA** |
-| **LI - Capturar User Data** | — | ⚠️ **PAUSADA** |
+#### Problemas críticos — NZ64Q899
 
-### Gatilhos ativos
-- Initialization - All Pages
-- Custom Event
-- DOM Ready
-- Sucesso Lead (evento customizado)
-- Compra E-commerce
+**1. "LI - Capturar User Data" (tag 45) — PAUSADA + FUNDAMENTALMENTE QUEBRADA**
+- Gatilho: Page URL contains `/finalizacao`
+- Conteúdo usa variáveis LI template: `{customer_email}`, `{customer_phone}`, `{customer_first_name}` etc.
+- ⚠️ ESSES TEMPLATES NÃO SÃO PROCESSADOS PELO GTM — o GTM enviaria literalmente a string `{customer_email}` ao dataLayer, não o valor real
+- Esta tag está no container ERRADO (NZ64Q899 é para smartdent.com.br, não loja.smartdent.com.br)
+- A tag "Tag GA4 - Evento Compra (Purchase) UNIFICADO" tem `setupTag: "LI - Capturar User Data"` — logo o purchase event DEPENDE desta tag quebrada
+- **Ação necessária**: Reescrever completamente esta tag (ver plano de ação)
+
+**2. Google Ads Remarketing com ID errado (tag 7)**
+- Tag usa: `AW-1203384992`
+- Conta real: `AW-18143771674`
+- Remarketing está enviando dados para conta errada (possivelmente inativa/antiga)
+
+**3. Duplo GA4 — tags 5 (G-59WWJQN34P) e 11 (G-1411Z6YVPY) ambas em Initialization All Pages**
+- Ambas disparam em toda página do smartdent.com.br
+- G-59WWJQN34P: vinculado ao BigQuery, fluxo configurado para smartdent.com.br
+- G-1411Z6YVPY: usado em todos os eventos (purchase, leads, e-commerce)
+- Relação entre as duas propriedades precisa ser esclarecida
+
+---
+
+### Container 2: GTM-MNPGDCH (loja.smartdent.com.br) — v40
+
+**Conta GTM**: 1762238297 | Container: 7477467
+
+#### Tags — Status completo
+
+| Tag ID | Nome | GA4 / Config | Gatilho | Status |
+|--------|------|--------------|---------|--------|
+| 28 | Tag GA4 - Evento Compra (Purchase) UNIFICADO | G-1411Z6YVPY | CE - purchase | ✅ Ativo |
+| 29 | GA4 - Tag do Google (Base Unificada) | G-1411Z6YVPY | Initialization All Pages | ✅ Ativo |
+| 46 | FB_CONVERSIONS_API-167413567155597-Web-Tag-GA4_Config | **G-1411Z6YVPY** | DOM Ready | ✅ Ativo |
+| 47 | FB_CONVERSIONS_API-167413567155597-Web-Tag-GA4_Event | **G-LJ7X8G61N4** ⚠️ | DOM Ready + Custom | ✅ Ativo |
+| 48 | FB_CONVERSIONS_API-167413567155597-Web-Tag-Pixel_Event | fbq Purchase | CE - purchase | ✅ Ativo |
+| 49 | FB_CONVERSIONS_API-167413567155597-Web-Tag-Pixel_Setup | Pixel 167413567155597 | DOM Ready | ✅ Ativo |
+| 50 | FB_CONVERSIONS_API-167413567155597-Web-Tag-ParamBuilder | capiParamBuilder | DOM Ready | ✅ Ativo |
+| 59 | TT-D05CI83C77UE5QUU9FR0-Web-Tag-GA4_Config | G-1411Z6YVPY | All Pages (consent) | ✅ Ativo |
+| 60 | TT-D05CI83C77UE5QUU9FR0-Web-Tag-Pixel_Setup | TikTok D05CI83C77UE5QUU9FR0 | All Pages (consent) | ✅ Ativo |
+| 61 | TT-D05CI83C77UE5QUU9FR0-Web-Tag-GA4_Event | G-1411Z6YVPY | CE - TT events | ✅ Ativo |
+| 62 | TT-D05CI83C77UE5QUU9FR0-Web-Tag-Pixel_Event | TikTok events | CE - TT events | ✅ Ativo |
+| 66 | Meta Pixel - PageView (Loja) | fbq PageView | SD - Todas as Paginas | ⚠️ **PAUSADA** |
+| 67 | GA4 - Page View (Loja) | G-1411Z6YVPY | SD - Todas as Paginas | ✅ Ativo |
+| 68 | TikTok Pixel - PageView (Loja) | ttq.page() | SD - Todas as Paginas | ✅ Ativo |
+
+#### Novos achados — MNPGDCH
+
+**TikTok Pixel identificado**: `D05CI83C77UE5QUU9FR0` — não estava no diagnóstico anterior
+- Pixel setup, evento GA4 e Pixel Event configurados
+- TikTok Events API (server-side) configurada
+- Event name mapper: purchase→PlaceAnOrder, add_to_cart→AddToCart, begin_checkout→InitiateCheckout, view_item→ViewContent, generate_lead→SubmitForm, parameter_card_view→ViewContent, parameter_copied→ClickButton
+
+**GA4 ID fantasma**: `G-LJ7X8G61N4` aparece apenas em tag 47 (FB_CONVERSIONS_API-167413567155597-Web-Tag-GA4_Event)
+- Diferente do G-1411Z6YVPY usado no resto da loja
+- Possível ID antigo ou de outra propriedade — verificar
+
+**Universal Analytics (morto)**: variável `Analytics` com `UA-69042627-2` — código legado que pode ser removido
+
+#### Mapeamento de eventos TikTok (loja)
+
+| GA4 Event | TikTok Event |
+|-----------|-------------|
+| purchase | PlaceAnOrder |
+| add_to_cart | AddToCart |
+| begin_checkout | InitiateCheckout |
+| view_item | ViewContent |
+| generate_lead | SubmitForm |
+| parameter_card_view | ViewContent |
+| parameter_copied | ClickButton |
+
+---
+
+### Container 3: GTM-MFN4T8P4 (Server-Side) — v19
+
+**Conta GTM**: 6315186944 | Container: 235374934
+**URL**: https://server-side-tagging-eeaflmcg6a-uc.a.run.app
+
+#### Tags server-side
+
+| Tag ID | Nome | Plataforma | Pixel/Token | Gatilho | Status |
+|--------|------|------------|-------------|---------|--------|
+| 19 | FB_CONVERSIONS_API-167413567155597-Server-Tag | Meta CAPI | 167413567155597 | ALWAYS (todos eventos) | ✅ Ativo |
+| 24 | FB_CONVERSIONS_API-837797892060098-Server-Tag | Meta CAPI | 837797892060098 | ALWAYS (todos eventos) | ✅ Ativo |
+| 22 | TT-D05CI83C77UE5QUU9FR0-Server-Tag-EAPI_Event | TikTok EAPI | D05CI83C77UE5QUU9FR0 | ALWAYS (todos eventos) | 🔴 **DEBUG MODE** |
+
+**Cookies server-side**: fbp, _fbc, ud.em (email hashed), e outros
+
+**🔴 CRÍTICO — TikTok Server-Side em modo DEBUG**:
+- `logType: "debug"` → TikTok não está processando eventos para targeting/atribuição
+- Está apenas registrando logs
+- **Ação**: Alterar para `logType: "production"` no container server-side
+
+**Tokens de API (server-side)**:
+- Meta CAPI 167413567155597: `EAAHspQOb2HMBQ7PyND3...` (token ativo)
+- Meta CAPI 837797892060098: `EAAHspQOb2HMBRb9BqDs...` (token ativo)
+- TikTok EAPI: `15b2eb4649f7b3680e40f5f8331a5ed33e3a9c08`
+
+---
+
+### Resumo de IDs GA4 identificados nos containers
+
+| Measurement ID | Onde aparece | Papel |
+|----------------|-------------|-------|
+| G-1411Z6YVPY | NZ64Q899 (Base Unificada, todos eventos) + MNPGDCH (todos eventos) | Principal — tracking de conversões |
+| G-59WWJQN34P | NZ64Q899 (Global) + server-side config | Institucional — vinculado ao BigQuery |
+| G-LJ7X8G61N4 | MNPGDCH tag 47 apenas | ⚠️ Desconhecido — verificar/remover |
+
+---
+
+### Plano de Correção GTM — Ordem de Execução
+
+#### Fix 1: Reescrever "LI - Capturar User Data" (URGENTE — desbloqueador)
+
+A tag atual está quebrada pois usa variáveis LI (`{customer_email}`) que não funcionam em GTM.
+O LI Purchase Tracker v6.0 já envia `user_data.email_address` com o evento purchase.
+**Solução**: Remover o `setupTag` da tag Purchase OU mover a coleta de user_data para dentro do trigger do evento purchase.
+
+Tag correta para substituir:
+```html
+<script>
+// Lê user_data já populado pelo LI Purchase Tracker v6.0 via li_purchase event
+// Se não disponível, tenta ler do formulário da página
+(function() {
+  var ud = window.dataLayer && window.dataLayer.reduce(function(acc, item) {
+    return item.user_data ? item.user_data : acc;
+  }, null);
+  if (!ud) {
+    var emailEl = document.querySelector('input[name="email"], input[type="email"]');
+    if (emailEl && emailEl.value) {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ user_data: { email_address: emailEl.value } });
+    }
+  }
+})();
+</script>
+```
+Esta tag deve estar no container MNPGDCH (loja), não NZ64Q899.
+
+#### Fix 2: Corrigir Google Ads Remarketing ID (5 min)
+- Tag 7 em NZ64Q899: mudar `AW-1203384992` → `AW-18143771674`
+
+#### Fix 3: TikTok Server-Side — sair de DEBUG (5 min)
+- Tag 22 em MFN4T8P4: mudar `logType: "debug"` → `logType: "no_logging"` (produção)
+
+#### Fix 4: Investigar G-LJ7X8G61N4 (10 min)
+- Tag 47 em MNPGDCH usa este ID desconhecido
+- Verificar no GA4 se existe esta propriedade
+- Provavelmente substituir por G-1411Z6YVPY
+
+#### Fix 5: Reativar "Meta Pixel - PageView (Loja)" em MNPGDCH (5 min)
+- A tag 66 está pausada mas o fbq já está inicializado pela tag 49 (Pixel_Setup)
+- Reativar para garantir PageView em todas as páginas da loja
 
 ---
 
@@ -409,6 +558,11 @@ smartdent.com.br, loja.smartdent.com.br, idpnp.involve.me, dentala.com.br, miniv
 | Cloud Run (proxy) | smartdent-bot-proxy | parametros.smartdent.com.br |
 | Pinterest Verify | 78427e145f5669327e67500971c5d0d5 | Meta tag LI |
 | FB Domain Verify | 2ke0xj70y5ybb2rh586dietv3lo8gn | App LI |
+| TikTok Pixel | D05CI83C77UE5QUU9FR0 | Container loja (MNPGDCH) + server-side |
+| TikTok Access Token | 15b2eb4649f7b3680e40f5f8331a5ed33e3a9c08 | Server-side EAPI |
+| GA4 Desconhecido | G-LJ7X8G61N4 | ⚠️ Apenas em MNPGDCH tag 47 — verificar |
+| UA (deprecated) | UA-69042627-2 | Variável morta em MNPGDCH |
+| Ads Remarketing (ERRADO) | AW-1203384992 | Tag 7 NZ64Q899 — deveria ser AW-18143771674 |
 
 ---
 
