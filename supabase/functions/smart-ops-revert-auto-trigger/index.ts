@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { piperunGet, piperunPut } from "../_shared/piperun-field-map.ts";
+import { piperunPut } from "../_shared/piperun-field-map.ts";
 
 /**
  * smart-ops-revert-auto-trigger
@@ -24,18 +24,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function getFirstStageId(pipelineId: number): Promise<{ id: number; name: string } | null> {
-  // PipeRun: GET /stages?pipeline_id=X — pick smallest order
-  const res = await piperunGet(PIPERUN_API_KEY, "stages", {
-    pipeline_id: String(pipelineId),
-    show: "200",
-  });
-  if (!res.success) return null;
-  const list = ((res.data as any)?.data ?? []) as Array<{ id: number; name: string; order: number }>;
-  if (!Array.isArray(list) || list.length === 0) return null;
-  list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  return { id: list[0].id, name: list[0].name };
-}
+// "Primeira etapa" do funil comercial = qualquer stage cujo nome contenha "novos"
+// (ex.: "Novos Leads", "Etapa 00 - Novos"). Detecção por nome é resiliente a
+// renomeação/reordenação de stages no PipeRun e cobre os múltiplos pipelines
+// internos que injetam cards no funil 18784.
+const NOVOS_REGEX = /novos/i;
+const isNovosStage = (name?: string | null) => !!name && NOVOS_REGEX.test(name);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -64,25 +58,33 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 2. Fetch DISTINCT ON (deal_id) — earliest auto_trigger transition in window per deal
-  // We use a raw SQL via RPC fallback: build candidates client-side.
+  // 2. Fetch ALL auto_trigger transitions in window, paginated (PostgREST caps at 1000/page)
   const sinceISO = new Date(Date.now() - hours * 3600 * 1000).toISOString();
-  const { data: transitions, error: trErr } = await supabase
-    .from("piperun_stage_transitions")
-    .select("deal_id, stage_from_id, stage_from_name, created_at")
-    .eq("source", "auto_trigger")
-    .eq("pipeline_id", pipelineId)
-    .gte("created_at", sinceISO)
-    .order("deal_id", { ascending: true })
-    .order("created_at", { ascending: true })
-    .limit(50000);
-
-  if (trErr) {
-    return new Response(JSON.stringify({ error: trErr.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  const PAGE = 1000;
+  let offset = 0;
+  const allTransitions: Array<{ deal_id: string; stage_from_id: number | null; stage_from_name: string | null; created_at: string }> = [];
+  while (true) {
+    const { data, error } = await supabase
+      .from("piperun_stage_transitions")
+      .select("deal_id, stage_from_id, stage_from_name, created_at")
+      .eq("source", "auto_trigger")
+      .eq("pipeline_id", pipelineId)
+      .gte("created_at", sinceISO)
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!data || data.length === 0) break;
+    allTransitions.push(...(data as any));
+    if (data.length < PAGE) break;
+    offset += PAGE;
+    if (offset > 100000) break; // safety
   }
+  const transitions = allTransitions;
 
   // Deduplicate: keep EARLIEST per deal_id
   const earliest = new Map<string, { stage_from_id: number; stage_from_name: string; created_at: string }>();
@@ -116,13 +118,15 @@ Deno.serve(async (req) => {
 
   const stats = {
     pipeline_id: pipelineId,
-    first_stage: firstStage,
     hours,
     dry_run: dryRun,
+    transitions_scanned: transitions.length,
+    distinct_deals: earliest.size,
     total_candidates: candidates.length,
-    skipped_first_stage: 0,
+    skipped_current_is_novos: 0,
+    skipped_target_is_novos: 0,
     skipped_noop: 0,
-    skipped_target_is_first: 0,
+    skipped_no_local: 0,
     reverted: 0,
     failed: 0,
   };
@@ -135,14 +139,19 @@ Deno.serve(async (req) => {
     const currentStageId = local?.stage_id ?? null;
     const targetStageId = info.stage_from_id;
 
-    // Skip: currently in first stage (Novos Leads) — preserve untouched
-    if (currentStageId === firstStage.id) {
-      stats.skipped_first_stage++;
+    // Skip: deal não tem registro local (não conseguimos espelhar)
+    if (!local) {
+      stats.skipped_no_local++;
       continue;
     }
-    // Skip: target is first stage — don't push deals back into Novos Leads
-    if (targetStageId === firstStage.id) {
-      stats.skipped_target_is_first++;
+    // Skip: deal está atualmente em "Novos Leads" — preservar intocado
+    if (isNovosStage(local.stage_name)) {
+      stats.skipped_current_is_novos++;
+      continue;
+    }
+    // Skip: target é uma etapa "Novos" — não devolvemos deals para Novos Leads
+    if (isNovosStage(info.stage_from_name)) {
+      stats.skipped_target_is_novos++;
       continue;
     }
     // Skip: noop
