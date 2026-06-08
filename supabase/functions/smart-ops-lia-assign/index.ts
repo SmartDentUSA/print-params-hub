@@ -2477,8 +2477,15 @@ Deno.serve(async (req) => {
     // NÃO abrir novo deal, NÃO mover de pipeline. Toda redistribuição em Vendas
     // é manual via Copilot/UI.
     const leadPipelineId = Number((lead as Record<string, unknown>).piperun_pipeline_id ?? 0);
-    const leadPiperunStatus = String((lead as Record<string, unknown>).piperun_status ?? "").toLowerCase();
-    const leadDealClosed = ["ganha", "perdida", "won", "lost"].includes(leadPiperunStatus);
+    // PipeRun status: 0=aberta, 1=ganha, 2=perdida. Tratamos numérico E texto
+    // (alguns fluxos antigos gravam o literal). Qualquer valor != 0/"aberta"
+    // é considerado fechado e libera o guard.
+    const rawStatus = (lead as Record<string, unknown>).piperun_status;
+    const statusNum = typeof rawStatus === "number" ? rawStatus : Number(rawStatus ?? 0);
+    const statusText = String(rawStatus ?? "").toLowerCase();
+    const leadDealClosed =
+      (Number.isFinite(statusNum) && statusNum !== 0 && statusNum !== null) ||
+      ["ganha", "perdida", "won", "lost"].includes(statusText);
     if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id) {
       console.log(`[lia-assign] VENDAS_IMMUTABILITY skip — lead ${lead.id} já em 18784 (deal ${lead.piperun_id}, owner=${lead.proprietario_lead_crm})`);
       try {
