@@ -1,57 +1,36 @@
-## Diagnóstico
+## Escopo
 
-- O loop está em `lead_activity_log` com `event_type = seller_assigned`.
-- Nas últimas 6h há 167 eventos desse tipo para apenas 40 leads.
-- Alguns leads estão alternando vendedor repetidamente, exemplo: Dr. Cauê Navarro teve 26 eventos em ~6h.
-- A origem mais provável é a combinação de:
-  - cron jobs do PipeRun rodando em vários pipelines;
-  - updates recorrentes em `lia_attendances.proprietario_lead_crm`;
-  - trigger `fn_log_form_submission_to_timeline()` gravando “seller_assigned” sempre que o proprietário muda;
-  - janela atual de dedupe curta demais: bloqueia só por ~10 min para vendedor diferente.
+Mexer **apenas** em `supabase/functions/zernio-broadcast-dispatch/index.ts`. Não tocar em `zernio-webhook`, `zernio-contacts-sync`, `zernio-metrics-sync`, `zernio-accounts-sync`, nem em tabelas/RLS.
 
-## Plano de correção
+## Problema
 
-### 1. Endurecer o trigger da timeline
+Broadcast `dann` (IG Direct) ficou `failed` com `total_sent: 0`. A função criou o draft na Zernio com sucesso (`zernio_broadcast_id` retornado), mas o passo `POST /broadcasts/{id}/recipients` anexou **0 contatos** de 46, e o `/send` respondeu "Broadcast has no recipients". O erro real do passo de recipients está sendo engolido (só `console.error`), então não dá pra ver o motivo na UI nem nos registros do `social_broadcasts`.
 
-Atualizar `public.fn_log_form_submission_to_timeline()` para impedir spam de `seller_assigned`:
+## Plano (2 etapas, função única)
 
-- ignorar owner numérico ou vazio;
-- deduplicar por `lead_id + vendedor + piperun_link` em janela maior;
-- bloquear qualquer novo `seller_assigned` do mesmo lead por uma janela anti-loop maior, exceto quando for claramente um novo deal real;
-- manter logs legítimos de primeira atribuição e reativação real.
+### Etapa 1 — Instrumentação e fail-fast
 
-Resultado esperado: mesmo que cron/webhook fique reprocessando o lead, a timeline não será inundada.
+Editar `zernio-broadcast-dispatch/index.ts`:
 
-### 2. Corrigir `smart-ops-lia-assign` para não redistribuir lead já processado
+1. No loop de recipients (linhas ~170–180):
+   - Logar `status` + body da resposta da Zernio em **toda** iteração (não só em erro).
+   - Acumular num array `recipientErrors[]` o `{ status, body, chunk_size }` de cada chunk que retornar `!ok` **ou** `added === 0`.
+2. Após o loop, **antes** de chamar `/send`:
+   - Se `added === 0`, marcar `status='failed'`, gravar em `segment.recipient_errors` o array coletado + `segment.zernio_broadcast_id` (pra rastrear o draft órfão), e retornar 502 sem chamar `/send`.
+3. Manter o comportamento atual quando `added > 0`.
 
-Ajustar a edge function para:
+### Etapa 2 — Disparo de teste e correção dirigida
 
-- aumentar o kill-switch de redelivery de 10 min para uma janela mais segura;
-- pular redistribuição quando o lead já tem `piperun_id`/vendedor e a chamada não representa novo formulário/deal real;
-- não sobrescrever `proprietario_lead_crm` com novo round-robin em reprocessamentos repetidos;
-- preservar a Golden Rule: se há deal aberto em VENDAS, o owner do PipeRun continua sendo a fonte da verdade.
+1. Recriar o broadcast `dann` apertando o botão de re-disparo (ou criar um novo de teste com 1–2 contatos pela UI).
+2. Ler `social_broadcasts.segment.recipient_errors` + edge function logs.
+3. Aplicar a correção exata conforme a mensagem da Zernio. Hipóteses prováveis (vou confirmar pela resposta real, não chuto):
+   - Nome do campo do payload (`contactIds` vs `contacts` vs `ids`).
+   - ID errado sendo enviado (Zernio `_id` vs `platformIdentifier`).
+   - Mismatch de `accountId`/`profileId` entre contato e draft.
+4. Reenviar o broadcast e confirmar `total_sent > 0`.
 
-### 3. Reduzir write-amplification do sync PipeRun
+## O que NÃO faço
 
-Ajustar `smart-ops-sync-piperun` para evitar que deals históricos/fechados façam o snapshot principal do lead oscilar:
-
-- antes de atualizar `proprietario_lead_crm`, validar se o deal escolhido continua sendo o deal primário;
-- evitar update se o owner final efetivo não mudou;
-- manter `piperun_deals_history` íntegro, sem apagar histórico.
-
-### 4. Limpeza conservadora dos logs duplicados recentes
-
-Depois do fix, remover apenas ruído operacional recente:
-
-- apagar duplicatas de `seller_assigned` geradas pelo loop nas últimas 24h;
-- preservar pelo menos o evento mais recente por lead/deal/vendedor;
-- não tocar em leads, negócios, mensagens, CRM, faturamento, Astron ou histórico comercial real.
-
-### 5. Validação
-
-Conferir após aplicar:
-
-- contagem de `seller_assigned` por hora caiu drasticamente;
-- leads problemáticos não alternam mais vendedor em loop;
-- novos formulários ainda geram atribuição normal;
-- eventos de PipeRun/Astron/formulário continuam aparecendo na timeline.
+- Não altero sync de contatos, webhook, métricas, contas, nem qualquer tabela.
+- Não mexo em `wa-broadcast-dispatch` (WhatsApp).
+- Não apago o broadcast falhado existente.
