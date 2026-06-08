@@ -85,8 +85,12 @@ Deno.serve(async (req) => {
       // Se o lead tem deal aberto no Funil de Vendas (18784), NUNCA mover.
       // Toda redistribuição/estagnação em Vendas é manual.
       const pipelineId = Number((lead as Record<string, unknown>).piperun_pipeline_id ?? 0);
-      const piperunStatus = String((lead as Record<string, unknown>).piperun_status ?? "").toLowerCase();
-      const isClosed = ["ganha", "perdida", "won", "lost"].includes(piperunStatus);
+      const rawStatus = (lead as Record<string, unknown>).piperun_status;
+      const statusNum = typeof rawStatus === "number" ? rawStatus : Number(rawStatus ?? 0);
+      const statusText = String(rawStatus ?? "").toLowerCase();
+      const isClosed =
+        (Number.isFinite(statusNum) && statusNum !== 0) ||
+        ["ganha", "perdida", "won", "lost"].includes(statusText);
       if (pipelineId === 18784 && !isClosed) {
         console.log(`[stagnant-processor] VENDAS_IMMUTABILITY skip lead ${lead.id} (deal aberto em 18784)`);
         continue;

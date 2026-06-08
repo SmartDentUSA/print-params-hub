@@ -1,64 +1,85 @@
-# Blindar o Funil de Vendas (18784) — sem redistribuição, sem auto-estagnação
+## Objetivo
 
-## Diagnóstico
+Devolver, para os 7 vendedores informados, todo lead que em 05/06/2026 estava no Funil de Vendas para:
 
-Hoje **duas peças automáticas mexem em deals no Funil de Vendas**:
+- o mesmo owner original de 05/06;
+- a mesma etapa original de 05/06;
+- considerando apenas Funil de Vendas e Funil Estagnados;
+- ignorando etapa “Sem contato”;
+- sem mexer em CS Onboarding, Ganhos, Ganha ou Perdida.
 
-1. **Cron `stagnant-processor-cron`** (a cada 6h) — `smart-ops-stagnant-processor` faz `UPDATE lead_status` em qualquer lead `lead_status LIKE 'est%'` e dá `moveDealToStage` no PipeRun, empurrando deals para o pipeline Estagnados (72938). Foi a origem dos ~884 deals que saíram do 18784 desde 06/06.
+## Critério de restauração
 
-2. **`smart-ops-lia-assign` (round-robin)** — quando um lead reentra (Meta redelivery, formulário, SDR captação) e o `proprietario_lead_crm` atual:
-   - não bate com nenhum `team_members.nome_completo` ativo, OU
-   - é um ID numérico cru (bug de sync), OU
-   - é blocked seller,
-   
-   então faz `pickRandomActiveVendedor()` e regrava `owner_id` no deal — mesmo que o deal esteja aberto no 18784. Foi o que tirou ~168 deals da Janaina.
+Usar o último snapshot do negócio em `piperun_stage_transitions` até `2026-06-05 23:59:59` como verdade histórica.
 
-Régua nativa do PipeRun (UI) já está pausada — o usuário deve manter assim.
+Restaurar somente negócios que:
 
-## Mudanças
+- tinham `pipeline_id = 18784` em 05/06;
+- estavam em etapa diferente de “Sem contato”;
+- pertenciam originalmente aos owners dos 7 vendedores:
+  - Adriano Oliveira → `100952`
+  - Daniel Ferreira → `102594`
+  - Evandro Silva → `33626`
+  - Janaína Santos → `51616`
+  - Lucas Silva → `47802`
+  - Paulo Sérgio → `95097`
+  - Thiago Godoy → `77312`
+- hoje estão abertos em `18784` ou `72938`;
+- hoje estão com owner diferente e/ou etapa diferente do snapshot.
 
-### 1. Desativar o cron `stagnant-processor-cron`
-`SELECT cron.unschedule('stagnant-processor-cron');` via `supabase--insert`.
+## Implementação
 
-Funções one-off (`smart-ops-reassign-danilo-vendas`, `smart-ops-cs-processor` etc.) ficam intactas — só rodam quando invocadas manualmente.
+1. **Criar/ajustar a RPC de candidatos**
+   - Nova função SQL para retornar os candidatos finais com:
+     - `deal_id`
+     - `lead_id`
+     - `snapshot_owner_id`
+     - `snapshot_owner_name`
+     - `snapshot_stage_id`
+     - `snapshot_stage_name`
+     - pipeline/owner/etapa atual
+   - Filtros fortes:
+     - `merged_into IS NULL`
+     - somente pipelines atuais `18784` e `72938`
+     - excluir “Sem contato”
+     - excluir status fechado (`won/lost/ganha/perdida` e códigos fechados quando numéricos)
+     - excluir CS Onboarding e Ganhos.
 
-### 2. Guard "Vendas é intocável" em `smart-ops-stagnant-processor`
-No `select` inicial, **excluir** qualquer lead cujo deal canônico esteja em `piperun_pipeline_id = 18784` E `piperun_status` aberto. Mesmo que alguém reative o cron, o processador para de migrar.
+2. **Atualizar `smart-ops-restore-vendas-snapshot`**
+   - Mudar de “restaurar só etapa” para “restaurar owner + etapa + pipeline”.
+   - Para cada candidato, chamar PipeRun com:
+     - `pipeline_id: 18784`
+     - `stage_id: snapshot_stage_id`
+     - `owner_id: snapshot_owner_id`
+     - `freezed: 0`
+   - Depois sincronizar localmente:
+     - `lia_attendances.piperun_owner_id`
+     - `lia_attendances.proprietario_lead_crm`
+     - `lia_attendances.piperun_pipeline_id`
+     - `lia_attendances.piperun_stage_id`
+     - `lia_attendances.piperun_stage_name`
+     - tabela `deals`, quando existir registro local.
+   - Registrar cada restauração em `system_health_logs` com antes/depois.
 
-### 3. Guard "Vendas é intocável" em `smart-ops-lia-assign`
-Antes do bloco round-robin (linha ~2470-2524), verificar se o lead tem deal aberto no 18784. Se sim:
-- **Não** trocar `owner_id`. Mantém o `proprietario_lead_crm` atual, mesmo se ID numérico ou fora de `team_members` — apenas loga `health_log` para revisão manual.
-- **Não** abrir novo deal nem fechar o existente.
+3. **Executar primeiro em dry-run**
+   - Rodar `smart-ops-restore-vendas-snapshot?dry_run=1&snapshot_date=2026-06-05`.
+   - Conferir amostra e totais por vendedor antes de executar.
 
-O fluxo `enrichment-route` já tem `CASE A — preserve_vendas` (linha 2050) que cobre re-entrega Meta. Confirmar que `CASE C — Fresh Round Robin` (linha 2127) só dispara quando NÃO existe deal aberto no 18784.
+4. **Executar restauração real em lotes**
+   - Rodar com `dry_run=0`, em batches com `limit/offset`, para evitar rate-limit do PipeRun.
+   - Validar após execução comparando novamente os 7 vendedores contra 05/06.
 
-### 4. Mesma proteção em `smart-ops-reassign-danilo-vendas` e similares
-Já são one-off e exigem invocação manual — manter como está, sem cron. (Não precisa código novo.)
+5. **Blindagem para não acontecer de novo**
+   - Fortalecer `smart-ops-lia-assign` para que qualquer deal aberto no Funil de Vendas seja intocável antes de qualquer round-robin, criação, reativação ou `moveDealToVendas`.
+   - Corrigir detecção de status fechado para aceitar tanto texto quanto status numérico.
+   - Garantir que, se já existir deal aberto no `18784`, nenhum fluxo automatizado envie `owner_id` diferente para PipeRun.
+   - Manter `stagnant-processor-cron` desligado e preservar o guard já adicionado no `smart-ops-stagnant-processor`.
 
-### 5. Memory
-Adicionar `mem://architecture/vendas-pipeline-immutability` na Core:
+## Validação final
 
-> **Vendas Pipeline Immutability**: Pipeline 18784 (Funil de Vendas) é INTOCÁVEL por automações. Crons de estagnação (stagnant-processor) estão desativados. lia-assign NUNCA troca owner de deal já em 18784, mesmo se owner atual não bate com team_members. Toda redistribuição em 18784 é manual via Copilot/UI.
+Após executar:
 
-## Detalhes técnicos
-
-- **Cron unschedule**: `select cron.unschedule('stagnant-processor-cron');` — usar `supabase--insert` (não migration), pois é dado de runtime do projeto.
-- **stagnant-processor select**: adicionar `.is('piperun_pipeline_id', null).or('piperun_pipeline_id.neq.18784')` ou filtro pós-fetch que descarta `piperun_pipeline_id === 18784 && piperun_status in ('aberto','open','sem_contato',null)`.
-- **lia-assign guard**: nova função helper `isLeadInVendas(lead)` retorna `true` se `lead.piperun_pipeline_id === 18784` E `lead.piperun_status` ∉ {'ganha','perdida','won','lost'}. Quando true, no bloco "Select owner via Round Robin", forçar `assignedOwnerId = lead.proprietario_lead_crm` resolvido (ou skip total da reatribuição) e pular `createNewDeal`/`moveDealToVendas`.
-- **Log**: cada skip grava em `system_health_logs` com `error_type='vendas_immutability_skip'` para auditoria.
-
-## O que NÃO faremos
-
-- Não desativar `smart-ops-lia-assign` por completo — ele segue criando deals novos para leads que ainda não têm pipeline.
-- Não mexer em CS Onboarding (83896), Reativação, Distribuidor.
-- Não tocar na régua do PipeRun (já pausada via UI).
-- Não reverter automaticamente nenhum deal — restore manual via função existente.
-- Não alterar owners atuais (mesmo os com ID numérico cru) — só impedir novas trocas.
-
-## Passos de execução
-
-1. Unschedule do cron.
-2. Patch em `smart-ops-stagnant-processor/index.ts` (filtro Vendas).
-3. Patch em `smart-ops-lia-assign/index.ts` (guard `isLeadInVendas`).
-4. Memory file + index update.
-5. Deploy das 2 functions e validação (curl com lead-teste em 18784, esperar `vendas_immutability_skip` no log).
+- comparar os 7 vendedores novamente contra 05/06;
+- confirmar que os candidatos restaurados voltaram para o owner e etapa originais;
+- confirmar que não houve alteração em CS Onboarding/Ganhos/Ganha/Perdida;
+- checar logs das Edge Functions para falhas de PipeRun/rate-limit.
