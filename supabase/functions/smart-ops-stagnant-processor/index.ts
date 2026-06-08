@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
 
     const { data: leads, error: fetchError } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, lead_status, updated_at, produto_interesse, tags_crm, piperun_id, proprietario_lead_crm, area_atuacao, especialidade, cidade, uf, impressora_modelo, tem_scanner, resina_interesse, score, temperatura_lead, ultima_etapa_comercial, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade, resumo_historico_ia, cognitive_analysis, historico_resumos")
+      .select("id, nome, email, telefone_normalized, lead_status, updated_at, produto_interesse, tags_crm, piperun_id, piperun_pipeline_id, piperun_status, proprietario_lead_crm, area_atuacao, especialidade, cidade, uf, impressora_modelo, tem_scanner, resina_interesse, score, temperatura_lead, ultima_etapa_comercial, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade, resumo_historico_ia, cognitive_analysis, historico_resumos")
       .like("lead_status", "est%")
       .neq("lead_status", "estagnado_final")
       .order("updated_at", { ascending: true })
@@ -80,6 +80,17 @@ Deno.serve(async (req) => {
       const updatedAt = new Date(lead.updated_at).getTime();
       const elapsed = now - updatedAt;
       if (elapsed < FIVE_DAYS_MS) continue;
+
+      // ── VENDAS IMMUTABILITY GUARD ──
+      // Se o lead tem deal aberto no Funil de Vendas (18784), NUNCA mover.
+      // Toda redistribuição/estagnação em Vendas é manual.
+      const pipelineId = Number((lead as Record<string, unknown>).piperun_pipeline_id ?? 0);
+      const piperunStatus = String((lead as Record<string, unknown>).piperun_status ?? "").toLowerCase();
+      const isClosed = ["ganha", "perdida", "won", "lost"].includes(piperunStatus);
+      if (pipelineId === 18784 && !isClosed) {
+        console.log(`[stagnant-processor] VENDAS_IMMUTABILITY skip lead ${lead.id} (deal aberto em 18784)`);
+        continue;
+      }
 
       const currentStatus = lead.lead_status;
       const nextStatus = PROGRESSION[currentStatus];

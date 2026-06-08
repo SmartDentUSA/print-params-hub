@@ -2472,6 +2472,41 @@ Deno.serve(async (req) => {
     let assignedTeamMemberId: string | null = null;
     let assignedOwnerName: string;
 
+    // ── VENDAS IMMUTABILITY GUARD ──
+    // Se o lead já tem deal aberto no Funil de Vendas (18784), NÃO trocar owner,
+    // NÃO abrir novo deal, NÃO mover de pipeline. Toda redistribuição em Vendas
+    // é manual via Copilot/UI.
+    const leadPipelineId = Number((lead as Record<string, unknown>).piperun_pipeline_id ?? 0);
+    const leadPiperunStatus = String((lead as Record<string, unknown>).piperun_status ?? "").toLowerCase();
+    const leadDealClosed = ["ganha", "perdida", "won", "lost"].includes(leadPiperunStatus);
+    if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id) {
+      console.log(`[lia-assign] VENDAS_IMMUTABILITY skip — lead ${lead.id} já em 18784 (deal ${lead.piperun_id}, owner=${lead.proprietario_lead_crm})`);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "info",
+          error_type: "vendas_immutability_skip",
+          lead_email: lead.email,
+          details: {
+            lead_id: lead.id,
+            piperun_id: lead.piperun_id,
+            current_owner: lead.proprietario_lead_crm,
+            trigger,
+            source: (lead as Record<string, unknown>).source,
+          },
+        });
+      } catch {}
+      return new Response(
+        JSON.stringify({
+          success: true,
+          flow: "vendas_immutability_skip",
+          piperun_id: lead.piperun_id,
+          owner_preserved: lead.proprietario_lead_crm,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if current owner exists and is active in team_members
     if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
       const { data: currentOwner } = await supabase
