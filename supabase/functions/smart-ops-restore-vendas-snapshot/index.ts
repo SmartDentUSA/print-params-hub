@@ -126,8 +126,9 @@ Deno.serve(async (req) => {
     }
     const targetId = STAGE_NAME_TO_ID[snapStage];
     if (!targetId) continue;
-    // Already correct: same pipeline AND same stage_id (label may differ, e.g. C1 vs Contato Feito share id 99294)
-    if (local.pipeline_id === PIPELINE_VENDAS && local.stage_id === targetId) {
+    // Already correct: same pipeline AND (same stage_id OR same canonical name).
+    // Local stage_id is unreliable (NULLs + legacy ids), so name match suffices when pipeline matches.
+    if (local.pipeline_id === PIPELINE_VENDAS && (local.stage_id === targetId || local.stage_name === snapStage)) {
       stats.skipped_already_correct++; continue;
     }
     actions.push({
