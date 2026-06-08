@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       });
     }
     const list = (cands ?? []) as any[];
-    const slice2 = list.slice(offsetEarly(), offsetEarly() + limitEarly());
+    const slice2 = list.slice(offset, offset + limit);
     const stats2: any = { mode, cutoff, dry_run: dryRun, total: list.length, processed: slice2.length, restored: 0, failed: 0 };
     const errs: any[] = [];
     if (!dryRun) {
