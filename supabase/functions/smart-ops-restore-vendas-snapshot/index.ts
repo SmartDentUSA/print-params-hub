@@ -65,69 +65,51 @@ Deno.serve(async (req) => {
   // Pull all snapshot rows first, then deals locally.
   const snapshotCutoff = `${snapshotDate} 23:59:59+00`;
 
-  // 1) Paginated fetch of ALL transitions up to cutoff in pipeline 18784
-  const PAGE = 1000;
-  let pgOffset = 0;
-  const snapMap = new Map<string, { stage_to_name: string; created_at: string }>();
-  // We need LAST per deal_id <= cutoff. Sort DESC and keep first seen.
-  while (true) {
-    const { data, error } = await supabase
-      .from("piperun_stage_transitions")
-      .select("deal_id, stage_to_name, created_at")
-      .eq("pipeline_id", PIPELINE_VENDAS)
-      .lte("created_at", snapshotCutoff)
-      .in("stage_to_name", ELIGIBLE_NAMES)
-      .order("created_at", { ascending: false })
-      .range(pgOffset, pgOffset + PAGE - 1);
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!data || data.length === 0) break;
-    for (const r of data as any[]) {
-      if (!r.deal_id) continue;
-      if (!snapMap.has(r.deal_id)) {
-        snapMap.set(r.deal_id, { stage_to_name: r.stage_to_name, created_at: r.created_at });
-      }
-    }
-    if (data.length < PAGE) break;
-    pgOffset += PAGE;
-    if (pgOffset > 200000) break;
-  }
+  // Build snapshot: latest stage_to_name per deal_id at cutoff (pipeline 18784).
+  // Use RPC to do this in a single DB call instead of two paginated round-trips.
+  const { data: snapRows, error: snapErr } = await supabase.rpc("exec_sql_select", {
+    sql: `WITH snap AS (
+      SELECT DISTINCT ON (deal_id) deal_id, stage_to_name
+      FROM piperun_stage_transitions
+      WHERE pipeline_id = ${PIPELINE_VENDAS}
+        AND created_at <= '${snapshotCutoff}'
+      ORDER BY deal_id, created_at DESC
+    ) SELECT deal_id, stage_to_name FROM snap WHERE stage_to_name = ANY($1)`,
+    params: [ELIGIBLE_NAMES],
+  }).catch(() => ({ data: null, error: { message: "rpc_unavailable" } } as any));
 
-  // BUT: a deal's true snapshot stage could be a NON-eligible stage (e.g., LTV/Fechamento).
-  // We must filter those out. Re-fetch full latest-per-deal (any stage) and reject ones whose
-  // latest <= cutoff is NOT in ELIGIBLE_NAMES.
-  pgOffset = 0;
-  const fullLatest = new Map<string, { stage_to_name: string; created_at: string }>();
-  while (true) {
-    const { data, error } = await supabase
-      .from("piperun_stage_transitions")
-      .select("deal_id, stage_to_name, created_at")
-      .eq("pipeline_id", PIPELINE_VENDAS)
-      .lte("created_at", snapshotCutoff)
-      .in("deal_id", Array.from(snapMap.keys()).slice(0, 5000)) // safety
-      .order("created_at", { ascending: false })
-      .range(pgOffset, pgOffset + PAGE - 1);
-    if (error) break;
-    if (!data || data.length === 0) break;
-    for (const r of data as any[]) {
-      if (!fullLatest.has(r.deal_id)) {
-        fullLatest.set(r.deal_id, { stage_to_name: r.stage_to_name, created_at: r.created_at });
+  const validSnapshot = new Map<string, string>();
+  if (snapRows && Array.isArray(snapRows)) {
+    for (const r of snapRows as any[]) validSnapshot.set(String(r.deal_id), r.stage_to_name);
+  } else {
+    // Fallback: paginated scan, sort by deal_id ASC + created_at DESC to get latest per deal
+    const PAGE = 1000;
+    let pgOffset = 0;
+    const latest = new Map<string, string>();
+    while (true) {
+      const { data, error } = await supabase
+        .from("piperun_stage_transitions")
+        .select("deal_id, stage_to_name, created_at")
+        .eq("pipeline_id", PIPELINE_VENDAS)
+        .lte("created_at", snapshotCutoff)
+        .order("deal_id", { ascending: true })
+        .order("created_at", { ascending: false })
+        .range(pgOffset, pgOffset + PAGE - 1);
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
+      if (!data || data.length === 0) break;
+      for (const r of data as any[]) {
+        if (!latest.has(r.deal_id)) latest.set(r.deal_id, r.stage_to_name);
+      }
+      if (data.length < PAGE) break;
+      pgOffset += PAGE;
+      if (pgOffset > 400000) break;
     }
-    if (data.length < PAGE) break;
-    pgOffset += PAGE;
-    if (pgOffset > 200000) break;
-  }
-
-  // Keep only deals whose TRUE latest stage at snapshot is eligible
-  const validSnapshot = new Map<string, string>(); // deal_id -> stage_name at snapshot
-  for (const [id, info] of fullLatest) {
-    if (ELIGIBLE_NAMES.includes(info.stage_to_name)) {
-      validSnapshot.set(id, info.stage_to_name);
+    for (const [id, name] of latest) {
+      if (ELIGIBLE_NAMES.includes(name)) validSnapshot.set(id, name);
     }
   }
 
