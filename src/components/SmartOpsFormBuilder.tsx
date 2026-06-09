@@ -209,6 +209,12 @@ export function SmartOpsFormBuilder() {
   const [metaFontBody, setMetaFontBody] = useState("Inter");
   const [metaButtonRadius, setMetaButtonRadius] = useState<"none" | "sm" | "md" | "lg" | "pill">("md");
   const [metaButtonShadow, setMetaButtonShadow] = useState<"none" | "sm" | "md" | "glow">("sm");
+  // ------- Cores dos textos -------
+  const [metaAutoContrast, setMetaAutoContrast] = useState(true);
+  const [metaHeadingColor, setMetaHeadingColor] = useState("");
+  const [metaBodyColor, setMetaBodyColor] = useState("");
+  const [metaLabelColor, setMetaLabelColor] = useState("");
+  const [metaMutedColor, setMetaMutedColor] = useState("");
   const [metaExtraSections, setMetaExtraSections] = useState<any[]>([]);
   const [metaCustomCss, setMetaCustomCss] = useState("");
   // Tracking
