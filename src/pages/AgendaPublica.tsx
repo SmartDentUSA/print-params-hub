@@ -78,26 +78,60 @@ export default function AgendaPublica() {
     };
   }, []);
 
-  // Realtime: invalida queries quando cursos/turmas/dias mudam
+  // Realtime + reconexão + invalidação ao voltar para a aba
   useEffect(() => {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas"] });
       queryClient.invalidateQueries({ queryKey: ["public_agenda_courses"] });
     };
-    const channel = (supabase as any)
-      .channel("agenda-publica-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
-      .subscribe();
+
+    let channel: any = null;
+    let retryTimer: number | null = null;
+    let retryAttempt = 0;
+
+    const subscribe = () => {
+      channel = (supabase as any)
+        .channel(`agenda-publica-realtime-${Date.now()}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
+        .subscribe((status: string) => {
+          console.log("[agenda-realtime]", status);
+          if (status === "SUBSCRIBED") {
+            retryAttempt = 0;
+            invalidate();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            if (retryTimer) window.clearTimeout(retryTimer);
+            const delay = Math.min(30_000, 2_000 * Math.pow(2, retryAttempt++));
+            retryTimer = window.setTimeout(() => {
+              try { (supabase as any).removeChannel(channel); } catch {}
+              subscribe();
+            }, delay);
+          }
+        });
+    };
+
+    subscribe();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") invalidate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
-      (supabase as any).removeChannel(channel);
+      if (retryTimer) window.clearTimeout(retryTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      try { (supabase as any).removeChannel(channel); } catch {}
     };
   }, [queryClient]);
 
   // Cursos públicos (filtragem por public_visible)
   const { data: publicCourseIds = [] } = useQuery({
     queryKey: ["public_agenda_courses"],
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
@@ -110,9 +144,12 @@ export default function AgendaPublica() {
   });
 
   // Turmas (mesma fonte do admin: v_turmas_com_vagas)
-  const { data: allTurmas = [], isLoading } = useQuery({
+  const { data: allTurmas = [], isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["public_agenda_turmas"],
     refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("v_turmas_com_vagas")
@@ -146,6 +183,9 @@ export default function AgendaPublica() {
           <p className="text-sm text-muted-foreground mt-1">
             Confira nossos cursos e imersões com vagas abertas.
           </p>
+          {dataUpdatedAt > 0 && (
+            <FreshnessIndicator updatedAt={dataUpdatedAt} />
+          )}
         </header>
 
         {isLoading ? (
@@ -258,5 +298,18 @@ function Metric({ label, value, valueClassName }: { label: string; value: React.
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
       <div className={cn("text-2xl font-semibold leading-tight", valueClassName)}>{value}</div>
     </div>
+  );
+}
+
+function FreshnessIndicator({ updatedAt }: { updatedAt: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((x) => x + 1), 5_000);
+    return () => clearInterval(t);
+  }, []);
+  const secs = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
+  const label = secs < 60 ? `há ${secs}s` : `há ${Math.floor(secs / 60)}min`;
+  return (
+    <p className="text-[11px] text-muted-foreground/70 mt-2">Atualizado {label}</p>
   );
 }
