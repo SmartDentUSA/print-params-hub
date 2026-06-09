@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, Video, User } from "lucide-react";
+import { CalendarDays, MapPin, Video, User, RefreshCw } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
@@ -92,9 +92,9 @@ export default function AgendaPublica() {
     const subscribe = () => {
       channel = (supabase as any)
         .channel(`agenda-publica-realtime-${Date.now()}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
-        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
-        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, (p: any) => { console.log("[agenda-realtime] courses", p?.eventType); invalidate(); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, (p: any) => { console.log("[agenda-realtime] turmas", p?.eventType); invalidate(); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, (p: any) => { console.log("[agenda-realtime] days", p?.eventType); invalidate(); })
         .subscribe((status: string) => {
           console.log("[agenda-realtime]", status);
           if (status === "SUBSCRIBED") {
@@ -116,11 +116,22 @@ export default function AgendaPublica() {
     const onVisible = () => {
       if (document.visibilityState === "visible") invalidate();
     };
+    const onFocus = () => invalidate();
+    const onMessage = (e: MessageEvent) => {
+      const data: any = e?.data;
+      if (data && typeof data === "object" && data.type === "smartdent:embed:treinamentos:refresh") {
+        invalidate();
+      }
+    };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("message", onMessage);
 
     return () => {
       if (retryTimer) window.clearTimeout(retryTimer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("message", onMessage);
       try { (supabase as any).removeChannel(channel); } catch {}
     };
   }, [queryClient]);
@@ -128,7 +139,7 @@ export default function AgendaPublica() {
   // Cursos públicos (filtragem por public_visible)
   const { data: publicCourseIds = [] } = useQuery({
     queryKey: ["public_agenda_courses"],
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     staleTime: 0,
@@ -144,10 +155,10 @@ export default function AgendaPublica() {
   });
 
   // Turmas (mesma fonte do admin: v_turmas_com_vagas)
-  const { data: allTurmas = [], isLoading, dataUpdatedAt } = useQuery({
+  const { data: allTurmas = [], isLoading, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ["public_agenda_turmas"],
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchIntervalInBackground: true,
     staleTime: 0,
     queryFn: async () => {
@@ -183,9 +194,22 @@ export default function AgendaPublica() {
           <p className="text-sm text-muted-foreground mt-1">
             Confira nossos cursos e imersões com vagas abertas.
           </p>
-          {dataUpdatedAt > 0 && (
-            <FreshnessIndicator updatedAt={dataUpdatedAt} />
-          )}
+          <div className="flex items-center gap-3 mt-2">
+            {dataUpdatedAt > 0 && (
+              <FreshnessIndicator updatedAt={dataUpdatedAt} fetching={isFetching} />
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas"] });
+                queryClient.invalidateQueries({ queryKey: ["public_agenda_courses"] });
+              }}
+              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/80 hover:text-foreground border rounded-full px-2.5 py-1 transition-colors"
+            >
+              <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
+              Atualizar agora
+            </button>
+          </div>
         </header>
 
         {isLoading ? (
@@ -301,7 +325,7 @@ function Metric({ label, value, valueClassName }: { label: string; value: React.
   );
 }
 
-function FreshnessIndicator({ updatedAt }: { updatedAt: number }) {
+function FreshnessIndicator({ updatedAt, fetching }: { updatedAt: number; fetching?: boolean }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((x) => x + 1), 5_000);
@@ -310,6 +334,8 @@ function FreshnessIndicator({ updatedAt }: { updatedAt: number }) {
   const secs = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
   const label = secs < 60 ? `há ${secs}s` : `há ${Math.floor(secs / 60)}min`;
   return (
-    <p className="text-[11px] text-muted-foreground/70 mt-2">Atualizado {label}</p>
+    <p className="text-[11px] text-muted-foreground/70">
+      {fetching ? "Atualizando…" : `Atualizado ${label}`}
+    </p>
   );
 }
