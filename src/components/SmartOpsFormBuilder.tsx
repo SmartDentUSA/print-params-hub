@@ -399,6 +399,11 @@ export function SmartOpsFormBuilder() {
     setMetaFontBody(f.font_body || "Inter");
     setMetaButtonRadius((f.button_radius as any) || "md");
     setMetaButtonShadow((f.button_shadow as any) || "sm");
+    setMetaAutoContrast(f.auto_contrast !== false);
+    setMetaHeadingColor(f.heading_color || "");
+    setMetaBodyColor(f.body_color || "");
+    setMetaLabelColor(f.label_color || "");
+    setMetaMutedColor(f.muted_color || "");
     setMetaExtraSections(Array.isArray(f.extra_sections) ? f.extra_sections : []);
     setMetaCustomCss(f.custom_css || "");
     setMetaTrackingGtm(f.tracking_gtm_id ?? "GTM-NZ64Q899");
