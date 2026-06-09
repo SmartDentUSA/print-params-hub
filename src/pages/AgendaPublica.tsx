@@ -78,26 +78,60 @@ export default function AgendaPublica() {
     };
   }, []);
 
-  // Realtime: invalida queries quando cursos/turmas/dias mudam
+  // Realtime + reconexão + invalidação ao voltar para a aba
   useEffect(() => {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas"] });
       queryClient.invalidateQueries({ queryKey: ["public_agenda_courses"] });
     };
-    const channel = (supabase as any)
-      .channel("agenda-publica-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
-      .subscribe();
+
+    let channel: any = null;
+    let retryTimer: number | null = null;
+    let retryAttempt = 0;
+
+    const subscribe = () => {
+      channel = (supabase as any)
+        .channel(`agenda-publica-realtime-${Date.now()}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_courses" }, invalidate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_course_turmas" }, invalidate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "smartops_turma_days" }, invalidate)
+        .subscribe((status: string) => {
+          console.log("[agenda-realtime]", status);
+          if (status === "SUBSCRIBED") {
+            retryAttempt = 0;
+            invalidate();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            if (retryTimer) window.clearTimeout(retryTimer);
+            const delay = Math.min(30_000, 2_000 * Math.pow(2, retryAttempt++));
+            retryTimer = window.setTimeout(() => {
+              try { (supabase as any).removeChannel(channel); } catch {}
+              subscribe();
+            }, delay);
+          }
+        });
+    };
+
+    subscribe();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") invalidate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
-      (supabase as any).removeChannel(channel);
+      if (retryTimer) window.clearTimeout(retryTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      try { (supabase as any).removeChannel(channel); } catch {}
     };
   }, [queryClient]);
 
   // Cursos públicos (filtragem por public_visible)
   const { data: publicCourseIds = [] } = useQuery({
     queryKey: ["public_agenda_courses"],
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
@@ -110,9 +144,12 @@ export default function AgendaPublica() {
   });
 
   // Turmas (mesma fonte do admin: v_turmas_com_vagas)
-  const { data: allTurmas = [], isLoading } = useQuery({
+  const { data: allTurmas = [], isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["public_agenda_turmas"],
     refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("v_turmas_com_vagas")
