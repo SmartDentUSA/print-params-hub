@@ -1,5 +1,5 @@
 # DIAGNÓSTICO COMPLETO — SMARTDENT
-> Última atualização: 2026-06-08 | Compilado por Claude Code (sessão ativa)
+> Última atualização: 2026-06-09 | Compilado por Claude Code (sessão ativa)
 > Este arquivo agrega todos os dados de configuração coletados para análise e plano de ação.
 
 ---
@@ -566,5 +566,84 @@ Esta tag deve estar no container MNPGDCH (loja), não NZ64Q899.
 
 ---
 
-*Arquivo gerado automaticamente pela sessão Claude Code — 2026-06-08*
-*Próxima atualização: adicionar dados de GEO/Schema.org e configurações de TikTok/YouTube quando disponíveis*
+---
+
+## 9. DEBUG AO VIVO — COMPRA REAL (Pedido 2602)
+
+**Data**: 2026-06-09 | **Página**: `loja.smartdent.com.br/checkout/2602/finalizacao`
+**Pedido de teste**: R$10 | Item: "Teste2" (item_id: 378571260)
+
+### Eventos disparados — confirmados ao vivo
+
+#### ✅ Purchase GA4 — FUNCIONANDO
+```
+event: "purchase"
+sd_event_id: "407a5a00-ab32-4eb0-8776-a4e051bae7d0"
+user_data: { email_address: "danilohen@gmail.com" }
+transaction_id: "2602"
+value: 10
+currency: "BRL"
+event_id: "b834ab58-2004-4185-a3b7-6409011492b5"
+tid: G-1411Z6YVPY → servidor: server-side-tagging-eeaflmcg6a-uc.a.run.app
+```
+**O user_data com email está chegando** — vem do LI Purchase Tracker v6.0, não da tag "LI - Capturar User Data" (que está parada e não é necessária).
+
+#### ✅ Google Ads Enhanced Conversions — FUNCIONANDO
+```
+"Sending Google Ads hit"
+tid: G-1411Z6YVPY
+oid: 2602
+value: 10
+currency_code: BRL
+gclaw: Cj0KCQjwp7jO... (gclid presente — usuário veio de clique pago)
+evnid: b834ab58-2004-4185-a3b7-6409011492b5
+item: (10*1*378571260**)
+em: tv.1~em.gGdWU8rISTb_S_6dP69JhvwFYECsGzMN9gYyknflTww (email hash!)
+```
+Enhanced Conversions com email hashed enviando para Google Ads ✅
+
+#### ✅ TikTok PlaceAnOrder — FUNCIONANDO
+```
+event: "PlaceAnOrder"
+user_data: { email_address: "danilohen@gmail.com" }
+value: 10 | currency: BRL
+event_id: "407a5a00-ab32-4eb0-8776-a4e051bae7d0"
+tt_contents: [{ item_id, item_name, price, quantity }]
+→ server-side: server-side-tagging-eeaflmcg6a-uc.a.run.app
+```
+
+### GA4 IDs identificados disparando na página (debug ao vivo)
+
+| Measurement ID | Eventos | Observação |
+|----------------|---------|------------|
+| G-1411Z6YVPY | page_view, **purchase**, PlaceAnOrder (TT) | ✅ Principal — Enhanced Conv funcionando |
+| G-LJ7X8G61N4 | gtm.dom (como "PageView" com dados purchase) | FB CAPI passthrough confirmado |
+| G-59WWJQN34P | page_view | ✅ Institucional (BigQuery) |
+| G-GXQP9MMK73 | page_view, scroll | ⚠️ Origem desconhecida |
+| G-6XFYNQZ1JV | page_view | ⚠️ Origem desconhecida |
+| G-LW7Y4JE568 | page_view | ⚠️ Origem desconhecida |
+| G-GC471H5WCP | page_view | ⚠️ Origem desconhecida |
+| G-R0Q68Y04MV | page_view, scroll | ⚠️ Origem desconhecida |
+
+**8 propriedades GA4 diferentes recebendo hits na página de finalização** — as 5 desconhecidas (G-GXQP9MMK73, G-6XFYNQZ1JV, G-LW7Y4JE568, G-GC471H5WCP, G-R0Q68Y04MV) provavelmente vêm do servidor GTM server-side que roteia para sub-propriedades ou são IDs de parceiros (Facebook CAPI automation, TikTok EAPI automation).
+
+### Estado do user_data no carregamento da página
+
+```
+user_data: undefined  ← na config inicial (esperado — usuário ainda não identificado)
+```
+Torna-se disponível apenas quando o evento `purchase` é disparado pelo LI Purchase Tracker.
+
+### Conclusão do debug ao vivo
+
+| Aspecto | Status | Observação |
+|---------|--------|------------|
+| Purchase GA4 | ✅ Funcionando | user_data com email presente |
+| Google Ads Enhanced Conv | ✅ Funcionando | email hash + gclid + valor |
+| TikTok PlaceAnOrder | ✅ Funcionando | user_data presente |
+| Meta Purchase (fbq) | ❓ Não aparece no debug | Verificar se fbq disparou fora do log |
+| "LI - Capturar User Data" | ✅ Não necessária | Email vem do LI tracker diretamente |
+| EMQ Meta baixo | 🔴 Ainda problema | Não é falta de email — outra causa |
+
+*Arquivo gerado automaticamente pela sessão Claude Code — 2026-06-09*
+*Próxima atualização: adicionar dados de GEO/Schema.org quando disponíveis*
