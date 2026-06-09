@@ -167,7 +167,7 @@ Parâmetros técnicos: <a href="https://parametros.smartdent.com.br" target="_bl
     seo_esc = seo.replace("'", "''")
     name_esc = dep_title.replace("'", "''")
     dom_esc = domain.replace("'", "''")
-    return f"UPDATE cloned_landing_pages SET original_html='{html_esc}', transformed_html='{html_esc}', name='{name_esc}', target_domain='{dom_esc}', seo_config='{seo_esc}'::jsonb, publish_status='pending_deploy' WHERE id='{p['id']}';"
+    return f"UPDATE cloned_landing_pages SET original_html='{html_esc}', name='{name_esc}', target_domain='{dom_esc}', seo_config='{seo_esc}'::jsonb, publish_status='pending_deploy' WHERE id='{p['id']}';"
 
 
 if __name__ == '__main__':
