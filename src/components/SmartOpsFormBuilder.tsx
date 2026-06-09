@@ -209,6 +209,12 @@ export function SmartOpsFormBuilder() {
   const [metaFontBody, setMetaFontBody] = useState("Inter");
   const [metaButtonRadius, setMetaButtonRadius] = useState<"none" | "sm" | "md" | "lg" | "pill">("md");
   const [metaButtonShadow, setMetaButtonShadow] = useState<"none" | "sm" | "md" | "glow">("sm");
+  // ------- Cores dos textos -------
+  const [metaAutoContrast, setMetaAutoContrast] = useState(true);
+  const [metaHeadingColor, setMetaHeadingColor] = useState("");
+  const [metaBodyColor, setMetaBodyColor] = useState("");
+  const [metaLabelColor, setMetaLabelColor] = useState("");
+  const [metaMutedColor, setMetaMutedColor] = useState("");
   const [metaExtraSections, setMetaExtraSections] = useState<any[]>([]);
   const [metaCustomCss, setMetaCustomCss] = useState("");
   // Tracking
@@ -393,6 +399,11 @@ export function SmartOpsFormBuilder() {
     setMetaFontBody(f.font_body || "Inter");
     setMetaButtonRadius((f.button_radius as any) || "md");
     setMetaButtonShadow((f.button_shadow as any) || "sm");
+    setMetaAutoContrast(f.auto_contrast !== false);
+    setMetaHeadingColor(f.heading_color || "");
+    setMetaBodyColor(f.body_color || "");
+    setMetaLabelColor(f.label_color || "");
+    setMetaMutedColor(f.muted_color || "");
     setMetaExtraSections(Array.isArray(f.extra_sections) ? f.extra_sections : []);
     setMetaCustomCss(f.custom_css || "");
     setMetaTrackingGtm(f.tracking_gtm_id ?? "GTM-NZ64Q899");
@@ -434,6 +445,11 @@ export function SmartOpsFormBuilder() {
         font_body: metaFontBody || null,
         button_radius: metaButtonRadius,
         button_shadow: metaButtonShadow,
+        auto_contrast: metaAutoContrast,
+        heading_color: metaAutoContrast ? null : (metaHeadingColor || null),
+        body_color: metaAutoContrast ? null : (metaBodyColor || null),
+        label_color: metaAutoContrast ? null : (metaLabelColor || null),
+        muted_color: metaAutoContrast ? null : (metaMutedColor || null),
         extra_sections: metaExtraSections,
         custom_css: metaCustomCss || null,
         tracking_gtm_id: metaTrackingGtm.trim() || null,
@@ -825,6 +841,63 @@ export function SmartOpsFormBuilder() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Cores dos textos */}
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold uppercase tracking-wide">Cores dos textos</label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={metaAutoContrast}
+                        onChange={(e) => setMetaAutoContrast(e.target.checked)}
+                      />
+                      Ajuste automático pelo fundo
+                    </label>
+                  </div>
+                  {!metaAutoContrast && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { lbl: "Título", val: metaHeadingColor, set: setMetaHeadingColor, ph: "#111111" },
+                          { lbl: "Corpo / subtítulo", val: metaBodyColor, set: setMetaBodyColor, ph: "#1f2937" },
+                          { lbl: "Labels dos campos", val: metaLabelColor, set: setMetaLabelColor, ph: "#111111" },
+                          { lbl: "Texto auxiliar", val: metaMutedColor, set: setMetaMutedColor, ph: "#6b7280" },
+                        ].map((c) => (
+                          <div key={c.lbl}>
+                            <label className="text-xs font-medium">{c.lbl}</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="color"
+                                value={c.val || "#000000"}
+                                onChange={(e) => c.set(e.target.value)}
+                                className="h-10 w-12 rounded border"
+                              />
+                              <Input value={c.val} onChange={(e) => c.set(e.target.value)} placeholder={c.ph} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline"
+                        onClick={() => {
+                          setMetaHeadingColor("");
+                          setMetaBodyColor("");
+                          setMetaLabelColor("");
+                          setMetaMutedColor("");
+                        }}
+                      >
+                        Resetar para o tema
+                      </button>
+                    </>
+                  )}
+                  {metaAutoContrast && (
+                    <p className="text-xs text-muted-foreground">
+                      As cores dos textos serão calculadas automaticamente para garantir contraste com o fundo escolhido.
+                    </p>
+                  )}
                 </div>
 
                 {/* Botão */}
