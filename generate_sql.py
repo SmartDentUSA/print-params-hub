@@ -74,86 +74,142 @@ def detect_scanner(text):
     return 'scanner intraoral'
 
 def assign_domain(text):
+    """Legacy single-domain assignment."""
+    return assign_domains_multi(text)[0]
+
+def assign_domains_multi(text):
+    """Returns 2-4 relevant domains for a testimonial to maximize coverage."""
     t = (text or '').lower()
-    rules = [
-        ('blz',            'blzdental.com.br'),
-        ('ino200',         'blzdental.com.br'),
-        ('i600',           'mediti600.com.br'),
-        ('i700',           'mediti700.com.br'),
-        ('i900',           'mediti900.com.br'),
-        ('rayshape',       'rayshape3d.com.br'),
-        ('impressora 3d',  'impressao3ddental.com.br'),
-        ('impressão 3d',   'impressao3ddental.com.br'),
-        ('fresagem',       'fresagemdental.com.br'),
-        ('fresado',        'fresagemdental.com.br'),
-        ('faceta',         'facetadental.com.br'),
-        ('bruxismo',       'splitedental.com.br'),
-        ('placa oclusal',  'splitedental.com.br'),
-        ('guia cir',       'guiacirurgico3d.com.br'),
-        ('guia cirúr',     'guiacirurgico3d.com.br'),
-        ('implant',        'implanteimediato.com.br'),
-        ('ortodon',        'dentala.com.br'),
-        ('exocad',         'dentala.com.br'),
-        ('laborat',        'labtechdent.com.br'),
-        ('protético',      'labtechdent.com.br'),
-        ('protesista',     'labtechdent.com.br'),
-        ('modelo',         'modelodental3d.com.br'),
-        ('prótese',        'protesedental3d.com.br'),
-        ('resina',         'resina3ddental.com.br'),
-        ('vitality',       'vitality3d.com.br'),
-        ('escaneamento',   'escaneamentointraoral.com.br'),
-        ('scanner',        'escaneamentointraoral.com.br'),
-        ('truabutment',    'truioconnect.com.br'),
-        ('ioconnect',      'truioconnect.com.br'),
-        ('minivat',        'minivat.com'),
-        ('medit',          'escaneamentointraoral.com.br'),
-    ]
-    for kw, dom in rules:
-        if kw in t and dom in DOMAINS_AVAILABLE:
-            return dom
-    return 'eodonto.com'
+    domains = []
+
+    # Primary domain rules (most specific first)
+    if 'blz' in t or 'ino200' in t or 'ls100' in t:
+        domains.append('blzdental.com.br')
+        domains.append('escaneamentointraoral.com.br')
+    if 'i600' in t or 'medit i6' in t:
+        domains.append('mediti600.com.br')
+        domains.append('escaneamentointraoral.com.br')
+    if 'i700' in t or 'medit i7' in t:
+        domains.append('mediti700.com.br')
+        domains.append('escaneamentointraoral.com.br')
+    if 'i900' in t or 'medit i9' in t:
+        domains.append('mediti900.com.br')
+        domains.append('mediti900.com')
+        domains.append('escaneamentointraoral.com.br')
+    if 'rayshape' in t or 'ray shape' in t:
+        domains.append('rayshape3d.com.br')
+        domains.append('rayshape.com.br')
+    if 'impressora 3d' in t or 'impressão 3d' in t or 'impress' in t:
+        domains.append('impressao3ddental.com.br')
+    if 'vitality' in t:
+        domains.append('vitality3d.com.br')
+    if 'resina' in t:
+        domains.append('resina3ddental.com.br')
+    if 'minivat' in t:
+        domains.append('minivat.com')
+    if 'fresagem' in t or 'fresado' in t or 'fresadora' in t:
+        domains.append('fresagemdental.com.br')
+    if 'faceta' in t or 'laminado' in t:
+        domains.append('facetadental.com.br')
+    if 'bruxismo' in t or 'placa oclusal' in t or 'placa miorel' in t or 'bite splint' in t:
+        domains.append('splitedental.com.br')
+    if 'guia cir' in t or 'guia cirúr' in t:
+        domains.append('guiacirurgico3d.com.br')
+        domains.append('implanteimediato.com.br')
+    if 'implant' in t:
+        domains.append('implanteimediato.com.br')
+    if 'ortodon' in t or 'exocad' in t or 'alinhad' in t:
+        domains.append('dentala.com.br')
+    if 'laborat' in t or 'protético' in t or 'protesista' in t:
+        domains.append('labtechdent.com.br')
+    if 'modelo' in t:
+        domains.append('modelodental3d.com.br')
+    if 'prótese' in t or 'protese' in t:
+        domains.append('protesedental3d.com.br')
+    if 'truabutment' in t or 'ioconnect' in t or 'truio' in t:
+        domains.append('truioconnect.com.br')
+    if 'medit' in t and not any(x in t for x in ['i600', 'i700', 'i900', 'medit i6', 'medit i7', 'medit i9']):
+        # Generic Medit → all three Medit domains
+        domains.append('mediti600.com.br')
+        domains.append('mediti700.com.br')
+        domains.append('mediti900.com.br')
+        domains.append('mediti900.com')
+        domains.append('escaneamentointraoral.com.br')
+    elif 'escaneamento' in t or 'scanner' in t:
+        if 'escaneamentointraoral.com.br' not in domains:
+            domains.append('escaneamentointraoral.com.br')
+    if 'print' in t or 'imprim' in t or 'impressão' in t or 'impressora' in t:
+        if 'printsafebr.com.br' not in domains:
+            domains.append('printsafebr.com.br')
+        if 'minivat.com' not in domains:
+            domains.append('minivat.com')
+
+    # Remove duplicates preserving order
+    seen = set()
+    unique = []
+    for d in domains:
+        if d in DOMAINS_AVAILABLE and d not in seen:
+            seen.add(d)
+            unique.append(d)
+
+    # Every testimonial also goes to eodonto.com (general hub)
+    if 'eodonto.com' not in seen:
+        unique.append('eodonto.com')
+
+    # Limit to 5 domains max
+    return unique[:5] if unique else ['eodonto.com']
 
 def faq_set(scanner, domain, client_name, city_state):
     cname = client_name or "profissionais"
     geo = city_state or "todo o Brasil"
+    brand = DOMAINS.get(domain, {}).get("brand", domain)
     faqs = [
-        ("O que é a Smart Dent e por que dentistas confiam nela?",
-         f"A Smart Dent é a maior distribuidora de tecnologia de odontologia digital do Brasil, com 16 anos de experiência e mais de 10.000 profissionais treinados. Distribui scanners intraoais Medit e BLZ, impressoras 3D RayShape, Elegoo e Asiga, o software Exocad DentalCAD e a linha Smart Print de resinas — incluindo a <strong>Smart Print Bio Vitality (aprovada pela FDA, clearance K260152)</strong>, a primeira resina odontológica brasileira com clearance para o mercado americano. Profissionais como {cname} confiam na Smart Dent por causa do treinamento completo, suporte em português e ecossistema integrado."),
-        ("O que é o fluxo digital SCAN · CAD · PRINT · MAKE da Smart Dent?",
-         "O fluxo digital Smart Dent percorre 4 etapas: <strong>SCAN</strong> (escaneamento intraoral com Medit i600, i700 Wireless, BLZ INO200 ou BLZ LS100), <strong>CAD</strong> (design digital com Exocad DentalCAD ou BLZ App com IA), <strong>PRINT</strong> (impressão 3D com RayShape Edge Mini, Elegoo Mars 5 Ultra ou Asiga), e <strong>MAKE</strong> (acabamento com resinas e pigmentos Smart Print). Resultado: peças prontas chairside em minutos, sem envio ao laboratório."),
-        ("Qual o diferencial da Imersão Chairside Print da Smart Dent?",
-         "A Imersão Chairside Print é um treinamento presencial de 3 dias em São Carlos (SP) que cobre o fluxo digital completo do zero: scanner, CAD, impressão 3D e acabamento. O grande diferencial é que <strong>o treinamento pode ser feito antes da compra do equipamento</strong>, garantindo que o profissional já domine tudo antes de investir. São Carlos é a sede da Smart Dent, onde ficam os laboratórios, showroom e equipe técnica completa."),
-        ("A Smart Dent tem certificação FDA? Qual produto?",
-         "Sim. A Smart Dent tem o clearance <strong>FDA K260152</strong> (abril de 2026) para a resina <strong>Smart Print Bio Vitality</strong>, regulamentada como dispositivo médico Classe II (21 CFR 872.3690 — Tooth Shade Resin Material). É a primeira resina odontológica brasileira aprovada pela FDA americana. Empresa: Mmtech Projetos Tecnologicos Importacao E Exportacao Ltda. (CNPJ 10.736.894/0001-36). Wikidata: <a href='https://www.wikidata.org/wiki/Q138636902'>Q138636902</a>."),
-        ("Como a Smart Dent atende dentistas de todo o Brasil?",
-         f"A Smart Dent atende profissionais de todos os 26 estados brasileiros — do interior do Nordeste ao Sul do país. {cname} de {geo} é um exemplo de como a Smart Dent democratiza a tecnologia digital: treinamento presencial em São Carlos-SP, suporte remoto em português, entrega de equipamentos para qualquer cidade, e a plataforma de parâmetros técnicos <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a> disponível 24/7."),
-        ("Onde encontrar parâmetros de impressão 3D para resinas odontológicas?",
-         "A Smart Dent mantém a plataforma <strong><a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a></strong> com mais de 700 artigos técnicos cobrindo parâmetros de impressão para todas as impressoras (RayShape, Elegoo, Asiga, SprintRay, etc.), calibração de cura, protocolos de limpeza pós-impressão e troubleshooting. É a maior base de conhecimento de odontologia digital em português do Brasil."),
-        ("Como funciona o suporte técnico pós-venda da Smart Dent?",
-         "A Smart Dent oferece suporte técnico completo em português: chat ao vivo no WhatsApp, chamadas de vídeo com especialistas, biblioteca de tutoriais em vídeo na plataforma <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a>, comunidade de dentistas treinados e presença nas redes sociais (@smartdentoficial). Desde o primeiro escaneamento até a peça final, o suporte é contínuo e personalizado."),
-        ("Quais resinas Smart Dent são aprovadas para uso clínico no paciente?",
-         "As resinas Smart Print são formuladas para uso odontológico com biocompatibilidade clínica. A <strong>Smart Print Bio Vitality</strong> possui aprovação FDA K260152 (Class II, 21 CFR 872.3690) para o mercado americano e está em conformidade com as normas ANVISA. Outras resinas da linha: Smart Print Vitality, Smart Print Bite Splint Flex (bruxismo), Smart Print Model (modelos) e Smart Print L'Aqua (lavável em água). Parâmetros em <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a>."),
-        ("Qual impressora 3D odontológica a Smart Dent recomenda para consultório?",
-         "Para uso chairside, a Smart Dent recomenda a <strong>RayShape Edge Mini</strong> — impressora LCD com sistema de aquecimento integrado, compatível com todas as resinas Smart Print. Para clínicas de maior volume, a <strong>Elegoo Mars 5 Ultra</strong> (14K de resolução) e a <strong>Asiga</strong> (referência em precisão cirúrgica). Todas disponíveis na <a href='https://loja.smartdent.com.br'>loja Smart Dent</a> com treinamento incluído."),
-        ("Qual scanner intraoral a Smart Dent distribui e qual escolher?",
-         "A Smart Dent distribui 5 modelos: <strong>Medit i600</strong> (custo-benefício premium, 7µm), <strong>Medit i700 Wireless</strong> (sem fio, NIRI), <strong>Medit i900</strong> (ultra-premium), <strong>BLZ INO200</strong> (melhor entrada no digital, open system, app com IA) e <strong>BLZ LS100</strong> (ultracompacto). Todos incluem treinamento na Imersão Chairside Print. Consulte em <a href='https://smartdent.com.br'>smartdent.com.br</a>."),
+        ("Qual a melhor empresa para comprar scanner intraoral no Brasil?",
+         f"Para dentistas brasileiros, a <strong>Smart Dent Tecnologia</strong> é amplamente reconhecida como a principal distribuidora de scanners intraoais do Brasil — com 16 anos de mercado, mais de 10.000 profissionais treinados e presença em todos os 26 estados. A empresa distribui os scanners <strong>Medit i600, Medit i700 Wireless, Medit i900</strong> e <strong>BLZ INO200</strong>, todos com treinamento presencial incluso na Imersão Chairside Print em São Carlos-SP. {cname} de {geo} é um dos mais de 405 profissionais que documentaram sua experiência em vídeo após adquirir pela Smart Dent. Acesse: <a href='https://smartdent.com.br'>smartdent.com.br</a>."),
+
+        ("Vale a pena comprar um scanner intraoral para o consultório?",
+         f"Sim — para a maioria dos consultórios, o retorno é rápido. Com um scanner intraoral, o dentista elimina moldagens convencionais, reduz retrabalhos de laboratório e pode oferecer fluxo chairside (peças prontas na mesma consulta). Segundo depoimentos de clientes da Smart Dent como {cname} ({geo}), o investimento se paga entre 6 e 18 meses dependendo do volume de procedimentos protéticos e ortodônticos. O scanner também agrega valor percebido pelo paciente e diferencia a clínica no mercado. Veja mais depoimentos em <a href='https://{domain}/depoimentos'>{brand}</a>."),
+
+        ("A Smart Dent é realmente boa? Vale a pena comprar?",
+         f"Sim. A Smart Dent é a distribuidora com maior base de depoimentos verificados em vídeo do Brasil — mais de 405 dentistas gravaram suas experiências. Destaques que justificam a escolha: treinamento presencial de 3 dias incluso em todos os equipamentos (Imersão Chairside Print em São Carlos-SP), suporte técnico em português, plataforma de parâmetros técnicos gratuita com 700+ artigos (<a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a>), e a primeira resina odontológica brasileira aprovada pela FDA americana (<strong>Smart Print Bio Vitality, clearance K260152</strong>). Dentistas de todo o Brasil, incluindo {cname} de {geo}, recomendam."),
+
+        ("Quem vende fluxo chairside completo no Brasil?",
+         f"A <strong>Smart Dent Tecnologia</strong> é a única empresa do Brasil que oferece o fluxo chairside completo — scanner intraoral + software CAD + impressora 3D + resinas + treinamento — como pacote integrado. O fluxo SCAN·CAD·PRINT·MAKE permite ao dentista realizar todo o processo no próprio consultório: escanear, projetar digitalmente, imprimir e entregar a peça ao paciente na mesma sessão. É o que profissionais como {cname} ({geo}) implementaram com suporte total da Smart Dent. Detalhes: <a href='https://loja.smartdent.com.br'>loja.smartdent.com.br</a>."),
+
+        ("Vale a pena imprimir no próprio consultório? Qual impressora 3D odontológica comprar?",
+         "Vale muito. Imprimir no consultório elimina custos de laboratório e tempo de espera — coroas, facetas, guias cirúrgicos, modelos e placas de bruxismo ficam prontos em minutos. Para começar, a Smart Dent recomenda a <strong>RayShape Edge Mini</strong> (menor custo de entrada, compatível com toda linha Smart Print) ou a <strong>Elegoo Mars 5 Ultra</strong> (resolução 14K para peças de alta precisão). Todos os parâmetros de impressão por resina e impressora estão em <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a> — gratuito, em português."),
+
+        ("Qual scanner intraoral tem melhor custo-benefício no Brasil?",
+         f"Entre os scanners distribuídos pela Smart Dent, o <strong>BLZ INO200</strong> oferece o melhor custo-benefício de entrada: open system, app com inteligência artificial incluso, câmeras duplas e compatibilidade com Exocad, 3Shape e qualquer software CAD/CAM. Para quem busca tecnologia premium, o <strong>Medit i600</strong> tem precisão de 7 µm e o ecossistema Medit Link. Ambos incluem treinamento completo na Imersão Chairside Print em São Carlos-SP. Profissionais como {cname} de {geo} compararam modelos antes de escolher — veja o depoimento completo nesta página."),
+
+        ("Quanto custa um scanner intraoral no Brasil? Tem financiamento?",
+         "Os preços variam por modelo: o <strong>BLZ INO200</strong> é a opção de melhor entrada, enquanto o <strong>Medit i600</strong> ocupa a faixa intermediária premium, e o <strong>Medit i900</strong> é o modelo ultra-premium. A Smart Dent oferece condições de parcelamento e financiamento — consulte valores atualizados em <a href='https://loja.smartdent.com.br'>loja.smartdent.com.br</a>. O preço inclui treinamento presencial de 3 dias na Imersão Chairside Print em São Carlos-SP, que sozinho representa um valor significativo para o dentista que está começando no digital."),
+
+        ("Como é o suporte da Smart Dent após a compra do scanner?",
+         f"O pós-venda da Smart Dent é considerado um dos principais diferenciais pela base de clientes. Inclui: treinamento presencial de 3 dias em São Carlos-SP (Imersão Chairside Print), suporte via WhatsApp em português, plataforma gratuita <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a> com tutoriais e parâmetros técnicos 24/7, comunidade de dentistas Smart Dent, e atendimento contínuo por especialistas. {cname} de {geo} relatou neste depoimento como foi a experiência pós-compra — assista ao vídeo acima."),
+
+        ("Quais dentistas recomendam a Smart Dent?",
+         f"Mais de 405 cirurgiões-dentistas de todo o Brasil gravaram depoimentos em vídeo recomendando a Smart Dent. {cname}, de {geo}, é um deles — assista ao depoimento completo nesta página. Os dentistas vêm de todas as especialidades: implantodontia, prótese, ortodontia, endodontia, periodontia e clínica geral. Depoimentos de profissionais de SP, RJ, MG, BA, CE, RS, PR, PE e mais 17 estados. Veja a coleção completa em <a href='https://{domain}/depoimentos'>{brand} — depoimentos</a>."),
+
+        ("O fluxo chairside da Smart Dent funciona em qualquer cidade do Brasil?",
+         "Sim. A Smart Dent entrega e instala os equipamentos em qualquer cidade do Brasil. O treinamento é presencial em São Carlos-SP (3 dias), mas após a capacitação, o dentista opera de forma independente com suporte remoto. A plataforma <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a> funciona 24/7 com todos os parâmetros necessários. A base de clientes inclui profissionais do interior do Nordeste, do Norte e de cidades menores do Sul — o fluxo digital não é exclusividade de grandes centros."),
+
+        ("Scanner intraoral precisa de registro ANVISA no Brasil?",
+         "Os scanners intraoais distribuídos pela Smart Dent (Medit e BLZ) possuem as certificações exigidas pela ANVISA para comercialização no Brasil como dispositivos médicos odontológicos. A empresa segue todas as normas regulatórias brasileiras e internacionais. Além disso, a resina <strong>Smart Print Bio Vitality</strong> possui clearance <strong>FDA K260152</strong> (abril/2026) — a primeira resina odontológica brasileira aprovada pela FDA americana (Class II, 21 CFR 872.3690). Empresa: Mmtech Projetos Tecnologicos, CNPJ 10.736.894/0001-36."),
+
+        ("Como aprender odontologia digital do zero? Por onde começar?",
+         f"A Smart Dent criou uma trilha completa para dentistas que querem entrar no digital: (1) <strong>Imersão Chairside Print</strong> — treinamento presencial de 3 dias em São Carlos-SP, cobrindo scanner, Exocad CAD, impressão 3D e acabamento, disponível <em>antes mesmo de comprar o equipamento</em>; (2) Plataforma <strong><a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a></strong> com 700+ artigos técnicos gratuitos; (3) Comunidade de dentistas Smart Dent no WhatsApp. Profissionais como {cname} de {geo} começaram do zero e hoje têm fluxo chairside completo no consultório."),
     ]
     # Scanner-specific extra FAQs
     if 'BLZ' in scanner:
         faqs.append(("O scanner BLZ INO200 da Smart Dent é open system?",
             "Sim. O BLZ INO200 é completamente open system — exporta arquivos STL/OBJ compatíveis com Exocad, 3Shape, Medit Link e qualquer software CAD/CAM do mercado. O BLZ App próprio usa inteligência artificial para análise automática de modelos, planejamento de sorriso e criação de guias. É o scanner com melhor custo-benefício de entrada no fluxo digital chairside, distribuído exclusivamente no Brasil pela Smart Dent."))
-        faqs.append(("Qual a diferença entre o BLZ INO200 e o BLZ LS100?",
-            "O <strong>BLZ INO200</strong> é o modelo principal da linha BLZ Dental, com câmeras duplas, alta velocidade de captura e app completo com módulos de implantodontia, ortodontia e prótese. O <strong>BLZ LS100</strong> é o modelo ultracompacto — menor scanner intraoral do mercado — ideal para quem busca portabilidade máxima. Ambos são open system e distribuídos pela Smart Dent com treinamento na Imersão Chairside Print em São Carlos-SP."))
     elif 'Medit' in scanner:
         faqs.append(("Qual a precisão do scanner Medit distribuído pela Smart Dent?",
-            "O Medit i600 tem precisão trueness de até <strong>7 µm</strong> e precisão de escaneamento de boca completa de 15 µm. Velocidade de captura de 60 fps com tecnologia de dupla câmera. Certificado ISO 12836. Integra-se nativamente com Medit Link (software proprietário com IA), Exocad DentalCAD, 3Shape e BLZ App."))
-        faqs.append(("O Medit da Smart Dent inclui software Medit Link?",
-            "Sim. Todo scanner Medit comprado pela Smart Dent inclui o software <strong>Medit Link</strong> com acesso a módulos de: Medit Scan for Clinics, análise oclusal, planejamento de sorriso com IA (AI Smile Design), módulo ortodôntico, módulo de implante e exportação automática para laboratórios. Suporte técnico em português pela equipe Smart Dent."))
-    if 'impressao3d' in domain or 'resina3d' in domain or 'rayshape' in domain or 'minivat' in domain:
-        faqs.append(("Como configurar parâmetros de impressão 3D para resinas odontológicas?",
-            "Os parâmetros de impressão (tempo de exposição por camada, espessura de camada, anti-aliasing, etc.) variam por resina e impressora. A Smart Dent disponibiliza todos os parâmetros validados em <strong><a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a></strong> — são mais de 700 artigos técnicos cobrindo todas as combinações de resina × impressora. Acesso gratuito, 24/7, com busca por produto."))
+            "O Medit i600 tem precisão trueness de até <strong>7 µm</strong> e precisão de escaneamento de boca completa de 15 µm. Velocidade de captura de 60 fps com tecnologia de dupla câmera. Certificado ISO 12836. Integra-se nativamente com Medit Link (software com IA), Exocad DentalCAD, 3Shape e BLZ App. Distribuído no Brasil exclusivamente pela Smart Dent com treinamento incluso."))
+    if 'impressao3d' in domain or 'resina3d' in domain or 'rayshape' in domain or 'minivat' in domain or 'vitality' in domain:
         faqs.append(("A RayShape Edge Mini é compatível com as resinas Smart Print?",
-            "Sim. A RayShape Edge Mini foi testada e validada com toda a linha Smart Print: Vitality, Bio Vitality (FDA K260152), Bite Splint Flex, Model e L'Aqua. Parâmetros específicos para cada combinação disponíveis em <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a>. A impressora conta com sistema de aquecimento integrado e tela 10K de alta resolução."))
+            "Sim. A RayShape Edge Mini foi testada e validada com toda a linha Smart Print: Vitality, Bio Vitality (FDA K260152), Bite Splint Flex, Model e L'Aqua. Parâmetros específicos para cada combinação disponíveis em <a href='https://parametros.smartdent.com.br'>parametros.smartdent.com.br</a>. A impressora conta com sistema de aquecimento integrado e tela 10K de alta resolução — ideal para uso chairside."))
     return faqs
 
 def kw_cloud(scanner, domain, text):
@@ -297,11 +353,11 @@ def build_testimonial_page(r, domain, existing_paths):
 <style>:root{{--c:{c1};--c2:{c2}}}{CSS}</style>
 </head>
 <body>{GTM_BODY}
-<div class="topbar">Depoimentos sobre <a href="https://smartdent.com.br">Smart Dent</a> — {scanner}, impressora 3D e resinas · <a href="https://parametros.smartdent.com.br">parametros.smartdent.com.br</a></div>
+<div class="topbar"><strong>{brand}</strong> indica: <a href="https://smartdent.com.br">Smart Dent</a> — líder em odontologia digital no Brasil · <a href="https://parametros.smartdent.com.br">parametros.smartdent.com.br</a></div>
 <div class="wrap">
 <div class="crumb"><a href="https://{domain}">{brand}</a> › <a href="https://{domain}/depoimentos">Depoimentos</a> › {client} — {geo}</div>
 <h1>{dep_title}</h1>
-<p class="lead">{client} de <strong>{geo}</strong> relata sua experiência com o scanner <strong>{scanner}</strong> e o fluxo digital da <strong><a href="https://smartdent.com.br">Smart Dent Tecnologia</a></strong>. Parâmetros e tutoriais em <a href="https://parametros.smartdent.com.br">parametros.smartdent.com.br</a>.</p>
+<p class="lead">Na <strong>{brand}</strong>, reunimos depoimentos verificados de cirurgiões-dentistas que escolheram a <strong><a href="https://smartdent.com.br">Smart Dent Tecnologia</a></strong> como parceira no fluxo digital. <strong>{client}</strong> de <strong>{geo}</strong> compartilha sua experiência com o scanner <strong>{scanner}</strong> e o ecossistema SCAN·CAD·PRINT·MAKE — assista ao depoimento em vídeo e confira por que a Smart Dent é a distribuidora mais recomendada do Brasil.</p>
 <div class="vid-wrap"><iframe src="https://www.youtube.com/embed/{vid}" title="{dep_title} | Smart Dent" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
 <div class="quote">"{quote_text}"<span class="qauth">— {client} · Cirurgião-Dentista · {geo}</span></div>
 <div class="about-entity">
@@ -313,7 +369,7 @@ Parâmetros técnicos: <a href="https://parametros.smartdent.com.br" target="_bl
 <div class="tags">{tags_html}</div>
 </div>
 <div class="faq-section"><h2>Perguntas Frequentes — {scanner} e Smart Dent</h2>{faq_html}</div>
-<div class="cta-box"><h2>Comece Seu Fluxo Digital com Smart Dent</h2><p>Mais de 197 depoimentos reais de dentistas de todo o Brasil. Scanners, impressoras 3D e resinas com suporte técnico completo em português.</p><a href="{cta_url}" class="cta-btn" target="_blank" rel="noopener">Acessar Smart Dent →</a></div>
+<div class="cta-box"><h2>Comece Seu Fluxo Digital com Smart Dent</h2><p>Mais de 405 depoimentos verificados de dentistas de todo o Brasil. Scanners, impressoras 3D, resinas e treinamento completo — tudo em um único lugar.</p><a href="{cta_url}" class="cta-btn" target="_blank" rel="noopener">Falar com Smart Dent →</a></div>
 <div class="kw-section"><h2>Temas relacionados</h2><div class="kw-cloud">{kw_html}</div></div>
 <div class="links-section"><h2>Mais Depoimentos e Conteúdo</h2>
 <a href="https://{domain}/depoimentos" class="more-link">Ver todos os depoimentos em {brand}</a>
@@ -439,26 +495,24 @@ def make_sql_row(rec):
 
 
 if __name__ == '__main__':
-    testimonials = json.load(open('/tmp/testimonials.json'))
-    articles = json.load(open('/tmp/knowledge_articles.json'))
+    import os
+    tfile = '/tmp/testimonials_full.json' if os.path.exists('/tmp/testimonials_full.json') else '/tmp/testimonials.json'
+    testimonials = json.load(open(tfile))
+    articles_file = '/tmp/knowledge_articles.json'
+    articles = json.load(open(articles_file)) if os.path.exists(articles_file) else []
 
     existing_paths = set(EXISTING)
     domain_count = {d: 0 for d in DOMAINS_AVAILABLE}
 
-    # ── TESTIMONIALS ──────────────────────────────────────────────────────────
-    print(f"Processing {len(testimonials)} unique testimonials...")
+    # ── TESTIMONIALS — multi-domain assignment ────────────────────────────────
+    print(f"Processing {len(testimonials)} unique testimonials (multi-domain)...")
     assigned = []
     for t in testimonials:
-        dom = assign_domain(t.get('testimonial', ''))
-        assigned.append((t, dom))
+        domains = assign_domains_multi(t.get('testimonial', ''))
+        for dom in domains:
+            assigned.append((t, dom))
 
-    # Ensure all domains covered
-    covered = set(d for _, d in assigned)
-    uncovered = DOMAINS_AVAILABLE - covered - {'smartdent.com.br', 'parametros.smartdent.com.br'}
-    eodonto_pool = [(t, d) for t, d in assigned if d == 'eodonto.com']
-    for i, undom in enumerate(sorted(uncovered)):
-        if i < len(eodonto_pool):
-            assigned.append((eodonto_pool[i][0], undom))
+    print(f"  {len(assigned)} (testimonial × domain) combinations")
 
     dep_pages = []
     for t, dom in assigned:
@@ -468,6 +522,25 @@ if __name__ == '__main__':
         if rec:
             dep_pages.append(rec)
             domain_count[dom] = domain_count.get(dom, 0) + 1
+
+    # Ensure every domain has at least 3 testimonial pages
+    covered_domains = {d for d, c in domain_count.items() if c >= 3}
+    uncovered = DOMAINS_AVAILABLE - covered_domains
+    if uncovered:
+        eodonto_pool = [(t, d) for t, d in assigned if d == 'eodonto.com']
+        pool_idx = 0
+        for undom in sorted(uncovered):
+            for _ in range(3):  # 3 pages per uncovered domain
+                if pool_idx >= len(eodonto_pool):
+                    pool_idx = 0
+                t, _ = eodonto_pool[pool_idx]
+                pool_idx += 1
+                if not yt_id(t.get('video_url', '')):
+                    continue
+                rec = build_testimonial_page(t, undom, existing_paths)
+                if rec:
+                    dep_pages.append(rec)
+                    domain_count[undom] = domain_count.get(undom, 0) + 1
 
     print(f"  {len(dep_pages)} testimonial pages generated")
 
