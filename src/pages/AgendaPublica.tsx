@@ -300,3 +300,16 @@ function Metric({ label, value, valueClassName }: { label: string; value: React.
     </div>
   );
 }
+
+function FreshnessIndicator({ updatedAt }: { updatedAt: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((x) => x + 1), 5_000);
+    return () => clearInterval(t);
+  }, []);
+  const secs = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
+  const label = secs < 60 ? `há ${secs}s` : `há ${Math.floor(secs / 60)}min`;
+  return (
+    <p className="text-[11px] text-muted-foreground/70 mt-2">Atualizado {label}</p>
+  );
+}
