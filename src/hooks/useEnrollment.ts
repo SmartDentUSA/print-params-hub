@@ -5,7 +5,7 @@ import type {
   SmartopsCourse, DealSearchResult, Turma, TurmaDay,
   EnrollmentCompanion, ProposalItem, EquipmentData,
 } from '@/types/courses';
-import { formatPhoneWaleads, EQUIP_CONFIG } from '@/lib/courseUtils';
+import { formatPhoneWaleads, EQUIP_CONFIG, normalizeDateBR } from '@/lib/courseUtils';
 import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } from '@/lib/courseWhatsapp';
 import type { EquipKey } from '@/types/courses';
 
@@ -195,7 +195,11 @@ async function writebackEquipment(
       if (!cfg) continue;
       if (entry.serial?.trim())    payload[cfg.lia_serial_field] = entry.serial.trim();
       if (entry.item_nome?.trim()) payload[cfg.lia_model_field]  = entry.item_nome.trim();
-      if (entry.ativacao && cfg.lia_date_field) payload[cfg.lia_date_field] = entry.ativacao;
+      if (entry.ativacao && cfg.lia_date_field) {
+        const iso = normalizeDateBR(entry.ativacao);
+        if (iso) payload[cfg.lia_date_field] = iso;
+        else console.warn('[writeback] data ativação inválida ignorada:', entry.ativacao);
+      }
     }
     if (!Object.keys(payload).length) return;
 
