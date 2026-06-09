@@ -202,28 +202,43 @@ function AgendamentosTab() {
           <p className="text-sm mt-1">Ajuste o filtro ou crie um curso na aba "Catálogo".</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(({ t, cd }) => (
-            <TurmaCard
-              key={t.id}
-              turma={t}
-              companionCount={(companionCounts as Record<string, number>)[t.id] || 0}
-              status={cd}
-              onEnroll={() => setEnrollModal({
-                course: {
-                  id: t.course_id,
-                  title: t.course_title || "Sem título",
-                  modality: t.modality || "presencial",
-                  instructor_name: t.instructor_name,
-                  location: t.location,
-                  meeting_link: t.meeting_link,
-                  pipeline_id_kanban: t.pipeline_id_kanban || 83896,
-                  stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
-                } as SmartopsCourse,
-                turmaId: t.id,
-              })}
-            />
-          ))}
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[180px]">Status</TableHead>
+                <TableHead>Turma</TableHead>
+                <TableHead className="hidden md:table-cell">Modalidade / Local</TableHead>
+                <TableHead className="hidden lg:table-cell">Data</TableHead>
+                <TableHead>Vagas</TableHead>
+                <TableHead className="hidden xl:table-cell">Instrutor</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(({ t, cd }) => (
+                <TurmaListRow
+                  key={t.id}
+                  turma={t}
+                  companionCount={(companionCounts as Record<string, number>)[t.id] || 0}
+                  status={cd}
+                  onEnroll={() => setEnrollModal({
+                    course: {
+                      id: t.course_id,
+                      title: t.course_title || "Sem título",
+                      modality: t.modality || "presencial",
+                      instructor_name: t.instructor_name,
+                      location: t.location,
+                      meeting_link: t.meeting_link,
+                      pipeline_id_kanban: t.pipeline_id_kanban || 83896,
+                      stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
+                    } as SmartopsCourse,
+                    turmaId: t.id,
+                  })}
+                />
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
