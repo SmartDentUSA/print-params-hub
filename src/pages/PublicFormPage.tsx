@@ -534,22 +534,50 @@ export default function PublicFormPage() {
       style={(() => {
         const f: any = form;
         const bgType = f.bg_type || "solid";
+        // ---- Background ----
+        let bgStyle: React.CSSProperties = {};
         if (bgType === "gradient" && f.bg_color && f.bg_color_to) {
-          return { background: `linear-gradient(${f.bg_gradient_angle ?? 135}deg, ${f.bg_color}, ${f.bg_color_to})` };
-        }
-        if (bgType === "image" && f.bg_image_url) {
+          bgStyle = { background: `linear-gradient(${f.bg_gradient_angle ?? 135}deg, ${f.bg_color}, ${f.bg_color_to})` };
+        } else if (bgType === "image" && f.bg_image_url) {
           const ov = f.bg_overlay_opacity ?? 0.5;
-          return {
+          bgStyle = {
             backgroundImage: `linear-gradient(rgba(0,0,0,${ov}), rgba(0,0,0,${ov})), url("${f.bg_image_url}")`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundAttachment: "fixed",
           };
+        } else if (bgType === "solid" && f.bg_color) {
+          bgStyle = { backgroundColor: f.bg_color };
         }
-        if (bgType === "solid" && f.bg_color) {
-          return { backgroundColor: f.bg_color };
-        }
-        return {};
+        // ---- Text colors ----
+        const hexToRgb = (hex: string) => {
+          const h = hex.replace("#", "");
+          const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+          const n = parseInt(v, 16);
+          return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+        };
+        const isLight = (hex?: string | null) => {
+          if (!hex || !/^#?[0-9a-fA-F]{3,6}$/.test(hex)) return f.theme_mode !== "dark";
+          try {
+            const { r, g, b } = hexToRgb(hex);
+            // YIQ luminance
+            return ((r * 299 + g * 587 + b * 114) / 1000) > 150;
+          } catch { return true; }
+        };
+        const refBg = bgType === "image" ? null : (f.bg_color || null);
+        const lightBg = bgType === "image" ? false : isLight(refBg);
+        const auto = f.auto_contrast !== false;
+        const fallbackHeading = lightBg ? "#0f172a" : "#f8fafc";
+        const fallbackBody = lightBg ? "#1f2937" : "#e5e7eb";
+        const fallbackLabel = lightBg ? "#0f172a" : "#f1f5f9";
+        const fallbackMuted = lightBg ? "rgba(15,23,42,0.65)" : "rgba(248,250,252,0.7)";
+        const textVars: Record<string, string> = {
+          "--form-heading": (!auto && f.heading_color) ? f.heading_color : fallbackHeading,
+          "--form-body":    (!auto && f.body_color)    ? f.body_color    : fallbackBody,
+          "--form-label":   (!auto && f.label_color)   ? f.label_color   : fallbackLabel,
+          "--form-muted":   (!auto && f.muted_color)   ? f.muted_color   : fallbackMuted,
+        };
+        return { ...bgStyle, ...(textVars as any) };
       })()}
     >
       <style>{`
@@ -565,12 +593,15 @@ export default function PublicFormPage() {
           --brand-faint: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.12);
           --brand-border:hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.28);
           ${(form as any).font_body ? `font-family: "${(form as any).font_body}", system-ui, sans-serif;` : ""}
+          color: var(--form-body);
         }
         .public-form-page h1, .public-form-page h2, .public-form-page h3 {
           ${(form as any).font_heading ? `font-family: "${(form as any).font_heading}", system-ui, sans-serif;` : ""}
+          color: var(--form-heading);
         }
-        .public-form-page.dark { color: #f5f5f5; }
-        .public-form-page.dark .text-muted-foreground { color: rgba(245,245,245,0.7) !important; }
+        .public-form-page label { color: var(--form-label); }
+        .public-form-page .text-muted-foreground { color: var(--form-muted) !important; }
+        .public-form-page .text-foreground { color: var(--form-heading) !important; }
         .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
           background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
         }
