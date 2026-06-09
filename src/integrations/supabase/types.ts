@@ -16303,6 +16303,7 @@ export type Database = {
       smartops_forms: {
         Row: {
           active: boolean
+          auto_contrast: boolean
           badge_text: string | null
           bg_color: string | null
           bg_color_to: string | null
@@ -16310,6 +16311,7 @@ export type Database = {
           bg_image_url: string | null
           bg_overlay_opacity: number | null
           bg_type: string | null
+          body_color: string | null
           brand_color_h: number | null
           brand_color_l: number | null
           brand_color_s: number | null
@@ -16325,11 +16327,14 @@ export type Database = {
           font_body: string | null
           font_heading: string | null
           form_purpose: string
+          heading_color: string | null
           hero_image_alt: string | null
           hero_image_url: string | null
           id: string
+          label_color: string | null
           layout_variant: string | null
           media_type: string | null
+          muted_color: string | null
           name: string
           product_catalog_id: string | null
           show_progress: boolean
@@ -16355,6 +16360,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          auto_contrast?: boolean
           badge_text?: string | null
           bg_color?: string | null
           bg_color_to?: string | null
@@ -16362,6 +16368,7 @@ export type Database = {
           bg_image_url?: string | null
           bg_overlay_opacity?: number | null
           bg_type?: string | null
+          body_color?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
@@ -16377,11 +16384,14 @@ export type Database = {
           font_body?: string | null
           font_heading?: string | null
           form_purpose?: string
+          heading_color?: string | null
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null
+          muted_color?: string | null
           name: string
           product_catalog_id?: string | null
           show_progress?: boolean
@@ -16407,6 +16417,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          auto_contrast?: boolean
           badge_text?: string | null
           bg_color?: string | null
           bg_color_to?: string | null
@@ -16414,6 +16425,7 @@ export type Database = {
           bg_image_url?: string | null
           bg_overlay_opacity?: number | null
           bg_type?: string | null
+          body_color?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
@@ -16429,11 +16441,14 @@ export type Database = {
           font_body?: string | null
           font_heading?: string | null
           form_purpose?: string
+          heading_color?: string | null
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null
+          muted_color?: string | null
           name?: string
           product_catalog_id?: string | null
           show_progress?: boolean
