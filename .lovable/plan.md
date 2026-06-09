@@ -1,29 +1,49 @@
-## Problema
+## Objetivo
+Substituir a visualização em cards (grid) por uma visualização em lista/tabela na aba **Agendamentos** dentro de Smart Ops > Treinamentos.
 
-No Passo 1 do agendamento, o campo aceita o **ID do Deal**. Buscar pelo deal `59620258` retornou 50 deals da RISUS — porque esse número aparece como `deal_id` no `piperun_deals_history` de 3 leads diferentes (lixo de sync), e a `fn_search_deals_for_training` expande **todos** os deals desses leads em vez de devolver só o deal pedido.
+## Contexto atual
+- A aba `AgendamentosTab` em `SmartOpsCourses.tsx` renderiza um grid de `TurmaCard` (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`)
+- Cada `TurmaCard` exibe: status (badge), título da turma, número da turma, modalidade, local/link, datas, vagas, inscritos, ocupação %, instrutor, e ações (GerarDoc, Crachás, WhatsApp grupo, botão Agendar)
+- O click no card abre o modal de inscrição (`EnrollmentModal`)
 
-## Solução
+## Mudanças propostas
 
-No ramo não-email da função, marcar cada lead com `match_deal_id` indicando como ele entrou:
+### 1. SmartOpsCourses.tsx — Aba Agendamentos
+- Remover o grid de `TurmaCard` e substituir por uma `<Table>` do shadcn
+- As colunas da tabela serão:
+  - **Status** — badge com dot colorido (igual ao card)
+  - **Turma** — número da turma + título do curso + label da turma
+  - **Modalidade / Local** — presencial (cidade) ou online (link)
+  - **Data** — start_date → end_date formatadas
+  - **Vagas** — `enrolled_count / slots` (ex: 8/12) + barra de ocupação sutil
+  - **Instrutor** — nome
+  - **Ações** — botões compactos: Agendar, GerarDoc, Crachás, WhatsApp grupo
+- Manter o `TreinamentosToolbar` (filtros, busca, sort) intacto
+- Manter o `EnrollmentModal` e seu estado (`enrollModal`)
+- Manter a ordenação e filtros existentes
 
-- Match via `piperun_id = v_query` → `match_deal_id = NULL` → emite todos os deals daquele lead (caso alguém digite o piperun_id de uma pessoa).
-- Match via `deals.piperun_deal_id = v_query` ou `dh->>'deal_id' = v_query` → `match_deal_id = v_query` → emite **apenas** aquele deal específico.
+### 2. Componente TurmaListRow (novo arquivo)
+- Criar `src/components/smartops/TurmaListRow.tsx`
+- Recebe as mesmas props de `TurmaCard` (`turma`, `companionCount`, `status`, `onEnroll`)
+- Renderiza uma `<TableRow>` com as células descritas acima
+- Ações ficam em célula com `flex gap-1`
+- Mantém os hooks de WhatsApp (`useTurmaWaGroup`) e botões relacionados
 
-Aplicar o filtro nas duas pernas do `deal_rows`. O `DISTINCT ON (deal_id)` final consolida em 1 linha por deal, preferindo o lead com `updated_at` mais novo (canônico — Raquel, no caso).
+### 3. Estilo
+- A tabela usa as classes padrão do shadcn (`Table`, `TableHeader`, `TableBody`, etc.)
+- Status com dot colorido (reutilizar `STATUS_DOT` / `STATUS_PILL` do `TurmaCard`)
+- Hover na linha para indicar clickabilidade
+- Layout responsivo: em telas menores, algumas colunas podem ser ocultadas via `hidden md:table-cell`
 
-Ramo de e-mail permanece inalterado.
-
-## Migração
-
-Recriar `public.fn_search_deals_for_training(text)` reescrevendo só o bloco `ELSE`:
-
-- CTE `leads`: 3 UNIONs, cada um adicionando `match_deal_id` (NULL no match por `piperun_id`; `v_query` nos demais).
-- CTE `deal_rows`: cláusulas WHERE recebem `(l.match_deal_id IS NULL OR <deal_id> = l.match_deal_id)` tanto na junção com `deals` quanto na expansão de `piperun_deals_history`.
-- Restante (DISTINCT ON, ORDER BY, LIMIT 50, envelope `jsonb_build_object`) idêntico ao atual.
+## Escopo
+- Apenas a aba **Agendamentos** é alterada
+- As abas **Catálogo**, **Inscrições** e **Página Pública** permanecem inalteradas
+- Nenhuma alteração no banco de dados
+- Nenhuma alteração na lógica de filtros/ordenação
 
 ## Validação
-
-- `fn_search_deals_for_training('59620258')` → 1 linha do deal `59620258` (vencedor: lead Raquel, mais recente).
-- `fn_search_deals_for_training('18746304')` (deal da RISUS) → só esse deal.
-- `fn_search_deals_for_training('<piperun_id de pessoa com N deals>')` → continua retornando os N deals reais.
-- Busca por e-mail (`empresa_email`, `astron_email`, etc.) inalterada.
+- Preview da aba Agendamentos mostrando lista em vez de cards
+- Filtros (Todos, Inscrições Abertas, Acontecendo, Encerrados) continuam funcionando
+- Busca e sort continuam funcionando
+- Click na linha abre modal de inscrição
+- Botões de ação (Agendar, Doc, Crachás, WA) funcionam normalmente
