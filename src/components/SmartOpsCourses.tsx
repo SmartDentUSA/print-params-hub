@@ -35,6 +35,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
 import { TreinamentosToolbar, type FilterTab } from "./smartops/TreinamentosToolbar";
 import { TurmaCard } from "./smartops/TurmaCard";
+import { TurmaListRow } from "./smartops/TurmaListRow";
 import { TaxonomySelect } from "./smartops/TaxonomySelect";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { CourseCard } from "./smartops/CourseCard";
