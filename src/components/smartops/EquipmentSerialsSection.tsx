@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
 import type { ProposalItem, EquipmentData, EquipKey, EquipmentEntry } from "@/types/courses";
-import { EQUIP_CONFIG } from "@/lib/courseUtils";
+import { EQUIP_CONFIG, normalizeDateBR } from "@/lib/courseUtils";
 
 interface Props {
   items: ProposalItem[];
@@ -98,7 +98,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
 
   const startEdit = (key: EquipKey) => {
     const entry = equipmentData[key];
-    setDrafts((d) => ({ ...d, [key]: { serial: entry?.serial || "", ativacao: entry?.ativacao || "" } }));
+    setDrafts((d) => ({ ...d, [key]: { serial: entry?.serial || "", ativacao: normalizeDateBR(entry?.ativacao) || "" } }));
     setEditing((prev) => new Set(prev).add(key));
   };
 
@@ -112,7 +112,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
     if (!draft) return;
     updateEntry(key, {
       serial: draft.serial,
-      ativacao: draft.ativacao,
+      ativacao: normalizeDateBR(draft.ativacao) || "",
       item_nome: item.nome,
       proposal_ref: item.proposal_id,
     });
