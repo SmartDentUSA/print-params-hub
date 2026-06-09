@@ -1231,9 +1231,23 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
 
   } catch (error) {
     console.error('❌ Erro na função ai-orchestrate-content:', error);
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+    const isCredits = /Cr[eé]ditos insuficientes/i.test(msg) || /\b402\b/.test(msg);
+    const isRate = /Limite de taxa|\b429\b/i.test(msg);
+    if (isCredits || isRate) {
+      return new Response(
+        JSON.stringify({
+          error: isCredits ? 'INSUFFICIENT_CREDITS' : 'RATE_LIMITED',
+          message: msg,
+          fallback: true,
+          success: false,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        error: msg,
         success: false
       }),
       { 
