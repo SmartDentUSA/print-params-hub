@@ -532,7 +532,31 @@ Receba o texto bruto abaixo e:
       });
       return;
     }
-    
+
+    // ✅ Validar que fontes ativas têm conteúdo (paridade com handleGenerate)
+    const emptyActiveSources: string[] = [];
+    if (orchestratorActiveSources.rawText && !orchestratorExtractedData.rawText) {
+      emptyActiveSources.push('Texto Colado');
+    }
+    if (orchestratorActiveSources.pdfTranscription && !orchestratorExtractedData.pdfTranscription) {
+      emptyActiveSources.push('Upload de PDF');
+    }
+    if (orchestratorActiveSources.videoTranscription && !orchestratorExtractedData.videoTranscription) {
+      emptyActiveSources.push('Transcrição de Vídeo');
+    }
+    if (orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length === 0) {
+      emptyActiveSources.push('PDFs da Base');
+    }
+    if (emptyActiveSources.length > 0) {
+      toast({
+        title: '⚠️ Fontes vazias detectadas',
+        description: `As seguintes fontes estão marcadas mas sem conteúdo: ${emptyActiveSources.join(', ')}. Desmarque-as ou adicione conteúdo.`,
+        variant: 'destructive',
+        duration: 8000,
+      });
+      return;
+    }
+
     setIsGenerating(true);
     
     try {
