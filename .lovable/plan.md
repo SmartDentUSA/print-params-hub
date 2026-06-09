@@ -1,37 +1,51 @@
-## Problema
+## Causa raiz (confirmada)
 
-Ao agendar inscrição em treinamento, o salvamento falha com:
+O erro ocorre no **Passo 1 (Buscar)**, dentro da RPC `fn_search_deals_for_training`. As linhas:
+
+```sql
+NULLIF(dh->>'closed_at','')::timestamptz
+NULLIF(dh->>'updated_at','')::timestamptz
 ```
-date/time field value out of range: "24/08/2022"
+
+fazem cast direto de strings vindas do JSON `piperun_deals_history`. Quando o histórico de **qualquer um dos leads que contém o deal pesquisado** tem outra entrada com data em formato BR (`"24/08/2022"`), o cast estoura com `date/time field value out of range`. Para o deal `59620258` (3 leads canônicos com esse deal no histórico), basta uma entrada ruim em qualquer um deles para abortar a busca inteira.
+
+A correção no frontend (Passo anterior) só resolveu o writeback de `equip_*_ativacao`. O Passo 1 nem chega a executar.
+
+## Mudança
+
+### Migration: criar `public.safe_to_timestamptz(text)` e usar nas RPCs
+
+```sql
+CREATE OR REPLACE FUNCTION public.safe_to_timestamptz(p text)
+RETURNS timestamptz
+LANGUAGE plpgsql IMMUTABLE
+AS $$
+DECLARE r timestamptz;
+BEGIN
+  IF p IS NULL OR length(trim(p)) = 0 THEN RETURN NULL; END IF;
+  BEGIN
+    RETURN p::timestamptz;                              -- ISO normal
+  EXCEPTION WHEN others THEN
+    BEGIN
+      RETURN to_timestamp(p, 'DD/MM/YYYY HH24:MI:SS');  -- BR completo
+    EXCEPTION WHEN others THEN
+      BEGIN
+        RETURN to_timestamp(p, 'DD/MM/YYYY');           -- BR só data
+      EXCEPTION WHEN others THEN
+        RETURN NULL;                                    -- inválido → ignora
+      END;
+    END;
+  END;
+END $$;
 ```
 
-### Causa raiz
-
-O campo `ativacao` dos equipamentos (em `equipment_data`) é uma `date` no Postgres (`lia_attendances.equip_*_ativacao`). O modal aceita `<input type="date">` (sempre `YYYY-MM-DD`), mas em alguns leads o valor já existente vem em formato brasileiro `DD/MM/YYYY` (extraído de propostas antigas ou digitado manualmente em outro lugar). Quando o `writebackEquipment` em `src/hooks/useEnrollment.ts` envia esse valor cru para a coluna `date`, o PostgREST devolve `22008 / out of range`.
-
-Não há, na verdade, um bloqueio funcional por "Inscrições encerradas" — o badge vermelho é apenas informativo (em `SmartOpsCourses.tsx` e `AgendaPublica.tsx`) e o `EnrollmentModal` só bloqueia turmas `lotado`. O que o usuário percebe como "bloqueio" é o erro 500 acima abortando o agendamento.
-
-## Mudanças
-
-### 1. `src/hooks/useEnrollment.ts` — normalizar datas antes do writeback
-- Adicionar helper `normalizeDateBR(value)`:
-  - Aceita `YYYY-MM-DD` → retorna como está.
-  - Aceita `DD/MM/YYYY` ou `DD-MM-YYYY` → converte para `YYYY-MM-DD` (com validação de dia/mês).
-  - Qualquer outro formato inválido → retorna `null` (campo é ignorado em vez de quebrar).
-- Em `writebackEquipment`, ao montar `payload[cfg.lia_date_field]`, passar `entry.ativacao` por `normalizeDateBR`. Se retornar `null`, não enviar o campo.
-
-### 2. `src/components/smartops/EquipmentSerialsSection.tsx` — proteger o `<input type="date">`
-- Ao popular o draft de edição (linha ~101) e ao montar `equipmentData` inicial, sanitizar `ativacao` com o mesmo `normalizeDateBR` para que o campo nativo de data exiba corretamente quando o lead já tem valor legado em `DD/MM/YYYY`.
-- Mover o helper para `src/lib/courseUtils.ts` (export `normalizeDateBR`) e importar nos dois arquivos.
-
-### 3. Confirmação do "bloqueio"
-- Não há código que bloqueie agendamento por "Inscrições encerradas". O `EnrollmentModal` mostra apenas o badge informativo (🟢/🔴/✅) sem `disabled`. Nenhuma alteração extra necessária; após o fix de data o fluxo volta a concluir normalmente.
+Recriar `fn_search_deals_for_training` substituindo os 4 casts (`closed_at`, `updated_at` em ambos ramos email e id) por `public.safe_to_timestamptz(dh->>'closed_at')` e `public.safe_to_timestamptz(dh->>'updated_at')`. Nenhuma outra mudança de comportamento.
 
 ## Fora de escopo
-- Não alterar a regra de turma lotada (continua bloqueando).
-- Não alterar labels de countdown.
-- Não tocar em `equipment_data` legado já gravado no banco (apenas a normalização em runtime resolve para novos saves).
+- `deals` (tabela) já é `timestamptz`, não precisa.
+- `fn_search_deal_for_training` e `fn_get_deal_from_history` não fazem cast de data — intocadas.
+- Não tocar nos dados existentes em `piperun_deals_history` (apenas leitura tolerante).
 
 ## Validação
-- Abrir lead com `equip_*_ativacao` legado em `DD/MM/YYYY`, agendar nova turma e confirmar que o save retorna 200 e `lia_attendances.equip_*_ativacao` recebe `YYYY-MM-DD`.
-- Lead sem `ativacao`: comportamento inalterado.
+1. Após a migration, executar no SQL Editor: `SELECT public.fn_search_deals_for_training('59620258');` → deve retornar `found: true` com a lista de deals.
+2. No app, fluxo de Agendar → buscar `59620258` → não deve mais aparecer o erro.
