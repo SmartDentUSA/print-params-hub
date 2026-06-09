@@ -7,6 +7,8 @@ export interface PoeCallParams {
   model: string;                              // ex: "claude-opus-4.8", "gpt-5.5", "gemini-3-flash"
   messages: Array<{ role: string; content: any }>;
   tools?: any[];
+  tool_choice?: any;
+  response_format?: any;
   temperature?: number;
   max_tokens?: number;
   stream?: false;                             // streaming não suportado nesta v1
@@ -33,6 +35,8 @@ export async function callPoe(params: PoeCallParams): Promise<PoeCallResult> {
     stream: false,
   };
   if (params.tools) body.tools = params.tools;
+  if (params.tool_choice) body.tool_choice = params.tool_choice;
+  if (params.response_format) body.response_format = params.response_format;
   if (typeof params.temperature === "number") body.temperature = params.temperature;
   if (typeof params.max_tokens === "number") body.max_tokens = params.max_tokens;
 

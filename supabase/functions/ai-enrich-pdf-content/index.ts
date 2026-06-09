@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
+import { aiComplete } from "../_shared/ai-router.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,11 +27,6 @@ serve(async (req) => {
     const requestId = Date.now();
     console.log(`[${requestId}] 🔑 PDF Hash: ${pdfHash}... (${pdfSizeKB}KB)`);
     console.log(`[${requestId}] 🚀 Starting PDF enrichment process`);
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
-    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -72,69 +67,43 @@ ${rawText}
 Retorne APENAS as informações que você conseguir identificar COM CERTEZA no texto.
 Se não tiver certeza, deixe o campo vazio.`;
 
-    const identificationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: "Você é um analisador de produtos de odontologia digital. Identifique produtos, fabricantes e categorias.",
-          },
-          { role: "user", content: identificationPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "identify_product",
-              description: "Identifica produto, fabricante e categoria de um texto",
-              parameters: {
-                type: "object",
-                properties: {
-                  productName: { type: "string", description: "Nome do produto" },
-                  manufacturer: { type: "string", description: "Fabricante" },
-                  category: {
-                    type: "string",
-                    enum: ["resina", "impressora", "scanner", "material", "software", "outro"],
-                    description: "Categoria do produto",
-                  },
-                  keywords: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Palavras-chave relevantes",
-                  },
-                },
-                required: ["productName", "category", "keywords"],
-                additionalProperties: false,
+    const idResult = await aiComplete({
+      task: "content_format",
+      functionName: "ai-enrich-pdf-content",
+      messages: [
+        { role: "system", content: "Você é um analisador de produtos de odontologia digital. Identifique produtos, fabricantes e categorias." },
+        { role: "user", content: identificationPrompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "identify_product",
+            description: "Identifica produto, fabricante e categoria de um texto",
+            parameters: {
+              type: "object",
+              properties: {
+                productName: { type: "string", description: "Nome do produto" },
+                manufacturer: { type: "string", description: "Fabricante" },
+                category: { type: "string", enum: ["resina","impressora","scanner","material","software","outro"], description: "Categoria do produto" },
+                keywords: { type: "array", items: { type: "string" }, description: "Palavras-chave relevantes" },
               },
+              required: ["productName","category","keywords"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "identify_product" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "identify_product" } },
     });
 
-    if (!identificationResponse.ok) {
-      console.error("❌ Product identification failed");
-      throw new Error("Product identification failed");
+    if (!idResult.ok) {
+      console.error("❌ Product identification failed via router", idResult.error_code, idResult.attempts);
+      throw new Error(`Product identification failed: ${idResult.error}`);
     }
-
-    const identificationData = await identificationResponse.json();
-    const usageId = extractUsage(identificationData);
-    await logAIUsage({
-      functionName: "ai-enrich-pdf-content",
-      actionLabel: "identify-product",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usageId.prompt_tokens,
-      completionTokens: usageId.completion_tokens,
-    });
-    const toolCall = identificationData.choices[0].message.tool_calls?.[0];
+    const toolCall = idResult.toolCalls?.[0];
     const detectedProduct = toolCall ? JSON.parse(toolCall.function.arguments) : null;
+    console.log(`🤖 ID via ${idResult.provider_used}/${idResult.model_used}`);
     console.log("🎯 Detected product:", detectedProduct);
 
     // ETAPA 2.5: Buscar autor correspondente ao manufacturer
@@ -300,37 +269,21 @@ FORMATO DE SAÍDA:
 
 IMPORTANTE: É melhor ter menos informação verdadeira do que inventar dados.`;
 
-    const enrichmentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: enrichmentPrompt },
-          { role: "user", content: "Enriqueça o conteúdo usando APENAS os dados fornecidos." },
-        ],
-        max_completion_tokens: 8000,
-      }),
-    });
-
-    if (!enrichmentResponse.ok) {
-      console.error("❌ Content enrichment failed");
-      throw new Error("Content enrichment failed");
-    }
-
-    const enrichmentData = await enrichmentResponse.json();
-    const usageEnrich = extractUsage(enrichmentData);
-    await logAIUsage({
+    const enrichResult = await aiComplete({
+      task: "content_format",
       functionName: "ai-enrich-pdf-content",
-      actionLabel: "enrich-content",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usageEnrich.prompt_tokens,
-      completionTokens: usageEnrich.completion_tokens,
+      maxTokens: 8000,
+      messages: [
+        { role: "system", content: enrichmentPrompt },
+        { role: "user", content: "Enriqueça o conteúdo usando APENAS os dados fornecidos." },
+      ],
     });
-    const enrichedText = enrichmentData.choices[0].message.content;
+    if (!enrichResult.ok) {
+      console.error("❌ Content enrichment failed via router", enrichResult.error_code, enrichResult.attempts);
+      throw new Error(`Content enrichment failed: ${enrichResult.error}`);
+    }
+    const enrichedText = enrichResult.text || "";
+    console.log(`🤖 Enrich via ${enrichResult.provider_used}/${enrichResult.model_used}`);
     console.log(`✅ Content enriched: ${enrichedText.length} characters`);
 
     // ETAPA 5: Validação anti-expansão

@@ -41,6 +41,8 @@ export interface AiCompleteParams {
   tools?: any[];
   temperature?: number;
   maxTokens?: number;
+  toolChoice?: any;
+  responseFormat?: any;          // ex: { type: "json_object" }
 }
 
 export interface AiCompleteResult {
@@ -52,6 +54,7 @@ export interface AiCompleteResult {
   usage?: { prompt_tokens: number; completion_tokens: number };
   attempts: Array<{ provider: Provider; model: string; status: number; reason?: string }>;
   error?: string;
+  error_code?: "credits_exhausted" | "rate_limited" | "no_route" | "all_failed" | "unknown";
 }
 
 // In-memory route cache (60s TTL) — evita SELECT a cada chamada.
@@ -88,7 +91,11 @@ async function callProvider(
   maxTokens: number,
 ): Promise<{ ok: boolean; status: number; text?: string; toolCalls?: any[]; usage?: any; error?: string }> {
   if (provider === "poe") {
-    const r = await callPoe({ model, messages: params.messages, tools: params.tools, temperature, max_tokens: maxTokens });
+    const r = await callPoe({
+      model, messages: params.messages, tools: params.tools,
+      tool_choice: params.toolChoice, response_format: params.responseFormat,
+      temperature, max_tokens: maxTokens,
+    });
     return { ok: r.ok, status: r.status, text: r.text, toolCalls: r.toolCalls, usage: r.usage, error: r.error };
   }
 
@@ -101,6 +108,8 @@ async function callProvider(
 
   const body: Record<string, unknown> = { model, messages: params.messages, stream: false, temperature, max_tokens: maxTokens };
   if (params.tools) body.tools = params.tools;
+  if (params.toolChoice) body.tool_choice = params.toolChoice;
+  if (params.responseFormat) body.response_format = params.responseFormat;
 
   try {
     const resp = await fetch(url, {
@@ -139,7 +148,7 @@ export async function aiComplete(params: AiCompleteParams): Promise<AiCompleteRe
   const row = await loadRoute(params.task);
 
   if (!row) {
-    return { ok: false, attempts, error: `task '${params.task}' não roteado` };
+    return { ok: false, attempts, error: `task '${params.task}' não roteado`, error_code: "no_route" };
   }
 
   const temperature = params.temperature ?? Number(row.temperature ?? 0.7);
@@ -157,7 +166,12 @@ export async function aiComplete(params: AiCompleteParams): Promise<AiCompleteRe
   }
 
   if (!r.ok) {
-    return { ok: false, attempts, error: r.error || `HTTP ${r.status}` };
+    const lastStatus = attempts[attempts.length - 1]?.status;
+    const code: AiCompleteResult["error_code"] =
+      lastStatus === 402 ? "credits_exhausted"
+      : lastStatus === 429 ? "rate_limited"
+      : "all_failed";
+    return { ok: false, attempts, error: r.error || `HTTP ${r.status}`, error_code: code };
   }
 
   const used = attempts[attempts.length - 1];
