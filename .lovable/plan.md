@@ -1,48 +1,37 @@
 ## Problema
-Hoje o editor de formulários só permite escolher o **fundo** (sólido, gradiente, imagem) e um **tema** Claro/Escuro. As cores dos textos (título, subtítulo, descrição, labels dos campos, textos auxiliares) ficam fixas pelo CSS do tema. Quando o usuário escolhe um fundo customizado (ex.: rosa, azul claro, imagem com áreas claras), os textos podem ficar ilegíveis e não há controle para ajustá-los.
 
-## Objetivo
-Adicionar controles de cor de texto no editor de formulário e aplicá-los na renderização pública, com uma opção "Automático" que calcula o contraste a partir do fundo.
+Ao agendar inscrição em treinamento, o salvamento falha com:
+```
+date/time field value out of range: "24/08/2022"
+```
+
+### Causa raiz
+
+O campo `ativacao` dos equipamentos (em `equipment_data`) é uma `date` no Postgres (`lia_attendances.equip_*_ativacao`). O modal aceita `<input type="date">` (sempre `YYYY-MM-DD`), mas em alguns leads o valor já existente vem em formato brasileiro `DD/MM/YYYY` (extraído de propostas antigas ou digitado manualmente em outro lugar). Quando o `writebackEquipment` em `src/hooks/useEnrollment.ts` envia esse valor cru para a coluna `date`, o PostgREST devolve `22008 / out of range`.
+
+Não há, na verdade, um bloqueio funcional por "Inscrições encerradas" — o badge vermelho é apenas informativo (em `SmartOpsCourses.tsx` e `AgendaPublica.tsx`) e o `EnrollmentModal` só bloqueia turmas `lotado`. O que o usuário percebe como "bloqueio" é o erro 500 acima abortando o agendamento.
 
 ## Mudanças
 
-### 1. Schema (`smartops_forms`)
-Adicionar colunas opcionais (text nullable):
-- `heading_color` — título e h2 das seções
-- `body_color` — subtítulo, descrição, parágrafos
-- `label_color` — labels dos campos
-- `muted_color` — textos auxiliares (trust_text, footer, hints)
-- `auto_contrast` (boolean, default true) — quando ligado, ignora as cores acima e deriva do `bg_color`/luminância
+### 1. `src/hooks/useEnrollment.ts` — normalizar datas antes do writeback
+- Adicionar helper `normalizeDateBR(value)`:
+  - Aceita `YYYY-MM-DD` → retorna como está.
+  - Aceita `DD/MM/YYYY` ou `DD-MM-YYYY` → converte para `YYYY-MM-DD` (com validação de dia/mês).
+  - Qualquer outro formato inválido → retorna `null` (campo é ignorado em vez de quebrar).
+- Em `writebackEquipment`, ao montar `payload[cfg.lia_date_field]`, passar `entry.ativacao` por `normalizeDateBR`. Se retornar `null`, não enviar o campo.
 
-Migration nova em `supabase/migrations/` (não editar existentes). Sem mexer em RLS/grants.
+### 2. `src/components/smartops/EquipmentSerialsSection.tsx` — proteger o `<input type="date">`
+- Ao popular o draft de edição (linha ~101) e ao montar `equipmentData` inicial, sanitizar `ativacao` com o mesmo `normalizeDateBR` para que o campo nativo de data exiba corretamente quando o lead já tem valor legado em `DD/MM/YYYY`.
+- Mover o helper para `src/lib/courseUtils.ts` (export `normalizeDateBR`) e importar nos dois arquivos.
 
-### 2. Editor — `src/components/SmartOpsFormBuilder.tsx`
-- Novos estados: `metaHeadingColor`, `metaBodyColor`, `metaLabelColor`, `metaMutedColor`, `metaAutoContrast`.
-- Carregar de `f.*` no `loadForm`, enviar no `save()`.
-- Nova subseção **"Cores dos textos"** logo abaixo do bloco Tema/Layout, com:
-  - Switch "Ajuste automático pelo fundo" (default ligado).
-  - Quando desligado: 4 inputs `<input type="color">` + Input hex para heading/body/label/muted.
-  - Botão "Resetar para o tema" que zera as 4.
-
-### 3. Renderização — `src/pages/PublicFormPage.tsx`
-- Estender o tipo `form` com os 5 novos campos.
-- Calcular paleta efetiva:
-  - Se `auto_contrast` (ou ausência das cores): derivar de `bg_color` (ou primeira parada do gradiente, ou `theme_mode`) via luminância YIQ → branco/preto + variantes 70%/50% opacity.
-  - Caso contrário: usar as cores escolhidas.
-- Injetar como CSS vars no wrapper: `--form-heading`, `--form-body`, `--form-label`, `--form-muted`.
-- Trocar classes fixas (`text-muted-foreground`, `text-foreground`, etc.) nos elementos relevantes (h1 título, p subtitle/description, label dos campos, trust_text, h2 seções, footer) por `style={{ color: 'var(--form-xxx)' }}` mantendo Tailwind para tamanhos/peso.
-- Atualizar o bloco `<style>` interno para que o modo dark e o muted-foreground respeitem as vars quando definidas.
-
-### 4. Tipos
-Regenerar `src/integrations/supabase/types.ts` não é necessário manualmente — apenas usar `as any` nos pontos de leitura como o código já faz para `theme_mode`.
+### 3. Confirmação do "bloqueio"
+- Não há código que bloqueie agendamento por "Inscrições encerradas". O `EnrollmentModal` mostra apenas o badge informativo (🟢/🔴/✅) sem `disabled`. Nenhuma alteração extra necessária; após o fix de data o fluxo volta a concluir normalmente.
 
 ## Fora de escopo
-- Mudar tipografia (fonte/família) — não foi pedido.
-- Cores por campo individual.
-- Alterar comportamento de `brand_color_h/s/l` (cor da marca/CTA continua igual).
+- Não alterar a regra de turma lotada (continua bloqueando).
+- Não alterar labels de countdown.
+- Não tocar em `equipment_data` legado já gravado no banco (apenas a normalização em runtime resolve para novos saves).
 
 ## Validação
-- Abrir um formulário existente: textos devem permanecer iguais (auto_contrast=true e bg branco → preto).
-- Trocar bg para `#0a0a23` com auto_contrast: textos viram brancos automaticamente.
-- Desligar auto_contrast e escolher cores custom: refletir na hora no preview público.
-- Build + rota `/f/:slug` renderiza sem erro.
+- Abrir lead com `equip_*_ativacao` legado em `DD/MM/YYYY`, agendar nova turma e confirmar que o save retorna 200 e `lia_attendances.equip_*_ativacao` recebe `YYYY-MM-DD`.
+- Lead sem `ativacao`: comportamento inalterado.
