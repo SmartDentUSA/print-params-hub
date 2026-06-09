@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
-import { logAIUsage, extractUsage } from '../_shared/log-ai-usage.ts';
+import { aiComplete } from '../_shared/ai-router.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,15 +28,6 @@ serve(async (req) => {
     const pdfHash = pdfBase64.substring(0, 30);
     console.log(`[${requestId}] 🔑 PDF Hash: ${pdfHash}...`);
     console.log(`[${requestId}] 📄 Processing PDF: ${pdfSizeKB}KB`);
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     console.log('Etapa 1/2: Limpando e organizando texto do PDF...');
 
@@ -74,74 +65,46 @@ D. **Sem Exemplos:** NÃO use exemplos de outros produtos. Extraia APENAS o cont
 
 Extraia TODO o conteúdo do PDF anexo seguindo estas regras.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_SUPER_PROMPT
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: extractionPrompt
+    const r = await aiComplete({
+      task: 'pdf_extract',
+      functionName: 'extract-pdf-text',
+      maxTokens: 12000,
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: extractionPrompt },
+            {
+              type: 'file',
+              file: {
+                filename: 'document.pdf',
+                file_data: `data:application/pdf;base64,${pdfBase64}`,
               },
-              {
-                type: 'file',
-                file: {
-                  filename: 'document.pdf',
-                  file_data: `data:application/pdf;base64,${pdfBase64}`
-                }
-              }
-            ]
-          }
-        ],
-        max_completion_tokens: 12000
-      }),
+            },
+          ],
+        },
+      ],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos Lovable AI esgotados. Adicione créditos em Settings → Workspace → Usage.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+    if (!r.ok) {
+      console.error(`[${requestId}] ❌ AI router failed`, r.error_code, r.attempts);
+      const status = r.error_code === 'credits_exhausted' ? 402
+        : r.error_code === 'rate_limited' ? 429
+        : 500;
+      const msg = r.error_code === 'credits_exhausted'
+        ? 'Créditos esgotados em todos os provedores de IA. Adicione créditos ou configure fallback no painel AI Routing.'
+        : r.error_code === 'rate_limited'
+        ? 'Limite de requisições atingido em todos os provedores. Aguarde e tente novamente.'
+        : `Falha ao processar PDF: ${r.error}`;
       return new Response(
-        JSON.stringify({ error: 'Erro ao processar PDF. Verifique se o arquivo não está corrompido.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: msg, error_code: r.error_code, attempts: r.attempts }),
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    const usage = extractUsage(data);
-    await logAIUsage({
-      functionName: "extract-pdf-text",
-      actionLabel: "extract-pdf-text",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-    });
-    const extractedText = data.choices?.[0]?.message?.content;
+    const extractedText = r.text;
+    console.log(`[${requestId}] ✅ Provider used: ${r.provider_used}/${r.model_used}`);
 
     if (!extractedText) {
       console.error(`[${requestId}] ❌ No text extracted from AI response`);
@@ -157,7 +120,7 @@ Extraia TODO o conteúdo do PDF anexo seguindo estas regras.`;
     console.log(`[${requestId}] Texto limpo extraído:`, extractedText.length, 'caracteres');
 
     return new Response(
-      JSON.stringify({ extractedText }),
+      JSON.stringify({ extractedText, provider_used: r.provider_used, model_used: r.model_used }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
