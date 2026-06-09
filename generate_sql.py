@@ -435,7 +435,7 @@ def make_sql_row(rec):
     cta = rec['cta_url'].replace("'", "''")
     dom = rec['domain'].replace("'", "''")
     pp = rec['page_path'].replace("'", "''")
-    return f"('{USER_ID}', '{n}', '{h}', '{h}', '{cta}', '{dom}', '{pp}', 'pending_deploy', false, 1, '{seo}'::jsonb)"
+    return f"('{USER_ID}', '{n}', '{h}', '{cta}', '{dom}', '{pp}', 'pending_deploy', false, 1, '{seo}'::jsonb)"
 
 
 if __name__ == '__main__':
@@ -502,14 +502,15 @@ if __name__ == '__main__':
         if c > 0:
             print(f"  {d}: {c}")
 
-    HEADER = """INSERT INTO cloned_landing_pages (user_id, name, original_html, transformed_html, cta_url, target_domain, page_path, publish_status, is_homepage, version, seo_config) VALUES\n"""
-    BATCH_SIZE = 5  # small batches for MCP
+    HEADER = "INSERT INTO cloned_landing_pages (user_id, name, original_html, cta_url, target_domain, page_path, publish_status, is_homepage, version, seo_config) VALUES\n"
+    CONFLICT = "\nON CONFLICT (target_domain, page_path) DO NOTHING;\n"
+    BATCH_SIZE = 20
 
     batch_num = 0
     for start in range(0, len(all_pages), BATCH_SIZE):
         batch = all_pages[start:start+BATCH_SIZE]
         rows = [make_sql_row(r) for r in batch]
-        sql = HEADER + ',\n'.join(rows) + ';\n'
+        sql = HEADER + ',\n'.join(rows) + CONFLICT
         fname = f'/tmp/pages_batch_{batch_num:04d}.sql'
         with open(fname, 'w', encoding='utf-8') as f:
             f.write(sql)
