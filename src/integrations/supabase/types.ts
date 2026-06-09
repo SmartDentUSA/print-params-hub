@@ -26475,6 +26475,7 @@ export type Database = {
         Args: { p_content_hash: string; p_deal_id: number }
         Returns: undefined
       }
+      safe_to_timestamptz: { Args: { p: string }; Returns: string }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
         Returns: {
