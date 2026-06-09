@@ -647,3 +647,309 @@ Torna-se disponível apenas quando o evento `purchase` é disparado pelo LI Purc
 
 *Arquivo gerado automaticamente pela sessão Claude Code — 2026-06-09*
 *Próxima atualização: adicionar dados de GEO/Schema.org quando disponíveis*
+
+---
+
+## 10. PLANO DE AÇÃO DETALHADO — 4 TAREFAS CRÍTICAS GTM
+
+> Última atualização: 2026-06-09 | Baseado no debug ao vivo (Pedido 2602)
+
+### PROBLEMA RAIZ IDENTIFICADO
+
+O debug ao vivo provou que o `sd_event_id` gerado pelo LI Purchase Tracker v6.0 e o `event_id` enviado pela tag GA4 são UUIDs **diferentes**:
+
+```
+sd_event_id (LI Tracker)  → "407a5a00-ab32-4eb0-8776-a4e051bae7d0"
+event_id   (tag GA4 #28)  → "b834ab58-2004-4185-a3b7-6409011492b5"  ← UUID novo gerado pelo GTM
+```
+
+Isso causa **falha de deduplicação** entre web e server-side para Meta e TikTok. Cada plataforma recebe dois eventos (um web + um server) que parecem ser eventos diferentes, duplicando contagens e distorcendo atribuição.
+
+---
+
+### TAREFA 1 — VARIÁVEL DLV `sd_event_id` + INJEÇÃO NAS TAGS
+
+**Container alvo**: GTM-MNPGDCH (loja.smartdent.com.br)  
+**Tempo estimado**: 15 minutos  
+**Impacto**: Corrige deduplicação Meta (+EMQ) + TikTok EAPI + GA4 server-side
+
+#### Diagnóstico do problema
+
+O LI Purchase Tracker v6.0 faz push para o dataLayer com `sd_event_id`:
+```javascript
+window.dataLayer.push({
+  event: 'purchase',
+  sd_event_id: '407a5a00-ab32-4eb0-8776-a4e051bae7d0',
+  user_data: { email_address: 'danilohen@gmail.com' },
+  ...
+})
+```
+
+A tag GA4 Purchase (MNPGDCH tag 28) usa a variável `{{JS - Event ID UUID}}` que gera um novo UUID aleatório no momento do disparo — ignorando completamente o `sd_event_id` da camada de dados.
+
+#### PASSO A PASSO — Criar Variável DLV
+
+1. Abra **tagmanager.google.com**
+2. Selecione o container **GTM-MNPGDCH** (loja.smartdent.com.br)
+3. Menu lateral → **Variáveis** → botão **Nova** (canto superior direito)
+4. Clique em **Configuração da variável**
+5. Tipo de variável: **Variável da camada de dados** (Data Layer Variable)
+6. Configurações:
+   - **Nome da variável na camada de dados**: `sd_event_id`
+   - **Versão da camada de dados**: Versão 2
+   - **Definir valor padrão**: (deixar em branco)
+7. Nome da variável GTM: `DLV - sd_event_id`
+8. Clique em **Salvar**
+
+#### PASSO A PASSO — Injetar nas Tags
+
+**Tag 28: "Tag GA4 - Evento Compra (Purchase) UNIFICADO"**
+
+1. Menu lateral → **Tags** → clique na tag **"Tag GA4 - Evento Compra (Purchase) UNIFICADO"** (tag 28)
+2. Role até a seção **Parâmetros do evento**
+3. Encontre o parâmetro `event_id`
+4. Clique no ícone de lápis ou no campo de valor
+5. Substitua `{{JS - Event ID UUID}}` por `{{DLV - sd_event_id}}`
+6. Clique em **Salvar**
+
+**Tags TikTok — Web (tags 61 e 62):**
+
+1. Abra **"TT-D05CI83C77UE5QUU9FR0-Web-Tag-GA4_Event"** (tag 61)
+2. No campo `event_id`, substitua por `{{DLV - sd_event_id}}`
+3. Salvar
+
+4. Abra **"TT-D05CI83C77UE5QUU9FR0-Web-Tag-Pixel_Event"** (tag 62)
+5. No campo `eventId` ou `event_id`, substitua por `{{DLV - sd_event_id}}`
+6. Salvar
+
+**Tag Meta CAPI Web (tag 48):**
+
+1. Abra **"FB_CONVERSIONS_API-167413567155597-Web-Tag-Pixel_Event"** (tag 48)
+2. Localize o campo `eventID`
+3. Substitua o valor atual por `{{DLV - sd_event_id}}`
+4. Salvar
+
+#### PUBLICAR
+
+1. Clique no botão azul **Enviar** (canto superior direito)
+2. Versão: "Fix deduplication: usar sd_event_id do LI tracker em todas as tags"
+3. **Publicar**
+
+#### Verificação
+
+Após publicar, faça um pedido de teste e no GTM Preview verifique:
+- O evento `purchase` no dataLayer tem `sd_event_id`
+- A tag GA4 (tag 28) mostra o parâmetro `event_id` com o mesmo valor que `sd_event_id`
+- Ambos devem ser idênticos: `event_id === sd_event_id`
+
+---
+
+### TAREFA 2 — CROSS-DOMAIN TRACKING (vírgula órfã + 16 domínios)
+
+**Container alvo**: GTM-NZ64Q899 (www.smartdent.com.br)  
+**Tempo estimado**: 10 minutos  
+**Impacto**: Preserva sessão/atribuição quando usuário passa de smartdent.com.br → loja.smartdent.com.br
+
+#### Diagnóstico do problema
+
+A lista de domínios `linker.domains` na Tag do Google (G-59WWJQN34P, tag 5 em NZ64Q899) termina com uma **vírgula seguida de espaço**, o que cria uma entrada vazia na lista de domínios e pode quebrar o linker de cookies em alguns browsers:
+
+```
+"...sellflux.app,printsafebr.com.br,"   ← vírgula órfã no final
+```
+
+Além disso, a lista deve incluir todos os 16 domínios da propriedade.
+
+#### LISTA COMPLETA DE DOMÍNIOS (copiar exatamente)
+
+```
+smartdent.com.br,loja.smartdent.com.br,parametros.smartdent.com.br,dentala.com.br,minivat.com,eodonto.com,labtechdent.com.br,mediti600.com.br,mediti700.com.br,mediti900.com,rayshape.com.br,rayshape3d.com.br,blzdental.com.br,truioconnect.com.br,sellflux.app,printsafebr.com.br
+```
+
+**Atenção**: sem espaços entre domínios, sem vírgula no final.
+
+#### PASSO A PASSO — Corrigir a Tag do Google
+
+1. Abra **tagmanager.google.com**
+2. Selecione o container **GTM-NZ64Q899** (www.smartdent.com.br)
+3. Menu lateral → **Tags** → clique em **"GA4 - Tag do Google (G-59WWJQN34P) Global"** (tag 5)
+4. Expanda a seção **Configuração da tag** (ou "Campos a serem definidos")
+5. Procure o campo de configuração de cross-domain — geralmente aparece como:
+   - "Domínios de links automáticos" ou
+   - Campo de configuração `linker.domains`
+6. Clique no campo com a lista de domínios
+7. **Substitua o conteúdo completo** pela lista acima (sem vírgula final)
+8. Clique em **Salvar**
+
+**Repetir o mesmo processo na tag 29 do container MNPGDCH:**
+
+1. Selecione o container **GTM-MNPGDCH**
+2. Tags → **"GA4 - Tag do Google (Base Unificada)"** (tag 29)
+3. Corrija o campo `linker.domains` da mesma forma
+4. Salvar
+
+#### PUBLICAR AMBOS OS CONTAINERS
+
+- NZ64Q899: Enviar → "Fix cross-domain: remover vírgula órfã, garantir 16 domínios"
+- MNPGDCH: Enviar → "Fix cross-domain: remover vírgula órfã, garantir 16 domínios"
+
+#### Verificação
+
+Acesse smartdent.com.br, clique em qualquer link que vá para loja.smartdent.com.br.
+Na URL de destino deve aparecer o parâmetro `_gl=...` — isso indica que o linker está funcionando e a sessão/source vai ser preservada.
+
+---
+
+### TAREFA 3 — LIMPEZA DOS IDs GA4 FANTASMAS
+
+**Containers alvo**: GTM-MNPGDCH e GTM-NZ64Q899  
+**Tempo estimado**: 20 minutos  
+**Impacto**: Elimina vazamento de dados para propriedades desconhecidas, reduz requisições desnecessárias
+
+#### Mapa de IDs e ação necessária
+
+| ID | Container / Tag | Ação |
+|----|-----------------|------|
+| **G-1411Z6YVPY** | NZ64Q899 (tags 11,15,24,25,26,50,52,54) + MNPGDCH (tags 28,29,46,59,61,67) | ✅ **MANTER** — é o ID principal de conversões |
+| **G-59WWJQN34P** | NZ64Q899 (tags 5, 59) + MNPGDCH (tag via server-side config) | ✅ **MANTER** — vinculado ao BigQuery |
+| **G-LJ7X8G61N4** | MNPGDCH tag 47 apenas | 🔴 **ALTERAR** — substituir por G-1411Z6YVPY |
+| **G-GXQP9MMK73** | Origem: server-side GTM-MFN4T8P4 | 🔴 **INVESTIGAR** no server-side |
+| **G-6XFYNQZ1JV** | Origem: server-side GTM-MFN4T8P4 | 🔴 **INVESTIGAR** no server-side |
+| **G-LW7Y4JE568** | Origem: server-side GTM-MFN4T8P4 | 🔴 **INVESTIGAR** no server-side |
+| **G-GC471H5WCP** | Origem: server-side GTM-MFN4T8P4 | 🔴 **INVESTIGAR** no server-side |
+| **G-R0Q68Y04MV** | Origem: server-side GTM-MFN4T8P4 | 🔴 **INVESTIGAR** no server-side |
+
+#### PASSO A PASSO — Corrigir G-LJ7X8G61N4 (imediato, 5 min)
+
+**Container GTM-MNPGDCH:**
+
+1. Tags → **"FB_CONVERSIONS_API-167413567155597-Web-Tag-GA4_Event"** (tag 47)
+2. Este é o tag que usa `G-LJ7X8G61N4` — é a tag de passthrough para o Facebook CAPI via GA4
+3. Verifique o campo "ID de medição" ou "Measurement ID"
+4. Substitua `G-LJ7X8G61N4` por `G-1411Z6YVPY`
+5. Salvar → Publicar
+
+#### PASSO A PASSO — Investigar os 5 IDs do server-side (GTM-MFN4T8P4)
+
+Os 5 IDs desconhecidos (G-GXQP9MMK73, G-6XFYNQZ1JV, G-LW7Y4JE568, G-GC471H5WCP, G-R0Q68Y04MV) provavelmente são gerados pelo container server-side como propriedades de roteamento para as plataformas de anúncio (Meta CAPI e TikTok EAPI usam GA4 como protocolo de transporte). Eles apareceram no debug como `page_view` e `scroll` — eventos que o server-side roteia.
+
+Para verificar:
+
+1. Abra **tagmanager.google.com** → selecione container **GTM-MFN4T8P4** (Server)
+2. Menu lateral → **Tags**
+3. Abra a tag **"FB_CONVERSIONS_API-167413567155597-Server-Tag"** (tag 19)
+4. Dentro da configuração procure por "GA4 Measurement Protocol" ou campos com Measurement ID
+5. Se encontrar algum dos 5 IDs listados acima → substituir por G-1411Z6YVPY
+6. Repetir para **"FB_CONVERSIONS_API-837797892060098-Server-Tag"** (tag 24)
+7. Repetir para **"TT-D05CI83C77UE5QUU9FR0-Server-Tag-EAPI_Event"** (tag 22)
+
+**Se os IDs não forem encontrados nas tags server-side**, eles podem vir de:
+- Uma variável de ambiente no Cloud Run (verificar configuração do serviço no GCP Console)
+- Um client customizado no container server-side
+
+**Se os IDs aparecerem nas tags mas não forem reconhecidos**: são propriedades GA4 de terceiros (parceiros de automação como Trackingplan, Amplitude, etc.) injetadas automaticamente. Nesse caso, é necessário identificar qual "Client" do GTM server-side os está gerando e desativar.
+
+#### Variável UA morta (bônus — 2 min)
+
+1. Container MNPGDCH → **Variáveis** → encontre a variável `Analytics` com valor `UA-69042627-2`
+2. Clique nela → **Excluir** (o Universal Analytics foi desativado em julho/2023)
+
+---
+
+### TAREFA 4 — CONSOLIDAÇÃO GOOGLE ADS (AW-18143771674 vs AW-1203384992)
+
+**Containers alvo**: GTM-NZ64Q899  
+**Tempo estimado**: 5 minutos  
+**Impacto**: Remarketing e conversões baterão na conta oficial Smart Dent - 2026
+
+#### Diagnóstico definitivo do conflito
+
+| ID | Onde | O que é |
+|----|------|---------|
+| **AW-18143771674** | App GA4 da Loja Integrada + Google Ads (painel) | ✅ **CORRETO** — conta ativa Smart Dent - 2026 (124-215-5423) |
+| **AW-1203384992** | GTM-NZ64Q899 tag 7 ("Ads - Remarketing Global") | ❌ **ERRADO** — conta antiga/externa, provavelmente inativa |
+
+**Conclusão**: `AW-1203384992` nunca deve ser usado. Todas as tags devem usar `AW-18143771674`.
+
+O fato de que o Google Ads mostra **0 conversões** mesmo com Enhanced Conversions funcionando (email hash + gclid presentes no debug) sugere que:
+1. O Remarketing está mandando sinais para a conta errada (AW-1203384992) → não contribui para Smart Bidding
+2. E/ou a conversão "Loja Smart Dent - GA4" precisa de um período de janela para acumular dados
+
+#### PASSO A PASSO — Corrigir tag de Remarketing
+
+1. Abra **tagmanager.google.com**
+2. Selecione container **GTM-NZ64Q899** (www.smartdent.com.br)
+3. Menu lateral → **Tags** → clique em **"Ads - Remarketing Global"** (tag 7)
+4. Tipo da tag: Global Site Tag (gtag) → Ads Remarketing
+5. Localize o campo **"ID de conversão"** ou **"Conversion ID"**
+6. **Substitua**: `AW-1203384992` → `AW-18143771674`
+7. Clique em **Salvar**
+
+#### PASSO A PASSO — Verificar tag de Conversion Linker (tag 6)
+
+1. Tags → **"Ads - Vinculador de Conversões"** (tag 6)
+2. Confirmar que está com gatilho "Initialization All Pages" ✅
+3. Nenhuma mudança necessária — apenas verificação
+
+#### VINCULAR GA4 ao Google Ads (crítico — está em 0 vínculos)
+
+Esta etapa não é no GTM, mas é igualmente crítica:
+
+1. Acesse **analytics.google.com**
+2. Propriedade G-59WWJQN34P (Smart Dent Institucional)
+3. Engrenagem (Admin) → **Vinculações de produto** → **Google Ads**
+4. **Nova vinculação** → selecione a conta **Smart Dent - 2026 (124-215-5423)**
+5. Confirmar
+6. **Repetir** para a propriedade G-1411Z6YVPY (se acessível)
+
+**Sem esse vínculo, o Smart Bidding do Google Ads não recebe os dados de conversão do GA4 — mesmo que as tags estejam corretas.**
+
+#### PUBLICAR
+
+1. Container NZ64Q899 → **Enviar** → "Fix: Ads Remarketing ID correto AW-18143771674"
+2. Publicar
+
+---
+
+### TAREFA BÔNUS — TikTok Server-Side: sair do modo DEBUG
+
+**Container alvo**: GTM-MFN4T8P4 (Server-Side)  
+**Tempo estimado**: 5 minutos  
+**Impacto**: TikTok EAPI passa a processar eventos para targeting e atribuição reais
+
+1. Selecione container **GTM-MFN4T8P4**
+2. Tags → **"TT-D05CI83C77UE5QUU9FR0-Server-Tag-EAPI_Event"** (tag 22)
+3. Na configuração da tag, encontre o campo **"Log Type"** ou **`logType`**
+4. **Substitua**: `debug` → `no_logging`  
+   (Algumas interfaces mostram como dropdown: selecione "No logging" ou "Production")
+5. Salvar → **Enviar** → "Fix TikTok EAPI: sair de debug mode"
+6. Publicar
+
+---
+
+### ORDEM DE EXECUÇÃO RECOMENDADA
+
+| Prioridade | Tarefa | Container | Tempo | Impacto |
+|-----------|--------|-----------|-------|---------|
+| 1 | Tarefa 4: Corrigir AW-1203384992 → AW-18143771674 | NZ64Q899 | 5 min | Remarketing funcional |
+| 2 | Bônus: TikTok debug → no_logging | MFN4T8P4 | 5 min | TikTok EAPI produção |
+| 3 | GA4 → Vincular ao Google Ads 124-215-5423 | GA4 painel | 5 min | Smart Bidding ativo |
+| 4 | Tarefa 1: DLV sd_event_id → todas as tags | MNPGDCH | 15 min | Deduplicação corrigida |
+| 5 | Tarefa 3: Corrigir G-LJ7X8G61N4 na tag 47 | MNPGDCH | 5 min | Dados limpos |
+| 6 | Tarefa 2: Cross-domain linker (vírgula + 16 domínios) | NZ64Q899 + MNPGDCH | 10 min | Atribuição multidomínio |
+| 7 | Tarefa 3: Investigar 5 IDs fantasmas no server-side | MFN4T8P4 | 20 min | Eliminar vazamento |
+
+**Tempo total estimado: ~65 minutos**
+
+---
+
+### RESUMO DOS IMPACTOS ESPERADOS
+
+| Métrica | Situação Atual | Após Correções |
+|---------|---------------|----------------|
+| Meta EMQ (Purchase) | 6.1/10 — dedup falhando | 8.0+/10 — dedup funcional |
+| TikTok EAPI | DEBUG — sem atribuição real | Produção — targeting ativo |
+| Google Ads Smart Bidding | Sem dados (0 conversões) | Dados de conversão fluindo |
+| Remarketing Google Ads | Conta errada (1203384992) | Conta correta (18143771674) |
+| IDs GA4 ativos por página | 8 (5 desconhecidos) | 2 (G-1411Z6YVPY + G-59WWJQN34P) |
+| Cross-domain tracking | Vírgula órfã — pode quebrar | 16 domínios limpos |
