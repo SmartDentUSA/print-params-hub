@@ -6,6 +6,37 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+/**
+ * Normaliza datas para `YYYY-MM-DD`. Aceita ISO ou `DD/MM/YYYY` / `DD-MM-YYYY`.
+ * Retorna `null` se o valor for vazio ou inválido (em vez de quebrar a gravação no Postgres).
+ */
+export function normalizeDateBR(value?: string | null): string | null {
+  if (!value) return null;
+  const v = String(value).trim();
+  if (!v) return null;
+  // Já está em ISO YYYY-MM-DD (com ou sem hora)
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const y = +iso[1], m = +iso[2], d = +iso[3];
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+    return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+  // DD/MM/YYYY ou DD-MM-YYYY
+  const br = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (br) {
+    let [, d, m, y] = br;
+    let year = parseInt(y, 10);
+    if (year < 100) year += 2000;
+    const day = parseInt(d, 10);
+    const month = parseInt(m, 10);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    if (dt.getUTCDate() !== day || dt.getUTCMonth() !== month - 1) return null;
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  return null;
+}
+
 export function buildCourseTag(title: string, firstDate?: string): string {
   const slug = slugify(title).toUpperCase().replace(/-/g, '_');
   return `TREIN_${slug}_${(firstDate ?? 'YYYY-MM-DD').substring(0, 10)}`;
