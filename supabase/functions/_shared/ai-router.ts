@@ -91,7 +91,11 @@ async function callProvider(
   maxTokens: number,
 ): Promise<{ ok: boolean; status: number; text?: string; toolCalls?: any[]; usage?: any; error?: string }> {
   if (provider === "poe") {
-    const r = await callPoe({ model, messages: params.messages, tools: params.tools, temperature, max_tokens: maxTokens });
+    const r = await callPoe({
+      model, messages: params.messages, tools: params.tools,
+      tool_choice: params.toolChoice, response_format: params.responseFormat,
+      temperature, max_tokens: maxTokens,
+    });
     return { ok: r.ok, status: r.status, text: r.text, toolCalls: r.toolCalls, usage: r.usage, error: r.error };
   }
 
