@@ -1,43 +1,29 @@
 ## Problema
 
-Buscando `raquelrangelodontologia@gmail.com` em "Agendar Treinamento → Passo 1" retorna "Nenhum deal encontrado", mesmo com o lead existindo (`piperun_id=59620258`, deal `59620258`).
-
-Causa: `fn_search_deals_for_training` só compara o e-mail digitado contra `lia_attendances.email`. No lead da Raquel esse campo é placeholder (`deal-59620258@import.placeholder`); o e-mail real está em `empresa_email`. Outros leads B2B/PJ guardam contato em `astron_email` e `empresa_email_nf`.
+No Passo 1 do agendamento, o campo aceita o **ID do Deal**. Buscar pelo deal `59620258` retornou 50 deals da RISUS — porque esse número aparece como `deal_id` no `piperun_deals_history` de 3 leads diferentes (lixo de sync), e a `fn_search_deals_for_training` expande **todos** os deals desses leads em vez de devolver só o deal pedido.
 
 ## Solução
 
-Atualizar a CTE `leads` do ramo `v_is_email` em `fn_search_deals_for_training` para casar o termo (case-insensitive, trim) contra:
+No ramo não-email da função, marcar cada lead com `match_deal_id` indicando como ele entrou:
 
-- `email`
-- `empresa_email`
-- `astron_email`
-- `empresa_email_nf`
+- Match via `piperun_id = v_query` → `match_deal_id = NULL` → emite todos os deals daquele lead (caso alguém digite o piperun_id de uma pessoa).
+- Match via `deals.piperun_deal_id = v_query` ou `dh->>'deal_id' = v_query` → `match_deal_id = v_query` → emite **apenas** aquele deal específico.
 
-Mantém `LIMIT 50`, ordenação e o restante da função (incluindo `safe_to_timestamptz` e o ramo não-email) intactos.
+Aplicar o filtro nas duas pernas do `deal_rows`. O `DISTINCT ON (deal_id)` final consolida em 1 linha por deal, preferindo o lead com `updated_at` mais novo (canônico — Raquel, no caso).
+
+Ramo de e-mail permanece inalterado.
 
 ## Migração
 
-```sql
-CREATE OR REPLACE FUNCTION public.fn_search_deals_for_training(p_query text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-... -- mesma função, trocando apenas o WHERE da CTE leads do ramo email:
-WHERE merged_into IS NULL
-  AND lower(trim(v_query)) IN (
-    lower(email), lower(empresa_email),
-    lower(astron_email), lower(empresa_email_nf)
-  )
-...
-$$;
-```
+Recriar `public.fn_search_deals_for_training(text)` reescrevendo só o bloco `ELSE`:
+
+- CTE `leads`: 3 UNIONs, cada um adicionando `match_deal_id` (NULL no match por `piperun_id`; `v_query` nos demais).
+- CTE `deal_rows`: cláusulas WHERE recebem `(l.match_deal_id IS NULL OR <deal_id> = l.match_deal_id)` tanto na junção com `deals` quanto na expansão de `piperun_deals_history`.
+- Restante (DISTINCT ON, ORDER BY, LIMIT 50, envelope `jsonb_build_object`) idêntico ao atual.
 
 ## Validação
 
-- `SELECT fn_search_deals_for_training('raquelrangelodontologia@gmail.com')` deve retornar `found=true` com o deal `59620258`.
-- Busca por e-mail principal (campo `email`) de outros leads continua funcionando.
-- Busca por `piperun_id` / `deal_id` (ramo não-email) inalterada.
-
-## Fora de escopo
-
-- Sincronizar/normalizar e-mails entre `email` e `empresa_email` (job separado).
-- Fallback online via Piperun API (não necessário — dado já está no CDP).
+- `fn_search_deals_for_training('59620258')` → 1 linha do deal `59620258` (vencedor: lead Raquel, mais recente).
+- `fn_search_deals_for_training('18746304')` (deal da RISUS) → só esse deal.
+- `fn_search_deals_for_training('<piperun_id de pessoa com N deals>')` → continua retornando os N deals reais.
+- Busca por e-mail (`empresa_email`, `astron_email`, etc.) inalterada.
