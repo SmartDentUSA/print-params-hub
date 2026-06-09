@@ -183,6 +183,9 @@ export default function AgendaPublica() {
           <p className="text-sm text-muted-foreground mt-1">
             Confira nossos cursos e imersões com vagas abertas.
           </p>
+          {dataUpdatedAt > 0 && (
+            <FreshnessIndicator updatedAt={dataUpdatedAt} />
+          )}
         </header>
 
         {isLoading ? (
