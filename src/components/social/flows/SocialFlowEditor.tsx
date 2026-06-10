@@ -53,6 +53,7 @@ export function SocialFlowEditor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [triggers, setTriggers] = useState<any[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
 
@@ -90,6 +91,21 @@ export function SocialFlowEditor() {
   }, [id, setNodes, setEdges]);
 
   const onConnect = useCallback((c: Connection) => setEdges((eds) => addEdge(c, eds)), [setEdges]);
+
+  const onEdgeClick = useCallback((_: React.MouseEvent, e: Edge) => {
+    setSelectedEdge(e);
+    setSelectedNode(null);
+  }, []);
+
+  const updateEdgeLabel = (edgeId: string, label: string) => {
+    setEdges((eds) => eds.map((e) => e.id === edgeId ? { ...e, label } : e));
+    setSelectedEdge((s) => s?.id === edgeId ? { ...s, label } : s);
+  };
+
+  const deleteEdge = (edgeId: string) => {
+    setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    setSelectedEdge(null);
+  };
 
   const addNode = (type: string) => {
     const nt = NODE_TYPES.find((n) => n.type === type)!;
@@ -190,7 +206,9 @@ export function SocialFlowEditor() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              onNodeClick={(_, n) => setSelectedNode(n)}
+              onNodeClick={(_, n) => { setSelectedNode(n); setSelectedEdge(null); }}
+              onEdgeClick={onEdgeClick}
+              onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); }}
               fitView
             >
               <Background />
@@ -211,6 +229,23 @@ export function SocialFlowEditor() {
                 produtoSlug={produtoSlug}
                 formName={formName}
               />
+            </aside>
+          )}
+          {selectedEdge && !selectedNode && (
+            <aside className="w-72 border-l border-border p-3 overflow-y-auto bg-card">
+              <div className="flex items-center justify-between mb-3">
+                <Badge variant="outline">aresta</Badge>
+                <Button variant="ghost" size="sm" onClick={() => deleteEdge(selectedEdge.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Label da aresta</Label>
+                <Input
+                  value={(selectedEdge.label as string) ?? ''}
+                  placeholder="Ex: Já segue ✅, 24h depois, Não segue…"
+                  onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Deixe em branco para aresta sem texto.</p>
+              </div>
             </aside>
           )}
         </TabsContent>
