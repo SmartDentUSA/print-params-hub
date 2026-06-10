@@ -294,10 +294,30 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   switch (type) {
     case 'send_dm':
     case 'send_comment_reply':
+    case 'send_text':
+    case 'comment_reply':
       return (
         <div className="space-y-3">
           <div><Label className="text-xs">Mensagem</Label>
-            <Textarea value={cfg.message ?? ''} onChange={(e) => onUpdate({ message: e.target.value })} rows={5} placeholder="Olá {{name}}, …" /></div>
+            <Textarea
+              value={cfg.message ?? cfg.text ?? ''}
+              onChange={(e) => onUpdate({ message: e.target.value, text: e.target.value })}
+              rows={5}
+              placeholder="Olá {{name}}, …"
+            /></div>
+          {Array.isArray(cfg.buttons) && cfg.buttons.map((btn: any, i: number) => (
+            <div key={i}>
+              <Label className="text-xs">Botão {i + 1} — URL</Label>
+              <Input
+                value={btn.url ?? ''}
+                onChange={(e) => {
+                  const updated = cfg.buttons.map((b: any, j: number) => j === i ? { ...b, url: e.target.value } : b);
+                  onUpdate({ buttons: updated });
+                }}
+                placeholder="https://…"
+              />
+            </div>
+          ))}
           <Button variant="outline" size="sm" className="w-full" onClick={() => setPickerOpen(true)}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar um link
           </Button>
@@ -319,14 +339,14 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
     case 'wait':
       return (
         <div><Label className="text-xs">Aguardar (segundos)</Label>
-          <Input type="number" value={cfg.seconds ?? 60} onChange={(e) => onUpdate({ seconds: Number(e.target.value) })} /></div>
+          <Input type="number" value={cfg.seconds ?? cfg.delay_seconds ?? 60} onChange={(e) => onUpdate({ seconds: Number(e.target.value), delay_seconds: Number(e.target.value) })} /></div>
       );
     case 'condition':
       return (
         <div className="space-y-2">
-          <div><Label className="text-xs">Variável</Label><Input value={cfg.field ?? ''} onChange={(e) => onUpdate({ field: e.target.value })} placeholder="state.last_reply" /></div>
+          <div><Label className="text-xs">Variável</Label><Input value={cfg.field ?? cfg.conditions?.[0]?.field ?? ''} onChange={(e) => onUpdate({ field: e.target.value })} placeholder="state.last_reply" /></div>
           <div><Label className="text-xs">Operador</Label>
-            <Select value={cfg.op ?? 'contains'} onValueChange={(v) => onUpdate({ op: v })}>
+            <Select value={cfg.op ?? cfg.conditions?.[0]?.operator ?? 'contains'} onValueChange={(v) => onUpdate({ op: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="contains">contém</SelectItem>
@@ -334,7 +354,7 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
                 <SelectItem value="regex">regex</SelectItem>
               </SelectContent>
             </Select></div>
-          <div><Label className="text-xs">Valor</Label><Input value={cfg.value ?? ''} onChange={(e) => onUpdate({ value: e.target.value })} /></div>
+          <div><Label className="text-xs">Valor</Label><Input value={cfg.value ?? cfg.conditions?.[0]?.value ?? ''} onChange={(e) => onUpdate({ value: e.target.value })} /></div>
         </div>
       );
     case 'collect_input':
@@ -345,17 +365,42 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
         </div>
       );
     case 'set_tag':
+    case 'add_tag':
       return (
         <div><Label className="text-xs">Tag</Label><Input value={cfg.tag ?? ''} onChange={(e) => onUpdate({ tag: e.target.value })} /></div>
       );
     case 'create_lead':
+    case 'ingest_lead':
       return (
         <div className="space-y-2">
           <div><Label className="text-xs">Form name</Label><Input value={cfg.form_name ?? 'social_flow'} onChange={(e) => onUpdate({ form_name: e.target.value })} /></div>
           <p className="text-xs text-muted-foreground">Lead criado via smart-ops-ingest-lead com dados coletados.</p>
         </div>
       );
+    case 'randomizer':
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Pesos das branches (%):</p>
+          {Array.isArray(cfg.branches) && cfg.branches.map((b: any, i: number) => (
+            <div key={i} className="flex gap-2 items-center">
+              <Label className="text-xs w-6">{b.label}</Label>
+              <Input
+                type="number" min={0} max={100}
+                value={b.weight ?? 50}
+                className="w-20"
+                onChange={(e) => {
+                  const updated = cfg.branches.map((x: any, j: number) => j === i ? { ...x, weight: Number(e.target.value) } : x);
+                  onUpdate({ branches: updated });
+                }}
+              />
+              <span className="text-xs text-muted-foreground">% → {b.next_node_id ?? 'fim'}</span>
+            </div>
+          ))}
+        </div>
+      );
+    case 'trigger':
+      return <p className="text-xs text-muted-foreground">Configure as palavras-chave na aba "Triggers".</p>;
     default:
-      return <p className="text-xs text-muted-foreground">Sem configuração.</p>;
+      return <p className="text-xs text-muted-foreground">Tipo desconhecido: {type ?? '—'}</p>;
   }
 }
