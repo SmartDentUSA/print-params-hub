@@ -2130,6 +2130,87 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 </html>`;
 }
 
+async function generatePublicFormHTML(slug: string, supabase: any): Promise<string> {
+  const { data: form, error } = await supabase
+    .from('smartops_forms')
+    .select('id, slug, name, title, subtitle, description, hero_image_url, hero_image_alt, form_purpose, active')
+    .eq('slug', slug)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[seo-proxy] form fetch error', slug, error.message);
+    throw new Error(`form_fetch_failed:${slug}`);
+  }
+  if (!form) return '';
+
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/f/${form.slug}`;
+  const title = `${escapeHtml(form.title || form.name)} | Smart Dent`;
+  const description = escapeHtml(
+    (form.description || form.subtitle || `Formulário ${form.name} — Smart Dent | Fluxo Digital.`).slice(0, 300)
+  );
+  const image = form.hero_image_url || `${baseUrl}/og-fluxo-digital.jpg`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  <link rel="canonical" href="${canonical}" />
+  <meta property="og:title" content="${escapeHtml(form.title || form.name)}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${image}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${canonical}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(form.title || form.name)}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="${image}" />
+  <script type="application/ld+json">
+  ${safeLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "name": form.title || form.name,
+        "description": form.description || form.subtitle || '',
+        "url": canonical,
+        "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": form.title || form.name, "item": canonical }
+        ]
+      }
+    ]
+  })}
+  </script>
+  ${buildGTMHead()}
+</head>
+<body>
+  ${buildGTMBody()}
+  <main id="main-content">
+    <article>
+      <h1>${escapeHtml(form.title || form.name)}</h1>
+      ${form.subtitle ? `<p data-section="subtitle">${escapeHtml(form.subtitle)}</p>` : ''}
+      ${form.description ? `<p data-section="description">${escapeHtml(form.description)}</p>` : ''}
+      ${form.hero_image_url ? `<img src="${form.hero_image_url}" alt="${escapeHtml(form.hero_image_alt || form.title || form.name)}" loading="lazy" />` : ''}
+      <p><a href="${canonical}">Preencher formulário</a></p>
+    </article>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/f/${form.slug}`)}
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
