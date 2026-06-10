@@ -2,10 +2,11 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const useRealtimeUpdates = () => {
+export const useRealtimeUpdates = (enabled: boolean = true) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!enabled) return;
     // Create a single channel for all table changes
     const channel = supabase
       .channel('schema-db-changes')
@@ -82,5 +83,5 @@ export const useRealtimeUpdates = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [toast, enabled]);
 };
