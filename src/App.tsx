@@ -1,47 +1,60 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
-import AdminViewSecure from "./pages/AdminViewSecure";
-import KnowledgeBase from "./pages/KnowledgeBase";
-import ProductPage from "./pages/ProductPage";
-import TestimonialPage from "./pages/TestimonialPage";
-import CategoryPage from "./pages/CategoryPage";
-import DocumentProxyRoute from "./pages/DocumentProxyRoute";
-import About from "./pages/About";
 import NotFound from "./pages/NotFound";
-import ParameterPageExample from "./pages/ParameterPageExample";
-import ResinRedirect from "./pages/ResinRedirect";
-import AgentEmbed from "./pages/AgentEmbed";
-import AgendaPublica from "./pages/AgendaPublica";
-import PublicFormPage from "./pages/PublicFormPage";
-import ROICalculatorPage from "./pages/ROICalculatorPage";
-import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
-import SupportResources from "./pages/SupportResources";
-import SmartOpsFormFlowStandalone from "./pages/SmartOpsFormFlowStandalone";
-import WaFlowVisualizerPage from "./pages/WaFlowVisualizerPage";
-import DraLIA from "./components/DraLIA";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
-import { SocialLayout } from "./components/social/SocialLayout";
-import { SocialDashboard } from "./components/social/SocialDashboard";
-import { SocialPostsBank } from "./components/social/SocialPostsBank";
-import { ComingSoon } from "./components/social/ComingSoon";
-import { SocialPostEditor } from "./components/social/editor/SocialPostEditor";
-import { SocialCalendar } from "./components/social/calendar/SocialCalendar";
-import { SocialAnalytics } from "./components/social/SocialAnalytics";
-import { SocialFlowsList } from "./components/social/flows/SocialFlowsList";
-import { SocialFlowEditor } from "./components/social/flows/SocialFlowEditor";
-import { SocialFlowSessions } from "./components/social/flows/SocialFlowSessions";
-import { SocialBroadcasts } from "./components/social/broadcasts/SocialBroadcasts";
-import { SocialSequences } from "./components/social/broadcasts/SocialSequences";
-import { SocialContacts } from "./components/social/broadcasts/SocialContacts";
+
+// Lazy: heavy / admin / non-landing routes
+const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
+const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
+const ProductPage = lazy(() => import("./pages/ProductPage"));
+const TestimonialPage = lazy(() => import("./pages/TestimonialPage"));
+const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const DocumentProxyRoute = lazy(() => import("./pages/DocumentProxyRoute"));
+const About = lazy(() => import("./pages/About"));
+const ParameterPageExample = lazy(() => import("./pages/ParameterPageExample"));
+const ResinRedirect = lazy(() => import("./pages/ResinRedirect"));
+const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
+const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
+const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
+const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
+const KnowledgeArticleRedirect = lazy(() => import("./pages/KnowledgeArticleRedirect"));
+const SupportResources = lazy(() => import("./pages/SupportResources"));
+const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
+const WaFlowVisualizerPage = lazy(() => import("./pages/WaFlowVisualizerPage"));
+const DraLIA = lazy(() => import("./components/DraLIA"));
+
+// Social Publisher (heavy admin sub-app)
+const SocialLayout = lazy(() => import("./components/social/SocialLayout").then(m => ({ default: m.SocialLayout })));
+const SocialDashboard = lazy(() => import("./components/social/SocialDashboard").then(m => ({ default: m.SocialDashboard })));
+const SocialPostsBank = lazy(() => import("./components/social/SocialPostsBank").then(m => ({ default: m.SocialPostsBank })));
+const SocialPostEditor = lazy(() => import("./components/social/editor/SocialPostEditor").then(m => ({ default: m.SocialPostEditor })));
+const SocialCalendar = lazy(() => import("./components/social/calendar/SocialCalendar").then(m => ({ default: m.SocialCalendar })));
+const SocialAnalytics = lazy(() => import("./components/social/SocialAnalytics").then(m => ({ default: m.SocialAnalytics })));
+const SocialFlowsList = lazy(() => import("./components/social/flows/SocialFlowsList").then(m => ({ default: m.SocialFlowsList })));
+const SocialFlowEditor = lazy(() => import("./components/social/flows/SocialFlowEditor").then(m => ({ default: m.SocialFlowEditor })));
+const SocialFlowSessions = lazy(() => import("./components/social/flows/SocialFlowSessions").then(m => ({ default: m.SocialFlowSessions })));
+const SocialBroadcasts = lazy(() => import("./components/social/broadcasts/SocialBroadcasts").then(m => ({ default: m.SocialBroadcasts })));
+const SocialSequences = lazy(() => import("./components/social/broadcasts/SocialSequences").then(m => ({ default: m.SocialSequences })));
+const SocialContacts = lazy(() => import("./components/social/broadcasts/SocialContacts").then(m => ({ default: m.SocialContacts })));
 
 function PageTracker() {
   usePageTracking();
   return null;
 }
 
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-surface">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 const App = () => (
   <>
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/:brandSlug" element={<Index />} />
@@ -118,6 +131,7 @@ const App = () => (
       
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
 
     {/* Page view tracking */}
     <PageTracker />
@@ -134,7 +148,11 @@ const App = () => (
 function DraLIAGlobal() {
   const { pathname } = useLocation();
   if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
-  return <DraLIA />;
+  return (
+    <Suspense fallback={null}>
+      <DraLIA />
+    </Suspense>
+  );
 }
 
 function FooterGlobal() {
