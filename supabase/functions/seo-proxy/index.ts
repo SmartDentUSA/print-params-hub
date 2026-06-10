@@ -2158,6 +2158,7 @@ Deno.serve(async (req) => {
   console.log('SEO Proxy:', { path, segments, originalPath, userAgent });
 
   let html = '';
+  let notFoundReason: 'unknown_route' | 'not_found' | null = null;
 
   try {
     if (segments[0] === 'produtos' && segments.length === 2) {
@@ -2166,6 +2167,8 @@ Deno.serve(async (req) => {
       html = await generateSystemACatalogHTML('video_testimonial', segments[1], supabase);
     } else if (segments[0] === 'categorias' && segments.length === 2) {
       html = await generateSystemACatalogHTML('category_config', segments[1], supabase);
+    } else if (segments[0] === 'f' && segments.length === 2) {
+      html = await generatePublicFormHTML(segments[1], supabase);
     } else if (segments[0] === 'base-conhecimento') {
       // PT: /base-conhecimento/...
       if (segments.length === 1) {
@@ -2210,6 +2213,8 @@ Deno.serve(async (req) => {
       html = await generateModelHTML(segments[0], segments[1], supabase);
     } else if (segments.length === 3) {
       html = await generateResinHTML(segments[0], segments[1], segments[2], supabase);
+    } else {
+      notFoundReason = 'unknown_route';
     }
 
     const is404 = !html || html.includes('404 - Página não encontrada');
@@ -2226,10 +2231,23 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
-    console.error('Error generating HTML:', error);
+    // Don't mask internal errors as 404 — that makes crawlers de-index live pages.
+    // Return 503 so Google retries instead of treating it as gone.
+    console.error('[seo-proxy] Internal error', {
+      originalPath,
+      segments,
+      userAgent,
+      message: (error as Error)?.message,
+      stack: (error as Error)?.stack,
+    });
     return new Response(generate404(), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+      status: 503,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Retry-After': '60',
+      },
     });
   }
 });
