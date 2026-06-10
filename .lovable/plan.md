@@ -1,49 +1,44 @@
-Diagnóstico encontrado
+## Diagnóstico
 
-- As páginas carregam lento porque `src/App.tsx` importa tudo estaticamente: admin, social, Dra. LIA, editores, analytics, calendário, broadcasts etc. No preview medi FCP perto de 9,5–10s e 128–150 recursos carregados mesmo em páginas simples.
-- O `/admin` piora isso porque `AdminViewSecure.tsx` importa dezenas de componentes pesados antes de saber qual aba será exibida.
-- `DataProvider` abre listeners realtime globais para `brands`, `models`, `resins` e `parameter_sets` em qualquer página, inclusive visitantes públicos.
-- `DraLIA` é carregada globalmente em páginas públicas e já faz consulta em `lia_attendances` no mount, competindo com o carregamento inicial.
-- Formulários públicos `/f/:slug` não estão passando pelo SSR SEO para bots: o `vercel.json` manda `/f/*` direto para `index.html` antes da regra de bot, e o `seo-proxy` retorna 404 para `/f/terceirizacao-projetos-cad`.
-- O `seo-proxy` cobre bem artigos da base de conhecimento, mas não formulários. Também transforma erro interno em 404, o que pode aparecer para Google/IA como “página inexistente” em vez de erro transitório.
-- O banco tem consultas lentas relevantes em `lia_attendances`, especialmente busca por `platform_lead_id OR raw_payload`, rotinas de health logs e backfills. Isso pode degradar edge functions e painéis, mas não é a principal causa do FCP alto no frontend.
+A página `https://parametros.smartdent.com.br/f/terceirizacao-projetos-cad` carrega o HTML (200 OK), mas fica em branco. O console mostra a causa real:
 
-Plano de correção
+```
+TypeError: Failed to fetch dynamically imported module:
+https://parametros.smartdent.com.br/assets/PublicFormPage-DM9DQ1Uk.js
+```
 
-1. Reduzir o bundle inicial
-   - Converter rotas pesadas de `src/App.tsx` para `React.lazy` + `Suspense`.
-   - Lazy-load especialmente `/admin`, `/social`, páginas de conhecimento mais pesadas, `DraLIA`, formulários e visualizadores.
-   - Manter a primeira tela funcional com fallback leve, sem mudar UI ou regras de negócio.
+O navegador (ou um Service Worker / cache de CDN) está com um `index.html` antigo que aponta para um chunk JS (`PublicFormPage-DM9DQ1Uk.js`) que não existe mais no deploy atual — o Vite gerou um novo hash. Como o `PublicFormPage` agora é carregado via `React.lazy()` (mudança recente para reduzir bundle), o `import()` dinâmico falha, o `<Suspense>` não tem fallback de erro, e o React quebra silenciosamente → tela branca.
 
-2. Otimizar o `/admin`
-   - Dividir `AdminViewSecure.tsx` para carregar cada seção/aba sob demanda.
-   - Manter somente autenticação, sidebar e shell inicial no bundle do admin.
-   - Carregar componentes como SmartOps, relatórios, cursos, analytics, campanhas e social somente quando a aba for aberta.
+Esse problema acontece toda vez que publicamos uma nova versão e um visitante já tem o HTML antigo em cache. Não é exclusivo de `/f/...` — atinge qualquer rota lazy (Knowledge Base, Admin, Social, etc.) após um deploy.
 
-3. Remover trabalho global desnecessário
-   - Desativar `useRealtimeUpdates()` para visitantes públicos; manter realtime somente em contexto administrativo ou onde for realmente necessário.
-   - Remover logs verbosos do `DataProvider` que estão poluindo console e serializando funções/objetos grandes.
-   - Carregar `DraLIA` com lazy/defer nas páginas públicas, preservando a exclusão de admin/embed/social/agenda.
+## O que vai ser feito
 
-4. Corrigir SEO/GEO/IA Ready dos formulários públicos
-   - Adicionar suporte a `/f/:slug` no `seo-proxy` para gerar HTML semântico dos formulários com título, descrição, imagem, canonical, OG/Twitter e JSON-LD.
-   - Ajustar `vercel.json` para bots de `/f/*` irem ao `seo-proxy`, enquanto humanos continuam recebendo o SPA.
-   - Testar com User-Agent de Googlebot em pelo menos um formulário real.
+1. **Boundary de erro com auto-reload em falha de chunk** (`src/components/ChunkErrorBoundary.tsx`, novo)
+   - Captura `TypeError: Failed to fetch dynamically imported module` e `ChunkLoadError`.
+   - Marca uma flag em `sessionStorage` para evitar loop e faz `window.location.reload()` uma vez, com cache busting (`?v=timestamp`).
+   - Se já tentou recarregar e falhou de novo, mostra uma tela amigável com botão "Recarregar agora" em vez de página branca.
+   - Envolver o `<Suspense>` em `src/App.tsx` e também o `DraLIAGlobal`.
 
-5. Endurecer o `seo-proxy` contra quebras
-   - Diferenciar “conteúdo não encontrado” de falha interna temporária.
-   - Logar erros com contexto de rota/slug.
-   - Evitar que falhas transitórias sejam mascaradas como 404 quando a página existe.
-   - Manter cache adequado para HTML gerado e reduzir consultas redundantes quando possível.
+2. **Headers de cache no Vercel** (`vercel.json`)
+   - Garantir `Cache-Control: no-cache, must-revalidate` para `/index.html` e para a raiz `/`, e `public, max-age=31536000, immutable` para `/assets/*` (que já têm hash no nome).
+   - Isso impede que o HTML fique cacheado em CDN/browser apontando para chunks que já não existem.
 
-6. Corrigir gargalos de dados de alto impacto
-   - Trocar o N+1 de `getResinsByModel` por uma única consulta em lote.
-   - Analisar com `EXPLAIN` as queries lentas principais antes de criar índices.
-   - Se confirmado pelo plano de execução, criar índices direcionados para buscas canônicas em `lia_attendances` e logs de saúde, sem alterar regras de negócio.
+3. **Pré-carregar o chunk do PublicFormPage no link do bot/usuário** (opcional, leve)
+   - Adicionar `link rel="modulepreload"` dinâmico no `PublicFormPage` lazy import para reduzir TTFB do formulário no primeiro acesso.
 
-Validação
+4. **Validação**
+   - Após deploy: abrir a URL em janela anônima, confirmar que o formulário renderiza.
+   - Forçar reload com cache antigo (DevTools → Disable cache off) e confirmar que o boundary recarrega sozinho.
+   - Verificar que o Googlebot continua recebendo o HTML SSR do `seo-proxy` (já configurado no `vercel.json`).
 
-- Medir novamente abertura de `/f/terceirizacao-projetos-cad`, uma página de artigo e `/admin`.
-- Confirmar queda de recursos carregados inicialmente e FCP menor.
-- Confirmar que Googlebot recebe HTML 200 para artigo e formulário público.
-- Confirmar que humanos continuam recebendo o SPA e que formulários ainda submetem normalmente.
+## Detalhes técnicos
+
+- O HTML responde 200 em 1.876ms e baixa o bundle principal `index-aZChSVV-.js`, mas o `import()` do chunk antigo retorna 404 silencioso (Vercel responde com `index.html` por causa do SPA fallback, e o browser tenta interpretar HTML como JS → `TypeError`).
+- O fix do ErrorBoundary é o padrão recomendado pela documentação do Vite para o problema "stale chunk after deploy".
+- Os headers do Vercel atualmente só cobrem favicons/manifest/sitemaps — falta a regra explícita para `index.html` e `/assets/*`.
+- Não há mudança de lógica de negócio nem de UI; apenas resiliência de carregamento.
+
+## Riscos
+
+- Loop de reload: mitigado pela flag de uma única tentativa em `sessionStorage`.
+- Headers do Vercel afetarem outras rotas: a regra é específica para `/index.html`, `/` e `/assets/(.*)`.
