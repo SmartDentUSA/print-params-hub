@@ -63,10 +63,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const isAdminContext = typeof window !== 'undefined' &&
     (window.location.pathname.startsWith('/admin') ||
      window.location.pathname.startsWith('/social'));
-  if (isAdminContext) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useRealtimeUpdates();
-  }
+  useRealtimeUpdates(isAdminContext);
 
   const value = {
     loading: dataHook.loading || crudHook.loading,
