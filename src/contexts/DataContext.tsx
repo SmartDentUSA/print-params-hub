@@ -55,20 +55,18 @@ interface DataProviderProps {
 }
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
-  console.log('DataProvider rendering...');
-  
   const dataHook = useSupabaseData();
   const crudHook = useSupabaseCRUD();
-  
-  console.log('DataProvider hooks loaded:', {
-    dataHookLoading: dataHook.loading,
-    crudHookLoading: crudHook.loading,
-    dataHookError: dataHook.error,
-    crudHookError: crudHook.error
-  });
-  
-  // Initialize realtime updates
-  useRealtimeUpdates();
+
+  // Realtime is only useful in admin/CRUD contexts — avoid opening 4 global
+  // postgres_changes channels for every public visitor.
+  const isAdminContext = typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/admin') ||
+     window.location.pathname.startsWith('/social'));
+  if (isAdminContext) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useRealtimeUpdates();
+  }
 
   const value = {
     loading: dataHook.loading || crudHook.loading,
@@ -114,8 +112,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }, 500);
     }
   };
-
-  console.log('DataProvider providing context value:', value);
 
   return (
     <DataContext.Provider value={value}>
