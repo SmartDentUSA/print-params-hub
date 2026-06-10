@@ -4,6 +4,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
+import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 
 // Lazy: heavy / admin / non-landing routes
 const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
@@ -54,6 +55,7 @@ function RouteFallback() {
 
 const App = () => (
   <>
+    <ChunkErrorBoundary>
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Index />} />
@@ -132,6 +134,7 @@ const App = () => (
       <Route path="*" element={<NotFound />} />
     </Routes>
     </Suspense>
+    </ChunkErrorBoundary>
 
     {/* Page view tracking */}
     <PageTracker />
@@ -149,9 +152,11 @@ function DraLIAGlobal() {
   const { pathname } = useLocation();
   if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
   return (
-    <Suspense fallback={null}>
-      <DraLIA />
-    </Suspense>
+    <ChunkErrorBoundary>
+      <Suspense fallback={null}>
+        <DraLIA />
+      </Suspense>
+    </ChunkErrorBoundary>
   );
 }
 

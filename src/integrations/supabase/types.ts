@@ -10777,6 +10777,56 @@ export type Database = {
           },
         ]
       }
+      meta_capi_event_log: {
+        Row: {
+          currency: string | null
+          deal_id: string | null
+          event_id: string | null
+          event_name: string
+          event_time: string | null
+          id: string
+          meta_response: Json | null
+          piperun_deal_id: string | null
+          sent_at: string | null
+          success: boolean | null
+          value: number | null
+        }
+        Insert: {
+          currency?: string | null
+          deal_id?: string | null
+          event_id?: string | null
+          event_name: string
+          event_time?: string | null
+          id?: string
+          meta_response?: Json | null
+          piperun_deal_id?: string | null
+          sent_at?: string | null
+          success?: boolean | null
+          value?: number | null
+        }
+        Update: {
+          currency?: string | null
+          deal_id?: string | null
+          event_id?: string | null
+          event_name?: string
+          event_time?: string | null
+          id?: string
+          meta_response?: Json | null
+          piperun_deal_id?: string | null
+          sent_at?: string | null
+          success?: boolean | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_capi_event_log_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_lead_event_buffer: {
         Row: {
           attempts: number
