@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Upload, X, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { validateFileSize } from '@/utils/security';
+import { getStorageImageUrl, extensionFromMime } from '@/utils/storageImage';
 
 interface AuthorImageUploadProps {
   currentImageUrl?: string;
@@ -69,7 +70,9 @@ export function AuthorImageUpload({
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      // Use extension derived from the real MIME type to prevent
+      // "PNG renamed to .webp" inflation in Storage.
+      const fileExt = extensionFromMime(file.type, file.name.split('.').pop() || 'bin');
       const slug = (authorName || 'novo-autor').toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const fileName = `${slug}-${Date.now()}.${fileExt}`;
       const filePath = `authors/${fileName}`;
@@ -80,7 +83,8 @@ export function AuthorImageUpload({
         .from('author-images')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: true,
+          contentType: file.type || undefined,
         });
 
       if (uploadError) {
@@ -125,8 +129,10 @@ export function AuthorImageUpload({
       {previewUrl ? (
         <div className="relative inline-block">
           <img loading="lazy" decoding="async"
-            src={previewUrl}
+            src={getStorageImageUrl(previewUrl, { width: 256 })}
             alt="Preview"
+            width={128}
+            height={128}
             className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
             onError={() => setPreviewUrl('')}
           />

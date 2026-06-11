@@ -43,13 +43,10 @@ serve(async (req) => {
       });
     }
 
-    // Get the file content
-    const fileContent = await fileResponse.arrayBuffer();
-    
-    console.log('Document fetched successfully:', filename, 'Size:', fileContent.byteLength);
+    console.log('Streaming document:', filename, 'upstream size:', fileResponse.headers.get('content-length') ?? 'unknown');
 
-    // Return the PDF with correct headers for inline display
-    return new Response(fileContent, {
+    // Stream the PDF body directly to the client to reduce memory and TTFB.
+    return new Response(fileResponse.body, {
       status: 200,
       headers: {
         ...corsHeaders,
@@ -57,6 +54,9 @@ serve(async (req) => {
         'Content-Disposition': `inline; filename="${filename}"`,
         'Cache-Control': 'public, max-age=31536000, immutable',
         'X-Content-Type-Options': 'nosniff',
+        ...(fileResponse.headers.get('content-length')
+          ? { 'Content-Length': fileResponse.headers.get('content-length')! }
+          : {}),
       },
     });
 

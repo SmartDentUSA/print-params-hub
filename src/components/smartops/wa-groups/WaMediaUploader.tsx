@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Upload, Loader2, ExternalLink, X } from "lucide-react";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 type MediaKind = "image" | "video" | "audio" | "document";
 
@@ -81,7 +82,13 @@ export function WaMediaUploader({ kind, value, fileName, onChange }: Props) {
       {value ? (
         <div className="space-y-1.5">
           {kind === "image" && (
-            <img src={value} alt={fileName || "preview"} className="max-h-32 rounded border object-contain bg-muted/30" />
+            <img
+              src={getStorageImageUrl(value, { width: 256 })}
+              alt={fileName || "preview"}
+              className="max-h-32 rounded border object-contain bg-muted/30"
+              loading="lazy"
+              decoding="async"
+            />
           )}
           {kind === "video" && (
             <video src={value} controls className="max-h-32 rounded border bg-muted/30" />
