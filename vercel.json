@@ -62,6 +62,18 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap"
     },
     {
+      "source": "/rss.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
+      "source": "/feed",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
+      "source": "/feed.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
       "source": "/f/:path*",
       "has": [
         {
@@ -187,6 +199,14 @@
       "headers": [
         { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
         { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/(rss\\.xml|feed|feed\\.xml)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=1800" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     },
     {
