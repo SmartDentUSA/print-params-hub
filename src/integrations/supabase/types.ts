@@ -15933,6 +15933,7 @@ export type Database = {
           recurrence_time_start: string | null
           recurrence_type: string | null
           recurrence_until: string | null
+          recurrence_weekdays: number[] | null
           related_product_ids: string[]
           related_product_names: string[]
           sellflux_campaign_tag: string | null
@@ -15968,6 +15969,7 @@ export type Database = {
           recurrence_time_start?: string | null
           recurrence_type?: string | null
           recurrence_until?: string | null
+          recurrence_weekdays?: number[] | null
           related_product_ids?: string[]
           related_product_names?: string[]
           sellflux_campaign_tag?: string | null
@@ -16003,6 +16005,7 @@ export type Database = {
           recurrence_time_start?: string | null
           recurrence_type?: string | null
           recurrence_until?: string | null
+          recurrence_weekdays?: number[] | null
           related_product_ids?: string[]
           related_product_names?: string[]
           sellflux_campaign_tag?: string | null
@@ -23559,6 +23562,7 @@ export type Database = {
           course_id: string | null
           course_title: string | null
           course_whatsapp_group_link: string | null
+          cover_image_url: string | null
           end_date: string | null
           end_time: string | null
           enrolled_count: number | null
@@ -23576,6 +23580,7 @@ export type Database = {
           recurrence_parent_id: string | null
           recurrence_type: string | null
           recurrence_until: string | null
+          recurrence_weekdays: number[] | null
           related_product_ids: string[] | null
           related_product_names: string[] | null
           sellflux_tag: string | null
