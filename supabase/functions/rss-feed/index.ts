@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: items, error } = await supabase
       .from('knowledge_contents')
-      .select('slug, title, summary, content_html, updated_at, created_at, knowledge_categories!inner(letter, name)')
+      .select('slug, title, excerpt, meta_description, content_html, updated_at, created_at, knowledge_categories!inner(letter, name)')
       .eq('active', true)
       .order('updated_at', { ascending: false })
       .limit(MAX_ITEMS);
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     const itemsXml = (items ?? []).map((row: any) => {
       const letter = (row.knowledge_categories?.letter || 'a').toLowerCase();
       const link = `${BASE_URL}/base-conhecimento/${letter}/${row.slug}`;
-      const description = row.summary || stripHtml(row.content_html) || row.title;
+      const description = row.meta_description || row.excerpt || stripHtml(row.content_html) || row.title;
       const pubDate = toRfc822(row.created_at || row.updated_at);
       const category = row.knowledge_categories?.name || 'Conhecimento';
       return `    <item>
