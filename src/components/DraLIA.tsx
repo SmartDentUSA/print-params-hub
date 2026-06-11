@@ -379,6 +379,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [topicContext, setTopicContext] = useState<string>(() => {
     return sessionStorage.getItem('dra_lia_topic_context') || '';
   });
+  const [topicCardsDismissed, setTopicCardsDismissed] = useState<boolean>(false);
 
   // Printer guided flow state
   const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
