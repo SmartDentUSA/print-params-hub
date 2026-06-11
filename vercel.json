@@ -82,7 +82,7 @@
           "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|applebot-extended|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot|gptbot|chatgpt-user|oai-searchbot|perplexitybot|claudebot|anthropic|anthropic-ai|bytespider|ccbot|cohere-ai|google-extended|google-cloudvertexbot|meta-externalagent|meta-externalfetcher|amazonbot|youbot|diffbot|mistralai-user|duckassistbot|kagibot|phindbot|timpibot|iaskbot).*"
         }
       ],
-      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=/f/:path*"
+      "destination": "/api/seo-proxy?originalPath=/f/:path*"
     },
     {
       "source": "/f/:path*",
@@ -97,7 +97,7 @@
           "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|applebot-extended|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot|gptbot|chatgpt-user|oai-searchbot|perplexitybot|claudebot|anthropic|anthropic-ai|bytespider|ccbot|cohere-ai|google-extended|google-cloudvertexbot|meta-externalagent|meta-externalfetcher|amazonbot|youbot|diffbot|mistralai-user|duckassistbot|kagibot|phindbot|timpibot|iaskbot).*"
         }
       ],
-      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=/:path*"
+      "destination": "/api/seo-proxy?originalPath=/:path*"
     },
     {
       "source": "/((?!api/|.*\\.[a-zA-Z0-9]+$).*)",
