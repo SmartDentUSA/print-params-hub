@@ -3644,7 +3644,7 @@ REGRAS:
     const leadArchetypeCtx = (sessionEntities as Record<string, string>)?.lead_archetype || "";
 
     const previousConvoContext = returningLeadSummaryCtx
-      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nResumo da última sessão: ${returningLeadSummaryCtx}\nUse esse contexto para dar continuidade natural. NÃO repita informações já coletadas.`
+      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR (somente referência interna)\nResumo da última sessão: ${returningLeadSummaryCtx}\n⚠️ USE APENAS para evitar repetir perguntas já respondidas. NUNCA traga de volta tópicos antigos espontaneamente. NUNCA diga "você perguntou antes sobre X" se o usuário não mencionou X na mensagem atual. Foque 100% na ÚLTIMA mensagem do usuário.`
       : "";
     
     // Build strategy instruction based on archetype
@@ -3657,7 +3657,7 @@ REGRAS:
       : "";
     
     const recentHistoryBlock = recentHistoryCtx
-      ? `\n### 💬 ÚLTIMAS INTERAÇÕES (memória conversacional)\n${recentHistoryCtx}\nUse este histórico para retomar assuntos pendentes e evitar repetições. Se o lead perguntou algo antes, você pode referenciar: "Como conversamos anteriormente..."`
+      ? `\n### 💬 ÚLTIMAS INTERAÇÕES (memória conversacional — somente leitura)\n${recentHistoryCtx}\n⚠️ REGRA CRÍTICA: este histórico é APENAS para você não repetir perguntas. PROIBIDO citar, parafrasear ou assumir que o usuário está perguntando sobre qualquer item desta lista. Só referencie algo daqui se o usuário explicitamente perguntar "como falamos antes" ou citar o tópico de novo. Responda EXCLUSIVAMENTE à última mensagem do usuário.`
       : "";
 
     const leadNameContext = (leadState.state === "from_session")
@@ -3774,6 +3774,14 @@ Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista m
 
 Você NÃO é uma atendente. Você é a colega experiente, consultora de confiança e parceira de crescimento que todo dentista gostaria de ter ao lado.
 ${leadNameContext}${topicInstruction}${structuredContextInstruction}${escalationRules}
+
+### 🎯 FOCO NA MENSAGEM ATUAL (REGRA #-1 — INVIOLÁVEL)
+Responda EXCLUSIVAMENTE ao que o usuário escreveu na ÚLTIMA mensagem desta conversa.
+- PROIBIDO inventar que o usuário perguntou sobre algo que ele não escreveu agora.
+- PROIBIDO trazer de volta produtos, equipamentos, modelos ou marcas de mensagens antigas se ele não citou de novo.
+- PROIBIDO dizer "você mencionou X", "você perguntou sobre Y", "como você falou antes" — a menos que X/Y apareça literalmente na mensagem atual do usuário.
+- Se a mensagem atual for curta ou ambígua (ex: "ola", "não vende", "quem falou disso"), peça UMA clarificação curta em vez de assumir contexto antigo.
+- Máximo 3 frases curtas. Uma pergunta no final, no máximo.
 
 ### 🧠 MEMÓRIA VIVA
 Você acessa automaticamente conversas anteriores arquivadas (fonte: LIA-Dialogos).
