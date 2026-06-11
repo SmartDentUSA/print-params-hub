@@ -348,17 +348,20 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   return (
     <div className={cn("relative bg-card border rounded-xl overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       {coverUrl && (
-        <div className="w-full aspect-[16/9] bg-muted overflow-hidden">
+        <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
           <img
             src={coverUrl}
             alt={turma.course_title || "Curso"}
             className="w-full h-full object-cover"
             loading="lazy"
           />
+          {isOnline && <LiveBadge modality={turma.modality} className="absolute top-2 left-2" />}
         </div>
       )}
+      <ShareButton turma={turma} />
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
+        {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
         {status && (
           <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
@@ -383,19 +386,20 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         <span className="truncate">{subtitleParts.join(" · ")}</span>
       </p>
 
-      {/* Bloco fixo Início / Fim — sempre presente para padronizar o card */}
-      <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg border bg-muted/30 p-2.5">
-        <DateBlock
-          label="Início"
-          date={turma.start_date}
-          time={startTime}
+      {isOnline ? (
+        <OnlineDateRow
+          startDate={turma.start_date}
+          endDate={endDateValue}
+          startTime={startTime}
+          endTime={endTime}
+          totalDays={turma.total_days}
         />
-        <DateBlock
-          label="Fim"
-          date={endDateValue}
-          time={endTime ?? startTime}
-        />
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg border bg-muted/30 p-2.5">
+          <DateBlock label="Início" date={turma.start_date} time={startTime} />
+          <DateBlock label="Fim" date={endDateValue} time={endTime ?? startTime} />
+        </div>
+      )}
 
       {isOnline && products && products.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1">
