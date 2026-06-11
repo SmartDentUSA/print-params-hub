@@ -4020,7 +4020,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     } catch (_) { /* silent */ }
 
     // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor
-    const callAI = async (model: string, truncateHistory = false): Promise<Response> => {
+    const callAI = async (model: string, truncateHistory = false, provider: "lovable" | "deepseek" = "lovable"): Promise<Response> => {
       // Para modelos OpenAI, truncar system prompt se muito longo para evitar 400
       let msgs = messagesForAI;
       if (truncateHistory) {
@@ -4034,10 +4034,15 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           : systemMsg.content;
         msgs = [{ ...systemMsg, content: truncatedSystem }, ...historyMsgs, userMsg];
       }
-      const resp = await fetch(CHAT_API, {
+      const apiUrl = provider === "deepseek" ? DEEPSEEK_CHAT_API : CHAT_API;
+      const apiKey = provider === "deepseek" ? DEEPSEEK_API_KEY : LOVABLE_API_KEY;
+      if (!apiKey) {
+        return new Response(JSON.stringify({ error: `${provider} api key missing` }), { status: 500 });
+      }
+      const resp = await fetch(apiUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
