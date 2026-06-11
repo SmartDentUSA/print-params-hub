@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, Video, User, RefreshCw } from "lucide-react";
+import { CalendarDays, MapPin, Video, User, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
@@ -348,17 +348,20 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   return (
     <div className={cn("relative bg-card border rounded-xl overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       {coverUrl && (
-        <div className="w-full aspect-[16/9] bg-muted overflow-hidden">
+        <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
           <img
             src={coverUrl}
             alt={turma.course_title || "Curso"}
             className="w-full h-full object-cover"
             loading="lazy"
           />
+          {isOnline && <LiveBadge modality={turma.modality} className="absolute top-2 left-2" />}
         </div>
       )}
+      <ShareButton turma={turma} />
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
+        {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
         {status && (
           <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
@@ -383,19 +386,20 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         <span className="truncate">{subtitleParts.join(" · ")}</span>
       </p>
 
-      {/* Bloco fixo Início / Fim — sempre presente para padronizar o card */}
-      <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg border bg-muted/30 p-2.5">
-        <DateBlock
-          label="Início"
-          date={turma.start_date}
-          time={startTime}
+      {isOnline ? (
+        <OnlineDateRow
+          startDate={turma.start_date}
+          endDate={endDateValue}
+          startTime={startTime}
+          endTime={endTime}
+          totalDays={turma.total_days}
         />
-        <DateBlock
-          label="Fim"
-          date={endDateValue}
-          time={endTime ?? startTime}
-        />
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg border bg-muted/30 p-2.5">
+          <DateBlock label="Início" date={turma.start_date} time={startTime} />
+          <DateBlock label="Fim" date={endDateValue} time={endTime ?? startTime} />
+        </div>
+      )}
 
       {isOnline && products && products.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1">
@@ -483,5 +487,116 @@ function FreshnessIndicator({ updatedAt, fetching }: { updatedAt: number; fetchi
     <p className="text-[11px] text-muted-foreground/70">
       {fetching ? "Atualizando…" : `Atualizado ${label}`}
     </p>
+  );
+}
+
+function LiveBadge({ modality, className }: { modality?: string; className?: string }) {
+  const isLive = modality === "online_ao_vivo";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider shadow-sm",
+        isLive
+          ? "bg-rose-600 text-white"
+          : "bg-sky-600 text-white",
+        className,
+      )}
+    >
+      <Radio className={cn("w-3 h-3", isLive && "animate-pulse")} />
+      {isLive ? "Live" : "Online"}
+    </span>
+  );
+}
+
+function ShareButton({ turma }: { turma: TurmaComVagas }) {
+  const handleShare = () => {
+    const url = typeof window !== "undefined" ? `${window.location.origin}/agenda/online?turma=${turma.id}` : "";
+    const dateLabel = turma.start_date
+      ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${turma.start_date}T12:00:00`))
+      : "Em breve";
+    const st = turma.start_time ? turma.start_time.substring(0, 5) : "";
+    const et = turma.end_time ? turma.end_time.substring(0, 5) : "";
+    const horario = st && et ? `${st}–${et}` : st || "";
+    const lines = [
+      `*${turma.course_title || "Curso Smart Dent"}*`,
+      `📅 ${dateLabel}${horario ? ` · ⏰ ${horario}` : ""}`,
+      `Inscreva-se: ${url}`,
+    ];
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      title="Compartilhar no WhatsApp"
+      aria-label="Compartilhar no WhatsApp"
+      className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition-colors"
+    >
+      <Share2 className="w-4 h-4" />
+    </button>
+  );
+}
+
+function OnlineDateRow({
+  startDate,
+  endDate,
+  startTime,
+  endTime,
+  totalDays,
+}: {
+  startDate?: string | null;
+  endDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  totalDays?: number | null;
+}) {
+  const dateLabel = startDate
+    ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${startDate}T12:00:00`))
+    : "A definir";
+
+  let duration = "";
+  if (startTime && endTime) {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    if (totalDays && totalDays > 1) mins *= totalDays;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    duration = m === 0 ? `${h}h` : h === 0 ? `${m}min` : `${h}h ${m}min`;
+  } else if (totalDays && totalDays > 1) {
+    duration = `${totalDays} dias`;
+  }
+
+  const horario = startTime && endTime ? `${startTime} — ${endTime}` : startTime || "";
+
+  return (
+    <div className="mb-4 rounded-lg border bg-muted/30 p-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+      <span className="inline-flex items-center gap-1 font-medium text-foreground">
+        <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground">Início</span>
+        <span className="font-semibold tabular-nums">{dateLabel}</span>
+      </span>
+      {horario && (
+        <>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="tabular-nums">{horario}</span>
+          </span>
+        </>
+      )}
+      {duration && (
+        <>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">Duração</span>
+            <span className="font-semibold">{duration}</span>
+          </span>
+        </>
+      )}
+    </div>
   );
 }

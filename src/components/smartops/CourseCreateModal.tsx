@@ -18,6 +18,7 @@ import {
 import { Plus, X, CalendarDays, Image, Repeat } from "lucide-react";
 import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
+import CoverImageUpload from "./CoverImageUpload";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -877,16 +878,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Input value={instructorName} onChange={(e) => setInstructorName(e.target.value)} />
                 </div>
                 <div>
-                  <Label>Imagem (URL)</Label>
-                  <Input value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="https://..." />
+                  <Label>Imagem de capa</Label>
+                  <CoverImageUpload value={coverImageUrl} onChange={setCoverImageUrl} />
                 </div>
               </div>
-
-              {coverImageUrl && (
-                <div className="h-32 rounded-md overflow-hidden border bg-muted">
-                  <img src={coverImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
