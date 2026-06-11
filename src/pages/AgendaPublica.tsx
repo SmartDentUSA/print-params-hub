@@ -136,7 +136,7 @@ export default function AgendaPublica() {
     };
   }, [queryClient]);
 
-  // Cursos públicos (filtragem por public_visible)
+  // Cursos públicos: todos os cursos ativos (sem exigir public_visible)
   const { data: publicCourseIds = [] } = useQuery({
     queryKey: ["public_agenda_courses"],
     refetchInterval: 10_000,
@@ -147,8 +147,7 @@ export default function AgendaPublica() {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
         .select("id")
-        .eq("active", true)
-        .eq("public_visible", true);
+        .eq("active", true);
       if (error) throw error;
       return ((data ?? []) as any[]).map((c) => c.id as string);
     },
