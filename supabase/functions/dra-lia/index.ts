@@ -3644,7 +3644,7 @@ REGRAS:
     const leadArchetypeCtx = (sessionEntities as Record<string, string>)?.lead_archetype || "";
 
     const previousConvoContext = returningLeadSummaryCtx
-      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nResumo da última sessão: ${returningLeadSummaryCtx}\nUse esse contexto para dar continuidade natural. NÃO repita informações já coletadas.`
+      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR (somente referência interna)\nResumo da última sessão: ${returningLeadSummaryCtx}\n⚠️ USE APENAS para evitar repetir perguntas já respondidas. NUNCA traga de volta tópicos antigos espontaneamente. NUNCA diga "você perguntou antes sobre X" se o usuário não mencionou X na mensagem atual. Foque 100% na ÚLTIMA mensagem do usuário.`
       : "";
     
     // Build strategy instruction based on archetype
@@ -3657,7 +3657,7 @@ REGRAS:
       : "";
     
     const recentHistoryBlock = recentHistoryCtx
-      ? `\n### 💬 ÚLTIMAS INTERAÇÕES (memória conversacional)\n${recentHistoryCtx}\nUse este histórico para retomar assuntos pendentes e evitar repetições. Se o lead perguntou algo antes, você pode referenciar: "Como conversamos anteriormente..."`
+      ? `\n### 💬 ÚLTIMAS INTERAÇÕES (memória conversacional — somente leitura)\n${recentHistoryCtx}\n⚠️ REGRA CRÍTICA: este histórico é APENAS para você não repetir perguntas. PROIBIDO citar, parafrasear ou assumir que o usuário está perguntando sobre qualquer item desta lista. Só referencie algo daqui se o usuário explicitamente perguntar "como falamos antes" ou citar o tópico de novo. Responda EXCLUSIVAMENTE à última mensagem do usuário.`
       : "";
 
     const leadNameContext = (leadState.state === "from_session")
