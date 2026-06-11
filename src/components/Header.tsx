@@ -37,12 +37,12 @@ export function Header({ showAdminButton = false }: HeaderProps) {
         {/* Actions */}
         <div className="flex items-center gap-1 md:gap-2">
           {showAdminButton && (
-            <Link to="/admin">
+            <a href="https://admin.smartdent.com.br/admin" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 <span className="hidden md:inline">{t('common.admin')}</span>
               </Button>
-            </Link>
+            </a>
           )}
           <LanguageSelector />
         </div>
