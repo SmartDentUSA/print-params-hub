@@ -57,6 +57,10 @@ Disallow: /admin/
 Sitemap: https://parametros.smartdent.com.br/sitemap.xml
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 
+# ==== RSS FEED ====
+# Atom/RSS feed for AI agents and aggregators
+# Available at: https://parametros.smartdent.com.br/rss.xml
+
 # ==== LLMs.txt ====
 # See https://llmstxt.org/
 # Instructions for AI crawlers
