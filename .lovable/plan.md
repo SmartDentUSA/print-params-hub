@@ -1,76 +1,50 @@
-# Fix 1 — Content-Type correto no SSR de bots (WhatsApp/Facebook)
+## Objetivo
+Acelerar carregamento de imagens do Supabase Storage em todo o app (thumbs, cards, hero, avatars, previews) usando Image Transformation + lazy loading, e corrigir uploads que salvam PNG com extensão `.webp`.
 
-## Problema
-O `vercel.json` faz **rewrite externo** para `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy` quando detecta bot. Vercel não preserva o `Content-Type: text/html` em rewrites cross-domain — a resposta chega como `text/plain`, e Facebook/WhatsApp ignoram as OG tags.
+## Validação já feita
+- `/render/image/public/...?width=256&quality=75` retorna **−92% payload** (745KB → 58KB) e `Cache-Control: max-age=3600`.
+- Descoberto: arquivos `.webp` no bucket são na verdade PNG (content-type `image/png`), inflando 5–10×.
 
-## Solução
-Substituir o rewrite externo por uma **API route interna** (`/api/seo-proxy.ts`) que:
-1. Roda em Vercel Edge/Node
-2. Faz `fetch` server-side ao `seo-proxy` do Supabase
-3. Retorna a resposta forçando `Content-Type: text/html; charset=utf-8`
+## Mudanças
 
-## Arquivos
+### 1. Helper central (novo)
+`src/utils/storageImage.ts` — função `getStorageImageUrl(url, { width, quality, format? })`:
+- Detecta URLs `/storage/v1/object/public/<bucket>/...` e reescreve para `/render/image/public/<bucket>/...?width=&quality=&resize=contain`.
+- URLs externas (Loja Integrada, Astron, etc.) passam intactas.
+- Idempotente: se já é `/render/image/`, retorna como está.
+- `null`/vazio → retorna o valor original.
 
-### 1. Criar `api/seo-proxy.ts`
-Função Vercel (Node runtime) que:
-- Lê `originalPath` da query
-- Faz `fetch` a `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=<path>`
-- Encaminha `user-agent` original do bot
-- Retorna `Response` com:
-  - `Content-Type: text/html; charset=utf-8` (sobrescreve qualquer coisa do upstream)
-  - `Cache-Control: public, max-age=300, s-maxage=300`
-  - Status code preservado
-  - Body HTML preservado
+### 2. Aplicar em componentes que renderizam imagens do bucket
+| Componente | Width | Notas |
+|---|---|---|
+| `MentionedProducts.tsx` | 256 | thumbs 128×128 |
+| `ModelGrid.tsx` | 128 | thumbs 64×80 |
+| `WaLeadsMediaPreview.tsx` | 96 / 600 | compact vs expandido |
+| `WaMediaUploader.tsx` | 256 | preview pós-upload |
+| `InlineProductCard.tsx` | 400 | cards Dra. LIA |
+| `AuthorBio`, `AuthorSignature`, `AuthorImageUpload` | 128 | avatars |
+| Hero de artigos/knowledge | 1200 | `fetchpriority="high"` |
+| Imagens inline em artigos | 800 | — |
+| `AdminCatalog`, `ProductsFlow` | 400 | grids |
 
-```ts
-export const config = { runtime: 'edge' };
+Adicionar em todos: `loading="lazy"`, `decoding="async"`, `width`/`height` explícitos (hero usa `fetchpriority="high"` em vez de lazy).
 
-export default async function handler(req: Request) {
-  const url = new URL(req.url);
-  const originalPath = url.searchParams.get('originalPath') || '/';
-  const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalPath)}`;
+### 3. Correção de uploads PNG-disfarçados-de-WebP
+- `src/utils/uploadExternalImage.ts`: detectar `blob.type` real e usar a extensão correta (`.png`, `.jpg`, `.webp`) em vez de assumir a extensão do nome original. Setar `contentType: blob.type` explicitamente no upload.
+- `src/components/ImageUpload.tsx` e demais uploaders de imagem: mesma regra — extensão derivada de `file.type`, não do nome.
+- Não converte arquivos antigos (Image Transformation já normaliza no servir). Apenas previne novos casos.
 
-  const res = await fetch(upstream, {
-    headers: {
-      'user-agent': req.headers.get('user-agent') || 'bot',
-      'accept': 'text/html',
-    },
-  });
+### 4. `document-proxy` (PDFs)
+Trocar `arrayBuffer()` por streaming do `Response.body` direto, mantendo `Cache-Control: public, max-age=31536000, immutable`. Reduz memória da edge function e TTFB de PDFs grandes.
 
-  const html = await res.text();
-  return new Response(html, {
-    status: res.status,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=300, s-maxage=300',
-      'X-SSR-Source': 'seo-proxy-internal',
-    },
-  });
-}
-```
+## Fora do escopo
+- Estrutura de upload/paths/buckets, RLS, lógica de negócio, Dra. LIA, CRM, catálogo, UI além das tags `<img>`.
+- Conversão retroativa dos arquivos PNG existentes (não necessário — transform resolve).
 
-### 2. Atualizar `vercel.json`
-Trocar os 2 rewrites de bot (linhas `/f/:path*` e `/:path*` com header user-agent) para apontar para `/api/seo-proxy?originalPath=...` em vez do domínio externo do Supabase.
+## Validação
+1. DevTools Network em `/base-conhecimento/...` e admin `Modelos`: comparar payload e `Cache-Control` antes/depois.
+2. Conferir que URLs externas (Loja Integrada) continuam carregando inalteradas.
+3. Upload de teste: confirmar que novo arquivo tem extensão batendo com `content-type`.
 
-Antes:
-```json
-"destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=/f/:path*"
-```
-Depois:
-```json
-"destination": "/api/seo-proxy?originalPath=/f/:path*"
-```
-
-## Validação após deploy
-```bash
-curl -A "WhatsApp/2.0" -I https://parametros.smartdent.com.br/f/equipamento-uv-shapecure-d
-# Esperado: content-type: text/html; charset=utf-8
-#           x-ssr-source: seo-proxy-internal
-
-curl -A "facebookexternalhit/1.1" -s https://parametros.smartdent.com.br/f/equipamento-uv-shapecure-d | grep -E 'og:(title|image|url)'
-# Esperado: og:title com "Equipamento UV ShapeCure D"
-```
-
-## Escopo
-- Apenas Fix 1 (Content-Type). Fix 2 (`hero_image_url` NULL no DB) fica para um próximo passo.
-- Nenhuma mudança no frontend, no `seo-proxy` do Supabase, ou em outras rewrites (llms.txt, sitemap, rss continuam como estão — eles funcionam pois browsers/crawlers de XML/TXT não exigem Content-Type estrito).
+## Risco
+Baixo. Helper é aditivo e idempotente; se Image Transformation falhar para alguma URL, o navegador apenas exibe o original (comportamento atual). Sem mudanças de schema, RLS ou lógica.
