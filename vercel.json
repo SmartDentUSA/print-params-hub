@@ -62,6 +62,18 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap"
     },
     {
+      "source": "/rss.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
+      "source": "/feed",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
+      "source": "/feed.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
+    },
+    {
       "source": "/f/:path*",
       "has": [
         {
