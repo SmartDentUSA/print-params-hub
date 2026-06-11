@@ -90,8 +90,8 @@ export function WaMediaUploader({ kind, value, fileName, onChange }: Props) {
             <audio src={value} controls className="w-full h-8" />
           )}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-muted-foreground truncate flex-1">
-              {fileName || value.split("/").pop()}
+            <span className="text-[11px] text-muted-foreground truncate flex-1" title={value}>
+              {prettyFileName(value, fileName)}
             </span>
             <Button size="sm" variant="ghost" className="h-7" asChild>
               <a href={value} target="_blank" rel="noreferrer"><ExternalLink className="w-3 h-3" /></a>
