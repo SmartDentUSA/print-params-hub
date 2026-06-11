@@ -953,7 +953,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
               {/* Topic selection menu — shown on welcome message, before topic is selected */}
               {(() => {
                 const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
-                return msg.id === lastAssistantId && !topicSelected && !isLoading && qualificationComplete;
+                return msg.id === lastAssistantId && !topicSelected && !topicCardsDismissed && !isLoading && qualificationComplete;
               })() && (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
