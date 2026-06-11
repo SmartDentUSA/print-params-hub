@@ -12,6 +12,8 @@ Seu treinamento foi confirmado. Aqui estão os detalhes:
 
 {{cronograma}}
 
+{{link_reuniao}}
+
 {{grupo_whatsapp}}
 
 Qualquer dúvida, estou à disposição!
