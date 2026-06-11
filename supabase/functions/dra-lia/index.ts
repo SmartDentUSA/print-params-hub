@@ -20,10 +20,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
 
 // ── Topic weights & SDR — imported from ../shared/lia-rag.ts and ../shared/lia-sdr.ts ──
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const DEEPSEEK_CHAT_API = "https://api.deepseek.com/chat/completions";
 
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
