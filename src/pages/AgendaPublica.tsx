@@ -316,6 +316,11 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0)) === 0;
   const isMuted = status?.variant === "muted";
+  const turmaTag = formatTurmaNumber(turma.turma_number, turma.modality);
+  const products = (turma as any).related_product_names as string[] | undefined;
+  const isOnline = turma.modality === "online" || turma.modality === "online_ao_vivo";
+  // Mostra o cronômetro ao vivo enquanto faltarem inscrições (verde) ou estiver na janela amarela.
+  const showLiveTimer = !!status && (status.variant === "green" || status.variant === "amber");
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -337,14 +342,22 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
 
   return (
     <div className={cn("relative bg-card border rounded-xl p-5 transition-all hover:shadow-md", isMuted && "opacity-60")}>
-      {status && (
-        <div className="mb-3">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        {status && (
           <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
             {status.label}
           </span>
-        </div>
-      )}
+        )}
+        {showLiveTimer && (
+          <LiveCountdown startDate={turma.start_date} startTime={turma.start_time} />
+        )}
+        {turmaTag && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+            Turma {turmaTag}
+          </span>
+        )}
+      </div>
 
       <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
         {turma.course_title || "Sem curso"} <span className="text-muted-foreground font-normal">— {turma.label}</span>
@@ -354,6 +367,25 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         {turma.modality === "presencial" ? <MapPin className="w-3 h-3" /> : <Video className="w-3 h-3" />}
         {dateLine}
       </p>
+
+      {isOnline && products && products.length > 0 && (
+        <div className="mb-4 -mt-2 flex flex-wrap gap-1">
+          {products.slice(0, 4).map((name) => (
+            <span
+              key={name}
+              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
+              title={name}
+            >
+              {name}
+            </span>
+          ))}
+          {products.length > 4 && (
+            <span className="text-[10.5px] text-muted-foreground self-center">
+              +{products.length - 4}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-3 pt-3 border-t">
         <Metric label="Vagas" value={turma.slots} />
