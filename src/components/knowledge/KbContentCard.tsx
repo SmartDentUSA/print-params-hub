@@ -1,4 +1,5 @@
 import { getCategoryColor } from './kbCategoryColors';
+import { LanguageFlags } from '@/components/LanguageFlags';
 
 export interface KbContentCardData {
   id: string;
@@ -60,6 +61,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
         </div>
         <h3 className="kb-title">{data.title}</h3>
         {data.excerpt && <p className="kb-excerpt">{data.excerpt}</p>}
+        <LanguageFlags size="sm" className="mt-2" />
         <div className="kb-cfoot">
           <span className="kb-date">{formatDate(data.createdAt)}</span>
           <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>

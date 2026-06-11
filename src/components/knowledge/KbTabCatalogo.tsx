@@ -57,6 +57,8 @@ interface DocLinks {
   spec_sheet_url: string | null;
 }
 
+interface ResinInfo { slug: string }
+
 const normCat = (v: string | null): string | null => {
   if (!v) return null;
   const up = v.trim().toUpperCase();
@@ -66,6 +68,7 @@ const normCat = (v: string | null): string | null => {
 export default function KbTabCatalogo() {
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
+  const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
@@ -74,7 +77,7 @@ export default function KbTabCatalogo() {
     let cancel = false;
     setLoading(true);
     (async () => {
-      const [{ data: cat, error: e1 }, { data: pc, error: e2 }] = await Promise.all([
+      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url')
@@ -89,10 +92,16 @@ export default function KbTabCatalogo() {
           .from('products_catalog')
           .select('name, datasheet_url, manual_url, spec_sheet_url')
           .limit(1000),
+        supabase
+          .from('resins')
+          .select('name, slug')
+          .eq('active', true)
+          .limit(500),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
       if (e2) console.error(e2);
+      if (e3) console.error(e3);
       const docMap = new Map<string, DocLinks>();
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
@@ -102,6 +111,11 @@ export default function KbTabCatalogo() {
           spec_sheet_url: p.spec_sheet_url,
         });
       });
+      const resinMap = new Map<string, ResinInfo>();
+      (rs || []).forEach((r: any) => {
+        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), { slug: r.slug });
+      });
+      setResins(resinMap);
       setDocs(docMap);
       setRows((cat || []) as any);
       setLoading(false);
@@ -140,7 +154,14 @@ export default function KbTabCatalogo() {
               ? p.product_subcategory.match(SPECIAL)![0].toUpperCase()
               : null;
             const d = docs.get(p.name.toLowerCase().trim());
-            const primaryUrl = p.cta_1_url || d?.datasheet_url || d?.spec_sheet_url || d?.manual_url || null;
+            const resin = resins.get(p.name.toLowerCase().trim());
+            const parametrizacaoUrl = resin
+              ? `https://parametros.smartdent.com.br/base-conhecimento/f/${resin.slug}`
+              : null;
+            const lojaUrl = p.cta_1_url || null;
+            const fdsUrl = d?.datasheet_url || d?.spec_sheet_url || null;
+            const ifuUrl = d?.manual_url || null;
+            const primaryUrl = lojaUrl || fdsUrl || ifuUrl || parametrizacaoUrl;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
@@ -178,32 +199,46 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{p.description || p.product_subcategory}</p>
                   )}
-                  {(d?.datasheet_url || d?.manual_url || d?.spec_sheet_url) && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-                      {d?.datasheet_url && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(d.datasheet_url)} title="Datasheet">
-                          📄 Datasheet
+                  {(lojaUrl || fdsUrl || ifuUrl) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                      {lojaUrl && (
+                        <button
+                          type="button"
+                          className="kb-action-btn"
+                          onClick={() => open(lojaUrl)}
+                          style={{ background: '#1A73E8', color: '#fff', borderColor: '#1A73E8' }}
+                          title="Loja"
+                        >
+                          🛒 Loja
                         </button>
                       )}
-                      {d?.manual_url && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(d.manual_url)} title="Manual">
-                          📘 Manual
+                      {fdsUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(fdsUrl)} title="Ficha de Dados de Segurança">
+                          📄 FDS
                         </button>
                       )}
-                      {d?.spec_sheet_url && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(d.spec_sheet_url)} title="Especificações">
-                          📋 Specs
+                      {ifuUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(ifuUrl)} title="Instruções de Uso">
+                          📘 IFU
                         </button>
                       )}
                     </div>
                   )}
+                  {parametrizacaoUrl && (
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        type="button"
+                        className="kb-action-btn"
+                        onClick={() => open(parametrizacaoUrl)}
+                        style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        title="Abrir ficha completa de parâmetros"
+                      >
+                        📖 Parametrização
+                      </button>
+                    </div>
+                  )}
                   <div className="kb-cfoot">
                     <span className="kb-date">Smart Dent</span>
-                    {primaryUrl && (
-                      <button type="button" className="kb-action-btn" onClick={() => open(p.cta_1_url || primaryUrl)}>
-                        {p.cta_1_label || 'Ver mais +'}
-                      </button>
-                    )}
                   </div>
                 </div>
               </article>
