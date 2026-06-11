@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     .eq("event_name", "Purchase")
     .limit(1);
 
-  if (existing && existing.length > 0) {
+  if (existing && existing.length > 0 && !test_event_code) {
     console.log("[meta-capi] Already sent for deal:", deal_id);
     return json({ skipped: true, reason: "already_sent" }, 200);
   }
@@ -118,19 +118,17 @@ Deno.serve(async (req) => {
 
   const value = parseFloat(deal.value ?? "0") || 0;
 
+  const contentName = deal.product || deal.pipeline_name || "SmartDent";
+
   const custom_data: Record<string, unknown> = {
     value,
     currency: "BRL",
-    order_id: deal.piperun_deal_id,
-    content_type: "product",
+    order_id:      deal.piperun_deal_id,
+    content_type:  "product",
+    content_name:  contentName,
+    contents:      [{ id: contentName, quantity: 1, item_price: value }],
   };
 
-  if (deal.product) {
-    custom_data.content_name = deal.product;
-    custom_data.contents = [
-      { id: deal.product, quantity: 1, item_price: value },
-    ];
-  }
   if (deal.product_category) {
     custom_data.content_category = deal.product_category;
   }
@@ -162,17 +160,19 @@ Deno.serve(async (req) => {
 
   // ── log ──────────────────────────────────────────────────────────────────
 
-  await supabase.from("meta_capi_event_log").insert({
-    deal_id,
-    piperun_deal_id: deal.piperun_deal_id,
-    event_name:      "Purchase",
-    event_time:      new Date(event_time * 1000).toISOString(),
-    event_id:        capiEvent.event_id,
-    value,
-    currency:        "BRL",
-    meta_response:   metaResult,
-    success:         metaResp.ok,
-  });
+  if (!test_event_code) {
+    await supabase.from("meta_capi_event_log").insert({
+      deal_id,
+      piperun_deal_id: deal.piperun_deal_id,
+      event_name:      "Purchase",
+      event_time:      new Date(event_time * 1000).toISOString(),
+      event_id:        capiEvent.event_id,
+      value,
+      currency:        "BRL",
+      meta_response:   metaResult,
+      success:         metaResp.ok,
+    });
+  }
 
   return json({ ok: metaResp.ok, events_received: metaResult?.events_received, result: metaResult },
     metaResp.ok ? 200 : 500);
