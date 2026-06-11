@@ -540,6 +540,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       data_fim: days[days.length - 1]?.date || "",
       horario_inicio: days[0]?.start_time || "09:00",
       grupo_whatsapp: firstTurma?.whatsapp_group_link || whatsappGroupLink || "",
+      link_reuniao: meetingLink || "",
       cs_nome: "CS",
     });
   })();
