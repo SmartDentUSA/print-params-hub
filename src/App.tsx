@@ -123,7 +123,8 @@ const App = () => (
       {/* Dra. L.I.A. embed route (no header/footer for iframe) */}
       <Route path="/embed/dra-lia" element={<AgentEmbed />} />
       <Route path="/embed/treinamentos" element={<Navigate to="/agenda" replace />} />
-      <Route path="/agenda" element={<AgendaPublica />} />
+      <Route path="/agenda" element={<AgendaPublica variant="presencial" />} />
+      <Route path="/agenda/online" element={<AgendaPublica variant="online" />} />
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
@@ -150,7 +151,7 @@ const App = () => (
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda')) return null;
   return (
     <ChunkErrorBoundary>
       <Suspense fallback={null}>
@@ -162,7 +163,7 @@ function DraLIAGlobal() {
 
 function FooterGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname === '/agenda') return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda')) return null;
   return <Footer />;
 }
 

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, X, CalendarDays, Image, Repeat } from "lucide-react";
 import { DatePickerInput } from "./DatePickerInput";
+import { CourseProductPicker } from "./CourseProductPicker";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -213,6 +214,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
+  // Produtos do portfólio Smart Dent vinculados a cursos online.
+  const [relatedProductIds, setRelatedProductIds] = useState<string[]>([]);
+  const [relatedProductNames, setRelatedProductNames] = useState<string[]>([]);
+
   // Recurrence (online only)
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<'days' | 'weeks' | 'months'>('weeks');
@@ -249,6 +254,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
       setTurmas([]);
       setCertificateBody(DEFAULT_CERTIFICATE_BODY);
+      setRelatedProductIds([]);
+      setRelatedProductNames([]);
       return;
     }
     setTitle(course.title);
@@ -267,6 +274,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setPublicVisible(course.public_visible);
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
+    setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
+    setRelatedProductNames(((course as any).related_product_names ?? []) as string[]);
     setRecurrenceEnabled(course.recurrence_enabled || false);
     setRecurrenceType((course.recurrence_type as any) || 'weeks');
     setRecurrenceInterval(course.recurrence_interval || 1);
@@ -597,6 +606,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_until: useRecurrence ? (recurrenceUntil || null) : null,
         recurrence_time_start: useRecurrence ? recurrenceTimeStart : null,
         recurrence_time_end: useRecurrence ? recurrenceTimeEnd : null,
+        related_product_ids: isOnline ? relatedProductIds : [],
+        related_product_names: isOnline ? relatedProductNames : [],
       };
 
       let courseId: string;
@@ -862,6 +873,24 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Label>Visível publicamente</Label>
                 </div>
               </div>
+
+              {isOnline && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="font-semibold">Produtos do portfólio relacionados</Label>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Selecione os produtos Smart Dent que serão tema desta aula online.
+                    Aparecerão como tags no card público da agenda.
+                  </p>
+                  <CourseProductPicker
+                    selectedIds={relatedProductIds}
+                    selectedNames={relatedProductNames}
+                    onChange={(ids, names) => {
+                      setRelatedProductIds(ids);
+                      setRelatedProductNames(names);
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* ─── Turmas e Cronograma ─── */}
