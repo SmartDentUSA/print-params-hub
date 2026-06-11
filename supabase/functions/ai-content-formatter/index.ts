@@ -223,11 +223,6 @@ async function generateWithLovableAI(
   linkMap: Map<string, LinkMapItem>
 ): Promise<string> {
   
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY não configurada. Configure em Settings -> Edge Functions.')
-  }
-
   // Ordenar keywords por prioridade
   const sortedKeywords = Array.from(linkMap.entries())
     .sort((a, b) => b[1].priority - a[1].priority)
@@ -415,22 +410,15 @@ ${rawText}
 
   console.log('🚀 Enviando para Lovable AI...')
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { 
-          role: 'system', 
-          content: SYSTEM_SUPER_PROMPT
-        },
-        { 
-          role: 'user', 
-          content: `TAREFA: Formatação HTML + SEO + Links Internos
+  const { aiComplete } = await import("../_shared/ai-router.ts");
+  const r = await aiComplete({
+    task: "content_seo",
+    functionName: "ai-content-formatter",
+    temperature: 0.7,
+    maxTokens: 16000,
+    messages: [
+      { role: 'system', content: SYSTEM_SUPER_PROMPT },
+      { role: 'user', content: `TAREFA: Formatação HTML + SEO + Links Internos
 
 Você é um especialista em SEO e HTML semântico.
 
@@ -448,34 +436,16 @@ IMPORTANTE:
 4. **NÃO ADICIONE DADOS FICTÍCIOS**: Evite estatísticas, nomes de produtos ou citações que não estão no texto original
 5. **NÃO INVENTE CHAMADAS PARA AÇÃO (CTAs)**: Apenas adicione <div class="cta-panel"> se o texto original explicitamente mencionar um produto, serviço ou guia para promover. Caso contrário, omita completamente
 
-${fullPrompt}` 
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 8000
-    })
+${fullPrompt}` }
+    ]
   })
 
-  if (!response.ok) {
-    if (response.status === 429) {
-      throw new Error('Rate limit excedido. Tente novamente em alguns segundos.')
-    }
-    if (response.status === 402) {
-      throw new Error('Créditos Lovable AI esgotados. Adicione créditos em Settings -> Workspace.')
-    }
-    throw new Error(`Erro ao gerar conteúdo: ${response.status}`)
+  if (!r.ok) {
+    if (r.error_code === 'rate_limited') throw new Error('Rate limit em todos os provedores (Lovable + Poe).')
+    if (r.error_code === 'credits_exhausted') throw new Error('Créditos esgotados em todos os provedores (Lovable + Poe). Adicione créditos.')
+    throw new Error(`Erro ao gerar conteúdo: ${r.error}`)
   }
-
-  const aiData = await response.json()
-  const usage = extractUsage(aiData)
-  await logAIUsage({
-    functionName: "ai-content-formatter",
-    actionLabel: "format-content-full",
-    model: "google/gemini-2.5-flash",
-    promptTokens: usage.prompt_tokens,
-    completionTokens: usage.completion_tokens,
-  })
-  let formattedHTML = aiData.choices[0].message.content
+  let formattedHTML = r.text || ''
 
   // 🆕 VALIDAÇÃO: Verificar estrutura mínima
   const hasCard = formattedHTML.includes('class="card"')
