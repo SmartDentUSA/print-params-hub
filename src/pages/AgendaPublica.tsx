@@ -334,14 +334,13 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
     turma.modality === "presencial" ? turma.location : (turma.meeting_link ? "Link online" : null),
   ].filter(Boolean);
 
-  const dateLine = turma.start_date
-    ? turma.end_date && turma.end_date !== turma.start_date
-      ? `${formatDatePtBr(turma.start_date)} – ${formatDatePtBr(turma.end_date)}`
-      : formatDatePtBr(turma.start_date)
-    : turma.label;
+  const hhmm = (t?: string | null) => (t ? t.substring(0, 5) : null);
+  const startTime = hhmm(turma.start_time);
+  const endTime = hhmm(turma.end_time);
+  const endDateValue = turma.end_date ?? turma.start_date;
 
   return (
-    <div className={cn("relative bg-card border rounded-xl p-5 transition-all hover:shadow-md", isMuted && "opacity-60")}>
+    <div className={cn("relative bg-card border rounded-xl p-5 transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {status && (
           <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
@@ -362,14 +361,27 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
         {turma.course_title || "Sem curso"} <span className="text-muted-foreground font-normal">— {turma.label}</span>
       </h3>
-      <p className="text-xs text-muted-foreground mb-1">{subtitleParts.join(" · ")}</p>
-      <p className="text-xs text-muted-foreground/80 mb-4 flex items-center gap-1">
-        {turma.modality === "presencial" ? <MapPin className="w-3 h-3" /> : <Video className="w-3 h-3" />}
-        {dateLine}
+      <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+        {turma.modality === "presencial" ? <MapPin className="w-3 h-3 shrink-0" /> : <Video className="w-3 h-3 shrink-0" />}
+        <span className="truncate">{subtitleParts.join(" · ")}</span>
       </p>
 
+      {/* Bloco fixo Início / Fim — sempre presente para padronizar o card */}
+      <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg border bg-muted/30 p-2.5">
+        <DateBlock
+          label="Início"
+          date={turma.start_date}
+          time={startTime}
+        />
+        <DateBlock
+          label="Fim"
+          date={endDateValue}
+          time={endTime ?? startTime}
+        />
+      </div>
+
       {isOnline && products && products.length > 0 && (
-        <div className="mb-4 -mt-2 flex flex-wrap gap-1">
+        <div className="mb-4 flex flex-wrap gap-1">
           {products.slice(0, 4).map((name) => (
             <span
               key={name}
@@ -387,7 +399,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+      <div className="grid grid-cols-3 gap-3 pt-3 border-t mt-auto">
         <Metric label="Vagas" value={turma.slots} />
         <Metric label="Inscritos" value={turma.enrolled_count} />
         <Metric
@@ -404,6 +416,29 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             {turma.instructor_name}
           </span>
         </div>
+      )}
+    </div>
+  );
+}
+
+function DateBlock({ label, date, time }: { label: string; date?: string | null; time?: string | null }) {
+  return (
+    <div className="flex flex-col">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+        <CalendarDays className="w-3 h-3" />
+        {label}
+      </div>
+      {date ? (
+        <>
+          <div className="text-sm font-semibold text-foreground leading-tight tabular-nums">
+            {formatDatePtBr(date)}
+          </div>
+          {time && (
+            <div className="text-[11px] text-muted-foreground tabular-nums">{time}</div>
+          )}
+        </>
+      ) : (
+        <div className="text-sm font-medium text-muted-foreground/70 italic">A definir</div>
       )}
     </div>
   );

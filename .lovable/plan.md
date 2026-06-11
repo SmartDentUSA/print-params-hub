@@ -1,50 +1,61 @@
-## Objetivo
-Acelerar carregamento de imagens do Supabase Storage em todo o app (thumbs, cards, hero, avatars, previews) usando Image Transformation + lazy loading, e corrigir uploads que salvam PNG com extensão `.webp`.
+## Problemas identificados
 
-## Validação já feita
-- `/render/image/public/...?width=256&quality=75` retorna **−92% payload** (745KB → 58KB) e `Cache-Control: max-age=3600`.
-- Descoberto: arquivos `.webp` no bucket são na verdade PNG (content-type `image/png`), inflando 5–10×.
+**1. Cards inconsistentes** — `src/pages/AgendaPublica.tsx`:
+- Cards sem `start_date` (ex.: "Teste — Turma 1") caem no fallback `t.label` e não mostram nenhuma data.
+- Cards com `start_date == end_date` (ex.: Rayshape #145, 1 dia) mostram só uma data, enquanto cards de imersão mostram intervalo. Falta padronizar Início + Fim sempre visíveis.
+- Falta linha dedicada para horário (start_time / end_time) — hoje só aparece a data.
 
-## Mudanças
+**2. Abas do admin** — `src/components/SmartOpsCourses.tsx` (linhas 1278-1298):
+- Hoje existe apenas a aba `Página Pública` → renomear para **Página Pública Imersões** (rota `/agenda`).
+- Falta a aba **Página Pública Ao Vivo** (rota `/agenda/online`) com os mesmos snippets de embed.
 
-### 1. Helper central (novo)
-`src/utils/storageImage.ts` — função `getStorageImageUrl(url, { width, quality, format? })`:
-- Detecta URLs `/storage/v1/object/public/<bucket>/...` e reescreve para `/render/image/public/<bucket>/...?width=&quality=&resize=contain`.
-- URLs externas (Loja Integrada, Astron, etc.) passam intactas.
-- Idempotente: se já é `/render/image/`, retorna como está.
-- `null`/vazio → retorna o valor original.
+---
 
-### 2. Aplicar em componentes que renderizam imagens do bucket
-| Componente | Width | Notas |
-|---|---|---|
-| `MentionedProducts.tsx` | 256 | thumbs 128×128 |
-| `ModelGrid.tsx` | 128 | thumbs 64×80 |
-| `WaLeadsMediaPreview.tsx` | 96 / 600 | compact vs expandido |
-| `WaMediaUploader.tsx` | 256 | preview pós-upload |
-| `InlineProductCard.tsx` | 400 | cards Dra. LIA |
-| `AuthorBio`, `AuthorSignature`, `AuthorImageUpload` | 128 | avatars |
-| Hero de artigos/knowledge | 1200 | `fetchpriority="high"` |
-| Imagens inline em artigos | 800 | — |
-| `AdminCatalog`, `ProductsFlow` | 400 | grids |
+## Plano de implementação
 
-Adicionar em todos: `loading="lazy"`, `decoding="async"`, `width`/`height` explícitos (hero usa `fetchpriority="high"` em vez de lazy).
+### A) Cards uniformes com datas sempre expostas (`PublicTurmaCard`)
 
-### 3. Correção de uploads PNG-disfarçados-de-WebP
-- `src/utils/uploadExternalImage.ts`: detectar `blob.type` real e usar a extensão correta (`.png`, `.jpg`, `.webp`) em vez de assumir a extensão do nome original. Setar `contentType: blob.type` explicitamente no upload.
-- `src/components/ImageUpload.tsx` e demais uploaders de imagem: mesma regra — extensão derivada de `file.type`, não do nome.
-- Não converte arquivos antigos (Image Transformation já normaliza no servir). Apenas previne novos casos.
+Substituir o bloco atual de data por um **mini-bloco fixo Início / Fim**, presente em todos os cards (mesmo se for 1 dia):
 
-### 4. `document-proxy` (PDFs)
-Trocar `arrayBuffer()` por streaming do `Response.body` direto, mantendo `Cache-Control: public, max-age=31536000, immutable`. Reduz memória da edge function e TTFB de PDFs grandes.
+```text
+┌────────────────────────────────┐
+│ 📅 Início            🏁 Fim    │
+│ 17/06/2026 09:00     19/06/2026 18:00 │
+└────────────────────────────────┘
+```
 
-## Fora do escopo
-- Estrutura de upload/paths/buckets, RLS, lógica de negócio, Dra. LIA, CRM, catálogo, UI além das tags `<img>`.
-- Conversão retroativa dos arquivos PNG existentes (não necessário — transform resolve).
+Regras:
+- Sempre renderizar as duas colunas (Início e Fim).
+- Se `start_date == end_date` → Fim mostra a mesma data com `end_time` (ex.: 18:00).
+- Se faltar `start_date` (turma sem agenda) → exibir badge cinza "Data a definir" no lugar do bloco, mas mantendo a mesma altura/estrutura para alinhar o grid.
+- Manter horário em `HH:MM` (truncar segundos).
+- Manter linha de modalidade/local logo abaixo (sem alteração).
 
-## Validação
-1. DevTools Network em `/base-conhecimento/...` e admin `Modelos`: comparar payload e `Cache-Control` antes/depois.
-2. Conferir que URLs externas (Loja Integrada) continuam carregando inalteradas.
-3. Upload de teste: confirmar que novo arquivo tem extensão batendo com `content-type`.
+Também alinhar altura mínima do card (`min-h`) para que todos fiquem do mesmo tamanho independentemente do conteúdo (instructor, products, etc.).
 
-## Risco
-Baixo. Helper é aditivo e idempotente; se Image Transformation falhar para alguma URL, o navegador apenas exibe o original (comportamento atual). Sem mudanças de schema, RLS ou lógica.
+### B) Duas abas no admin (`SmartOpsCourses.tsx`)
+
+Refatorar `PaginaPublicaTab` para aceitar prop `variant: "presencial" | "online"` e gerar `publicUrl` dinamicamente:
+- `presencial` → `https://parametros.smartdent.com.br/agenda`
+- `online`     → `https://parametros.smartdent.com.br/agenda/online`
+
+Atualizar o root `SmartOpsCourses`:
+
+```text
+TabsList:
+  - Agendamentos
+  - Catálogo
+  - Inscrições
+  - Página Pública Imersões   → PaginaPublicaTab variant="presencial"
+  - Página Pública Ao Vivo    → PaginaPublicaTab variant="online"
+```
+
+Os mesmos 3 snippets (iframe simples, iframe auto-resize, HTML completo) são gerados a partir do `publicUrl` da variante — sem duplicar código.
+
+Nenhuma alteração de schema, edge function ou rota nova é necessária (a rota `/agenda/online` já existe em `App.tsx`).
+
+---
+
+## Arquivos a editar
+- `src/pages/AgendaPublica.tsx` — uniformizar `PublicTurmaCard` com bloco Início/Fim sempre visível e min-height.
+- `src/components/SmartOpsCourses.tsx` — renomear aba existente, adicionar a aba "Ao Vivo", parametrizar `PaginaPublicaTab` por variante.
