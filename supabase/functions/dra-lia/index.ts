@@ -4079,6 +4079,14 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       aiResponse = await callAI(usedModel, true);
     }
 
+    // Fallback operacional fora do Lovable Gateway. Cobre 402 (créditos esgotados)
+    // e outras indisponibilidades do gateway sem derrubar a Dra. L.I.A.
+    if (!aiResponse.ok && aiResponse.status !== 429 && DEEPSEEK_API_KEY) {
+      console.error(`Lovable gateway fallback failed (${aiResponse.status}), retrying with DeepSeek...`);
+      usedModel = "deepseek-chat";
+      aiResponse = await callAI(usedModel, true, "deepseek");
+    }
+
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
         return new Response(
