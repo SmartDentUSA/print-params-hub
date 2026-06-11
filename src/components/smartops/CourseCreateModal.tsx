@@ -1041,6 +1041,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 recurrenceUntil={recurrenceUntil} setRecurrenceUntil={setRecurrenceUntil}
                 slotsPerSession={recurrenceSlotsPerSession} setSlotsPerSession={setRecurrenceSlotsPerSession}
                 whatsappGroupLink={whatsappGroupLink} setWhatsappGroupLink={setWhatsappGroupLink}
+                recurrenceWeekdays={recurrenceWeekdays} setRecurrenceWeekdays={setRecurrenceWeekdays}
               />
             )}
 
