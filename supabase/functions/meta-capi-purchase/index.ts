@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     event_name:    "Purchase",
     event_time,
     event_id:      `piperun_${deal.piperun_deal_id}`,
-    action_source: "crm",
+    action_source: "website",
     user_data,
     custom_data,
   };
