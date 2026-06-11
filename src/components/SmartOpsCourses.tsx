@@ -1280,7 +1280,8 @@ export function SmartOpsCourses() {
         <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
-        <TabsTrigger value="publica">Página Pública</TabsTrigger>
+        <TabsTrigger value="publica-imersoes">Página Pública Imersões</TabsTrigger>
+        <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
@@ -1292,24 +1293,31 @@ export function SmartOpsCourses() {
       <TabsContent value="inscricoes">
         <InscricoesTab />
       </TabsContent>
-      <TabsContent value="publica">
-        <PaginaPublicaTab />
+      <TabsContent value="publica-imersoes">
+        <PaginaPublicaTab variant="presencial" />
+      </TabsContent>
+      <TabsContent value="publica-aovivo">
+        <PaginaPublicaTab variant="online" />
       </TabsContent>
     </Tabs>
   );
 }
 
 // ─── Aba Página Pública (embed) ───
-function PaginaPublicaTab() {
+function PaginaPublicaTab({ variant = "presencial" }: { variant?: "presencial" | "online" }) {
   const { toast } = useToast();
-  const publicUrl = "https://parametros.smartdent.com.br/agenda";
-  const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="Próximos Treinamentos"></iframe>`;
-  const autoResizeSnippet = `<iframe id="smartdent-treinamentos" src="${publicUrl}" style="width:100%;min-height:600px;border:0;display:block;" loading="lazy" title="Próximos Treinamentos"></iframe>
+  const publicUrl = variant === "online"
+    ? "https://parametros.smartdent.com.br/agenda/online"
+    : "https://parametros.smartdent.com.br/agenda";
+  const pageTitle = variant === "online" ? "Próximos Cursos Online" : "Próximos Treinamentos Presenciais";
+  const iframeId = variant === "online" ? "smartdent-aovivo" : "smartdent-treinamentos";
+  const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="${pageTitle}"></iframe>`;
+  const autoResizeSnippet = `<iframe id="${iframeId}" src="${publicUrl}" style="width:100%;min-height:600px;border:0;display:block;" loading="lazy" title="${pageTitle}"></iframe>
 <script>
 (function(){
   function onMsg(e){
     if(!e.data || e.data.type !== 'smartdent:embed:treinamentos:height') return;
-    var f = document.getElementById('smartdent-treinamentos');
+    var f = document.getElementById('${iframeId}');
     if(f && e.data.height) f.style.height = (e.data.height + 20) + 'px';
   }
   window.addEventListener('message', onMsg);
@@ -1321,25 +1329,25 @@ function PaginaPublicaTab() {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Próximos Treinamentos | Smart Dent</title>
+  <title>${pageTitle} | Smart Dent</title>
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fff; }
     .smartdent-wrap { max-width: 1200px; margin: 0 auto; }
-    #smartdent-treinamentos { width: 100%; min-height: 600px; border: 0; display: block; }
+    #${iframeId} { width: 100%; min-height: 600px; border: 0; display: block; }
   </style>
 </head>
 <body>
   <div class="smartdent-wrap">
-    <iframe id="smartdent-treinamentos"
+    <iframe id="${iframeId}"
       src="${publicUrl}"
       loading="lazy"
-      title="Próximos Treinamentos"></iframe>
+      title="${pageTitle}"></iframe>
   </div>
   <script>
     (function(){
       window.addEventListener('message', function(e){
         if(!e.data || e.data.type !== 'smartdent:embed:treinamentos:height') return;
-        var f = document.getElementById('smartdent-treinamentos');
+        var f = document.getElementById('${iframeId}');
         if(f && e.data.height) f.style.height = (e.data.height + 20) + 'px';
       });
     })();
