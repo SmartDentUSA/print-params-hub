@@ -281,7 +281,12 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             <p>{config.emptyLabel}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className={cn(
+            "grid grid-cols-1 gap-4",
+            variant === "online"
+              ? "md:grid-cols-2"
+              : "md:grid-cols-2 xl:grid-cols-3"
+          )}>
             {turmas.map((t) => (
               <PublicTurmaCard
                 key={t.id}
@@ -319,6 +324,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const turmaTag = formatTurmaNumber(turma.turma_number, turma.modality);
   const products = (turma as any).related_product_names as string[] | undefined;
   const isOnline = turma.modality === "online" || turma.modality === "online_ao_vivo";
+  const coverUrl = (turma as any).cover_image_url as string | undefined;
   // Mostra o cronômetro ao vivo enquanto faltarem inscrições (verde) ou estiver na janela amarela.
   const showLiveTimer = !!status && (status.variant === "green" || status.variant === "amber");
 
@@ -340,7 +346,18 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endDateValue = turma.end_date ?? turma.start_date;
 
   return (
-    <div className={cn("relative bg-card border rounded-xl p-5 transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
+    <div className={cn("relative bg-card border rounded-xl overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
+      {coverUrl && (
+        <div className="w-full aspect-[16/9] bg-muted overflow-hidden">
+          <img
+            src={coverUrl}
+            alt={turma.course_title || "Curso"}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+      <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {status && (
           <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
@@ -417,6 +434,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
           </span>
         </div>
       )}
+      </div>
     </div>
   );
 }
