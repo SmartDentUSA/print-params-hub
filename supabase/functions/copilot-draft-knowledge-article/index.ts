@@ -75,28 +75,21 @@ SAÍDA: JSON puro, sem markdown ao redor, no schema:
 }`;
 
 async function callLLM(messages: any[], maxTokens = 4500): Promise<any> {
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
-  const resp = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: DRAFT_MODEL,
-      messages,
-      temperature: 0.55,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-    }),
+  const { aiComplete } = await import("../_shared/ai-router.ts");
+  const r = await aiComplete({
+    task: "content_seo",
+    functionName: "copilot-draft-knowledge-article",
+    messages,
+    temperature: 0.55,
+    maxTokens,
+    responseFormat: { type: "json_object" },
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`LLM ${resp.status}: ${t.slice(0, 300)}`);
+  if (!r.ok) {
+    if (r.error_code === "credits_exhausted") throw new Error("Créditos esgotados em todos os provedores (Lovable + Poe). Adicione créditos.");
+    if (r.error_code === "rate_limited") throw new Error("Rate limit em todos os provedores. Tente novamente em alguns segundos.");
+    throw new Error(`LLM falhou: ${r.error || "erro desconhecido"}`);
   }
-  const j = await resp.json();
-  const content = j?.choices?.[0]?.message?.content || "{}";
-  return JSON.parse(content);
+  return JSON.parse(r.text || "{}");
 }
 
 async function ensureUniqueSlug(slug: string, ignoreId?: string): Promise<string> {

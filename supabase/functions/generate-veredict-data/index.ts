@@ -71,40 +71,20 @@ FORMATO DE RESPOSTA:
 }`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um especialista em análise de laudos técnicos odontológicos. Extraia dados estruturados com precisão. Responda APENAS com JSON válido.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-      }),
+    const { aiComplete } = await import("../_shared/ai-router.ts");
+    const r = await aiComplete({
+      task: "content_seo",
+      functionName: "generate-veredict-data",
+      messages: [
+        { role: 'system', content: 'Você é um especialista em análise de laudos técnicos odontológicos. Extraia dados estruturados com precisão. Responda APENAS com JSON válido.' },
+        { role: 'user', content: prompt }
+      ],
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[AI] Error ${response.status}:`, errorText);
+    if (!r.ok) {
+      console.error('[AI] All providers failed:', r.error_code, r.error);
       return null;
     }
-
-    const data = await response.json();
-    const usage = extractUsage(data);
-    await logAIUsage({
-      functionName: "generate-veredict-data",
-      actionLabel: "generate-veredict",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-    });
-    const content = data.choices?.[0]?.message?.content || '';
+    const content = r.text || '';
     
     // Clean and parse JSON
     let jsonStr = content

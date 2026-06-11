@@ -22,11 +22,6 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
-
     const languageNames: Record<string, string> = {
       'es': 'Spanish (Español)',
       'en': 'English (United States)'
@@ -72,63 +67,27 @@ serve(async (req) => {
 
     console.log(`Translating to ${targetLanguage}...`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: `${SYSTEM_SUPER_PROMPT}
-
----
-
-TAREFA ESPECÍFICA: Tradução Profissional
-${systemPrompt}` 
-          },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3, // Lower temperature for more consistent translations
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable AI workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI translation failed: ${errorText}`);
-    }
-
-    const data = await response.json();
-    const fullResponse = data.choices?.[0]?.message?.content || '';
-
-    // Log token usage
-    const usage = extractUsage(data);
-    await logAIUsage({
+    const { aiComplete } = await import("../_shared/ai-router.ts");
+    const r = await aiComplete({
+      task: "content_seo",
       functionName: "translate-content",
-      actionLabel: `Tradução ${targetLanguage.toUpperCase()}`,
-      model: "google/gemini-2.5-flash",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
+      messages: [
+        { role: 'system', content: `${SYSTEM_SUPER_PROMPT}\n\n---\n\nTAREFA ESPECÍFICA: Tradução Profissional\n${systemPrompt}` },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      maxTokens: 16000,
     });
+    if (!r.ok) {
+      if (r.error_code === 'rate_limited') {
+        return new Response(JSON.stringify({ error: 'Rate limit em todos os provedores.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (r.error_code === 'credits_exhausted') {
+        return new Response(JSON.stringify({ error: 'Créditos esgotados em todos os provedores (Lovable + Poe).' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      throw new Error(`AI translation failed: ${r.error}`);
+    }
+    const fullResponse = r.text || '';
 
     console.log('Translation completed successfully');
 

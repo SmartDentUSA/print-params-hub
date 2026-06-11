@@ -74,11 +74,6 @@ async function generateSummaryWithAI(html: string, title: string): Promise<{
   summary: string;
   quickFacts: { label: string; value: string }[];
 } | null> {
-  if (!LOVABLE_API_KEY) {
-    console.error('LOVABLE_API_KEY not configured');
-    return null;
-  }
-
   const prompt = `Analise o artigo HTML abaixo e gere um resumo técnico SEO-optimizado.
 
 TÍTULO: ${title}
@@ -103,39 +98,22 @@ REGRAS:
 - Se não encontrar dados técnicos, retorne null`;
 
   try {
-    console.log(`[AI] Calling Lovable AI Gateway for: ${title}`);
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: 'Você é um especialista em SEO técnico para conteúdo odontológico. Responda APENAS com JSON válido.' },
-          { role: 'user', content: prompt }
-        ],
-      }),
+    console.log(`[AI] Calling AI Router (content_seo) for: ${title}`);
+    const { aiComplete } = await import("../_shared/ai-router.ts");
+    const r = await aiComplete({
+      task: "content_seo",
+      functionName: "enrich-article-seo",
+      messages: [
+        { role: 'system', content: 'Você é um especialista em SEO técnico para conteúdo odontológico. Responda APENAS com JSON válido.' },
+        { role: 'user', content: prompt }
+      ],
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[AI] API error ${response.status}:`, errorText);
+    if (!r.ok) {
+      console.error('[AI] All providers failed:', r.error_code, r.error);
       return null;
     }
-    console.log(`[AI] ✅ Response received for: ${title}`);
-
-    const data = await response.json();
-    const usage = extractUsage(data);
-    await logAIUsage({
-      functionName: "enrich-article-seo",
-      actionLabel: "generate-summary",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-    });
-    const content = data.choices?.[0]?.message?.content || '';
+    console.log(`[AI] ✅ Response from ${r.provider_used}/${r.model_used}`);
+    const content = r.text || '';
     
     // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);

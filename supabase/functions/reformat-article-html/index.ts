@@ -22,12 +22,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY não configurada');
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Buscar artigo
@@ -113,41 +107,24 @@ ${html}
 
 Retorne o HTML reformatado seguindo todas as regras. Mantenha o idioma original do texto (${langLabel}).`;
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.3,
-          max_tokens: 8000,
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error(`[reformat-article-html] Erro da IA (${lang}):`, aiResponse.status, errorText);
-        if (aiResponse.status === 429) throw new Error('Rate limit excedido. Aguarde alguns minutos.');
-        if (aiResponse.status === 402) throw new Error('Créditos Lovable AI esgotados.');
-        throw new Error(`Erro da IA (${lang}): ${aiResponse.status}`);
-      }
-
-      const aiData = await aiResponse.json();
-      const usage = extractUsage(aiData);
-      await logAIUsage({
+      const { aiComplete } = await import("../_shared/ai-router.ts");
+      const r = await aiComplete({
+        task: "content_seo",
         functionName: "reformat-article-html",
-        actionLabel: `reformat-html-${lang}`,
-        model: "google/gemini-2.5-flash",
-        promptTokens: usage.prompt_tokens,
-        completionTokens: usage.completion_tokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+        maxTokens: 16000,
       });
-      const raw = aiData.choices?.[0]?.message?.content;
+      if (!r.ok) {
+        console.error(`[reformat-article-html] Falha IA (${lang}):`, r.error_code, r.error);
+        if (r.error_code === 'rate_limited') throw new Error('Rate limit em todos os provedores.');
+        if (r.error_code === 'credits_exhausted') throw new Error('Créditos esgotados em todos os provedores (Lovable + Poe).');
+        throw new Error(`Erro da IA (${lang}): ${r.error}`);
+      }
+      const raw = r.text;
       if (!raw) throw new Error(`IA não retornou HTML (${lang})`);
 
       const cleaned = stripMarkdownCodeFences(raw);
