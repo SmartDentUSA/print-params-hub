@@ -875,6 +875,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const resetTopic = useCallback(() => {
     setTopicSelected(false);
     setTopicContext('');
+    setTopicCardsDismissed(false);
     setPrinterFlowStep(null);
     setProductsFlowStep(null);
     setCommercialFlowStep(null);
