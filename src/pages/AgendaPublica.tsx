@@ -4,8 +4,40 @@ import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarDays, MapPin, Video, User, RefreshCw } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
+import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
+
+type AgendaVariant = "presencial" | "online";
+
+const VARIANT_CONFIG: Record<AgendaVariant, {
+  title: string;
+  subtitle: string;
+  canonical: string;
+  metaDescription: string;
+  modalities: string[];
+  categories: string[];
+  emptyLabel: string;
+}> = {
+  presencial: {
+    title: "Próximos Treinamentos Presenciais",
+    subtitle: "Confira nossos treinamentos e imersões presenciais com vagas abertas.",
+    canonical: "https://parametros.smartdent.com.br/agenda",
+    metaDescription: "Agenda de treinamentos e imersões presenciais Smart Dent com vagas abertas.",
+    modalities: ["presencial"],
+    categories: ["treinamento", "imersao"],
+    emptyLabel: "Nenhum treinamento presencial disponível no momento.",
+  },
+  online: {
+    title: "Próximos Cursos Online",
+    subtitle: "Workshops e webinars ao vivo da Smart Dent com inscrições abertas.",
+    canonical: "https://parametros.smartdent.com.br/agenda/online",
+    metaDescription: "Agenda de workshops e webinars online Smart Dent com vagas abertas.",
+    modalities: ["online_ao_vivo", "online"],
+    categories: ["workshop", "webinar"],
+    emptyLabel: "Nenhum curso online disponível no momento.",
+  },
+};
 
 const MODALITY_LABEL: Record<string, string> = {
   presencial: "Presencial",
@@ -18,12 +50,12 @@ const MODALITY_LABEL: Record<string, string> = {
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 type CountdownResult = { label: string; variant: Variant } | null;
 
-function useCountdown() {
+function useCountdown(tickMs = 60_000) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60000);
+    const t = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(t);
-  }, []);
+  }, [tickMs]);
   return (startDate?: string, startTime?: string, endDate?: string, endTime?: string, modality?: string): CountdownResult => {
     if (!startDate) return null;
     const sTime = startTime?.substring(0, 5) ?? "09:00";
@@ -47,7 +79,36 @@ function useCountdown() {
   };
 }
 
-export default function AgendaPublica() {
+/** Timer ao vivo (ticka a cada 1s) exibido junto ao status para criar urgência. */
+function LiveCountdown({ startDate, startTime }: { startDate?: string; startTime?: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!startDate) return null;
+  const sTime = startTime?.substring(0, 5) ?? "09:00";
+  const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
+  const diff = startMs - now;
+  if (diff <= 0) return null;
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-foreground/5 text-foreground border tabular-nums">
+      ⏱ {d > 0 ? `${d}d ` : ""}{pad(h)}:{pad(m)}:{pad(s)}
+    </span>
+  );
+}
+
+interface AgendaPublicaProps {
+  variant?: AgendaVariant;
+}
+
+export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaProps) {
+  const config = VARIANT_CONFIG[variant];
   const queryClient = useQueryClient();
   const getCountdown = useCountdown();
 
@@ -136,9 +197,9 @@ export default function AgendaPublica() {
     };
   }, [queryClient]);
 
-  // Cursos públicos: todos os cursos ativos (sem exigir public_visible)
+  // Cursos elegíveis filtrados por modalidade + categoria desta variante.
   const { data: publicCourseIds = [] } = useQuery({
-    queryKey: ["public_agenda_courses"],
+    queryKey: ["public_agenda_courses", variant],
     refetchInterval: 10_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
@@ -146,8 +207,10 @@ export default function AgendaPublica() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select("id")
-        .eq("active", true);
+        .select("id, modality, category")
+        .eq("active", true)
+        .in("modality", config.modalities)
+        .in("category", config.categories);
       if (error) throw error;
       return ((data ?? []) as any[]).map((c) => c.id as string);
     },
@@ -155,7 +218,7 @@ export default function AgendaPublica() {
 
   // Turmas (mesma fonte do admin: v_turmas_com_vagas)
   const { data: allTurmas = [], isLoading, isFetching, dataUpdatedAt } = useQuery({
-    queryKey: ["public_agenda_turmas"],
+    queryKey: ["public_agenda_turmas", variant],
     refetchOnWindowFocus: true,
     refetchInterval: 10_000,
     refetchIntervalInBackground: true,
@@ -165,6 +228,7 @@ export default function AgendaPublica() {
         .from("v_turmas_com_vagas")
         .select("*")
         .eq("active", true)
+        .in("modality", config.modalities)
         .order("start_date");
       if (error) throw error;
       return data as TurmaComVagas[];
@@ -183,16 +247,14 @@ export default function AgendaPublica() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Helmet>
-        <title>Agenda de Treinamentos | Smart Dent</title>
-        <meta name="description" content="Confira os próximos cursos e imersões da Smart Dent com vagas abertas." />
-        <link rel="canonical" href="https://parametros.smartdent.com.br/agenda" />
+        <title>{config.title} | Smart Dent</title>
+        <meta name="description" content={config.metaDescription} />
+        <link rel="canonical" href={config.canonical} />
       </Helmet>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Próximos Treinamentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Confira nossos cursos e imersões com vagas abertas.
-          </p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{config.title}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{config.subtitle}</p>
           <div className="flex items-center gap-3 mt-2">
             {dataUpdatedAt > 0 && (
               <FreshnessIndicator updatedAt={dataUpdatedAt} fetching={isFetching} />
@@ -200,8 +262,8 @@ export default function AgendaPublica() {
             <button
               type="button"
               onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas"] });
-                queryClient.invalidateQueries({ queryKey: ["public_agenda_courses"] });
+                queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas", variant] });
+                queryClient.invalidateQueries({ queryKey: ["public_agenda_courses", variant] });
               }}
               className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/80 hover:text-foreground border rounded-full px-2.5 py-1 transition-colors"
             >
@@ -216,7 +278,7 @@ export default function AgendaPublica() {
         ) : turmas.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>Nenhum treinamento disponível no momento.</p>
+            <p>{config.emptyLabel}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
