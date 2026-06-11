@@ -139,8 +139,8 @@ export function WaGroupBlastModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl p-0 max-h-[90vh] flex flex-col gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle>
             Envio pontual {pickerMode ? "(wizard)" : "—"} {selectedGroupJids.length} grupo{selectedGroupJids.length === 1 ? "" : "s"}
           </DialogTitle>
@@ -151,7 +151,7 @@ export function WaGroupBlastModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
           {pickerMode && (
             <div>
               <Label className="text-xs">Segmentação</Label>
@@ -242,7 +242,7 @@ export function WaGroupBlastModal({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 px-6 py-4 border-t bg-background shrink-0">
           <Button variant="ghost" onClick={onClose} disabled={sending}>Cancelar</Button>
           <div className="flex-1" />
           <Button onClick={handleSend} disabled={sending || selectedGroupJids.length === 0}>
