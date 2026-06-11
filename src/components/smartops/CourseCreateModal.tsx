@@ -606,6 +606,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_until: useRecurrence ? (recurrenceUntil || null) : null,
         recurrence_time_start: useRecurrence ? recurrenceTimeStart : null,
         recurrence_time_end: useRecurrence ? recurrenceTimeEnd : null,
+        related_product_ids: isOnline ? relatedProductIds : [],
+        related_product_names: isOnline ? relatedProductNames : [],
       };
 
       let courseId: string;
