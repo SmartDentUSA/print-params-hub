@@ -20,10 +20,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
 
 // ── Topic weights & SDR — imported from ../shared/lia-rag.ts and ../shared/lia-sdr.ts ──
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const DEEPSEEK_CHAT_API = "https://api.deepseek.com/chat/completions";
 
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
@@ -4018,7 +4020,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     } catch (_) { /* silent */ }
 
     // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor
-    const callAI = async (model: string, truncateHistory = false): Promise<Response> => {
+    const callAI = async (model: string, truncateHistory = false, provider: "lovable" | "deepseek" = "lovable"): Promise<Response> => {
       // Para modelos OpenAI, truncar system prompt se muito longo para evitar 400
       let msgs = messagesForAI;
       if (truncateHistory) {
@@ -4032,10 +4034,15 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           : systemMsg.content;
         msgs = [{ ...systemMsg, content: truncatedSystem }, ...historyMsgs, userMsg];
       }
-      const resp = await fetch(CHAT_API, {
+      const apiUrl = provider === "deepseek" ? DEEPSEEK_CHAT_API : CHAT_API;
+      const apiKey = provider === "deepseek" ? DEEPSEEK_API_KEY : LOVABLE_API_KEY;
+      if (!apiKey) {
+        return new Response(JSON.stringify({ error: `${provider} api key missing` }), { status: 500 });
+      }
+      const resp = await fetch(apiUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -4070,6 +4077,14 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       console.error(`gpt-5-mini failed, last resort: openai/gpt-5-nano...`);
       usedModel = "openai/gpt-5-nano";
       aiResponse = await callAI(usedModel, true);
+    }
+
+    // Fallback operacional fora do Lovable Gateway. Cobre 402 (créditos esgotados)
+    // e outras indisponibilidades do gateway sem derrubar a Dra. L.I.A.
+    if (!aiResponse.ok && aiResponse.status !== 429 && DEEPSEEK_API_KEY) {
+      console.error(`Lovable gateway fallback failed (${aiResponse.status}), retrying with DeepSeek...`);
+      usedModel = "deepseek-chat";
+      aiResponse = await callAI(usedModel, true, "deepseek");
     }
 
     if (!aiResponse.ok) {
