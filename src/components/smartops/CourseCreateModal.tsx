@@ -311,6 +311,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
       setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
+      setRecurrenceWeekdays([]);
       setTurmas([]);
       setCertificateBody(DEFAULT_CERTIFICATE_BODY);
       setRelatedProductIds([]);
@@ -341,6 +342,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setRecurrenceUntil(course.recurrence_until || '');
     setRecurrenceTimeStart(course.recurrence_time_start?.substring(0, 5) || '09:00');
     setRecurrenceTimeEnd(course.recurrence_time_end?.substring(0, 5) || '11:00');
+    setRecurrenceWeekdays(((course as any).recurrence_weekdays ?? []) as number[]);
 
     // Load turmas
     loadTurmas(course.id);
@@ -666,6 +668,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_until: useRecurrence ? (recurrenceUntil || null) : null,
         recurrence_time_start: useRecurrence ? recurrenceTimeStart : null,
         recurrence_time_end: useRecurrence ? recurrenceTimeEnd : null,
+        recurrence_weekdays: useRecurrence && recurrenceType === 'weekdays' ? recurrenceWeekdays : null,
         related_product_ids: isOnline ? relatedProductIds : [],
         related_product_names: isOnline ? relatedProductNames : [],
       };
