@@ -7,6 +7,7 @@ import { DOCUMENT_PROMPTS } from "../_shared/document-prompts.ts";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { matchEntities, buildEntityGraph } from "../_shared/entity-dictionary.ts";
 import { buildCitationBlock, buildGeoContextBlock, buildEntityGraphJsonLd } from "../_shared/citation-builder.ts";
+import { aiComplete } from "../_shared/ai-router.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
