@@ -1707,6 +1707,13 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 
   const baseUrl = 'https://parametros.smartdent.com.br';
 
+  // og:image com fallback + URL absoluta (WhatsApp/Facebook não baixam paths relativos
+  // nem aceitam content="" — sem isso o card de preview do link fica sem hero).
+  const ogImageRaw = content.og_image_url || content.content_image_url || `${baseUrl}/og-fluxo-digital.jpg`;
+  const ogImage = /^https?:\/\//i.test(ogImageRaw)
+    ? ogImageRaw
+    : `${baseUrl}${ogImageRaw.startsWith('/') ? '' : '/'}${ogImageRaw}`;
+
   // Gerar VideoObject schemas (suporte YouTube e PandaVideo)
   const videoSchemas = (videos || []).map((video: any, idx: number) => {
     const youtubeUrl = video.url || null;
@@ -1786,11 +1793,11 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta property="og:title" content="${escapeHtml(content.title)}" />
   <meta property="og:description" content="${escapeHtml(content.excerpt || desc)}" />
   <meta property="og:type" content="article" />
-  ${content.og_image_url || content.content_image_url ? `
-  <meta property="og:image" content="${content.og_image_url || content.content_image_url}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:secure_url" content="${ogImage}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
+  <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />
   <meta property="article:section" content="${escapeHtml(content.knowledge_categories?.name || 'Conhecimento')}" />
   <meta property="article:published_time" content="${content.created_at}" />
   <meta property="article:modified_time" content="${content.updated_at}" />
@@ -1817,18 +1824,16 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="twitter:player" content="${playerUrl}" />
   <meta name="twitter:player:width" content="1280" />
   <meta name="twitter:player:height" content="720" />`;
-    } else if (content.og_image_url || content.content_image_url) {
-      return `<meta name="twitter:card" content="summary_large_image" />`;
     } else {
-      return `<meta name="twitter:card" content="summary" />`;
+      return `<meta name="twitter:card" content="summary_large_image" />`;
     }
   })()}
   <meta name="twitter:site" content="@smartdent" />
   <meta name="twitter:creator" content="${content.authors?.twitter_url ? '@' + content.authors.twitter_url.split('/').pop() : '@smartdent'}" />
   <meta name="twitter:title" content="${escapeHtml(content.title)}" />
   <meta name="twitter:description" content="${escapeHtml(content.excerpt || desc)}" />
-  ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image" content="${content.og_image_url || content.content_image_url}" />` : ''}
-  ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
+  <meta name="twitter:image" content="${ogImage}" />
+  <meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />
   
   <!-- Structured Data: @graph com Detecção Dinâmica de Tipo (MedicalWebPage/ScholarlyArticle/TechArticle) -->
   <script type="application/ld+json">
@@ -1853,7 +1858,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "headline": escapeHtml(content.title),
         "name": escapeHtml(content.title),
         "description": escapeHtml(content.excerpt || desc),
-        "image": content.og_image_url || content.content_image_url,
+        "image": ogImage,
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
         "url": canonicalUrl,
