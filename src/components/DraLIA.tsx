@@ -379,6 +379,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [topicContext, setTopicContext] = useState<string>(() => {
     return sessionStorage.getItem('dra_lia_topic_context') || '';
   });
+  const [topicCardsDismissed, setTopicCardsDismissed] = useState<boolean>(false);
 
   // Printer guided flow state
   const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
@@ -507,6 +508,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     sessionStorage.removeItem('dra_lia_summarized');
     sentMsgCountRef.current += 1;
     resetInactivityTimer();
+
+    // Once the user types instead of choosing a topic card, hide the cards for the rest of the chat
+    if (!topicSelected) setTopicCardsDismissed(true);
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -871,6 +875,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const resetTopic = useCallback(() => {
     setTopicSelected(false);
     setTopicContext('');
+    setTopicCardsDismissed(false);
     setPrinterFlowStep(null);
     setProductsFlowStep(null);
     setCommercialFlowStep(null);
@@ -948,7 +953,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
               {/* Topic selection menu — shown on welcome message, before topic is selected */}
               {(() => {
                 const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
-                return msg.id === lastAssistantId && !topicSelected && !isLoading && qualificationComplete;
+                return msg.id === lastAssistantId && !topicSelected && !topicCardsDismissed && !isLoading && qualificationComplete;
               })() && (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
