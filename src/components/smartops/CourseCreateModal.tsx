@@ -873,6 +873,24 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Label>Visível publicamente</Label>
                 </div>
               </div>
+
+              {isOnline && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="font-semibold">Produtos do portfólio relacionados</Label>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Selecione os produtos Smart Dent que serão tema desta aula online.
+                    Aparecerão como tags no card público da agenda.
+                  </p>
+                  <CourseProductPicker
+                    selectedIds={relatedProductIds}
+                    selectedNames={relatedProductNames}
+                    onChange={(ids, names) => {
+                      setRelatedProductIds(ids);
+                      setRelatedProductNames(names);
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* ─── Turmas e Cronograma ─── */}
