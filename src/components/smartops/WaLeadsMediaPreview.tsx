@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileText, ImageIcon, Music, Video } from "lucide-react";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 interface WaLeadsMediaPreviewProps {
   tipo: string;
@@ -28,9 +29,11 @@ export function WaLeadsMediaPreview({ tipo, url, compact = false }: WaLeadsMedia
     }
     return (
       <img
-        src={url}
+        src={getStorageImageUrl(url, { width: compact ? 96 : 600 })}
         alt="Preview"
         className={`rounded object-cover border ${compact ? "w-12 h-12" : "w-full max-h-48"}`}
+        loading="lazy"
+        decoding="async"
         onError={() => setImgError(true)}
       />
     );

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { extensionFromMime } from '@/utils/storageImage';
 
 export async function uploadExternalImage(
   imageUrl: string, 
@@ -14,8 +15,9 @@ export async function uploadExternalImage(
     const blob = await response.blob();
     const file = new File([blob], fileName, { type: blob.type });
 
-    // 2. Preparar upload
-    const fileExt = fileName.split('.').pop() || 'jpg';
+    // 2. Preparar upload — extensão derivada do MIME real do blob,
+    // não do nome do arquivo (evita PNG salvo como .webp).
+    const fileExt = extensionFromMime(blob.type, fileName.split('.').pop() || 'jpg');
     const uniqueName = `${fileName.replace(/\.[^/.]+$/, '')}-${Date.now()}.${fileExt}`;
     const filePath = `models/${uniqueName}`;
 
@@ -24,7 +26,8 @@ export async function uploadExternalImage(
       .from('model-images')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true
+        upsert: true,
+        contentType: blob.type || undefined,
       });
 
     if (uploadError) {

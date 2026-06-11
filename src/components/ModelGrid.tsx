@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 interface Model {
   id: string;
@@ -41,7 +42,7 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
             <div className="w-16 h-20 bg-muted rounded overflow-hidden relative flex-shrink-0">
               {model.imageUrl ? (
                 <img 
-                  src={model.imageUrl} 
+                  src={getStorageImageUrl(model.imageUrl, { width: 128 })} 
                   alt={`${model.name} 3D Printer`}
                   width="64"
                   height="80"

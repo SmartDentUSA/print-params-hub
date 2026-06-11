@@ -1,6 +1,7 @@
 import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getStorageImageUrl } from '@/utils/storageImage';
 
 interface AuthorBioProps {
   author: Author;
@@ -24,8 +25,10 @@ export function AuthorBio({ author }: AuthorBioProps) {
         {/* Foto do autor */}
         {author.photo_url ? (
           <img loading="lazy" decoding="async" 
-            src={author.photo_url} 
+            src={getStorageImageUrl(author.photo_url, { width: 256 })} 
             alt={author.name}
+            width={128}
+            height={128}
             className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
             onError={(e) => {
               e.currentTarget.style.display = 'none';

@@ -1,6 +1,7 @@
 import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getStorageImageUrl } from '@/utils/storageImage';
 
 interface AuthorSignatureProps {
   author: Author;
@@ -33,8 +34,10 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
         {/* Foto do autor */}
         {author.photo_url ? (
           <img loading="lazy" decoding="async" 
-            src={author.photo_url} 
+            src={getStorageImageUrl(author.photo_url, { width: 160 })} 
             alt={author.name}
+            width={80}
+            height={80}
             className="w-20 h-20 rounded-full object-cover border-2 border-black flex-shrink-0"
             onError={(e) => {
               e.currentTarget.style.display = 'none';

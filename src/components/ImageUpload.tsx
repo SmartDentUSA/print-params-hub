@@ -7,6 +7,7 @@ import { Upload, X, Image, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { validateFileSize } from "@/utils/security";
+import { getStorageImageUrl, extensionFromMime } from "@/utils/storageImage";
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -48,7 +49,8 @@ export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded,
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      // Derive extension from real MIME so the bucket file matches its bytes.
+      const fileExt = extensionFromMime(file.type, file.name.split('.').pop() || 'bin');
       const fileName = `${modelSlug}-${Date.now()}.${fileExt}`;
       const filePath = `models/${fileName}`;
 
@@ -56,7 +58,8 @@ export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded,
         .from('model-images')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: true,
+          contentType: file.type || undefined,
         });
 
       if (uploadError) {
@@ -137,8 +140,10 @@ export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded,
           <div className="space-y-4">
             <div className="relative">
               <img 
-                src={currentImageUrl} 
+                src={getStorageImageUrl(currentImageUrl, { width: 600 })} 
                 alt="Imagem atual" 
+                loading="lazy"
+                decoding="async"
                 className="max-w-full h-48 object-contain rounded-lg border bg-white mx-auto"
               />
               <Button

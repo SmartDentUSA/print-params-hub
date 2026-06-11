@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 interface Product {
   name: string;
@@ -125,10 +126,13 @@ export const MentionedProducts = ({
               {/* Imagem (esquerda) */}
               <div className="w-32 h-32 flex-shrink-0 bg-muted">
                 <img
-                  src={product.image_url || "/placeholder.svg"}
+                  src={getStorageImageUrl(product.image_url || "/placeholder.svg", { width: 256 })}
                   alt={product.name}
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
 

@@ -1,4 +1,5 @@
 import { ExternalLink, Star } from 'lucide-react';
+import { getStorageImageUrl } from '@/utils/storageImage';
 
 interface InlineProductCardProps {
   productId: string;
@@ -42,9 +43,10 @@ export function InlineProductCard({
         <div className="card-container">
           {imageUrl && (
             <img 
-              src={imageUrl} 
+              src={getStorageImageUrl(imageUrl, { width: 400 })} 
               alt={name}
               loading="lazy"
+              decoding="async"
               className="card-image"
             />
           )}
