@@ -1858,7 +1858,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "headline": escapeHtml(content.title),
         "name": escapeHtml(content.title),
         "description": escapeHtml(content.excerpt || desc),
-        "image": content.og_image_url || content.content_image_url,
+        "image": ogImage,
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
         "url": canonicalUrl,
