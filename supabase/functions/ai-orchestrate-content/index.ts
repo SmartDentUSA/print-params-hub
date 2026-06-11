@@ -991,55 +991,29 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
 
-    // Chamar Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
-    }
-
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'user', content: ORCHESTRATOR_PROMPT }
-        ],
-        max_completion_tokens: 16000,
-        // Temperatura dinâmica: depoimentos = mais criativo, expansionWarning = menos criativo
-        temperature: isTestimonial ? 0.8 : (expansionWarning ? 0.1 : 0.3),
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('❌ Erro na API de IA:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        throw new Error('Limite de taxa excedido. Tente novamente em alguns instantes.');
-      }
-      if (aiResponse.status === 402) {
-        throw new Error('Créditos insuficientes. Por favor, adicione créditos à sua workspace Lovable AI.');
-      }
-      
-      throw new Error(`Erro na API de IA: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const rawContent = aiData.choices[0].message.content;
-
-    // Log token usage
-    const usage = extractUsage(aiData);
-    await logAIUsage({
+    // Roteado via ai_model_routing (task=content_seo): Lovable Gateway primário,
+    // Poe (gemini-2.5-flash) como fallback automático se 402/429/5xx.
+    const routed = await aiComplete({
+      task: "content_seo",
       functionName: "ai-orchestrate-content",
-      actionLabel: "Orquestração de conteúdo",
-      model: "google/gemini-2.5-flash",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
+      messages: [{ role: "user", content: ORCHESTRATOR_PROMPT }],
+      temperature: isTestimonial ? 0.8 : (expansionWarning ? 0.1 : 0.3),
+      maxTokens: 16000,
     });
+
+    if (!routed.ok || !routed.text) {
+      console.error('❌ Erro no roteamento IA:', routed.error, routed.attempts);
+      if (routed.error_code === "credits_exhausted") {
+        throw new Error('Créditos esgotados em todos os provedores configurados (Lovable + fallback). Verifique AI Routing > content_seo ou adicione créditos.');
+      }
+      if (routed.error_code === "rate_limited") {
+        throw new Error('Rate limit em todos os provedores. Tente novamente em alguns instantes.');
+      }
+      throw new Error(`Falha na geração IA: ${routed.error || 'erro desconhecido'}`);
+    }
+
+    const rawContent = routed.text;
+    console.log(`✅ IA respondeu via ${routed.provider_used}/${routed.model_used}`);
 
     console.log('🔍 Parseando resposta da IA...');
     console.log('📝 Resposta bruta (primeiros 1000 chars):', rawContent.substring(0, 1000));
