@@ -1,7 +1,7 @@
 import { Settings, BookOpen } from "lucide-react";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
@@ -37,12 +37,12 @@ export function Header({ showAdminButton = false }: HeaderProps) {
         {/* Actions */}
         <div className="flex items-center gap-1 md:gap-2">
           {showAdminButton && (
-            <a href="https://admin.smartdent.com.br/admin" target="_blank" rel="noopener noreferrer">
+            <Link to="/admin">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 <span className="hidden md:inline">{t('common.admin')}</span>
               </Button>
-            </a>
+            </Link>
           )}
           <LanguageSelector />
         </div>
