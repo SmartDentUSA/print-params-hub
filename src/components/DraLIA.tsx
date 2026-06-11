@@ -509,6 +509,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     sentMsgCountRef.current += 1;
     resetInactivityTimer();
 
+    // Once the user types instead of choosing a topic card, hide the cards for the rest of the chat
+    if (!topicSelected) setTopicCardsDismissed(true);
+
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
