@@ -10,14 +10,6 @@ const PLATFORM_ICONS: Record<string, any> = {
   instagram: Instagram, youtube: Youtube, facebook: Facebook, tiktok: Music2,
 };
 
-function detectMediaType(url?: string | null): 'image' | 'video' | undefined {
-  if (!url) return undefined;
-  const u = url.toLowerCase();
-  if (/\.(mp4|mov|webm|m4v)(\?|$)/.test(u)) return 'video';
-  if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/.test(u)) return 'image';
-  return undefined;
-}
-
 export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: string }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState<SocialPostPickResult | null>(null);
@@ -30,21 +22,14 @@ export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: s
     setBlastOpen(true);
   };
 
-  // Monta texto + tipo de mensagem com base na publicação
+  // Envia como texto + URL: deixa o usuário revisar/editar o caption (e remover
+  // rodapés antigos) antes do envio, e faz o WhatsApp gerar o preview nativo HD
+  // do link via og:image — em vez de mandar a thumbnail pequena da CDN.
   const buildInitial = () => {
     if (!picked) return undefined;
-    const mediaKind = detectMediaType(picked.thumbnail_url);
     const captionBody = (picked.caption ?? '').trim();
-    const textWithLink = [captionBody, picked.url].filter(Boolean).join('\n\n');
-    if (mediaKind === 'image' && picked.thumbnail_url) {
-      return { type: 'image' as const, mediaUrl: picked.thumbnail_url, caption: textWithLink };
-    }
-    return {
-      type: 'link' as const,
-      linkTitle: picked.titulo || 'Publicação',
-      linkUrl: picked.url,
-      linkDesc: captionBody.slice(0, 400),
-    };
+    const text = [captionBody, picked.url].filter(Boolean).join('\n\n');
+    return { type: 'msg' as const, text };
   };
 
   const I = picked ? (PLATFORM_ICONS[picked.platform] ?? ImgIcon) : ImgIcon;
