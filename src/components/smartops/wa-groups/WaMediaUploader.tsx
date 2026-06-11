@@ -14,6 +14,23 @@ const ACCEPT: Record<MediaKind, string> = {
   document: ".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,text/plain,text/csv",
 };
 
+function prettyFileName(url: string, fallback?: string): string {
+  if (fallback) return fallback;
+  try {
+    const u = new URL(url);
+    const raw = u.pathname.split("/").pop() || "arquivo";
+    const decoded = decodeURIComponent(raw);
+    if (decoded.length > 40) {
+      const dot = decoded.lastIndexOf(".");
+      const ext = dot > 0 ? decoded.slice(dot) : "";
+      return decoded.slice(0, 32) + "…" + ext;
+    }
+    return decoded;
+  } catch {
+    return "arquivo";
+  }
+}
+
 interface Props {
   kind: MediaKind;
   value: string;
