@@ -10,7 +10,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PIXEL_ID   = "167413567155597";
+const PIXEL_ID   = "837797892060098";
 const GRAPH_URL  = `https://graph.facebook.com/v21.0/${PIXEL_ID}/events`;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -48,8 +48,9 @@ Deno.serve(async (req) => {
   );
 
   let deal_id: string;
+  let test_event_code: string | undefined;
   try {
-    ({ deal_id } = await req.json());
+    ({ deal_id, test_event_code } = await req.json());
     if (!deal_id) throw new Error("missing deal_id");
   } catch {
     return json({ error: "deal_id required" }, 400);
@@ -147,10 +148,13 @@ Deno.serve(async (req) => {
 
   console.log("[meta-capi] Sending Purchase for deal", deal.piperun_deal_id, "value:", value);
 
+  const metaPayload: Record<string, unknown> = { data: [capiEvent] };
+  if (test_event_code) metaPayload.test_event_code = test_event_code;
+
   const metaResp = await fetch(`${GRAPH_URL}?access_token=${META_TOKEN}`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ data: [capiEvent] }),
+    body:    JSON.stringify(metaPayload),
   });
 
   const metaResult = await metaResp.json();
