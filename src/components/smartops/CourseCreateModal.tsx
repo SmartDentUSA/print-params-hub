@@ -84,24 +84,35 @@ const CATEGORIES = [
 
 // ─── Recurrence preview ───
 function previewRecurrenceDates(
-  baseDate: string, type: 'days' | 'weeks' | 'months', interval: number, until: string
+  baseDate: string, type: 'days' | 'weeks' | 'months' | 'hours' | 'weekdays',
+  interval: number, until: string, weekdays: number[] = [],
+  timeStart: string = '09:00'
 ): Date[] {
   const dates: Date[] = [];
   if (!baseDate || !until) return dates;
-  const current = new Date(baseDate + 'T12:00:00');
+  const current = new Date(baseDate + 'T' + (timeStart || '09:00') + ':00');
   const end = new Date(until + 'T23:59:59');
   while (current <= end && dates.length < 100) {
+    if (type === 'weekdays') {
+      // ISO weekday: 1=Mon..7=Sun. JS getDay(): 0=Sun..6=Sat
+      const iso = ((current.getDay() + 6) % 7) + 1;
+      if (weekdays.length === 0 || weekdays.includes(iso)) dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+      continue;
+    }
     dates.push(new Date(current));
     if (type === 'days')   current.setDate(current.getDate() + interval);
     if (type === 'weeks')  current.setDate(current.getDate() + interval * 7);
     if (type === 'months') current.setMonth(current.getMonth() + interval);
+    if (type === 'hours')  current.setHours(current.getHours() + interval);
   }
   return dates;
 }
 
 function RecurrenceSection(props: {
   recurrenceEnabled: boolean; setRecurrenceEnabled: (v: boolean) => void;
-  recurrenceType: 'days' | 'weeks' | 'months'; setRecurrenceType: (v: 'days' | 'weeks' | 'months') => void;
+  recurrenceType: 'days' | 'weeks' | 'months' | 'hours' | 'weekdays';
+  setRecurrenceType: (v: 'days' | 'weeks' | 'months' | 'hours' | 'weekdays') => void;
   recurrenceInterval: number; setRecurrenceInterval: (v: number) => void;
   recurrenceBaseDate: string; setRecurrenceBaseDate: (v: string) => void;
   recurrenceTimeStart: string; setRecurrenceTimeStart: (v: string) => void;
@@ -109,10 +120,24 @@ function RecurrenceSection(props: {
   recurrenceUntil: string; setRecurrenceUntil: (v: string) => void;
   slotsPerSession: number; setSlotsPerSession: (v: number) => void;
   whatsappGroupLink: string; setWhatsappGroupLink: (v: string) => void;
+  recurrenceWeekdays: number[]; setRecurrenceWeekdays: (v: number[]) => void;
 }) {
   const p = props;
-  const preview = previewRecurrenceDates(p.recurrenceBaseDate, p.recurrenceType, p.recurrenceInterval, p.recurrenceUntil);
+  const preview = previewRecurrenceDates(
+    p.recurrenceBaseDate, p.recurrenceType, p.recurrenceInterval,
+    p.recurrenceUntil, p.recurrenceWeekdays, p.recurrenceTimeStart
+  );
   const t = (s: string) => s?.substring(0, 5) ?? '';
+  const WEEKDAYS = [
+    { iso: 1, label: 'Seg' }, { iso: 2, label: 'Ter' }, { iso: 3, label: 'Qua' },
+    { iso: 4, label: 'Qui' }, { iso: 5, label: 'Sex' }, { iso: 6, label: 'Sáb' },
+    { iso: 7, label: 'Dom' },
+  ];
+  const toggleDow = (iso: number) => {
+    const set = new Set(p.recurrenceWeekdays);
+    if (set.has(iso)) set.delete(iso); else set.add(iso);
+    p.setRecurrenceWeekdays(Array.from(set).sort((a, b) => a - b));
+  };
 
   return (
     <div className="space-y-4">
@@ -137,18 +162,22 @@ function RecurrenceSection(props: {
           <Input type="number" min={1} value={p.slotsPerSession} onChange={(e) => p.setSlotsPerSession(Number(e.target.value) || 20)} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">Repetir a cada</Label>
-            <Input type="number" min={1} value={p.recurrenceInterval} onChange={(e) => p.setRecurrenceInterval(Number(e.target.value) || 1)} />
-          </div>
+          {p.recurrenceType !== 'weekdays' && (
+            <div>
+              <Label className="text-xs">Repetir a cada</Label>
+              <Input type="number" min={1} value={p.recurrenceInterval} onChange={(e) => p.setRecurrenceInterval(Number(e.target.value) || 1)} />
+            </div>
+          )}
           <div>
             <Label className="text-xs">Tipo</Label>
             <Select value={p.recurrenceType} onValueChange={(v) => p.setRecurrenceType(v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="hours">Horas</SelectItem>
                 <SelectItem value="days">Dias</SelectItem>
                 <SelectItem value="weeks">Semanas</SelectItem>
                 <SelectItem value="months">Meses</SelectItem>
+                <SelectItem value="weekdays">Dias da semana (seleção)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -159,6 +188,32 @@ function RecurrenceSection(props: {
         </div>
       </div>
 
+      {p.recurrenceType === 'weekdays' && (
+        <div>
+          <Label className="text-xs">Dias da semana</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {WEEKDAYS.map((w) => {
+              const active = p.recurrenceWeekdays.includes(w.iso);
+              return (
+                <button
+                  key={w.iso}
+                  type="button"
+                  onClick={() => toggleDow(w.iso)}
+                  className={`px-3 py-1 rounded-md text-xs border transition-colors ${
+                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
+                  }`}
+                >
+                  {w.label}
+                </button>
+              );
+            })}
+          </div>
+          {p.recurrenceWeekdays.length === 0 && (
+            <p className="text-[11px] text-amber-600 mt-1">Selecione ao menos um dia da semana.</p>
+          )}
+        </div>
+      )}
+
       {/* Preview */}
       {preview.length > 0 && (
         <Card className="border">
@@ -167,7 +222,10 @@ function RecurrenceSection(props: {
             {preview.slice(0, 3).map((d, i) => (
               <div key={i} className="text-xs text-muted-foreground">
                 {d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                {' '}{t(p.recurrenceTimeStart)}–{t(p.recurrenceTimeEnd)}
+                {' '}
+                {p.recurrenceType === 'hours'
+                  ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  : `${t(p.recurrenceTimeStart)}–${t(p.recurrenceTimeEnd)}`}
               </div>
             ))}
             {preview.length > 3 && (
@@ -220,13 +278,14 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
   // Recurrence (online only)
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
-  const [recurrenceType, setRecurrenceType] = useState<'days' | 'weeks' | 'months'>('weeks');
+  const [recurrenceType, setRecurrenceType] = useState<'days' | 'weeks' | 'months' | 'hours' | 'weekdays'>('weeks');
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [recurrenceBaseDate, setRecurrenceBaseDate] = useState('');
   const [recurrenceTimeStart, setRecurrenceTimeStart] = useState('09:00');
   const [recurrenceTimeEnd, setRecurrenceTimeEnd] = useState('11:00');
   const [recurrenceUntil, setRecurrenceUntil] = useState('');
   const [recurrenceSlotsPerSession, setRecurrenceSlotsPerSession] = useState(20);
+  const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>([]);
 
   // AlertDialog for recreating enrolled sessions
   const [showRecreateConfirm, setShowRecreateConfirm] = useState(false);
