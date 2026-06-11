@@ -31,6 +31,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{{data_fim}}',       desc: 'DD/MM/AAAA' },
   { key: '{{horario_inicio}}', desc: 'HH:MM do 1º dia' },
   { key: '{{grupo_whatsapp}}', desc: 'CTA + link do grupo WhatsApp' },
+  { key: '{{link_reuniao}}',   desc: 'CTA + link da reunião (Zoom/Meet) — cursos online' },
   { key: '{{cs_nome}}',        desc: 'Nome do CS' },
 ] as const;
 
@@ -53,10 +54,14 @@ export function buildCronogramaText(days: TurmaDay[], turmaLabel: string): strin
 export function interpolateTemplate(template: string, vars: {
   nome: string; curso: string; turma_label: string; instrutor: string;
   local: string; cronograma: string; duracao: string; data_inicio: string;
-  data_fim: string; horario_inicio: string; grupo_whatsapp: string; cs_nome: string;
+  data_fim: string; horario_inicio: string; grupo_whatsapp: string;
+  link_reuniao?: string; cs_nome: string;
 }): string {
   const grupoLine = vars.grupo_whatsapp
     ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${vars.grupo_whatsapp}`
+    : '';
+  const reuniaoLine = vars.link_reuniao
+    ? `💻 *Link da reunião (aula online):*\n👉 ${vars.link_reuniao}`
     : '';
   const fmt = (d: string) => d ? d.split('-').reverse().join('/') : '';
   return template
@@ -71,6 +76,7 @@ export function interpolateTemplate(template: string, vars: {
     .replace(/\{\{data_fim\}\}/g,       fmt(vars.data_fim))
     .replace(/\{\{horario_inicio\}\}/g, vars.horario_inicio)
     .replace(/\{\{grupo_whatsapp\}\}/g, grupoLine)
+    .replace(/\{\{link_reuniao\}\}/g,   reuniaoLine)
     .replace(/\{\{cs_nome\}\}/g,        vars.cs_nome)
     .replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -90,6 +96,7 @@ export function buildTemplateVars(
     data_inicio: first?.date || '', data_fim: last?.date || '',
     horario_inicio: t(first?.start_time),
     grupo_whatsapp: turma.whatsapp_group_link || course.whatsapp_group_link || '',
+    link_reuniao: (course as any).meeting_link || '',
     cs_nome: csName,
   };
 }
