@@ -1,290 +1,102 @@
-import { useState, useEffect, useRef } from "react";
-import { getArticleUrl } from "@/utils/knowledgeUrls";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Header } from "@/components/Header";
-import { KnowledgeCategoryPills } from "@/components/KnowledgeCategoryPills";
-import { KnowledgeSidebar } from "@/components/KnowledgeSidebar";
-import { KnowledgeContentViewer } from "@/components/KnowledgeContentViewer";
-import { KnowledgeSEOHead } from "@/components/KnowledgeSEOHead";
-import { KnowledgeFeed } from "@/components/KnowledgeFeed";
-import { useKnowledge } from "@/hooks/useKnowledge";
-import { useKnowledgeSearch } from "@/hooks/useKnowledgeSearch";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MessageCircle, ArrowLeft, Search } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Header } from '@/components/Header';
+import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
+import { KnowledgeContentViewer } from '@/components/KnowledgeContentViewer';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useKnowledge } from '@/hooks/useKnowledge';
+import KbTabSwitcher, { KbTab } from '@/components/knowledge/KbTabSwitcher';
+import KbTabParametros from '@/components/knowledge/KbTabParametros';
+import KbTabVideos from '@/components/knowledge/KbTabVideos';
+import KbTabArtigos from '@/components/knowledge/KbTabArtigos';
+import KbTabCatalogo from '@/components/knowledge/KbTabCatalogo';
+import { kbStyles } from '@/components/knowledge/kbStyles';
 
-interface KnowledgeBaseProps {
-  lang?: 'pt' | 'en' | 'es';
+interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es' }
+
+const LETTER_TO_TAB: Record<string, KbTab> = {
+  a: 'videos', e: 'videos',
+  b: 'artigos', c: 'artigos', d: 'artigos', f: 'artigos',
+  g: 'catalogo',
+};
+
+function getInitialTab(letter?: string): KbTab {
+  const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
+  if (fromUrl && ['parametros','videos','artigos','catalogo'].includes(fromUrl)) return fromUrl;
+  if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
+  return 'parametros';
 }
 
 export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
   const { categoryLetter, contentSlug } = useParams();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  const contentRef = useRef<HTMLDivElement>(null);
-  const { t, language, setLanguage } = useLanguage();
+  const { setLanguage } = useLanguage();
+  const { fetchContentBySlug } = useKnowledge();
 
-  // Set language from route on mount
+  useEffect(() => { setLanguage(lang); }, [lang, setLanguage]);
+
+  const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter));
+  const [dialogContent, setDialogContent] = useState<any>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Update URL when tab changes (no reload)
   useEffect(() => {
-    setLanguage(lang);
-  }, [lang, setLanguage]);
-
-  const [categories, setCategories] = useState<any[]>([]);
-  const [contents, setContents] = useState<any[]>([]);
-  const [selectedContent, setSelectedContent] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const { 
-    fetchCategories, 
-    fetchContentsByCategory, 
-    fetchContentBySlug,
-    loading
-  } = useKnowledge();
-
-  const { results: searchResults, loading: searchLoading } = useKnowledgeSearch(searchTerm, language);
-
-  // Load categories (filter out disabled ones like Category F)
-  useEffect(() => {
-    const load = async () => {
-      const cats = await fetchCategories();
-      // Filter out disabled categories (Category F is hidden but accessible via direct URL)
-      setCategories(cats.filter(c => c.enabled));
-    };
-    load();
-  }, []);
-
-  // Load contents when category changes, prioritize by video + hero image
-  useEffect(() => {
-    if (categoryLetter) {
-      const load = async () => {
-        const data = await fetchContentsByCategory(categoryLetter);
-        
-        // Fetch which contents have videos
-        const contentIds = data.map((c: any) => c.id);
-        let videoContentIds = new Set<string>();
-        if (contentIds.length > 0) {
-          const { data: videoData } = await (await import('@/integrations/supabase/client')).supabase
-            .from('knowledge_videos')
-            .select('content_id')
-            .in('content_id', contentIds);
-          if (videoData) {
-            videoContentIds = new Set(videoData.map((v: any) => v.content_id));
-          }
-        }
-
-        // Add hasVideo flag and sort by priority
-        const enriched = data.map((c: any) => ({
-          ...c,
-          hasVideo: videoContentIds.has(c.id),
-        }));
-        
-        enriched.sort((a: any, b: any) => {
-          const scoreA = (a.hasVideo ? 2 : 0) + (a.content_image_url ? 1 : 0);
-          const scoreB = (b.hasVideo ? 2 : 0) + (b.content_image_url ? 1 : 0);
-          return scoreB - scoreA;
-        });
-
-        setContents(enriched);
-      };
-      load();
-    } else {
-      setContents([]);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') !== tab) {
+      params.set('tab', tab);
+      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
     }
-  }, [categoryLetter]);
+  }, [tab]);
 
-  // Load specific content by slug
+  // Deep-link to article: open dialog
   useEffect(() => {
+    if (!contentSlug) { setDialogOpen(false); setDialogContent(null); return; }
+    (async () => {
+      const data = await fetchContentBySlug(contentSlug);
+      if (data) {
+        setDialogContent(data);
+        setDialogOpen(true);
+      }
+    })();
+  }, [contentSlug]);
+
+  const openArticle = async (slug: string) => {
+    const data = await fetchContentBySlug(slug);
+    if (data) { setDialogContent(data); setDialogOpen(true); }
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setDialogContent(null);
     if (contentSlug) {
-      const load = async () => {
-        const data = await fetchContentBySlug(contentSlug);
-        if (data) {
-          const realLetter = (data.knowledge_categories as any)?.letter?.toLowerCase() 
-            || (data as any).category?.letter?.toLowerCase();
-          if (realLetter && categoryLetter && realLetter !== categoryLetter.toLowerCase()) {
-            const correctUrl = getArticleUrl(data, lang);
-            navigate(correctUrl, { replace: true });
-            return;
-          }
-        }
-        setSelectedContent(data);
-      };
-      load();
-    } else {
-      setSelectedContent(null);
-    }
-  }, [contentSlug, categoryLetter, lang, navigate]);
-
-  // Auto-scroll to content on mobile
-  useEffect(() => {
-    if (selectedContent && isMobile && contentRef.current) {
-      setTimeout(() => {
-        contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 300);
-    }
-  }, [selectedContent, isMobile]);
-
-  const handleCategorySelect = (letter: string) => {
-    // Category G redirects to dedicated support-resources page
-    if (letter.toUpperCase() === 'G') {
-      navigate('/support-resources');
-      return;
-    }
-    const basePath = lang === 'en' ? '/en/knowledge-base' : lang === 'es' ? '/es/base-conocimiento' : '/base-conhecimento';
-    navigate(`${basePath}/${letter.toLowerCase()}`);
-  };
-
-  const handleContentSelect = (slug: string) => {
-    const basePath = lang === 'en' ? '/en/knowledge-base' : lang === 'es' ? '/es/base-conocimiento' : '/base-conhecimento';
-    navigate(`${basePath}/${categoryLetter}/${slug}`);
-  };
-
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && searchTerm.trim().length >= 2) {
-      window.dispatchEvent(
-        new CustomEvent('dra-lia:ask', { detail: { query: searchTerm } })
-      );
-      setSearchTerm('');
+      const basePath = lang === 'en' ? '/en/knowledge-base'
+        : lang === 'es' ? '/es/base-conocimiento'
+        : '/base-conhecimento';
+      navigate(`${basePath}?tab=${tab}`, { replace: true });
     }
   };
-
-  const filteredContents = searchTerm && searchResults.length > 0
-    ? searchResults.filter(r => 
-        categoryLetter ? r.category_letter === categoryLetter.toUpperCase() : true
-      )
-    : contents;
-
-  if (loading && categories.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-foreground">{t('common.loading')}</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <KnowledgeSEOHead 
-        content={selectedContent}
-        category={categories.find(c => c.letter === categoryLetter?.toUpperCase())}
-        currentLang={lang}
-      />
-      
+    <div className="min-h-screen" style={{ background: '#EEF1F6' }}>
+      <style>{kbStyles}</style>
+      {dialogContent && (
+        <KnowledgeSEOHead content={dialogContent} category={dialogContent?.knowledge_categories} currentLang={lang} />
+      )}
       <Header showAdminButton={true} />
-      
-      <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {t('knowledge.title')}
-          </h1>
-          <p className="text-lg text-muted-foreground mb-6">
-            {t('knowledge.subtitle')}
-          </p>
-          
-          {/* Search Field */}
-          <div className="max-w-2xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input 
-                placeholder={t('knowledge.search_placeholder')}
-                className="pl-10 bg-card border-border h-12 text-base"
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-              />
-            </div>
-            {searchTerm.trim().length >= 2 && (
-              <div className="text-xs text-muted-foreground mt-2 text-center">
-                Pressione <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-xs">Enter</kbd> para perguntar à Dra. L.I.A. 🦷
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Category Pills */}
-        <div className="mb-8">
-          <KnowledgeCategoryPills
-            categories={categories}
-            selectedCategory={categoryLetter?.toUpperCase()}
-            onCategorySelect={handleCategorySelect}
-          />
-        </div>
-
-        {/* Two Column Layout */}
-        {categoryLetter && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Left Sidebar - Articles */}
-            <div className="lg:col-span-1 lg:sticky lg:top-4 lg:self-start">
-              <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  {t('knowledge.content')}
-                </h3>
-                <KnowledgeSidebar 
-                  contents={filteredContents}
-                  selectedSlug={contentSlug}
-                  onContentSelect={handleContentSelect}
-                />
-              </div>
-            </div>
-
-            {/* Right Content - Article Viewer */}
-            <div className="lg:col-span-3">
-              <div ref={contentRef}>
-                {selectedContent ? (
-                  <KnowledgeContentViewer content={selectedContent} />
-                ) : (
-                  <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
-                    <h2 className="text-xl font-semibold text-foreground mb-2">
-                      {t('knowledge.select_content')}
-                    </h2>
-                    <p className="text-muted-foreground">
-                      {t('knowledge.select_content_description')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Knowledge Feed - Always visible */}
-        <KnowledgeFeed />
-
-        {/* Help Section */}
-        <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">
-            {t('help.need_help') || 'Precisa de Ajuda?'}
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {t('help.help_description') || 'Nossa equipe está pronta para ajudar você'}
-          </p>
-          <Button 
-            variant="accent"
-            onClick={() => window.open("https://api.whatsapp.com/send/?phone=551634194735", "_blank")}
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            {t('help.whatsapp_button') || 'Falar no WhatsApp'}
-          </Button>
-        </div>
+      <main className="kb-root">
+        <KbTabSwitcher active={tab} onChange={setTab} />
+        {tab === 'parametros' && <KbTabParametros />}
+        {tab === 'videos' && <KbTabVideos onOpen={openArticle} />}
+        {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
+        {tab === 'catalogo' && <KbTabCatalogo />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-gradient-surface mt-16">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-muted-foreground">
-            <p>{t('footer.copyright') || '© 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D.'}</p>
-          </div>
-        </div>
-      </footer>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          {dialogContent && <KnowledgeContentViewer content={dialogContent} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
