@@ -1,0 +1,1 @@
+UPDATE public.ai_model_routing SET max_tokens = 16000 WHERE task_type = 'content_seo';
