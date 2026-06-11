@@ -202,6 +202,14 @@
       ]
     },
     {
+      "source": "/(rss\\.xml|feed|feed\\.xml)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=1800" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
       "source": "/agenda",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
