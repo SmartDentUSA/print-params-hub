@@ -15933,6 +15933,8 @@ export type Database = {
           recurrence_time_start: string | null
           recurrence_type: string | null
           recurrence_until: string | null
+          related_product_ids: string[]
+          related_product_names: string[]
           sellflux_campaign_tag: string | null
           slug: string
           stage_after_enroll: string
@@ -15966,6 +15968,8 @@ export type Database = {
           recurrence_time_start?: string | null
           recurrence_type?: string | null
           recurrence_until?: string | null
+          related_product_ids?: string[]
+          related_product_names?: string[]
           sellflux_campaign_tag?: string | null
           slug: string
           stage_after_enroll?: string
@@ -15999,6 +16003,8 @@ export type Database = {
           recurrence_time_start?: string | null
           recurrence_type?: string | null
           recurrence_until?: string | null
+          related_product_ids?: string[]
+          related_product_names?: string[]
           sellflux_campaign_tag?: string | null
           slug?: string
           stage_after_enroll?: string
@@ -23549,6 +23555,7 @@ export type Database = {
       v_turmas_com_vagas: {
         Row: {
           active: boolean | null
+          category: string | null
           course_id: string | null
           course_title: string | null
           course_whatsapp_group_link: string | null
@@ -23569,6 +23576,8 @@ export type Database = {
           recurrence_parent_id: string | null
           recurrence_type: string | null
           recurrence_until: string | null
+          related_product_ids: string[] | null
+          related_product_names: string[] | null
           sellflux_tag: string | null
           slots: number | null
           sort_order: number | null
