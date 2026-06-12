@@ -392,7 +392,7 @@ export default function KbTabCatalogo() {
                     alt={p.name}
                     loading="lazy"
                     className="kb-cthumb"
-                    style={{ cursor: primaryUrl ? 'pointer' : 'default', objectFit: 'contain', background: '#FFFFFF' }}
+                    style={{ cursor: primaryUrl ? 'pointer' : 'default', objectFit: 'contain', background: '#F6F8FB' }}
                     onClick={() => open(primaryUrl)}
                   />
                 ) : (
