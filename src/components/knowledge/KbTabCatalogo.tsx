@@ -360,11 +360,19 @@ export default function KbTabCatalogo() {
                   kind: (x.kind === 'GUIA' ? 'GUIA' : x.kind === 'PERFIL' ? 'PERFIL' : 'DOC') as ResinDocItem['kind'],
                 })),
             ];
-            // Dedup SKU presentations by label+price; suffix "g" when label is purely numeric
+            // Dedup SKU presentations by label + print_type + prints_per_bottle
             const presDeduped: ResinPresentation[] = Array.from(
-              new Map(rPres.map((pr) => [`${pr.label}|${pr.price}`, pr])).values()
+              new Map(
+                rPres.map((pr) => [`${pr.label}|${pr.print_type || ''}|${pr.prints_per_bottle ?? ''}`, pr])
+              ).values()
             );
-            const formatPresLabel = (label: string) => /^\d+$/.test(label.trim()) ? `${label.trim()}g` : label;
+            const formatPresChip = (pr: ResinPresentation): string => {
+              const parts: string[] = [];
+              if (pr.label) parts.push(/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label);
+              if (pr.print_type) parts.push(pr.print_type);
+              if (pr.prints_per_bottle && pr.prints_per_bottle > 0) parts.push(`${pr.prints_per_bottle} imp/frasco`);
+              return parts.join(' · ');
+            };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -453,7 +461,7 @@ export default function KbTabCatalogo() {
                               background: 'transparent',
                             }}
                           >
-                            {formatPresLabel(pr.label)}{pr.price != null ? ` — ${formatBRL(pr.price)}` : ''}
+                            {formatPresChip(pr)}
                           </span>
                         ))}
                         {presDeduped.length > 3 && (
