@@ -310,6 +310,7 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   const type = (node.data as any).nodeType;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [socialPickerOpen, setSocialPickerOpen] = useState(false);
+  const [imageLibOpen, setImageLibOpen] = useState(false);
 
   const handleLink = (l: LinkPickerSelection) => {
     const prefix = cfg.message ? cfg.message.trimEnd() + '\n\n' : '';
