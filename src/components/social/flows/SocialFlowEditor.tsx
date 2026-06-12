@@ -228,10 +228,27 @@ export function SocialFlowEditor() {
 
           {selectedNode && (
             <aside className="w-72 border-l border-border p-3 overflow-y-auto bg-card">
-              <div className="flex items-center justify-between mb-3">
-                <Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge>
+              {hasZernioConfig && (
+                <div className="mb-3 p-2 rounded-md border border-green-500/30 bg-green-500/10 text-xs space-y-1">
+                  <div className="font-medium text-green-700 dark:text-green-400">
+                    ⚡ Automação Zernio ativa
+                  </div>
+                  {zernioAutomationId && (
+                    <div className="text-muted-foreground truncate">ID: <span className="font-mono">{zernioAutomationId}</span></div>
+                  )}
+                  <ZernioStatsButton automationId={zernioAutomationId} />
+                </div>
+              )}
+              <div className="flex items-start justify-between mb-1 gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate" title={(selectedNode.data as any).label}>
+                    {(selectedNode.data as any).label ?? 'Nó'}
+                  </div>
+                  <div className="text-[10px] font-mono text-muted-foreground truncate">{selectedNode.id}</div>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => deleteNode(selectedNode.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
+              <div className="mb-3"><Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge></div>
               <NodeInspector
                 node={selectedNode}
                 onUpdate={(p) => updateNodeConfig(selectedNode.id, p)}
