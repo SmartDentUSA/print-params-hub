@@ -443,36 +443,34 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
 
-      {isOnline && products && products.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1">
-          {products.slice(0, 4).map((name) => (
-            <span
-              key={name}
-              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
-              title={name}
-            >
-              {name}
-            </span>
-          ))}
-          {products.length > 4 && (
-            <span className="text-[10.5px] text-muted-foreground self-center">
-              +{products.length - 4}
+      <div className="flex items-end justify-between gap-3 pt-3 border-t mt-auto">
+        <div className="flex flex-col gap-1.5 min-w-0">
+          {isOnline && products && products.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {products.slice(0, 4).map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
+                  title={name}
+                >
+                  {name}
+                </span>
+              ))}
+              {products.length > 4 && (
+                <span className="text-[10.5px] text-muted-foreground self-center">
+                  +{products.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+          {turma.instructor_name && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+              <User className="w-3 h-3 shrink-0" />
+              {turma.instructor_name}
             </span>
           )}
         </div>
-      )}
-
-      <div className="flex items-center justify-between gap-3 pt-3 border-t mt-auto">
-        <Metric label="Vagas" value={turma.slots} />
-        {turma.instructor_name && (
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instrutor</div>
-            <div className="flex items-center justify-end gap-1.5 text-sm font-medium text-foreground truncate">
-              <User className="w-3.5 h-3.5 shrink-0" />
-              {turma.instructor_name}
-            </div>
-          </div>
-        )}
+        <Metric label="Vagas" value={turma.slots} valueClassName="text-right" labelClassName="text-right" />
       </div>
 
       {(turma as any).signup_form_url && (
