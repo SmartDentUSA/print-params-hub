@@ -655,6 +655,7 @@ function ShareButton({ turma }: { turma: TurmaComVagas }) {
       cronograma = `📅 ${formatDatePtBr(turma.start_date)} (${formatWeekday(turma.start_date)})${horario ? `\n⏰ ${horario}` : ""}`;
     }
 
+    const isPresencial = turma.modality === "presencial";
     const lines = [
       "Opção de treinamento, aqui estão os detalhes:",
       "",
@@ -664,13 +665,20 @@ function ShareButton({ turma }: { turma: TurmaComVagas }) {
       `📍 ${local}`,
       "",
       cronograma,
-      "",
-      `Inscreva-se: ${url}`,
-    ].filter((l) => l !== undefined);
+      ...(isPresencial ? [] : ["", `Inscreva-se: ${url}`]),
+    ];
 
     const message = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-    const text = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+
+    const openFallback = () => {
+      const text = encodeURIComponent(message);
+      window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank", "noopener,noreferrer");
+    };
+    if (typeof navigator !== "undefined" && typeof (navigator as any).share === "function") {
+      (navigator as any).share({ text: message }).catch(() => openFallback());
+    } else {
+      openFallback();
+    }
   };
   return (
     <button
