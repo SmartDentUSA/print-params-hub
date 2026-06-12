@@ -1,14 +1,28 @@
-# Ajustes finais do card da agenda
 
-## Mudanças em `src/pages/AgendaPublica.tsx` (`PublicTurmaCard`)
+## Reorganizar rodapé do `PublicTurmaCard` (`src/pages/AgendaPublica.tsx`)
 
-1. **Remover o cronômetro duplicado** — apagar a renderização do `<LiveCountdown />` (o digital "3d 09:08:07"). Manter apenas o status pill verde com tempo aproximado ("3d 9h 8m"), que já indica a contagem regressiva.
+Hoje a tag de produto, Vagas e Instrutor estão em três blocos empilhados. O usuário quer duas colunas: produto + instrutor à esquerda, Vagas à direita.
 
-2. **Remover a métrica "Ocupação"** no rodapé do card.
-   - Mudar o grid de `grid-cols-3` para `grid-cols-2`.
-   - Deixar apenas **Vagas** e **Inscritos**.
-   - Remover variáveis não usadas (`pct`, `pctColor`, cálculo de ocupação) se ficarem órfãs.
+### Mudanças
 
-## Fora de escopo
-- Não tocar no layout do header (LIVE / Turma) já aprovado.
-- Não alterar TurmaCard do admin (`src/components/smartops/TurmaCard.tsx`) — esse continua com ocupação para uso interno.
+1. Unir os blocos atuais (tags de produto, métrica Vagas e linha do instrutor) em **um único container `flex justify-between`**.
+2. **Coluna esquerda**:
+   - Linha 1: tag(s) de produto (`ioConnect TruAbutment`, etc.) — mantém o estilo atual.
+   - Linha 2 (logo abaixo): nome do instrutor com ícone `User`, texto pequeno em `text-muted-foreground`.
+3. **Coluna direita**: bloco "VAGAS" + número grande (mesmo estilo), alinhado à direita, centralizado verticalmente com a coluna esquerda.
+4. Remover o bloco separado do instrutor (`mt-3 pt-3 border-t` com User + nome) que ficava abaixo do rodapé.
+5. Manter o botão **Inscreva-se** abaixo, largura total.
+6. Para turmas presenciais (sem tags de produto), a coluna esquerda mostra só o instrutor; Vagas continua à direita.
+
+### Resultado visual
+
+```text
+[ ioConnect TruAbutment ]              VAGAS
+ 👤 Danilo Coutigi                       20
+
+           ( INSCREVA-SE )
+```
+
+### Fora de escopo
+- Header (LIVE / Turma), capa, status pill, datas e editor do curso não mudam.
+- `TurmaCard` admin e `CourseCard` interno não são tocados.
