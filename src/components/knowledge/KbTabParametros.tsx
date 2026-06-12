@@ -30,6 +30,8 @@ export default function KbTabParametros() {
   const [loadingParams, setLoadingParams] = useState(false);
   const [sheet, setSheet] = useState<{ name: string; modelSlug: string | null } | null>(null);
   const paramAreaRef = useRef<HTMLDivElement | null>(null);
+  const initialBrandSet = useRef(false);
+  const initialModelSet = useRef(false);
 
   // Load brands
   useEffect(() => {
@@ -39,7 +41,15 @@ export default function KbTabParametros() {
         .select('id,name,slug')
         .eq('active', true)
         .order('name');
-      setBrands((data || []) as Brand[]);
+      const list = (data || []) as Brand[];
+      setBrands(list);
+      if (!initialBrandSet.current) {
+        const elegoo = list.find((b) => b.slug === 'elegoo' || b.name?.toLowerCase() === 'elegoo');
+        if (elegoo) {
+          setBrand(elegoo);
+          initialBrandSet.current = true;
+        }
+      }
     })();
   }, []);
 
