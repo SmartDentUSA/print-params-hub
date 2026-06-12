@@ -336,6 +336,142 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   };
 
   switch (type) {
+    case 'trigger':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Keywords (separadas por vírgula)</Label>
+            <Input
+              value={Array.isArray(cfg.keywords) ? cfg.keywords.join(', ') : (cfg.keywords ?? '')}
+              onChange={(e) => onUpdate({ keywords: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+              placeholder="brasil, copa, gol"
+            />
+            {Array.isArray(cfg.keywords) && cfg.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {cfg.keywords.map((k: string, i: number) => (
+                  <Badge key={i} variant="secondary" className="text-[10px]">{k}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Label className="text-xs">Descrição</Label>
+            <Textarea rows={3} value={cfg.description ?? ''} onChange={(e) => onUpdate({ description: e.target.value })} />
+          </div>
+        </div>
+      );
+    case 'comment_reply':
+      return (
+        <div>
+          <Label className="text-xs">Texto público (resposta no comentário)</Label>
+          <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+        </div>
+      );
+    case 'send_image':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">URL da imagem</Label>
+            <Input value={cfg.image_url ?? ''} onChange={(e) => onUpdate({ image_url: e.target.value })} placeholder="https://…" />
+            <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setImageLibOpen(true)}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Abrir biblioteca
+            </Button>
+          </div>
+          {cfg.image_url && (
+            <img src={cfg.image_url} alt="" className="w-full max-h-32 object-contain rounded border border-border bg-muted/30" />
+          )}
+          <div>
+            <Label className="text-xs">Legenda</Label>
+            <Textarea rows={3} value={cfg.caption ?? ''} onChange={(e) => onUpdate({ caption: e.target.value })} />
+          </div>
+          <ImageLibraryDialog
+            open={imageLibOpen}
+            onOpenChange={setImageLibOpen}
+            produtoSlug={produtoSlug}
+            onPick={(url) => { onUpdate({ image_url: url }); setImageLibOpen(false); }}
+          />
+        </div>
+      );
+    case 'send_text':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={6} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} placeholder="Olá {{nome}}…" />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {['{{nome}}', '{{username}}'].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted hover:bg-accent"
+                  onClick={() => onUpdate({ text: (cfg.text ?? '') + ' ' + v })}
+                >{v}</button>
+              ))}
+            </div>
+          </div>
+          <ButtonsEditor
+            buttons={Array.isArray(cfg.buttons) ? cfg.buttons : []}
+            onChange={(b) => onUpdate({ buttons: b })}
+            max={3}
+            simple
+          />
+        </div>
+      );
+    case 'send_quick_replies':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+          </div>
+          <QuickRepliesEditor
+            items={Array.isArray(cfg.quick_replies) ? cfg.quick_replies : []}
+            onChange={(q) => onUpdate({ quick_replies: q })}
+          />
+        </div>
+      );
+    case 'add_tag':
+      return (
+        <div>
+          <Label className="text-xs">Tag</Label>
+          <Input value={cfg.tag ?? ''} onChange={(e) => onUpdate({ tag: e.target.value })} />
+        </div>
+      );
+    case 'set_field':
+      return (
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs">Nome do campo</Label>
+            <Input value={cfg.field_name ?? ''} onChange={(e) => onUpdate({ field_name: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs">Valor do campo</Label>
+            <Input value={cfg.field_value ?? ''} onChange={(e) => onUpdate({ field_value: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs">Campo no CRM</Label>
+            <Input value={cfg.crm_field ?? ''} onChange={(e) => onUpdate({ crm_field: e.target.value })} />
+          </div>
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={!!cfg.sync_to_crm} onCheckedChange={(v) => onUpdate({ sync_to_crm: !!v })} />
+            Sincronizar com CRM
+          </label>
+        </div>
+      );
+    case 'send_buttons':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+          </div>
+          <ButtonsEditor
+            buttons={Array.isArray(cfg.buttons) ? cfg.buttons : []}
+            onChange={(b) => onUpdate({ buttons: b })}
+            max={3}
+          />
+        </div>
+      );
     case 'send_dm':
     case 'send_comment_reply':
       return (
@@ -362,24 +498,20 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
       );
     case 'wait':
       return (
-        <div><Label className="text-xs">Aguardar (segundos)</Label>
-          <Input type="number" value={cfg.seconds ?? 60} onChange={(e) => onUpdate({ seconds: Number(e.target.value) })} /></div>
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs">Segundos</Label>
+            <Input type="number" value={cfg.delay_seconds ?? cfg.seconds ?? 0} onChange={(e) => onUpdate({ delay_seconds: Number(e.target.value) })} />
+          </div>
+          <div>
+            <Label className="text-xs">Minutos</Label>
+            <Input type="number" value={cfg.delay_minutes ?? 0} onChange={(e) => onUpdate({ delay_minutes: Number(e.target.value) })} />
+          </div>
+        </div>
       );
     case 'condition':
       return (
-        <div className="space-y-2">
-          <div><Label className="text-xs">Variável</Label><Input value={cfg.field ?? ''} onChange={(e) => onUpdate({ field: e.target.value })} placeholder="state.last_reply" /></div>
-          <div><Label className="text-xs">Operador</Label>
-            <Select value={cfg.op ?? 'contains'} onValueChange={(v) => onUpdate({ op: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="contains">contém</SelectItem>
-                <SelectItem value="equals">igual</SelectItem>
-                <SelectItem value="regex">regex</SelectItem>
-              </SelectContent>
-            </Select></div>
-          <div><Label className="text-xs">Valor</Label><Input value={cfg.value ?? ''} onChange={(e) => onUpdate({ value: e.target.value })} /></div>
-        </div>
+        <ConditionEditor cfg={cfg} onUpdate={onUpdate} />
       );
     case 'collect_input':
       return (
