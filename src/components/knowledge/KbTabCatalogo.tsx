@@ -7,6 +7,7 @@ import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import { CATALOG_COLORS } from './kbCategoryColors';
+import KbResinSheetDialog from './KbResinSheetDialog';
 
 // Normalize raw product_category values (mixed casing/variants) to canonical buckets
 const CAT_ALIASES: Record<string, string> = {
@@ -68,10 +69,11 @@ const normCat = (v: string | null): string | null => {
 export default function KbTabCatalogo() {
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
-  const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
+  const [resins, setResins] = useState<Map<string, ResinInfo & { name: string }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
+  const [sheetResin, setSheetResin] = useState<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -111,9 +113,9 @@ export default function KbTabCatalogo() {
           spec_sheet_url: p.spec_sheet_url,
         });
       });
-      const resinMap = new Map<string, ResinInfo>();
+      const resinMap = new Map<string, ResinInfo & { name: string }>();
       (rs || []).forEach((r: any) => {
-        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), { slug: r.slug });
+        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), { slug: r.slug, name: r.name });
       });
       setResins(resinMap);
       setDocs(docMap);
@@ -155,13 +157,11 @@ export default function KbTabCatalogo() {
               : null;
             const d = docs.get(p.name.toLowerCase().trim());
             const resin = resins.get(p.name.toLowerCase().trim());
-            const parametrizacaoUrl = resin
-              ? `https://parametros.smartdent.com.br/base-conhecimento/f/${resin.slug}`
-              : null;
+            const hasParametrizacao = !!resin;
             const lojaUrl = p.cta_1_url || null;
             const fdsUrl = d?.datasheet_url || d?.spec_sheet_url || null;
             const ifuUrl = d?.manual_url || null;
-            const primaryUrl = lojaUrl || fdsUrl || ifuUrl || parametrizacaoUrl;
+            const primaryUrl = lojaUrl || fdsUrl || ifuUrl || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
@@ -224,12 +224,12 @@ export default function KbTabCatalogo() {
                       )}
                     </div>
                   )}
-                  {parametrizacaoUrl && (
+                  {hasParametrizacao && (
                     <div style={{ marginTop: 6 }}>
                       <button
                         type="button"
                         className="kb-action-btn"
-                        onClick={() => open(parametrizacaoUrl)}
+                        onClick={() => setSheetResin(resin!.name)}
                         style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                         title="Abrir ficha completa de parâmetros"
                       >
@@ -246,6 +246,11 @@ export default function KbTabCatalogo() {
           })
         )}
       </div>
+      <KbResinSheetDialog
+        open={!!sheetResin}
+        onClose={() => setSheetResin(null)}
+        resinName={sheetResin}
+      />
     </section>
   );
 }
