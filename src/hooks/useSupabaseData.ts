@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealParameterSet } from '@/data/realData';
 
+// Brands excluded from the parameters page
+const EXCLUDED_BRAND_SLUGS = ['asiga'];
+
+function filterExcludedBrands<T extends { slug?: string; brand_slug?: string }>(items: T[]): T[] {
+  return (items || []).filter(item =>
+    !EXCLUDED_BRAND_SLUGS.includes((item.slug || item.brand_slug || '').toLowerCase())
+  );
+}
+
+function filterExcludedBrandSlug(slug: string): boolean {
+  return !EXCLUDED_BRAND_SLUGS.includes(slug.toLowerCase());
+}
+
+
 export interface Brand {
   id: string;
   name: string;
