@@ -470,7 +470,9 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             </span>
           )}
         </div>
-        <Metric label="Vagas" value={turma.slots} valueClassName="text-right" labelClassName="text-right" />
+        <div className="text-right shrink-0">
+          <Metric label="Vagas" value={turma.slots} />
+        </div>
       </div>
 
       {(turma as any).signup_form_url && (
