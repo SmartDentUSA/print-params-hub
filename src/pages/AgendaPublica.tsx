@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarDays, MapPin, User, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
-import { formatDatePtBr } from "@/lib/courseUtils";
+import { formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
@@ -626,19 +626,50 @@ function LiveBadge({ modality, className }: { modality?: string; className?: str
 
 function ShareButton({ turma }: { turma: TurmaComVagas }) {
   const handleShare = () => {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/agenda/online?turma=${turma.id}` : "";
-    const dateLabel = turma.start_date
-      ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${turma.start_date}T12:00:00`))
-      : "Em breve";
-    const st = turma.start_time ? turma.start_time.substring(0, 5) : "";
-    const et = turma.end_time ? turma.end_time.substring(0, 5) : "";
-    const horario = st && et ? `${st}–${et}` : st || "";
+    const PUBLIC_BASE = "https://parametros.smartdent.com.br";
+    const path = turma.modality === "presencial" ? "/agenda" : "/agenda/online";
+    const url = `${PUBLIC_BASE}${path}?turma=${turma.id}`;
+
+    const curso = turma.course_title || "Curso Smart Dent";
+    const turmaLabel = turma.label || "";
+    const instrutor = turma.instructor_name?.trim() || "";
+    const local =
+      turma.modality === "presencial"
+        ? (turma.location?.trim() || "Local a definir")
+        : turma.modality === "online_ao_vivo"
+          ? "Online ao vivo"
+          : "Online";
+
+    const t = (s?: string | null) => (s ? s.substring(0, 5) : "");
+    const days = Array.isArray(turma.days) ? [...turma.days].sort((a, b) => a.day_number - b.day_number) : [];
+    let cronograma = "";
+    if (days.length === 1) {
+      const d = days[0];
+      cronograma = `📅 ${formatDatePtBr(d.date)} (${formatWeekday(d.date)})\n⏰ ${t(d.start_time)}–${t(d.end_time)}`;
+    } else if (days.length > 1) {
+      cronograma = days
+        .map((d, i) => `📅 Dia ${i + 1} — ${formatDatePtBr(d.date)} (${formatWeekday(d.date)}) | ${t(d.start_time)}–${t(d.end_time)}`)
+        .join("\n");
+    } else if (turma.start_date) {
+      const horario = t(turma.start_time) && t(turma.end_time) ? `${t(turma.start_time)}–${t(turma.end_time)}` : "";
+      cronograma = `📅 ${formatDatePtBr(turma.start_date)} (${formatWeekday(turma.start_date)})${horario ? `\n⏰ ${horario}` : ""}`;
+    }
+
     const lines = [
-      `*${turma.course_title || "Curso Smart Dent"}*`,
-      `📅 ${dateLabel}${horario ? ` · ⏰ ${horario}` : ""}`,
+      "Opção de treinamento, aqui estão os detalhes:",
+      "",
+      `📚 *${curso}*`,
+      turmaLabel ? `🏷 Turma: *${turmaLabel}*` : "",
+      instrutor ? `👨‍🏫 Instrutor: ${instrutor}` : "",
+      `📍 ${local}`,
+      "",
+      cronograma,
+      "",
       `Inscreva-se: ${url}`,
-    ];
-    const text = encodeURIComponent(lines.join("\n"));
+    ].filter((l) => l !== undefined);
+
+    const message = lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    const text = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   };
   return (
