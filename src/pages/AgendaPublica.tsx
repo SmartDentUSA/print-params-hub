@@ -426,7 +426,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
-        {status && status.variant !== "muted" ? (
+        {status && isOnline && status.variant !== "muted" ? (
           <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[status.variant])} />
             <LiveCountdownInline startDate={turma.start_date} startTime={turma.start_time} fallback={status.label} />
@@ -469,49 +469,69 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
 
-      <div className="flex items-end justify-between gap-3 pt-3 border-t mt-auto">
-        <div className="flex flex-col gap-1.5 min-w-0">
-          {products && products.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {products.slice(0, 4).map((name) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
-                  title={name}
-                >
-                  {name}
-                </span>
-              ))}
-              {products.length > 4 && (
-                <span className="text-[10.5px] text-muted-foreground self-center">
-                  +{products.length - 4}
+      {isOnline ? (
+        <>
+          <div className="flex items-end justify-between gap-3 pt-3 border-t mt-auto">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              {products && products.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {products.slice(0, 4).map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
+                      title={name}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {products.length > 4 && (
+                    <span className="text-[10.5px] text-muted-foreground self-center">
+                      +{products.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+              {turma.instructor_name && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate">
+                  <User className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  {turma.instructor_name}
                 </span>
               )}
             </div>
-          )}
-          {turma.instructor_name && (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate">
-              <User className="w-4 h-4 shrink-0 text-muted-foreground" />
-              {turma.instructor_name}
-            </span>
-          )}
-        </div>
-        <div className="text-right shrink-0">
-          <Metric label="Vagas" value={turma.slots} />
-        </div>
-      </div>
+            <div className="text-right shrink-0">
+              <Metric label="Vagas" value={turma.slots} />
+            </div>
+          </div>
 
-      {(turma as any).signup_form_url && (
-        <div className="mt-4 flex justify-center">
-          <a
-            href={(turma as any).signup_form_url as string}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
-          >
-            Inscreva-se
-          </a>
-        </div>
+          {(turma as any).signup_form_url && (
+            <div className="mt-4 flex justify-center">
+              <a
+                href={(turma as any).signup_form_url as string}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
+              >
+                Inscreva-se
+              </a>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t mt-auto">
+            <Metric label="Vagas" value={turma.slots} />
+            <Metric label="Inscritos" value={turma.enrolled_count} />
+          </div>
+
+          {turma.instructor_name && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                <User className="w-3 h-3 shrink-0" />
+                {turma.instructor_name}
+              </span>
+            </div>
+          )}
+        </>
       )}
       </div>
     </div>
