@@ -394,6 +394,11 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             loading="lazy"
           />
           {isOnline && <LiveBadge modality={turma.modality} className="absolute top-2 left-2" />}
+          {turmaTag && (
+            <span className="absolute top-2 right-2 inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold bg-white/90 text-primary border border-primary/20 shadow-sm">
+              Turma {turmaTag}
+            </span>
+          )}
         </div>
       )}
       <ShareButton turma={turma} />
@@ -401,7 +406,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
         {status && (
-          <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", STATUS_PILL[status.variant])}>
+          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
             {status.label}
           </span>
@@ -409,8 +414,8 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         {showLiveTimer && (
           <LiveCountdown startDate={turma.start_date} startTime={turma.start_time} />
         )}
-        {turmaTag && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+        {turmaTag && !coverUrl && (
+          <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
             Turma {turmaTag}
           </span>
         )}
@@ -533,12 +538,12 @@ function LiveBadge({ modality, className }: { modality?: string; className?: str
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 pl-1 pr-3 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-sm bg-[#ED1C24] text-white",
+        "inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0 rounded-full text-[9px] font-extrabold uppercase tracking-wider shadow-sm bg-[#ED1C24] text-white",
         className,
       )}
     >
-      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white">
-        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 fill-[#ED1C24]" aria-hidden>
+      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-white">
+        <svg viewBox="0 0 12 12" className="w-2 h-2 fill-[#ED1C24]" aria-hidden>
           <polygon points="3,2 10,6 3,10" />
         </svg>
       </span>
