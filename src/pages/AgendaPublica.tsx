@@ -384,7 +384,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endDateValue = turma.end_date ?? turma.start_date;
 
   return (
-    <div className={cn("relative bg-card border rounded-xl overflow-hidden transition-all hover:shadow-md flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
+    <div className={cn("pp-card relative overflow-hidden flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       {coverUrl && (
         <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
           <img
