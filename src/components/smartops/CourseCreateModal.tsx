@@ -929,6 +929,19 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 )}
               </div>
 
+              <div>
+                <Label>Link do formulário de inscrição</Label>
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  value={signupFormUrl}
+                  onChange={(e) => setSignupFormUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  URL exibida no botão "Inscreva-se" do card público da agenda.
+                </p>
+              </div>
+
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Switch checked={publicVisible} onCheckedChange={setPublicVisible} />
