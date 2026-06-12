@@ -58,7 +58,18 @@ interface DocLinks {
   spec_sheet_url: string | null;
 }
 
-interface ResinInfo { slug: string }
+interface ResinInfo {
+  slug: string;
+  name: string;
+  cta_1_label: string | null;
+  cta_1_url: string | null;
+  cta_2_label: string | null;
+  cta_2_url: string | null;
+  cta_3_label: string | null;
+  cta_3_url: string | null;
+  cta_4_label: string | null;
+  cta_4_url: string | null;
+}
 
 const normCat = (v: string | null): string | null => {
   if (!v) return null;
@@ -69,7 +80,7 @@ const normCat = (v: string | null): string | null => {
 export default function KbTabCatalogo() {
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
-  const [resins, setResins] = useState<Map<string, ResinInfo & { name: string }>>(new Map());
+  const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
@@ -96,7 +107,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('name, slug')
+          .select('name, slug, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url')
           .eq('active', true)
           .limit(500),
       ]);
@@ -113,9 +124,15 @@ export default function KbTabCatalogo() {
           spec_sheet_url: p.spec_sheet_url,
         });
       });
-      const resinMap = new Map<string, ResinInfo & { name: string }>();
+      const resinMap = new Map<string, ResinInfo>();
       (rs || []).forEach((r: any) => {
-        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), { slug: r.slug, name: r.name });
+        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), {
+          slug: r.slug, name: r.name,
+          cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
+          cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
+          cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
+          cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
+        });
       });
       setResins(resinMap);
       setDocs(docMap);
@@ -158,9 +175,10 @@ export default function KbTabCatalogo() {
             const d = docs.get(p.name.toLowerCase().trim());
             const resin = resins.get(p.name.toLowerCase().trim());
             const hasParametrizacao = !!resin;
-            const lojaUrl = p.cta_1_url || null;
-            const fdsUrl = d?.datasheet_url || d?.spec_sheet_url || null;
-            const ifuUrl = d?.manual_url || null;
+            // CTAs from resins take precedence (FDS/IFU live there); fall back to catalog/products_catalog
+            const lojaUrl = resin?.cta_1_url || p.cta_1_url || null;
+            const fdsUrl = resin?.cta_2_url || d?.datasheet_url || d?.spec_sheet_url || null;
+            const ifuUrl = resin?.cta_3_url || d?.manual_url || null;
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
