@@ -236,5 +236,78 @@
     "send_aria": "Send message",
     "close_aria": "Close chat",
     "open_aria": "Open chat with Dr. L.I.A."
+  },
+  "kb": {
+    "tabs": {
+      "parametros": "Parameters",
+      "videos": "Videos",
+      "artigos": "Articles",
+      "catalogo": "Catalog"
+    },
+    "parametros": {
+      "title": "3D Printing Parameters",
+      "subtitle": "Database with tested parameters for dental printers and resins",
+      "select_brand": "Select the Brand",
+      "brand_models": "{{brand}} — Models",
+      "loading": "Loading…",
+      "no_models": "No models",
+      "resin_count_one": "{{count}} resin",
+      "resin_count_other": "{{count}} resins",
+      "select_model": "Select a Model",
+      "select_model_desc": "Choose a model from the list to see the available parameters.",
+      "parametrized_one": "{{count}} parametrized resin",
+      "parametrized_other": "{{count}} parametrized resins",
+      "no_params": "No parameters available.",
+      "exposure": "Exposure",
+      "bottom": "Bottom",
+      "layers": "Layers",
+      "thickness": "Thickness",
+      "lift_speed": "Lift speed",
+      "retract_speed": "Retract speed",
+      "view_sheet": "View sheet →",
+      "loading_sheet": "Loading parameter sheet…",
+      "no_sheet": "No parameters available for {{name}}."
+    },
+    "videos": {
+      "title": "Videos",
+      "subtitle": "Tutorial videos, clinical cases and testimonials",
+      "search": "Search videos, tutorials, clinical cases...",
+      "watch": "▶ Watch",
+      "count_one": "{{count}} video found",
+      "count_other": "{{count}} videos found"
+    },
+    "artigos": {
+      "title": "Articles",
+      "subtitle": "Technical articles, clinical cases and practical guides",
+      "search": "Search articles, guides and publications...",
+      "read_more": "Read more →",
+      "count_one": "{{count}} article found",
+      "count_other": "{{count}} articles found"
+    },
+    "catalogo": {
+      "title": "Catalog",
+      "subtitle": "Smart Dent products for digital dentistry",
+      "search": "Search products, resins, scanners...",
+      "count_one": "{{count}} product found",
+      "count_other": "{{count}} products found"
+    },
+    "chips": {
+      "all": "All",
+      "videos_tutoriais": "Tutorial Videos",
+      "casos_clinicos": "Clinical Cases",
+      "ciencia": "Science and Technology",
+      "depoimentos": "Testimonials and Courses",
+      "catalogo_produtos": "Product Catalog",
+      "falhas": "Failures, how to fix",
+      "parametros": "Technical Parameters",
+      "scanners": "3D Scanners",
+      "resinas": "3D Resins",
+      "impressao": "3D Printing",
+      "pos_impressao": "Post-Processing",
+      "dentistica": "Dentistry and Aesthetics",
+      "caracterizacao": "Characterization",
+      "softwares": "Software"
+    },
+    "empty": "No results found"
   }
 }
