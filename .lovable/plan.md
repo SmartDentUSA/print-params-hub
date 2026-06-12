@@ -1,48 +1,47 @@
-## Objetivo
-Melhorar a mensagem de compartilhamento WhatsApp do card de turma na página de Agenda (`/agenda` e `/agenda/online`) e corrigir o link gerado.
+## Mudança (apenas `ShareButton` em `src/pages/AgendaPublica.tsx`)
 
-## Arquivo afetado
-`src/pages/AgendaPublica.tsx` — função `ShareButton` (linhas 627-655).
+Manter o mesmo template visual (`📚 / 🏷 / 👨‍🏫 / 📍 / 📅 / ⏰`) para os dois fluxos, mudando apenas a última linha conforme a modalidade da turma:
 
-## Problemas atuais
-1. Mensagem muito curta (só título + data + link), sem instrutor, local, cronograma.
-2. Caracteres especiais aparecem quebrados (`�`) por causa de emoji/encoding.
-3. Link usa `window.location.origin`, que no preview Lovable gera URL errada — deve sempre apontar para o domínio público da agenda.
+- **Presencial** (`turma.modality === "presencial"`):
+  - Remover completamente a linha `Inscreva-se: ...`
+  - Mensagem termina no cronograma
 
-## Nova mensagem (padrão pedido)
+- **Online / Online ao vivo**:
+  - Manter `Inscreva-se: ${url}` apontando para o forms público de inscrição:
+    `https://parametros.smartdent.com.br/agenda/online?turma=${turma.id}`
+
+Restante (emojis, cronograma, Web Share API + fallback `api.whatsapp.com/send`, encoding) permanece igual ao já planejado.
+
+## Exemplo de saída
+
+Presencial:
 ```
 Opção de treinamento, aqui estão os detalhes:
 
-📚 *{{curso}}*
+📚 *Chairside Print - Odontologia Digital*
+🏷 Turma: *146 BLZ ino 200 Dias 17,18,19/06*
+👨‍🏫 Instrutor: Danilo Citigi e Livia Comar
+📍 São Carlos/SP, na sede da Smart Dent
 
-🏷 Turma: *{{turma_label}}*
-
-👨‍🏫 Instrutor: {{instrutor}}
-
-📍 {{local}}
-
-{{cronograma}}
-
-Inscreva-se: {{url}}
+📅 17 de Jun de 2026 (Qua)
+⏰ 08:30–17:30
 ```
 
-Onde:
-- `{{curso}}` = `turma.course_title`
-- `{{turma_label}}` = `turma.label` (ex: "Turma Junho 2026")
-- `{{instrutor}}` = `turma.instructor_name` (omitido se vazio)
-- `{{local}}` = `turma.location` se presencial; "Online ao vivo" se `online_ao_vivo`; "Online" caso contrário
-- `{{cronograma}}` = montado a partir de `turma.days` (ou `start_date`/`start_time`/`end_time` quando `days` vazio), formato:
-  - 1 dia: `📅 26/06/2026 (sexta) ⏰ 08:30–17:30`
-  - múltiplos dias: lista numerada `📅 Dia 1 — 26/06/2026 | 08:30–17:30`
-- `{{url}}` = `https://parametros.smartdent.com.br/agenda/online?turma=<id>` (presencial → `/agenda?turma=<id>`). Hardcoded igual `SmartOpsCourses.tsx` faz, para não depender de origin.
+Online:
+```
+Opção de treinamento, aqui estão os detalhes:
 
-Linhas vazias entre blocos são removidas quando o campo correspondente não existe (evita "📍 \n\n").
+📚 *Curso X*
+🏷 Turma: *Turma Y*
+👨‍🏫 Instrutor: ...
+📍 Online ao vivo
 
-## Detalhes técnicos
-- Reaproveitar utilitários de `src/lib/courseUtils.ts` (`formatDatePtBr`, `formatWeekday`) — já usados no projeto.
-- Reaproveitar `buildCronogramaText` de `src/lib/courseWhatsapp.ts` quando `turma.days` existir; fallback simples para `start_date`/`start_time` quando não.
-- Garantir encoding correto: a string final é passada para `encodeURIComponent` antes de ir para `wa.me/?text=` (já é feito).
-- Limpar linhas em branco consecutivas no fim com `.replace(/\n{3,}/g,'\n\n').trim()`.
+📅 ...
+⏰ ...
 
-## Fora de escopo
-- Não alterar nenhum outro componente, lógica de inscrição, ou template de mensagem de pós-inscrição (`src/lib/courseWhatsapp.ts` continua intacto — só reaproveitamos a função `buildCronogramaText`).
+Inscreva-se: https://parametros.smartdent.com.br/agenda/online?turma=...
+```
+
+## Escopo
+
+100% frontend, isolado em `ShareButton`. Sem mudanças em backend, banco, ou no template do CS (`courseWhatsapp.ts`).
