@@ -8,6 +8,7 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Normalize raw product_category values (mixed casing/variants) to canonical buckets
 const CAT_ALIASES: Record<string, string> = {
@@ -75,7 +76,45 @@ const classifyDoc = (n: string): CatalogDoc['kind'] => {
 const docIcon = (k: CatalogDoc['kind']) =>
   k === 'FDS' ? '📄' : k === 'IFU' ? '📘' : k === 'GUIA' ? '📗' : k === 'PERFIL' ? '📋' : '📎';
 
+type ResinDocKind = 'FDS' | 'IFU' | 'GUIA' | 'PERFIL' | 'CERT' | 'LAUDO' | 'APRES' | 'MSDS' | 'DOC';
+interface ResinDoc { name: string; url: string; kind: ResinDocKind; category: string | null; }
+interface ResinPresentation { label: string; price: number | null; }
+
+const classifyResinDoc = (name: string, category: string | null): ResinDocKind => {
+  const u = (name + ' ' + (category || '')).toUpperCase();
+  if (u.includes('FDS') || u.includes('MSDS') || u.includes('SEGURANÇA') || u.includes('SEGURANCA')) return 'FDS';
+  if (u.includes('IFU') || u.includes('INSTRU')) return 'IFU';
+  if (u.includes('CERTIFIC')) return 'CERT';
+  if (u.includes('LAUDO') || u.includes('RELATO')) return 'LAUDO';
+  if (u.includes('APRESENT')) return 'APRES';
+  if (u.includes('GUIA')) return 'GUIA';
+  if (u.includes('PERFIL') || u.includes('CARACTER')) return 'PERFIL';
+  return 'DOC';
+};
+const resinDocIcon = (k: ResinDocKind) =>
+  k === 'FDS' ? '📄' : k === 'IFU' ? '📘' : k === 'GUIA' ? '📗' : k === 'PERFIL' ? '📋'
+  : k === 'CERT' ? '🏅' : k === 'LAUDO' ? '🧪' : k === 'APRES' ? '🎯' : k === 'MSDS' ? '⚠️' : '📎';
+const resinDocShort = (d: ResinDoc): string => {
+  switch (d.kind) {
+    case 'FDS': return 'FDS';
+    case 'IFU': return 'IFU';
+    case 'GUIA': return 'Guia';
+    case 'PERFIL': return 'Perfil';
+    case 'CERT': return 'Certificado';
+    case 'LAUDO': return 'Laudo';
+    case 'APRES': return 'Apresentação';
+    case 'MSDS': return 'MSDS';
+    default: return d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
+  }
+};
+const formatBRL = (v: number | null): string => {
+  if (v == null || !isFinite(v)) return '';
+  try { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  catch { return `R$ ${v.toFixed(2)}`; }
+};
+
 interface ResinInfo {
+  id: string;
   slug: string;
   name: string;
   cta_1_label: string | null;
@@ -86,6 +125,7 @@ interface ResinInfo {
   cta_3_url: string | null;
   cta_4_label: string | null;
   cta_4_url: string | null;
+  processing_instructions: string | null;
 }
 
 const normCat = (v: string | null): string | null => {
@@ -120,16 +160,19 @@ export default function KbTabCatalogo() {
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
+  const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
+  const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
   const [sheetResin, setSheetResin] = useState<string | null>(null);
+  const [procResin, setProcResin] = useState<ResinInfo | null>(null);
 
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     (async () => {
-      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }] = await Promise.all([
+      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url')
@@ -146,7 +189,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('name, slug, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url')
+          .select('id, name, slug, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions')
           .eq('active', true)
           .limit(500),
         supabase
@@ -155,12 +198,25 @@ export default function KbTabCatalogo() {
           .eq('active', true)
           .order('order_index')
           .limit(1000),
+        supabase
+          .from('resin_documents')
+          .select('resin_id, document_name, file_url, document_category, order_index')
+          .eq('active', true)
+          .order('order_index')
+          .limit(2000),
+        supabase
+          .from('resin_presentations')
+          .select('resin_id, label, price, sort_order')
+          .order('sort_order')
+          .limit(2000),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
       if (e2) console.error(e2);
       if (e3) console.error(e3);
       if (e4) console.error(e4);
+      if (e5) console.error(e5);
+      if (e6) console.error(e6);
       const docMap = new Map<string, DocLinks>();
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
@@ -181,19 +237,37 @@ export default function KbTabCatalogo() {
       setExtraDocs(extraMap);
       const resinMap = new Map<string, ResinInfo>();
       (rs || []).forEach((r: any) => {
-        if (!r?.name || !r?.slug) return;
+        if (!r?.name || !r?.slug || !r?.id) return;
         const info: ResinInfo = {
-          slug: r.slug, name: r.name,
+          id: r.id, slug: r.slug, name: r.name,
           cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
           cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
           cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
           cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
+          processing_instructions: r.processing_instructions || null,
         };
         resinMap.set(r.name.toLowerCase().trim(), info);
         const fk = resinKey(r.name);
         if (fk) resinMap.set('fk:' + fk, info);
       });
       setResins(resinMap);
+      const rdMap = new Map<string, ResinDoc[]>();
+      (rd || []).forEach((d: any) => {
+        if (!d?.resin_id || !d?.file_url) return;
+        const name = (d.document_name || 'Documento').trim();
+        const list = rdMap.get(d.resin_id) || [];
+        list.push({ name, url: d.file_url, category: d.document_category || null, kind: classifyResinDoc(name, d.document_category) });
+        rdMap.set(d.resin_id, list);
+      });
+      setResinDocs(rdMap);
+      const rpMap = new Map<string, ResinPresentation[]>();
+      (rp || []).forEach((p: any) => {
+        if (!p?.resin_id || !p?.label) return;
+        const list = rpMap.get(p.resin_id) || [];
+        list.push({ label: String(p.label), price: typeof p.price === 'number' ? p.price : (p.price ? Number(p.price) : null) });
+        rpMap.set(p.resin_id, list);
+      });
+      setResinPres(rpMap);
       setDocs(docMap);
       setRows((cat || []) as any);
       setLoading(false);
@@ -238,16 +312,23 @@ export default function KbTabCatalogo() {
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
+            const rDocs: ResinDoc[] = resin ? (resinDocs.get(resin.id) || []) : [];
+            const rPres: ResinPresentation[] = resin ? (resinPres.get(resin.id) || []) : [];
             // CTAs from resins take precedence (FDS/IFU live there); fall back to catalog/products_catalog
             const lojaUrl = resin?.cta_1_url || p.cta_1_url || null;
-            const fdsUrl = resin?.cta_2_url
+            const fdsUrl = rDocs.find((x) => x.kind === 'FDS')?.url
+              || resin?.cta_2_url
               || productDocs.find((x) => x.kind === 'FDS')?.url
               || d?.datasheet_url || d?.spec_sheet_url || null;
-            const ifuUrl = resin?.cta_3_url
+            const ifuUrl = rDocs.find((x) => x.kind === 'IFU')?.url
+              || resin?.cta_3_url
               || productDocs.find((x) => x.kind === 'IFU')?.url
               || d?.manual_url || null;
             // Extra docs (Guia, Perfil/Características, etc.) not already covered by FDS/IFU
             const otherDocs = productDocs.filter((x) => x.kind !== 'FDS' && x.kind !== 'IFU');
+            // Resin docs that aren't already surfaced as FDS/IFU
+            const usedUrls = new Set<string>([lojaUrl, fdsUrl, ifuUrl].filter(Boolean) as string[]);
+            const extraResinDocs = rDocs.filter((x) => x.kind !== 'FDS' && x.kind !== 'IFU' && !usedUrls.has(x.url));
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -286,7 +367,7 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{p.description || p.product_subcategory}</p>
                   )}
-                  {(lojaUrl || fdsUrl || ifuUrl || otherDocs.length > 0) && (
+                  {(lojaUrl || fdsUrl || ifuUrl || otherDocs.length > 0 || extraResinDocs.length > 0) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                       {lojaUrl && (
                         <button
@@ -325,6 +406,55 @@ export default function KbTabCatalogo() {
                           </button>
                         );
                       })}
+                      {extraResinDocs.map((doc, idx) => (
+                        <button
+                          key={`rd-${doc.url}-${idx}`}
+                          type="button"
+                          className="kb-action-btn"
+                          onClick={() => open(doc.url)}
+                          title={doc.name}
+                        >
+                          {resinDocIcon(doc.kind)} {resinDocShort(doc)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {rPres.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#5F6368', marginBottom: 4 }}>
+                        📦 Apresentações
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {rPres.slice(0, 4).map((pr, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: 11, padding: '3px 8px', borderRadius: 10,
+                              background: '#F1F3F4', color: '#202124', whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {pr.label}{pr.price != null ? ` — ${formatBRL(pr.price)}` : ''}
+                          </span>
+                        ))}
+                        {rPres.length > 4 && (
+                          <span style={{ fontSize: 11, padding: '3px 8px', color: '#5F6368' }}>
+                            +{rPres.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {resin?.processing_instructions && (
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        type="button"
+                        className="kb-action-btn"
+                        onClick={() => setProcResin(resin)}
+                        style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        title="Instruções de Pré e Pós Processamento"
+                      >
+                        🧪 Pré/Pós-Processamento
+                      </button>
                     </div>
                   )}
                   {hasParametrizacao && (
@@ -354,6 +484,20 @@ export default function KbTabCatalogo() {
         onClose={() => setSheetResin(null)}
         resinName={sheetResin}
       />
+      <Dialog open={!!procResin} onOpenChange={(v) => !v && setProcResin(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>🧪 Pré e Pós Processamento — {procResin?.name}</DialogTitle>
+          </DialogHeader>
+          {procResin?.processing_instructions && (
+            <div
+              style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, color: '#202124' }}
+            >
+              {procResin.processing_instructions}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
