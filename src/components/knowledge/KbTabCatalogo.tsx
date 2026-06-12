@@ -376,14 +376,16 @@ export default function KbTabCatalogo() {
               return parts.join(' · ');
             };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
+            // Prefer resin image over catalog image when a resin match exists
+            const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
             return (
               <article key={p.id} className="kb-card" style={{ animationDelay: `${i * 18}ms` }}>
-                {p.image_url ? (
+                {cardImage ? (
                   <img
-                    src={p.image_url}
+                    src={cardImage}
                     alt={p.name}
                     loading="lazy"
                     className="kb-cthumb"
