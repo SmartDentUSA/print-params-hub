@@ -518,10 +518,30 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t mt-auto">
+          <div className="grid grid-cols-3 gap-2 pt-3 border-t mt-auto">
             <Metric label="Vagas" value={turma.slots} />
-            <Metric label="Inscritos" value={turma.enrolled_count} />
+            <Metric label="Participantes" value={turma.enrolled_count} />
+            <Metric label="Acompanhantes" value={(turma as any).companions_count ?? 0} />
           </div>
+
+          {(() => {
+            const restam = turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0);
+            if (restam <= 0) {
+              return (
+                <div className="mt-3 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  Turma lotada
+                </div>
+              );
+            }
+            if (restam <= 5) {
+              return (
+                <div className="mt-3 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  Restam apenas {restam} {restam === 1 ? "vaga" : "vagas"}
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {turma.instructor_name && (
             <div className="mt-3 pt-3 border-t">
@@ -668,31 +688,32 @@ function OnlineDateRow({
   const horario = startTime && endTime ? `${startTime} — ${endTime}` : startTime || "";
 
   return (
-    <div className="mb-4 rounded-lg border bg-muted/30 p-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-      <span className="inline-flex items-center gap-1 font-medium text-foreground">
-        <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-muted-foreground">Início</span>
-        <span className="font-semibold tabular-nums">{dateLabel}</span>
-      </span>
-      {horario && (
-        <>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="inline-flex items-center gap-1 font-medium text-foreground">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="tabular-nums">{horario}</span>
+    <div className="mb-4 rounded-lg border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-xs">
+      <div className="flex flex-col items-start gap-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <CalendarDays className="w-3 h-3" />
+          Início
+        </span>
+        <span className="font-semibold tabular-nums text-foreground">{dateLabel}</span>
+      </div>
+      {horario ? (
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            <Clock className="w-3 h-3" />
+            Horário
           </span>
-        </>
-      )}
-      {duration && (
-        <>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="inline-flex items-center gap-1 font-medium text-foreground">
-            <Timer className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-muted-foreground">Duração</span>
-            <span className="font-semibold">{duration}</span>
+          <span className="font-semibold tabular-nums text-foreground">{horario}</span>
+        </div>
+      ) : <div />}
+      {duration ? (
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            <Timer className="w-3 h-3" />
+            Duração
           </span>
-        </>
-      )}
+          <span className="font-semibold text-foreground">{duration}</span>
+        </div>
+      ) : <div />}
     </div>
   );
 }
