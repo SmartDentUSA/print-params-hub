@@ -140,6 +140,27 @@ function LiveCountdown({ startDate, startTime }: { startDate?: string; startTime
   );
 }
 
+/** Versão inline (sem wrapper) — usada dentro da pill de status para mostrar a contagem regressiva ao vivo. */
+function LiveCountdownInline({ startDate, startTime, fallback }: { startDate?: string; startTime?: string; fallback: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!startDate) return <>{fallback}</>;
+  const sTime = startTime?.substring(0, 5) ?? "09:00";
+  const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
+  const diff = startMs - Date.now();
+  void now;
+  if (diff <= 0) return <>{fallback}</>;
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return <>{d > 0 ? `${d}d ` : ""}{pad(h)}:{pad(m)}:{pad(s)}</>;
+}
+
 interface AgendaPublicaProps {
   variant?: AgendaVariant;
 }
@@ -405,7 +426,12 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
-        {status && (
+        {status && status.variant !== "muted" ? (
+          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[status.variant])}>
+            <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[status.variant])} />
+            <LiveCountdownInline startDate={turma.start_date} startTime={turma.start_time} fallback={status.label} />
+          </span>
+        ) : status && (
           <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
             {status.label}
