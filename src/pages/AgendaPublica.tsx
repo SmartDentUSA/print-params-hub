@@ -528,11 +528,11 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
                 : undefined;
             return (
               <>
-                <div className="grid grid-cols-4 gap-2 pt-3 border-t mt-auto">
+                <div className="grid grid-cols-4 gap-3 pt-3 border-t mt-auto">
                   <Metric label="Vagas" value={turma.slots} />
-                  <Metric label="Participantes" value={turma.enrolled_count} />
-                  <Metric label="Acompanhantes" value={(turma as any).companions_count ?? 0} />
-                  <Metric label={restam === 1 ? "Restam" : "Restam"} value={restam} valueClassName={restamColor} />
+                  <Metric label="Inscritos" value={turma.enrolled_count} />
+                  <Metric label="Acomp." value={(turma as any).companions_count ?? 0} />
+                  <Metric label="Restam" value={restam} valueClassName={restamColor} />
                 </div>
                 {restam <= 0 && (
                   <div className="mt-3 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
@@ -583,9 +583,9 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
 
 function Metric({ label, value, valueClassName }: { label: string; value: React.ReactNode; valueClassName?: string }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
-      <div className={cn("text-2xl font-semibold leading-tight", valueClassName)}>{value}</div>
+    <div className="min-w-0">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</div>
+      <div className={cn("text-2xl font-semibold leading-tight tabular-nums", valueClassName)}>{value}</div>
     </div>
   );
 }
