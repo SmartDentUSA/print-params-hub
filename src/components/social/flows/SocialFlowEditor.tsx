@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LinkPicker, type LinkPickerSelection } from './LinkPicker';
@@ -22,11 +23,19 @@ import { SocialPostLinkPicker, type SocialPostPickResult } from './SocialPostLin
 
 const NODE_TYPES = [
   { type: 'send_dm', label: 'Enviar DM', color: 'hsl(var(--primary))' },
+  { type: 'send_text', label: 'Enviar texto', color: 'hsl(var(--primary))' },
+  { type: 'send_image', label: 'Enviar imagem', color: 'hsl(var(--primary))' },
+  { type: 'send_buttons', label: 'Enviar botões', color: 'hsl(var(--primary))' },
+  { type: 'send_quick_replies', label: 'Quick replies', color: 'hsl(var(--primary))' },
+  { type: 'comment_reply', label: 'Resposta pública (comentário)', color: 'hsl(var(--primary))' },
   { type: 'send_comment_reply', label: 'Responder comentário', color: 'hsl(var(--primary))' },
   { type: 'wait', label: 'Aguardar', color: 'hsl(var(--muted-foreground))' },
   { type: 'condition', label: 'Condição (if/else)', color: 'hsl(43 96% 56%)' },
   { type: 'collect_input', label: 'Coletar resposta', color: 'hsl(217 91% 60%)' },
   { type: 'set_tag', label: 'Aplicar tag', color: 'hsl(142 70% 45%)' },
+  { type: 'add_tag', label: 'Adicionar tag', color: 'hsl(142 70% 45%)' },
+  { type: 'set_field', label: 'Definir campo', color: 'hsl(142 70% 45%)' },
+  { type: 'trigger', label: 'Trigger', color: 'hsl(280 70% 55%)' },
   { type: 'create_lead', label: 'Criar lead no CRM', color: 'hsl(142 70% 45%)' },
   { type: 'end', label: 'Fim', color: 'hsl(var(--destructive))' },
 ];
@@ -49,6 +58,8 @@ export function SocialFlowEditor() {
   const [isActive, setIsActive] = useState(false);
   const [produtoSlug, setProdutoSlug] = useState<string | undefined>();
   const [formName, setFormName] = useState<string | undefined>();
+  const [zernioAutomationId, setZernioAutomationId] = useState<string | null>(null);
+  const [hasZernioConfig, setHasZernioConfig] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [triggers, setTriggers] = useState<any[]>([]);
@@ -65,6 +76,8 @@ export function SocialFlowEditor() {
       setIsActive(!!data.is_active);
       setProdutoSlug((data as any).produto_slug ?? undefined);
       setFormName((data as any).form_name ?? undefined);
+      setZernioAutomationId((data as any).zernio_automation_id ?? null);
+      setHasZernioConfig(!!(data as any).zernio_automation_config);
       const rawNodes = Array.isArray(data.nodes) ? (data.nodes as any[]) : [];
       const normalized = rawNodes.map((n, i) => ({
         ...n,
@@ -118,7 +131,21 @@ export function SocialFlowEditor() {
     if (!name.trim()) { toast.error('Dê um nome ao flow'); return; }
     setSaving(true);
     try {
-      const payload = { name, description, channel, is_active: isActive, nodes: nodes as any, edges: edges as any, updated_at: new Date().toISOString() };
+      // Serialize React Flow nodes back to the flat DB shape: { id, type, label, position, ...config }
+      const flatNodes = nodes.map((n) => {
+        const d: any = n.data ?? {};
+        const cfg: any = d.config ?? {};
+        const { label: _lbl, nodeType: _nt, config: _cfg, ...restData } = d;
+        return {
+          ...cfg,
+          id: n.id,
+          type: d.nodeType ?? cfg.type ?? n.type,
+          label: d.label ?? cfg.label ?? n.id,
+          position: n.position,
+          ...restData,
+        };
+      });
+      const payload = { name, description, channel, is_active: isActive, nodes: flatNodes as any, edges: edges as any, updated_at: new Date().toISOString() };
       let flowId = id;
       if (isNew) {
         const { data, error } = await supabase.from('social_flows').insert(payload).select('id').single();
@@ -201,10 +228,27 @@ export function SocialFlowEditor() {
 
           {selectedNode && (
             <aside className="w-72 border-l border-border p-3 overflow-y-auto bg-card">
-              <div className="flex items-center justify-between mb-3">
-                <Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge>
+              {hasZernioConfig && (
+                <div className="mb-3 p-2 rounded-md border border-green-500/30 bg-green-500/10 text-xs space-y-1">
+                  <div className="font-medium text-green-700 dark:text-green-400">
+                    ⚡ Automação Zernio ativa
+                  </div>
+                  {zernioAutomationId && (
+                    <div className="text-muted-foreground truncate">ID: <span className="font-mono">{zernioAutomationId}</span></div>
+                  )}
+                  <ZernioStatsButton automationId={zernioAutomationId} />
+                </div>
+              )}
+              <div className="flex items-start justify-between mb-1 gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate" title={(selectedNode.data as any).label}>
+                    {(selectedNode.data as any).label ?? 'Nó'}
+                  </div>
+                  <div className="text-[10px] font-mono text-muted-foreground truncate">{selectedNode.id}</div>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => deleteNode(selectedNode.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
+              <div className="mb-3"><Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge></div>
               <NodeInspector
                 node={selectedNode}
                 onUpdate={(p) => updateNodeConfig(selectedNode.id, p)}
@@ -266,6 +310,7 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   const type = (node.data as any).nodeType;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [socialPickerOpen, setSocialPickerOpen] = useState(false);
+  const [imageLibOpen, setImageLibOpen] = useState(false);
 
   const handleLink = (l: LinkPickerSelection) => {
     const prefix = cfg.message ? cfg.message.trimEnd() + '\n\n' : '';
@@ -292,6 +337,142 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
   };
 
   switch (type) {
+    case 'trigger':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Keywords (separadas por vírgula)</Label>
+            <Input
+              value={Array.isArray(cfg.keywords) ? cfg.keywords.join(', ') : (cfg.keywords ?? '')}
+              onChange={(e) => onUpdate({ keywords: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+              placeholder="brasil, copa, gol"
+            />
+            {Array.isArray(cfg.keywords) && cfg.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {cfg.keywords.map((k: string, i: number) => (
+                  <Badge key={i} variant="secondary" className="text-[10px]">{k}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Label className="text-xs">Descrição</Label>
+            <Textarea rows={3} value={cfg.description ?? ''} onChange={(e) => onUpdate({ description: e.target.value })} />
+          </div>
+        </div>
+      );
+    case 'comment_reply':
+      return (
+        <div>
+          <Label className="text-xs">Texto público (resposta no comentário)</Label>
+          <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+        </div>
+      );
+    case 'send_image':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">URL da imagem</Label>
+            <Input value={cfg.image_url ?? ''} onChange={(e) => onUpdate({ image_url: e.target.value })} placeholder="https://…" />
+            <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => setImageLibOpen(true)}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Abrir biblioteca
+            </Button>
+          </div>
+          {cfg.image_url && (
+            <img src={cfg.image_url} alt="" className="w-full max-h-32 object-contain rounded border border-border bg-muted/30" />
+          )}
+          <div>
+            <Label className="text-xs">Legenda</Label>
+            <Textarea rows={3} value={cfg.caption ?? ''} onChange={(e) => onUpdate({ caption: e.target.value })} />
+          </div>
+          <ImageLibraryDialog
+            open={imageLibOpen}
+            onOpenChange={setImageLibOpen}
+            produtoSlug={produtoSlug}
+            onPick={(url) => { onUpdate({ image_url: url }); setImageLibOpen(false); }}
+          />
+        </div>
+      );
+    case 'send_text':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={6} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} placeholder="Olá {{nome}}…" />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {['{{nome}}', '{{username}}'].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted hover:bg-accent"
+                  onClick={() => onUpdate({ text: (cfg.text ?? '') + ' ' + v })}
+                >{v}</button>
+              ))}
+            </div>
+          </div>
+          <ButtonsEditor
+            buttons={Array.isArray(cfg.buttons) ? cfg.buttons : []}
+            onChange={(b) => onUpdate({ buttons: b })}
+            max={3}
+            simple
+          />
+        </div>
+      );
+    case 'send_quick_replies':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+          </div>
+          <QuickRepliesEditor
+            items={Array.isArray(cfg.quick_replies) ? cfg.quick_replies : []}
+            onChange={(q) => onUpdate({ quick_replies: q })}
+          />
+        </div>
+      );
+    case 'add_tag':
+      return (
+        <div>
+          <Label className="text-xs">Tag</Label>
+          <Input value={cfg.tag ?? ''} onChange={(e) => onUpdate({ tag: e.target.value })} />
+        </div>
+      );
+    case 'set_field':
+      return (
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs">Nome do campo</Label>
+            <Input value={cfg.field_name ?? ''} onChange={(e) => onUpdate({ field_name: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs">Valor do campo</Label>
+            <Input value={cfg.field_value ?? ''} onChange={(e) => onUpdate({ field_value: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs">Campo no CRM</Label>
+            <Input value={cfg.crm_field ?? ''} onChange={(e) => onUpdate({ crm_field: e.target.value })} />
+          </div>
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={!!cfg.sync_to_crm} onCheckedChange={(v) => onUpdate({ sync_to_crm: !!v })} />
+            Sincronizar com CRM
+          </label>
+        </div>
+      );
+    case 'send_buttons':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Texto</Label>
+            <Textarea rows={4} value={cfg.text ?? ''} onChange={(e) => onUpdate({ text: e.target.value })} />
+          </div>
+          <ButtonsEditor
+            buttons={Array.isArray(cfg.buttons) ? cfg.buttons : []}
+            onChange={(b) => onUpdate({ buttons: b })}
+            max={3}
+          />
+        </div>
+      );
     case 'send_dm':
     case 'send_comment_reply':
       return (
@@ -318,24 +499,20 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
       );
     case 'wait':
       return (
-        <div><Label className="text-xs">Aguardar (segundos)</Label>
-          <Input type="number" value={cfg.seconds ?? 60} onChange={(e) => onUpdate({ seconds: Number(e.target.value) })} /></div>
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs">Segundos</Label>
+            <Input type="number" value={cfg.delay_seconds ?? cfg.seconds ?? 0} onChange={(e) => onUpdate({ delay_seconds: Number(e.target.value) })} />
+          </div>
+          <div>
+            <Label className="text-xs">Minutos</Label>
+            <Input type="number" value={cfg.delay_minutes ?? 0} onChange={(e) => onUpdate({ delay_minutes: Number(e.target.value) })} />
+          </div>
+        </div>
       );
     case 'condition':
       return (
-        <div className="space-y-2">
-          <div><Label className="text-xs">Variável</Label><Input value={cfg.field ?? ''} onChange={(e) => onUpdate({ field: e.target.value })} placeholder="state.last_reply" /></div>
-          <div><Label className="text-xs">Operador</Label>
-            <Select value={cfg.op ?? 'contains'} onValueChange={(v) => onUpdate({ op: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="contains">contém</SelectItem>
-                <SelectItem value="equals">igual</SelectItem>
-                <SelectItem value="regex">regex</SelectItem>
-              </SelectContent>
-            </Select></div>
-          <div><Label className="text-xs">Valor</Label><Input value={cfg.value ?? ''} onChange={(e) => onUpdate({ value: e.target.value })} /></div>
-        </div>
+        <ConditionEditor cfg={cfg} onUpdate={onUpdate} />
       );
     case 'collect_input':
       return (
@@ -358,4 +535,192 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
     default:
       return <p className="text-xs text-muted-foreground">Sem configuração.</p>;
   }
+}
+
+// ============= Helper components =============
+
+function ZernioStatsButton({ automationId }: { automationId: string | null }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('zernio-copa-setup', { body: { action: 'list' } });
+      if (error) throw error;
+      const list: any[] = data?.automations ?? data?.list ?? data?.data ?? (Array.isArray(data) ? data : []);
+      const found = automationId ? list.find((a: any) => a.id === automationId || a.automation_id === automationId) : list[0];
+      setStats(found ?? data);
+    } catch (e: any) {
+      toast.error(`Stats: ${e.message ?? e}`);
+    } finally { setLoading(false); }
+  };
+  return (
+    <div className="space-y-1">
+      <Button variant="outline" size="sm" className="h-6 text-[10px] w-full" onClick={load} disabled={loading}>
+        {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+        Ver stats
+      </Button>
+      {stats && (
+        <div className="text-[10px] grid grid-cols-3 gap-1 text-center">
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.triggered ?? stats.trigger_count ?? 0}</div><div className="text-muted-foreground">trig</div></div>
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.dmsSent ?? stats.dms_sent ?? 0}</div><div className="text-muted-foreground">DMs</div></div>
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.uniqueContacts ?? stats.unique_contacts ?? 0}</div><div className="text-muted-foreground">únicos</div></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageLibraryDialog({ open, onOpenChange, produtoSlug, onPick }: { open: boolean; onOpenChange: (v: boolean) => void; produtoSlug?: string; onPick: (url: string) => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    (async () => {
+      let q = supabase.from('social_flow_midias').select('id, titulo, url, thumbnail_url, tipo, produto_slug').limit(60);
+      if (produtoSlug) q = q.eq('produto_slug', produtoSlug);
+      const { data, error } = await q;
+      if (error) toast.error(error.message);
+      setItems(data ?? []);
+      setLoading(false);
+    })();
+  }, [open, produtoSlug]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => onOpenChange(false)}>
+      <div className="bg-card border border-border rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm">Biblioteca de mídias{produtoSlug ? ` — ${produtoSlug}` : ''}</h3>
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Fechar</Button>
+        </div>
+        {loading ? <div className="text-center text-sm py-8"><Loader2 className="w-4 h-4 animate-spin inline" /> Carregando…</div>
+          : items.length === 0 ? <div className="text-center text-sm text-muted-foreground py-8">Nenhuma mídia encontrada.</div>
+          : (
+            <div className="grid grid-cols-3 gap-2">
+              {items.map((m) => (
+                <button key={m.id} type="button" onClick={() => onPick(m.url)} className="border border-border rounded hover:border-primary text-left overflow-hidden">
+                  <img src={m.thumbnail_url ?? m.url} alt={m.titulo ?? ''} className="w-full h-24 object-cover bg-muted" />
+                  <div className="p-1 text-[10px] truncate">{m.titulo ?? m.url}</div>
+                </button>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+function ButtonsEditor({ buttons, onChange, max, simple }: { buttons: any[]; onChange: (b: any[]) => void; max: number; simple?: boolean }) {
+  const update = (i: number, patch: any) => onChange(buttons.map((b, idx) => idx === i ? { ...b, ...patch } : b));
+  const remove = (i: number) => onChange(buttons.filter((_, idx) => idx !== i));
+  const add = () => {
+    if (buttons.length >= max) return;
+    onChange([...buttons, simple ? { title: '', payload: '', type: 'postback' } : { title: '', type: 'postback', payload: '' }]);
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">Botões ({buttons.length}/{max})</Label>
+      {buttons.map((b, i) => (
+        <div key={i} className="border border-border rounded p-2 space-y-1">
+          <Input placeholder="Título" value={b.title ?? ''} onChange={(e) => update(i, { title: e.target.value })} />
+          {!simple && (
+            <Select value={b.type ?? 'postback'} onValueChange={(v) => update(i, { type: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="postback">Payload</SelectItem>
+                <SelectItem value="web_url">URL</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {!simple && b.type === 'web_url'
+            ? <Input placeholder="https://…" value={b.url ?? ''} onChange={(e) => update(i, { url: e.target.value })} />
+            : <Input placeholder="payload" value={b.payload ?? ''} onChange={(e) => update(i, { payload: e.target.value })} />
+          }
+          <Button variant="ghost" size="sm" className="h-6 text-xs w-full" onClick={() => remove(i)}>
+            <Trash2 className="w-3 h-3 mr-1" /> Remover
+          </Button>
+        </div>
+      ))}
+      {buttons.length < max && (
+        <Button variant="outline" size="sm" className="w-full" onClick={add}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar botão
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function QuickRepliesEditor({ items, onChange }: { items: any[]; onChange: (q: any[]) => void }) {
+  const update = (i: number, patch: any) => onChange(items.map((b, idx) => idx === i ? { ...b, ...patch } : b));
+  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const add = () => {
+    if (items.length >= 4) return;
+    onChange([...items, { id: crypto.randomUUID().slice(0, 8), title: '' }]);
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">Quick replies ({items.length}/4)</Label>
+      {items.map((q, i) => (
+        <div key={i} className="flex gap-1">
+          <Input placeholder="id" value={q.id ?? ''} onChange={(e) => update(i, { id: e.target.value })} className="w-20 font-mono text-xs" />
+          <Input placeholder="Título" value={q.title ?? ''} onChange={(e) => update(i, { title: e.target.value })} />
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+        </div>
+      ))}
+      {items.length < 4 && (
+        <Button variant="outline" size="sm" className="w-full" onClick={add}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar opção
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ConditionEditor({ cfg, onUpdate }: { cfg: any; onUpdate: (p: any) => void }) {
+  const conditions: any[] = Array.isArray(cfg.conditions) ? cfg.conditions : [];
+  const updateCond = (i: number, patch: any) => onUpdate({ conditions: conditions.map((c, idx) => idx === i ? { ...c, ...patch } : c) });
+  const addCond = () => onUpdate({ conditions: [...conditions, { field: '', operator: 'not_empty', value: '' }] });
+  const removeCond = (i: number) => onUpdate({ conditions: conditions.filter((_, idx) => idx !== i) });
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-xs">Lógica</Label>
+        <Select value={cfg.logic ?? 'all'} onValueChange={(v) => onUpdate({ logic: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas (AND)</SelectItem>
+            <SelectItem value="any">Qualquer (OR)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Label className="text-xs">Condições</Label>
+      {conditions.map((c, i) => (
+        <div key={i} className="border border-border rounded p-2 space-y-1">
+          <Input placeholder="campo (ex: contact.is_follower)" value={c.field ?? ''} onChange={(e) => updateCond(i, { field: e.target.value })} className="text-xs font-mono" />
+          <Select value={c.operator ?? 'not_empty'} onValueChange={(v) => updateCond(i, { operator: v })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="not_empty">não vazio</SelectItem>
+              <SelectItem value="eq">igual</SelectItem>
+              <SelectItem value="contains">contém</SelectItem>
+            </SelectContent>
+          </Select>
+          {(c.operator === 'eq' || c.operator === 'contains') && (
+            <Input placeholder="valor" value={c.value ?? ''} onChange={(e) => updateCond(i, { value: e.target.value })} />
+          )}
+          <Button variant="ghost" size="sm" className="h-6 text-xs w-full" onClick={() => removeCond(i)}>
+            <Trash2 className="w-3 h-3 mr-1" /> Remover
+          </Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" className="w-full" onClick={addCond}>
+        <Plus className="w-3 h-3 mr-1" /> Adicionar condição
+      </Button>
+      <div className="pt-2 space-y-1">
+        <div className="text-[10px]"><span className="text-muted-foreground">Destino SIM:</span> <span className="font-mono">{cfg.true_node_id ?? '—'}</span></div>
+        <div className="text-[10px]"><span className="text-muted-foreground">Destino NÃO:</span> <span className="font-mono">{cfg.false_node_id ?? '—'}</span></div>
+      </div>
+    </div>
+  );
 }

@@ -17199,6 +17199,8 @@ export type Database = {
           total_leads_converted: number | null
           total_triggered: number | null
           updated_at: string | null
+          zernio_automation_config: Json | null
+          zernio_automation_id: string | null
         }
         Insert: {
           channel?: string
@@ -17218,6 +17220,8 @@ export type Database = {
           total_leads_converted?: number | null
           total_triggered?: number | null
           updated_at?: string | null
+          zernio_automation_config?: Json | null
+          zernio_automation_id?: string | null
         }
         Update: {
           channel?: string
@@ -17237,6 +17241,8 @@ export type Database = {
           total_leads_converted?: number | null
           total_triggered?: number | null
           updated_at?: string | null
+          zernio_automation_config?: Json | null
+          zernio_automation_id?: string | null
         }
         Relationships: []
       }
