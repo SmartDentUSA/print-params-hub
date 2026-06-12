@@ -490,8 +490,8 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             </div>
           )}
           {turma.instructor_name && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
-              <User className="w-3 h-3 shrink-0" />
+            <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate">
+              <User className="w-4 h-4 shrink-0 text-muted-foreground" />
               {turma.instructor_name}
             </span>
           )}
