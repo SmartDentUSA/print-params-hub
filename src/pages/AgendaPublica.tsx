@@ -518,10 +518,30 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t mt-auto">
+          <div className="grid grid-cols-3 gap-2 pt-3 border-t mt-auto">
             <Metric label="Vagas" value={turma.slots} />
-            <Metric label="Inscritos" value={turma.enrolled_count} />
+            <Metric label="Participantes" value={turma.enrolled_count} />
+            <Metric label="Acompanhantes" value={(turma as any).companions_count ?? 0} />
           </div>
+
+          {(() => {
+            const restam = turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0);
+            if (restam <= 0) {
+              return (
+                <div className="mt-3 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  Turma lotada
+                </div>
+              );
+            }
+            if (restam <= 5) {
+              return (
+                <div className="mt-3 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  Restam apenas {restam} {restam === 1 ? "vaga" : "vagas"}
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {turma.instructor_name && (
             <div className="mt-3 pt-3 border-t">
