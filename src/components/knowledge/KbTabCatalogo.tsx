@@ -79,7 +79,13 @@ const docIcon = (k: CatalogDoc['kind']) =>
 
 type ResinDocKind = 'FDS' | 'IFU' | 'GUIA' | 'PERFIL' | 'CERT' | 'LAUDO' | 'APRES' | 'MSDS' | 'DOC';
 interface ResinDoc { name: string; url: string; kind: ResinDocKind; category: string | null; }
-interface ResinPresentation { label: string; price: number | null; }
+interface ResinPresentation {
+  label: string;
+  price: number | null;
+  print_type: string | null;
+  grams_per_print: number | null;
+  prints_per_bottle: number | null;
+}
 
 const classifyResinDoc = (name: string, category: string | null): ResinDocKind => {
   const u = (name + ' ' + (category || '')).toUpperCase();
@@ -208,7 +214,7 @@ export default function KbTabCatalogo() {
           .limit(2000),
         supabase
           .from('resin_presentations')
-          .select('resin_id, label, price, sort_order')
+          .select('resin_id, label, price, print_type, grams_per_print, prints_per_bottle, sort_order')
           .order('sort_order')
           .limit(2000),
       ]);
@@ -264,9 +270,21 @@ export default function KbTabCatalogo() {
       setResinDocs(rdMap);
       const rpMap = new Map<string, ResinPresentation[]>();
       (rp || []).forEach((p: any) => {
-        if (!p?.resin_id || !p?.label) return;
+        if (!p?.resin_id) return;
+        const label = p.label ? String(p.label).trim() : '';
+        const gpp = p.grams_per_print != null ? Number(p.grams_per_print) : null;
+        const ppb = p.prints_per_bottle != null ? Number(p.prints_per_bottle) : null;
+        const ptype = p.print_type ? String(p.print_type).trim() : '';
+        // Discard empty rows
+        if (!label && !ptype && !gpp && !ppb) return;
         const list = rpMap.get(p.resin_id) || [];
-        list.push({ label: String(p.label), price: typeof p.price === 'number' ? p.price : (p.price ? Number(p.price) : null) });
+        list.push({
+          label,
+          price: typeof p.price === 'number' ? p.price : (p.price ? Number(p.price) : null),
+          print_type: ptype || null,
+          grams_per_print: gpp,
+          prints_per_bottle: ppb,
+        });
         rpMap.set(p.resin_id, list);
       });
       setResinPres(rpMap);
@@ -342,11 +360,19 @@ export default function KbTabCatalogo() {
                   kind: (x.kind === 'GUIA' ? 'GUIA' : x.kind === 'PERFIL' ? 'PERFIL' : 'DOC') as ResinDocItem['kind'],
                 })),
             ];
-            // Dedup SKU presentations by label+price; suffix "g" when label is purely numeric
+            // Dedup SKU presentations by label + print_type + prints_per_bottle
             const presDeduped: ResinPresentation[] = Array.from(
-              new Map(rPres.map((pr) => [`${pr.label}|${pr.price}`, pr])).values()
+              new Map(
+                rPres.map((pr) => [`${pr.label}|${pr.print_type || ''}|${pr.prints_per_bottle ?? ''}`, pr])
+              ).values()
             );
-            const formatPresLabel = (label: string) => /^\d+$/.test(label.trim()) ? `${label.trim()}g` : label;
+            const formatPresChip = (pr: ResinPresentation): string => {
+              const parts: string[] = [];
+              if (pr.label) parts.push(/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label);
+              if (pr.print_type) parts.push(pr.print_type);
+              if (pr.prints_per_bottle && pr.prints_per_bottle > 0) parts.push(`${pr.prints_per_bottle} imp/frasco`);
+              return parts.join(' · ');
+            };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -435,7 +461,7 @@ export default function KbTabCatalogo() {
                               background: 'transparent',
                             }}
                           >
-                            {formatPresLabel(pr.label)}{pr.price != null ? ` — ${formatBRL(pr.price)}` : ''}
+                            {formatPresChip(pr)}
                           </span>
                         ))}
                         {presDeduped.length > 3 && (
