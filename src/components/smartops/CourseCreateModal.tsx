@@ -308,6 +308,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setDescription(""); setInstructorName(""); setCoverImageUrl("");
       setDurationDays(1); setDurationHoursPerDay(undefined);
       setLocation(""); setMeetingLink(""); setWhatsappGroupLink("");
+      setSignupFormUrl("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
@@ -330,6 +331,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setDurationHoursPerDay(course.duration_hours_per_day);
     setLocation(course.location || "");
     setMeetingLink(course.meeting_link || "");
+    setSignupFormUrl((course as any).signup_form_url || "");
     setWhatsappGroupLink(course.whatsapp_group_link || "");
     setPipelineId(course.pipeline_id_kanban);
     setStageAfterEnroll(course.stage_after_enroll);
@@ -656,6 +658,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         duration_hours_per_day: durationHoursPerDay || null,
         location: location || null,
         meeting_link: meetingLink || null,
+        signup_form_url: signupFormUrl || null,
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
         certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
