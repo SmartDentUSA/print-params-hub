@@ -282,17 +282,18 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   }, [allTurmas, publicCourseIds]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="pp-root min-h-screen">
+      <style>{publicPageStyles}</style>
       <Helmet>
         <title>{config.title} | Smart Dent</title>
         <meta name="description" content={config.metaDescription} />
         <link rel="canonical" href={config.canonical} />
       </Helmet>
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{config.title}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{config.subtitle}</p>
-          <div className="flex items-center gap-3 mt-2">
+        <header className="pp-header mb-8 text-center">
+          <h1>{config.title}</h1>
+          <p>{config.subtitle}</p>
+          <div className="flex items-center justify-center gap-3 mt-3">
             {dataUpdatedAt > 0 && (
               <FreshnessIndicator updatedAt={dataUpdatedAt} fetching={isFetching} />
             )}
@@ -302,7 +303,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
                 queryClient.invalidateQueries({ queryKey: ["public_agenda_turmas", variant] });
                 queryClient.invalidateQueries({ queryKey: ["public_agenda_courses", variant] });
               }}
-              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/80 hover:text-foreground border rounded-full px-2.5 py-1 transition-colors"
+              className="pp-refresh"
             >
               <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
               Atualizar agora
@@ -311,9 +312,9 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         </header>
 
         {isLoading ? (
-          <div className="text-center py-16 text-muted-foreground">Carregando...</div>
+          <div className="pp-empty">Carregando...</div>
         ) : turmas.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
+          <div className="pp-empty">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{config.emptyLabel}</p>
           </div>
