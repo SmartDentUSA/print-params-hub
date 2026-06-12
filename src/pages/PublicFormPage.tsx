@@ -548,6 +548,9 @@ export default function PublicFormPage() {
           };
         } else if (bgType === "solid" && f.bg_color) {
           bgStyle = { backgroundColor: f.bg_color };
+        } else {
+          // Default — Smart Dent "Conhecimento" look
+          bgStyle = { backgroundColor: "#EEF1F6" };
         }
         // ---- Text colors ----
         const hexToRgb = (hex: string) => {
@@ -592,12 +595,13 @@ export default function PublicFormPage() {
           --brand-glow:  hsl(var(--brand-h), 90%,            calc(var(--brand-l) + 14%));
           --brand-faint: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.12);
           --brand-border:hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.28);
-          ${(form as any).font_body ? `font-family: "${(form as any).font_body}", system-ui, sans-serif;` : ""}
+          font-family: ${(form as any).font_body ? `"${(form as any).font_body}", ` : ""}'Inter', system-ui, -apple-system, sans-serif;
           color: var(--form-body);
         }
         .public-form-page h1, .public-form-page h2, .public-form-page h3 {
-          ${(form as any).font_heading ? `font-family: "${(form as any).font_heading}", system-ui, sans-serif;` : ""}
+          font-family: ${(form as any).font_heading ? `"${(form as any).font_heading}", ` : ""}'Inter', system-ui, -apple-system, sans-serif;
           color: var(--form-heading);
+          letter-spacing: -0.01em;
         }
         .public-form-page label { color: var(--form-label); }
         .public-form-page .text-muted-foreground { color: var(--form-muted) !important; }
@@ -605,6 +609,24 @@ export default function PublicFormPage() {
         .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
           background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
         }
+        /* KB-style fallback form panel (only when no custom background) */
+        .public-form-page[data-pp-default="true"] form {
+          background: #FFFFFF;
+          border: 1px solid rgba(0,0,0,0.07);
+          border-radius: 14px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+          padding: 24px;
+        }
+        .public-form-page[data-pp-default="true"] input,
+        .public-form-page[data-pp-default="true"] select,
+        .public-form-page[data-pp-default="true"] textarea {
+          background: #E8ECF4;
+          border: 1px solid #C8CACF;
+          border-radius: 10px;
+        }
+        .public-form-page[data-pp-default="true"] input:hover,
+        .public-form-page[data-pp-default="true"] select:hover,
+        .public-form-page[data-pp-default="true"] textarea:hover { background: #E2E6EE; }
         .public-form-page button[type="submit"] {
           border-radius: ${({ none: "0", sm: "6px", md: "10px", lg: "16px", pill: "9999px" } as any)[(form as any).button_radius || "md"]};
           box-shadow: ${({ none: "none", sm: "0 2px 8px rgba(0,0,0,0.08)", md: "0 8px 24px rgba(0,0,0,0.12)", glow: "0 0 32px var(--brand-faint), 0 4px 16px var(--brand-faint)" } as any)[(form as any).button_shadow || "sm"]};
