@@ -107,7 +107,7 @@ export const useSupabaseData = () => {
         .order('name');
       
       if (error) throw error;
-      return data || [];
+      return filterExcludedBrands(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar marcas');
       return [];
@@ -119,6 +119,7 @@ export const useSupabaseData = () => {
   // Fetch models by brand
   const fetchModelsByBrand = async (brandSlug: string): Promise<Model[]> => {
     try {
+      if (!filterExcludedBrandSlug(brandSlug)) return [];
       setLoading(true);
       const { data, error } = await supabase
         .from('models')
@@ -131,7 +132,7 @@ export const useSupabaseData = () => {
         .order('name');
       
       if (error) throw error;
-      return data || [];
+      return filterExcludedBrands(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar modelos');
       return [];
@@ -340,7 +341,8 @@ export const useSupabaseData = () => {
       
       if (paramError) throw paramError;
       
-      const uniqueBrandSlugs = [...new Set(paramData?.map(item => item.brand_slug) || [])];
+      const uniqueBrandSlugs = [...new Set(paramData?.map(item => item.brand_slug) || [])]
+        .filter(filterExcludedBrandSlug);
       
       if (uniqueBrandSlugs.length === 0) return [];
       
@@ -354,12 +356,12 @@ export const useSupabaseData = () => {
       if (brandError) throw brandError;
       
       // Return only brands that are both active and have active parameters
-      return (brandData || []).map(brand => ({
+      return filterExcludedBrands((brandData || []).map(brand => ({
         id: brand.slug,
         name: brand.name,
         slug: brand.slug,
         active: brand.active
-      }));
+      })));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar marcas');
       throw err;
@@ -369,6 +371,8 @@ export const useSupabaseData = () => {
   // Get models by brand with proper image integration
   const getModelsByBrand = async (brandSlug: string) => {
     try {
+      if (!filterExcludedBrandSlug(brandSlug)) return [];
+      
       // First, get unique model slugs from parameter_sets
       const { data: paramData, error: paramError } = await supabase
         .from('parameter_sets')
@@ -631,7 +635,10 @@ export const useSupabaseData = () => {
       setError(null);
       const { data, error } = await supabase
         .from('models')
-        .select('*')
+        .select(`
+          *,
+          brands!inner (slug)
+        `)
         .eq('active', true)
         .order('name');
 
@@ -640,7 +647,7 @@ export const useSupabaseData = () => {
         throw error;
       }
 
-      return data || [];
+      return filterExcludedBrands(data || []);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar modelos';
       setError(errorMessage);
@@ -681,7 +688,9 @@ export const useSupabaseData = () => {
       const { data, error } = await supabase.rpc('get_brand_distribution');
       
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((item: BrandDistribution) =>
+        !EXCLUDED_BRAND_SLUGS.includes(item.brand_name.toLowerCase().replace(/\s+/g, '-'))
+      );
     } catch (error) {
       console.error('Error fetching brand distribution:', error);
       throw error;
