@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { ResinAccordion } from '@/components/ResinAccordion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function KbResinSheetDialog({ open, onClose, resinName, modelSlug }: Props) {
+  const { t } = useLanguage();
   const [resins, setResins] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -79,10 +81,10 @@ export default function KbResinSheetDialog({ open, onClose, resinName, modelSlug
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         {loading ? (
-          <div className="py-12 text-center text-muted-foreground">Carregando ficha de parâmetros…</div>
+          <div className="py-12 text-center text-muted-foreground">{t('kb.parametros.loading_sheet')}</div>
         ) : resins.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            Nenhum parâmetro disponível para {resinName}.
+            {t('kb.parametros.no_sheet', { name: resinName || '' })}
           </div>
         ) : (
           <ResinAccordion resins={resins} />

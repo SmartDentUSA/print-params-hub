@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import KbSectionHeader from './KbSectionHeader';
 import KbChips, { KbChipOption } from './KbChips';
 import KbResinSheetDialog from './KbResinSheetDialog';
@@ -21,6 +22,7 @@ interface ParamRow {
 }
 
 export default function KbTabParametros() {
+  const { t } = useLanguage();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [models, setModels] = useState<Model[]>([]);
@@ -145,10 +147,10 @@ export default function KbTabParametros() {
   return (
     <section>
       <KbSectionHeader
-        title="Parâmetros de Impressão 3D"
-        subtitle="Base de dados com parâmetros testados para impressoras e resinas odontológicas"
+        title={t('kb.parametros.title')}
+        subtitle={t('kb.parametros.subtitle')}
       />
-      <p className="kb-label">Selecione a Marca</p>
+      <p className="kb-label">{t('kb.parametros.select_brand')}</p>
       <KbChips
         options={brandChips}
         active={brand?.id || ''}
@@ -159,11 +161,11 @@ export default function KbTabParametros() {
         <div className="kb-param-grid">
           {/* Sidebar */}
           <aside className="kb-side">
-            <div className="kb-side-h">{brand.name} — Modelos</div>
+            <div className="kb-side-h">{t('kb.parametros.brand_models', { brand: brand.name })}</div>
             {loadingModels ? (
-              <div className="kb-side-empty">Carregando…</div>
+              <div className="kb-side-empty">{t('kb.parametros.loading')}</div>
             ) : models.length === 0 ? (
-              <div className="kb-side-empty">Nenhum modelo</div>
+              <div className="kb-side-empty">{t('kb.parametros.no_models')}</div>
             ) : (
               models.map((m) => (
                 <button
@@ -179,7 +181,7 @@ export default function KbTabParametros() {
                   )}
                   <div className="kb-model-meta">
                     <div className="kb-model-name">{m.name}</div>
-                    <div className="kb-model-count">{m.resinCount || 0} resina(s)</div>
+                    <div className="kb-model-count">{t((m.resinCount || 0) === 1 ? 'kb.parametros.resin_count_one' : 'kb.parametros.resin_count_other', { count: m.resinCount || 0 })}</div>
                   </div>
                 </button>
               ))
@@ -191,10 +193,8 @@ export default function KbTabParametros() {
             {!model ? (
               <div className="kb-param-empty">
                 <div className="kb-param-empty-icon">🖨️</div>
-                <div className="kb-param-empty-t">Selecione um Modelo</div>
-                <div className="kb-param-empty-s">
-                  Escolha um modelo na lista ao lado para ver os parâmetros disponíveis.
-                </div>
+                <div className="kb-param-empty-t">{t('kb.parametros.select_model')}</div>
+                <div className="kb-param-empty-s">{t('kb.parametros.select_model_desc')}</div>
               </div>
             ) : (
               <>
@@ -207,15 +207,15 @@ export default function KbTabParametros() {
                   <div>
                     <div className="kb-param-h-name">{model.name}</div>
                     <div className="kb-param-h-sub">
-                      {brand.name} · {params.length} resina(s) parametrizada(s)
+                      {brand.name} · {t(params.length === 1 ? 'kb.parametros.parametrized_one' : 'kb.parametros.parametrized_other', { count: params.length })}
                     </div>
                   </div>
                 </header>
 
                 {loadingParams ? (
-                  <div className="kb-param-empty">Carregando…</div>
+                  <div className="kb-param-empty">{t('kb.parametros.loading')}</div>
                 ) : params.length === 0 ? (
-                  <div className="kb-param-empty">Nenhum parâmetro disponível.</div>
+                  <div className="kb-param-empty">{t('kb.parametros.no_params')}</div>
                 ) : (
                   <div className="kb-rgrid">
                     {params.map((p, i) => (
@@ -223,6 +223,7 @@ export default function KbTabParametros() {
                         key={p.id}
                         p={p}
                         index={i}
+                        t={t}
                         onOpenSheet={() => setSheet({ name: p.resin_name, modelSlug: model.slug })}
                       />
                     ))}
@@ -243,7 +244,7 @@ export default function KbTabParametros() {
   );
 }
 
-function ResinCard({ p, index, onOpenSheet }: { p: ParamRow; index: number; onOpenSheet: () => void }) {
+function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t: (k: string, params?: any) => string; onOpenSheet: () => void }) {
   const r = p.resin;
   return (
     <article className="kb-rcard" style={{ animationDelay: `${index * 18}ms` }}>
@@ -266,12 +267,12 @@ function ResinCard({ p, index, onOpenSheet }: { p: ParamRow; index: number; onOp
         </div>
       </div>
       <div className="kb-rparams">
-        <ParamItem label="Exposição" value={p.cure_time} unit="s" />
-        <ParamItem label="Fundo" value={p.bottom_cure_time} unit="s" />
-        <ParamItem label="Camadas" value={p.bottom_layers} unit="un" />
-        <ParamItem label="Espessura" value={p.layer_height} unit="mm" />
-        <ParamItem label="Vel. subida" value={p.lift_speed} unit="mm/s" />
-        <ParamItem label="Vel. retorno" value={p.retract_speed} unit="mm/s" />
+        <ParamItem label={t('kb.parametros.exposure')} value={p.cure_time} unit="s" />
+        <ParamItem label={t('kb.parametros.bottom')} value={p.bottom_cure_time} unit="s" />
+        <ParamItem label={t('kb.parametros.layers')} value={p.bottom_layers} unit="un" />
+        <ParamItem label={t('kb.parametros.thickness')} value={p.layer_height} unit="mm" />
+        <ParamItem label={t('kb.parametros.lift_speed')} value={p.lift_speed} unit="mm/s" />
+        <ParamItem label={t('kb.parametros.retract_speed')} value={p.retract_speed} unit="mm/s" />
       </div>
       <div className="kb-rfoot">
         <span
@@ -283,7 +284,7 @@ function ResinCard({ p, index, onOpenSheet }: { p: ParamRow; index: number; onOp
           {p.anti_aliasing ? '✓ Anti-aliasing' : '✗ Anti-aliasing'}
         </span>
         <button type="button" className="kb-action-btn" onClick={onOpenSheet}>
-          Ver ficha →
+          {t('kb.parametros.view_sheet')}
         </button>
       </div>
       {p.notes && p.notes.trim() && (
