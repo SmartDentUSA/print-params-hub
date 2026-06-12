@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, Video, User, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
+import { CalendarDays, MapPin, User, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
@@ -421,10 +421,12 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
         {turma.course_title || "Sem curso"} <span className="text-muted-foreground font-normal">— {turma.label}</span>
       </h3>
-      <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
-        {turma.modality === "presencial" ? <MapPin className="w-3 h-3 shrink-0" /> : <Video className="w-3 h-3 shrink-0" />}
-        <span className="truncate">{subtitleParts.join(" · ")}</span>
-      </p>
+      {turma.modality === "presencial" && (
+        <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+          <MapPin className="w-3 h-3 shrink-0" />
+          <span className="truncate">{subtitleParts.join(" · ")}</span>
+        </p>
+      )}
 
       {isOnline ? (
         <OnlineDateRow
@@ -460,18 +462,28 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 pt-3 border-t mt-auto">
+      <div className="flex items-center justify-between gap-3 pt-3 border-t mt-auto">
         <Metric label="Vagas" value={turma.slots} />
-        <Metric label="Inscritos" value={turma.enrolled_count} />
+        {turma.instructor_name && (
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instrutor</div>
+            <div className="flex items-center justify-end gap-1.5 text-sm font-medium text-foreground truncate">
+              <User className="w-3.5 h-3.5 shrink-0" />
+              {turma.instructor_name}
+            </div>
+          </div>
+        )}
       </div>
 
-      {turma.instructor_name && (
-        <div className="mt-3 pt-3 border-t">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
-            <User className="w-3 h-3 shrink-0" />
-            {turma.instructor_name}
-          </span>
-        </div>
+      {(turma as any).signup_form_url && (
+        <a
+          href={(turma as any).signup_form_url as string}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center justify-center w-full px-4 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
+        >
+          Inscreva-se
+        </a>
       )}
       </div>
     </div>

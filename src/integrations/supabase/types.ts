@@ -15937,6 +15937,7 @@ export type Database = {
           related_product_ids: string[]
           related_product_names: string[]
           sellflux_campaign_tag: string | null
+          signup_form_url: string | null
           slug: string
           stage_after_enroll: string
           title: string
@@ -15973,6 +15974,7 @@ export type Database = {
           related_product_ids?: string[]
           related_product_names?: string[]
           sellflux_campaign_tag?: string | null
+          signup_form_url?: string | null
           slug: string
           stage_after_enroll?: string
           title: string
@@ -16009,6 +16011,7 @@ export type Database = {
           related_product_ids?: string[]
           related_product_names?: string[]
           sellflux_campaign_tag?: string | null
+          signup_form_url?: string | null
           slug?: string
           stage_after_enroll?: string
           title?: string
@@ -23584,6 +23587,7 @@ export type Database = {
           related_product_ids: string[] | null
           related_product_names: string[] | null
           sellflux_tag: string | null
+          signup_form_url: string | null
           slots: number | null
           sort_order: number | null
           stage_after_enroll: string | null
