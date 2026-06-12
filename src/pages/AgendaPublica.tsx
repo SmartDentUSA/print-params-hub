@@ -641,19 +641,70 @@ function ShareButton({ turma }: { turma: TurmaComVagas }) {
           : "Online";
 
     const t = (s?: string | null) => (s ? s.substring(0, 5) : "");
-    const days = Array.isArray(turma.days) ? [...turma.days].sort((a, b) => a.day_number - b.day_number) : [];
-    let cronograma = "";
-    if (days.length === 1) {
-      const d = days[0];
-      cronograma = `📅 ${formatDatePtBr(d.date)} (${formatWeekday(d.date)})\n⏰ ${t(d.start_time)}–${t(d.end_time)}`;
-    } else if (days.length > 1) {
-      cronograma = days
-        .map((d, i) => `📅 Dia ${i + 1} — ${formatDatePtBr(d.date)} (${formatWeekday(d.date)}) | ${t(d.start_time)}–${t(d.end_time)}`)
-        .join("\n");
-    } else if (turma.start_date) {
-      const horario = t(turma.start_time) && t(turma.end_time) ? `${t(turma.start_time)}–${t(turma.end_time)}` : "";
-      cronograma = `📅 ${formatDatePtBr(turma.start_date)} (${formatWeekday(turma.start_date)})${horario ? `\n⏰ ${horario}` : ""}`;
+    const fmtBR = (iso?: string | null) => {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-");
+      return d && m && y ? `${d}/${m}/${y}` : "";
+    };
+    const fmtBRShort = (iso?: string | null) => {
+      if (!iso) return "";
+      const [, m, d] = iso.split("-");
+      return d && m ? `${d}/${m}` : "";
+    };
+    const addDaysISO = (iso: string, n: number) => {
+      const dt = new Date(iso + "T12:00:00");
+      dt.setDate(dt.getDate() + n);
+      return dt.toISOString().slice(0, 10);
+    };
+    const diffDaysISO = (a: string, b: string) => {
+      const d1 = new Date(a + "T12:00:00").getTime();
+      const d2 = new Date(b + "T12:00:00").getTime();
+      return Math.round((d2 - d1) / 86400000);
+    };
+
+    const sortedDays = Array.isArray(turma.days) ? [...turma.days].sort((a, b) => a.day_number - b.day_number) : [];
+
+    // Derivar dias quando o array vier vazio mas a turma for multi-dia
+    let workDays = sortedDays;
+    if (workDays.length === 0 && turma.start_date) {
+      const startISO = turma.start_date;
+      const endISO = turma.end_date || turma.start_date;
+      const total = Math.max(0, diffDaysISO(startISO, endISO)) + 1;
+      workDays = Array.from({ length: total }, (_, i) => ({
+        day_number: i + 1,
+        date: addDaysISO(startISO, i),
+        start_time: turma.start_time || "",
+        end_time: turma.end_time || "",
+      }));
     }
+
+    const first = workDays[0];
+    const last = workDays[workDays.length - 1];
+    const startDate = first?.date || turma.start_date || "";
+    const endDate = last?.date || turma.end_date || startDate;
+    const startTime = t(first?.start_time) || t(turma.start_time);
+    const endTime = t(last?.end_time) || t(turma.end_time);
+
+    const cronogramaLines: string[] = [];
+    if (startDate && endDate && startDate !== endDate) {
+      cronogramaLines.push(`📅 Início: ${fmtBR(startDate)} — Fim: ${fmtBR(endDate)}`);
+    } else if (startDate) {
+      cronogramaLines.push(`📅 Data: ${fmtBR(startDate)} (${formatWeekday(startDate)})`);
+    }
+    if (startTime && endTime) {
+      cronogramaLines.push(`⏰ Horário: ${startTime} às ${endTime}`);
+    }
+    if (workDays.length > 1) {
+      cronogramaLines.push("");
+      cronogramaLines.push("🗓 Cronograma:");
+      workDays.forEach((d, i) => {
+        const wd = formatWeekday(d.date);
+        const horario = t(d.start_time) && t(d.end_time) ? ` | ${t(d.start_time)}–${t(d.end_time)}` : "";
+        const label = d.topic ? `Dia ${i + 1} — ${d.topic} (${fmtBRShort(d.date)}, ${wd})` : `Dia ${i + 1} — ${fmtBRShort(d.date)} (${wd})`;
+        cronogramaLines.push(`• ${label}${horario}`);
+      });
+    }
+    const cronograma = cronogramaLines.join("\n");
 
     const isPresencial = turma.modality === "presencial";
     const lines = [
