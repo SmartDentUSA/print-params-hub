@@ -10,6 +10,43 @@ import type { TurmaComVagas } from "@/types/courses";
 
 type AgendaVariant = "presencial" | "online";
 
+const publicPageStyles = `
+  .pp-root {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1C1E23;
+    background: #EEF1F6;
+  }
+  .pp-root h1, .pp-root h2, .pp-root h3 { color: #1C1E23; }
+  .pp-root .pp-header h1 { font-size: 24px; font-weight: 600; margin: 0 0 5px; letter-spacing: -0.01em; }
+  .pp-root .pp-header p  { font-size: 14px; color: #5F6368; margin: 0; }
+  .pp-root .pp-refresh {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #5F6368;
+    border: 1px solid rgba(0,0,0,0.13); background: #FFFFFF;
+    border-radius: 999px; padding: 4px 10px; transition: all 0.15s;
+  }
+  .pp-root .pp-refresh:hover { border-color: #1A73E8; color: #1A73E8; }
+  .pp-root .pp-card {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(0,0,0,0.07) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+  }
+  .pp-root .pp-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,.13);
+    border-color: rgba(26,115,232,0.20) !important;
+  }
+  .pp-root .pp-empty {
+    background: #FFFFFF; border: 1px solid rgba(0,0,0,0.07);
+    border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    padding: 60px 24px; text-align: center; color: #9AA0A6;
+  }
+  .pp-root ::-webkit-scrollbar { width: 5px; }
+  .pp-root ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.13); border-radius: 3px; }
+`;
+
 const VARIANT_CONFIG: Record<AgendaVariant, {
   title: string;
   subtitle: string;
