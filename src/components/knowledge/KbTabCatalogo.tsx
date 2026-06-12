@@ -133,6 +133,7 @@ interface ResinInfo {
   cta_4_label: string | null;
   cta_4_url: string | null;
   processing_instructions: string | null;
+  image_url: string | null;
 }
 
 const normCat = (v: string | null): string | null => {
@@ -197,7 +198,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, slug, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions')
+          .select('id, name, slug, image_url, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions')
           .eq('active', true)
           .limit(500),
         supabase
@@ -253,6 +254,7 @@ export default function KbTabCatalogo() {
           cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
           cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
           processing_instructions: r.processing_instructions || null,
+          image_url: r.image_url || null,
         };
         resinMap.set(r.name.toLowerCase().trim(), info);
         const fk = resinKey(r.name);
@@ -374,14 +376,16 @@ export default function KbTabCatalogo() {
               return parts.join(' · ');
             };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
+            // Prefer resin image over catalog image when a resin match exists
+            const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
             return (
               <article key={p.id} className="kb-card" style={{ animationDelay: `${i * 18}ms` }}>
-                {p.image_url ? (
+                {cardImage ? (
                   <img
-                    src={p.image_url}
+                    src={cardImage}
                     alt={p.name}
                     loading="lazy"
                     className="kb-cthumb"
