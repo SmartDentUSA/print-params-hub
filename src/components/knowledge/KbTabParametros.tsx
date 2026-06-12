@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import KbSectionHeader from './KbSectionHeader';
 import KbChips, { KbChipOption } from './KbChips';
@@ -29,7 +29,7 @@ export default function KbTabParametros() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingParams, setLoadingParams] = useState(false);
   const [sheet, setSheet] = useState<{ name: string; modelSlug: string | null } | null>(null);
-  const paramAreaRef = React.useRef<HTMLDivElement | null>(null);
+  const paramAreaRef = useRef<HTMLDivElement | null>(null);
 
   // Load brands
   useEffect(() => {
