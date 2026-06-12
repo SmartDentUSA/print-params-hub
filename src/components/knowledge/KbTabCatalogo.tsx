@@ -209,11 +209,19 @@ export default function KbTabCatalogo() {
             const d = docs.get(p.name.toLowerCase().trim());
             const resin = resins.get(p.name.toLowerCase().trim());
             const hasParametrizacao = !!resin;
+            const productDocs = extraDocs.get(p.id) || [];
+            const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
             // CTAs from resins take precedence (FDS/IFU live there); fall back to catalog/products_catalog
             const lojaUrl = resin?.cta_1_url || p.cta_1_url || null;
-            const fdsUrl = resin?.cta_2_url || d?.datasheet_url || d?.spec_sheet_url || null;
-            const ifuUrl = resin?.cta_3_url || d?.manual_url || null;
-            const primaryUrl = lojaUrl || fdsUrl || ifuUrl || null;
+            const fdsUrl = resin?.cta_2_url
+              || productDocs.find((x) => x.kind === 'FDS')?.url
+              || d?.datasheet_url || d?.spec_sheet_url || null;
+            const ifuUrl = resin?.cta_3_url
+              || productDocs.find((x) => x.kind === 'IFU')?.url
+              || d?.manual_url || null;
+            // Extra docs (Guia, Perfil/Características, etc.) not already covered by FDS/IFU
+            const otherDocs = productDocs.filter((x) => x.kind !== 'FDS' && x.kind !== 'IFU');
+            const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
@@ -251,7 +259,7 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{p.description || p.product_subcategory}</p>
                   )}
-                  {(lojaUrl || fdsUrl || ifuUrl) && (
+                  {(lojaUrl || fdsUrl || ifuUrl || otherDocs.length > 0) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                       {lojaUrl && (
                         <button
@@ -274,6 +282,22 @@ export default function KbTabCatalogo() {
                           📘 IFU
                         </button>
                       )}
+                      {otherDocs.map((doc, idx) => {
+                        const short = doc.kind === 'GUIA' ? 'Guia'
+                          : doc.kind === 'PERFIL' ? 'Perfil Técnico'
+                          : doc.name.length > 22 ? doc.name.slice(0, 20) + '…' : doc.name;
+                        return (
+                          <button
+                            key={`${doc.url}-${idx}`}
+                            type="button"
+                            className="kb-action-btn"
+                            onClick={() => open(doc.url)}
+                            title={doc.name}
+                          >
+                            {docIcon(doc.kind)} {short}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                   {hasParametrizacao && (
