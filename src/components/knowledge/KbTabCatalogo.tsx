@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -27,15 +28,15 @@ const CAT_ALIASES: Record<string, string> = {
 };
 const CANONICAL_CATS = Array.from(new Set(Object.values(CAT_ALIASES)));
 
-const CHIPS: KbChipOption[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'SCANNERS 3D', label: 'Scanners 3D' },
-  { key: 'RESINAS 3D', label: 'Resinas 3D' },
-  { key: 'IMPRESSÃO 3D', label: 'Impressão 3D' },
-  { key: 'PÓS-IMPRESSÃO', label: 'Pós-Impressão' },
-  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', label: 'Dentística e Estética' },
-  { key: 'CARACTERIZAÇÃO', label: 'Caracterização' },
-  { key: 'SOFTWARES', label: 'Softwares' },
+const CHIP_KEYS: { key: string; tk: string }[] = [
+  { key: 'all', tk: 'kb.chips.all' },
+  { key: 'SCANNERS 3D', tk: 'kb.chips.scanners' },
+  { key: 'RESINAS 3D', tk: 'kb.chips.resinas' },
+  { key: 'IMPRESSÃO 3D', tk: 'kb.chips.impressao' },
+  { key: 'PÓS-IMPRESSÃO', tk: 'kb.chips.pos_impressao' },
+  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', tk: 'kb.chips.dentistica' },
+  { key: 'CARACTERIZAÇÃO', tk: 'kb.chips.caracterizacao' },
+  { key: 'SOFTWARES', tk: 'kb.chips.softwares' },
 ];
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
@@ -164,6 +165,7 @@ const resinKey = (raw: string): string => {
 };
 
 export default function KbTabCatalogo() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
@@ -308,11 +310,12 @@ export default function KbTabCatalogo() {
     });
   }, [rows, q, chip]);
 
+  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
-      <KbSectionHeader title="Catálogo" subtitle="Produtos Smart Dent para odontologia digital" />
-      <KbSearchBar placeholder="Buscar produtos, resinas, scanners..." value={q} onDebouncedChange={setQ} />
-      <KbChips options={CHIPS} active={chip} onChange={setChip} />
+      <KbSectionHeader title={t('kb.catalogo.title')} subtitle={t('kb.catalogo.subtitle')} />
+      <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
+      <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="product" />}
       <div className="kb-grid">
         {loading ? (

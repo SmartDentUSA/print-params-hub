@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export type KbTab = 'parametros' | 'videos' | 'artigos' | 'catalogo';
 
@@ -31,13 +32,6 @@ const ICONS: Record<KbTab, React.ReactNode> = {
   ),
 };
 
-const LABELS: Record<KbTab, string> = {
-  parametros: 'Parâmetros',
-  videos: 'Vídeos',
-  artigos: 'Artigos',
-  catalogo: 'Catálogo',
-};
-
 const ORDER: KbTab[] = ['parametros', 'videos', 'artigos', 'catalogo'];
 
 interface Props {
@@ -46,6 +40,7 @@ interface Props {
 }
 
 export default function KbTabSwitcher({ active, onChange }: Props) {
+  const { t: tr } = useLanguage();
   return (
     <div className="kb-switcher-wrap">
       <div className="kb-switcher" role="tablist">
@@ -58,7 +53,7 @@ export default function KbTabSwitcher({ active, onChange }: Props) {
             onClick={() => onChange(t)}
           >
             {ICONS[t]}
-            <span>{LABELS[t]}</span>
+            <span>{tr(`kb.tabs.${t}`)}</span>
           </button>
         ))}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -7,17 +8,18 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 
-const CHIPS: KbChipOption[] = [
-  { key: 'all', label: 'Todos' },
-  { key: '45243aad-7143-4bc8-a649-05f741992e07', label: 'Vídeos Tutoriais' },
-  { key: '67b81704-64f8-4739-b79f-24f46f70752c', label: 'Casos Clínicos' },
-  { key: 'fc493982-ad8c-417f-9579-82786a97925a', label: 'Ciência e Tecnologia' },
-  { key: 'ff524477-c553-4518-868e-8435e16a5c57', label: 'Depoimentos e Cursos' },
-  { key: '6b724172-f7c8-4a4c-bfb1-8c2ee4fc608e', label: 'Catálogo de Produtos' },
+const CHIP_KEYS: { key: string; tk: string }[] = [
+  { key: 'all', tk: 'kb.chips.all' },
+  { key: '45243aad-7143-4bc8-a649-05f741992e07', tk: 'kb.chips.videos_tutoriais' },
+  { key: '67b81704-64f8-4739-b79f-24f46f70752c', tk: 'kb.chips.casos_clinicos' },
+  { key: 'fc493982-ad8c-417f-9579-82786a97925a', tk: 'kb.chips.ciencia' },
+  { key: 'ff524477-c553-4518-868e-8435e16a5c57', tk: 'kb.chips.depoimentos' },
+  { key: '6b724172-f7c8-4a4c-bfb1-8c2ee4fc608e', tk: 'kb.chips.catalogo_produtos' },
 ];
 
 interface Row {
-  id: string; title: string; slug: string; excerpt: string | null;
+  id: string; title: string; title_en: string | null; title_es: string | null;
+  slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
   og_image_url: string | null; created_at: string; category_id: string;
   knowledge_categories: { letter: string; name: string } | null;
   knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null }[];
@@ -26,6 +28,7 @@ interface Row {
 interface Props { onOpen: (slug: string) => void }
 
 export default function KbTabVideos({ onOpen }: Props) {
+  const { t, language } = useLanguage();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
@@ -38,7 +41,7 @@ export default function KbTabVideos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, slug, excerpt, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (chip !== 'all') query = query.eq('category_id', chip);
@@ -62,8 +65,8 @@ export default function KbTabVideos({ onOpen }: Props) {
 
   const cards: KbContentCardData[] = filtered.map((r) => ({
     id: r.id,
-    title: r.title,
-    excerpt: r.excerpt,
+    title: (language === 'en' && r.title_en) || (language === 'es' && r.title_es) || r.title,
+    excerpt: (language === 'en' && r.excerpt_en) || (language === 'es' && r.excerpt_es) || r.excerpt,
     imageUrl: r.knowledge_videos?.[0]?.thumbnail_url || r.og_image_url || null,
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
@@ -71,11 +74,12 @@ export default function KbTabVideos({ onOpen }: Props) {
     durationSeconds: r.knowledge_videos?.[0]?.video_duration_seconds || null,
   }));
 
+  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
-      <KbSectionHeader title="Vídeos" subtitle="Vídeos tutoriais, casos clínicos e depoimentos" />
-      <KbSearchBar placeholder="Buscar vídeos, tutoriais, casos clínicos..." value={q} onDebouncedChange={setQ} />
-      <KbChips options={CHIPS} active={chip} onChange={setChip} />
+      <KbSectionHeader title={t('kb.videos.title')} subtitle={t('kb.videos.subtitle')} />
+      <KbSearchBar placeholder={t('kb.videos.search')} value={q} onDebouncedChange={setQ} />
+      <KbChips options={chips} active={chip} onChange={setChip} />
       <div className="kb-grid">
         {loading ? (
           <KbSkeletonGrid />
@@ -83,7 +87,7 @@ export default function KbTabVideos({ onOpen }: Props) {
           <KbEmptyState icon="🎬" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel="▶ Assistir" onClick={() => onOpen(filtered[i].slug)} />
+            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.videos.watch')} onClick={() => onOpen(filtered[i].slug)} />
           ))
         )}
       </div>

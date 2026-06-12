@@ -236,5 +236,78 @@
     "send_aria": "Enviar mensagem",
     "close_aria": "Fechar chat",
     "open_aria": "Abrir chat com Dra. L.I.A."
+  },
+  "kb": {
+    "tabs": {
+      "parametros": "Parâmetros",
+      "videos": "Vídeos",
+      "artigos": "Artigos",
+      "catalogo": "Catálogo"
+    },
+    "parametros": {
+      "title": "Parâmetros de Impressão 3D",
+      "subtitle": "Base de dados com parâmetros testados para impressoras e resinas odontológicas",
+      "select_brand": "Selecione a Marca",
+      "brand_models": "{{brand}} — Modelos",
+      "loading": "Carregando…",
+      "no_models": "Nenhum modelo",
+      "resin_count_one": "{{count}} resina",
+      "resin_count_other": "{{count}} resinas",
+      "select_model": "Selecione um Modelo",
+      "select_model_desc": "Escolha um modelo na lista ao lado para ver os parâmetros disponíveis.",
+      "parametrized_one": "{{count}} resina parametrizada",
+      "parametrized_other": "{{count}} resinas parametrizadas",
+      "no_params": "Nenhum parâmetro disponível.",
+      "exposure": "Exposição",
+      "bottom": "Fundo",
+      "layers": "Camadas",
+      "thickness": "Espessura",
+      "lift_speed": "Vel. subida",
+      "retract_speed": "Vel. retorno",
+      "view_sheet": "Ver ficha →",
+      "loading_sheet": "Carregando ficha de parâmetros…",
+      "no_sheet": "Nenhum parâmetro disponível para {{name}}."
+    },
+    "videos": {
+      "title": "Vídeos",
+      "subtitle": "Vídeos tutoriais, casos clínicos e depoimentos",
+      "search": "Buscar vídeos, tutoriais, casos clínicos...",
+      "watch": "▶ Assistir",
+      "count_one": "{{count}} vídeo encontrado",
+      "count_other": "{{count}} vídeos encontrados"
+    },
+    "artigos": {
+      "title": "Artigos",
+      "subtitle": "Artigos técnicos, casos clínicos e guias práticos",
+      "search": "Buscar artigos, guias e publicações...",
+      "read_more": "Ler mais →",
+      "count_one": "{{count}} artigo encontrado",
+      "count_other": "{{count}} artigos encontrados"
+    },
+    "catalogo": {
+      "title": "Catálogo",
+      "subtitle": "Produtos Smart Dent para odontologia digital",
+      "search": "Buscar produtos, resinas, scanners...",
+      "count_one": "{{count}} produto encontrado",
+      "count_other": "{{count}} produtos encontrados"
+    },
+    "chips": {
+      "all": "Todos",
+      "videos_tutoriais": "Vídeos Tutoriais",
+      "casos_clinicos": "Casos Clínicos",
+      "ciencia": "Ciência e Tecnologia",
+      "depoimentos": "Depoimentos e Cursos",
+      "catalogo_produtos": "Catálogo de Produtos",
+      "falhas": "Falhas, como resolver",
+      "parametros": "Parâmetros Técnicos",
+      "scanners": "Scanners 3D",
+      "resinas": "Resinas 3D",
+      "impressao": "Impressão 3D",
+      "pos_impressao": "Pós-Impressão",
+      "dentistica": "Dentística e Estética",
+      "caracterizacao": "Caracterização",
+      "softwares": "Softwares"
+    },
+    "empty": "Nenhum resultado encontrado"
   }
 }

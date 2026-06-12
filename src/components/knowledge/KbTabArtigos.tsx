@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -8,16 +9,17 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 
-const CHIPS: KbChipOption[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'fc493982-ad8c-417f-9579-82786a97925a', label: 'Ciência e Tecnologia' },
-  { key: '67b81704-64f8-4739-b79f-24f46f70752c', label: 'Casos Clínicos' },
-  { key: '83d0b6ea-59d7-4d98-80a1-ac7df83b697a', label: 'Falhas, como resolver' },
-  { key: '67f92f1b-ea9e-42b9-94d1-7d685e25629c', label: 'Parâmetros Técnicos' },
+const CHIP_KEYS: { key: string; tk: string }[] = [
+  { key: 'all', tk: 'kb.chips.all' },
+  { key: 'fc493982-ad8c-417f-9579-82786a97925a', tk: 'kb.chips.ciencia' },
+  { key: '67b81704-64f8-4739-b79f-24f46f70752c', tk: 'kb.chips.casos_clinicos' },
+  { key: '83d0b6ea-59d7-4d98-80a1-ac7df83b697a', tk: 'kb.chips.falhas' },
+  { key: '67f92f1b-ea9e-42b9-94d1-7d685e25629c', tk: 'kb.chips.parametros' },
 ];
 
 interface Row {
-  id: string; title: string; slug: string; excerpt: string | null;
+  id: string; title: string; title_en: string | null; title_es: string | null;
+  slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
   og_image_url: string | null; created_at: string; category_id: string;
   knowledge_categories: { letter: string; name: string } | null;
 }
@@ -25,6 +27,7 @@ interface Row {
 interface Props { onOpen: (slug: string) => void }
 
 export default function KbTabArtigos({ onOpen }: Props) {
+  const { t, language } = useLanguage();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
@@ -44,7 +47,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, slug, excerpt, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (chip !== 'all') query = query.eq('category_id', chip);
@@ -71,19 +74,20 @@ export default function KbTabArtigos({ onOpen }: Props) {
 
   const cards: KbContentCardData[] = filtered.map((r) => ({
     id: r.id,
-    title: r.title,
-    excerpt: r.excerpt,
+    title: (language === 'en' && r.title_en) || (language === 'es' && r.title_es) || r.title,
+    excerpt: (language === 'en' && r.excerpt_en) || (language === 'es' && r.excerpt_es) || r.excerpt,
     imageUrl: r.og_image_url,
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
   }));
 
+  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
-      <KbSectionHeader title="Artigos" subtitle="Artigos técnicos, casos clínicos e guias práticos" />
-      <KbSearchBar placeholder="Buscar artigos, guias e publicações..." value={q} onDebouncedChange={setQ} />
-      <KbChips options={CHIPS} active={chip} onChange={setChip} />
+      <KbSectionHeader title={t('kb.artigos.title')} subtitle={t('kb.artigos.subtitle')} />
+      <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
+      <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={cards.length} noun="article" />}
       <div className="kb-grid">
         {loading ? (
@@ -92,7 +96,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
           <KbEmptyState icon="📄" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel="Ler mais →" onClick={() => onOpen(filtered[i].slug)} />
+            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} onClick={() => onOpen(filtered[i].slug)} />
           ))
         )}
       </div>
