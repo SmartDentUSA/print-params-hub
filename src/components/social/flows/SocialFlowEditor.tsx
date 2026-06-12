@@ -536,3 +536,191 @@ function NodeInspector({ node, onUpdate, produtoSlug, formName }: { node: Node; 
       return <p className="text-xs text-muted-foreground">Sem configuração.</p>;
   }
 }
+
+// ============= Helper components =============
+
+function ZernioStatsButton({ automationId }: { automationId: string | null }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('zernio-copa-setup', { body: { action: 'list' } });
+      if (error) throw error;
+      const list: any[] = data?.automations ?? data?.list ?? data?.data ?? (Array.isArray(data) ? data : []);
+      const found = automationId ? list.find((a: any) => a.id === automationId || a.automation_id === automationId) : list[0];
+      setStats(found ?? data);
+    } catch (e: any) {
+      toast.error(`Stats: ${e.message ?? e}`);
+    } finally { setLoading(false); }
+  };
+  return (
+    <div className="space-y-1">
+      <Button variant="outline" size="sm" className="h-6 text-[10px] w-full" onClick={load} disabled={loading}>
+        {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+        Ver stats
+      </Button>
+      {stats && (
+        <div className="text-[10px] grid grid-cols-3 gap-1 text-center">
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.triggered ?? stats.trigger_count ?? 0}</div><div className="text-muted-foreground">trig</div></div>
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.dmsSent ?? stats.dms_sent ?? 0}</div><div className="text-muted-foreground">DMs</div></div>
+          <div className="rounded bg-muted/40 p-1"><div className="font-semibold">{stats.uniqueContacts ?? stats.unique_contacts ?? 0}</div><div className="text-muted-foreground">únicos</div></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageLibraryDialog({ open, onOpenChange, produtoSlug, onPick }: { open: boolean; onOpenChange: (v: boolean) => void; produtoSlug?: string; onPick: (url: string) => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    (async () => {
+      let q = supabase.from('social_flow_midias').select('id, titulo, url, thumbnail_url, tipo, produto_slug').limit(60);
+      if (produtoSlug) q = q.eq('produto_slug', produtoSlug);
+      const { data, error } = await q;
+      if (error) toast.error(error.message);
+      setItems(data ?? []);
+      setLoading(false);
+    })();
+  }, [open, produtoSlug]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => onOpenChange(false)}>
+      <div className="bg-card border border-border rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm">Biblioteca de mídias{produtoSlug ? ` — ${produtoSlug}` : ''}</h3>
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Fechar</Button>
+        </div>
+        {loading ? <div className="text-center text-sm py-8"><Loader2 className="w-4 h-4 animate-spin inline" /> Carregando…</div>
+          : items.length === 0 ? <div className="text-center text-sm text-muted-foreground py-8">Nenhuma mídia encontrada.</div>
+          : (
+            <div className="grid grid-cols-3 gap-2">
+              {items.map((m) => (
+                <button key={m.id} type="button" onClick={() => onPick(m.url)} className="border border-border rounded hover:border-primary text-left overflow-hidden">
+                  <img src={m.thumbnail_url ?? m.url} alt={m.titulo ?? ''} className="w-full h-24 object-cover bg-muted" />
+                  <div className="p-1 text-[10px] truncate">{m.titulo ?? m.url}</div>
+                </button>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+function ButtonsEditor({ buttons, onChange, max, simple }: { buttons: any[]; onChange: (b: any[]) => void; max: number; simple?: boolean }) {
+  const update = (i: number, patch: any) => onChange(buttons.map((b, idx) => idx === i ? { ...b, ...patch } : b));
+  const remove = (i: number) => onChange(buttons.filter((_, idx) => idx !== i));
+  const add = () => {
+    if (buttons.length >= max) return;
+    onChange([...buttons, simple ? { title: '', payload: '', type: 'postback' } : { title: '', type: 'postback', payload: '' }]);
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">Botões ({buttons.length}/{max})</Label>
+      {buttons.map((b, i) => (
+        <div key={i} className="border border-border rounded p-2 space-y-1">
+          <Input placeholder="Título" value={b.title ?? ''} onChange={(e) => update(i, { title: e.target.value })} />
+          {!simple && (
+            <Select value={b.type ?? 'postback'} onValueChange={(v) => update(i, { type: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="postback">Payload</SelectItem>
+                <SelectItem value="web_url">URL</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {!simple && b.type === 'web_url'
+            ? <Input placeholder="https://…" value={b.url ?? ''} onChange={(e) => update(i, { url: e.target.value })} />
+            : <Input placeholder="payload" value={b.payload ?? ''} onChange={(e) => update(i, { payload: e.target.value })} />
+          }
+          <Button variant="ghost" size="sm" className="h-6 text-xs w-full" onClick={() => remove(i)}>
+            <Trash2 className="w-3 h-3 mr-1" /> Remover
+          </Button>
+        </div>
+      ))}
+      {buttons.length < max && (
+        <Button variant="outline" size="sm" className="w-full" onClick={add}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar botão
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function QuickRepliesEditor({ items, onChange }: { items: any[]; onChange: (q: any[]) => void }) {
+  const update = (i: number, patch: any) => onChange(items.map((b, idx) => idx === i ? { ...b, ...patch } : b));
+  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const add = () => {
+    if (items.length >= 4) return;
+    onChange([...items, { id: crypto.randomUUID().slice(0, 8), title: '' }]);
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">Quick replies ({items.length}/4)</Label>
+      {items.map((q, i) => (
+        <div key={i} className="flex gap-1">
+          <Input placeholder="id" value={q.id ?? ''} onChange={(e) => update(i, { id: e.target.value })} className="w-20 font-mono text-xs" />
+          <Input placeholder="Título" value={q.title ?? ''} onChange={(e) => update(i, { title: e.target.value })} />
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+        </div>
+      ))}
+      {items.length < 4 && (
+        <Button variant="outline" size="sm" className="w-full" onClick={add}>
+          <Plus className="w-3 h-3 mr-1" /> Adicionar opção
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ConditionEditor({ cfg, onUpdate }: { cfg: any; onUpdate: (p: any) => void }) {
+  const conditions: any[] = Array.isArray(cfg.conditions) ? cfg.conditions : [];
+  const updateCond = (i: number, patch: any) => onUpdate({ conditions: conditions.map((c, idx) => idx === i ? { ...c, ...patch } : c) });
+  const addCond = () => onUpdate({ conditions: [...conditions, { field: '', operator: 'not_empty', value: '' }] });
+  const removeCond = (i: number) => onUpdate({ conditions: conditions.filter((_, idx) => idx !== i) });
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-xs">Lógica</Label>
+        <Select value={cfg.logic ?? 'all'} onValueChange={(v) => onUpdate({ logic: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas (AND)</SelectItem>
+            <SelectItem value="any">Qualquer (OR)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Label className="text-xs">Condições</Label>
+      {conditions.map((c, i) => (
+        <div key={i} className="border border-border rounded p-2 space-y-1">
+          <Input placeholder="campo (ex: contact.is_follower)" value={c.field ?? ''} onChange={(e) => updateCond(i, { field: e.target.value })} className="text-xs font-mono" />
+          <Select value={c.operator ?? 'not_empty'} onValueChange={(v) => updateCond(i, { operator: v })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="not_empty">não vazio</SelectItem>
+              <SelectItem value="eq">igual</SelectItem>
+              <SelectItem value="contains">contém</SelectItem>
+            </SelectContent>
+          </Select>
+          {(c.operator === 'eq' || c.operator === 'contains') && (
+            <Input placeholder="valor" value={c.value ?? ''} onChange={(e) => updateCond(i, { value: e.target.value })} />
+          )}
+          <Button variant="ghost" size="sm" className="h-6 text-xs w-full" onClick={() => removeCond(i)}>
+            <Trash2 className="w-3 h-3 mr-1" /> Remover
+          </Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" className="w-full" onClick={addCond}>
+        <Plus className="w-3 h-3 mr-1" /> Adicionar condição
+      </Button>
+      <div className="pt-2 space-y-1">
+        <div className="text-[10px]"><span className="text-muted-foreground">Destino SIM:</span> <span className="font-mono">{cfg.true_node_id ?? '—'}</span></div>
+        <div className="text-[10px]"><span className="text-muted-foreground">Destino NÃO:</span> <span className="font-mono">{cfg.false_node_id ?? '—'}</span></div>
+      </div>
+    </div>
+  );
+}
