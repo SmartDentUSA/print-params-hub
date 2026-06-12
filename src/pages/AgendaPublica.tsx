@@ -533,15 +533,16 @@ function LiveBadge({ modality, className }: { modality?: string; className?: str
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider shadow-sm",
-        isLive
-          ? "bg-rose-600 text-white"
-          : "bg-red-700 text-black",
+        "inline-flex items-center gap-1.5 pl-1 pr-3 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-sm bg-[#ED1C24] text-white",
         className,
       )}
     >
-      <Radio className={cn("w-3 h-3", isLive && "animate-pulse")} />
-      {isLive ? "Live" : "Online"}
+      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white">
+        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 fill-[#ED1C24]" aria-hidden>
+          <polygon points="3,2 10,6 3,10" />
+        </svg>
+      </span>
+      LIVE
     </span>
   );
 }
