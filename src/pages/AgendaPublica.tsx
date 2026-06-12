@@ -411,9 +411,6 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             {status.label}
           </span>
         )}
-        {showLiveTimer && (
-          <LiveCountdown startDate={turma.start_date} startTime={turma.start_time} />
-        )}
         {turmaTag && !coverUrl && (
           <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
             Turma {turmaTag}
@@ -463,14 +460,9 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 pt-3 border-t mt-auto">
+      <div className="grid grid-cols-2 gap-3 pt-3 border-t mt-auto">
         <Metric label="Vagas" value={turma.slots} />
         <Metric label="Inscritos" value={turma.enrolled_count} />
-        <Metric
-          label="Ocupação"
-          value={lotado ? "Lotado" : `${pct}%`}
-          valueClassName={lotado ? "text-rose-600 dark:text-rose-400" : pctColor}
-        />
       </div>
 
       {turma.instructor_name && (
