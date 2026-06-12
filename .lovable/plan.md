@@ -1,42 +1,50 @@
-## Goal
+## Problema
 
-Make the cards do Catálogo (aba `/base-conhecimento?tab=catalogo`) mostrarem, para cada produto que é uma **Resina**, todas as informações que já existem no admin "Editar Resina":
+Card de resina virou uma "torre de botões": 12+ documentos empilhados verticalmente, apresentações repetindo "250 — R$ 1.850,00", FDA Vitality solto no meio. Hierarquia perdida, card 3x mais alto que os outros.
 
-1. **Documentos técnicos** completos (FDS, IFU, Certificados, Laudos, Apresentações em PDF, Guias) — hoje só FDS/IFU/Guia/Perfil aparecem via `catalog_documents`, faltando todos os PDFs cadastrados em `resin_documents`.
-2. **Apresentações (SKUs)** — tabela `resin_presentations` (label + preço), hoje não aparece no card.
-3. **Instruções de Pré e Pós Processamento** — campo `resins.processing_instructions`, hoje só acessível abrindo o modal "Parametrização".
+## Solução — `src/components/knowledge/KbTabCatalogo.tsx`
 
-## Mudanças (somente frontend)
+### Reagrupar ações em 3 níveis de hierarquia
 
-### `src/components/knowledge/KbTabCatalogo.tsx`
+**Linha 1 — Ações primárias (chips compactos, flexWrap):**
+- 🛒 Loja (cheio, azul)
+- 📄 FDS
+- 📘 IFU
+- 📑 Documentos (N) ← novo, colapsa TODOS os outros docs
 
-1. **Buscar `id` da resina** no SELECT de `resins` (hoje só puxa name/slug/ctas). Guardar `resin.id` no `ResinInfo`.
-2. **Carregar `resin_documents`** em paralelo (filtrando `active=true`, ordenado por `order_index`). Indexar por `resin_id` num `Map<string, ResinDoc[]>`.
-3. **Carregar `resin_presentations`** em paralelo (todas, ordenado por `sort_order`). Indexar por `resin_id` num `Map<string, ResinPresentation[]>`.
-4. **No render do card**, quando o produto casa com uma resina (já existe via `resinKey`):
-   - Adicionar botões para **todos** os `resin_documents` da resina, classificados por `document_category`/nome (Certificado, Laudo, Apresentação, FDS, IFU, Guia, etc.) com ícones diferenciados. Deduplicar contra FDS/IFU já mostrados via CTA da resina para não duplicar.
-   - Adicionar bloco compacto de **Apresentações (SKUs)**: listar `label` + `price` formatado (R$), até N itens, com um "ver mais" se passar.
-   - Se `processing_instructions` existir, mostrar um botão extra **"🧪 Pré/Pós-Processamento"** que abre um pequeno dialog (ou expande inline) com o conteúdo renderizado (texto/markdown leve — pode reaproveitar o parser já usado em `ResinAccordion`).
-5. Manter o botão **📖 Parametrização** como hoje (abre `KbResinSheetDialog`).
-6. Não alterar produtos não-resina — toda lógica nova é guardada por `if (resin) { ... }`.
+**Linha 2 — Parametrização** (full-width, mantém)
 
-### Sem mudanças em backend
+**Linha 3 — Pré/Pós-Processamento** (full-width, mantém)
 
-Tabelas `resins`, `resin_documents`, `resin_presentations` já têm RLS pública de leitura (são usadas no site público). Nada de migrations.
+### Novo dialog `KbResinDocsDialog`
+Abre ao clicar em "📑 Documentos (N)". Lista todos os `resin_documents` + `catalog_documents` extras (sem FDS/IFU já visíveis), agrupados por seções:
+- **Certificados & Registros** (FDA, ANVISA, ISO, CE)
+- **Laudos & Estudos Clínicos** (Avaliação…, Estudo…)
+- **Apresentações & Materiais Comerciais**
+- **Guias & Outros**
+
+Cada item: ícone + nome completo (sem truncar) + botão "Abrir PDF".
+
+### Apresentações (SKUs)
+- Deduplicar por `label+price` (corrige o "250" repetido 3x).
+- Se label é puramente numérico, sufixar `g` (ex.: `250g — R$ 1.850,00`).
+- Render como chips outline pequenos, máx 3 inline, "+N" se exceder.
+- Bloco só aparece se houver ≥1 SKU único.
+
+### Polimento visual
+- Reduzir `gap` entre botões: 6 → 4px.
+- Padding dos chips de ação: `4px 10px`, `fontSize: 11`.
+- Apresentações: borda 1px `#E0E3E7`, fundo transparente, não fundo cinza cheio.
+- Garantir que cards permaneçam com altura aproximadamente uniforme na grade.
+
+### Sem mudanças
+- Queries, schema, matching resin↔catalog, parametrização: idênticos.
+- Cards de produtos não-resina: não tocam.
+- Conteúdo do dialog de Pré/Pós-Processamento: mantém.
 
 ## Detalhes técnicos
 
-- Novo tipo `ResinDoc { name, url, category, kind }` e `ResinPresentation { label, price }`.
-- Classificador estendido: além de FDS/IFU/GUIA/PERFIL, reconhecer CERTIFICADO, LAUDO, APRESENTACAO (PPT/PDF), MSDS, RELATORIO.
-- Ícones: 📄 FDS, 📘 IFU, 📗 Guia, 📋 Perfil, 🏅 Certificado, 🧪 Laudo, 🎯 Apresentação, 📎 Outros.
-- Botões mantêm o estilo `kb-action-btn` atual; lista pode quebrar em múltiplas linhas (já tem `flexWrap`).
-- Dedup: se um `resin_documents` for kind `FDS` e já existe `resin.cta_2_url` apontando pra um FDS, mostrar só uma vez (preferir o do `resin_documents` por ter nome descritivo).
-- Apresentações: render como chips pequenos `Frasco 500g — R$ 250,00`, máx 4 visíveis com "+N".
-- Pré/Pós: novo componente leve `KbProcessingDialog` (ou reaproveitar `Dialog` já importado) — alternativa simples: collapsible inline com `<details>`.
-
-## O que NÃO muda
-
-- Aba Resinas (que já mostra tudo).
-- Cards de produtos não-resina.
-- Admin / schema / edge functions.
-- Mecânica de matching resin↔catalog (já corrigida com `resinKey`).
+- Novo arquivo: `src/components/knowledge/KbResinDocsDialog.tsx` — recebe `{ open, onClose, resinName, docs: ResinDoc[] }`, agrupa por `kind`, renderiza com `Dialog`/`DialogContent` (shadcn) — padrão já usado em `KbResinSheetDialog`.
+- Função helper `groupDocs(docs)` que mapeia `kind` → seção.
+- `KbTabCatalogo` passa a calcular `allExtraDocs = [...extraResinDocs, ...otherDocs]` e abre o dialog via state `docsResin`.
+- Dedup de apresentações: `Array.from(new Map(rPres.map(p => [\`${p.label}|${p.price}\`, p])).values())`.

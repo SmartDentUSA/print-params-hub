@@ -9,6 +9,7 @@ import KbSkeletonGrid from './KbSkeletonGrid';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 
 // Normalize raw product_category values (mixed casing/variants) to canonical buckets
 const CAT_ALIASES: Record<string, string> = {
@@ -167,6 +168,7 @@ export default function KbTabCatalogo() {
   const [q, setQ] = useState('');
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
+  const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -329,6 +331,22 @@ export default function KbTabCatalogo() {
             // Resin docs that aren't already surfaced as FDS/IFU
             const usedUrls = new Set<string>([lojaUrl, fdsUrl, ifuUrl].filter(Boolean) as string[]);
             const extraResinDocs = rDocs.filter((x) => x.kind !== 'FDS' && x.kind !== 'IFU' && !usedUrls.has(x.url));
+            // Merge ALL extra docs (catalog + resin) into a single list for the modal
+            const allExtraDocs: ResinDocItem[] = [
+              ...extraResinDocs.map((x) => ({ name: x.name, url: x.url, kind: x.kind as ResinDocItem['kind'] })),
+              ...otherDocs
+                .filter((x) => !usedUrls.has(x.url))
+                .map((x) => ({
+                  name: x.name,
+                  url: x.url,
+                  kind: (x.kind === 'GUIA' ? 'GUIA' : x.kind === 'PERFIL' ? 'PERFIL' : 'DOC') as ResinDocItem['kind'],
+                })),
+            ];
+            // Dedup SKU presentations by label+price; suffix "g" when label is purely numeric
+            const presDeduped: ResinPresentation[] = Array.from(
+              new Map(rPres.map((pr) => [`${pr.label}|${pr.price}`, pr])).values()
+            );
+            const formatPresLabel = (label: string) => /^\d+$/.test(label.trim()) ? `${label.trim()}g` : label;
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -367,8 +385,8 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{p.description || p.product_subcategory}</p>
                   )}
-                  {(lojaUrl || fdsUrl || ifuUrl || otherDocs.length > 0 || extraResinDocs.length > 0) && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                  {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
                       {lojaUrl && (
                         <button
                           type="button"
@@ -390,55 +408,39 @@ export default function KbTabCatalogo() {
                           📘 IFU
                         </button>
                       )}
-                      {otherDocs.map((doc, idx) => {
-                        const short = doc.kind === 'GUIA' ? 'Guia'
-                          : doc.kind === 'PERFIL' ? 'Perfil Técnico'
-                          : doc.name.length > 22 ? doc.name.slice(0, 20) + '…' : doc.name;
-                        return (
-                          <button
-                            key={`${doc.url}-${idx}`}
-                            type="button"
-                            className="kb-action-btn"
-                            onClick={() => open(doc.url)}
-                            title={doc.name}
-                          >
-                            {docIcon(doc.kind)} {short}
-                          </button>
-                        );
-                      })}
-                      {extraResinDocs.map((doc, idx) => (
+                      {allExtraDocs.length > 0 && (
                         <button
-                          key={`rd-${doc.url}-${idx}`}
                           type="button"
                           className="kb-action-btn"
-                          onClick={() => open(doc.url)}
-                          title={doc.name}
+                          onClick={() => setDocsModal({ name: resin?.name || p.name, docs: allExtraDocs })}
+                          title="Certificados, laudos, apresentações e guias"
                         >
-                          {resinDocIcon(doc.kind)} {resinDocShort(doc)}
+                          📑 Documentos ({allExtraDocs.length})
                         </button>
-                      ))}
+                      )}
                     </div>
                   )}
-                  {rPres.length > 0 && (
+                  {presDeduped.length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#5F6368', marginBottom: 4 }}>
-                        📦 Apresentações
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#5F6368', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                        Apresentações
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {rPres.slice(0, 4).map((pr, idx) => (
+                        {presDeduped.slice(0, 3).map((pr, idx) => (
                           <span
                             key={idx}
                             style={{
-                              fontSize: 11, padding: '3px 8px', borderRadius: 10,
-                              background: '#F1F3F4', color: '#202124', whiteSpace: 'nowrap',
+                              fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                              border: '1px solid #E0E3E7', color: '#202124', whiteSpace: 'nowrap',
+                              background: 'transparent',
                             }}
                           >
-                            {pr.label}{pr.price != null ? ` — ${formatBRL(pr.price)}` : ''}
+                            {formatPresLabel(pr.label)}{pr.price != null ? ` — ${formatBRL(pr.price)}` : ''}
                           </span>
                         ))}
-                        {rPres.length > 4 && (
-                          <span style={{ fontSize: 11, padding: '3px 8px', color: '#5F6368' }}>
-                            +{rPres.length - 4}
+                        {presDeduped.length > 3 && (
+                          <span style={{ fontSize: 11, padding: '2px 8px', color: '#5F6368' }}>
+                            +{presDeduped.length - 3}
                           </span>
                         )}
                       </div>
@@ -483,6 +485,12 @@ export default function KbTabCatalogo() {
         open={!!sheetResin}
         onClose={() => setSheetResin(null)}
         resinName={sheetResin}
+      />
+      <KbResinDocsDialog
+        open={!!docsModal}
+        onClose={() => setDocsModal(null)}
+        resinName={docsModal?.name || null}
+        docs={docsModal?.docs || []}
       />
       <Dialog open={!!procResin} onOpenChange={(v) => !v && setProcResin(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
