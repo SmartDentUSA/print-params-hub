@@ -97,7 +97,7 @@ export default function PrinterParamsFlow({ step, onStepChange, onSelection }: P
               .eq('active', true)
               .then(({ data: psData }) => {
                 const activeSlugs = new Set((psData || []).map(p => p.brand_slug));
-                setBrands(data.filter(b => activeSlugs.has(b.slug)));
+                setBrands(data.filter(b => activeSlugs.has(b.slug) && b.slug?.toLowerCase() !== 'asiga'));
                 setLoading(false);
               });
           } else {

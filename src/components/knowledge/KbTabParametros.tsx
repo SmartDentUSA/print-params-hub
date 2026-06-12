@@ -43,7 +43,7 @@ export default function KbTabParametros() {
         .select('id,name,slug')
         .eq('active', true)
         .order('name');
-      const list = (data || []) as Brand[];
+      const list = ((data || []) as Brand[]).filter(b => b.slug?.toLowerCase() !== 'asiga');
       setBrands(list);
       if (!initialBrandSet.current) {
         const elegoo = list.find((b) => b.slug === 'elegoo' || b.name?.toLowerCase() === 'elegoo');
