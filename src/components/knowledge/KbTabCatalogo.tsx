@@ -94,6 +94,27 @@ const normCat = (v: string | null): string | null => {
   return CAT_ALIASES[up] ?? null;
 };
 
+// Build a stable fuzzy key for matching catalog products to resin records.
+// Strips accents/punctuation and removes common stopwords like "resina", "3d",
+// "smart", "print", "modelo/model", "bio", so e.g.
+//   "Resina 3D Smart Print Bio Bite Splint +Flex"  ->  "bite|flex|splint"
+//   "Smart Print Bio Bite Splint +Flex"            ->  "bite|flex|splint"
+const RESIN_STOPWORDS = new Set([
+  'resina', 'resin', '3d', 'smart', 'print', 'bio',
+  'modelo', 'model', 'de', 'da', 'do', 'a', 'o',
+]);
+const resinKey = (raw: string): string => {
+  if (!raw) return '';
+  const cleaned = raw
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+    .toLowerCase()
+    .replace(/[^a-z0-9+\s]/g, ' ') // keep + (for "+Flex"), drop other punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tokens = cleaned.split(' ').filter((t) => t && !RESIN_STOPWORDS.has(t));
+  return Array.from(new Set(tokens)).sort().join('|');
+};
+
 export default function KbTabCatalogo() {
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
@@ -160,13 +181,17 @@ export default function KbTabCatalogo() {
       setExtraDocs(extraMap);
       const resinMap = new Map<string, ResinInfo>();
       (rs || []).forEach((r: any) => {
-        if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), {
+        if (!r?.name || !r?.slug) return;
+        const info: ResinInfo = {
           slug: r.slug, name: r.name,
           cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
           cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
           cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
           cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
-        });
+        };
+        resinMap.set(r.name.toLowerCase().trim(), info);
+        const fk = resinKey(r.name);
+        if (fk) resinMap.set('fk:' + fk, info);
       });
       setResins(resinMap);
       setDocs(docMap);
@@ -207,7 +232,9 @@ export default function KbTabCatalogo() {
               ? p.product_subcategory.match(SPECIAL)![0].toUpperCase()
               : null;
             const d = docs.get(p.name.toLowerCase().trim());
-            const resin = resins.get(p.name.toLowerCase().trim());
+            const resin =
+              resins.get(p.name.toLowerCase().trim()) ||
+              resins.get('fk:' + resinKey(p.name));
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
