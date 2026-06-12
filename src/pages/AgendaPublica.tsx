@@ -471,7 +471,7 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
 
       <div className="flex items-end justify-between gap-3 pt-3 border-t mt-auto">
         <div className="flex flex-col gap-1.5 min-w-0">
-          {isOnline && products && products.length > 0 && (
+          {products && products.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {products.slice(0, 4).map((name) => (
                 <span
