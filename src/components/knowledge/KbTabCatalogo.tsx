@@ -451,25 +451,24 @@ export default function KbTabCatalogo() {
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#5F6368', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
                         Apresentações
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {presDeduped.slice(0, 3).map((pr, idx) => (
-                          <span
-                            key={idx}
-                            style={{
-                              fontSize: 11, padding: '2px 8px', borderRadius: 10,
-                              border: '1px solid #E0E3E7', color: '#202124', whiteSpace: 'nowrap',
-                              background: 'transparent',
-                            }}
-                          >
-                            {formatPresChip(pr)}
-                          </span>
-                        ))}
-                        {presDeduped.length > 3 && (
-                          <span style={{ fontSize: 11, padding: '2px 8px', color: '#5F6368' }}>
-                            +{presDeduped.length - 3}
-                          </span>
-                        )}
-                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: '#202124', tableLayout: 'fixed' }}>
+                        <thead>
+                          <tr style={{ background: '#F6F8FB', color: '#5F6368' }}>
+                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '22%' }}>grs</th>
+                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600 }}>Tipo de impressão</th>
+                            <th style={{ textAlign: 'right', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '26%' }}>Imp/Frasco</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {presDeduped.map((pr, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid #F0F2F5' }}>
+                              <td style={{ padding: '4px 6px' }}>{pr.label ? (/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label) : '—'}</td>
+                              <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pr.print_type || ''}>{pr.print_type || '—'}</td>
+                              <td style={{ padding: '4px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{pr.prints_per_bottle && pr.prints_per_bottle > 0 ? pr.prints_per_bottle : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                   {resin?.processing_instructions && (
