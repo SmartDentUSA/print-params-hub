@@ -531,6 +531,14 @@ export default function PublicFormPage() {
     <div
       className={`public-form-page min-h-screen flex flex-col items-center p-4 pt-8 md:pt-16 ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
       data-layout={(form as any).layout_variant || "split"}
+      data-pp-default={(() => {
+        const f: any = form;
+        const t = f.bg_type || "solid";
+        if (t === "gradient" && f.bg_color && f.bg_color_to) return "false";
+        if (t === "image" && f.bg_image_url) return "false";
+        if (t === "solid" && f.bg_color) return "false";
+        return "true";
+      })()}
       style={(() => {
         const f: any = form;
         const bgType = f.bg_type || "solid";
