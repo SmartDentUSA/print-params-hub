@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
