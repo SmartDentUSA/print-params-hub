@@ -81,8 +81,19 @@ export default function KbTabParametros() {
         });
       }
       if (!cancel) {
-        setModels(list.map((m) => ({ ...m, resinCount: counts[m.slug] || 0 })));
-        setModel(null);
+        const enriched = list.map((m) => ({ ...m, resinCount: counts[m.slug] || 0 }));
+        setModels(enriched);
+        if (!initialModelSet.current) {
+          const mars5 = enriched.find((m) => m.slug === 'mars-5-ultra' || m.name === 'Mars 5 Ultra');
+          if (mars5) {
+            setModel(mars5);
+            initialModelSet.current = true;
+          } else {
+            setModel(null);
+          }
+        } else {
+          setModel(null);
+        }
         setLoadingModels(false);
       }
     })();
