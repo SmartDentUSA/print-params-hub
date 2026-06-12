@@ -536,7 +536,7 @@ function LiveBadge({ modality, className }: { modality?: string; className?: str
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider shadow-sm",
         isLive
           ? "bg-rose-600 text-white"
-          : "bg-sky-600 text-white",
+          : "bg-red-700 text-black",
         className,
       )}
     >
