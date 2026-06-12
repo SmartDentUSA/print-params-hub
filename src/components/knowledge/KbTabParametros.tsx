@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import KbSectionHeader from './KbSectionHeader';
 import KbChips, { KbChipOption } from './KbChips';
+import KbResinSheetDialog from './KbResinSheetDialog';
 
 interface Brand { id: string; name: string; slug: string }
 interface Model { id: string; name: string; slug: string; image_url: string | null; resinCount?: number }
@@ -27,6 +28,7 @@ export default function KbTabParametros() {
   const [params, setParams] = useState<ParamRow[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingParams, setLoadingParams] = useState(false);
+  const [sheet, setSheet] = useState<{ name: string; modelSlug: string | null } | null>(null);
 
   // Load brands
   useEffect(() => {
@@ -190,7 +192,12 @@ export default function KbTabParametros() {
                 ) : (
                   <div className="kb-rgrid">
                     {params.map((p, i) => (
-                      <ResinCard key={p.id} p={p} index={i} />
+                      <ResinCard
+                        key={p.id}
+                        p={p}
+                        index={i}
+                        onOpenSheet={() => setSheet({ name: p.resin_name, modelSlug: model.slug })}
+                      />
                     ))}
                   </div>
                 )}
@@ -199,11 +206,17 @@ export default function KbTabParametros() {
           </div>
         </div>
       )}
+      <KbResinSheetDialog
+        open={!!sheet}
+        onClose={() => setSheet(null)}
+        resinName={sheet?.name || null}
+        modelSlug={sheet?.modelSlug || null}
+      />
     </section>
   );
 }
 
-function ResinCard({ p, index }: { p: ParamRow; index: number }) {
+function ResinCard({ p, index, onOpenSheet }: { p: ParamRow; index: number; onOpenSheet: () => void }) {
   const r = p.resin;
   return (
     <article className="kb-rcard" style={{ animationDelay: `${index * 18}ms` }}>
@@ -242,16 +255,9 @@ function ResinCard({ p, index }: { p: ParamRow; index: number }) {
         >
           {p.anti_aliasing ? '✓ Anti-aliasing' : '✗ Anti-aliasing'}
         </span>
-        {r?.slug && (
-          <a
-            className="kb-action-btn"
-            href={`https://parametros.smartdent.com.br/base-conhecimento/f/${r.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Ver página →
-          </a>
-        )}
+        <button type="button" className="kb-action-btn" onClick={onOpenSheet}>
+          Ver ficha →
+        </button>
       </div>
       {p.notes && p.notes.trim() && (
         <div className="kb-rnotes">📝 {p.notes}</div>
