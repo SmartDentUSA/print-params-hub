@@ -1,14 +1,11 @@
 ## Mudança
 
-Remover o bloco de rodapé com razão social, CNPJ, endereço, site, telefone, redes sociais e copyright que aparece ao final de todo formulário público.
+Substituir todas as ocorrências do link `https://loja.smartdent.com.br/pos-cura-pionext-uv-02` por `https://loja.smartdent.com.br/shapecure` em **8 publicações** da Base de Conhecimento (`knowledge_contents`).
 
-## Arquivo
+## Execução
 
-`src/pages/PublicFormPage.tsx` — deletar o `<footer>` (linhas 981–1046), que renderiza:
-- "MMTech Projetos Tecnológicos Importação e Exportação Ltda."
-- Endereço "Rua Doutor Procópio de Toledo Malta…"
-- Link do site + telefone
-- Ícones de redes sociais
-- "© 2026 Smart Dent. Todos os direitos reservados."
+UPDATE em `knowledge_contents`:
+- `content_html` — `REPLACE(content_html, '…/pos-cura-pionext-uv-02', '…/shapecure')`
+- `excerpt` — mesmo replace
 
-Nada mais é alterado — o `Footer.tsx` global (usado em outras páginas) continua intacto.
+Escopo limitado às linhas que já contêm o link antigo. Nenhum outro campo, tabela ou comportamento é alterado. Vídeos e fichas de resinas não contêm o link.
