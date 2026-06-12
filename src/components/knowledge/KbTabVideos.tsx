@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
-import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
@@ -77,7 +76,6 @@ export default function KbTabVideos({ onOpen }: Props) {
       <KbSectionHeader title="Vídeos" subtitle="Vídeos tutoriais, casos clínicos e depoimentos" />
       <KbSearchBar placeholder="Buscar vídeos, tutoriais, casos clínicos..." value={q} onDebouncedChange={setQ} />
       <KbChips options={CHIPS} active={chip} onChange={setChip} />
-      {!loading && <KbResultCount count={cards.length} noun="video" />}
       <div className="kb-grid">
         {loading ? (
           <KbSkeletonGrid />
