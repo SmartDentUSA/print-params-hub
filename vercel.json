@@ -212,7 +212,17 @@
     {
       "source": "/agenda",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" },
+        { "key": "X-Frame-Options", "value": "ALLOWALL" }
+      ]
+    },
+    {
+      "source": "/agenda/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" },
+        { "key": "X-Frame-Options", "value": "ALLOWALL" }
       ]
     }
   ]
