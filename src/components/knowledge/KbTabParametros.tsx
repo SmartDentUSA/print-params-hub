@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import KbSectionHeader from './KbSectionHeader';
 import KbChips, { KbChipOption } from './KbChips';
@@ -29,6 +29,7 @@ export default function KbTabParametros() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingParams, setLoadingParams] = useState(false);
   const [sheet, setSheet] = useState<{ name: string; modelSlug: string | null } | null>(null);
+  const paramAreaRef = useRef<HTMLDivElement | null>(null);
 
   // Load brands
   useEffect(() => {
@@ -81,6 +82,11 @@ export default function KbTabParametros() {
   // Load parameters when model changes
   useEffect(() => {
     if (!brand || !model) { setParams([]); return; }
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && paramAreaRef.current) {
+      requestAnimationFrame(() => {
+        paramAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
     let cancel = false;
     setLoadingParams(true);
     (async () => {
@@ -160,7 +166,7 @@ export default function KbTabParametros() {
           </aside>
 
           {/* Área */}
-          <div className="kb-param-area">
+          <div className="kb-param-area" ref={paramAreaRef}>
             {!model ? (
               <div className="kb-param-empty">
                 <div className="kb-param-empty-icon">🖨️</div>
