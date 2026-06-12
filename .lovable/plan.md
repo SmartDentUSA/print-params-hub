@@ -1,33 +1,23 @@
+# Ajustar topo do card da agenda
+
 ## Objetivo
-
-No card de produto (resinas) em `KbTabCatalogo.tsx`, alterar a renderização das "Apresentações (SKUs)" para mostrar **apenas** os 3 indicadores:
-
-```
-{label}g  ·  {print_type}  ·  {prints_per_bottle} imp/frasco
-```
-
-Remover preço (R$) e qualquer outro dado dos chips.
+Reorganizar os elementos do topo do card de turma em `src/pages/AgendaPublica.tsx` para ficar mais limpo e compacto, como no padrão YouTube/eventos.
 
 ## Mudanças
 
-**Arquivo único:** `src/components/knowledge/KbTabCatalogo.tsx`
+1. **Badge LIVE** — canto superior esquerdo da imagem de capa (já está com `absolute top-2 left-2`). Reduzir tamanho:
+   - texto `text-[9px]`, padding menor (`pl-0.5 pr-1.5 py-0`), círculo branco `w-3 h-3`, play `w-2 h-2`.
 
-1. **Interface `ResinPresentation`** — adicionar `print_type: string | null`, `grams_per_print: number | null`, `prints_per_bottle: number | null`. Manter `price`/`label` no tipo (usados em outros lugares se houver), mas não renderizar.
+2. **Tag "Turma #006"** — mover para canto superior direito sobre a capa (`absolute top-2 right-2`) em vez de ficar na barra de chips abaixo. Reduzir para `text-[9px] px-1.5 py-0` mantendo estilo (azul claro com borda).
 
-2. **Query `resin_presentations`** — incluir `print_type, grams_per_print, prints_per_bottle` no `select`.
+3. **Countdown "10d 9h 22m"** — manter na barra de chips abaixo da capa, mas reduzir para `text-[10px]` e padding compacto, alinhado com o status pill.
 
-3. **Filtro** — descartar linhas vazias (label vazio E grams_per_print=0 E prints_per_bottle=0).
+4. **Barra de chips abaixo da capa** — remover a tag Turma daqui (agora vive no overlay). Manter apenas status + countdown, ambos menores.
 
-4. **Dedup `presDeduped`** — chave passa a ser `label|print_type|prints_per_bottle` (já que mesmo `250g` pode ter múltiplos tipos de impressão, e cada um é uma apresentação distinta — ver dados: 250/Coroas/104, 250/Facetas/125, 250/Protocolos/20).
+5. Quando **não houver capa** (`!coverUrl`), renderizar LIVE + Turma + status numa única linha compacta no topo do conteúdo, todos no mesmo tamanho reduzido.
 
-5. **Render do chip** — substituir conteúdo atual (`formatPresLabel + formatBRL(price)`) por:
-   - `{label}g · {print_type} · {prints_per_bottle} imp/frasco`
-   - Se algum campo faltar, omitir aquele segmento (sem mostrar "null" ou "0").
-   - Manter estilo compacto atual (outline chip, fontSize 11px, max 3 inline + `+N`).
-
-6. **Remover** `formatBRL` e `formatPresLabel` se não forem mais usados em nenhum outro lugar do arquivo (verificar antes de deletar).
+## Arquivos
+- `src/pages/AgendaPublica.tsx` — único arquivo afetado (componentes `PublicTurmaCard` e `LiveBadge`).
 
 ## Fora de escopo
-
-- Sem mudanças em queries de docs, no `KbResinDocsDialog`, no schema, ou em outros tipos de produto não-resina.
-- Sem alteração no layout geral do card (linhas de botões Loja/FDS/IFU/📑 Documentos continuam iguais).
+- Não alterar layout do grid, conteúdo do corpo do card, botão Inscreva-se, ou cores do tema.
