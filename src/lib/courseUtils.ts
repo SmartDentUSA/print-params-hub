@@ -131,7 +131,7 @@ export function formatPhoneWaleads(raw?: string): string | null {
 export const MODALITY_CONFIG = {
   presencial:     { label: 'Presencial',     badge: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
   online_ao_vivo: { label: 'Online ao Vivo', badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
-  online:         { label: 'Online',         badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
+  online:         { label: 'Online',         badge: 'bg-red-700 text-black dark:bg-red-800 dark:text-black' },
 } as const;
 
 export const STATUS_CONFIG = {
