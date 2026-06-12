@@ -23562,6 +23562,7 @@ export type Database = {
         Row: {
           active: boolean | null
           category: string | null
+          companions_count: number | null
           course_id: string | null
           course_title: string | null
           course_whatsapp_group_link: string | null
