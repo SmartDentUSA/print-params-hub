@@ -16,7 +16,7 @@ export function useSocialPostsBank(filters: BankFilters = {}) {
     queryKey: ['social-posts-bank', filters],
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      let q = supabase.from('social_posts').select('*').limit(filters.limit ?? 60);
+      let q = supabase.from('social_posts').select('*').limit(filters.limit ?? 500);
       if (filters.platforms?.length) q = q.in('platform', filters.platforms);
       if (filters.format) q = q.ilike('format', `%${filters.format}%`);
       if (filters.product) q = q.or(`product_name.ilike.%${filters.product}%,caption.ilike.%${filters.product}%`);

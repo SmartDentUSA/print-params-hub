@@ -32,7 +32,7 @@ export function SocialPostsBank() {
   const [selectedPlats, setSelectedPlats] = useState<SocialPlatform[]>([]);
   const [product, setProduct] = useState('');
   const [format, setFormat] = useState<string>('all');
-  const [period, setPeriod] = useState<string>('30');
+  const [period, setPeriod] = useState<string>('all');
 
   const effective = useMemo<BankFilters>(() => {
     const next: BankFilters = {
