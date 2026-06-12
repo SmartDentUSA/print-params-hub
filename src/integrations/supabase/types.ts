@@ -13520,54 +13520,99 @@ export type Database = {
       products_catalog: {
         Row: {
           anti_hallucination_rules: Json | null
+          applications: string | null
+          benefits: Json | null
           category: string | null
           clinical_brain_status: string | null
+          clinical_brain_validated_at: string | null
+          clinical_brain_validation_notes: string | null
+          clinical_brain_validator_name: string | null
+          competitor_comparison: Json | null
           datasheet_summary: string | null
           datasheet_url: string | null
+          description: string | null
+          faq: Json | null
+          features: Json | null
           forbidden_products: Json | null
           manual_url: string | null
           name: string | null
           product_id: string
+          product_type: string | null
           required_products: Json | null
+          sales_pitch: string | null
           spec_sheet_url: string | null
           subcategory: string | null
           synced_at: string | null
+          system_a_product_id: string | null
+          system_a_updated_at: string | null
+          target_audience: Json | null
+          technical_specifications: Json | null
           whatsapp_messages: Json | null
           whatsapp_sequences: Json | null
           workflow_stages: Json | null
         }
         Insert: {
           anti_hallucination_rules?: Json | null
+          applications?: string | null
+          benefits?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
+          clinical_brain_validated_at?: string | null
+          clinical_brain_validation_notes?: string | null
+          clinical_brain_validator_name?: string | null
+          competitor_comparison?: Json | null
           datasheet_summary?: string | null
           datasheet_url?: string | null
+          description?: string | null
+          faq?: Json | null
+          features?: Json | null
           forbidden_products?: Json | null
           manual_url?: string | null
           name?: string | null
           product_id: string
+          product_type?: string | null
           required_products?: Json | null
+          sales_pitch?: string | null
           spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
+          system_a_product_id?: string | null
+          system_a_updated_at?: string | null
+          target_audience?: Json | null
+          technical_specifications?: Json | null
           whatsapp_messages?: Json | null
           whatsapp_sequences?: Json | null
           workflow_stages?: Json | null
         }
         Update: {
           anti_hallucination_rules?: Json | null
+          applications?: string | null
+          benefits?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
+          clinical_brain_validated_at?: string | null
+          clinical_brain_validation_notes?: string | null
+          clinical_brain_validator_name?: string | null
+          competitor_comparison?: Json | null
           datasheet_summary?: string | null
           datasheet_url?: string | null
+          description?: string | null
+          faq?: Json | null
+          features?: Json | null
           forbidden_products?: Json | null
           manual_url?: string | null
           name?: string | null
           product_id?: string
+          product_type?: string | null
           required_products?: Json | null
+          sales_pitch?: string | null
           spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
+          system_a_product_id?: string | null
+          system_a_updated_at?: string | null
+          target_audience?: Json | null
+          technical_specifications?: Json | null
           whatsapp_messages?: Json | null
           whatsapp_sequences?: Json | null
           workflow_stages?: Json | null
