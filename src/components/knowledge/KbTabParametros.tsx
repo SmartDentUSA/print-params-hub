@@ -166,7 +166,7 @@ export default function KbTabParametros() {
           </aside>
 
           {/* Área */}
-          <div className="kb-param-area">
+          <div className="kb-param-area" ref={paramAreaRef}>
             {!model ? (
               <div className="kb-param-empty">
                 <div className="kb-param-empty-icon">🖨️</div>
