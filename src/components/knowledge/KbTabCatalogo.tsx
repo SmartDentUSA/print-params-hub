@@ -133,6 +133,7 @@ interface ResinInfo {
   cta_4_label: string | null;
   cta_4_url: string | null;
   processing_instructions: string | null;
+  image_url: string | null;
 }
 
 const normCat = (v: string | null): string | null => {
