@@ -266,6 +266,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [durationHoursPerDay, setDurationHoursPerDay] = useState<number | undefined>(undefined);
   const [location, setLocation] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
+  const [signupFormUrl, setSignupFormUrl] = useState("");
   const [whatsappGroupLink, setWhatsappGroupLink] = useState("");
   const [pipelineId, setPipelineId] = useState(83896);
   const [stageAfterEnroll, setStageAfterEnroll] = useState("treinamento_agendado");
