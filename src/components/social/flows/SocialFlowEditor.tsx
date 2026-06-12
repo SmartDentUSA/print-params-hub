@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { LinkPicker, type LinkPickerSelection } from './LinkPicker';
@@ -22,11 +23,19 @@ import { SocialPostLinkPicker, type SocialPostPickResult } from './SocialPostLin
 
 const NODE_TYPES = [
   { type: 'send_dm', label: 'Enviar DM', color: 'hsl(var(--primary))' },
+  { type: 'send_text', label: 'Enviar texto', color: 'hsl(var(--primary))' },
+  { type: 'send_image', label: 'Enviar imagem', color: 'hsl(var(--primary))' },
+  { type: 'send_buttons', label: 'Enviar botões', color: 'hsl(var(--primary))' },
+  { type: 'send_quick_replies', label: 'Quick replies', color: 'hsl(var(--primary))' },
+  { type: 'comment_reply', label: 'Resposta pública (comentário)', color: 'hsl(var(--primary))' },
   { type: 'send_comment_reply', label: 'Responder comentário', color: 'hsl(var(--primary))' },
   { type: 'wait', label: 'Aguardar', color: 'hsl(var(--muted-foreground))' },
   { type: 'condition', label: 'Condição (if/else)', color: 'hsl(43 96% 56%)' },
   { type: 'collect_input', label: 'Coletar resposta', color: 'hsl(217 91% 60%)' },
   { type: 'set_tag', label: 'Aplicar tag', color: 'hsl(142 70% 45%)' },
+  { type: 'add_tag', label: 'Adicionar tag', color: 'hsl(142 70% 45%)' },
+  { type: 'set_field', label: 'Definir campo', color: 'hsl(142 70% 45%)' },
+  { type: 'trigger', label: 'Trigger', color: 'hsl(280 70% 55%)' },
   { type: 'create_lead', label: 'Criar lead no CRM', color: 'hsl(142 70% 45%)' },
   { type: 'end', label: 'Fim', color: 'hsl(var(--destructive))' },
 ];
@@ -49,6 +58,8 @@ export function SocialFlowEditor() {
   const [isActive, setIsActive] = useState(false);
   const [produtoSlug, setProdutoSlug] = useState<string | undefined>();
   const [formName, setFormName] = useState<string | undefined>();
+  const [zernioAutomationId, setZernioAutomationId] = useState<string | null>(null);
+  const [hasZernioConfig, setHasZernioConfig] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [triggers, setTriggers] = useState<any[]>([]);
@@ -65,6 +76,8 @@ export function SocialFlowEditor() {
       setIsActive(!!data.is_active);
       setProdutoSlug((data as any).produto_slug ?? undefined);
       setFormName((data as any).form_name ?? undefined);
+      setZernioAutomationId((data as any).zernio_automation_id ?? null);
+      setHasZernioConfig(!!(data as any).zernio_automation_config);
       const rawNodes = Array.isArray(data.nodes) ? (data.nodes as any[]) : [];
       const normalized = rawNodes.map((n, i) => ({
         ...n,
@@ -118,7 +131,21 @@ export function SocialFlowEditor() {
     if (!name.trim()) { toast.error('Dê um nome ao flow'); return; }
     setSaving(true);
     try {
-      const payload = { name, description, channel, is_active: isActive, nodes: nodes as any, edges: edges as any, updated_at: new Date().toISOString() };
+      // Serialize React Flow nodes back to the flat DB shape: { id, type, label, position, ...config }
+      const flatNodes = nodes.map((n) => {
+        const d: any = n.data ?? {};
+        const cfg: any = d.config ?? {};
+        const { label: _lbl, nodeType: _nt, config: _cfg, ...restData } = d;
+        return {
+          ...cfg,
+          id: n.id,
+          type: d.nodeType ?? cfg.type ?? n.type,
+          label: d.label ?? cfg.label ?? n.id,
+          position: n.position,
+          ...restData,
+        };
+      });
+      const payload = { name, description, channel, is_active: isActive, nodes: flatNodes as any, edges: edges as any, updated_at: new Date().toISOString() };
       let flowId = id;
       if (isNew) {
         const { data, error } = await supabase.from('social_flows').insert(payload).select('id').single();
