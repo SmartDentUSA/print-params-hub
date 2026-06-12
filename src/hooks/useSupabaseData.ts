@@ -647,7 +647,10 @@ export const useSupabaseData = () => {
         throw error;
       }
 
-      return filterExcludedBrands(data || []);
+      return (data || []).filter((item: any) => {
+        const brandSlug = item.brands?.slug || (Array.isArray(item.brands) ? item.brands[0]?.slug : '');
+        return !EXCLUDED_BRAND_SLUGS.includes((brandSlug || '').toLowerCase());
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar modelos';
       setError(errorMessage);
