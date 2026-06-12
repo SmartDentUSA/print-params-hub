@@ -490,15 +490,19 @@ export default function KbTabCatalogo() {
                   )}
                   {hasParametrizacao && (
                     <div style={{ marginTop: 6 }}>
-                      <button
-                        type="button"
-                        className="kb-action-btn"
-                        onClick={() => setSheetResin(resin!.name)}
-                        style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                        title="Abrir ficha completa de parâmetros"
-                      >
-                        📖 Parametrização
-                      </button>
+                       <button
+                         type="button"
+                         className="kb-action-btn"
+                         onClick={() => {
+                           const params = new URLSearchParams(window.location.search);
+                           params.set('tab', 'parametros');
+                           window.location.search = params.toString();
+                         }}
+                         style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                         title="Ir para a aba Parâmetros"
+                       >
+                         📖 Parametrização
+                       </button>
                     </div>
                   )}
                   <div className="kb-cfoot">
