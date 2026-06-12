@@ -405,7 +405,12 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
-        {status && (
+        {status && status.variant !== "muted" ? (
+          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[status.variant])}>
+            <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[status.variant])} />
+            <LiveCountdownInline startDate={turma.start_date} startTime={turma.start_time} fallback={status.label} />
+          </span>
+        ) : status && (
           <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium", STATUS_PILL[status.variant])}>
             <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[status.variant])} />
             {status.label}
