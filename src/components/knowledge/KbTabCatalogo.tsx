@@ -58,6 +58,23 @@ interface DocLinks {
   spec_sheet_url: string | null;
 }
 
+interface CatalogDoc {
+  name: string;
+  url: string;
+  kind: 'FDS' | 'IFU' | 'GUIA' | 'PERFIL' | 'DOC';
+}
+
+const classifyDoc = (n: string): CatalogDoc['kind'] => {
+  const u = n.toUpperCase();
+  if (u.includes('FDS')) return 'FDS';
+  if (u.includes('IFU')) return 'IFU';
+  if (u.includes('GUIA')) return 'GUIA';
+  if (u.includes('PERFIL') || u.includes('CARACTER')) return 'PERFIL';
+  return 'DOC';
+};
+const docIcon = (k: CatalogDoc['kind']) =>
+  k === 'FDS' ? '📄' : k === 'IFU' ? '📘' : k === 'GUIA' ? '📗' : k === 'PERFIL' ? '📋' : '📎';
+
 interface ResinInfo {
   slug: string;
   name: string;
@@ -80,6 +97,7 @@ const normCat = (v: string | null): string | null => {
 export default function KbTabCatalogo() {
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
+  const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
@@ -90,7 +108,7 @@ export default function KbTabCatalogo() {
     let cancel = false;
     setLoading(true);
     (async () => {
-      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }] = await Promise.all([
+      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url')
@@ -110,11 +128,18 @@ export default function KbTabCatalogo() {
           .select('name, slug, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url')
           .eq('active', true)
           .limit(500),
+        supabase
+          .from('catalog_documents')
+          .select('product_id, document_name, file_url, order_index')
+          .eq('active', true)
+          .order('order_index')
+          .limit(1000),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
       if (e2) console.error(e2);
       if (e3) console.error(e3);
+      if (e4) console.error(e4);
       const docMap = new Map<string, DocLinks>();
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
@@ -124,6 +149,15 @@ export default function KbTabCatalogo() {
           spec_sheet_url: p.spec_sheet_url,
         });
       });
+      const extraMap = new Map<string, CatalogDoc[]>();
+      (cd || []).forEach((d: any) => {
+        if (!d?.product_id || !d?.file_url) return;
+        const name = (d.document_name || 'Documento').trim();
+        const list = extraMap.get(d.product_id) || [];
+        list.push({ name, url: d.file_url, kind: classifyDoc(name) });
+        extraMap.set(d.product_id, list);
+      });
+      setExtraDocs(extraMap);
       const resinMap = new Map<string, ResinInfo>();
       (rs || []).forEach((r: any) => {
         if (r?.name && r?.slug) resinMap.set(r.name.toLowerCase().trim(), {
