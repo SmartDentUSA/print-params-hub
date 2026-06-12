@@ -502,14 +502,16 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
       </div>
 
       {(turma as any).signup_form_url && (
-        <a
-          href={(turma as any).signup_form_url as string}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center justify-center w-full px-4 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
-        >
-          Inscreva-se
-        </a>
+        <div className="mt-4 flex justify-center">
+          <a
+            href={(turma as any).signup_form_url as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
+          >
+            Inscreva-se
+          </a>
+        </div>
       )}
       </div>
     </div>
