@@ -1,19 +1,43 @@
-Plano para corrigir o catálogo exposto:
+## Escopo
+Três correções pontuais em arquivos estáticos. Nada além disso.
 
-1. Atualizar os 2 registros duplicados/incorretos em `system_a_catalog`
-   - Ocultar e desativar os registros legados que hoje geram os cards duplicados:
-     - `Resina 3D Smart Print Bio Direct Aligner` com subcategoria `Ortodontia`
-     - `Resina 3D Smart Print Bio GOWhite` com subcategoria `Estética`
-   - Também limpar a subcategoria desses registros para remover definitivamente `Estética` e `Ortodontia` do contexto de `RESINAS 3D`.
+### 1. `public/robots.txt`
+Substituir linha 58:
+- De: `Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap`
+- Para: `Sitemap: https://parametros.smartdent.com.br/video-sitemap.xml`
 
-2. Manter visíveis os 2 registros canônicos
-   - `Smart Print Bio Direct Aligner`
-   - `Smart Print Bio GOWhite`
-   - Ajustar `category = 'product'` nesses dois registros para que apareçam em Admin > Catálogo de Produtos e você consiga editar categoria/subcategoria por lá.
-   - Manter `product_category = 'RESINAS 3D'` para continuarem no catálogo público.
+Resto do arquivo intacto.
 
-3. Validar o resultado no banco
-   - Confirmar que o catálogo público retorna apenas 1 card por resina.
-   - Confirmar que `Estética` e `Ortodontia` não aparecem mais como subcategorias de `RESINAS 3D`.
+### 2. `vercel.json` — adicionar rewrites faltantes
+Auditoria do estado atual vs. lista solicitada:
 
-Detalhe técnico: a aba Catálogo usa `product_category` e normaliza `Resinas` para `RESINAS 3D`; por isso os registros legados ainda aparecem como se fossem da categoria correta, mesmo com subcategorias inválidas.
+| Path | Status atual |
+|---|---|
+| `/llms.txt` | ✅ já existe (→ EF `llms-txt`) |
+| `/llms-full.txt` | ✅ já existe (→ EF `llms-full-txt`) |
+| `/sitemap.xml` | ✅ já existe (→ EF `generate-sitemap`) |
+| `/sitemap-conhecimento-pt.xml` | ✅ já existe |
+| `/sitemap-conhecimento-en.xml` | ✅ já existe |
+| `/sitemap-conhecimento-es.xml` | ✅ já existe |
+| `/sitemap-documentos.xml` | ✅ já existe |
+| `/video-sitemap.xml` | ✅ já existe (→ `/api/video-sitemap`, mantém como está — não remover) |
+| `/rss.xml` | ✅ já existe |
+| `/sitemap-index.xml` | ❌ **adicionar** → EF `sitemap-index` |
+| `/knowledge-graph` | ❌ **adicionar** → EF `knowledge-graph` |
+
+Adicionar apenas os dois rewrites faltantes, antes do catch-all SPA. Nenhuma outra alteração.
+
+```json
+{ "source": "/sitemap-index.xml", "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sitemap-index" },
+{ "source": "/knowledge-graph",  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-graph" }
+```
+
+### 3. `index.html` — favicons + tag llms
+- Remover os 7 `<link rel="icon">` / `apple-touch-icon` / `shortcut icon` atuais (linhas que apontam para `/favicon*.png|.ico`).
+- Inserir no lugar os 6 `<link>` apontando para Supabase Storage `catalog-images/favicons/...` (conforme especificado).
+- Adicionar `<link rel="llms" href="/llms.txt">` no `<head>`.
+- Manter `<link rel="manifest">`, theme-color e demais tags PWA intactas.
+
+## Observações
+- As EFs `sitemap-index` e `knowledge-graph` precisam existir/estar deployadas no Supabase para os novos rewrites responderem 200. Posso verificar isso após a aprovação, ou seguir cegamente conforme pedido?
+- Favicons em CDN externa adicionam um round-trip vs. assets locais — confirmado que é intencional?

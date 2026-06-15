@@ -66,6 +66,14 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
     },
     {
+      "source": "/sitemap-index.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sitemap-index"
+    },
+    {
+      "source": "/knowledge-graph",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-graph"
+    },
+    {
       "source": "/feed",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/rss-feed"
     },
