@@ -49,6 +49,7 @@ import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalyt
 import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "@/components/smartops/SmartOpsWorkflowMapper";
 import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
+import { SmartOpsDistributors } from "@/components/smartops/SmartOpsDistributors";
 import { SmartOpsRayshape } from "@/components/SmartOpsRayshape";
 
 export default function AdminViewSecure() {
@@ -328,6 +329,7 @@ export default function AdminViewSecure() {
       case 'so-rayshape': return <SmartOpsRayshape key={`rayshape-${refreshKey}`} />;
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       case 'so-campanhas': return <SmartOpsCampaigns />;
+      case 'so-distribuicao': return <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />;
       default: return <AdminModels />;
     }
   };
