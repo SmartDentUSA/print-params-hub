@@ -249,6 +249,7 @@ export default function KbTabCatalogo() {
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
   const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
+  const [specsModal, setSpecsModal] = useState<{ name: string; specs: SpecRow[] } | null>(null);
 
   useEffect(() => {
     let cancel = false;
