@@ -1,26 +1,19 @@
-## Objetivo
-Padronizar todos os labels dos botões de filtro (chips) em todas as abas para "Sentence case": primeira letra maiúscula, restante minúsculo.
+Plano para corrigir o catálogo exposto:
 
-## Implementação
+1. Atualizar os 2 registros duplicados/incorretos em `system_a_catalog`
+   - Ocultar e desativar os registros legados que hoje geram os cards duplicados:
+     - `Resina 3D Smart Print Bio Direct Aligner` com subcategoria `Ortodontia`
+     - `Resina 3D Smart Print Bio GOWhite` com subcategoria `Estética`
+   - Também limpar a subcategoria desses registros para remover definitivamente `Estética` e `Ortodontia` do contexto de `RESINAS 3D`.
 
-1. **Adicionar utilitário `toSentenceCase`** em `src/components/knowledge/kbCategoryTaxonomy.ts`:
-   - Converte string inteira para minúsculas e capitaliza apenas o primeiro caractere alfabético.
-   - Preserva acentos (ex: "Pós-impressão", "Dentística e estética", "Caracterização").
+2. Manter visíveis os 2 registros canônicos
+   - `Smart Print Bio Direct Aligner`
+   - `Smart Print Bio GOWhite`
+   - Ajustar `category = 'product'` nesses dois registros para que apareçam em Admin > Catálogo de Produtos e você consiga editar categoria/subcategoria por lá.
+   - Manter `product_category = 'RESINAS 3D'` para continuarem no catálogo público.
 
-2. **Aplicar no componente `KbChips`** (`src/components/knowledge/KbChips.tsx`):
-   - Renderizar `{toSentenceCase(o.label)}` no botão.
-   - Centralizar aqui garante cobertura de TODAS as abas (Catálogo, Revendas, subcategorias dinâmicas, e qualquer outro consumidor do `KbChips`) sem precisar tocar em cada i18n/categoria.
+3. Validar o resultado no banco
+   - Confirmar que o catálogo público retorna apenas 1 card por resina.
+   - Confirmar que `Estética` e `Ortodontia` não aparecem mais como subcategorias de `RESINAS 3D`.
 
-3. **Resultado esperado**:
-   - "Todos" → "Todos"
-   - "Scanners 3D" → "Scanners 3d"  ⚠️ ver pergunta abaixo
-   - "RESINAS 3D" → "Resinas 3d"
-   - "PÓS-IMPRESSÃO" → "Pós-impressão"
-   - "MODELO DE TRABALHO" → "Modelo de trabalho"
-
-## Pergunta de decisão
-O termo "3D" virará "3d" com a regra estrita. Confirma que pode ficar assim, ou prefere manter "3D" maiúsculo como exceção (única exceção)?
-
-## Fora do escopo
-- Não altera dados no banco.
-- Não altera badges dos cards de Revendas (são texto informativo, não botões). Posso incluir se desejar.
+Detalhe técnico: a aba Catálogo usa `product_category` e normaliza `Resinas` para `RESINAS 3D`; por isso os registros legados ainda aparecem como se fossem da categoria correta, mesmo com subcategorias inválidas.
