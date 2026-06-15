@@ -11,33 +11,7 @@ import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
-
-// Normalize raw product_category values (mixed casing/variants) to canonical buckets
-const CAT_ALIASES: Record<string, string> = {
-  'SCANNERS 3D': 'SCANNERS 3D',
-  'SCANNERS': 'SCANNERS 3D',
-  'RESINAS 3D': 'RESINAS 3D',
-  'RESINAS': 'RESINAS 3D',
-  'IMPRESSÃO 3D': 'IMPRESSÃO 3D',
-  'IMPRESSORAS 3D': 'IMPRESSÃO 3D',
-  'PÓS-IMPRESSÃO': 'PÓS-IMPRESSÃO',
-  'DENTÍSTICA, ESTÉTICA E ORTODONTIA': 'DENTÍSTICA, ESTÉTICA E ORTODONTIA',
-  'CARACTERIZAÇÃO': 'CARACTERIZAÇÃO',
-  'SOFTWARES': 'SOFTWARES',
-  'SOFTWARE': 'SOFTWARES',
-};
-const CANONICAL_CATS = Array.from(new Set(Object.values(CAT_ALIASES)));
-
-const CHIP_KEYS: { key: string; tk: string }[] = [
-  { key: 'all', tk: 'kb.chips.all' },
-  { key: 'SCANNERS 3D', tk: 'kb.chips.scanners' },
-  { key: 'RESINAS 3D', tk: 'kb.chips.resinas' },
-  { key: 'IMPRESSÃO 3D', tk: 'kb.chips.impressao' },
-  { key: 'PÓS-IMPRESSÃO', tk: 'kb.chips.pos_impressao' },
-  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', tk: 'kb.chips.dentistica' },
-  { key: 'CARACTERIZAÇÃO', tk: 'kb.chips.caracterizacao' },
-  { key: 'SOFTWARES', tk: 'kb.chips.softwares' },
-];
+import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -160,12 +134,6 @@ interface ResinInfo {
   processing_instructions: string | null;
   image_url: string | null;
 }
-
-const normCat = (v: string | null): string | null => {
-  if (!v) return null;
-  const up = v.trim().toUpperCase();
-  return CAT_ALIASES[up] ?? null;
-};
 
 // Build a stable fuzzy key for matching catalog products to resin records.
 // Strips accents/punctuation and removes common stopwords like "resina", "3d",
