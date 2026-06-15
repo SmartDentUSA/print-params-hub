@@ -19,7 +19,7 @@
   "rewrites": [
     {
       "source": "/llms.txt",
-      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-llms-txt"
     },
     {
       "source": "/.well-known/llms.txt",
