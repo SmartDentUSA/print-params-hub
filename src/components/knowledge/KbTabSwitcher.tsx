@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export type KbTab = 'parametros' | 'videos' | 'artigos' | 'catalogo';
+export type KbTab = 'parametros' | 'catalogo' | 'videos' | 'artigos' | 'distribuidores';
 
 const ICONS: Record<KbTab, React.ReactNode> = {
   parametros: (
@@ -30,9 +30,16 @@ const ICONS: Record<KbTab, React.ReactNode> = {
       <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
     </svg>
   ),
+  distribuidores: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l1.5-5h15L21 9" />
+      <path d="M4 9h16v11H4z" />
+      <path d="M9 20v-6h6v6" />
+    </svg>
+  ),
 };
 
-const ORDER: KbTab[] = ['parametros', 'videos', 'artigos', 'catalogo'];
+const ORDER: KbTab[] = ['parametros', 'catalogo', 'videos', 'artigos', 'distribuidores'];
 
 interface Props {
   active: KbTab;
