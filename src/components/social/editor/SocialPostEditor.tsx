@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Save, AlertCircle, Lock, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -26,9 +26,13 @@ const STEPS = [
   { id: 4, label: 'Revisão' },
 ] as const;
 
+const SUPABASE_PUBLIC_URL =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? 'https://okeogjgqijbfkudfjadz.supabase.co';
+
 export function SocialPostEditor() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const isEdit = !!id;
   const { data: loaded, isLoading: loadingPost } = useScheduledPost(id);
   const [step, setStep] = useState(0);
@@ -38,6 +42,49 @@ export function SocialPostEditor() {
   const { save: update, saving: updating } = useUpdateScheduledPost();
   const { upload, uploading } = useMediaUpload();
   const [splitQueue, setSplitQueue] = useState<MediaItem[] | null>(null);
+
+  // ---- Carrossel recebido do Sistema A (via query params) ----
+  const carrosselSource = searchParams.get('source');
+  const carrosselRef = searchParams.get('ref') ?? '';
+  const carrosselProdutoSlug = searchParams.get('produto') ?? '';
+  const carrosselTipo = searchParams.get('tipo') ?? '';
+  const carrosselTotalRaw = parseInt(searchParams.get('total') ?? '0', 10);
+  const carrosselTotal = Number.isFinite(carrosselTotalRaw)
+    ? Math.max(0, Math.min(20, carrosselTotalRaw))
+    : 0;
+  const isCarrosselMode = carrosselSource === 'carrossel' && !!carrosselRef && carrosselTotal > 0;
+
+  const carrosselSlides = useMemo(() => {
+    if (!isCarrosselMode) return [] as string[];
+    const cleanRef = carrosselRef.replace(/^\/+|\/+$/g, '');
+    return Array.from({ length: carrosselTotal }, (_, i) =>
+      `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/wa-media/${cleanRef}/slide-${i}.png`,
+    );
+  }, [isCarrosselMode, carrosselRef, carrosselTotal]);
+
+  const [selectedCarrosselImages, setSelectedCarrosselImages] = useState<string[]>([]);
+
+  const toggleCarrosselImage = (url: string) => {
+    setSelectedCarrosselImages((cur) =>
+      cur.includes(url) ? cur.filter((u) => u !== url) : [...cur, url],
+    );
+  };
+  const selectAllCarrossel = () => setSelectedCarrosselImages(carrosselSlides);
+  const clearCarrossel = () => setSelectedCarrosselImages([]);
+  const reorderCarrossel = (next: string[]) => setSelectedCarrosselImages(next);
+  const removeCarrossel = (url: string) =>
+    setSelectedCarrosselImages((cur) => cur.filter((u) => u !== url));
+
+  const carrosselAsMedia: MediaItem[] = useMemo(
+    () => selectedCarrosselImages.map((url) => ({ url, type: 'image' as const })),
+    [selectedCarrosselImages],
+  );
+
+  // valor efetivo do post (mídia = carrossel + uploads manuais)
+  const effectiveData: PostInput = useMemo(
+    () => ({ ...data, media_items: [...carrosselAsMedia, ...data.media_items] }),
+    [data, carrosselAsMedia],
+  );
 
   useEffect(() => {
     if (loaded && !hydrated) {
@@ -51,7 +98,7 @@ export function SocialPostEditor() {
 
   const onChange = (patch: Partial<PostInput>) => setData((d) => ({ ...d, ...patch }));
 
-  const validation = useMemo(() => postSchema.safeParse(data), [data]);
+  const validation = useMemo(() => postSchema.safeParse(effectiveData), [effectiveData]);
   const issuesByStep = useMemo(() => {
     const map: Record<number, string[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
     if (!validation.success) {
@@ -159,11 +206,32 @@ export function SocialPostEditor() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <Card className="p-4 md:p-6 space-y-6">
-          {step === 0 && <StepContent value={data} onChange={onChange} />}
-          {step === 1 && <StepMedia value={data} onChange={onChange} onSplitIntoPosts={handleSplitIntoPosts} />}
+          {step === 0 && (
+            <StepContent
+              value={data}
+              onChange={onChange}
+              carrosselSlides={carrosselSlides}
+              carrosselTipo={carrosselTipo}
+              produtoSlug={carrosselProdutoSlug}
+              selectedCarrosselImages={selectedCarrosselImages}
+              onToggleCarrosselImage={toggleCarrosselImage}
+              onSelectAllCarrossel={selectAllCarrossel}
+              onClearCarrossel={clearCarrossel}
+            />
+          )}
+          {step === 1 && (
+            <StepMedia
+              value={data}
+              onChange={onChange}
+              onSplitIntoPosts={handleSplitIntoPosts}
+              carrosselImages={selectedCarrosselImages}
+              onCarrosselReorder={reorderCarrossel}
+              onCarrosselRemove={removeCarrossel}
+            />
+          )}
           {step === 2 && <StepChannels value={data} onChange={onChange} />}
           {step === 3 && <StepSchedule value={data} onChange={onChange} />}
-          {step === 4 && <StepReview value={data} />}
+          {step === 4 && <StepReview value={effectiveData} />}
 
           {issuesByStep[step].length > 0 && (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive space-y-1">
@@ -193,7 +261,7 @@ export function SocialPostEditor() {
         </Card>
 
         <div className="hidden lg:block">
-          <SocialPostPreview value={data} />
+          <SocialPostPreview value={effectiveData} />
         </div>
       </div>
     </div>
