@@ -247,6 +247,34 @@ export default function KbTabDistribuidores() {
                   </div>
                 )}
 
+                {scopeHasAnything(d.authorized_scope) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {Object.entries(d.authorized_scope || {}).flatMap(([cat, subs]) => {
+                      const color = CATALOG_COLORS[cat] || '#5F6368';
+                      const bg = color + '1A';
+                      const list = Array.isArray(subs) && subs.length > 0 ? subs : [`${cat} · todas`];
+                      return list.map((label) => (
+                        <span
+                          key={`${cat}::${label}`}
+                          title={cat}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color,
+                            background: bg,
+                            border: `1px solid ${color}33`,
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {label}
+                        </span>
+                      ));
+                    })}
+                  </div>
+                )}
+
                 <ContactBlock
                   label="Responsável"
                   name={d.owner_name}
