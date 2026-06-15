@@ -666,6 +666,27 @@ export default function KbTabCatalogo() {
           )}
         </DialogContent>
       </Dialog>
+      <Dialog open={!!specsModal} onOpenChange={(v) => !v && setSpecsModal(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>📊 Tabela técnica — {specsModal?.name}</DialogTitle>
+          </DialogHeader>
+          {specsModal && specsModal.specs.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#202124' }}>
+              <tbody>
+                {specsModal.specs.map((row, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #E0E3E7' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 600, color: '#5F6368', width: '38%', verticalAlign: 'top', background: '#F6F8FB' }}>
+                      {row.label}
+                    </td>
+                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
