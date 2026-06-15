@@ -485,6 +485,14 @@ export default function KbTabCatalogo() {
               return parts.join(' · ');
             };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
+            // Specs técnicos: prioridade resin > system_a_catalog > products_catalog
+            const specs: SpecRow[] = (() => {
+              const fromResin = normalizeSpecs(resin?.technical_specs);
+              if (fromResin.length) return fromResin;
+              const fromCat = normalizeSpecs((p as any).technical_specs);
+              if (fromCat.length) return fromCat;
+              return normalizeSpecs(d?.technical_specifications);
+            })();
             // Prefer resin image over catalog image when a resin match exists
             const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
