@@ -90,30 +90,57 @@ function SocialIcons({ d }: { d: Distributor }) {
   );
 }
 
-// ISO country -> flag emoji (regional indicator symbols)
-const COUNTRY_TO_ISO: Record<string, string> = {
-  brasil: 'BR', brazil: 'BR',
-  chile: 'CL',
-  argentina: 'AR',
-  uruguai: 'UY', uruguay: 'UY',
-  paraguai: 'PY', paraguay: 'PY',
-  bolivia: 'BO', bolívia: 'BO',
-  peru: 'PE', perú: 'PE',
-  colombia: 'CO', colômbia: 'CO',
-  venezuela: 'VE',
-  equador: 'EC', ecuador: 'EC',
-  mexico: 'MX', méxico: 'MX',
-  'estados unidos': 'US', eua: 'US', usa: 'US', 'united states': 'US',
-  portugal: 'PT', espanha: 'ES', spain: 'ES', españa: 'ES',
+// Normaliza string removendo acentos para matching robusto
+function normalize(str: string) {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+// Mapeamento direto nome do país → emoji (evita cálculo Unicode manual)
+const COUNTRY_TO_FLAG: Record<string, string> = {
+  brasil: '🇧🇷', brazil: '🇧🇷', br: '🇧🇷',
+  chile: '🇨🇱', cl: '🇨🇱',
+  argentina: '🇦🇷', ar: '🇦🇷',
+  uruguai: '🇺🇾', uruguay: '🇺🇾', uy: '🇺🇾',
+  paraguai: '🇵🇾', paraguay: '🇵🇾', py: '🇵🇾',
+  bolivia: '🇧🇴', bolívia: '🇧🇴', bo: '🇧🇴',
+  peru: '🇵🇪', perú: '🇵🇪', pe: '🇵🇪',
+  colombia: '🇨🇴', colômbia: '🇨🇴', co: '🇨🇴',
+  venezuela: '🇻🇪', ve: '🇻🇪',
+  equador: '🇪🇨', ecuador: '🇪🇨', ec: '🇪🇨',
+  mexico: '🇲🇽', méxico: '🇲🇽', mx: '🇲🇽',
+  'estados unidos': '🇺🇸', eua: '🇺🇸', usa: '🇺🇸', 'united states': '🇺🇸', us: '🇺🇸',
+  portugal: '🇵🇹', pt: '🇵🇹',
+  espanha: '🇪🇸', spain: '🇪🇸', españa: '🇪🇸', es: '🇪🇸',
+  italia: '🇮🇹', italy: '🇮🇹', it: '🇮🇹',
+  alemanha: '🇩🇪', germany: '🇩🇪', de: '🇩🇪',
+  franca: '🇫🇷', frança: '🇫🇷', france: '🇫🇷', fr: '🇫🇷',
+  'reino unido': '🇬🇧', inglaterra: '🇬🇧', uk: '🇬🇧', gb: '🇬🇧',
+  suica: '🇨🇭', suíça: '🇨🇭', switzerland: '🇨🇭', ch: '🇨🇭',
+  canada: '🇨🇦', canadá: '🇨🇦', ca: '🇨🇦',
+  japao: '🇯🇵', japão: '🇯🇵', japan: '🇯🇵', jp: '🇯🇵',
+  china: '🇨🇳', cn: '🇨🇳',
+  'coreia do sul': '🇰🇷', 'south korea': '🇰🇷', kr: '🇰🇷',
+  india: '🇮🇳', índia: '🇮🇳', in: '🇮🇳',
+  'emirados arabes': '🇦🇪', 'emirados árabes': '🇦🇪', 'united arab emirates': '🇦🇪', ae: '🇦🇪',
+  israel: '🇮🇱', il: '🇮🇱',
+  australia: '🇦🇺', austrália: '🇦🇺', au: '🇦🇺',
+  'nova zelandia': '🇳🇿', 'nova Zelândia': '🇳🇿', 'new zealand': '🇳🇿', nz: '🇳🇿',
+  'africa do sul': '🇿🇦', 'áfrica do sul': '🇿🇦', 'south africa': '🇿🇦', za: '🇿🇦',
+  nigeria: '🇳🇬', ng: '🇳🇬',
+  russia: '🇷🇺', rússia: '🇷🇺', ru: '🇷🇺',
+  holanda: '🇳🇱', 'paises baixos': '🇳🇱', 'países baixos': '🇳🇱', netherlands: '🇳🇱', nl: '🇳🇱',
 };
 
-function countryFlag(country?: string | null): { emoji: string; iso: string } | null {
+function countryFlag(country?: string | null): string | null {
   if (!country) return null;
-  const key = country.trim().toLowerCase();
-  const iso = COUNTRY_TO_ISO[key] || (key.length === 2 ? key.toUpperCase() : '');
-  if (!iso || iso.length !== 2) return null;
-  const emoji = String.fromCodePoint(...iso.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-  return { emoji, iso };
+  const key = normalize(country);
+  // Se já for um emoji de bandeira (2 chars regionais), retorna direto
+  if (/^[\u{1F1E6}-\u{1F1FF}]{2}$/u.test(country.trim())) return country.trim();
+  return COUNTRY_TO_FLAG[key] || null;
 }
 
 export default function KbTabDistribuidores() {
