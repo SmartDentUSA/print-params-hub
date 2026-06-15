@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Globe, Instagram, Facebook, Linkedin, Youtube } from 'lucide-react';
+import KbSectionHeader from './KbSectionHeader';
+import KbSearchBar from './KbSearchBar';
+import KbResultCount from './KbResultCount';
+import KbEmptyState from './KbEmptyState';
 import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
