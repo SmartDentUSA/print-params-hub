@@ -1,5 +1,5 @@
-import { useEffect, useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2, Package, Library, Check } from 'lucide-react';
+import { useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
 import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/useProductKnowledgeCopies';
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
@@ -16,9 +17,26 @@ import type { PostInput } from '@/lib/social/postSchema';
 interface Props {
   value: PostInput;
   onChange: (patch: Partial<PostInput>) => void;
+  carrosselSlides?: string[];
+  carrosselTipo?: string;
+  produtoSlug?: string;
+  selectedCarrosselImages?: string[];
+  onToggleCarrosselImage?: (url: string) => void;
+  onSelectAllCarrossel?: () => void;
+  onClearCarrossel?: () => void;
 }
 
-export function StepContent({ value, onChange }: Props) {
+export function StepContent({
+  value,
+  onChange,
+  carrosselSlides = [],
+  carrosselTipo = '',
+  produtoSlug = '',
+  selectedCarrosselImages = [],
+  onToggleCarrosselImage,
+  onSelectAllCarrossel,
+  onClearCarrossel,
+}: Props) {
   const [tagInput, setTagInput] = useState('');
   const [aiInstructions, setAiInstructions] = useState('');
   const [aiTone, setAiTone] = useState('Profissional');
@@ -90,6 +108,27 @@ export function StepContent({ value, onChange }: Props) {
     }
   };
 
+  // Pré-selecionar produto via slug do query param (apenas uma vez)
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current) return;
+    if (!produtoSlug) return;
+    if (value.product_ref) return;
+    if (!products.length && !resins.length) return;
+    const p = products.find((x) => x.slug === produtoSlug);
+    if (p) {
+      autoSelectedRef.current = true;
+      onProductChange(`product:${p.id}`);
+      return;
+    }
+    const r = resins.find((x) => x.slug === produtoSlug);
+    if (r) {
+      autoSelectedRef.current = true;
+      onProductChange(`resin:${r.id}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [produtoSlug, products, resins, value.product_ref]);
+
   const handleGenerate = async () => {
     try {
       const res = await generate.mutateAsync({
@@ -147,6 +186,80 @@ export function StepContent({ value, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      {carrosselSlides.length > 0 && (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <ImageIcon className="w-4 h-4 text-emerald-600" />
+              <Label className="text-sm font-semibold">🖼️ Carrossel Recebido do Gerador</Label>
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px]">
+                Novo
+              </Badge>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                Carrossel {carrosselTipo || '—'} — {carrosselSlides.length} slides
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-7 text-[11px]"
+                onClick={onSelectAllCarrossel}
+                disabled={selectedCarrosselImages.length === carrosselSlides.length}
+              >
+                Selecionar todos
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[11px]"
+                onClick={onClearCarrossel}
+                disabled={selectedCarrosselImages.length === 0}
+              >
+                Limpar seleção
+              </Button>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                {selectedCarrosselImages.length}/{carrosselSlides.length} selecionados
+              </span>
+            </div>
+
+            <div className="flex md:grid md:grid-cols-3 gap-2 overflow-x-auto md:overflow-visible pb-1">
+              {carrosselSlides.map((url, i) => {
+                const selected = selectedCarrosselImages.includes(url);
+                return (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => onToggleCarrosselImage?.(url)}
+                    className={`relative shrink-0 w-[120px] md:w-auto md:aspect-square aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                      selected ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-border hover:border-emerald-500/50'
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      alt={`Slide ${i + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = '0.3';
+                      }}
+                    />
+                    <div className="absolute top-1 left-1">
+                      <Checkbox checked={selected} className="bg-background/90 border-emerald-500" />
+                    </div>
+                    <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/60 text-white">
+                      {i + 1}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
