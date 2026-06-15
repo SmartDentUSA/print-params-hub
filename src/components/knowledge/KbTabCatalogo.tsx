@@ -337,7 +337,7 @@ export default function KbTabCatalogo() {
       const canon = normCat(r.product_category);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
-      if (term && !(r.name?.toLowerCase().includes(term) || r.description?.toLowerCase().includes(term))) return false;
+      if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
   }, [rows, q, chip]);
@@ -449,7 +449,7 @@ export default function KbTabCatalogo() {
                   </div>
                   <h3 className="kb-title">{p.name}</h3>
                   {(p.description || p.product_subcategory) && (
-                    <p className="kb-excerpt">{p.description || p.product_subcategory}</p>
+                    <p className="kb-excerpt">{stripHtml(p.description) || p.product_subcategory}</p>
                   )}
                   {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
