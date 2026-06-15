@@ -197,6 +197,32 @@ export function SmartOpsDistributors() {
   const [form, setForm] = useState<Partial<Distributor>>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [catalogTaxonomy, setCatalogTaxonomy] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("system_a_catalog")
+        .select("product_category, product_subcategory")
+        .eq("active", true)
+        .eq("approved", true)
+        .eq("visible_in_ui", true)
+        .not("product_category", "is", null);
+      const map: Record<string, Set<string>> = {};
+      (data || []).forEach((r: any) => {
+        const canon = normCat(r.product_category);
+        if (!canon) return;
+        if (!map[canon]) map[canon] = new Set<string>();
+        const sub = (r.product_subcategory || "").trim();
+        if (sub) map[canon].add(sub);
+      });
+      const out: Record<string, string[]> = {};
+      CANONICAL_CATS.forEach((c) => {
+        out[c] = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      });
+      setCatalogTaxonomy(out);
+    })();
+  }, []);
 
   const load = async () => {
     setLoading(true);
