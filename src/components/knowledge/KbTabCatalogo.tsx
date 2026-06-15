@@ -333,10 +333,30 @@ export default function KbTabCatalogo() {
       const canon = normCat(r.product_category);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
+      if (chip !== 'all' && subChip !== 'all' && !CATEGORIES_WITHOUT_SUBFILTER.has(chip)) {
+        if ((r.product_subcategory || '').trim() !== subChip) return false;
+      }
       if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [rows, q, chip]);
+  }, [rows, q, chip, subChip]);
+
+  // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
+  const subChips: KbChipOption[] = useMemo(() => {
+    if (chip === 'all' || CATEGORIES_WITHOUT_SUBFILTER.has(chip)) return [];
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (normCat(r.product_category) !== chip) return;
+      const s = (r.product_subcategory || '').trim();
+      if (s) set.add(s);
+    });
+    if (set.size === 0) return [];
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [{ key: 'all', label: t('kb.chips.all') }, ...list.map((s) => ({ key: s, label: s }))];
+  }, [rows, chip, t]);
+
+  // Reset subChip quando a categoria muda
+  useEffect(() => { setSubChip('all'); }, [chip]);
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
@@ -344,6 +364,9 @@ export default function KbTabCatalogo() {
       <KbSectionHeader title={t('kb.catalogo.title')} subtitle={t('kb.catalogo.subtitle')} />
       <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} />
+      {subChips.length > 1 && (
+        <KbChips options={subChips} active={subChip} onChange={setSubChip} />
+      )}
       {!loading && <KbResultCount count={filtered.length} noun="product" />}
       <div className="kb-grid">
         {loading ? (
