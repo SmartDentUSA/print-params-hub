@@ -21,8 +21,8 @@ export const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'RESINAS 3D', tk: 'kb.chips.resinas' },
   { key: 'IMPRESSÃO 3D', tk: 'kb.chips.impressao' },
   { key: 'PÓS-IMPRESSÃO', tk: 'kb.chips.pos_impressao' },
-  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', tk: 'kb.chips.dentistica' },
   { key: 'CARACTERIZAÇÃO', tk: 'kb.chips.caracterizacao' },
+  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', tk: 'kb.chips.dentistica' },
   { key: 'SOFTWARES', tk: 'kb.chips.softwares' },
 ];
 
