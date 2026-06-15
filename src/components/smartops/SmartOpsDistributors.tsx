@@ -281,7 +281,11 @@ export function SmartOpsDistributors() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Building2 className="w-4 h-4 shrink-0" />
+                      {d.logo_url ? (
+                        <img src={d.logo_url} alt={d.razao_social} className="w-8 h-8 rounded object-contain bg-muted shrink-0" />
+                      ) : (
+                        <Building2 className="w-4 h-4 shrink-0" />
+                      )}
                       <span className="truncate">{d.nome_fantasia || d.razao_social}</span>
                     </CardTitle>
                     {d.nome_fantasia && (
@@ -335,6 +339,48 @@ export function SmartOpsDistributors() {
           <div className="space-y-6 py-2">
             <section className="space-y-3">
               <h4 className="text-sm font-semibold">Identificação</h4>
+              <div>
+                <Label>Logo da empresa</Label>
+                <div className="flex items-center gap-3 mt-2">
+                  {form.logo_url ? (
+                    <div className="relative">
+                      <img src={form.logo_url} alt="Logo" className="w-20 h-20 rounded border object-contain bg-muted" />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, logo_url: "" })}
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                        aria-label="Remover logo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded border border-dashed flex items-center justify-center text-muted-foreground">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div>
+                    <input
+                      id="logo-upload-input"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ""; }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingLogo}
+                      onClick={() => document.getElementById("logo-upload-input")?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadingLogo ? "Enviando…" : "Enviar logo"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP ou SVG — máx 5MB</p>
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Razão Social *</Label>
