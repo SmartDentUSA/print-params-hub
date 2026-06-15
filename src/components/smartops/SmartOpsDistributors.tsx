@@ -15,6 +15,8 @@ import { Country, State, City } from "country-state-city";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 
 type Distributor = {
   id: string;
@@ -42,6 +44,7 @@ type Distributor = {
   buyer_whatsapp: string | null;
   active: boolean;
   notes: string | null;
+  authorized_scope: AuthorizedScope | null;
 };
 
 // Aliases para nomes de país em PT-BR usados em registros legados.
@@ -183,6 +186,7 @@ const emptyForm = (): Partial<Distributor> => ({
   buyer_whatsapp: "",
   active: true,
   notes: "",
+  authorized_scope: {},
 });
 
 export function SmartOpsDistributors() {
