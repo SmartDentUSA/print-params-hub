@@ -4463,6 +4463,93 @@ export type Database = {
         }
         Relationships: []
       }
+      distributors: {
+        Row: {
+          active: boolean
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_whatsapp: string | null
+          buyer_whatsapp_ddi: string | null
+          cep: string | null
+          cidade: string | null
+          created_at: string
+          endereco: string | null
+          estado: string | null
+          facebook: string | null
+          id: string
+          instagram: string | null
+          linkedin: string | null
+          nome_fantasia: string | null
+          notes: string | null
+          numero_unidades: number | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_whatsapp: string | null
+          owner_whatsapp_ddi: string | null
+          pais: string | null
+          razao_social: string
+          site_url: string | null
+          updated_at: string
+          youtube: string | null
+        }
+        Insert: {
+          active?: boolean
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_whatsapp?: string | null
+          buyer_whatsapp_ddi?: string | null
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string
+          endereco?: string | null
+          estado?: string | null
+          facebook?: string | null
+          id?: string
+          instagram?: string | null
+          linkedin?: string | null
+          nome_fantasia?: string | null
+          notes?: string | null
+          numero_unidades?: number | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_whatsapp?: string | null
+          owner_whatsapp_ddi?: string | null
+          pais?: string | null
+          razao_social: string
+          site_url?: string | null
+          updated_at?: string
+          youtube?: string | null
+        }
+        Update: {
+          active?: boolean
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_whatsapp?: string | null
+          buyer_whatsapp_ddi?: string | null
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string
+          endereco?: string | null
+          estado?: string | null
+          facebook?: string | null
+          id?: string
+          instagram?: string | null
+          linkedin?: string | null
+          nome_fantasia?: string | null
+          notes?: string | null
+          numero_unidades?: number | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_whatsapp?: string | null
+          owner_whatsapp_ddi?: string | null
+          pais?: string | null
+          razao_social?: string
+          site_url?: string | null
+          updated_at?: string
+          youtube?: string | null
+        }
+        Relationships: []
+      }
       drive_kb_sync_log: {
         Row: {
           category: string
