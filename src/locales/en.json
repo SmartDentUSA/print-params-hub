@@ -243,7 +243,7 @@
       "catalogo": "Catalog",
       "videos": "Videos",
       "artigos": "Articles",
-      "distribuidores": "Distributors"
+      "distribuidores": "Resellers"
     },
     "parametros": {
       "title": "3D Printing Parameters",
@@ -291,6 +291,14 @@
       "search": "Search products, resins, scanners...",
       "count_one": "{{count}} product found",
       "count_other": "{{count}} products found"
+    },
+    "distribuidores": {
+      "title": "Resellers",
+      "subtitle": "Official Smart Dent reseller network",
+      "search": "Search resellers by name, city or state...",
+      "count_one": "{{count}} reseller found",
+      "count_other": "{{count}} resellers found",
+      "fallback_name": "Reseller"
     },
     "chips": {
       "all": "All",

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Globe, Instagram, Facebook, Linkedin, Youtube } from 'lucide-react';
+import KbSectionHeader from './KbSectionHeader';
+import KbSearchBar from './KbSearchBar';
+import KbResultCount from './KbResultCount';
+import KbEmptyState from './KbEmptyState';
 import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
@@ -137,6 +142,7 @@ function CountryFlag({ country }: { country?: string | null }) {
 }
 
 export default function KbTabDistribuidores() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -165,35 +171,22 @@ export default function KbTabDistribuidores() {
   }, [rows, q]);
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Distribuidores</h2>
-          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>Rede oficial de distribuidores Smart Dent</p>
-        </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nome, cidade ou estado"
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            background: '#fff',
-            minWidth: 260,
-            fontSize: 13,
-          }}
-        />
-      </div>
-
-      {loading ? (
-        <div style={{ color: '#64748b' }}>Carregando…</div>
-      ) : !filtered.length ? (
-        <div style={{ color: '#64748b' }}>Nenhum distribuidor cadastrado.</div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-          {filtered.map((d) => {
-            const title = d.nome_fantasia || d.razao_social || 'Distribuidor';
+    <section>
+      <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
+      <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
+      {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
+      <div className="kb-grid">
+        {loading ? (
+          <div className="kb-skeleton-grid">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="kb-skeleton-card" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <KbEmptyState icon="🏬" />
+        ) : (
+          filtered.map((d) => {
+            const title = d.nome_fantasia || d.razao_social || t('kb.distribuidores.fallback_name');
             const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
             const hasCountryFlag = !!countryIso(d.pais);
             return (
@@ -266,9 +259,9 @@ export default function KbTabDistribuidores() {
                 <SocialIcons d={d} />
               </div>
             );
-          })}
-        </div>
-      )}
-    </div>
+          })
+        )}
+      </div>
+    </section>
   );
 }

@@ -243,7 +243,7 @@
       "catalogo": "Catálogo",
       "videos": "Vídeos",
       "artigos": "Artigos",
-      "distribuidores": "Distribuidores"
+      "distribuidores": "Revendas"
     },
     "parametros": {
       "title": "Parâmetros de Impressão 3D",
@@ -291,6 +291,14 @@
       "search": "Buscar produtos, resinas, scanners...",
       "count_one": "{{count}} produto encontrado",
       "count_other": "{{count}} produtos encontrados"
+    },
+    "distribuidores": {
+      "title": "Revendas",
+      "subtitle": "Rede oficial de revendas Smart Dent",
+      "search": "Buscar revendas por nome, cidade ou estado...",
+      "count_one": "{{count}} revenda encontrada",
+      "count_other": "{{count}} revendas encontradas",
+      "fallback_name": "Revenda"
     },
     "chips": {
       "all": "Todos",
