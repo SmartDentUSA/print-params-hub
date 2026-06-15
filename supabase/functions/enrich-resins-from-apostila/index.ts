@@ -20,6 +20,24 @@ function normalizeName(name: string): string {
     .trim();
 }
 
+// Strip HTML tags and decode basic entities so descriptions stay plain-text.
+function stripHtml(input: string | null | undefined): string {
+  if (!input) return "";
+  let s = String(input);
+  s = s.replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ");
+  s = s.replace(/<[^>]+>/g, " ");
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  s = s.replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(Number(n)));
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
 // Check if product name matches resin name (bidirectional substring match)
 function namesMatch(productName: string, resinName: string): boolean {
   const np = normalizeName(productName);
@@ -170,15 +188,16 @@ serve(async (req) => {
       const updates: Record<string, any> = {};
       const fieldsUpdated: string[] = [];
 
-      // description: use sales_pitch if available, fallback to description
-      const newDescription = product.sales_pitch || product.description;
+      // description: use sales_pitch if available, fallback to description.
+      // Always strip HTML — apostila/loja content frequently contains <p>, <ul>, inline styles.
+      const newDescription = stripHtml(product.sales_pitch || product.description);
       if (newDescription && newDescription !== matchedResin.description) {
         updates.description = newDescription;
         fieldsUpdated.push("description");
       }
 
       // meta_description: use seo_description_override
-      const newMeta = product.seo_description_override || product.meta_description;
+      const newMeta = stripHtml(product.seo_description_override || product.meta_description);
       if (newMeta && newMeta !== matchedResin.meta_description) {
         updates.meta_description = newMeta;
         fieldsUpdated.push("meta_description");
@@ -240,7 +259,7 @@ serve(async (req) => {
 
       // Enrich description with sales_pitch
       if (product.sales_pitch) {
-        catalogUpdate.description = product.sales_pitch;
+        catalogUpdate.description = stripHtml(product.sales_pitch);
         fields.push("description");
       }
 

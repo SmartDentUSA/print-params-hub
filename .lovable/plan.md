@@ -1,31 +1,38 @@
-## Problema
+## Causa
 
-Após o cadastro espelhado de resinas, alguns cards no `/base-conhecimento?tab=catalogo` perderam FDS/IFU e o contador "📑 Documentos (N)". Investigação confirma:
+A `description` de 6 resinas (de 16 ativas) está com HTML cru (`<p>`, `<ul>`, `<section style=...>`). Origem:
 
-- Banco intacto: `resin_documents`, `catalog_documents` e os CTAs em `system_a_catalog` estão preservados.
-- Causa real: o componente `src/components/knowledge/KbTabCatalogo.tsx` faz o join catálogo→resin via chave fuzzy `resinKey()` (tokens ordenados, sem stopwords). Para 2 produtos os tokens divergem entre os dois lados e o join falha.
+1. A função `enrich-resins-from-apostila` copia `product.sales_pitch || product.description` diretamente do JSON da apostila do Sistema A — que vem com o HTML da loja (Loja Integrada / e-commerce).
+2. O card em `KbTabCatalogo.tsx` (linha 452) renderiza como texto: `<p className="kb-excerpt">{p.description}</p>` — então as tags aparecem visíveis em vez de formatadas.
 
-## Casos quebrados
+Resinas afetadas hoje: Bio Denture Translúcida, Smart Print Gengiva, Try-in Calcinável, Model Plus, Bio Temp B1, e ~1 outra.
 
-| Card | Resin DB | Motivo |
-|---|---|---|
-| "Resina 3D Smart Print Bio Denture" | "Smart Print Bio Denture (Rosa)" | token extra `rosa` |
-| "Resina Smart Print Modelo Láqua" | "Smart Print Model L'Aqua" | `l'aqua` vira tokens `l` + `aqua` |
+## Correção (3 frentes)
 
-## Correção (somente frontend, zero migração)
+### 1. Render seguro no card (frontend)
+`src/components/knowledge/KbTabCatalogo.tsx`:
+- Criar helper `stripHtml(s)` que: remove tags, decodifica entidades (`&nbsp;`, `&lt;`), colapsa espaços, e trunca em ~180 chars.
+- Aplicar em `p.description` antes de renderizar no `<p className="kb-excerpt">`.
+- Também aplicar no filtro de busca (linha 340) para que termos casem com texto limpo.
 
-Endurecer `resinKey()` + `lookup` em `src/components/knowledge/KbTabCatalogo.tsx`:
+Isso resolve imediatamente o visual sem depender do banco.
 
-1. **resinKey**: remover tokens de 1 letra (descarta o `l` órfão de `l'aqua`) e expandir stopwords com cores/qualificadores comuns entre parênteses: `rosa`, `branca`, `branco`, `clear`, `translucida`, `translucido`, `transparente`. Isso só afeta o **matching** — não muda o que é exibido.
+### 2. Cleanup do banco (migration)
+Migration única que normaliza `resins.description` quando contém HTML:
+- `regexp_replace(description, '<[^>]+>', ' ', 'g')` → strip tags
+- `regexp_replace(..., '&nbsp;', ' ', 'g')` e entidades comuns
+- `regexp_replace(..., '\s+', ' ', 'g')` → colapsa espaços
+- `trim()` + `WHERE description ~ '<[a-z]+'`
 
-2. **Lookup com fallback subset**: quando `resins.get('fk:'+keyCatalogo)` não bate exato, varrer o map e aceitar match quando o conjunto de tokens de um lado for subconjunto do outro (≥2 tokens em comum). Isso cobre futuras divergências sem precisar editar dados.
+Mantém o conteúdo, só remove markup.
 
-## O que NÃO mudará
+### 3. Hardening no enrichment (edge function)
+`supabase/functions/enrich-resins-from-apostila/index.ts`:
+- Antes de gravar `updates.description = newDescription`, passar por `stripHtml()` equivalente.
+- Evita regressão quando a apostila for re-importada.
 
-- Nenhuma alteração em `resins`, `resin_documents`, `catalog_documents`, `system_a_catalog`.
-- Caminhos de documentos (URLs Storage / document-proxy) preservados.
-- Render dos cards (cores, ordem, badges) idêntico — só o join volta a casar.
+## Fora do escopo
 
-## Validação
-
-Após o patch, conferir no preview `/base-conhecimento?tab=catalogo` que "Bio Denture" e "Modelo Láqua" voltem a exibir 📄 FDS, 📘 IFU e 📑 Documentos quando aplicável.
+- Não mexer em `processing_instructions` (já tratado por parser próprio).
+- Não mexer em `ai_context`/`meta_description` (já vêm limpos da apostila).
+- Não alterar layout/CSS dos cards.
