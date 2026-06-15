@@ -86,6 +86,47 @@ interface ResinPresentation {
   prints_per_bottle: number | null;
 }
 
+interface SpecRow { label: string; value: string }
+
+// Normaliza qualquer formato (array de {label,value}, array de {key,value},
+// objeto plano {chave: valor}, string JSON) em uma lista [{label,value}].
+function normalizeSpecs(raw: any): SpecRow[] {
+  if (raw == null) return [];
+  let v: any = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return []; }
+  }
+  const out: SpecRow[] = [];
+  const pushPair = (label: any, value: any) => {
+    const l = label == null ? '' : String(label).trim();
+    const valStr = value == null
+      ? ''
+      : (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
+    if (!l || !valStr) return;
+    out.push({ label: l, value: valStr });
+  };
+  if (Array.isArray(v)) {
+    v.forEach((item) => {
+      if (item && typeof item === 'object') {
+        const label = (item as any).label ?? (item as any).key ?? (item as any).name ?? (item as any).campo;
+        const value = (item as any).value ?? (item as any).valor ?? (item as any).val;
+        if (label !== undefined || value !== undefined) pushPair(label, value);
+        else Object.entries(item).forEach(([k, val]) => pushPair(k, val));
+      }
+    });
+  } else if (typeof v === 'object') {
+    Object.entries(v).forEach(([k, val]) => pushPair(k, val));
+  }
+  // remove duplicatas (mesmo label+value)
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = `${r.label.toLowerCase()}|${r.value.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 const classifyResinDoc = (name: string, category: string | null): ResinDocKind => {
   const u = (name + ' ' + (category || '')).toUpperCase();
   if (u.includes('FDS') || u.includes('MSDS') || u.includes('SEGURANÇA') || u.includes('SEGURANCA')) return 'FDS';
