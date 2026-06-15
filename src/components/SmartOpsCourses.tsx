@@ -39,6 +39,7 @@ import { TurmaListRow } from "./smartops/TurmaListRow";
 import { TaxonomySelect } from "./smartops/TaxonomySelect";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { CourseCard } from "./smartops/CourseCard";
+import { CoursesCalendarTab } from "./smartops/CoursesCalendarTab";
 
 // ─── Countdown Hook ───
 type CountdownResult = {
@@ -1282,6 +1283,7 @@ export function SmartOpsCourses() {
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
         <TabsTrigger value="publica-imersoes">Página Pública Imersões</TabsTrigger>
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
+        <TabsTrigger value="calendario">Calendário</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
@@ -1298,6 +1300,9 @@ export function SmartOpsCourses() {
       </TabsContent>
       <TabsContent value="publica-aovivo">
         <PaginaPublicaTab variant="online" />
+      </TabsContent>
+      <TabsContent value="calendario">
+        <CoursesCalendarTab />
       </TabsContent>
     </Tabs>
   );
