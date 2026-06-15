@@ -1,41 +1,73 @@
-## Mudanças no Header de Abas (Base de Conhecimento)
+## Objetivo
 
-### 1. Reordenar abas
-Trocar a ordem atual `parametros → videos → artigos → catalogo` para:
+Adicionar filtros de subcategoria na aba **Catálogo** da Base de Conhecimento e implementar autorização granular (categorias + subcategorias) na aba **Revendas**, com editor no SmartOps e exibição nos cards.
 
-`parametros → catalogo → videos → artigos → distribuidores`
+---
 
-Arquivo: `src/components/knowledge/KbTabSwitcher.tsx`
-- Adicionar `'distribuidores'` ao tipo `KbTab`.
-- Atualizar `ORDER` para a nova sequência.
-- Adicionar ícone (loja/prédio) para `distribuidores`.
+## 1) Catálogo — Subcategorias no filtro
 
-Arquivo: `src/pages/KnowledgeBase.tsx`
-- Incluir `'distribuidores'` na lista de tabs válidas em `getInitialTab`.
-- Renderizar `<KbTabDistribuidores />` quando `tab === 'distribuidores'`.
+Hoje os chips da aba Catálogo só filtram por categoria principal (`product_category`). Vamos adicionar uma segunda linha de chips logo abaixo, dinâmica:
 
-Arquivos de tradução (`src/locales/pt.json`, `es.json`, `en.json`):
-- Adicionar `kb.tabs.distribuidores` (PT: "Distribuidores", EN: "Distributors", ES: "Distribuidores").
+- Quando o usuário seleciona uma categoria (ex.: `SCANNERS 3D`), aparece uma linha extra de chips com as subcategorias daquela categoria, derivadas de `system_a_catalog.product_subcategory` (distinct, ativos/aprovados/visíveis), em ordem alfabética + chip "Todas".
+- Quando a categoria é `SOFTWARES` (ou `all`), a segunda linha **não aparece** — comportamento atual preservado, mostrando todos os softwares de qualquer subcategoria.
+- Filtro combinado: categoria + subcategoria + termo de busca.
 
-### 2. Nova aba "Distribuidores"
-Novo arquivo: `src/components/knowledge/KbTabDistribuidores.tsx`
+Arquivo: `src/components/knowledge/KbTabCatalogo.tsx` (sem mudança em schema).
 
-Lista somente leitura dos distribuidores cadastrados (tabela `distributors`, somente `active = true`), no mesmo estilo visual dos cards do catálogo:
+---
 
-- Query via `supabase.from('distributors').select(...).eq('active', true).order('nome_fantasia')`.
-- Grid responsivo de cards exibindo:
-  - Logo (`logo_url`) ou placeholder com a inicial.
-  - Nome fantasia (título) + razão social (subtítulo).
-  - Localização: `cidade / estado — pais`.
-  - Linha "Unidades: N" quando `numero_unidades` existir.
-  - Linha do proprietário: `owner_name` + WhatsApp clicável (`https://wa.me/{ddi}{whatsapp}`) + email (`mailto:`).
-  - Linha do comprador (mesmo padrão), se preenchido.
-  - Ícones de redes sociais (site, instagram, facebook, linkedin, youtube) só quando a URL existir.
-- Busca por texto (filtra `nome_fantasia`, `razao_social`, `cidade`, `estado`).
-- Estado vazio: "Nenhum distribuidor cadastrado".
-- Sem edição/ativação aqui — gestão continua em Configurações.
+## 2) Revendas — Autorização por categoria/subcategoria
 
-### Fora de escopo
-- Não mexer em RLS de `distributors` (já existe policy adequada).
-- Não alterar a tela de administração de distribuidores.
-- Não alterar o conteúdo da aba Catálogo.
+### 2a) Banco — nova coluna em `distributors`
+
+Migration adicionando:
+
+```text
+authorized_scope jsonb NOT NULL DEFAULT '{}'::jsonb
+-- formato: { "SCANNERS 3D": ["SCANNER INTRAOAL (IOS)", "ACESSÓRIOS"], "RESINAS 3D": ["USO GERAL"] }
+-- chave = product_category canônica; array = subcategorias autorizadas (vazio = todas daquela categoria)
+```
+
+JSONB foi escolhido em vez de duas colunas `text[]` porque preserva a relação categoria→subcategorias sem tabela auxiliar.
+
+### 2b) Editor (`src/components/smartops/SmartOpsDistributors.tsx`)
+
+Nova seção "Autorização Comercial" no dialog de edição:
+
+- Carrega 1× o distinct de `(product_category, product_subcategory)` de `system_a_catalog` (mesma fonte do catálogo público).
+- Para cada categoria canônica (com lista de aliases já existente em `KbTabCatalogo`), renderiza:
+  - Checkbox da categoria (autoriza ela inteira).
+  - Lista colapsável de subcategorias com checkboxes individuais.
+- Estado salvo em `form.authorized_scope` (jsonb).
+- Botão "Selecionar tudo" / "Limpar".
+
+### 2c) Tab pública (`src/components/knowledge/KbTabDistribuidores.tsx`)
+
+- Adiciona linha de chips de categoria acima da grade (mesmo componente `KbChips` usado em Catálogo / Vídeos / Artigos), incluindo chip "Todas".
+- Filtra distribuidores onde `authorized_scope` contém a categoria selecionada (ou qualquer scope, no caso de "Todas").
+- Em cada card, abaixo do nome, mostrar badges com as subcategorias autorizadas — agrupadas visualmente por categoria, usando as mesmas cores de `kbCategoryColors`. Se uma categoria está autorizada sem subcategorias específicas, mostra badge "Categoria · todas".
+- Busca textual continua incluindo nome/cidade/estado/país.
+
+---
+
+## Detalhes técnicos
+
+- **Fonte de verdade das subcategorias**: `system_a_catalog` (já é o que o Catálogo lê). Não precisamos do `workflow_cell_mappings` aqui — ele cobre o mapeamento 7×3 interno, e a UI de revendas precisa apenas refletir o que existe no catálogo público.
+- **Normalização de categorias**: reutilizar `CAT_ALIASES` / `CANONICAL_CATS` de `KbTabCatalogo.tsx` extraindo para `src/components/knowledge/kbCategoryTaxonomy.ts` (novo módulo) e importando em ambos os lados (Catálogo, Distribuidores público, SmartOpsDistributors).
+- **i18n**: novas chaves em `pt.json`/`en.json`/`es.json` (`kb.catalogo.subcategory_all`, `kb.distribuidores.chip_all`, `kb.distribuidores.authorized_label`, `smartops.distributors.scope_section`).
+- **Sem mudança em RLS** — `distributors` já é lido pela tab pública via anon.
+
+## Arquivos afetados
+
+- Migration nova: `supabase/migrations/<timestamp>_distributors_authorized_scope.sql`
+- Novo: `src/components/knowledge/kbCategoryTaxonomy.ts`
+- Editado: `src/components/knowledge/KbTabCatalogo.tsx` (segunda linha de chips)
+- Editado: `src/components/knowledge/KbTabDistribuidores.tsx` (chips + badges)
+- Editado: `src/components/smartops/SmartOpsDistributors.tsx` (seção de autorização)
+- Editado: `src/locales/{pt,en,es}.json`
+
+## Fora do escopo
+
+- Não mexe na coluna `numero_unidades` nem nos cards do Catálogo.
+- Não altera roles/RLS.
+- Não recategoriza dados existentes de `system_a_catalog`.
