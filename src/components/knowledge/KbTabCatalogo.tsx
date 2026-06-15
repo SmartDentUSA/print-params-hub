@@ -189,6 +189,7 @@ export default function KbTabCatalogo() {
           .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url')
           .eq('active', true)
           .eq('approved', true)
+          .eq('visible_in_ui', true)
           .not('product_category', 'is', null)
           .order('product_category')
           .order('display_order')
