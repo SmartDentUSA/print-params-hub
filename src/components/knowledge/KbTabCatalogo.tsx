@@ -565,6 +565,16 @@ export default function KbTabCatalogo() {
                           📑 Documentos ({allExtraDocs.length})
                         </button>
                       )}
+                      {specs.length > 0 && (
+                        <button
+                          type="button"
+                          className="kb-action-btn"
+                          onClick={() => setSpecsModal({ name: resin?.name || p.name, specs })}
+                          title="Tabela de especificações técnicas"
+                        >
+                          📊 Tabela técnica
+                        </button>
+                      )}
                     </div>
                   )}
                   {presDeduped.length > 0 && (
