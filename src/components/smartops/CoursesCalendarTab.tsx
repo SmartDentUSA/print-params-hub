@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   startOfDay, endOfDay, addDays, addMonths, addWeeks,
-  format, isSameDay, isSameMonth, parseISO,
+  format, isSameDay, isSameMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
