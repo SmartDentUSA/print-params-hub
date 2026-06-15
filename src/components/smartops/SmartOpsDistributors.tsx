@@ -15,6 +15,8 @@ import { Country, State, City } from "country-state-city";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 
 type Distributor = {
   id: string;
@@ -42,6 +44,7 @@ type Distributor = {
   buyer_whatsapp: string | null;
   active: boolean;
   notes: string | null;
+  authorized_scope: AuthorizedScope | null;
 };
 
 // Aliases para nomes de país em PT-BR usados em registros legados.
@@ -183,6 +186,7 @@ const emptyForm = (): Partial<Distributor> => ({
   buyer_whatsapp: "",
   active: true,
   notes: "",
+  authorized_scope: {},
 });
 
 export function SmartOpsDistributors() {
@@ -193,6 +197,32 @@ export function SmartOpsDistributors() {
   const [form, setForm] = useState<Partial<Distributor>>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [catalogTaxonomy, setCatalogTaxonomy] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("system_a_catalog")
+        .select("product_category, product_subcategory")
+        .eq("active", true)
+        .eq("approved", true)
+        .eq("visible_in_ui", true)
+        .not("product_category", "is", null);
+      const map: Record<string, Set<string>> = {};
+      (data || []).forEach((r: any) => {
+        const canon = normCat(r.product_category);
+        if (!canon) return;
+        if (!map[canon]) map[canon] = new Set<string>();
+        const sub = (r.product_subcategory || "").trim();
+        if (sub) map[canon].add(sub);
+      });
+      const out: Record<string, string[]> = {};
+      CANONICAL_CATS.forEach((c) => {
+        out[c] = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      });
+      setCatalogTaxonomy(out);
+    })();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -588,6 +618,82 @@ export function SmartOpsDistributors() {
             <section className="space-y-2">
               <Label>Observações</Label>
               <Textarea rows={3} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold">Autorização Comercial</h4>
+                  <p className="text-xs text-muted-foreground">Categorias e subcategorias que esta revenda está autorizada a comercializar.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const all: AuthorizedScope = {};
+                      CANONICAL_CATS.forEach((c) => { all[c] = [...(catalogTaxonomy[c] || [])]; });
+                      setForm((f) => ({ ...f, authorized_scope: all }));
+                    }}
+                  >Selecionar tudo</Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setForm((f) => ({ ...f, authorized_scope: {} }))}
+                  >Limpar</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {CHIP_KEYS.filter((c) => c.key !== "all").map((c) => {
+                  const cat = c.key;
+                  const subs = catalogTaxonomy[cat] || [];
+                  const scope = (form.authorized_scope || {}) as AuthorizedScope;
+                  const enabled = Object.prototype.hasOwnProperty.call(scope, cat);
+                  const selectedSubs = enabled ? (scope[cat] || []) : [];
+                  const toggleCat = (on: boolean) => {
+                    const next: AuthorizedScope = { ...(scope || {}) };
+                    if (on) next[cat] = [];
+                    else delete next[cat];
+                    setForm((f) => ({ ...f, authorized_scope: next }));
+                  };
+                  const toggleSub = (sub: string) => {
+                    const next: AuthorizedScope = { ...(scope || {}) };
+                    const cur = new Set(next[cat] || []);
+                    if (cur.has(sub)) cur.delete(sub); else cur.add(sub);
+                    next[cat] = Array.from(cur);
+                    setForm((f) => ({ ...f, authorized_scope: next }));
+                  };
+                  return (
+                    <div key={cat} className="rounded-md border p-3 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox checked={enabled} onCheckedChange={(v) => toggleCat(!!v)} />
+                        <span className="text-sm font-medium">{cat}</span>
+                      </label>
+                      {enabled && subs.length > 0 && (
+                        <div className="pl-6 space-y-1">
+                          {subs.map((sub) => (
+                            <label key={sub} className="flex items-center gap-2 text-xs cursor-pointer">
+                              <Checkbox
+                                checked={selectedSubs.includes(sub)}
+                                onCheckedChange={() => toggleSub(sub)}
+                              />
+                              <span>{sub}</span>
+                            </label>
+                          ))}
+                          <p className="text-[10px] text-muted-foreground pt-1">
+                            Nenhuma subcategoria marcada = autoriza todas as subcategorias desta categoria.
+                          </p>
+                        </div>
+                      )}
+                      {enabled && subs.length === 0 && (
+                        <p className="pl-6 text-[10px] text-muted-foreground">Sem subcategorias cadastradas.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           </div>
 

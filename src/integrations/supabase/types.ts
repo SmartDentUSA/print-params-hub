@@ -4466,6 +4466,7 @@ export type Database = {
       distributors: {
         Row: {
           active: boolean
+          authorized_scope: Json
           buyer_email: string | null
           buyer_name: string | null
           buyer_whatsapp: string | null
@@ -4495,6 +4496,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          authorized_scope?: Json
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_whatsapp?: string | null
@@ -4524,6 +4526,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          authorized_scope?: Json
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_whatsapp?: string | null

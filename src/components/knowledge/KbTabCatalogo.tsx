@@ -11,33 +11,7 @@ import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
-
-// Normalize raw product_category values (mixed casing/variants) to canonical buckets
-const CAT_ALIASES: Record<string, string> = {
-  'SCANNERS 3D': 'SCANNERS 3D',
-  'SCANNERS': 'SCANNERS 3D',
-  'RESINAS 3D': 'RESINAS 3D',
-  'RESINAS': 'RESINAS 3D',
-  'IMPRESSÃO 3D': 'IMPRESSÃO 3D',
-  'IMPRESSORAS 3D': 'IMPRESSÃO 3D',
-  'PÓS-IMPRESSÃO': 'PÓS-IMPRESSÃO',
-  'DENTÍSTICA, ESTÉTICA E ORTODONTIA': 'DENTÍSTICA, ESTÉTICA E ORTODONTIA',
-  'CARACTERIZAÇÃO': 'CARACTERIZAÇÃO',
-  'SOFTWARES': 'SOFTWARES',
-  'SOFTWARE': 'SOFTWARES',
-};
-const CANONICAL_CATS = Array.from(new Set(Object.values(CAT_ALIASES)));
-
-const CHIP_KEYS: { key: string; tk: string }[] = [
-  { key: 'all', tk: 'kb.chips.all' },
-  { key: 'SCANNERS 3D', tk: 'kb.chips.scanners' },
-  { key: 'RESINAS 3D', tk: 'kb.chips.resinas' },
-  { key: 'IMPRESSÃO 3D', tk: 'kb.chips.impressao' },
-  { key: 'PÓS-IMPRESSÃO', tk: 'kb.chips.pos_impressao' },
-  { key: 'DENTÍSTICA, ESTÉTICA E ORTODONTIA', tk: 'kb.chips.dentistica' },
-  { key: 'CARACTERIZAÇÃO', tk: 'kb.chips.caracterizacao' },
-  { key: 'SOFTWARES', tk: 'kb.chips.softwares' },
-];
+import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -161,12 +135,6 @@ interface ResinInfo {
   image_url: string | null;
 }
 
-const normCat = (v: string | null): string | null => {
-  if (!v) return null;
-  const up = v.trim().toUpperCase();
-  return CAT_ALIASES[up] ?? null;
-};
-
 // Build a stable fuzzy key for matching catalog products to resin records.
 // Strips accents/punctuation and removes common stopwords like "resina", "3d",
 // "smart", "print", "modelo/model", "bio", so e.g.
@@ -232,6 +200,7 @@ export default function KbTabCatalogo() {
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
+  const [subChip, setSubChip] = useState('all');
   const [q, setQ] = useState('');
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
@@ -364,10 +333,30 @@ export default function KbTabCatalogo() {
       const canon = normCat(r.product_category);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
+      if (chip !== 'all' && subChip !== 'all' && !CATEGORIES_WITHOUT_SUBFILTER.has(chip)) {
+        if ((r.product_subcategory || '').trim() !== subChip) return false;
+      }
       if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [rows, q, chip]);
+  }, [rows, q, chip, subChip]);
+
+  // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
+  const subChips: KbChipOption[] = useMemo(() => {
+    if (chip === 'all' || CATEGORIES_WITHOUT_SUBFILTER.has(chip)) return [];
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (normCat(r.product_category) !== chip) return;
+      const s = (r.product_subcategory || '').trim();
+      if (s) set.add(s);
+    });
+    if (set.size === 0) return [];
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [{ key: 'all', label: t('kb.chips.all') }, ...list.map((s) => ({ key: s, label: s }))];
+  }, [rows, chip, t]);
+
+  // Reset subChip quando a categoria muda
+  useEffect(() => { setSubChip('all'); }, [chip]);
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
@@ -375,6 +364,9 @@ export default function KbTabCatalogo() {
       <KbSectionHeader title={t('kb.catalogo.title')} subtitle={t('kb.catalogo.subtitle')} />
       <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} />
+      {subChips.length > 1 && (
+        <KbChips options={subChips} active={subChip} onChange={setSubChip} />
+      )}
       {!loading && <KbResultCount count={filtered.length} noun="product" />}
       <div className="kb-grid">
         {loading ? (

@@ -1,0 +1,2 @@
+ALTER TABLE public.distributors ADD COLUMN IF NOT EXISTS authorized_scope jsonb NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS distributors_authorized_scope_gin ON public.distributors USING gin (authorized_scope);

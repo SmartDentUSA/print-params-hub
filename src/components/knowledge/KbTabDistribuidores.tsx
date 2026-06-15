@@ -6,6 +6,9 @@ import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
+import KbChips, { KbChipOption } from './KbChips';
+import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
+import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
@@ -32,6 +35,7 @@ interface Distributor {
   buyer_whatsapp_ddi: string | null;
   buyer_whatsapp: string | null;
   logo_url: string | null;
+  authorized_scope: AuthorizedScope | null;
 }
 
 function waLink(ddi?: string | null, phone?: string | null) {
@@ -146,13 +150,14 @@ export default function KbTabDistribuidores() {
   const [rows, setRows] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [chip, setChip] = useState('all');
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('distributors')
-        .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,numero_unidades,site_url,instagram,facebook,linkedin,youtube,owner_name,owner_email,owner_whatsapp_ddi,owner_whatsapp,buyer_name,buyer_email,buyer_whatsapp_ddi,buyer_whatsapp,logo_url')
+        .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,numero_unidades,site_url,instagram,facebook,linkedin,youtube,owner_name,owner_email,owner_whatsapp_ddi,owner_whatsapp,buyer_name,buyer_email,buyer_whatsapp_ddi,buyer_whatsapp,logo_url,authorized_scope')
         .eq('active', true)
         .order('nome_fantasia', { ascending: true, nullsFirst: false });
       if (!error && data) setRows(data as Distributor[]);
@@ -162,18 +167,22 @@ export default function KbTabDistribuidores() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter((r) =>
-      [r.nome_fantasia, r.razao_social, r.cidade, r.estado, r.pais]
+    return rows.filter((r) => {
+      if (chip !== 'all' && !scopeAllowsCategory(r.authorized_scope, chip)) return false;
+      if (!s) return true;
+      return [r.nome_fantasia, r.razao_social, r.cidade, r.estado, r.pais]
         .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(s))
-    );
-  }, [rows, q]);
+        .some((v) => String(v).toLowerCase().includes(s));
+    });
+  }, [rows, q, chip]);
+
+  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
 
   return (
     <section>
       <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
+      <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
       <div className="kb-dgrid">
         {loading ? (
@@ -235,6 +244,34 @@ export default function KbTabDistribuidores() {
                     {hasCountryFlag && <CountryFlag country={d.pais} />}
                     {local && <span>{local}</span>}
                     {!local && !hasCountryFlag && d.pais && <span>{d.pais}</span>}
+                  </div>
+                )}
+
+                {scopeHasAnything(d.authorized_scope) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {Object.entries(d.authorized_scope || {}).flatMap(([cat, subs]) => {
+                      const color = CATALOG_COLORS[cat] || '#5F6368';
+                      const bg = color + '1A';
+                      const list = Array.isArray(subs) && subs.length > 0 ? subs : [`${cat} · todas`];
+                      return list.map((label) => (
+                        <span
+                          key={`${cat}::${label}`}
+                          title={cat}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color,
+                            background: bg,
+                            border: `1px solid ${color}33`,
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {label}
+                        </span>
+                      ));
+                    })}
                   </div>
                 )}
 
