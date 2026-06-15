@@ -6,6 +6,15 @@ interface Props {
   onChange: (key: string) => void;
 }
 
+// Sentence case: primeira letra maiúscula, restante minúsculo.
+// Exceção: preserva "3D" maiúsculo.
+function toSentenceCase(s: string): string {
+  if (!s) return s;
+  const lower = s.toLocaleLowerCase('pt-BR');
+  const cased = lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1);
+  return cased.replace(/\b3d\b/g, '3D');
+}
+
 export default function KbChips({ options, active, onChange }: Props) {
   return (
     <div className="kb-cw">
@@ -17,7 +26,7 @@ export default function KbChips({ options, active, onChange }: Props) {
           className={`kb-chip${active === o.key ? ' on' : ''}`}
           onClick={() => onChange(o.key)}
         >
-          {o.label}
+          {toSentenceCase(o.label)}
         </button>
       ))}
     </div>
