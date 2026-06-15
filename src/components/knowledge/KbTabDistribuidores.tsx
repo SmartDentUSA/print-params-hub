@@ -248,7 +248,7 @@ export default function KbTabDistribuidores() {
                   <div style={{ fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {flag && (
                       <span title={d.pais || ''} aria-label={d.pais || ''} style={{ fontSize: 18, lineHeight: 1 }}>
-                        {flag.emoji}
+                        {flag}
                       </span>
                     )}
                     <span>{local}{d.pais ? (local ? ` — ${d.pais}` : d.pais) : ''}</span>
