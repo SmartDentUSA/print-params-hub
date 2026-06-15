@@ -51,12 +51,14 @@ interface CatalogRow {
   cta_1_url: string | null;
   cta_2_label: string | null;
   cta_2_url: string | null;
+  technical_specs: any | null;
 }
 
 interface DocLinks {
   datasheet_url: string | null;
   manual_url: string | null;
   spec_sheet_url: string | null;
+  technical_specifications: any | null;
 }
 
 interface CatalogDoc {
@@ -84,6 +86,47 @@ interface ResinPresentation {
   print_type: string | null;
   grams_per_print: number | null;
   prints_per_bottle: number | null;
+}
+
+interface SpecRow { label: string; value: string }
+
+// Normaliza qualquer formato (array de {label,value}, array de {key,value},
+// objeto plano {chave: valor}, string JSON) em uma lista [{label,value}].
+function normalizeSpecs(raw: any): SpecRow[] {
+  if (raw == null) return [];
+  let v: any = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return []; }
+  }
+  const out: SpecRow[] = [];
+  const pushPair = (label: any, value: any) => {
+    const l = label == null ? '' : String(label).trim();
+    const valStr = value == null
+      ? ''
+      : (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
+    if (!l || !valStr) return;
+    out.push({ label: l, value: valStr });
+  };
+  if (Array.isArray(v)) {
+    v.forEach((item) => {
+      if (item && typeof item === 'object') {
+        const label = (item as any).label ?? (item as any).key ?? (item as any).name ?? (item as any).campo;
+        const value = (item as any).value ?? (item as any).valor ?? (item as any).val;
+        if (label !== undefined || value !== undefined) pushPair(label, value);
+        else Object.entries(item).forEach(([k, val]) => pushPair(k, val));
+      }
+    });
+  } else if (typeof v === 'object') {
+    Object.entries(v).forEach(([k, val]) => pushPair(k, val));
+  }
+  // remove duplicatas (mesmo label+value)
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = `${r.label.toLowerCase()}|${r.value.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 const classifyResinDoc = (name: string, category: string | null): ResinDocKind => {
@@ -133,6 +176,7 @@ interface ResinInfo {
   cta_4_url: string | null;
   processing_instructions: string | null;
   image_url: string | null;
+  technical_specs: any | null;
 }
 
 // Build a stable fuzzy key for matching catalog products to resin records.
@@ -205,6 +249,7 @@ export default function KbTabCatalogo() {
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
   const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
+  const [specsModal, setSpecsModal] = useState<{ name: string; specs: SpecRow[] } | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -213,7 +258,7 @@ export default function KbTabCatalogo() {
       const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
-          .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url')
+          .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url, technical_specs')
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
@@ -224,11 +269,11 @@ export default function KbTabCatalogo() {
           .limit(500),
         supabase
           .from('products_catalog')
-          .select('name, datasheet_url, manual_url, spec_sheet_url')
+          .select('name, datasheet_url, manual_url, spec_sheet_url, technical_specifications')
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, slug, image_url, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions')
+          .select('id, name, slug, image_url, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions, technical_specs')
           .eq('active', true)
           .limit(500),
         supabase
@@ -263,6 +308,7 @@ export default function KbTabCatalogo() {
           datasheet_url: p.datasheet_url,
           manual_url: p.manual_url,
           spec_sheet_url: p.spec_sheet_url,
+          technical_specifications: p.technical_specifications ?? null,
         });
       });
       const extraMap = new Map<string, CatalogDoc[]>();
@@ -285,6 +331,7 @@ export default function KbTabCatalogo() {
           cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
           processing_instructions: r.processing_instructions || null,
           image_url: r.image_url || null,
+          technical_specs: r.technical_specs ?? null,
         };
         resinMap.set(r.name.toLowerCase().trim(), info);
         const fk = resinKey(r.name);
@@ -438,6 +485,14 @@ export default function KbTabCatalogo() {
               return parts.join(' · ');
             };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
+            // Specs técnicos: prioridade resin > system_a_catalog > products_catalog
+            const specs: SpecRow[] = (() => {
+              const fromResin = normalizeSpecs(resin?.technical_specs);
+              if (fromResin.length) return fromResin;
+              const fromCat = normalizeSpecs((p as any).technical_specs);
+              if (fromCat.length) return fromCat;
+              return normalizeSpecs(d?.technical_specifications);
+            })();
             // Prefer resin image over catalog image when a resin match exists
             const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
@@ -508,6 +563,16 @@ export default function KbTabCatalogo() {
                           title="Certificados, laudos, apresentações e guias"
                         >
                           📑 Documentos ({allExtraDocs.length})
+                        </button>
+                      )}
+                      {specs.length > 0 && (
+                        <button
+                          type="button"
+                          className="kb-action-btn"
+                          onClick={() => setSpecsModal({ name: resin?.name || p.name, specs })}
+                          title="Tabela de especificações técnicas"
+                        >
+                          📊 Tabela técnica
                         </button>
                       )}
                     </div>
@@ -598,6 +663,27 @@ export default function KbTabCatalogo() {
             >
               {procResin.processing_instructions}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!specsModal} onOpenChange={(v) => !v && setSpecsModal(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>📊 Tabela técnica — {specsModal?.name}</DialogTitle>
+          </DialogHeader>
+          {specsModal && specsModal.specs.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#202124' }}>
+              <tbody>
+                {specsModal.specs.map((row, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #E0E3E7' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 600, color: '#5F6368', width: '38%', verticalAlign: 'top', background: '#F6F8FB' }}>
+                      {row.label}
+                    </td>
+                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </DialogContent>
       </Dialog>
