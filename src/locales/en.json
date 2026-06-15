@@ -240,9 +240,10 @@
   "kb": {
     "tabs": {
       "parametros": "Parameters",
+      "catalogo": "Catalog",
       "videos": "Videos",
       "artigos": "Articles",
-      "catalogo": "Catalog"
+      "distribuidores": "Distributors"
     },
     "parametros": {
       "title": "3D Printing Parameters",
