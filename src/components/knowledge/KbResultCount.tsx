@@ -1,9 +1,10 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-interface Props { count: number; noun: 'video' | 'article' | 'product' }
+interface Props { count: number; noun: 'video' | 'article' | 'product' | 'distributor' }
 const NS: Record<Props['noun'], string> = {
   video: 'kb.videos',
   article: 'kb.artigos',
   product: 'kb.catalogo',
+  distributor: 'kb.distribuidores',
 };
 export default function KbResultCount({ count, noun }: Props) {
   const { t } = useLanguage();
