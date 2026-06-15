@@ -178,6 +178,9 @@ const RESIN_STOPWORDS = new Set([
   // Color/qualifier tokens that sometimes appear only on one side
   'rosa', 'branca', 'branco', 'clear', 'translucida', 'translucido',
   'transparente', 'salmao',
+  // Generic dental/clinical tokens that produce false subset matches across
+  // unrelated categories (e.g. "Try-in" cement vs "Try-in Calcinável" resin).
+  'try', 'in', 'try-in', 'tryin',
 ]);
 const resinKey = (raw: string): string => {
   if (!raw) return '';
