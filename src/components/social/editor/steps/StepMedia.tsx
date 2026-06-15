@@ -3,9 +3,25 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Info } from 'lucide-react';
+import { Info, GripVertical, X, Pin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { MediaItemsEditor } from '../MediaItemsEditor';
 import type { PostInput } from '@/lib/social/postSchema';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  rectSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const PLATFORM_LIMITS: Record<string, { max: number; hint: string }> = {
   instagram: { max: 10, hint: 'Carrossel IG: até 10 fotos/vídeos' },
@@ -20,25 +36,84 @@ interface Props {
   value: PostInput;
   onChange: (patch: Partial<PostInput>) => void;
   onSplitIntoPosts?: (files: File[]) => void;
+  carrosselImages?: string[];
+  onCarrosselReorder?: (next: string[]) => void;
+  onCarrosselRemove?: (url: string) => void;
 }
 
 const CAROUSEL_SUPPORTED = ['instagram', 'facebook'];
 
-export function StepMedia({ value, onChange, onSplitIntoPosts }: Props) {
+function CarrosselSortableCard({
+  url,
+  index,
+  onRemove,
+}: {
+  url: string;
+  index: number;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group border rounded-md overflow-hidden bg-muted w-[120px] h-[120px] shrink-0"
+    >
+      <img src={url} alt={`Slide ${index + 1}`} className="w-full h-full object-cover" />
+      <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-600 text-white font-semibold">
+        {index + 1}
+      </span>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="absolute bottom-1 left-1 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        aria-label="Reordenar"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <Button
+        size="icon"
+        variant="destructive"
+        className="absolute top-1 right-1 h-6 w-6"
+        onClick={onRemove}
+        aria-label="Remover"
+      >
+        <X className="w-3 h-3" />
+      </Button>
+    </div>
+  );
+}
+
+export function StepMedia({
+  value,
+  onChange,
+  onSplitIntoPosts,
+  carrosselImages = [],
+  onCarrosselReorder,
+  onCarrosselRemove,
+}: Props) {
   const perChannel = value.per_channel_media ?? {};
   const selectedPlatforms = Array.from(new Set(value.channels.map((c) => c.platform)));
   const customEnabled = Object.keys(perChannel).length > 0;
   const [showCustom, setShowCustom] = useState(customEnabled);
-  const isCarousel = value.post_type === 'carousel' || value.media_items.length > 1;
+  const totalMediaCount = carrosselImages.length + value.media_items.length;
+  const isCarousel = value.post_type === 'carousel' || totalMediaCount > 1;
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => {
-    if (value.media_items.length > 1 && value.post_type !== 'carousel') {
+    if (totalMediaCount > 1 && value.post_type !== 'carousel') {
       onChange({ post_type: 'carousel' });
-    } else if (value.media_items.length <= 1 && value.post_type === 'carousel') {
+    } else if (totalMediaCount <= 1 && value.post_type === 'carousel') {
       onChange({ post_type: 'feed' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.media_items.length]);
+  }, [totalMediaCount]);
 
   useEffect(() => {
     if (!isCarousel) return;
@@ -61,8 +136,44 @@ export function StepMedia({ value, onChange, onSplitIntoPosts }: Props) {
     onChange({ per_channel_media: next });
   };
 
+  const handleCarrosselDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = carrosselImages.indexOf(String(active.id));
+    const newIndex = carrosselImages.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    onCarrosselReorder?.(arrayMove(carrosselImages, oldIndex, newIndex));
+  };
+
   return (
     <div className="space-y-6">
+      {carrosselImages.length > 0 && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Pin className="w-4 h-4 text-emerald-600" />
+            <Label className="text-sm font-semibold">📌 Imagens do Carrossel</Label>
+            <Badge variant="outline" className="text-[10px]">{carrosselImages.length}</Badge>
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              Arraste para reordenar — publicadas antes dos uploads manuais
+            </span>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCarrosselDragEnd}>
+            <SortableContext items={carrosselImages} strategy={rectSortingStrategy}>
+              <div className="flex flex-wrap gap-2">
+                {carrosselImages.map((url, i) => (
+                  <CarrosselSortableCard
+                    key={url}
+                    url={url}
+                    index={i}
+                    onRemove={() => onCarrosselRemove?.(url)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
+
       {isCarousel && (
         <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
           <Info className="w-4 h-4 text-primary mt-0.5" />
