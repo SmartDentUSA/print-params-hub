@@ -200,6 +200,7 @@ export default function KbTabCatalogo() {
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
+  const [subChip, setSubChip] = useState('all');
   const [q, setQ] = useState('');
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
