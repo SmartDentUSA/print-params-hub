@@ -1,63 +1,43 @@
 ## Objetivo
 
-A tabela `resins` (Configurações do Sistema > Resinas) é a **fonte canônica** dos dados de resinas. O Catálogo de Produtos (`system_a_catalog`) tem cards das mesmas resinas que servem como espelho — e é onde se controla a visibilidade pública (`visible_in_ui`). Hoje os dois cadastros estão desalinhados: o catálogo tem cards com descrição/SEO/CTAs vazios ou desatualizados.
+Cadastrar as 2 resinas órfãs ("Smart Print Bio Direct Aligner" e "Smart Print Bio GOWhite") na tabela canônica `resins`, para que apareçam em Configurações > Configurações do Sistema > Resinas, e ficar com a mesma identidade dos cards já publicados em `system_a_catalog`.
 
-Vou popular cada card de resina no catálogo com os dados da resina correspondente em `resins`, **sem destruir o que já existe** no catálogo e **sem encostar em documentos**.
+## Contexto verificado
 
-## Diagnóstico
+- `system_a_catalog` tem os 2 cards ativos/visíveis (`category=Resinas`, sem description/image/price).
+- `resins` não tem nenhuma linha com nome/slug correspondente.
+- Os documentos (resin_documents / catalog_documents) não serão tocados.
 
-- `resins`: 50 colunas, contém os dados ricos (description, technical_specs, clinical_indications, contraindications, compatibility_list, certifications, processing_instructions, ai_context, CTAs 1-4, SEO completo, image_url, wikidata_qid, anvisa_registration, fda_510k).
-- `system_a_catalog`: 44 colunas. Para resinas existem ~30 cards, muitos duplicados (um com `category='resin'` inativo + um com `category='product'` ativo).
-- Documentos vivem em tabelas separadas e **não serão tocados**:
-  - `resin_documents` (resin_id) — Configurações
-  - `catalog_documents` (product_id) — Catálogo
-- 2 cards órfãos no catálogo sem par em `resins`: **Direct Aligner** e **GOWhite** (category='Resinas').
+## Passos
 
-## Estratégia de match (resin → catalog card)
+1. **Inserir 2 linhas em `public.resins`** (via tool de insert), espelhando os dados básicos do catálogo:
+   - **Direct Aligner**
+     - `name`: "Smart Print Bio Direct Aligner"
+     - `slug`: `smart-print-bio-direct-aligner`
+     - `manufacturer`: "Smart Dent"
+     - `type`: `standard` (default)
+     - `active`: true
+     - `system_a_product_id`: `5b227517-e7bf-47c5-bbe5-508944aff47e`
+   - **GOWhite**
+     - `name`: "Smart Print Bio GOWhite"
+     - `slug`: `smart-print-bio-gowhite`
+     - `manufacturer`: "Smart Dent"
+     - `type`: `standard`
+     - `active`: true
+     - `system_a_product_id`: `2aa58081-d123-42b9-bbd4-2ea7be2f69b1`
 
-Para cada `resins.id`, achar o card de catálogo correspondente nesta ordem:
-1. `system_a_catalog.slug = resins.slug` (com `product_category ILIKE '%resina%'`)
-2. `lower(name) = lower(name)` quando slugs divergem (ex.: `resina-smart-print-temp` vs `resina-smart-print-temp-`)
-3. Se houver duplicado (linha `category='resin'` inativa + linha `category='product'` ativa), **espelhar somente a linha ativa `category='product'`**. A linha legada `category='resin'` permanece intocada (não apagar — usuário pediu para não mudar nada).
+2. **Linkar o catálogo de volta** (mesmo insert/update): garantir que `system_a_catalog.slug` aceite o match pelo regex já usado no mirror (`regexp_replace(slug,'-+$','')` + fallback por nome — o nome canônico "Smart Print Bio Direct Aligner" / "Smart Print Bio GOWhite" é sufixo dos nomes do catálogo "Resina 3D Smart Print Bio …", então a regra de match já existente vai casar).
 
-Cards sem par em `resins` (Direct Aligner, GOWhite) ficam como estão — serão tratados em conversa separada, não fazem parte deste pedido.
+3. **Não rodar mirror agora**: como as 2 novas linhas em `resins` estão "vazias" (sem description/SEO/CTAs), não há nada para espelhar. Quando você preencher os dados na UI de Configurações > Resinas, basta re-rodar o UPDATE de espelhamento idempotente já documentado em `mem/catalog/resins-canonical-mirror.md`.
 
-## Campos espelhados (resins → system_a_catalog)
+## O que NÃO será alterado
 
-Sobrescrever no card de catálogo apenas onde a resina tem valor não-nulo/não-vazio (COALESCE pela origem `resins`), preservando o que já existe no catálogo quando a resina não tem dado:
+- `resin_documents` e `catalog_documents` — preservados.
+- Cards existentes em `system_a_catalog` (slug, name, category, visibilidade, prices) — preservados.
+- Demais 28 resinas já cadastradas — não tocadas.
 
-- Conteúdo: `description`, `image_url`
-- SEO: `seo_title_override`, `meta_description`, `og_image_url`, `canonical_url`, `keywords`, `keyword_ids`
-- CTAs 1–3: `cta_{n}_label`, `cta_{n}_url`, `cta_{n}_description` (catálogo não tem CTA 4 — ignorado)
-- Técnico/clínico: `technical_specs`, `clinical_indications`, `contraindications`, `compatibility_list`, `certifications`, `wikidata_qid`
+## Resultado esperado
 
-**Campos NÃO espelhados** (preservar catálogo):
-- `active`, `approved`, `visible_in_ui`, `display_order` — controlados pelo catálogo
-- `slug`, `name` — não renomear cards
-- `external_id`, `source`, `category`, `product_category`, `product_subcategory` — taxonomia do catálogo
-- `price`, `promo_price`, `currency` — comerciais do catálogo
-- Documentos (tabela separada, não tocada)
-- `processing_instructions` e `ai_context` — vivem só em `resins`, usados pela Dra. LIA; não há colunas-espelho no catálogo
-
-## Entregáveis
-
-1. **Migração SQL idempotente** (`mirror_resins_to_catalog`):
-   - UPDATE no `system_a_catalog` usando JOIN por slug e por nome (fallback).
-   - Usa `COALESCE(resins.<campo>, catalog.<campo>)` para nunca apagar dado existente do catálogo.
-   - Restringe a `product_category ILIKE '%resina%'` para evitar afetar produtos não-resina.
-   - Pode rodar quantas vezes for necessário.
-
-2. **Relatório de espelhamento** (SELECT pós-migração) mostrando:
-   - Quantos cards foram atualizados
-   - Resinas em `resins` sem par no catálogo
-   - Cards de catálogo "resina" sem par em `resins` (os 2 órfãos)
-
-3. **Memory** registrando a regra: `resins` é canônica para dados; `system_a_catalog` controla visibilidade pública; documentos ficam em tabelas separadas e não são unificados.
-
-## O que NÃO será feito
-
-- Não mexer em `resin_documents` nem `catalog_documents` (documentos preservados).
-- Não apagar, desativar ou renomear nenhum card.
-- Não tocar nos 2 órfãos (Direct Aligner, GOWhite) — assunto separado.
-- Não criar trigger automático de sync agora (mantemos manual/rerunável até validar).
-- Não alterar UI de Configurações > Resinas nem de Catálogo.
+- Configurações > Configurações do Sistema > Resinas passa a listar Direct Aligner e GOWhite (você completa documentos, SEO, CTAs por lá).
+- Catálogo público continua exibindo os 2 cards como hoje.
+- Próximo run do mirror trará automaticamente os campos preenchidos para `system_a_catalog`.
