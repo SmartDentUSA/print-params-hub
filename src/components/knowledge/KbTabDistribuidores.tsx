@@ -175,7 +175,7 @@ export default function KbTabDistribuidores() {
       <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
-      <div className="kb-grid">
+      <div className="kb-dgrid">
         {loading ? (
           <div className="kb-skeleton-grid">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -203,27 +203,27 @@ export default function KbTabDistribuidores() {
                   boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   {d.logo_url ? (
                     <img
                       src={d.logo_url}
                       alt={title}
-                      style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0' }}
+                      style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0' }}
                     />
                   ) : (
                     <div
                       style={{
-                        width: 48, height: 48, borderRadius: 8,
+                        width: 64, height: 64, borderRadius: 10,
                         background: '#0f172a', color: '#fff',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700, fontSize: 18,
+                        fontWeight: 700, fontSize: 24,
                       }}
                     >
                       {title.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, lineHeight: 1.2 }}>{title}</div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.2 }}>{title}</div>
                     {d.razao_social && d.razao_social !== title && (
                       <div style={{ fontSize: 12, color: '#64748b' }}>{d.razao_social}</div>
                     )}
@@ -236,9 +236,6 @@ export default function KbTabDistribuidores() {
                     {local && <span>{local}</span>}
                     {!local && !hasCountryFlag && d.pais && <span>{d.pais}</span>}
                   </div>
-                )}
-                {typeof d.numero_unidades === 'number' && d.numero_unidades > 0 && (
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Unidades: {d.numero_unidades}</div>
                 )}
 
                 <ContactBlock

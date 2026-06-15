@@ -70,6 +70,13 @@ export const kbStyles = `
 @media (max-width: 768px)  { .kb-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 480px)  { .kb-grid { grid-template-columns: 1fr; } }
 
+/* Distribuidores grid (2 colunas) */
+.kb-dgrid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+}
+.kb-dgrid .kb-empty { grid-column: 1 / -1; }
+@media (max-width: 768px)  { .kb-dgrid { grid-template-columns: 1fr; } }
+
 /* Card */
 .kb-card {
   background: #FFFFFF; border-radius: 14px;
