@@ -1,38 +1,16 @@
-## Objetivo
+Plano de correção:
 
-A aba **Catálogo** da Base de Conhecimento (`/base-conhecimento?tab=catalogo`) só deve listar produtos que estejam marcados como **Visível na UI** no admin "Gestão de Catálogo de Produtos".
+1. Corrigir o registro do produto no banco
+   - Produto: `Scanner Intraoral BLZ Leap 500`
+   - Alterar o campo interno `category` de `Scanners` para `product`
+   - Manter `product_category = SCANNERS 3D`
+   - Manter `active = true`, `approved = true`, `visible_in_ui = true`
 
-Hoje ela mostra todo produto `active=true AND approved=true` (121 itens), ignorando o toggle de visibilidade. Por isso "Direct Aligner" e "GOWhite" aparecem mesmo quando o operador os ocultou no admin.
+2. Verificar o resultado
+   - Confirmar que a consulta da tela de Gestão de Catálogo passa a retornar 117 produtos no total.
+   - Confirmar que a categoria `SCANNERS 3D` passa de 8 para 9 produtos.
+   - Confirmar que o Leap 500 aparece na lista.
 
-## Diagnóstico
+Causa encontrada:
 
-- Admin `src/components/AdminCatalog.tsx` controla a coluna `system_a_catalog.visible_in_ui` (toggle "Visível", batch "Ocultar/Mostrar").
-- Aba Catálogo em `src/components/knowledge/KbTabCatalogo.tsx` faz `select` de `system_a_catalog` filtrando só por `active` e `approved`, sem olhar `visible_in_ui`.
-- Contagem atual: 102 visíveis, 19 ocultos, 121 total.
-
-## Mudança
-
-Adicionar `.eq('visible_in_ui', true)` ao query da aba Catálogo no `KbTabCatalogo.tsx` (junto dos filtros `active` e `approved` já existentes).
-
-```text
-src/components/knowledge/KbTabCatalogo.tsx
-  └─ supabase.from('system_a_catalog')
-       .select(...)
-       .eq('active', true)
-       .eq('approved', true)
-       .eq('visible_in_ui', true)   ← adicionar
-       .not('product_category', 'is', null)
-```
-
-Nada mais muda: chips, normalização de categorias, enrich com `resins`/`products_catalog`/docs continuam iguais.
-
-## Resultado esperado
-
-- 19 produtos ocultos (entre eles "Resina 3D Smart Print Bio Direct Aligner" e "Resina 3D Smart Print Bio GOWhite", se desmarcados) somem da aba Catálogo.
-- Para reexibir qualquer produto, basta ligar o toggle "Visível" no admin — sem deploy.
-- Nenhuma mudança em RLS, schema ou dados: só leitura.
-
-## Fora de escopo
-
-- Normalizar categorias minúsculas (`Resinas`, `Scanners`, `Software`, etc.) — fica para outra rodada.
-- Criar registros faltantes em `resins` para resinas órfãs.
+A tela carrega apenas registros com `category = product`. O Leap 500 está cadastrado com `category = Scanners`, então ele fica fora da listagem mesmo estando ativo, aprovado e visível na UI.
