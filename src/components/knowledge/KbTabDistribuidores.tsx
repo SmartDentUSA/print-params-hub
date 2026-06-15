@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Globe, Instagram, Facebook, Linkedin, Youtube } from 'lucide-react';
+import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
   id: string;
@@ -99,48 +100,40 @@ function normalize(str: string) {
     .toLowerCase();
 }
 
-// Mapeamento direto nome do país → emoji (evita cálculo Unicode manual)
-const COUNTRY_TO_FLAG: Record<string, string> = {
-  brasil: '🇧🇷', brazil: '🇧🇷', br: '🇧🇷',
-  chile: '🇨🇱', cl: '🇨🇱',
-  argentina: '🇦🇷', ar: '🇦🇷',
-  uruguai: '🇺🇾', uruguay: '🇺🇾', uy: '🇺🇾',
-  paraguai: '🇵🇾', paraguay: '🇵🇾', py: '🇵🇾',
-  bolivia: '🇧🇴', bolívia: '🇧🇴', bo: '🇧🇴',
-  peru: '🇵🇪', perú: '🇵🇪', pe: '🇵🇪',
-  colombia: '🇨🇴', colômbia: '🇨🇴', co: '🇨🇴',
-  venezuela: '🇻🇪', ve: '🇻🇪',
-  equador: '🇪🇨', ecuador: '🇪🇨', ec: '🇪🇨',
-  mexico: '🇲🇽', méxico: '🇲🇽', mx: '🇲🇽',
-  'estados unidos': '🇺🇸', eua: '🇺🇸', usa: '🇺🇸', 'united states': '🇺🇸', us: '🇺🇸',
-  portugal: '🇵🇹', pt: '🇵🇹',
-  espanha: '🇪🇸', spain: '🇪🇸', españa: '🇪🇸', es: '🇪🇸',
-  italia: '🇮🇹', italy: '🇮🇹', it: '🇮🇹',
-  alemanha: '🇩🇪', germany: '🇩🇪', de: '🇩🇪',
-  franca: '🇫🇷', frança: '🇫🇷', france: '🇫🇷', fr: '🇫🇷',
-  'reino unido': '🇬🇧', inglaterra: '🇬🇧', uk: '🇬🇧', gb: '🇬🇧',
-  suica: '🇨🇭', suíça: '🇨🇭', switzerland: '🇨🇭', ch: '🇨🇭',
-  canada: '🇨🇦', canadá: '🇨🇦', ca: '🇨🇦',
-  japao: '🇯🇵', japão: '🇯🇵', japan: '🇯🇵', jp: '🇯🇵',
-  china: '🇨🇳', cn: '🇨🇳',
-  'coreia do sul': '🇰🇷', 'south korea': '🇰🇷', kr: '🇰🇷',
-  india: '🇮🇳', índia: '🇮🇳', in: '🇮🇳',
-  'emirados arabes': '🇦🇪', 'emirados árabes': '🇦🇪', 'united arab emirates': '🇦🇪', ae: '🇦🇪',
-  israel: '🇮🇱', il: '🇮🇱',
-  australia: '🇦🇺', austrália: '🇦🇺', au: '🇦🇺',
-  'nova zelandia': '🇳🇿', 'nova Zelândia': '🇳🇿', 'new zealand': '🇳🇿', nz: '🇳🇿',
-  'africa do sul': '🇿🇦', 'áfrica do sul': '🇿🇦', 'south africa': '🇿🇦', za: '🇿🇦',
-  nigeria: '🇳🇬', ng: '🇳🇬',
-  russia: '🇷🇺', rússia: '🇷🇺', ru: '🇷🇺',
-  holanda: '🇳🇱', 'paises baixos': '🇳🇱', 'países baixos': '🇳🇱', netherlands: '🇳🇱', nl: '🇳🇱',
+const COUNTRY_TO_ISO: Record<string, string> = {
+  brasil: 'BR', brazil: 'BR', br: 'BR',
+  chile: 'CL', cl: 'CL',
+  argentina: 'AR', ar: 'AR',
+  uruguai: 'UY', uruguay: 'UY', uy: 'UY',
+  paraguai: 'PY', paraguay: 'PY', py: 'PY',
+  bolivia: 'BO', bo: 'BO',
+  peru: 'PE', pe: 'PE',
+  colombia: 'CO', co: 'CO',
+  venezuela: 'VE', ve: 'VE',
+  equador: 'EC', ecuador: 'EC', ec: 'EC',
+  mexico: 'MX', mx: 'MX',
+  'estados unidos': 'US', eua: 'US', usa: 'US', 'united states': 'US', us: 'US',
+  portugal: 'PT', pt: 'PT',
+  espanha: 'ES', spain: 'ES', es: 'ES',
 };
 
-function countryFlag(country?: string | null): string | null {
+function countryIso(country?: string | null): string | null {
   if (!country) return null;
   const key = normalize(country);
-  // Se já for um emoji de bandeira (2 chars regionais), retorna direto
-  if (/^[\u{1F1E6}-\u{1F1FF}]{2}$/u.test(country.trim())) return country.trim();
-  return COUNTRY_TO_FLAG[key] || null;
+  return COUNTRY_TO_ISO[key] || null;
+}
+
+function CountryFlag({ country }: { country?: string | null }) {
+  const iso = countryIso(country);
+  if (!iso) return null;
+  return (
+    <span
+      className={`fi fi-${iso.toLowerCase()}`}
+      title={country || 'País'}
+      aria-label={`Bandeira do ${country || 'país'}`}
+      style={{ width: 24, height: 18, borderRadius: 2, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)' }}
+    />
+  );
 }
 
 export default function KbTabDistribuidores() {
@@ -202,7 +195,7 @@ export default function KbTabDistribuidores() {
           {filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || 'Distribuidor';
             const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
-            const flag = countryFlag(d.pais);
+            const hasCountryFlag = !!countryIso(d.pais);
             return (
               <div
                 key={d.id}
@@ -246,12 +239,9 @@ export default function KbTabDistribuidores() {
 
                 {(local || d.pais) && (
                   <div style={{ fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {flag && (
-                      <span title={d.pais || ''} aria-label={d.pais || ''} style={{ fontSize: 18, lineHeight: 1 }}>
-                        {flag}
-                      </span>
-                    )}
-                    <span>{local}{d.pais ? (local ? ` — ${d.pais}` : d.pais) : ''}</span>
+                    {hasCountryFlag && <CountryFlag country={d.pais} />}
+                    {local && <span>{local}</span>}
+                    {!local && !hasCountryFlag && d.pais && <span>{d.pais}</span>}
                   </div>
                 )}
                 {typeof d.numero_unidades === 'number' && d.numero_unidades > 0 && (
