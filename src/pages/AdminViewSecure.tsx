@@ -329,6 +329,7 @@ export default function AdminViewSecure() {
       case 'so-rayshape': return <SmartOpsRayshape key={`rayshape-${refreshKey}`} />;
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       case 'so-campanhas': return <SmartOpsCampaigns />;
+      case 'so-distribuicao': return <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />;
       default: return <AdminModels />;
     }
   };
