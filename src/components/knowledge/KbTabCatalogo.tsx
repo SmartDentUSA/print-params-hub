@@ -151,6 +151,9 @@ const normCat = (v: string | null): string | null => {
 const RESIN_STOPWORDS = new Set([
   'resina', 'resin', '3d', 'smart', 'print', 'bio',
   'modelo', 'model', 'de', 'da', 'do', 'a', 'o',
+  // Color/qualifier tokens that sometimes appear only on one side
+  'rosa', 'branca', 'branco', 'clear', 'translucida', 'translucido',
+  'transparente', 'salmao',
 ]);
 const resinKey = (raw: string): string => {
   if (!raw) return '';
@@ -160,8 +163,36 @@ const resinKey = (raw: string): string => {
     .replace(/[^a-z0-9+\s]/g, ' ') // keep + (for "+Flex"), drop other punctuation
     .replace(/\s+/g, ' ')
     .trim();
-  const tokens = cleaned.split(' ').filter((t) => t && !RESIN_STOPWORDS.has(t));
+  const tokens = cleaned
+    .split(' ')
+    .filter((t) => t && t.length > 1 && !RESIN_STOPWORDS.has(t));
   return Array.from(new Set(tokens)).sort().join('|');
+};
+
+// Subset/superset fallback: matches when one side's significant tokens are
+// fully contained in the other (and at least 2 tokens overlap, or the smaller
+// side has a single highly-specific token).
+const findResinBySubset = (
+  map: Map<string, ResinInfo>,
+  catalogName: string,
+): ResinInfo | undefined => {
+  const cat = resinKey(catalogName);
+  if (!cat) return undefined;
+  const catTokens = new Set(cat.split('|').filter(Boolean));
+  if (catTokens.size === 0) return undefined;
+  let best: { info: ResinInfo; overlap: number } | null = null;
+  for (const [k, info] of map.entries()) {
+    if (!k.startsWith('fk:')) continue;
+    const rTokens = new Set(k.slice(3).split('|').filter(Boolean));
+    if (rTokens.size === 0) continue;
+    let overlap = 0;
+    for (const t of catTokens) if (rTokens.has(t)) overlap++;
+    const smaller = Math.min(catTokens.size, rTokens.size);
+    const ok = overlap >= 2 || (smaller === 1 && overlap === 1);
+    if (!ok) continue;
+    if (!best || overlap > best.overlap) best = { info, overlap };
+  }
+  return best?.info;
 };
 
 export default function KbTabCatalogo() {
@@ -334,7 +365,8 @@ export default function KbTabCatalogo() {
             const d = docs.get(p.name.toLowerCase().trim());
             const resin =
               resins.get(p.name.toLowerCase().trim()) ||
-              resins.get('fk:' + resinKey(p.name));
+              resins.get('fk:' + resinKey(p.name)) ||
+              findResinBySubset(resins, p.name);
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
