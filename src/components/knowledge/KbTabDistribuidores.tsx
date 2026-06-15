@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Globe, Instagram, Facebook, Linkedin, Youtube } from 'lucide-react';
 
 interface Distributor {
   id: string;
@@ -52,38 +53,67 @@ function ContactBlock({
 }
 
 function SocialIcons({ d }: { d: Distributor }) {
-  const links: Array<[string, string | null]> = [
-    ['Site', d.site_url],
-    ['Instagram', d.instagram],
-    ['Facebook', d.facebook],
-    ['LinkedIn', d.linkedin],
-    ['YouTube', d.youtube],
+  const links: Array<{ label: string; url: string | null; Icon: any; color: string }> = [
+    { label: 'Site',      url: d.site_url,  Icon: Globe,     color: '#0f172a' },
+    { label: 'Instagram', url: d.instagram, Icon: Instagram, color: '#E1306C' },
+    { label: 'Facebook',  url: d.facebook,  Icon: Facebook,  color: '#1877F2' },
+    { label: 'LinkedIn',  url: d.linkedin,  Icon: Linkedin,  color: '#0A66C2' },
+    { label: 'YouTube',   url: d.youtube,   Icon: Youtube,   color: '#FF0000' },
   ];
-  const visible = links.filter(([, v]) => !!v);
+  const visible = links.filter((l) => !!l.url);
   if (!visible.length) return null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-      {visible.map(([label, url]) => (
+      {visible.map(({ label, url, Icon, color }) => (
         <a
           key={label}
           href={url!}
           target="_blank"
           rel="noopener"
+          title={label}
+          aria-label={label}
           style={{
-            fontSize: 11,
-            padding: '3px 8px',
+            width: 32, height: 32,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             borderRadius: 999,
             border: '1px solid #e2e8f0',
-            color: '#475569',
-            background: '#f8fafc',
+            background: '#fff',
+            color,
             textDecoration: 'none',
+            transition: 'background 0.15s',
           }}
         >
-          {label}
+          <Icon size={16} strokeWidth={2} />
         </a>
       ))}
     </div>
   );
+}
+
+// ISO country -> flag emoji (regional indicator symbols)
+const COUNTRY_TO_ISO: Record<string, string> = {
+  brasil: 'BR', brazil: 'BR',
+  chile: 'CL',
+  argentina: 'AR',
+  uruguai: 'UY', uruguay: 'UY',
+  paraguai: 'PY', paraguay: 'PY',
+  bolivia: 'BO', bolívia: 'BO',
+  peru: 'PE', perú: 'PE',
+  colombia: 'CO', colômbia: 'CO',
+  venezuela: 'VE',
+  equador: 'EC', ecuador: 'EC',
+  mexico: 'MX', méxico: 'MX',
+  'estados unidos': 'US', eua: 'US', usa: 'US', 'united states': 'US',
+  portugal: 'PT', espanha: 'ES', spain: 'ES', españa: 'ES',
+};
+
+function countryFlag(country?: string | null): { emoji: string; iso: string } | null {
+  if (!country) return null;
+  const key = country.trim().toLowerCase();
+  const iso = COUNTRY_TO_ISO[key] || (key.length === 2 ? key.toUpperCase() : '');
+  if (!iso || iso.length !== 2) return null;
+  const emoji = String.fromCodePoint(...iso.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+  return { emoji, iso };
 }
 
 export default function KbTabDistribuidores() {
@@ -145,7 +175,7 @@ export default function KbTabDistribuidores() {
           {filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || 'Distribuidor';
             const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
-            const pais = d.pais ? ` — ${d.pais}` : '';
+            const flag = countryFlag(d.pais);
             return (
               <div
                 key={d.id}
@@ -187,8 +217,15 @@ export default function KbTabDistribuidores() {
                   </div>
                 </div>
 
-                {(local || pais) && (
-                  <div style={{ fontSize: 13, color: '#334155' }}>{local}{pais}</div>
+                {(local || d.pais) && (
+                  <div style={{ fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {flag && (
+                      <span title={d.pais || ''} aria-label={d.pais || ''} style={{ fontSize: 18, lineHeight: 1 }}>
+                        {flag.emoji}
+                      </span>
+                    )}
+                    <span>{local}{d.pais ? (local ? ` — ${d.pais}` : d.pais) : ''}</span>
+                  </div>
                 )}
                 {typeof d.numero_unidades === 'number' && d.numero_unidades > 0 && (
                   <div style={{ fontSize: 12, color: '#64748b' }}>Unidades: {d.numero_unidades}</div>
