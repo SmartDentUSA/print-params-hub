@@ -175,7 +175,7 @@ export default function KbTabDistribuidores() {
           {filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || 'Distribuidor';
             const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
-            const pais = d.pais ? ` — ${d.pais}` : '';
+            const flag = countryFlag(d.pais);
             return (
               <div
                 key={d.id}
@@ -217,8 +217,15 @@ export default function KbTabDistribuidores() {
                   </div>
                 </div>
 
-                {(local || pais) && (
-                  <div style={{ fontSize: 13, color: '#334155' }}>{local}{pais}</div>
+                {(local || d.pais) && (
+                  <div style={{ fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {flag && (
+                      <span title={d.pais || ''} aria-label={d.pais || ''} style={{ fontSize: 18, lineHeight: 1 }}>
+                        {flag.emoji}
+                      </span>
+                    )}
+                    <span>{local}{d.pais ? (local ? ` — ${d.pais}` : d.pais) : ''}</span>
+                  </div>
                 )}
                 {typeof d.numero_unidades === 'number' && d.numero_unidades > 0 && (
                   <div style={{ fontSize: 12, color: '#64748b' }}>Unidades: {d.numero_unidades}</div>
