@@ -51,12 +51,14 @@ interface CatalogRow {
   cta_1_url: string | null;
   cta_2_label: string | null;
   cta_2_url: string | null;
+  technical_specs: any | null;
 }
 
 interface DocLinks {
   datasheet_url: string | null;
   manual_url: string | null;
   spec_sheet_url: string | null;
+  technical_specifications: any | null;
 }
 
 interface CatalogDoc {
@@ -174,6 +176,7 @@ interface ResinInfo {
   cta_4_url: string | null;
   processing_instructions: string | null;
   image_url: string | null;
+  technical_specs: any | null;
 }
 
 // Build a stable fuzzy key for matching catalog products to resin records.
