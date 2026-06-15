@@ -10,12 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Upload, X } from "lucide-react";
 
 type Distributor = {
   id: string;
   razao_social: string;
   nome_fantasia: string | null;
+  logo_url: string | null;
   pais: string | null;
   estado: string | null;
   cidade: string | null;
@@ -127,6 +128,7 @@ const DDI_OPTIONS = [
 const emptyForm = (): Partial<Distributor> => ({
   razao_social: "",
   nome_fantasia: "",
+  logo_url: "",
   pais: "Brasil",
   estado: "",
   cidade: "",
@@ -157,6 +159,7 @@ export function SmartOpsDistributors() {
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [form, setForm] = useState<Partial<Distributor>>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -193,6 +196,29 @@ export function SmartOpsDistributors() {
       owner_whatsapp_ddi: f.owner_whatsapp_ddi || ddi,
       buyer_whatsapp_ddi: f.buyer_whatsapp_ddi || ddi,
     }));
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo deve ter no máximo 5MB");
+      return;
+    }
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop() || "png";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("distributor-logos")
+      .upload(path, file, { cacheControl: "3600", upsert: false });
+    if (upErr) {
+      setUploadingLogo(false);
+      toast.error("Erro no upload: " + upErr.message);
+      return;
+    }
+    const { data } = supabase.storage.from("distributor-logos").getPublicUrl(path);
+    setForm((f) => ({ ...f, logo_url: data.publicUrl }));
+    setUploadingLogo(false);
+    toast.success("Logo enviado");
   };
 
   const statesList = useMemo(() => Object.keys(GEO[form.pais || ""]?.states || {}), [form.pais]);
