@@ -365,7 +365,8 @@ export default function KbTabCatalogo() {
             const d = docs.get(p.name.toLowerCase().trim());
             const resin =
               resins.get(p.name.toLowerCase().trim()) ||
-              resins.get('fk:' + resinKey(p.name));
+              resins.get('fk:' + resinKey(p.name)) ||
+              findResinBySubset(resins, p.name);
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
