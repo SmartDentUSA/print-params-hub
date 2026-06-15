@@ -1,63 +1,38 @@
-## Problema
+## Objetivo
 
-No compartilhamento presencial, a mensagem mostra só `📅 17 de Jun de 2026 (Qua) / ⏰ 08:30–17:30`, mesmo quando a turma é de 3 dias (17, 18, 19/06). Faltam:
-- Data início / data fim (resumo)
-- Horário início / horário fim (resumo)
-- Cronograma completo (linha por dia)
+A aba **Catálogo** da Base de Conhecimento (`/base-conhecimento?tab=catalogo`) só deve listar produtos que estejam marcados como **Visível na UI** no admin "Gestão de Catálogo de Produtos".
 
-Causa: o `ShareButton` em `src/pages/AgendaPublica.tsx` só usa `turma.days` quando o array vem populado. Se a turma tem só `start_date` (caso atual), ele cai no fallback de 1 linha. Mesmo no caminho multi-dia, ele não imprime um cabeçalho de "Início/Fim" antes do cronograma.
+Hoje ela mostra todo produto `active=true AND approved=true` (121 itens), ignorando o toggle de visibilidade. Por isso "Direct Aligner" e "GOWhite" aparecem mesmo quando o operador os ocultou no admin.
 
-## Mudança (apenas `ShareButton`, sem alterar template do CS)
+## Diagnóstico
 
-Reescrever o bloco de cronograma para sempre montar 3 partes, na ordem:
+- Admin `src/components/AdminCatalog.tsx` controla a coluna `system_a_catalog.visible_in_ui` (toggle "Visível", batch "Ocultar/Mostrar").
+- Aba Catálogo em `src/components/knowledge/KbTabCatalogo.tsx` faz `select` de `system_a_catalog` filtrando só por `active` e `approved`, sem olhar `visible_in_ui`.
+- Contagem atual: 102 visíveis, 19 ocultos, 121 total.
 
-1. **Resumo (sempre)**
-   ```
-   📅 Início: 17/06/2026 — Fim: 19/06/2026
-   ⏰ Horário: 08:30 às 17:30
-   ```
-   - `Início` = `days[0].date` se houver, senão `turma.start_date`
-   - `Fim` = `days[last].date` se houver, senão `turma.end_date ?? turma.start_date`
-   - Se Início == Fim, imprime só `📅 Data: 17/06/2026 (Qua)`
-   - Horário = primeiro `start_time` e último `end_time` (de `days` ou de `turma.start_time/end_time`)
+## Mudança
 
-2. **Cronograma detalhado (se houver mais de 1 dia)**
-   ```
-   🗓 Cronograma:
-   • Dia 1 — 17/06 (Qua) | 08:30–17:30
-   • Dia 2 — 18/06 (Qui) | 08:30–17:30
-   • Dia 3 — 19/06 (Sex) | 08:30–17:30
-   ```
-   - Fonte: `turma.days` ordenado por `day_number`. Se `topic` existir, vira `Dia N — Tópico (DD/MM)`.
-   - **Fallback quando `days` está vazio mas a turma é multi-dia**: derivar os dias entre `start_date` e `end_date` (inclusive), usando `start_time`/`end_time` da turma para todos.
+Adicionar `.eq('visible_in_ui', true)` ao query da aba Catálogo no `KbTabCatalogo.tsx` (junto dos filtros `active` e `approved` já existentes).
 
-3. Mantém regra anterior: presencial sem `Inscreva-se`, online com link do forms. Continua usando Web Share API + `api.whatsapp.com/send` como fallback.
-
-## Exemplo de saída (presencial 3 dias)
-
-```
-Opção de treinamento, aqui estão os detalhes:
-
-📚 *Chairside Print - Odontologia Digital*
-🏷 Turma: *146 BLZ ino 200 Dias 17,18,19/06*
-👨‍🏫 Instrutor: Danilo Citigi e Livia Comar
-📍 São Carlos/SP, na sede da Smart Dent.
-
-📅 Início: 17/06/2026 — Fim: 19/06/2026
-⏰ Horário: 08:30 às 17:30
-
-🗓 Cronograma:
-• Dia 1 — 17/06 (Qua) | 08:30–17:30
-• Dia 2 — 18/06 (Qui) | 08:30–17:30
-• Dia 3 — 19/06 (Sex) | 08:30–17:30
+```text
+src/components/knowledge/KbTabCatalogo.tsx
+  └─ supabase.from('system_a_catalog')
+       .select(...)
+       .eq('active', true)
+       .eq('approved', true)
+       .eq('visible_in_ui', true)   ← adicionar
+       .not('product_category', 'is', null)
 ```
 
-Turma de 1 dia continua compacta:
-```
-📅 Data: 17/06/2026 (Qua)
-⏰ Horário: 08:30 às 17:30
-```
+Nada mais muda: chips, normalização de categorias, enrich com `resins`/`products_catalog`/docs continuam iguais.
 
-## Escopo
+## Resultado esperado
 
-100% frontend, isolado em `ShareButton` (`src/pages/AgendaPublica.tsx`). Sem mexer em backend, banco, template do CS (`courseWhatsapp.ts`), ou roteamento.
+- 19 produtos ocultos (entre eles "Resina 3D Smart Print Bio Direct Aligner" e "Resina 3D Smart Print Bio GOWhite", se desmarcados) somem da aba Catálogo.
+- Para reexibir qualquer produto, basta ligar o toggle "Visível" no admin — sem deploy.
+- Nenhuma mudança em RLS, schema ou dados: só leitura.
+
+## Fora de escopo
+
+- Normalizar categorias minúsculas (`Resinas`, `Scanners`, `Software`, etc.) — fica para outra rodada.
+- Criar registros faltantes em `resins` para resinas órfãs.
