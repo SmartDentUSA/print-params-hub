@@ -4479,6 +4479,7 @@ export type Database = {
           id: string
           instagram: string | null
           linkedin: string | null
+          logo_url: string | null
           nome_fantasia: string | null
           notes: string | null
           numero_unidades: number | null
@@ -4507,6 +4508,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           linkedin?: string | null
+          logo_url?: string | null
           nome_fantasia?: string | null
           notes?: string | null
           numero_unidades?: number | null
@@ -4535,6 +4537,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           linkedin?: string | null
+          logo_url?: string | null
           nome_fantasia?: string | null
           notes?: string | null
           numero_unidades?: number | null
