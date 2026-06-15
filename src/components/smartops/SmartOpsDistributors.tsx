@@ -10,7 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Upload, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Upload, X, Check, ChevronsUpDown } from "lucide-react";
+import { Country, State, City } from "country-state-city";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 type Distributor = {
   id: string;
@@ -40,90 +44,119 @@ type Distributor = {
   notes: string | null;
 };
 
-// Lightweight geo dataset. Adicione países conforme necessário.
-const GEO: Record<string, { ddi: string; states: Record<string, string[]> }> = {
-  Brasil: {
-    ddi: "+55",
-    states: {
-      "AC": ["Rio Branco", "Cruzeiro do Sul"],
-      "AL": ["Maceió", "Arapiraca"],
-      "AM": ["Manaus", "Parintins"],
-      "AP": ["Macapá", "Santana"],
-      "BA": ["Salvador", "Feira de Santana", "Vitória da Conquista"],
-      "CE": ["Fortaleza", "Caucaia", "Juazeiro do Norte"],
-      "DF": ["Brasília"],
-      "ES": ["Vitória", "Vila Velha", "Serra"],
-      "GO": ["Goiânia", "Anápolis", "Aparecida de Goiânia"],
-      "MA": ["São Luís", "Imperatriz"],
-      "MG": ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora"],
-      "MS": ["Campo Grande", "Dourados"],
-      "MT": ["Cuiabá", "Várzea Grande"],
-      "PA": ["Belém", "Ananindeua", "Santarém"],
-      "PB": ["João Pessoa", "Campina Grande"],
-      "PE": ["Recife", "Jaboatão dos Guararapes", "Olinda"],
-      "PI": ["Teresina", "Parnaíba"],
-      "PR": ["Curitiba", "Londrina", "Maringá"],
-      "RJ": ["Rio de Janeiro", "Niterói", "Nova Iguaçu", "Duque de Caxias"],
-      "RN": ["Natal", "Mossoró"],
-      "RO": ["Porto Velho", "Ji-Paraná"],
-      "RR": ["Boa Vista"],
-      "RS": ["Porto Alegre", "Caxias do Sul", "Pelotas"],
-      "SC": ["Florianópolis", "Joinville", "Blumenau"],
-      "SE": ["Aracaju"],
-      "SP": ["São Paulo", "Campinas", "Santos", "Ribeirão Preto", "Sorocaba", "São José dos Campos"],
-      "TO": ["Palmas", "Araguaína"],
-    },
-  },
-  Portugal: {
-    ddi: "+351",
-    states: {
-      "Lisboa": ["Lisboa", "Sintra", "Cascais"],
-      "Porto": ["Porto", "Vila Nova de Gaia", "Matosinhos"],
-      "Coimbra": ["Coimbra"],
-      "Braga": ["Braga", "Guimarães"],
-      "Faro": ["Faro", "Albufeira"],
-    },
-  },
-  "Estados Unidos": {
-    ddi: "+1",
-    states: {
-      "FL": ["Miami", "Orlando", "Tampa"],
-      "CA": ["Los Angeles", "San Francisco", "San Diego"],
-      "NY": ["New York", "Buffalo"],
-      "TX": ["Houston", "Dallas", "Austin"],
-    },
-  },
-  Argentina: {
-    ddi: "+54",
-    states: {
-      "Buenos Aires": ["Buenos Aires", "La Plata", "Mar del Plata"],
-      "Córdoba": ["Córdoba"],
-      "Mendoza": ["Mendoza"],
-    },
-  },
-  Chile: {
-    ddi: "+56",
-    states: { "RM": ["Santiago"], "V": ["Valparaíso", "Viña del Mar"] },
-  },
-  Paraguai: { ddi: "+595", states: { "Central": ["Asunción"] } },
-  Uruguai: { ddi: "+598", states: { "Montevideo": ["Montevideo"] } },
-  Colombia: { ddi: "+57", states: { "Cundinamarca": ["Bogotá"], "Antioquia": ["Medellín"] } },
-  México: { ddi: "+52", states: { "CDMX": ["Ciudad de México"], "Jalisco": ["Guadalajara"] } },
+// Aliases para nomes de país em PT-BR usados em registros legados.
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  "Brasil": "Brazil",
+  "Estados Unidos": "United States",
+  "México": "Mexico",
+  "Paraguai": "Paraguay",
+  "Uruguai": "Uruguay",
+  "Colombia": "Colombia",
+  "Alemanha": "Germany",
+  "Espanha": "Spain",
+  "França": "France",
+  "Inglaterra": "United Kingdom",
+  "Reino Unido": "United Kingdom",
+  "Itália": "Italy",
+  "Japão": "Japan",
+  "China": "China",
+  "Canadá": "Canada",
+  "Suíça": "Switzerland",
+  "Países Baixos": "Netherlands",
+  "Holanda": "Netherlands",
 };
 
-const DDI_OPTIONS = [
-  { code: "+55", label: "🇧🇷 +55" },
-  { code: "+1", label: "🇺🇸 +1" },
-  { code: "+351", label: "🇵🇹 +351" },
-  { code: "+54", label: "🇦🇷 +54" },
-  { code: "+56", label: "🇨🇱 +56" },
-  { code: "+57", label: "🇨🇴 +57" },
-  { code: "+52", label: "🇲🇽 +52" },
-  { code: "+595", label: "🇵🇾 +595" },
-  { code: "+598", label: "🇺🇾 +598" },
-  { code: "+34", label: "🇪🇸 +34" },
-  { code: "+44", label: "🇬🇧 +44" },
-];
+const ALL_COUNTRIES = Country.getAllCountries();
+
+function resolveCountry(name?: string | null) {
+  if (!name) return undefined;
+  const target = COUNTRY_NAME_ALIASES[name] || name;
+  return ALL_COUNTRIES.find(
+    (c) => c.name.toLowerCase() === target.toLowerCase()
+  );
+}
+
+function formatDdi(phonecode?: string) {
+  if (!phonecode) return "+55";
+  const trimmed = phonecode.trim();
+  return trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+}
+
+const DDI_OPTIONS = Array.from(
+  new Map(
+    ALL_COUNTRIES
+      .filter((c) => c.phonecode)
+      .map((c) => {
+        const code = formatDdi(c.phonecode);
+        return [code, { code, label: `${c.flag || ""} ${code} ${c.name}`.trim() }];
+      })
+  ).values()
+).sort((a, b) => a.label.localeCompare(b.label));
+
+function Combobox({
+  value,
+  options,
+  placeholder,
+  emptyText,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  emptyText: string;
+  disabled?: boolean;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar…" />
+          <CommandList className="max-h-64">
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.value}
+                  value={o.label}
+                  onSelect={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === o.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {o.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const emptyForm = (): Partial<Distributor> => ({
   razao_social: "",
@@ -187,7 +220,8 @@ export function SmartOpsDistributors() {
   };
 
   const handleCountryChange = (pais: string) => {
-    const ddi = GEO[pais]?.ddi || "+55";
+    const country = resolveCountry(pais);
+    const ddi = formatDdi(country?.phonecode);
     setForm((f) => ({
       ...f,
       pais,
@@ -221,10 +255,28 @@ export function SmartOpsDistributors() {
     toast.success("Logo enviado");
   };
 
-  const statesList = useMemo(() => Object.keys(GEO[form.pais || ""]?.states || {}), [form.pais]);
+  const selectedCountry = useMemo(() => resolveCountry(form.pais), [form.pais]);
+  const statesList = useMemo(
+    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
+    [selectedCountry]
+  );
+  const selectedState = useMemo(
+    () =>
+      selectedCountry && form.estado
+        ? statesList.find(
+            (s) =>
+              s.name.toLowerCase() === (form.estado || "").toLowerCase() ||
+              s.isoCode.toLowerCase() === (form.estado || "").toLowerCase()
+          )
+        : undefined,
+    [selectedCountry, form.estado, statesList]
+  );
   const citiesList = useMemo(
-    () => GEO[form.pais || ""]?.states[form.estado || ""] || [],
-    [form.pais, form.estado]
+    () =>
+      selectedCountry && selectedState
+        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
+        : [],
+    [selectedCountry, selectedState]
   );
 
   const save = async () => {
@@ -402,31 +454,38 @@ export function SmartOpsDistributors() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <Label>País</Label>
-                  <Select value={form.pais || ""} onValueChange={handleCountryChange}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(GEO).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={selectedCountry?.name || ""}
+                    placeholder="Selecione o país"
+                    emptyText="Nenhum país encontrado"
+                    options={ALL_COUNTRIES.map((c) => ({
+                      value: c.name,
+                      label: `${c.flag || ""} ${c.name}`.trim(),
+                    }))}
+                    onChange={(v) => handleCountryChange(v)}
+                  />
                 </div>
                 <div>
                   <Label>Estado / Província</Label>
-                  <Select value={form.estado || ""} onValueChange={(v) => setForm({ ...form, estado: v, cidade: "" })} disabled={!statesList.length}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {statesList.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    value={selectedState?.name || form.estado || ""}
+                    placeholder={statesList.length ? "Selecione" : "—"}
+                    emptyText="Nenhum estado encontrado"
+                    disabled={!statesList.length}
+                    options={statesList.map((s) => ({ value: s.name, label: s.name }))}
+                    onChange={(v) => setForm({ ...form, estado: v, cidade: "" })}
+                  />
                 </div>
                 <div>
                   <Label>Cidade</Label>
                   {citiesList.length ? (
-                    <Select value={form.cidade || ""} onValueChange={(v) => setForm({ ...form, cidade: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {citiesList.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={form.cidade || ""}
+                      placeholder="Selecione"
+                      emptyText="Nenhuma cidade encontrada"
+                      options={citiesList.map((c) => ({ value: c.name, label: c.name }))}
+                      onChange={(v) => setForm({ ...form, cidade: v })}
+                    />
                   ) : (
                     <Input value={form.cidade || ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} placeholder="Digite a cidade" />
                   )}
