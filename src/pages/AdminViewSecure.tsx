@@ -49,6 +49,7 @@ import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalyt
 import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "@/components/smartops/SmartOpsWorkflowMapper";
 import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
+import { SmartOpsDistributors } from "@/components/smartops/SmartOpsDistributors";
 import { SmartOpsRayshape } from "@/components/SmartOpsRayshape";
 
 export default function AdminViewSecure() {
