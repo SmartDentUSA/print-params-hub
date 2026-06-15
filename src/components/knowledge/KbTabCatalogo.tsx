@@ -41,6 +41,30 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
+// Strip HTML tags + decode basic entities + collapse whitespace.
+// Used to clean e-commerce-origin descriptions before rendering as plain text.
+function stripHtml(input: string | null | undefined): string {
+  if (!input) return '';
+  let s = String(input);
+  // remove style/script blocks entirely
+  s = s.replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ');
+  // tags → space
+  s = s.replace(/<[^>]+>/g, ' ');
+  // common entities
+  s = s
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  // numeric entities
+  s = s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  // collapse whitespace
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
 interface CatalogRow {
   id: string;
   name: string;
