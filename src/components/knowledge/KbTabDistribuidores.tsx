@@ -6,6 +6,9 @@ import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
+import KbChips, { KbChipOption } from './KbChips';
+import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
+import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
@@ -32,6 +35,7 @@ interface Distributor {
   buyer_whatsapp_ddi: string | null;
   buyer_whatsapp: string | null;
   logo_url: string | null;
+  authorized_scope: AuthorizedScope | null;
 }
 
 function waLink(ddi?: string | null, phone?: string | null) {
