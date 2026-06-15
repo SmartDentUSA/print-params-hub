@@ -82,7 +82,10 @@ const App = () => (
         <Route path="sequencias" element={<SocialSequences />} />
         <Route path="contatos" element={<SocialContacts />} />
       </Route>
-      
+
+      {/* Alias usado pelo gerador de carrosseis do Sistema A */}
+      <Route path="/ferramentas/social-publisher/criar" element={<SocialPostEditor />} />
+
       {/* Portuguese routes (default) */}
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
       <Route path="/base-conhecimento/calculadora-roi" element={<ROICalculatorPage />} />
@@ -151,7 +154,7 @@ const App = () => (
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda')) return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
   return (
     <ChunkErrorBoundary>
       <Suspense fallback={null}>
@@ -163,7 +166,7 @@ function DraLIAGlobal() {
 
 function FooterGlobal() {
   const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda')) return null;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
   return <Footer />;
 }
 
