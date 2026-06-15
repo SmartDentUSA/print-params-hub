@@ -176,7 +176,24 @@ export default function KbTabDistribuidores() {
     });
   }, [rows, q, chip]);
 
-  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
+  // Apenas exibe chips de categorias que têm ao menos um distribuidor autorizado
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (!scopeHasAnything(r.authorized_scope)) return;
+      Object.keys(r.authorized_scope || {}).forEach((cat) => set.add(cat));
+    });
+    return set;
+  }, [rows]);
+
+  const chips: KbChipOption[] = CHIP_KEYS
+    .filter((c) => c.key === 'all' || availableCategories.has(c.key))
+    .map((c) => ({ key: c.key, label: t(c.tk) }));
+
+  // Se a categoria selecionada deixou de ter distribuidores, volta para "all"
+  useEffect(() => {
+    if (chip !== 'all' && !availableCategories.has(chip)) setChip('all');
+  }, [chip, availableCategories]);
 
   return (
     <section>
