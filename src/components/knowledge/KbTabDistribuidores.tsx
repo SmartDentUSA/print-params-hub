@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Globe, Instagram, Facebook, Linkedin, Youtube } from 'lucide-react';
+import 'flag-icons/css/flag-icons.min.css';
 
 interface Distributor {
   id: string;
@@ -124,14 +125,14 @@ function countryIso(country?: string | null): string | null {
 
 function CountryFlag({ country }: { country?: string | null }) {
   const iso = countryIso(country);
-  if (iso !== 'CL') return null;
+  if (!iso) return null;
   return (
-    <svg width="24" height="16" viewBox="0 0 3 2" role="img" aria-label={`Bandeira do ${country || 'país'}`} style={{ display: 'block', borderRadius: 2, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)' }}>
-      <path fill="#fff" d="M0 0h3v1H0z" />
-      <path fill="#d52b1e" d="M0 1h3v1H0z" />
-      <path fill="#0039a6" d="M0 0h1v1H0z" />
-      <path fill="#fff" d="m.5 .18 .08 .22h.23L.62 .54l.07 .22L.5 .63.31 .76l.07-.22L.19 .4h.23z" />
-    </svg>
+    <span
+      className={`fi fi-${iso.toLowerCase()}`}
+      title={country || 'País'}
+      aria-label={`Bandeira do ${country || 'país'}`}
+      style={{ width: 24, height: 18, borderRadius: 2, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)' }}
+    />
   );
 }
 
