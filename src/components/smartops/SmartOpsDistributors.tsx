@@ -619,6 +619,82 @@ export function SmartOpsDistributors() {
               <Label>Observações</Label>
               <Textarea rows={3} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold">Autorização Comercial</h4>
+                  <p className="text-xs text-muted-foreground">Categorias e subcategorias que esta revenda está autorizada a comercializar.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const all: AuthorizedScope = {};
+                      CANONICAL_CATS.forEach((c) => { all[c] = [...(catalogTaxonomy[c] || [])]; });
+                      setForm((f) => ({ ...f, authorized_scope: all }));
+                    }}
+                  >Selecionar tudo</Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setForm((f) => ({ ...f, authorized_scope: {} }))}
+                  >Limpar</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {CHIP_KEYS.filter((c) => c.key !== "all").map((c) => {
+                  const cat = c.key;
+                  const subs = catalogTaxonomy[cat] || [];
+                  const scope = (form.authorized_scope || {}) as AuthorizedScope;
+                  const enabled = Object.prototype.hasOwnProperty.call(scope, cat);
+                  const selectedSubs = enabled ? (scope[cat] || []) : [];
+                  const toggleCat = (on: boolean) => {
+                    const next: AuthorizedScope = { ...(scope || {}) };
+                    if (on) next[cat] = [];
+                    else delete next[cat];
+                    setForm((f) => ({ ...f, authorized_scope: next }));
+                  };
+                  const toggleSub = (sub: string) => {
+                    const next: AuthorizedScope = { ...(scope || {}) };
+                    const cur = new Set(next[cat] || []);
+                    if (cur.has(sub)) cur.delete(sub); else cur.add(sub);
+                    next[cat] = Array.from(cur);
+                    setForm((f) => ({ ...f, authorized_scope: next }));
+                  };
+                  return (
+                    <div key={cat} className="rounded-md border p-3 space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox checked={enabled} onCheckedChange={(v) => toggleCat(!!v)} />
+                        <span className="text-sm font-medium">{cat}</span>
+                      </label>
+                      {enabled && subs.length > 0 && (
+                        <div className="pl-6 space-y-1">
+                          {subs.map((sub) => (
+                            <label key={sub} className="flex items-center gap-2 text-xs cursor-pointer">
+                              <Checkbox
+                                checked={selectedSubs.includes(sub)}
+                                onCheckedChange={() => toggleSub(sub)}
+                              />
+                              <span>{sub}</span>
+                            </label>
+                          ))}
+                          <p className="text-[10px] text-muted-foreground pt-1">
+                            Nenhuma subcategoria marcada = autoriza todas as subcategorias desta categoria.
+                          </p>
+                        </div>
+                      )}
+                      {enabled && subs.length === 0 && (
+                        <p className="pl-6 text-[10px] text-muted-foreground">Sem subcategorias cadastradas.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </div>
 
           <DialogFooter>
