@@ -390,10 +390,17 @@ export default function KbTabCatalogo() {
               ? p.product_subcategory.match(SPECIAL)![0].toUpperCase()
               : null;
             const d = docs.get(p.name.toLowerCase().trim());
-            const resin =
-              resins.get(p.name.toLowerCase().trim()) ||
-              resins.get('fk:' + resinKey(p.name)) ||
-              findResinBySubset(resins, p.name);
+            // Only attempt resin lookup when this catalog item is itself a resin.
+            // Otherwise unrelated categories (Cimentos, Caracterização, etc.) inherit
+            // resin image/CTAs/processing instructions via fuzzy token overlap.
+            const isResinCategory = canon === 'RESINAS 3D';
+            const resin = isResinCategory
+              ? (
+                  resins.get(p.name.toLowerCase().trim()) ||
+                  resins.get('fk:' + resinKey(p.name)) ||
+                  findResinBySubset(resins, p.name)
+                )
+              : undefined;
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
