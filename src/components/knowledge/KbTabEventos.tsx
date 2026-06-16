@@ -61,7 +61,7 @@ function CountryFlag({ country }: { country?: string | null }) {
       className={`fi fi-${iso.toLowerCase()}`}
       title={country || 'País'}
       aria-label={`Bandeira do ${country || 'país'}`}
-      style={{ width: 28, height: 21, borderRadius: 3, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover', flexShrink: 0 }}
+      style={{ width: 40, height: 30, borderRadius: 4, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover', flexShrink: 0 }}
     />
   );
 }
@@ -146,8 +146,8 @@ export default function KbTabEventos() {
                 <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
                   <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.3 }}>{e.name}</div>
                   {dates && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#475569', fontSize: 13 }}>
-                      <CalendarDays size={14} /> {dates}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', fontSize: 15, fontWeight: 600 }}>
+                      <CalendarDays size={18} /> {dates}
                     </div>
                   )}
                   {(e.location || e.country) && (
