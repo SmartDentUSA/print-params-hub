@@ -12,6 +12,7 @@ import KbTabVideos from '@/components/knowledge/KbTabVideos';
 import KbTabArtigos from '@/components/knowledge/KbTabArtigos';
 import KbTabCatalogo from '@/components/knowledge/KbTabCatalogo';
 import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
+import KbTabEventos from '@/components/knowledge/KbTabEventos';
 import { kbStyles } from '@/components/knowledge/kbStyles';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es' }
@@ -24,7 +25,7 @@ const LETTER_TO_TAB: Record<string, KbTab> = {
 
 function getInitialTab(letter?: string): KbTab {
   const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
-  if (fromUrl && ['parametros','catalogo','videos','artigos','distribuidores'].includes(fromUrl)) return fromUrl;
+  if (fromUrl && ['parametros','catalogo','videos','artigos','distribuidores','eventos'].includes(fromUrl)) return fromUrl;
   if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
   return 'parametros';
 }
@@ -92,6 +93,7 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
         {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
         {tab === 'catalogo' && <KbTabCatalogo />}
         {tab === 'distribuidores' && <KbTabDistribuidores />}
+        {tab === 'eventos' && <KbTabEventos />}
       </main>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>

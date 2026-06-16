@@ -140,7 +140,7 @@ function CountryFlag({ country }: { country?: string | null }) {
       className={`fi fi-${iso.toLowerCase()}`}
       title={country || 'País'}
       aria-label={`Bandeira do ${country || 'país'}`}
-      style={{ width: 24, height: 18, borderRadius: 2, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)' }}
+      style={{ width: 40, height: 30, borderRadius: 4, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover' }}
     />
   );
 }
@@ -249,7 +249,7 @@ export default function KbTabDistribuidores() {
                 )}
                 <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.25 }}>{title}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: 0, paddingLeft: 0 }}>
                     {hasCountryFlag && <CountryFlag country={d.pais} />}
                     <SocialIcons d={d} />
                   </div>
