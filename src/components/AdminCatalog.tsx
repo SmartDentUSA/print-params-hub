@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw, Eye, Sparkles } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
@@ -23,6 +23,7 @@ export function AdminCatalog() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [migrating, setMigrating] = useState(false);
+  const [regenDescs, setRegenDescs] = useState(false);
 
   const { 
     fetchCatalogProducts, 
@@ -270,6 +271,27 @@ export function AdminCatalog() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={async () => {
+                  if (!confirm('Regerar descrições curtas (~160 chars) das resinas via IA?\n\nA descrição original será preservada em extra_data.description_original.')) return;
+                  setRegenDescs(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('smart-ops-generate-card-descriptions', { body: { dry_run: false, force: true } });
+                    if (error) throw error;
+                    toast({ title: '✨ Descrições geradas', description: `Processadas: ${data?.processed ?? 0} · Atualizadas: ${data?.updated ?? 0} · Falhas: ${data?.failures?.length ?? 0}` });
+                    await loadData();
+                  } catch (e: any) {
+                    toast({ title: 'Erro', description: String(e?.message || e), variant: 'destructive' });
+                  } finally {
+                    setRegenDescs(false);
+                  }
+                }}
+                disabled={regenDescs}
+                variant="outline"
+              >
+                <Sparkles className={`mr-2 h-4 w-4 ${regenDescs ? 'animate-pulse' : ''}`} />
+                {regenDescs ? 'Gerando...' : 'Regenerar Descrições (Resinas)'}
+              </Button>
               <Button 
                 onClick={handleMigrateImages} 
                 disabled={migrating}
