@@ -16233,6 +16233,57 @@ export type Database = {
           },
         ]
       }
+      smartops_events: {
+        Row: {
+          company_stand: string | null
+          country: string | null
+          cover_image_url: string | null
+          created_at: string
+          display_order: number
+          end_date: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          notes: string | null
+          start_date: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          company_stand?: string | null
+          country?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          display_order?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          notes?: string | null
+          start_date?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          company_stand?: string | null
+          country?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          display_order?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          notes?: string | null
+          start_date?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       smartops_form_field_responses: {
         Row: {
           created_at: string | null
