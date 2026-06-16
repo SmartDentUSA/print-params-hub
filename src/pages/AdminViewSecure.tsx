@@ -52,6 +52,7 @@ const SmartOpsCopilot = lazy(() => import("@/components/SmartOpsCopilot").then(m
 const SmartOpsWorkflowMapper = lazy(() => import("@/components/smartops/SmartOpsWorkflowMapper").then(m => ({ default: m.SmartOpsWorkflowMapper })));
 const SmartOpsCampaigns = lazy(() => import("@/components/SmartOpsCampaigns").then(m => ({ default: m.SmartOpsCampaigns })));
 const SmartOpsDistributors = lazy(() => import("@/components/smartops/SmartOpsDistributors").then(m => ({ default: m.SmartOpsDistributors })));
+const SmartOpsEvents = lazy(() => import("@/components/smartops/SmartOpsEvents").then(m => ({ default: m.SmartOpsEvents })));
 const SmartOpsRayshape = lazy(() => import("@/components/SmartOpsRayshape").then(m => ({ default: m.SmartOpsRayshape })));
 
 export default function AdminViewSecure() {
@@ -332,6 +333,7 @@ export default function AdminViewSecure() {
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       case 'so-campanhas': return <SmartOpsCampaigns />;
       case 'so-distribuicao': return <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />;
+      case 'so-eventos': return <SmartOpsEvents key={`eventos-${refreshKey}`} />;
       default: return <AdminModels />;
     }
   };
