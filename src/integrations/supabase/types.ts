@@ -4491,6 +4491,8 @@ export type Database = {
           owner_whatsapp: string | null
           owner_whatsapp_ddi: string | null
           pais: string | null
+          pais_bandeira: string | null
+          pais_codigo: string | null
           razao_social: string
           site_url: string | null
           tipo: string
@@ -4524,6 +4526,8 @@ export type Database = {
           owner_whatsapp?: string | null
           owner_whatsapp_ddi?: string | null
           pais?: string | null
+          pais_bandeira?: string | null
+          pais_codigo?: string | null
           razao_social: string
           site_url?: string | null
           tipo?: string
@@ -4557,6 +4561,8 @@ export type Database = {
           owner_whatsapp?: string | null
           owner_whatsapp_ddi?: string | null
           pais?: string | null
+          pais_bandeira?: string | null
+          pais_codigo?: string | null
           razao_social?: string
           site_url?: string | null
           tipo?: string
