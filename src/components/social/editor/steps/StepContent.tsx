@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
 import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/useProductKnowledgeCopies';
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
+import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
+import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
 
@@ -24,6 +26,9 @@ interface Props {
   onToggleCarrosselImage?: (url: string) => void;
   onSelectAllCarrossel?: () => void;
   onClearCarrossel?: () => void;
+  showSystemAPicker?: boolean;
+  pickedCarrouselRef?: string;
+  onPickSystemACarousel?: (c: SystemACarousel) => void;
 }
 
 export function StepContent({
@@ -36,6 +41,9 @@ export function StepContent({
   onToggleCarrosselImage,
   onSelectAllCarrossel,
   onClearCarrossel,
+  showSystemAPicker = false,
+  pickedCarrouselRef,
+  onPickSystemACarousel,
 }: Props) {
   const [tagInput, setTagInput] = useState('');
   const [aiInstructions, setAiInstructions] = useState('');
@@ -198,6 +206,14 @@ export function StepContent({
 
   return (
     <div className="space-y-5">
+      {showSystemAPicker && onPickSystemACarousel && (
+        <SystemACarouselPicker
+          selectedRef={pickedCarrouselRef}
+          onPick={onPickSystemACarousel}
+          onClear={onClearCarrossel}
+        />
+      )}
+
       {carrosselSlides.length > 0 && (
         <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardContent className="p-4 space-y-3">
