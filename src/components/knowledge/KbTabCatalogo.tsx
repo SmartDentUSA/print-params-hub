@@ -643,14 +643,15 @@ export default function KbTabCatalogo() {
             // Specs técnicos: usar APENAS technical_specifications do Sistema A
             // (formato { label, value } em PT). Não usar campos snake_case
             // da tabela `resins` local (resin_class, wavelength_nm, etc.).
-            const specs: SpecRow[] = (() => {
-              const fromDocs = normalizeSpecs(d?.technical_specifications);
-              if (fromDocs.length) return fromDocs;
+            const rawSpecs: any = (() => {
+              const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
+              if (fromDocs.length) return d?.technical_specifications;
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
-              const fromLive = normalizeSpecs(live);
-              if (fromLive.length) return fromLive;
-              return [];
+              const fromLive = normalizeSpecs(live, specLang);
+              if (fromLive.length) return live;
+              return null;
             })();
+            const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
             // Prefer resin image over catalog image when a resin match exists
             const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
@@ -727,7 +728,7 @@ export default function KbTabCatalogo() {
                         <button
                           type="button"
                           className="kb-action-btn"
-                          onClick={() => setSpecsModal({ name: resin?.name || p.name, specs })}
+                          onClick={() => setSpecsModal({ name: resin?.name || p.name, raw: rawSpecs })}
                           title={t('kb.catalogo.actions.specs_title')}
                         >
                           {t('kb.catalogo.actions.specs')}
@@ -829,15 +830,23 @@ export default function KbTabCatalogo() {
           <DialogHeader>
             <DialogTitle>{t('kb.catalogo.dialogs.specs', { name: specsModal?.name || '' })}</DialogTitle>
           </DialogHeader>
-          {specsModal && specsModal.specs.length > 0 && (
+          {specsModal && specsModalRows.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#202124' }}>
               <tbody>
-                {specsModal.specs.map((row, idx) => (
+                {specsModalRows.map((row, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid #E0E3E7' }}>
                     <td style={{ padding: '8px 10px', fontWeight: 600, color: '#5F6368', width: '38%', verticalAlign: 'top', background: '#F6F8FB' }}>
                       {row.label}
                     </td>
-                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>{row.value}</td>
+                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                      {row.items && row.items.length > 0 ? (
+                        <ul style={{ listStyle: 'disc', paddingLeft: 18, margin: 0 }}>
+                          {row.items.map((it, i2) => (<li key={i2}>{it}</li>))}
+                        </ul>
+                      ) : (
+                        row.value
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
