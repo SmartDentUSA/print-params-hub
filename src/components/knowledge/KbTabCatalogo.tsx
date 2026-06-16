@@ -89,11 +89,107 @@ interface ResinPresentation {
   prints_per_bottle: number | null;
 }
 
-interface SpecRow { label: string; value: string }
+interface SpecRow { label: string; value: string; items?: string[] }
+
+type SpecLang = 'pt' | 'en' | 'es';
+
+const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
+  pt: {
+    tipo: 'Tipo',
+    carga_por_peso: 'Carga por Peso',
+    carga_por_volume: 'Carga por Volume',
+    resistencia_flexural_mpa: 'Resistência Flexural (MPa)',
+    resistencia_flexural_source: 'Fonte / Certificação',
+    modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    dureza_shore_d: 'Dureza Shore D',
+    sorcao_agua: 'Sorção de Água',
+    radiopacidade: 'Radiopacidade',
+    carga_inorganica: 'Carga Inorgânica',
+    compatibilidade_camada: 'Compatibilidade de Camada',
+    luz_uv_cura: 'Luz UV para Cura',
+    resin_class: 'Classe da Resina',
+    fda_510k: 'Certificação FDA 510(k)',
+    wavelength_nm: 'Comprimento de Onda (nm)',
+    ceramic_dominant: 'Dominância Cerâmica',
+    vickers_hardness: 'Dureza Vickers',
+    inorganic_load_pct: 'Carga Inorgânica (%)',
+    flexural_strength_mpa: 'Resistência à Flexão (MPa)',
+    flexural_strength_source: 'Fonte / Certificação',
+    aplicacoes_definitivas: 'Aplicações Definitivas',
+    comprovacao_clinica: 'Comprovação Clínica',
+    resina_permanente: 'Resina Permanente',
+  },
+  en: {
+    tipo: 'Type',
+    carga_por_peso: 'Filler by Weight',
+    carga_por_volume: 'Filler by Volume',
+    resistencia_flexural_mpa: 'Flexural Strength (MPa)',
+    resistencia_flexural_source: 'Source / Certification',
+    modulo_flexural_gpa: 'Flexural Modulus (GPa)',
+    dureza_shore_d: 'Shore D Hardness',
+    sorcao_agua: 'Water Sorption',
+    radiopacidade: 'Radiopacity',
+    carga_inorganica: 'Inorganic Filler',
+    compatibilidade_camada: 'Layer Compatibility',
+    luz_uv_cura: 'UV Curing Light',
+    resin_class: 'Resin Class',
+    fda_510k: 'FDA 510(k) Clearance',
+    wavelength_nm: 'Wavelength (nm)',
+    ceramic_dominant: 'Ceramic Dominant',
+    vickers_hardness: 'Vickers Hardness',
+    inorganic_load_pct: 'Inorganic Filler (%)',
+    flexural_strength_mpa: 'Flexural Strength (MPa)',
+    flexural_strength_source: 'Source / Certification',
+    aplicacoes_definitivas: 'Definitive Applications',
+    comprovacao_clinica: 'Clinical Evidence',
+    resina_permanente: 'Permanent Resin',
+  },
+  es: {
+    tipo: 'Tipo',
+    carga_por_peso: 'Carga por Peso',
+    carga_por_volume: 'Carga por Volumen',
+    resistencia_flexural_mpa: 'Resistencia a la Flexión (MPa)',
+    resistencia_flexural_source: 'Fuente / Certificación',
+    modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    dureza_shore_d: 'Dureza Shore D',
+    sorcao_agua: 'Sorción de Agua',
+    radiopacidade: 'Radiopacidad',
+    carga_inorganica: 'Carga Inorgánica',
+    compatibilidade_camada: 'Compatibilidad de Capa',
+    luz_uv_cura: 'Luz UV para Curado',
+    resin_class: 'Clase de Resina',
+    fda_510k: 'Certificación FDA 510(k)',
+    wavelength_nm: 'Longitud de Onda (nm)',
+    ceramic_dominant: 'Dominancia Cerámica',
+    vickers_hardness: 'Dureza Vickers',
+    inorganic_load_pct: 'Carga Inorgánica (%)',
+    flexural_strength_mpa: 'Resistencia a la Flexión (MPa)',
+    flexural_strength_source: 'Fuente / Certificación',
+    aplicacoes_definitivas: 'Aplicaciones Definitivas',
+    comprovacao_clinica: 'Comprobación Clínica',
+    resina_permanente: 'Resina Permanente',
+  },
+};
+
+const BOOL_LABELS: Record<SpecLang, { yes: string; no: string }> = {
+  pt: { yes: 'Sim', no: 'Não' },
+  en: { yes: 'Yes', no: 'No' },
+  es: { yes: 'Sí',  no: 'No' },
+};
+
+const prettifyKey = (k: string) =>
+  k.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+const translateSpecLabel = (raw: string, lang: SpecLang): string => {
+  const norm = raw.trim().toLowerCase();
+  if (SPEC_LABELS[lang][norm]) return SPEC_LABELS[lang][norm];
+  if (/^[a-z0-9_]+$/.test(raw)) return prettifyKey(raw);
+  return raw;
+};
 
 // Normaliza qualquer formato (array de {label,value}, array de {key,value},
 // objeto plano {chave: valor}, string JSON) em uma lista [{label,value}].
-function normalizeSpecs(raw: any): SpecRow[] {
+function normalizeSpecs(raw: any, lang: SpecLang = 'pt'): SpecRow[] {
   if (raw == null) return [];
   let v: any = raw;
   if (typeof v === 'string') {
@@ -101,11 +197,28 @@ function normalizeSpecs(raw: any): SpecRow[] {
   }
   const out: SpecRow[] = [];
   const pushPair = (label: any, value: any) => {
-    const l = label == null ? '' : String(label).trim();
-    const valStr = value == null
-      ? ''
-      : (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
-    if (!l || !valStr) return;
+    const rawLabel = label == null ? '' : String(label).trim();
+    if (!rawLabel) return;
+    const l = translateSpecLabel(rawLabel, lang);
+    if (value === null || value === undefined) return;
+    if (typeof value === 'boolean') {
+      out.push({ label: l, value: value ? BOOL_LABELS[lang].yes : BOOL_LABELS[lang].no });
+      return;
+    }
+    if (Array.isArray(value)) {
+      const items = value
+        .filter((it) => it !== null && it !== undefined && String(it).trim() !== '')
+        .map((it) => (typeof it === 'object' ? JSON.stringify(it) : String(it)).trim());
+      if (items.length === 0) return;
+      out.push({ label: l, value: items.join(', '), items });
+      return;
+    }
+    if (typeof value === 'number') {
+      out.push({ label: l, value: String(value) });
+      return;
+    }
+    const valStr = (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
+    if (!valStr) return;
     out.push({ label: l, value: valStr });
   };
   if (Array.isArray(v)) {
@@ -256,7 +369,8 @@ const findResinBySubset = (
 };
 
 export default function KbTabCatalogo() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
@@ -270,7 +384,11 @@ export default function KbTabCatalogo() {
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
   const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
-  const [specsModal, setSpecsModal] = useState<{ name: string; specs: SpecRow[] } | null>(null);
+  const [specsModal, setSpecsModal] = useState<{ name: string; raw: any } | null>(null);
+  const specsModalRows = useMemo<SpecRow[]>(
+    () => (specsModal ? normalizeSpecs(specsModal.raw, specLang) : []),
+    [specsModal, specLang]
+  );
 
   useEffect(() => {
     let cancel = false;
@@ -525,14 +643,15 @@ export default function KbTabCatalogo() {
             // Specs técnicos: usar APENAS technical_specifications do Sistema A
             // (formato { label, value } em PT). Não usar campos snake_case
             // da tabela `resins` local (resin_class, wavelength_nm, etc.).
-            const specs: SpecRow[] = (() => {
-              const fromDocs = normalizeSpecs(d?.technical_specifications);
-              if (fromDocs.length) return fromDocs;
+            const rawSpecs: any = (() => {
+              const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
+              if (fromDocs.length) return d?.technical_specifications;
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
-              const fromLive = normalizeSpecs(live);
-              if (fromLive.length) return fromLive;
-              return [];
+              const fromLive = normalizeSpecs(live, specLang);
+              if (fromLive.length) return live;
+              return null;
             })();
+            const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
             // Prefer resin image over catalog image when a resin match exists
             const cardImage = resin?.image_url || p.image_url || null;
             const open = (url: string | null) => {
@@ -609,7 +728,7 @@ export default function KbTabCatalogo() {
                         <button
                           type="button"
                           className="kb-action-btn"
-                          onClick={() => setSpecsModal({ name: resin?.name || p.name, specs })}
+                          onClick={() => setSpecsModal({ name: resin?.name || p.name, raw: rawSpecs })}
                           title={t('kb.catalogo.actions.specs_title')}
                         >
                           {t('kb.catalogo.actions.specs')}
@@ -711,15 +830,23 @@ export default function KbTabCatalogo() {
           <DialogHeader>
             <DialogTitle>{t('kb.catalogo.dialogs.specs', { name: specsModal?.name || '' })}</DialogTitle>
           </DialogHeader>
-          {specsModal && specsModal.specs.length > 0 && (
+          {specsModal && specsModalRows.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#202124' }}>
               <tbody>
-                {specsModal.specs.map((row, idx) => (
+                {specsModalRows.map((row, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid #E0E3E7' }}>
                     <td style={{ padding: '8px 10px', fontWeight: 600, color: '#5F6368', width: '38%', verticalAlign: 'top', background: '#F6F8FB' }}>
                       {row.label}
                     </td>
-                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>{row.value}</td>
+                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                      {row.items && row.items.length > 0 ? (
+                        <ul style={{ listStyle: 'disc', paddingLeft: 18, margin: 0 }}>
+                          {row.items.map((it, i2) => (<li key={i2}>{it}</li>))}
+                        </ul>
+                      ) : (
+                        row.value
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

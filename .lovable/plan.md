@@ -1,77 +1,146 @@
+## Objetivo
+Na modal de **Specs técnicos** dos cards de resina (Base de Conhecimento → Catálogo), substituir as chaves snake_case por rótulos legíveis e formatar booleans/arrays — com **suporte aos 3 idiomas** (PT / EN / ES) trocando ao vivo quando o usuário muda a língua via seletor.
 
-# Estender o tradutor existente a todos os cards (PT/EN/ES)
+Escopo: **somente** `src/components/knowledge/KbTabCatalogo.tsx` (helper `normalizeSpecs` + modal `specsModal`). Nenhuma outra alteração.
 
-Reutilizar o padrão já em produção (`translate-content` + colunas `_en`/`_es` na própria linha + auto-trigger no viewer). Aplicar a todas as tabelas que alimentam cards da Base de Conhecimento.
+## Mudanças
 
-## Padrão atual (já funciona em artigos)
-- Tabela `knowledge_contents` tem `title_en`, `title_es`, `content_html_en`, `content_html_es`.
-- Quando o usuário entra com `language=en|es` e a coluna está vazia → edge function `translate-content` traduz via Lovable AI e faz `UPDATE` no row.
-- Próximos acessos leem direto do banco (cache permanente, custo zero).
+### 1. Dicionário de labels por idioma (no topo do arquivo, antes de `normalizeSpecs`)
 
-## Tabelas a estender (cards de KB)
-
-| Tabela | Campos PT a traduzir |
-|---|---|
-| `system_a_catalog` (produtos) | `name`, `description`, `product_category`, `product_subcategory`, `cta_1_label`, `cta_1_description`, `cta_2_label`, `cta_3_label`, `cta_4_label` |
-| `resins` | `name`, `description`, `processing_instructions`, `cta_1..4_label` |
-| `products_catalog` | `technical_specifications` (jsonb com `{label,value}`) |
-| `knowledge_videos` | `title`, `description` |
-| `distributors` | `name`, `description`, `region`, `specialty` |
-| `smartops_events` | `title`, `description`, `location` |
-| `knowledge_categories` | `name`, `description` |
-
-Cada campo `X` ganha `X_en` e `X_es` (text ou jsonb conforme o original). Migration única.
-
-## Edge function: `translate-card-row` (nova, genérica)
-
-Input:
-```json
-{ "table": "system_a_catalog", "id": "uuid", "target": "en"|"es" }
-```
-- Whitelist de tabelas e campos (definida no código da function).
-- Lê linha PT, monta JSON `{field: text}`, chama Lovable AI Gateway (`google/gemini-3-flash-preview`) com system prompt:
-  > "Traduza PT→{EN|ES}. Preserve nomes próprios, marcas, unidades, números, URLs. Para jsonb arrays de `{label,value}`, traduza apenas os textos descritivos. Retorne JSON com as mesmas chaves."
-- Atualiza `UPDATE <table> SET field_en=..., field_es=... WHERE id=...`.
-- Idempotente: pula campos que já têm valor não nulo.
-- Concurrency: lock leve via coluna `translating_until` (1 min) — opcional, dropável.
-
-Reaproveita `aiComplete` (`_shared/ai-router.ts`) e `logAIUsage` como o `translate-content` já faz.
-
-## Frontend
-
-### Hook genérico
-`src/hooks/useTranslatedRow.ts`
 ```ts
-useTranslatedRow(table, row, fields)
+type SpecLang = 'pt' | 'en' | 'es';
+
+const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
+  pt: {
+    tipo: "Tipo",
+    carga_por_peso: "Carga por Peso",
+    carga_por_volume: "Carga por Volume",
+    resistencia_flexural_mpa: "Resistência Flexural (MPa)",
+    resistencia_flexural_source: "Fonte / Certificação",
+    modulo_flexural_gpa: "Módulo Flexural (GPa)",
+    dureza_shore_d: "Dureza Shore D",
+    sorcao_agua: "Sorção de Água",
+    radiopacidade: "Radiopacidade",
+    carga_inorganica: "Carga Inorgânica",
+    compatibilidade_camada: "Compatibilidade de Camada",
+    luz_uv_cura: "Luz UV para Cura",
+    resin_class: "Classe da Resina",
+    fda_510k: "Certificação FDA 510(k)",
+    wavelength_nm: "Comprimento de Onda (nm)",
+    ceramic_dominant: "Dominância Cerâmica",
+    vickers_hardness: "Dureza Vickers",
+    inorganic_load_pct: "Carga Inorgânica (%)",
+    flexural_strength_mpa: "Resistência à Flexão (MPa)",
+    flexural_strength_source: "Fonte / Certificação",
+    aplicacoes_definitivas: "Aplicações Definitivas",
+    comprovacao_clinica: "Comprovação Clínica",
+    resina_permanente: "Resina Permanente",
+  },
+  en: {
+    tipo: "Type",
+    carga_por_peso: "Filler by Weight",
+    carga_por_volume: "Filler by Volume",
+    resistencia_flexural_mpa: "Flexural Strength (MPa)",
+    resistencia_flexural_source: "Source / Certification",
+    modulo_flexural_gpa: "Flexural Modulus (GPa)",
+    dureza_shore_d: "Shore D Hardness",
+    sorcao_agua: "Water Sorption",
+    radiopacidade: "Radiopacity",
+    carga_inorganica: "Inorganic Filler",
+    compatibilidade_camada: "Layer Compatibility",
+    luz_uv_cura: "UV Curing Light",
+    resin_class: "Resin Class",
+    fda_510k: "FDA 510(k) Clearance",
+    wavelength_nm: "Wavelength (nm)",
+    ceramic_dominant: "Ceramic Dominant",
+    vickers_hardness: "Vickers Hardness",
+    inorganic_load_pct: "Inorganic Filler (%)",
+    flexural_strength_mpa: "Flexural Strength (MPa)",
+    flexural_strength_source: "Source / Certification",
+    aplicacoes_definitivas: "Definitive Applications",
+    comprovacao_clinica: "Clinical Evidence",
+    resina_permanente: "Permanent Resin",
+  },
+  es: {
+    tipo: "Tipo",
+    carga_por_peso: "Carga por Peso",
+    carga_por_volume: "Carga por Volumen",
+    resistencia_flexural_mpa: "Resistencia a la Flexión (MPa)",
+    resistencia_flexural_source: "Fuente / Certificación",
+    modulo_flexural_gpa: "Módulo Flexural (GPa)",
+    dureza_shore_d: "Dureza Shore D",
+    sorcao_agua: "Sorción de Agua",
+    radiopacidade: "Radiopacidad",
+    carga_inorganica: "Carga Inorgánica",
+    compatibilidade_camada: "Compatibilidad de Capa",
+    luz_uv_cura: "Luz UV para Curado",
+    resin_class: "Clase de Resina",
+    fda_510k: "Certificación FDA 510(k)",
+    wavelength_nm: "Longitud de Onda (nm)",
+    ceramic_dominant: "Dominancia Cerámica",
+    vickers_hardness: "Dureza Vickers",
+    inorganic_load_pct: "Carga Inorgánica (%)",
+    flexural_strength_mpa: "Resistencia a la Flexión (MPa)",
+    flexural_strength_source: "Fuente / Certificación",
+    aplicacoes_definitivas: "Aplicaciones Definitivas",
+    comprovacao_clinica: "Comprobación Clínica",
+    resina_permanente: "Resina Permanente",
+  },
+};
+
+const BOOL_LABELS: Record<SpecLang, { yes: string; no: string }> = {
+  pt: { yes: "Sim", no: "Não" },
+  en: { yes: "Yes", no: "No" },
+  es: { yes: "Sí",  no: "No" },
+};
+
+const prettifyKey = (k: string) =>
+  k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+const translateSpecLabel = (raw: string, lang: SpecLang) => {
+  const norm = raw.trim().toLowerCase();
+  if (SPEC_LABELS[lang][norm]) return SPEC_LABELS[lang][norm];
+  // Strings já legíveis (com espaços/acentos/maiúsculas internas) passam intactas.
+  // Só capitaliza quando vier puro snake_case.
+  if (/^[a-z0-9_]+$/.test(raw)) return prettifyKey(raw);
+  return raw;
+};
 ```
-- Se `language === 'pt'` → retorna PT.
-- Se já tem `field_<lang>` → retorna direto.
-- Caso contrário, dispara `supabase.functions.invoke('translate-card-row', { table, id, target })` em background, mostra PT enquanto carrega, e re-renderiza com os novos valores (refetch ou estado local).
-- Deduplica chamadas concorrentes via `Map<id+lang, Promise>` em memória.
 
-### Aplicação nos cards
-- **`KbTabCatalogo`**: ao montar cada card, chama o hook com os fields do produto/resina; usa os valores traduzidos para `name`, `description`, CTAs e tabela técnica.
-- **Demais tabs da KB** (vídeos, distribuidores, eventos, categorias): mesmo padrão.
+### 2. `normalizeSpecs` passa a receber o idioma
 
-## Migration
+Assinatura: `normalizeSpecs(raw: any, lang: SpecLang): SpecRow[]`.
 
-Bloco único `ALTER TABLE ... ADD COLUMN IF NOT EXISTS field_en TEXT, ADD COLUMN IF NOT EXISTS field_es TEXT` para cada tabela/coluna. Para `technical_specifications` (jsonb), criar `technical_specifications_en JSONB`, `technical_specifications_es JSONB`. Sem alteração de RLS (colunas seguem políticas existentes).
+Estender `SpecRow`:
 
-## Garantias
-- **Custo único por linha+idioma**: depois de traduzir, não chama IA novamente.
-- **Sem regressão para PT**: fonte permanece intacta; tradução só lê/escreve nas colunas `_en`/`_es`.
-- **Fallback transparente**: se a tradução falhar, card aparece em PT.
-- **Whitelist no edge**: client não pode mandar tabela/campo arbitrário.
+```ts
+interface SpecRow { label: string; value: string; items?: string[] }
+```
 
-## Entregáveis
-1. Migration adicionando colunas `_en`/`_es` nas 7 tabelas.
-2. Edge function `translate-card-row` (genérica, whitelisted).
-3. Hook `useTranslatedRow`.
-4. Integração em `KbTabCatalogo` e nos demais componentes de card da KB.
+Regras de formatação de valor (substituir `pushPair`):
 
-## Fora de escopo
-- Traduzir conteúdo dentro de modais já cobertos pelo `translate-content` (artigos full).
-- Tradução manual por admin (override) — pode vir depois.
-- Páginas que não são cards (parameter pages, landing, etc.).
+- `null` / `undefined` / `""` → **skip** (linha não renderizada).
+- `boolean` → `BOOL_LABELS[lang].yes` ou `.no`.
+- `Array` → guardar em `items: string[]` (cada item para string, nulos descartados; array vazio → skip).
+- `number` → `String(value)`.
+- `object` (não array) → `JSON.stringify` (mantém comportamento atual).
+- Label transformado por `translateSpecLabel(label, lang)`.
+- Deduplicação atual preservada.
 
-Confirma este plano para eu rodar a migration e implementar?
+### 3. Recalcular specs quando o idioma muda
+
+No componente, já existe `const { t, language } = useLanguage();` (ou similar). Garantir que a chamada a `normalizeSpecs` use `language as SpecLang` e que `specs` seja recomputado quando `language` mudar (já acontece porque o render reexecuta a cada mudança de contexto; nenhum `useMemo` extra necessário).
+
+Também atualizar o estado `specsModal` para ser recalculado: quando o usuário troca de idioma com a modal aberta, recomputar `specsModal.specs` derivando do novo `language`. Implementação simples: usar `useEffect` que, ao mudar `language` enquanto `specsModal` está aberto, re-normaliza os specs da resina/produto correntes (manter o `name` e refazer o `normalizeSpecs` com o mesmo `raw` original — guardar `raw` no estado da modal: `{ name, raw }` em vez de `{ name, specs }`, e derivar `specs` no render via `useMemo([raw, language])`).
+
+### 4. Modal: render de listas
+
+No `<td>` do valor:
+
+- Se `row.items` existir → `<ul style="list-style: disc; padding-left: 18px; margin: 0">` com um `<li>` por item.
+- Caso contrário → `row.value` como hoje.
+
+## Não fazer
+- Não alterar `KbResinSheetDialog`, `KbResinDocsDialog`, `ProductPage`, edge functions, schema do banco, nem o fluxo de tradução automática via `useCardTranslations` (este mapeamento é local/determinístico, independente do gateway de IA).
+- Não traduzir os **valores** textuais (ex.: itens de `aplicacoes_definitivas`) — eles vêm do banco e já são alvo do tradutor automático separado. Aqui só labels + booleans mudam de idioma.
+- Não mexer em CTAs, tabela de apresentações, nem em qualquer outra parte do card.
