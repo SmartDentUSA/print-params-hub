@@ -1,85 +1,58 @@
-## Problema identificado
+# Galeria "Carrosseis do Sistema A" em /social/novo
 
-A tela `/social/novo` não está travando por erro visual do React. O erro vem da Edge Function `social-caption-generator` quando o usuário clica em gerar legenda.
+## Problema
 
-Logs recentes confirmam:
+Hoje os slides do Sistema A só aparecem no editor quando ele é aberto por deep-link:
+`?source=carrossel&ref=<pasta>&total=<N>&produto=<slug>&tipo=<tipo>`
 
-```text
-[social-caption-generator] 502 You've used up your points! Visit https://poe.com/api/keys to get more.
-[caption] ai-router falhou:
-- lovable/google/gemini-3-flash-preview: 402 Not enough credits
-- poe/gemini-3-flash: 402 You've used up your points
-```
+Quem entra em `/social/novo` direto pela sidebar não vê nenhum carrossel — não existe um lugar no editor para escolher um carrossel já gerado.
 
-Ou seja: os dois provedores de IA configurados ficaram sem créditos. A função transforma isso em HTTP `502`, então o frontend recebe apenas o erro genérico do Supabase:
+## O que vou construir
 
-```text
-Edge Function returned a non-2xx status code
-```
+Uma nova seção no topo do passo **Conteúdo** chamada **"Carrosseis do Sistema A"** que lista os carrosseis disponíveis no bucket `wa-media`, com miniatura, produto/tipo e número de slides. Clicar em um carrossel popula automaticamente todos os slides selecionados (mesma máquina que hoje recebe os query params).
 
-## Correção proposta
+Comportamento da galeria:
+- Mostra os carrosseis mais recentes primeiro (até 50)
+- Cada item exibe: 1ª miniatura, nome do produto/tipo (se identificável pelo nome da pasta), nº de slides, data
+- Botão **"Usar este carrossel"** → popula `selectedCarrosselImages` com todas as URLs `slide-0.png … slide-(N-1).png`
+- Botão **"Limpar seleção"** quando já houver um carrossel ativo
+- Skeleton de loading e mensagem amigável se o bucket não tiver nenhum carrossel ainda
 
-### 1. Backend: `supabase/functions/social-caption-generator/index.ts`
+A galeria fica **oculta** quando o editor é aberto via deep-link (já tem carrossel pré-selecionado) e fica **oculta no modo edição** (`/social/:id/editar`).
 
-Alterar o tratamento de erro da função para **não retornar 502 genérico** quando o problema é crédito/limite de IA.
+## Detalhes técnicos
 
-Novo comportamento:
+**Novo hook** `src/hooks/social/useSystemACarousels.ts`
+- Usa `supabase.storage.from('wa-media').list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } })` para enumerar pastas no root
+- Para cada pasta candidata, faz `list(folder, { search: 'slide-' })` e conta arquivos `slide-N.{png,jpg,jpeg,webp}`
+- Considera "carrossel" qualquer pasta com ≥ 2 arquivos `slide-N`
+- Cacheia com `useQuery` (staleTime 60s) para não martelar storage
+- Retorna `{ ref, total, firstSlideUrl, createdAt, productHint }` ordenado por data desc
+- O bucket `wa-media` já tem policy "public read" → anon consegue listar e exibir as URLs públicas
 
-- Se o `ai-router` falhar com `402`, `payment_required`, `Not enough credits`, `used up your points`:
-  - retornar HTTP `200`
-  - JSON estruturado:
-    ```json
-    {
-      "error": "AI_CREDITS_EXHAUSTED",
-      "message": "Créditos de IA indisponíveis no momento...",
-      "fallback": true,
-      "caption": "",
-      "hashtags": [],
-      "first_comment": ""
-    }
-    ```
-- Se for erro recuperável de provedor (`429`, `5xx`):
-  - retornar HTTP `200` com `fallback: true` e mensagem clara
-- Se for erro de validação do usuário (`400`):
-  - manter HTTP `400`
-- Manter CORS em todas as respostas.
+**Novo componente** `src/components/social/editor/SystemACarouselPicker.tsx`
+- Grid responsivo (2 cols mobile / 4 cols desktop) com `Card` + thumbnail (lazy)
+- Recebe props `onPick(urls: string[])` e `selectedRef?: string`
+- Item selecionado fica com borda primária
 
-Isso evita toast genérico e impede que a UI pareça quebrada.
+**Edits em `src/components/social/editor/SocialPostEditor.tsx`**
+- Passa novos handlers para `StepContent`: `onPickSystemACarousel(refUrls: string[])`
+- Quando o usuário escolhe um carrossel pela galeria, chama `setSelectedCarrosselImages(urls)` — todo o resto (preview, StepMedia, post_type='carousel') continua funcionando porque já é alimentado por esse mesmo state
+- Não renderiza o picker se já vier carrossel por query param (`isCarrosselMode`) nem em modo edição (`isEdit`)
 
-### 2. Frontend: `src/hooks/social/useGenerateCaption.ts`
-
-Atualizar o hook para reconhecer respostas de fallback:
-
-- Se `data.fallback === true`, lançar erro com `data.message`/`data.error`, não com a mensagem genérica do Supabase.
-- Se vier `error.context.responseJson`, priorizar a mensagem real do backend.
-- Preservar o texto que o usuário já digitou.
-
-### 3. Frontend: `src/components/social/editor/steps/StepContent.tsx`
-
-Melhorar a experiência no botão “Gerar legenda”:
-
-- Quando falhar por crédito de IA, mostrar toast claro:
-  ```text
-  IA sem créditos no momento. Use uma copy pronta do Sistema A ou escreva manualmente.
-  ```
-- Não limpar legenda, hashtags nem primeiro comentário existentes.
-- Se houver copies prontas do Sistema A, orientar o usuário a usar essas copies.
-
-## Resultado esperado
-
-- `/social/novo` deixa de “travar” ou aparentar quebra.
-- O erro passa a explicar a causa real: falta de créditos nos provedores de IA.
-- O usuário continua podendo:
-  - selecionar produto
-  - selecionar carrossel
-  - usar copy pronta do Sistema A
-  - escrever manualmente
-  - avançar para mídia/upload
-- Quando os créditos forem recarregados, a geração de IA volta a funcionar sem nova mudança de código.
+**Edits em `src/components/social/editor/steps/StepContent.tsx`**
+- Renderiza `<SystemACarouselPicker>` logo abaixo do header da etapa, antes do seletor de produto, quando habilitado
 
 ## Fora do escopo
 
-- Recarregar créditos Lovable/Poe.
-- Trocar arquitetura do `ai-router`.
-- Alterar banco de dados ou migrations.
-- Alterar outras telas do Social Publisher.
+- Não mexe em edge functions, ai-router, geração de caption, persistência de posts, schema do banco
+- Não cria/altera buckets nem policies (a policy pública já existe)
+- Não toca no fluxo de deep-link existente do Sistema A (continua funcionando igual)
+- Não adiciona filtros/busca avançada nessa primeira versão (só a galeria recente)
+
+## Validação
+
+Após o build, abro `/social/novo` no preview e confirmo que:
+1. A galeria aparece no topo do passo Conteúdo
+2. Carrosseis recentes do `wa-media` são listados (ou mensagem de "nenhum carrossel disponível" se o bucket estiver vazio de pastas `slide-N`)
+3. Clicar em um carrossel popula o preview lateral com os slides e ativa o modo carrossel automaticamente
