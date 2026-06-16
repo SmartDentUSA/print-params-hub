@@ -7,7 +7,6 @@ import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbChips, { KbChipOption } from './KbChips';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
@@ -197,6 +196,12 @@ export default function KbTabDistribuidores() {
     return set;
   }, [rows]);
 
+  const countryChips: KbChipOption[] = useMemo(() => {
+    const list: KbChipOption[] = [{ key: 'all', label: 'Todos' }];
+    availableCountries.forEach((c) => list.push({ key: c, label: c }));
+    return list;
+  }, [availableCountries]);
+
   const chips: KbChipOption[] = CHIP_KEYS
     .filter((c) => c.key === 'all' || availableCategories.has(c.key))
     .map((c) => ({ key: c.key, label: t(c.tk) }));
@@ -211,24 +216,7 @@ export default function KbTabDistribuidores() {
       <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
       {availableCountries.length > 1 && (
-        <div style={{ margin: '8px 0 12px', maxWidth: 280 }}>
-          <Select value={country} onValueChange={setCountry}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por país" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os países</SelectItem>
-              {availableCountries.map((c) => (
-                <SelectItem key={c} value={c}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <CountryFlag country={c} />
-                    {c}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <KbChips options={countryChips} active={country} onChange={setCountry} />
       )}
       <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
