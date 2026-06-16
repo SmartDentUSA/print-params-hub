@@ -301,6 +301,13 @@
       "count_other": "{{count}} revendedores encontrados",
       "fallback_name": "Revendedor"
     },
+    "eventos": {
+      "title": "Eventos",
+      "subtitle": "Manténgase al día sobre nuestras actividades",
+      "search": "Buscar eventos por nombre, país o ubicación...",
+      "count_one": "{{count}} evento encontrado",
+      "count_other": "{{count}} eventos encontrados"
+    },
     "chips": {
       "all": "Todos",
       "videos_tutoriais": "Videos Tutoriales",
