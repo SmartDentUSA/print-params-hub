@@ -216,24 +216,7 @@ export default function KbTabDistribuidores() {
       <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
       {availableCountries.length > 1 && (
-        <div style={{ margin: '8px 0 12px', maxWidth: 280 }}>
-          <Select value={country} onValueChange={setCountry}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por país" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os países</SelectItem>
-              {availableCountries.map((c) => (
-                <SelectItem key={c} value={c}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <CountryFlag country={c} />
-                    {c}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <KbChips options={countryChips} active={country} onChange={setCountry} />
       )}
       <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
