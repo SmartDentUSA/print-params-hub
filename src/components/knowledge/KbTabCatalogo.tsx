@@ -278,7 +278,7 @@ export default function KbTabCatalogo() {
       const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
-          .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url, technical_specs')
+          .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url, technical_specs, extra_data')
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
@@ -505,13 +505,16 @@ export default function KbTabCatalogo() {
               return parts.join(' · ');
             };
             const primaryUrl = lojaUrl || fdsUrl || ifuUrl || otherDocs[0]?.url || null;
-            // Specs técnicos: prioridade resin > system_a_catalog > products_catalog
+            // Specs técnicos: usar APENAS technical_specifications do Sistema A
+            // (formato { label, value } em PT). Não usar campos snake_case
+            // da tabela `resins` local (resin_class, wavelength_nm, etc.).
             const specs: SpecRow[] = (() => {
-              const fromResin = normalizeSpecs(resin?.technical_specs);
-              if (fromResin.length) return fromResin;
-              const fromCat = normalizeSpecs((p as any).technical_specs);
-              if (fromCat.length) return fromCat;
-              return normalizeSpecs(d?.technical_specifications);
+              const fromDocs = normalizeSpecs(d?.technical_specifications);
+              if (fromDocs.length) return fromDocs;
+              const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
+              const fromLive = normalizeSpecs(live);
+              if (fromLive.length) return fromLive;
+              return [];
             })();
             // Prefer resin image over catalog image when a resin match exists
             const cardImage = resin?.image_url || p.image_url || null;
