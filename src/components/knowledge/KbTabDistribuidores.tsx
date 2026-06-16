@@ -213,7 +213,6 @@ export default function KbTabDistribuidores() {
         ) : (
           filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || t('kb.distribuidores.fallback_name');
-            const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
             const hasCountryFlag = !!countryIso(d.pais);
             return (
               <div
@@ -222,92 +221,39 @@ export default function KbTabDistribuidores() {
                   background: '#fff',
                   border: '1px solid #e2e8f0',
                   borderRadius: 12,
-                  padding: 16,
+                  padding: 20,
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 16,
                   boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {d.logo_url ? (
-                    <img
-                      src={d.logo_url}
-                      alt={title}
-                      style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 64, height: 64, borderRadius: 10,
-                        background: '#0f172a', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700, fontSize: 24,
-                      }}
-                    >
-                      {title.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.2 }}>{title}</div>
-                    {d.razao_social && d.razao_social !== title && (
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{d.razao_social}</div>
-                    )}
+                {d.logo_url ? (
+                  <img
+                    src={d.logo_url}
+                    alt={title}
+                    style={{ width: 96, height: 96, borderRadius: 14, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 96, height: 96, borderRadius: 14,
+                      background: '#0f172a', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: 32, flexShrink: 0,
+                    }}
+                  >
+                    {title.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.25 }}>{title}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {hasCountryFlag && <CountryFlag country={d.pais} />}
+                    <SocialIcons d={d} />
                   </div>
                 </div>
-
-                {(local || d.pais) && (
-                  <div style={{ fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {hasCountryFlag && <CountryFlag country={d.pais} />}
-                    {local && <span>{local}</span>}
-                    {!local && !hasCountryFlag && d.pais && <span>{d.pais}</span>}
-                  </div>
-                )}
-
-                {scopeHasAnything(d.authorized_scope) && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {Object.entries(d.authorized_scope || {}).flatMap(([cat, subs]) => {
-                      const color = CATALOG_COLORS[cat] || '#5F6368';
-                      const bg = color + '1A';
-                      const list = Array.isArray(subs) && subs.length > 0 ? subs : [`${cat} · todas`];
-                      return list.map((label) => (
-                        <span
-                          key={`${cat}::${label}`}
-                          title={cat}
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color,
-                            background: bg,
-                            border: `1px solid ${color}33`,
-                            borderRadius: 999,
-                            padding: '2px 8px',
-                            letterSpacing: 0.2,
-                          }}
-                        >
-                          {label}
-                        </span>
-                      ));
-                    })}
-                  </div>
-                )}
-
-                <ContactBlock
-                  label="Responsável"
-                  name={d.owner_name}
-                  email={d.owner_email}
-                  ddi={d.owner_whatsapp_ddi}
-                  phone={d.owner_whatsapp}
-                />
-                <ContactBlock
-                  label="Compras"
-                  name={d.buyer_name}
-                  email={d.buyer_email}
-                  ddi={d.buyer_whatsapp_ddi}
-                  phone={d.buyer_whatsapp}
-                />
-
-                <SocialIcons d={d} />
               </div>
             );
           })
