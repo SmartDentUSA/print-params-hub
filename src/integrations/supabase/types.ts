@@ -15093,6 +15093,8 @@ export type Database = {
           processing_instructions: string | null
           processing_instructions_en: string | null
           processing_instructions_es: string | null
+          rating: number | null
+          review_count: number | null
           seo_title_override: string | null
           slug: string | null
           system_a_product_id: string | null
@@ -15163,6 +15165,8 @@ export type Database = {
           processing_instructions?: string | null
           processing_instructions_en?: string | null
           processing_instructions_es?: string | null
+          rating?: number | null
+          review_count?: number | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
@@ -15233,6 +15237,8 @@ export type Database = {
           processing_instructions?: string | null
           processing_instructions_en?: string | null
           processing_instructions_es?: string | null
+          rating?: number | null
+          review_count?: number | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
