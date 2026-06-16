@@ -15,7 +15,7 @@ import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
 import KbTabEventos from '@/components/knowledge/KbTabEventos';
 import { kbStyles } from '@/components/knowledge/kbStyles';
 
-interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es' }
+interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
 const LETTER_TO_TAB: Record<string, KbTab> = {
   a: 'videos', e: 'videos',
@@ -23,14 +23,15 @@ const LETTER_TO_TAB: Record<string, KbTab> = {
   g: 'catalogo',
 };
 
-function getInitialTab(letter?: string): KbTab {
+function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
+  if (forcedTab) return forcedTab;
   const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
   if (fromUrl && ['parametros','catalogo','videos','artigos','distribuidores','eventos'].includes(fromUrl)) return fromUrl;
   if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
   return 'parametros';
 }
 
-export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
+export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseProps) {
   const { categoryLetter, contentSlug } = useParams();
   const navigate = useNavigate();
   const { setLanguage } = useLanguage();
@@ -38,18 +39,19 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
 
   useEffect(() => { setLanguage(lang); }, [lang, setLanguage]);
 
-  const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter));
+  const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter, forcedTab));
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Update URL when tab changes (no reload)
+  // Update URL when tab changes (no reload). Skip when route is a dedicated path alias.
   useEffect(() => {
+    if (forcedTab) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('tab') !== tab) {
       params.set('tab', tab);
       window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
     }
-  }, [tab]);
+  }, [tab, forcedTab]);
 
   // Deep-link to article: open dialog
   useEffect(() => {

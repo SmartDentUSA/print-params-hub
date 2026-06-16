@@ -22,7 +22,9 @@ export default async function handler(request: Request) {
   const ua = (request.headers.get('user-agent') || '').toLowerCase();
   const isBot = BOTS.some(b => ua.includes(b));
   const url = new URL(request.url);
-  const match = url.pathname.match(/^\/base-conhecimento\/[a-z]\/([a-zA-Z0-9-]+)/);
+  const kbMatch = url.pathname.match(/^\/base-conhecimento\/[a-z]\/([a-zA-Z0-9-]+)/);
+  const aliasMatch = url.pathname.match(/^\/(distribuidores|eventos)\/?$/);
+  const match = kbMatch || aliasMatch;
 
   if (isBot && match) {
     const slug = match[1];

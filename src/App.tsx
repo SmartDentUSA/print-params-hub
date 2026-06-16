@@ -94,6 +94,10 @@ const App = () => (
       <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="pt" />} />
       {/* Fallback: slug-only (resolves category and redirects) */}
       <Route path="/base-conhecimento/:slug" element={<KnowledgeArticleRedirect />} />
+
+      {/* SEO-friendly aliases for distributors and events tabs */}
+      <Route path="/distribuidores" element={<KnowledgeBase lang="pt" forcedTab="distribuidores" />} />
+      <Route path="/eventos" element={<KnowledgeBase lang="pt" forcedTab="eventos" />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
