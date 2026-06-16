@@ -219,14 +219,14 @@ export default function KbTabDistribuidores() {
                 key={d.id}
                 style={{
                   background: '#fff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 12,
-                  padding: 20,
+                  border: '1px solid #f1f5f9',
+                  borderRadius: 8,
+                  padding: 12,
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 16,
-                  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+                  gap: 12,
+                  boxShadow: 'none',
                 }}
               >
                 {d.logo_url ? (
