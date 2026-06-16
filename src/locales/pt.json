@@ -243,7 +243,8 @@
       "catalogo": "Catálogo",
       "videos": "Vídeos",
       "artigos": "Artigos",
-      "distribuidores": "Revendas"
+      "distribuidores": "Revendas",
+      "eventos": "Eventos"
     },
     "parametros": {
       "title": "Parâmetros de Impressão 3D",
@@ -299,6 +300,13 @@
       "count_one": "{{count}} revenda encontrada",
       "count_other": "{{count}} revendas encontradas",
       "fallback_name": "Revenda"
+    },
+    "eventos": {
+      "title": "Eventos",
+      "subtitle": "Mantenha-se atualizado sobre nossas atividades",
+      "search": "Buscar eventos por nome, país ou localização...",
+      "count_one": "{{count}} evento encontrado",
+      "count_other": "{{count}} eventos encontrados"
     },
     "chips": {
       "all": "Todos",
