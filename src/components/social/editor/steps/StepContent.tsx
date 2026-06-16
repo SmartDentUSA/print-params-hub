@@ -230,11 +230,18 @@ export function StepContent({
               {carrosselSlides.map((url, i) => {
                 const selected = selectedCarrosselImages.includes(url);
                 return (
-                  <button
+                  <div
                     key={url}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onToggleCarrosselImage?.(url)}
-                    className={`relative shrink-0 w-[120px] md:w-auto md:aspect-square aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onToggleCarrosselImage?.(url);
+                      }
+                    }}
+                    className={`relative shrink-0 w-[120px] md:w-auto md:aspect-square aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer ${
                       selected ? 'border-emerald-500 ring-2 ring-emerald-500/30' : 'border-border hover:border-emerald-500/50'
                     }`}
                   >
@@ -246,13 +253,13 @@ export function StepContent({
                         (e.target as HTMLImageElement).style.opacity = '0.3';
                       }}
                     />
-                    <div className="absolute top-1 left-1">
-                      <Checkbox checked={selected} className="bg-background/90 border-emerald-500" />
+                    <div className={`absolute top-1 left-1 w-5 h-5 rounded flex items-center justify-center border-2 ${selected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-background/90 border-border'}`}>
+                      {selected && <Check className="w-3 h-3" />}
                     </div>
                     <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] bg-black/60 text-white">
                       {i + 1}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
