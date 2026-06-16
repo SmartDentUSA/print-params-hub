@@ -185,10 +185,10 @@ export default function KbTabDistribuidores() {
   }, [rows]);
 
   const countryChips: KbChipOption[] = useMemo(() => {
-    const list: KbChipOption[] = [{ key: 'all', label: 'Todos' }];
+    const list: KbChipOption[] = [{ key: 'all', label: t('kb.chips.all') }];
     availableCountries.forEach((c) => list.push({ key: c, label: c }));
     return list;
-  }, [availableCountries]);
+  }, [availableCountries, t]);
 
   return (
     <section>
