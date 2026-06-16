@@ -143,15 +143,15 @@ const classifyResinDoc = (name: string, category: string | null): ResinDocKind =
 const resinDocIcon = (k: ResinDocKind) =>
   k === 'FDS' ? '📄' : k === 'IFU' ? '📘' : k === 'GUIA' ? '📗' : k === 'PERFIL' ? '📋'
   : k === 'CERT' ? '🏅' : k === 'LAUDO' ? '🧪' : k === 'APRES' ? '🎯' : k === 'MSDS' ? '⚠️' : '📎';
-const resinDocShort = (d: ResinDoc): string => {
+const resinDocShort = (d: ResinDoc, t?: (key: string) => string): string => {
   switch (d.kind) {
     case 'FDS': return 'FDS';
     case 'IFU': return 'IFU';
-    case 'GUIA': return 'Guia';
-    case 'PERFIL': return 'Perfil';
-    case 'CERT': return 'Certificado';
-    case 'LAUDO': return 'Laudo';
-    case 'APRES': return 'Apresentação';
+    case 'GUIA': return t ? t('kb.catalogo.doc_kind.guia') : 'Guia';
+    case 'PERFIL': return t ? t('kb.catalogo.doc_kind.perfil') : 'Perfil';
+    case 'CERT': return t ? t('kb.catalogo.doc_kind.certificado') : 'Certificado';
+    case 'LAUDO': return t ? t('kb.catalogo.doc_kind.laudo') : 'Laudo';
+    case 'APRES': return t ? t('kb.catalogo.doc_kind.apresentacao') : 'Apresentação';
     case 'MSDS': return 'MSDS';
     default: return d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
   }
