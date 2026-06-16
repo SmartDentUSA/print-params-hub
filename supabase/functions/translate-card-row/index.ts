@@ -65,7 +65,7 @@ const LANG_NAMES: Record<string, string> = {
   es: "Spanish (Español)",
 };
 
-async function callGemini(payload: Record<string, unknown>, target: string): Promise<Record<string, unknown> | null> {
+async function callTranslator(payload: Record<string, unknown>, target: string): Promise<Record<string, unknown> | null> {
   const system = `You are a professional translator. Translate Portuguese → ${LANG_NAMES[target]}.
 RULES:
 - Preserve proper nouns, brand names, product codes, URLs, emails, numbers and units exactly.
@@ -73,33 +73,26 @@ RULES:
 - For arrays of {label, value}, translate both label and value but keep numbers/units intact.
 - Do not add explanations. Return ONLY a JSON object with the same keys as the input.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": LOVABLE_API_KEY,
-      "X-Lovable-AIG-SDK": "raw",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: `Translate the values in this JSON to ${LANG_NAMES[target]}:\n${JSON.stringify(payload)}` },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-    }),
+  const { aiComplete } = await import("../_shared/ai-router.ts");
+  const r = await aiComplete({
+    task: "content_seo",
+    functionName: "translate-card-row",
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: `Translate the values in this JSON to ${LANG_NAMES[target]}:\n${JSON.stringify(payload)}` },
+    ],
+    temperature: 0.2,
+    maxTokens: 4000,
+    responseFormat: { type: "json_object" },
   });
-  if (!res.ok) {
-    console.error("[translate-card-row] gateway error", res.status, await res.text());
+  if (!r.ok) {
+    console.error("[translate-card-row] ai-router error", r.error_code, r.error);
     return null;
   }
-  const j = await res.json();
-  const text = j?.choices?.[0]?.message?.content ?? "";
+  const text = r.text || "";
   try {
     return JSON.parse(text);
   } catch {
-    // attempt to strip fences
     const cleaned = String(text).replace(/^```json\s*/i, "").replace(/```$/, "").trim();
     try { return JSON.parse(cleaned); } catch { return null; }
   }
@@ -157,7 +150,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const translated = await callGemini(payload, target);
+    const translated = await callTranslator(payload, target);
     if (!translated) {
       return new Response(JSON.stringify({ error: "translation failed" }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
