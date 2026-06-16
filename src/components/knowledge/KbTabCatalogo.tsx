@@ -369,7 +369,8 @@ const findResinBySubset = (
 };
 
 export default function KbTabCatalogo() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
@@ -383,7 +384,11 @@ export default function KbTabCatalogo() {
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
   const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
-  const [specsModal, setSpecsModal] = useState<{ name: string; specs: SpecRow[] } | null>(null);
+  const [specsModal, setSpecsModal] = useState<{ name: string; raw: any } | null>(null);
+  const specsModalRows = useMemo<SpecRow[]>(
+    () => (specsModal ? normalizeSpecs(specsModal.raw, specLang) : []),
+    [specsModal, specLang]
+  );
 
   useEffect(() => {
     let cancel = false;
