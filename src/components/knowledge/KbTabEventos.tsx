@@ -5,6 +5,7 @@ import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Country } from 'country-state-city';
 import 'flag-icons/css/flag-icons.min.css';
 
@@ -53,22 +54,22 @@ function countryIso(name?: string | null): string | null {
   return found?.isoCode || null;
 }
 
-function CountryFlag({ country }: { country?: string | null }) {
+function CountryFlag({ country, fallbackLabel, ariaTemplate }: { country?: string | null; fallbackLabel: string; ariaTemplate: string }) {
   const iso = countryIso(country);
   if (!iso) return null;
   return (
     <span
       className={`fi fi-${iso.toLowerCase()}`}
-      title={country || 'País'}
-      aria-label={`Bandeira do ${country || 'país'}`}
+      title={country || fallbackLabel}
+      aria-label={ariaTemplate.replace('{{country}}', country || fallbackLabel)}
       style={{ width: 40, height: 30, borderRadius: 4, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover', flexShrink: 0 }}
     />
   );
 }
 
-function fmtRange(start?: string | null, end?: string | null) {
+function fmtRange(start: string | null | undefined, end: string | null | undefined, locale: string) {
   if (!start && !end) return null;
-  const fmt = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', opts);
+  const fmt = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(d + 'T00:00:00').toLocaleDateString(locale, opts);
   if (start && end && start !== end) {
     const s = new Date(start + 'T00:00:00');
     const e = new Date(end + 'T00:00:00');
@@ -82,6 +83,8 @@ function fmtRange(start?: string | null, end?: string | null) {
 }
 
 export default function KbTabEventos() {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
   const [rows, setRows] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -110,8 +113,8 @@ export default function KbTabEventos() {
 
   return (
     <section>
-      <KbSectionHeader title="Eventos" subtitle="Mantenha-se atualizado sobre nossas atividades" />
-      <KbSearchBar placeholder="Buscar eventos por nome, país ou localização..." value={q} onDebouncedChange={setQ} />
+      <KbSectionHeader title={t('kb.eventos.title')} subtitle={t('kb.eventos.subtitle')} />
+      <KbSearchBar placeholder={t('kb.eventos.search')} value={q} onDebouncedChange={setQ} />
       {!loading && <KbResultCount count={filtered.length} noun="event" />}
       <div className="kb-dgrid">
         {loading ? (
@@ -122,7 +125,7 @@ export default function KbTabEventos() {
           <KbEmptyState icon="📅" />
         ) : (
           filtered.map((e) => {
-            const dates = fmtRange(e.start_date, e.end_date);
+            const dates = fmtRange(e.start_date, e.end_date, dateLocale);
             return (
               <div
                 key={e.id}
@@ -152,7 +155,11 @@ export default function KbTabEventos() {
                   )}
                   {(e.location || e.country) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 13, flexWrap: 'wrap' }}>
-                      <CountryFlag country={e.country} />
+                      <CountryFlag
+                        country={e.country}
+                        fallbackLabel={t('kb.eventos.country_label')}
+                        ariaTemplate={t('kb.eventos.flag_aria')}
+                      />
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <MapPin size={14} />
                         {[e.location, e.country].filter(Boolean).join(' — ')}
@@ -161,7 +168,7 @@ export default function KbTabEventos() {
                   )}
                   {e.company_stand && (
                     <div style={{ fontSize: 12, color: '#0f172a', background: '#e0f2fe', padding: '4px 8px', borderRadius: 6, alignSelf: 'flex-start', fontWeight: 600 }}>
-                      Stand: {e.company_stand}
+                      {t('kb.eventos.stand')}: {e.company_stand}
                     </div>
                   )}
                   {e.website_url && (
@@ -171,7 +178,7 @@ export default function KbTabEventos() {
                       rel="noopener"
                       style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, color: '#2563eb', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
                     >
-                      Site do evento <ExternalLink size={13} />
+                      {t('kb.eventos.event_site')} <ExternalLink size={13} />
                     </a>
                   )}
                 </div>
