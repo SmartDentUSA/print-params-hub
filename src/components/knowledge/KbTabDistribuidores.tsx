@@ -221,11 +221,11 @@ export default function KbTabDistribuidores() {
                   background: '#fff',
                   border: '1px solid #f1f5f9',
                   borderRadius: 8,
-                  padding: 12,
+                  padding: '10px 12px',
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 12,
+                  gap: 10,
                   boxShadow: 'none',
                 }}
               >
@@ -233,22 +233,22 @@ export default function KbTabDistribuidores() {
                   <img
                     src={d.logo_url}
                     alt={title}
-                    style={{ width: 96, height: 96, borderRadius: 14, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                    style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'contain', background: '#f8fafc', border: '1px solid #e2e8f0', flexShrink: 0 }}
                   />
                 ) : (
                   <div
                     style={{
-                      width: 96, height: 96, borderRadius: 14,
+                      width: 64, height: 64, borderRadius: 10,
                       background: '#0f172a', color: '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: 32, flexShrink: 0,
+                      fontWeight: 700, fontSize: 24, flexShrink: 0,
                     }}
                   >
                     {title.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.25 }}>{title}</div>
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, lineHeight: 1.2 }}>{title}</div>
                   {cats.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {cats.map((cat) => {
