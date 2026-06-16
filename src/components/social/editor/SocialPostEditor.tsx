@@ -17,6 +17,7 @@ import { StepChannels } from './steps/StepChannels';
 import { StepSchedule } from './steps/StepSchedule';
 import { StepReview } from './steps/StepReview';
 import { SocialPostPreview } from './SocialPostPreview';
+import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 
 const STEPS = [
   { id: 0, label: 'Conteúdo' },
@@ -63,6 +64,7 @@ export function SocialPostEditor() {
   }, [isCarrosselMode, carrosselRef, carrosselTotal]);
 
   const [selectedCarrosselImages, setSelectedCarrosselImages] = useState<string[]>([]);
+  const [pickedCarrouselRef, setPickedCarrouselRef] = useState<string | undefined>(undefined);
 
   const toggleCarrosselImage = (url: string) => {
     setSelectedCarrosselImages((cur) =>
@@ -70,10 +72,19 @@ export function SocialPostEditor() {
     );
   };
   const selectAllCarrossel = () => setSelectedCarrosselImages(carrosselSlides);
-  const clearCarrossel = () => setSelectedCarrosselImages([]);
+  const clearCarrossel = () => {
+    setSelectedCarrosselImages([]);
+    setPickedCarrouselRef(undefined);
+  };
   const reorderCarrossel = (next: string[]) => setSelectedCarrosselImages(next);
   const removeCarrossel = (url: string) =>
     setSelectedCarrosselImages((cur) => cur.filter((u) => u !== url));
+
+  const pickSystemACarousel = (c: SystemACarousel) => {
+    setSelectedCarrosselImages(c.slides);
+    setPickedCarrouselRef(c.ref);
+    onChange({ post_type: 'carousel' });
+  };
 
   const carrosselAsMedia: MediaItem[] = useMemo(
     () => selectedCarrosselImages.map((url) => ({ url, type: 'image' as const })),
@@ -217,6 +228,9 @@ export function SocialPostEditor() {
               onToggleCarrosselImage={toggleCarrosselImage}
               onSelectAllCarrossel={selectAllCarrossel}
               onClearCarrossel={clearCarrossel}
+              showSystemAPicker={!isCarrosselMode && !isEdit}
+              pickedCarrouselRef={pickedCarrouselRef}
+              onPickSystemACarousel={pickSystemACarousel}
             />
           )}
           {step === 1 && (
