@@ -2216,6 +2216,229 @@ async function generatePublicFormHTML(slug: string, supabase: any): Promise<stri
 </html>`;
 }
 
+// ===== /distribuidores — Lista oficial de revendas e distribuidores =====
+async function generateDistribuidoresHTML(supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/distribuidores`;
+  const title = 'Distribuidores e Revendas Oficiais Smart Dent | América Latina';
+  const description = 'Rede oficial de distribuidores Smart Dent no Brasil e América Latina: Chile, Colômbia, Costa Rica, República Dominicana, EUA, Uruguai e Venezuela.';
+
+  const { data: rows } = await supabase
+    .from('distributors')
+    .select('id,razao_social,nome_fantasia,pais,estado,cidade,site_url,instagram,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,logo_url,tipo,canal_venda')
+    .eq('active', true);
+
+  const distribuidores = (rows || []) as any[];
+
+  // Group by country for visible body
+  const COUNTRY_ORDER = ['Brasil','Chile','Colômbia','Costa Rica','República Dominicana','EUA','Uruguai','Venezuela'];
+  const byCountry: Record<string, any[]> = {};
+  for (const d of distribuidores) {
+    const k = d.pais || 'Outros';
+    (byCountry[k] = byCountry[k] || []).push(d);
+  }
+  const orderedCountries = [
+    ...COUNTRY_ORDER.filter(c => byCountry[c]),
+    ...Object.keys(byCountry).filter(c => !COUNTRY_ORDER.includes(c)),
+  ];
+
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Distribuidores Oficiais Smart Dent",
+    "itemListElement": distribuidores.map((d, i) => {
+      const name = d.nome_fantasia || d.razao_social || 'Distribuidor';
+      const sameAs = [d.instagram].filter(Boolean);
+      const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+      const org: any = {
+        "@type": "Organization",
+        "name": name,
+        "url": d.site_url || canonical,
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": d.cidade || undefined,
+          "addressRegion": d.estado || undefined,
+          "addressCountry": d.pais || undefined,
+        },
+        "areaServed": d.pais || undefined,
+      };
+      if (d.logo_url) org.logo = d.logo_url;
+      if (sameAs.length) org.sameAs = sameAs;
+      if (scope) org.description = `Revenda autorizada Smart Dent — ${scope}`;
+      return { "@type": "ListItem", "position": i + 1, "item": org };
+    }),
+  };
+
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Smart Dent", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Distribuidores", "item": canonical },
+    ],
+  };
+
+  const cards = orderedCountries.map(country => {
+    const list = byCountry[country].map(d => {
+      const name = escapeHtml(d.nome_fantasia || d.razao_social || 'Distribuidor');
+      const local = [d.cidade, d.estado].filter(Boolean).map(escapeHtml).join(' / ');
+      const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+      const wa = d.owner_whatsapp ? `${(d.owner_whatsapp_ddi || '').replace(/\D/g, '')}${d.owner_whatsapp.replace(/\D/g, '')}` : '';
+      return `
+      <article itemscope itemtype="https://schema.org/Organization" style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;background:#fff">
+        <h3 itemprop="name" style="margin:0 0 .35rem;font-size:1.05rem;color:#0f172a">${name}</h3>
+        ${local ? `<p style="margin:.15rem 0;color:#475569;font-size:.9rem">${local}</p>` : ''}
+        ${scope ? `<p style="margin:.15rem 0;color:#334155;font-size:.85rem">Escopo autorizado: ${escapeHtml(scope)}</p>` : ''}
+        <p style="margin:.5rem 0 0;font-size:.85rem">
+          ${d.site_url ? `<a itemprop="url" href="${escapeHtml(d.site_url)}" rel="nofollow" style="color:#2563eb;margin-right:.75rem">Site oficial</a>` : ''}
+          ${wa ? `<a href="https://wa.me/${wa}" rel="nofollow" style="color:#16a34a">WhatsApp</a>` : ''}
+        </p>
+      </article>`;
+    }).join('');
+    return `<section style="margin:2rem 0">
+      <h2 style="font-size:1.25rem;color:#0f172a;border-bottom:2px solid #2563eb;padding-bottom:.35rem">${escapeHtml(country)}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:1rem">${list}</div>
+    </section>`;
+  }).join('');
+
+  const contextText = `Distribuidores e revendas oficiais Smart Dent: ${orderedCountries.join(', ')}.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${description}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${JSON.stringify(itemListSchema)}</script>
+  <script type="application/ld+json">${JSON.stringify(breadcrumbs)}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:1100px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo; Distribuidores
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">Distribuidores e Revendas Oficiais Smart Dent</h1>
+    <p style="color:#475569;max-width:780px;margin-top:.5rem">${escapeHtml(description)}</p>
+  </header>
+  <main>${cards || '<p>Lista em atualização.</p>'}</main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/distribuidores')}
+</body>
+</html>`;
+}
+
+// ===== /eventos — Agenda oficial de eventos Smart Dent =====
+async function generateEventosHTML(supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/eventos`;
+  const title = 'Eventos de Odontologia Digital 2026 | Smart Dent';
+  const description = 'Smart Dent presente nos principais eventos de odontologia digital, impressão 3D e CAD/CAM no Brasil e América Latina em 2026.';
+
+  const { data: rows } = await supabase
+    .from('smartops_events')
+    .select('id,name,country,start_date,end_date,location,company_stand,website_url,cover_image_url')
+    .eq('is_active', true)
+    .order('start_date', { ascending: true, nullsFirst: false });
+
+  const eventos = (rows || []) as any[];
+
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Eventos Smart Dent 2026",
+    "itemListElement": eventos.map((e, i) => {
+      const ev: any = {
+        "@type": "Event",
+        "name": e.name,
+        "startDate": e.start_date,
+        "endDate": e.end_date || e.start_date,
+        "eventStatus": "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        "location": {
+          "@type": "Place",
+          "name": e.location || e.country || 'A definir',
+          "address": { "@type": "PostalAddress", "addressLocality": e.location || undefined, "addressCountry": e.country || undefined },
+        },
+        "organizer": { "@type": "Organization", "name": "Smart Dent", "url": baseUrl },
+      };
+      if (e.website_url) ev.url = e.website_url;
+      if (e.cover_image_url) ev.image = e.cover_image_url;
+      return { "@type": "ListItem", "position": i + 1, "item": ev };
+    }),
+  };
+
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Smart Dent", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Eventos", "item": canonical },
+    ],
+  };
+
+  const fmt = (d?: string | null) => {
+    if (!d) return '';
+    try { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }); }
+    catch { return d; }
+  };
+
+  const cards = eventos.map(e => {
+    const range = e.start_date && e.end_date && e.start_date !== e.end_date
+      ? `${fmt(e.start_date)} &mdash; ${fmt(e.end_date)}`
+      : fmt(e.start_date || e.end_date);
+    const loc = [e.location, e.country].filter(Boolean).map(escapeHtml).join(' &mdash; ');
+    return `
+    <article itemscope itemtype="https://schema.org/Event" style="border:1px solid #e2e8f0;border-radius:10px;padding:1.25rem;background:#fff;margin-bottom:1rem">
+      <h2 itemprop="name" style="margin:0 0 .5rem;font-size:1.15rem;color:#0f172a">${escapeHtml(e.name)}</h2>
+      ${range ? `<p style="margin:.2rem 0;color:#1e293b"><strong>Quando:</strong> <time itemprop="startDate" datetime="${e.start_date || ''}">${range}</time></p>` : ''}
+      ${loc ? `<p style="margin:.2rem 0;color:#475569"><strong>Onde:</strong> ${loc}</p>` : ''}
+      ${e.company_stand ? `<p style="margin:.2rem 0;color:#0f172a"><strong>Stand Smart Dent:</strong> ${escapeHtml(e.company_stand)}</p>` : ''}
+      ${e.website_url ? `<p style="margin:.5rem 0 0"><a itemprop="url" href="${escapeHtml(e.website_url)}" rel="nofollow" style="color:#2563eb">Site do evento</a></p>` : ''}
+    </article>`;
+  }).join('');
+
+  const contextText = `Calendário oficial de eventos Smart Dent 2026 — odontologia digital, impressão 3D e CAD/CAM.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${description}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${JSON.stringify(itemListSchema)}</script>
+  <script type="application/ld+json">${JSON.stringify(breadcrumbs)}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo; Eventos
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">Eventos de Odontologia Digital 2026</h1>
+    <p style="color:#475569;max-width:780px;margin-top:.5rem">${escapeHtml(description)}</p>
+  </header>
+  <main>${cards || '<p>Agenda em atualização.</p>'}</main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/eventos')}
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
