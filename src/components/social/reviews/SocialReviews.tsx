@@ -135,7 +135,14 @@ export function SocialReviews() {
           <p className="text-sm text-muted-foreground">
             Histórico de avaliações e respostas publicadas automaticamente pela IA.
           </p>
+      </div>
+
+      {reviews.length === 0 && !isLoading && (
+        <div className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-200">
+          ⏳ Aguardando liberação da Google Business Profile API pelo Google. A sincronização automática será ativada assim que a aprovação for concluída (prazo: algumas horas a dias úteis). Nenhuma ação necessária.
         </div>
+      )}
+
         <div className="flex gap-3">
           {reviews.length === 0 && !isLoading && (
             <Button onClick={runFirstSync} disabled={syncing} size="sm">
