@@ -4471,8 +4471,10 @@ export type Database = {
           buyer_name: string | null
           buyer_whatsapp: string | null
           buyer_whatsapp_ddi: string | null
+          canal_venda: string | null
           cep: string | null
           cidade: string | null
+          cnpj: string | null
           created_at: string
           endereco: string | null
           estado: string | null
@@ -4491,6 +4493,7 @@ export type Database = {
           pais: string | null
           razao_social: string
           site_url: string | null
+          tipo: string
           updated_at: string
           youtube: string | null
         }
@@ -4501,8 +4504,10 @@ export type Database = {
           buyer_name?: string | null
           buyer_whatsapp?: string | null
           buyer_whatsapp_ddi?: string | null
+          canal_venda?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
           created_at?: string
           endereco?: string | null
           estado?: string | null
@@ -4521,6 +4526,7 @@ export type Database = {
           pais?: string | null
           razao_social: string
           site_url?: string | null
+          tipo?: string
           updated_at?: string
           youtube?: string | null
         }
@@ -4531,8 +4537,10 @@ export type Database = {
           buyer_name?: string | null
           buyer_whatsapp?: string | null
           buyer_whatsapp_ddi?: string | null
+          canal_venda?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
           created_at?: string
           endereco?: string | null
           estado?: string | null
@@ -4551,6 +4559,7 @@ export type Database = {
           pais?: string | null
           razao_social?: string
           site_url?: string | null
+          tipo?: string
           updated_at?: string
           youtube?: string | null
         }
