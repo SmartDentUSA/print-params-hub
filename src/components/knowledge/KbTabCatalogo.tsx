@@ -543,7 +543,7 @@ export default function KbTabCatalogo() {
                 <div className="kb-cbody">
                   <div className="kb-meta">
                     <span className="kb-cat-badge" style={{ background: bgBadge, color }}>•</span>
-                    <span className="kb-cat-label" style={{ color }}>{canon}</span>
+                    <span className="kb-cat-label" style={{ color }}>{categoryLabel(canon, t)}</span>
                     {special && (
                       <span className="kb-special-badge" style={{ background: '#1A73E810', color: '#1A73E8' }}>{special}</span>
                     )}
