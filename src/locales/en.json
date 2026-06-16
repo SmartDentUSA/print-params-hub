@@ -243,7 +243,8 @@
       "catalogo": "Catalog",
       "videos": "Videos",
       "artigos": "Articles",
-      "distribuidores": "Resellers"
+      "distribuidores": "Resellers",
+      "eventos": "Events"
     },
     "parametros": {
       "title": "3D Printing Parameters",
@@ -299,6 +300,13 @@
       "count_one": "{{count}} reseller found",
       "count_other": "{{count}} resellers found",
       "fallback_name": "Reseller"
+    },
+    "eventos": {
+      "title": "Events",
+      "subtitle": "Stay up to date with our activities",
+      "search": "Search events by name, country or location...",
+      "count_one": "{{count}} event found",
+      "count_other": "{{count}} events found"
     },
     "chips": {
       "all": "All",
