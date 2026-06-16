@@ -252,7 +252,6 @@ export default function KbTabDistribuidores() {
                   {cats.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {cats.map((cat) => {
-                        const color = CATALOG_COLORS[cat] || '#64748b';
                         return (
                           <span
                             key={cat}
@@ -261,9 +260,9 @@ export default function KbTabDistribuidores() {
                               fontWeight: 600,
                               padding: '2px 8px',
                               borderRadius: 999,
-                              background: `${color}1A`,
-                              color,
-                              border: `1px solid ${color}33`,
+                              background: '#f1f5f9',
+                              color: '#475569',
+                              border: '1px solid #e2e8f0',
                               textTransform: 'uppercase',
                               letterSpacing: 0.3,
                               lineHeight: 1.4,
