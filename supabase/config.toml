@@ -108,6 +108,9 @@ verify_jwt = false
 [functions.translate-content]
 verify_jwt = false
 
+[functions.translate-card-row]
+verify_jwt = false
+
 [functions.backfill-keywords]
 verify_jwt = false
 
