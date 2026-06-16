@@ -291,7 +291,35 @@
       "subtitle": "Smart Dent products for digital dentistry",
       "search": "Search products, resins, scanners...",
       "count_one": "{{count}} product found",
-      "count_other": "{{count}} products found"
+      "count_other": "{{count}} products found",
+      "presentations": "Presentations",
+      "print_type": "Print type",
+      "prints_per_bottle": "Prints/Bottle",
+      "actions": {
+        "loja": "🛒 Shop",
+        "loja_title": "Shop",
+        "fds_title": "Safety Data Sheet",
+        "ifu_title": "Instructions for Use",
+        "docs": "📑 Documents ({{count}})",
+        "docs_title": "Certificates, reports, presentations and guides",
+        "specs": "📊 Tech sheet",
+        "specs_title": "Technical specifications table",
+        "pre_post": "🧪 Pre/Post-Processing",
+        "pre_post_title": "Pre and Post Processing instructions",
+        "parametrization": "📖 Parameters",
+        "parametrization_title": "Go to the Parameters tab"
+      },
+      "dialogs": {
+        "pre_post": "🧪 Pre and Post Processing — {{name}}",
+        "specs": "📊 Tech sheet — {{name}}"
+      },
+      "doc_kind": {
+        "guia": "Guide",
+        "perfil": "Profile",
+        "certificado": "Certificate",
+        "laudo": "Report",
+        "apresentacao": "Presentation"
+      }
     },
     "distribuidores": {
       "title": "Resellers",
@@ -306,7 +334,11 @@
       "subtitle": "Stay up to date with our activities",
       "search": "Search events by name, country or location...",
       "count_one": "{{count}} event found",
-      "count_other": "{{count}} events found"
+      "count_other": "{{count}} events found",
+      "stand": "Booth",
+      "event_site": "Event website",
+      "country_label": "Country",
+      "flag_aria": "Flag of {{country}}"
     },
     "chips": {
       "all": "All",
