@@ -378,6 +378,39 @@ export default function KbTabCatalogo() {
     return () => { cancel = true; };
   }, []);
 
+  // On-demand translation for products + resins (PT → EN/ES).
+  const translatedRows = useCardTranslations(
+    'system_a_catalog',
+    rowsRaw,
+    ['name', 'description', 'product_category', 'product_subcategory', 'cta_1_label', 'cta_2_label']
+  );
+  const translatedResins = useCardTranslations(
+    'resins',
+    resinsRaw,
+    ['name', 'processing_instructions', 'cta_1_label', 'cta_2_label', 'cta_3_label', 'cta_4_label']
+  );
+  const rows = translatedRows as CatalogRow[];
+  const resins = useMemo(() => {
+    const m = new Map<string, ResinInfo>();
+    (translatedResins || []).forEach((r: any) => {
+      if (!r?.name || !r?.slug || !r?.id) return;
+      const info: ResinInfo = {
+        id: r.id, slug: r.slug, name: r.name,
+        cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
+        cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
+        cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
+        cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
+        processing_instructions: r.processing_instructions || null,
+        image_url: r.image_url || null,
+        technical_specs: r.technical_specs ?? null,
+      };
+      m.set(String(r.name).toLowerCase().trim(), info);
+      const fk = resinKey(r.name);
+      if (fk) m.set('fk:' + fk, info);
+    });
+    return m;
+  }, [translatedResins]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return rows.filter((r) => {
