@@ -7,7 +7,7 @@ import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbChips, { KbChipOption } from './KbChips';
-import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
+import { AuthorizedScope } from './kbCategoryTaxonomy';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
 
@@ -150,7 +150,6 @@ export default function KbTabDistribuidores() {
   const [rows, setRows] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [chip, setChip] = useState('all');
   const [country, setCountry] = useState('all');
 
   useEffect(() => {
@@ -169,14 +168,13 @@ export default function KbTabDistribuidores() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (chip !== 'all' && !scopeAllowsCategory(r.authorized_scope, chip)) return false;
       if (country !== 'all' && normalize(r.pais || '') !== normalize(country)) return false;
       if (!s) return true;
       return [r.nome_fantasia, r.razao_social, r.cidade, r.estado, r.pais]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(s));
     });
-  }, [rows, q, chip, country]);
+  }, [rows, q, country]);
 
   const availableCountries = useMemo(() => {
     const set = new Set<string>();
@@ -186,30 +184,11 @@ export default function KbTabDistribuidores() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [rows]);
 
-  // Apenas exibe chips de categorias que têm ao menos um distribuidor autorizado
-  const availableCategories = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => {
-      if (!scopeHasAnything(r.authorized_scope)) return;
-      Object.keys(r.authorized_scope || {}).forEach((cat) => set.add(cat));
-    });
-    return set;
-  }, [rows]);
-
   const countryChips: KbChipOption[] = useMemo(() => {
     const list: KbChipOption[] = [{ key: 'all', label: 'Todos' }];
     availableCountries.forEach((c) => list.push({ key: c, label: c }));
     return list;
   }, [availableCountries]);
-
-  const chips: KbChipOption[] = CHIP_KEYS
-    .filter((c) => c.key === 'all' || availableCategories.has(c.key))
-    .map((c) => ({ key: c.key, label: t(c.tk) }));
-
-  // Se a categoria selecionada deixou de ter distribuidores, volta para "all"
-  useEffect(() => {
-    if (chip !== 'all' && !availableCategories.has(chip)) setChip('all');
-  }, [chip, availableCategories]);
 
   return (
     <section>
@@ -218,9 +197,8 @@ export default function KbTabDistribuidores() {
       {availableCountries.length > 1 && (
         <KbChips options={countryChips} active={country} onChange={setCountry} />
       )}
-      <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
-      <div className="kb-dgrid">
+      <div className="kb-dgrid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {loading ? (
           <div className="kb-skeleton-grid">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -233,6 +211,7 @@ export default function KbTabDistribuidores() {
           filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || t('kb.distribuidores.fallback_name');
             const hasCountryFlag = !!countryIso(d.pais);
+            const cats = Object.keys(d.authorized_scope || {});
             return (
               <div
                 key={d.id}
@@ -268,6 +247,32 @@ export default function KbTabDistribuidores() {
                 )}
                 <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.25 }}>{title}</div>
+                  {cats.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {cats.map((cat) => {
+                        const color = CATALOG_COLORS[cat] || '#64748b';
+                        return (
+                          <span
+                            key={cat}
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: `${color}1A`,
+                              color,
+                              border: `1px solid ${color}33`,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.3,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {cat}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: 0, paddingLeft: 0 }}>
                     {hasCountryFlag && <CountryFlag country={d.pais} />}
                     <SocialIcons d={d} />
