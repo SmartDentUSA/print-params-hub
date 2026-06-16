@@ -146,8 +146,8 @@ export default function KbTabEventos() {
                 <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
                   <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16, lineHeight: 1.3 }}>{e.name}</div>
                   {dates && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#475569', fontSize: 13 }}>
-                      <CalendarDays size={14} /> {dates}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', fontSize: 15, fontWeight: 600 }}>
+                      <CalendarDays size={18} /> {dates}
                     </div>
                   )}
                   {(e.location || e.country) && (
