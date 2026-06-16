@@ -1,22 +1,13 @@
-## Alterar rota inicial
+## Objetivo
+Tornar as badges de categoria nos cards de distribuidores monocromáticas (tons de cinza/slate) em vez de coloridas.
 
-### Arquivo alvo
-- `src/App.tsx`
+## Alteração
+Em `KbTabDistribuidores.tsx`, substituir o uso de `CATALOG_COLORS` nas badges de categoria por uma paleta fixa monocromática:
+- **Fundo:** `#f1f5f9` (slate-100)
+- **Texto:** `#475569` (slate-600)
+- **Borda:** `#e2e8f0` (slate-200)
 
-### Alteracao
-Substituir a rota `/` para redirecionar automaticamente para `/base-conhecimento?tab=parametros`.
+Isso remove o visual "brega" das cores variadas e deixa o grid mais sóbrio e profissional.
 
-**Trecho atual (linha ~99):**
-```tsx
-<Route path="/" element={<Index />} />
-```
-
-**Trecho novo:**
-```tsx
-<Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
-```
-
-### Observacoes
-- `Navigate` ja esta importado em `src/App.tsx` (`import { ..., Navigate } from "react-router-dom"`).
-- Nenhuma outra alteracao sera feita.
-- `Index` deixa de ser usado como rota inicial, mas continua importado no arquivo por precaucao (sem remocao de import para evitar quebra de build caso seja referenciado em outro lugar).
+## Arquivos afetados
+- `src/components/knowledge/KbTabDistribuidores.tsx`
