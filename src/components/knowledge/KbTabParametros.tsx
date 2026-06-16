@@ -275,14 +275,14 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
         <ParamItem label={t('kb.parametros.retract_speed')} value={p.retract_speed} unit="mm/s" />
       </div>
       <div className="kb-rfoot">
-        <span
-          className="kb-aa-badge"
-          style={p.anti_aliasing
-            ? { background: 'rgba(52,168,83,0.10)', color: '#34A853' }
-            : { background: 'rgba(0,0,0,0.05)', color: '#9AA0A6' }}
-        >
-          {p.anti_aliasing ? '✓ Anti-aliasing' : '✗ Anti-aliasing'}
-        </span>
+        {p.anti_aliasing && (
+          <span
+            className="kb-aa-badge"
+            style={{ background: 'rgba(52,168,83,0.10)', color: '#34A853' }}
+          >
+            ✓ Anti-aliasing
+          </span>
+        )}
         <button type="button" className="kb-action-btn" onClick={onOpenSheet}>
           {t('kb.parametros.view_sheet')}
         </button>
