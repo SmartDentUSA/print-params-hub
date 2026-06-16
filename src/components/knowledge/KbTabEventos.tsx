@@ -61,7 +61,7 @@ function CountryFlag({ country }: { country?: string | null }) {
       className={`fi fi-${iso.toLowerCase()}`}
       title={country || 'País'}
       aria-label={`Bandeira do ${country || 'país'}`}
-      style={{ width: 28, height: 21, borderRadius: 3, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover', flexShrink: 0 }}
+      style={{ width: 40, height: 30, borderRadius: 4, boxShadow: '0 0 0 1px rgba(15,23,42,0.12)', display: 'inline-block', backgroundSize: 'cover', flexShrink: 0 }}
     />
   );
 }
