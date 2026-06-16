@@ -4,12 +4,51 @@ import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLink, ArrowLeft, FileText } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ExternalLink, ArrowLeft, FileText, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getOgLocale } from "@/utils/i18nPaths";
+
+interface SpecRow { label: string; value: string }
+
+function normalizeSpecs(raw: any): SpecRow[] {
+  if (raw == null) return [];
+  let v: any = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return []; }
+  }
+  const out: SpecRow[] = [];
+  const pushPair = (label: any, value: any) => {
+    const l = label == null ? '' : String(label).trim();
+    const valStr = value == null
+      ? ''
+      : (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
+    if (!l || !valStr) return;
+    out.push({ label: l, value: valStr });
+  };
+  if (Array.isArray(v)) {
+    v.forEach((item) => {
+      if (item && typeof item === 'object') {
+        const label = item.label ?? item.key ?? item.name ?? item.campo;
+        const value = item.value ?? item.valor ?? item.val;
+        if (label !== undefined || value !== undefined) pushPair(label, value);
+        else Object.entries(item).forEach(([k, val]) => pushPair(k, val));
+      }
+    });
+  } else if (typeof v === 'object') {
+    Object.entries(v).forEach(([k, val]) => pushPair(k, val));
+  }
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = `${r.label.toLowerCase()}|${r.value.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 interface ProductData {
   id: string;
@@ -32,6 +71,7 @@ interface ProductData {
   cta_3_label: string | null;
   cta_3_url: string | null;
   extra_data: any;
+  technical_specs?: any;
 }
 
 const ProductPage = () => {
