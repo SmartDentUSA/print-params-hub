@@ -150,7 +150,19 @@ export function StepContent({
         `Legenda gerada · catálogo: ${meta?.product_hits ?? 0} · RAG: ${meta?.rag_hits ?? 0}${meta?.export_hits ? ' · Sistema A ✓' : ''}`,
       );
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao gerar legenda');
+      const code = e?.code;
+      if (code === 'AI_CREDITS_EXHAUSTED') {
+        toast.error('IA sem créditos no momento', {
+          description: readyCopies.length
+            ? `Use uma das ${readyCopies.length} copies prontas do Sistema A acima ou escreva manualmente.`
+            : 'Escreva a legenda manualmente abaixo. Quando os créditos forem recarregados, a geração volta automaticamente.',
+          duration: 8000,
+        });
+      } else if (code === 'AI_RATE_LIMITED') {
+        toast.error('IA sobrecarregada — tente novamente em alguns segundos.');
+      } else {
+        toast.error(e?.message || 'Falha ao gerar legenda');
+      }
     }
   };
 
