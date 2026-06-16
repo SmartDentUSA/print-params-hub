@@ -2255,6 +2255,10 @@ Deno.serve(async (req) => {
       html = await generateSystemACatalogHTML('category_config', segments[1], supabase);
     } else if (segments[0] === 'f' && segments.length === 2) {
       html = await generatePublicFormHTML(segments[1], supabase);
+    } else if (segments[0] === 'distribuidores' && segments.length === 1) {
+      html = await generateDistribuidoresHTML(supabase);
+    } else if (segments[0] === 'eventos' && segments.length === 1) {
+      html = await generateEventosHTML(supabase);
     } else if (segments[0] === 'base-conhecimento') {
       // PT: /base-conhecimento/...
       if (segments.length === 1) {
