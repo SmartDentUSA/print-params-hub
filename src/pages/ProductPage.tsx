@@ -4,12 +4,52 @@ import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLink, ArrowLeft, FileText } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ExternalLink, ArrowLeft, FileText, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getOgLocale } from "@/utils/i18nPaths";
+import { cn } from "@/lib/utils";
+
+interface SpecRow { label: string; value: string }
+
+function normalizeSpecs(raw: any): SpecRow[] {
+  if (raw == null) return [];
+  let v: any = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return []; }
+  }
+  const out: SpecRow[] = [];
+  const pushPair = (label: any, value: any) => {
+    const l = label == null ? '' : String(label).trim();
+    const valStr = value == null
+      ? ''
+      : (typeof value === 'object' ? JSON.stringify(value) : String(value)).trim();
+    if (!l || !valStr) return;
+    out.push({ label: l, value: valStr });
+  };
+  if (Array.isArray(v)) {
+    v.forEach((item) => {
+      if (item && typeof item === 'object') {
+        const label = item.label ?? item.key ?? item.name ?? item.campo;
+        const value = item.value ?? item.valor ?? item.val;
+        if (label !== undefined || value !== undefined) pushPair(label, value);
+        else Object.entries(item).forEach(([k, val]) => pushPair(k, val));
+      }
+    });
+  } else if (typeof v === 'object') {
+    Object.entries(v).forEach(([k, val]) => pushPair(k, val));
+  }
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = `${r.label.toLowerCase()}|${r.value.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 interface ProductData {
   id: string;
@@ -32,6 +72,7 @@ interface ProductData {
   cta_3_label: string | null;
   cta_3_url: string | null;
   extra_data: any;
+  technical_specs?: any;
 }
 
 const ProductPage = () => {
@@ -290,6 +331,56 @@ const ProductPage = () => {
               </CardContent>
             </Card>
           )}
+
+          {(() => {
+            const specs = normalizeSpecs(product.technical_specs);
+            return specs.length > 0 ? (
+              <Card className="mb-8">
+                <CardContent className="pt-6">
+                  <Accordion type="single" collapsible defaultValue="">
+                    <AccordionItem value="tech-specs" className="border-0">
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex items-center gap-2 text-base font-semibold">
+                          <BarChart3 className="w-5 h-5 text-primary" />
+                          {t('product.technical_specs') || '📊 Tabela técnica'}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="mt-4 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground w-2/5">
+                                  {t('product.spec_label') || 'Especificação'}
+                                </th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                                  {t('product.spec_value') || 'Valor'}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {specs.map((row, idx) => (
+                                <tr
+                                  key={idx}
+                                  className={cn(
+                                    "border-b border-border/50 last:border-0",
+                                    idx % 2 === 1 && "bg-muted/40"
+                                  )}
+                                >
+                                  <td className="py-2 px-3 font-medium text-foreground">{row.label}</td>
+                                  <td className="py-2 px-3 text-muted-foreground">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
 
           {(product as any).documents && (product as any).documents.length > 0 && (
             <Card className="mb-8">
