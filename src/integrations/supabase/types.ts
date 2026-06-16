@@ -4476,6 +4476,8 @@ export type Database = {
           cidade: string | null
           cnpj: string | null
           created_at: string
+          description_en: string | null
+          description_es: string | null
           endereco: string | null
           estado: string | null
           facebook: string | null
@@ -4483,6 +4485,8 @@ export type Database = {
           instagram: string | null
           linkedin: string | null
           logo_url: string | null
+          name_en: string | null
+          name_es: string | null
           nome_fantasia: string | null
           notes: string | null
           numero_unidades: number | null
@@ -4494,8 +4498,14 @@ export type Database = {
           pais_bandeira: string | null
           pais_codigo: string | null
           razao_social: string
+          region_en: string | null
+          region_es: string | null
           site_url: string | null
+          specialty_en: string | null
+          specialty_es: string | null
           tipo: string
+          translated_at_en: string | null
+          translated_at_es: string | null
           updated_at: string
           youtube: string | null
         }
@@ -4511,6 +4521,8 @@ export type Database = {
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          description_en?: string | null
+          description_es?: string | null
           endereco?: string | null
           estado?: string | null
           facebook?: string | null
@@ -4518,6 +4530,8 @@ export type Database = {
           instagram?: string | null
           linkedin?: string | null
           logo_url?: string | null
+          name_en?: string | null
+          name_es?: string | null
           nome_fantasia?: string | null
           notes?: string | null
           numero_unidades?: number | null
@@ -4529,8 +4543,14 @@ export type Database = {
           pais_bandeira?: string | null
           pais_codigo?: string | null
           razao_social: string
+          region_en?: string | null
+          region_es?: string | null
           site_url?: string | null
+          specialty_en?: string | null
+          specialty_es?: string | null
           tipo?: string
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string
           youtube?: string | null
         }
@@ -4546,6 +4566,8 @@ export type Database = {
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          description_en?: string | null
+          description_es?: string | null
           endereco?: string | null
           estado?: string | null
           facebook?: string | null
@@ -4553,6 +4575,8 @@ export type Database = {
           instagram?: string | null
           linkedin?: string | null
           logo_url?: string | null
+          name_en?: string | null
+          name_es?: string | null
           nome_fantasia?: string | null
           notes?: string | null
           numero_unidades?: number | null
@@ -4564,8 +4588,14 @@ export type Database = {
           pais_bandeira?: string | null
           pais_codigo?: string | null
           razao_social?: string
+          region_en?: string | null
+          region_es?: string | null
           site_url?: string | null
+          specialty_en?: string | null
+          specialty_es?: string | null
           tipo?: string
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string
           youtube?: string | null
         }
@@ -5672,29 +5702,47 @@ export type Database = {
       knowledge_categories: {
         Row: {
           created_at: string | null
+          description_en: string | null
+          description_es: string | null
           enabled: boolean | null
           id: string
           letter: string
           name: string
+          name_en: string | null
+          name_es: string | null
           order_index: number
+          translated_at_en: string | null
+          translated_at_es: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          description_en?: string | null
+          description_es?: string | null
           enabled?: boolean | null
           id?: string
           letter: string
           name: string
+          name_en?: string | null
+          name_es?: string | null
           order_index: number
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          description_en?: string | null
+          description_es?: string | null
           enabled?: boolean | null
           id?: string
           letter?: string
           name?: string
+          name_en?: string | null
+          name_es?: string | null
           order_index?: number
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -6009,6 +6057,8 @@ export type Database = {
           content_type: string | null
           created_at: string | null
           description: string | null
+          description_en: string | null
+          description_es: string | null
           embed_url: string | null
           folder_id: string | null
           hls_url: string | null
@@ -6033,6 +6083,10 @@ export type Database = {
           source: string | null
           thumbnail_url: string | null
           title: string
+          title_en: string | null
+          title_es: string | null
+          translated_at_en: string | null
+          translated_at_es: string | null
           updated_at: string | null
           url: string | null
           video_duration_seconds: number | null
@@ -6055,6 +6109,8 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           embed_url?: string | null
           folder_id?: string | null
           hls_url?: string | null
@@ -6079,6 +6135,10 @@ export type Database = {
           source?: string | null
           thumbnail_url?: string | null
           title: string
+          title_en?: string | null
+          title_es?: string | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
           url?: string | null
           video_duration_seconds?: number | null
@@ -6101,6 +6161,8 @@ export type Database = {
           content_type?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           embed_url?: string | null
           folder_id?: string | null
           hls_url?: string | null
@@ -6125,6 +6187,10 @@ export type Database = {
           source?: string | null
           thumbnail_url?: string | null
           title?: string
+          title_en?: string | null
+          title_es?: string | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
           url?: string | null
           video_duration_seconds?: number | null
@@ -13655,6 +13721,10 @@ export type Database = {
           system_a_updated_at: string | null
           target_audience: Json | null
           technical_specifications: Json | null
+          technical_specifications_en: Json | null
+          technical_specifications_es: Json | null
+          translated_at_en: string | null
+          translated_at_es: string | null
           whatsapp_messages: Json | null
           whatsapp_sequences: Json | null
           workflow_stages: Json | null
@@ -13688,6 +13758,10 @@ export type Database = {
           system_a_updated_at?: string | null
           target_audience?: Json | null
           technical_specifications?: Json | null
+          technical_specifications_en?: Json | null
+          technical_specifications_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           whatsapp_messages?: Json | null
           whatsapp_sequences?: Json | null
           workflow_stages?: Json | null
@@ -13721,6 +13795,10 @@ export type Database = {
           system_a_updated_at?: string | null
           target_audience?: Json | null
           technical_specifications?: Json | null
+          technical_specifications_en?: Json | null
+          technical_specifications_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           whatsapp_messages?: Json | null
           whatsapp_sequences?: Json | null
           workflow_stages?: Json | null
@@ -14972,23 +15050,33 @@ export type Database = {
           cta_1_description: string | null
           cta_1_enabled: boolean | null
           cta_1_label: string | null
+          cta_1_label_en: string | null
+          cta_1_label_es: string | null
           cta_1_url: string | null
           cta_2_description: string | null
           cta_2_label: string | null
+          cta_2_label_en: string | null
+          cta_2_label_es: string | null
           cta_2_source_id: string | null
           cta_2_source_type: string | null
           cta_2_url: string | null
           cta_3_description: string | null
           cta_3_label: string | null
+          cta_3_label_en: string | null
+          cta_3_label_es: string | null
           cta_3_source_id: string | null
           cta_3_source_type: string | null
           cta_3_url: string | null
           cta_4_description: string | null
           cta_4_label: string | null
+          cta_4_label_en: string | null
+          cta_4_label_es: string | null
           cta_4_source_id: string | null
           cta_4_source_type: string | null
           cta_4_url: string | null
           description: string | null
+          description_en: string | null
+          description_es: string | null
           external_id: string | null
           fda_510k: string | null
           id: string
@@ -14998,14 +15086,22 @@ export type Database = {
           manufacturer: string
           meta_description: string | null
           name: string
+          name_en: string | null
+          name_es: string | null
           og_image_url: string | null
           price: number | null
           processing_instructions: string | null
+          processing_instructions_en: string | null
+          processing_instructions_es: string | null
           seo_title_override: string | null
           slug: string | null
           system_a_product_id: string | null
           system_a_product_url: string | null
           technical_specs: Json | null
+          technical_specs_en: Json | null
+          technical_specs_es: Json | null
+          translated_at_en: string | null
+          translated_at_es: string | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
           wikidata_qid: string | null
@@ -15024,23 +15120,33 @@ export type Database = {
           cta_1_description?: string | null
           cta_1_enabled?: boolean | null
           cta_1_label?: string | null
+          cta_1_label_en?: string | null
+          cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_label_en?: string | null
+          cta_2_label_es?: string | null
           cta_2_source_id?: string | null
           cta_2_source_type?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
+          cta_3_label_en?: string | null
+          cta_3_label_es?: string | null
           cta_3_source_id?: string | null
           cta_3_source_type?: string | null
           cta_3_url?: string | null
           cta_4_description?: string | null
           cta_4_label?: string | null
+          cta_4_label_en?: string | null
+          cta_4_label_es?: string | null
           cta_4_source_id?: string | null
           cta_4_source_type?: string | null
           cta_4_url?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           external_id?: string | null
           fda_510k?: string | null
           id?: string
@@ -15050,14 +15156,22 @@ export type Database = {
           manufacturer: string
           meta_description?: string | null
           name: string
+          name_en?: string | null
+          name_es?: string | null
           og_image_url?: string | null
           price?: number | null
           processing_instructions?: string | null
+          processing_instructions_en?: string | null
+          processing_instructions_es?: string | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
           system_a_product_url?: string | null
           technical_specs?: Json | null
+          technical_specs_en?: Json | null
+          technical_specs_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
           wikidata_qid?: string | null
@@ -15076,23 +15190,33 @@ export type Database = {
           cta_1_description?: string | null
           cta_1_enabled?: boolean | null
           cta_1_label?: string | null
+          cta_1_label_en?: string | null
+          cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_label_en?: string | null
+          cta_2_label_es?: string | null
           cta_2_source_id?: string | null
           cta_2_source_type?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
+          cta_3_label_en?: string | null
+          cta_3_label_es?: string | null
           cta_3_source_id?: string | null
           cta_3_source_type?: string | null
           cta_3_url?: string | null
           cta_4_description?: string | null
           cta_4_label?: string | null
+          cta_4_label_en?: string | null
+          cta_4_label_es?: string | null
           cta_4_source_id?: string | null
           cta_4_source_type?: string | null
           cta_4_url?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           external_id?: string | null
           fda_510k?: string | null
           id?: string
@@ -15102,14 +15226,22 @@ export type Database = {
           manufacturer?: string
           meta_description?: string | null
           name?: string
+          name_en?: string | null
+          name_es?: string | null
           og_image_url?: string | null
           price?: number | null
           processing_instructions?: string | null
+          processing_instructions_en?: string | null
+          processing_instructions_es?: string | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
           system_a_product_url?: string | null
           technical_specs?: Json | null
+          technical_specs_en?: Json | null
+          technical_specs_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
           wikidata_qid?: string | null
@@ -16254,14 +16386,22 @@ export type Database = {
           country: string | null
           cover_image_url: string | null
           created_at: string
+          description_en: string | null
+          description_es: string | null
           display_order: number
           end_date: string | null
           id: string
           is_active: boolean
           location: string | null
+          location_en: string | null
+          location_es: string | null
           name: string
           notes: string | null
           start_date: string | null
+          title_en: string | null
+          title_es: string | null
+          translated_at_en: string | null
+          translated_at_es: string | null
           updated_at: string
           website_url: string | null
         }
@@ -16270,14 +16410,22 @@ export type Database = {
           country?: string | null
           cover_image_url?: string | null
           created_at?: string
+          description_en?: string | null
+          description_es?: string | null
           display_order?: number
           end_date?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
+          location_en?: string | null
+          location_es?: string | null
           name: string
           notes?: string | null
           start_date?: string | null
+          title_en?: string | null
+          title_es?: string | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -16286,14 +16434,22 @@ export type Database = {
           country?: string | null
           cover_image_url?: string | null
           created_at?: string
+          description_en?: string | null
+          description_es?: string | null
           display_order?: number
           end_date?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
+          location_en?: string | null
+          location_es?: string | null
           name?: string
           notes?: string | null
           start_date?: string | null
+          title_en?: string | null
+          title_es?: string | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -18385,16 +18541,24 @@ export type Database = {
           contraindications: string[] | null
           created_at: string | null
           cta_1_description: string | null
+          cta_1_description_en: string | null
+          cta_1_description_es: string | null
           cta_1_label: string | null
+          cta_1_label_en: string | null
+          cta_1_label_es: string | null
           cta_1_url: string | null
           cta_2_description: string | null
           cta_2_label: string | null
+          cta_2_label_en: string | null
+          cta_2_label_es: string | null
           cta_2_url: string | null
           cta_3_description: string | null
           cta_3_label: string | null
           cta_3_url: string | null
           currency: string | null
           description: string | null
+          description_en: string | null
+          description_es: string | null
           display_order: number | null
           external_id: string
           extra_data: Json | null
@@ -18405,10 +18569,16 @@ export type Database = {
           last_sync_at: string | null
           meta_description: string | null
           name: string
+          name_en: string | null
+          name_es: string | null
           og_image_url: string | null
           price: number | null
           product_category: string | null
+          product_category_en: string | null
+          product_category_es: string | null
           product_subcategory: string | null
+          product_subcategory_en: string | null
+          product_subcategory_es: string | null
           promo_price: number | null
           rating: number | null
           review_count: number | null
@@ -18416,6 +18586,10 @@ export type Database = {
           slug: string | null
           source: string
           technical_specs: Json | null
+          technical_specs_en: Json | null
+          technical_specs_es: Json | null
+          translated_at_en: string | null
+          translated_at_es: string | null
           updated_at: string | null
           visible_in_ui: boolean | null
           wikidata_qid: string | null
@@ -18431,16 +18605,24 @@ export type Database = {
           contraindications?: string[] | null
           created_at?: string | null
           cta_1_description?: string | null
+          cta_1_description_en?: string | null
+          cta_1_description_es?: string | null
           cta_1_label?: string | null
+          cta_1_label_en?: string | null
+          cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_label_en?: string | null
+          cta_2_label_es?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
           currency?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           display_order?: number | null
           external_id: string
           extra_data?: Json | null
@@ -18451,10 +18633,16 @@ export type Database = {
           last_sync_at?: string | null
           meta_description?: string | null
           name: string
+          name_en?: string | null
+          name_es?: string | null
           og_image_url?: string | null
           price?: number | null
           product_category?: string | null
+          product_category_en?: string | null
+          product_category_es?: string | null
           product_subcategory?: string | null
+          product_subcategory_en?: string | null
+          product_subcategory_es?: string | null
           promo_price?: number | null
           rating?: number | null
           review_count?: number | null
@@ -18462,6 +18650,10 @@ export type Database = {
           slug?: string | null
           source?: string
           technical_specs?: Json | null
+          technical_specs_en?: Json | null
+          technical_specs_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
           visible_in_ui?: boolean | null
           wikidata_qid?: string | null
@@ -18477,16 +18669,24 @@ export type Database = {
           contraindications?: string[] | null
           created_at?: string | null
           cta_1_description?: string | null
+          cta_1_description_en?: string | null
+          cta_1_description_es?: string | null
           cta_1_label?: string | null
+          cta_1_label_en?: string | null
+          cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_label_en?: string | null
+          cta_2_label_es?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
           currency?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           display_order?: number | null
           external_id?: string
           extra_data?: Json | null
@@ -18497,10 +18697,16 @@ export type Database = {
           last_sync_at?: string | null
           meta_description?: string | null
           name?: string
+          name_en?: string | null
+          name_es?: string | null
           og_image_url?: string | null
           price?: number | null
           product_category?: string | null
+          product_category_en?: string | null
+          product_category_es?: string | null
           product_subcategory?: string | null
+          product_subcategory_en?: string | null
+          product_subcategory_es?: string | null
           promo_price?: number | null
           rating?: number | null
           review_count?: number | null
@@ -18508,6 +18714,10 @@ export type Database = {
           slug?: string | null
           source?: string
           technical_specs?: Json | null
+          technical_specs_en?: Json | null
+          technical_specs_es?: Json | null
+          translated_at_en?: string | null
+          translated_at_es?: string | null
           updated_at?: string | null
           visible_in_ui?: boolean | null
           wikidata_qid?: string | null
