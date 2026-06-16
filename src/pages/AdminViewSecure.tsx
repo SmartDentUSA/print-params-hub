@@ -1,56 +1,58 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
-import { AdminStats } from "@/components/AdminStats";
-import { AdminUsers } from "@/components/AdminUsers";
-import { AdminSettings } from "@/components/AdminSettings";
-import { AdminPandaVideoTest } from "@/components/AdminPandaVideoTest";
-import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
-import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
-import { AdminModels } from "@/components/AdminModels";
-import AdminDocumentsList from "@/components/AdminDocumentsList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shield, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AdminKnowledge } from "@/components/AdminKnowledge";
-import { AdminKnowledgeHub } from "@/components/AdminKnowledgeHub";
-import { AdminAuthors } from "@/components/AdminAuthors";
-import { AdminCatalog } from "@/components/AdminCatalog";
-import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
-import { AdminParameterPages } from "@/components/AdminParameterPages";
-import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
-import AdminArticleEnricher from "@/components/AdminArticleEnricher";
-import { ApostilaExport } from "@/components/ApostilaExport";
-import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { Wrench, RefreshCw, Database, Zap, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// Smart Ops components (flattened from SmartOpsTab)
-import { SmartOpsBowtie } from "@/components/SmartOpsBowtie";
-import { SmartOpsLeadsList } from "@/components/SmartOpsLeadsList";
-import { SmartOpsTeam } from "@/components/SmartOpsTeam";
-import { SmartOpsCSRules } from "@/components/SmartOpsCSRules";
-import { SmartOpsLogs } from "@/components/SmartOpsLogs";
-import { SmartOpsSystemHealth } from "@/components/SmartOpsSystemHealth";
-import { SmartOpsContentProduction } from "@/components/SmartOpsContentProduction";
-import { SmartOpsWhatsAppInbox } from "@/components/SmartOpsWhatsAppInbox";
-import { SmartOpsFormBuilder } from "@/components/SmartOpsFormBuilder";
-import { SmartOpsCourses } from "@/components/SmartOpsCourses";
-import { SmartOpsAIUsageDashboard } from "@/components/SmartOpsAIUsageDashboard";
-import { SmartOpsAIRouting } from "@/components/SmartOpsAIRouting";
-import { SmartOpsIntelligenceDashboard } from "@/components/SmartOpsIntelligenceDashboard";
-import { SmartOpsReports } from "@/components/SmartOpsReports";
-import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalytics";
-import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
-import { SmartOpsWorkflowMapper } from "@/components/smartops/SmartOpsWorkflowMapper";
-import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
-import { SmartOpsDistributors } from "@/components/smartops/SmartOpsDistributors";
-import { SmartOpsRayshape } from "@/components/SmartOpsRayshape";
+// Admin sections — lazy-loaded so the auth shell paints fast
+const AdminStats = lazy(() => import("@/components/AdminStats").then(m => ({ default: m.AdminStats })));
+const AdminUsers = lazy(() => import("@/components/AdminUsers").then(m => ({ default: m.AdminUsers })));
+const AdminSettings = lazy(() => import("@/components/AdminSettings").then(m => ({ default: m.AdminSettings })));
+const AdminPandaVideoTest = lazy(() => import("@/components/AdminPandaVideoTest").then(m => ({ default: m.AdminPandaVideoTest })));
+const AdminPandaVideoSync = lazy(() => import("@/components/AdminPandaVideoSync").then(m => ({ default: m.AdminPandaVideoSync })));
+const AdminVideoAnalyticsDashboard = lazy(() => import("@/components/AdminVideoAnalyticsDashboard").then(m => ({ default: m.AdminVideoAnalyticsDashboard })));
+const AdminModels = lazy(() => import("@/components/AdminModels").then(m => ({ default: m.AdminModels })));
+const AdminDocumentsList = lazy(() => import("@/components/AdminDocumentsList"));
+const AdminKnowledge = lazy(() => import("@/components/AdminKnowledge").then(m => ({ default: m.AdminKnowledge })));
+const AdminKnowledgeHub = lazy(() => import("@/components/AdminKnowledgeHub").then(m => ({ default: m.AdminKnowledgeHub })));
+const AdminAuthors = lazy(() => import("@/components/AdminAuthors").then(m => ({ default: m.AdminAuthors })));
+const AdminCatalog = lazy(() => import("@/components/AdminCatalog").then(m => ({ default: m.AdminCatalog })));
+const AdminVideoProductLinks = lazy(() => import("@/components/AdminVideoProductLinks").then(m => ({ default: m.AdminVideoProductLinks })));
+const AdminParameterPages = lazy(() => import("@/components/AdminParameterPages").then(m => ({ default: m.AdminParameterPages })));
+const AdminArticleReformatter = lazy(() => import("@/components/AdminArticleReformatter").then(m => ({ default: m.AdminArticleReformatter })));
+const AdminArticleEnricher = lazy(() => import("@/components/AdminArticleEnricher"));
+const ApostilaExport = lazy(() => import("@/components/ApostilaExport").then(m => ({ default: m.ApostilaExport })));
+const AdminDraLIAStats = lazy(() => import("@/components/AdminDraLIAStats").then(m => ({ default: m.AdminDraLIAStats })));
+
+// Smart Ops components — lazy-loaded
+const SmartOpsBowtie = lazy(() => import("@/components/SmartOpsBowtie").then(m => ({ default: m.SmartOpsBowtie })));
+const SmartOpsLeadsList = lazy(() => import("@/components/SmartOpsLeadsList").then(m => ({ default: m.SmartOpsLeadsList })));
+const SmartOpsTeam = lazy(() => import("@/components/SmartOpsTeam").then(m => ({ default: m.SmartOpsTeam })));
+const SmartOpsCSRules = lazy(() => import("@/components/SmartOpsCSRules").then(m => ({ default: m.SmartOpsCSRules })));
+const SmartOpsLogs = lazy(() => import("@/components/SmartOpsLogs").then(m => ({ default: m.SmartOpsLogs })));
+const SmartOpsSystemHealth = lazy(() => import("@/components/SmartOpsSystemHealth").then(m => ({ default: m.SmartOpsSystemHealth })));
+const SmartOpsContentProduction = lazy(() => import("@/components/SmartOpsContentProduction").then(m => ({ default: m.SmartOpsContentProduction })));
+const SmartOpsWhatsAppInbox = lazy(() => import("@/components/SmartOpsWhatsAppInbox").then(m => ({ default: m.SmartOpsWhatsAppInbox })));
+const SmartOpsFormBuilder = lazy(() => import("@/components/SmartOpsFormBuilder").then(m => ({ default: m.SmartOpsFormBuilder })));
+const SmartOpsCourses = lazy(() => import("@/components/SmartOpsCourses").then(m => ({ default: m.SmartOpsCourses })));
+const SmartOpsAIUsageDashboard = lazy(() => import("@/components/SmartOpsAIUsageDashboard").then(m => ({ default: m.SmartOpsAIUsageDashboard })));
+const SmartOpsAIRouting = lazy(() => import("@/components/SmartOpsAIRouting").then(m => ({ default: m.SmartOpsAIRouting })));
+const SmartOpsIntelligenceDashboard = lazy(() => import("@/components/SmartOpsIntelligenceDashboard").then(m => ({ default: m.SmartOpsIntelligenceDashboard })));
+const SmartOpsReports = lazy(() => import("@/components/SmartOpsReports").then(m => ({ default: m.SmartOpsReports })));
+const SmartOpsSmartFlowAnalytics = lazy(() => import("@/components/SmartOpsSmartFlowAnalytics").then(m => ({ default: m.SmartOpsSmartFlowAnalytics })));
+const SmartOpsCopilot = lazy(() => import("@/components/SmartOpsCopilot").then(m => ({ default: m.SmartOpsCopilot })));
+const SmartOpsWorkflowMapper = lazy(() => import("@/components/smartops/SmartOpsWorkflowMapper").then(m => ({ default: m.SmartOpsWorkflowMapper })));
+const SmartOpsCampaigns = lazy(() => import("@/components/SmartOpsCampaigns").then(m => ({ default: m.SmartOpsCampaigns })));
+const SmartOpsDistributors = lazy(() => import("@/components/smartops/SmartOpsDistributors").then(m => ({ default: m.SmartOpsDistributors })));
+const SmartOpsRayshape = lazy(() => import("@/components/SmartOpsRayshape").then(m => ({ default: m.SmartOpsRayshape })));
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -400,7 +402,13 @@ export default function AdminViewSecure() {
                 </div>
               </div>
             )}
-            {renderContent()}
+            <Suspense fallback={
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+              </div>
+            }>
+              {renderContent()}
+            </Suspense>
           </main>
         </div>
       </div>

@@ -1,78 +1,71 @@
-# Integração Carrossel Sistema A → Social Publisher
+## Diagnóstico
 
-## Rotas
-Adicionar alias `/ferramentas/social-publisher/criar` apontando para `SocialPostEditor` em `src/App.tsx`, além da rota existente `/social/novo`. Ambas renderizam o mesmo componente.
+A página `/admin` está demorando >5s e mostrando tela branca porque `src/pages/AdminViewSecure.tsx` importa **todos** os componentes do painel de forma estática no topo do arquivo — antes mesmo de saber se o usuário está logado.
 
-URL final esperada:
+Isso obriga o Vite a baixar e parsear, no primeiro load, ~17.500 linhas de código de componentes pesadíssimos (incluindo dependências indiretas: charts, editores, dnd-kit, etc.):
+
+| Componente | Linhas |
+|---|---|
+| SmartOpsCampaigns | 2.289 |
+| SmartOpsCourses | 1.440 |
+| SmartOpsFormBuilder | 1.167 |
+| SmartOpsAudienceBuilder | 1.081 |
+| SmartOpsLeadsList | 820 |
+| SmartOpsCSRules | 784 |
+| SmartOpsROICardsManager | 685 |
+| SmartOpsFormEditor | 634 |
+| SmartOpsSdrCaptacaoEditor | 623 |
+| SmartOpsBowtie | 594 |
+| + ~20 outros componentes Admin/SmartOps | ~7.500 |
+
+O usuário só visualiza **uma seção por vez** (controlada por `activeSection`), então 95% desse código é desperdiçado no primeiro paint.
+
+## O que vai mudar
+
+Apenas `src/pages/AdminViewSecure.tsx` — sem alterar lógica de negócio, sem mudar nenhuma seção.
+
+### Antes
+```tsx
+import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
+import { SmartOpsCourses } from "@/components/SmartOpsCourses";
+// ...+30 imports
 ```
-/ferramentas/social-publisher/criar?source=carrossel&ref=carrosseis/bio-vitality/abc123&produto=bio-vitality&tipo=visual&total=6
+
+### Depois
+```tsx
+import { lazy, Suspense } from "react";
+const SmartOpsCampaigns = lazy(() => import("@/components/SmartOpsCampaigns").then(m => ({ default: m.SmartOpsCampaigns })));
+const SmartOpsCourses    = lazy(() => import("@/components/SmartOpsCourses").then(m => ({ default: m.SmartOpsCourses })));
+// ...etc para todos os Smart Ops e Admin* pesados
 ```
 
-## Arquivos afetados
-1. `src/App.tsx` — alias de rota.
-2. `src/components/social/editor/SocialPostEditor.tsx` — ler query params, estado `selectedCarrosselImages`, montar `media_items` final, passar props.
-3. `src/components/social/editor/steps/StepContent.tsx` — seção "Carrossel Recebido" + pré-seleção automática de produto via slug.
-4. `src/components/social/editor/steps/StepMedia.tsx` — container "Imagens do Carrossel" ordenável acima do upload manual.
+E envolver o `renderContent()` em um `<Suspense>` com um spinner leve:
+```tsx
+<Suspense fallback={<div className="flex items-center justify-center py-20">
+  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+</div>}>
+  {renderContent()}
+</Suspense>
+```
 
-Nenhuma migration. Sem alterações em `postSchema`, hooks de publish/schedule, ou outras telas.
+### Mantém estático (são leves e/ou parte do shell)
+- `AdminSidebar`, `AuthPage`, `ConnectionError`
+- `Card`, `Button`, `Badge`, ícones lucide, `SidebarProvider/Trigger`
+- `useToast`, supabase client
 
-## Mudança 1 — Seção "Carrossel Recebido" (StepContent)
+### Tornam-se `lazy(...)`
+Todos os `Admin*` e `SmartOps*` referenciados no `switch(activeSection)`:
+- AdminModels, AdminCatalog, AdminDocumentsList, AdminKnowledge, AdminKnowledgeHub, AdminAuthors, AdminParameterPages, AdminArticleReformatter, AdminArticleEnricher, AdminVideoProductLinks, AdminPandaVideoSync, AdminPandaVideoTest, AdminVideoAnalyticsDashboard, AdminStats, AdminDraLIAStats, AdminUsers, AdminSettings, ApostilaExport
+- SmartOpsBowtie, SmartOpsLeadsList, SmartOpsTeam, SmartOpsCSRules, SmartOpsLogs, SmartOpsReports, SmartOpsContentProduction, SmartOpsSystemHealth, SmartOpsWhatsAppInbox, SmartOpsFormBuilder, SmartOpsCourses, SmartOpsAIUsageDashboard, SmartOpsAIRouting, SmartOpsIntelligenceDashboard, SmartOpsSmartFlowAnalytics, SmartOpsCopilot, SmartOpsRayshape, SmartOpsWorkflowMapper, SmartOpsCampaigns, SmartOpsDistributors
 
-`SocialPostEditor.tsx`:
-- `useSearchParams()` para extrair `source`, `ref`, `produto`, `tipo`, `total` (parse int, clamp 1–20).
-- Construir URLs públicas via `import.meta.env.VITE_SUPABASE_URL`:
-  ```
-  ${SUPABASE_URL}/storage/v1/object/public/wa-media/${ref}/slide-${i}.png
-  ```
-  (`i` de 0 a `total-1`).
-- Estado `selectedCarrosselImages: string[]` (URLs na ordem em que o usuário marcou).
-- Passar para `StepContent`: `carrosselSlides`, `carrosselTipo`, `produtoSlug`, `selectedCarrosselImages`, `onToggleCarrosselImage`, `onSelectAllCarrossel`, `onClearCarrossel`.
+## Impacto esperado
 
-`StepContent.tsx`:
-- Quando `source === 'carrossel'`, renderizar acima do bloco "Copies prontas":
-  - Título `🖼️ Carrossel Recebido do Gerador` + `Badge "Novo"` (verde `bg-emerald-500/15 text-emerald-600 border-emerald-500/30`).
-  - Label `Carrossel {tipo} — {N} slides`.
-  - Botão "Selecionar todos" / "Limpar".
-  - Grid responsivo: `grid grid-cols-3 gap-2` desktop, `flex overflow-x-auto` mobile. Thumbnails 120×120 com `Checkbox` por item. Número de slide visível.
-- Bloco "Copies prontas do Sistema A" permanece inalterado, logo abaixo.
-- Pré-seleção do produto: ao carregar `products`/`resins`, se `produtoSlug` presente e `value.product_ref` vazio, procurar primeiro em `products` (por `slug === produtoSlug`), depois em `resins`; chamar `onProductChange('product:'+id)` ou `'resin:'+id` automaticamente.
+- Tela branca do `/admin` cai de >5s para <1s (apenas auth + shell + sidebar).
+- Cada seção carrega seu próprio chunk sob demanda (~100–500ms na 1ª vez, cacheado depois).
+- Zero mudança visual, zero mudança de comportamento.
 
-## Mudança 2 — Container "Imagens do Carrossel" (StepMedia)
+## Fora do escopo
 
-`@dnd-kit/core`, `@dnd-kit/sortable` e `@dnd-kit/utilities` já estão instalados.
-
-`StepMedia.tsx`:
-- Receber `selectedCarrosselImages` e `onCarrosselReorder` / `onCarrosselRemove` via props.
-- Se array não vazio, renderizar bloco ACIMA do `MediaItemsEditor` padrão:
-  - Título `📌 Imagens do Carrossel`.
-  - Grid de cards 120×120, cada um com:
-    - Preview `<img>`.
-    - Número de ordem no topo-esquerda.
-    - Handle `GripVertical` para drag.
-    - Botão `X` topo-direita (remove o item de `selectedCarrosselImages`).
-  - `DndContext` + `SortableContext` (estratégia `rectSortingStrategy`) + `arrayMove` para reordenar.
-- Se vazio: nada é renderizado (comportamento atual preservado).
-- `MediaItemsEditor` (uploads manuais) fica intacto abaixo.
-
-## Mudança 3 — Mídia final do post
-
-No `SocialPostEditor.tsx`, sempre que `selectedCarrosselImages` mudar, sincronizar a lista efetiva em `data.media_items` de forma que a parte inicial seja o carrossel (na ordem definida pelo usuário) e o restante sejam uploads manuais. Estratégia:
-- Manter `manualMedia: MediaItem[]` separado do carrossel.
-- Computar `data.media_items = [...carrosselAsMedia, ...manualMedia]` antes do preview/validação/salvar.
-- `carrosselAsMedia = selectedCarrosselImages.map(url => ({ url, type: 'image' as const, path: '' }))`.
-
-Isso garante que `SocialPostPreview`, `StepReview` e o salvamento usem a mídia correta sem alterar `postSchema`.
-
-## Mudança 3b — Geração de copy
-Pré-seleção de produto (acima) é a única mudança. `useGenerateCaption`, tons e instruções permanecem inalterados.
-
-## Não alterar
-- `postSchema`, hooks `useCreateScheduledPost`, `useUpdateScheduledPost`, `useMediaUpload`.
-- `StepChannels`, `StepSchedule`, `StepReview` (consomem `media_items` final automaticamente).
-- Outras telas do Social Publisher.
-
-## QA
-- Abrir URL com 6 slides → carrossel renderiza, produto pré-selecionado.
-- Selecionar tudo → 6 cards aparecem em "Imagens do Carrossel" no passo 2, drag-and-drop funciona.
-- Remover/adicionar uploads manuais → aparecem após os do carrossel no preview.
-- URL sem `source=carrossel` → comportamento atual 100% preservado.
+- Otimização das queries lentas (`lia_attendances` por `platform_lead_id` com 4M ms acumulados) — é um problema real mas separado; posso atacar em seguida se quiser.
+- Refatorar componentes individuais.
+- Mexer em rotas públicas.
