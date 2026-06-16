@@ -10,7 +10,8 @@ const corsHeaders = {
 };
 
 const MAX_LEN = 160;
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "deepseek-chat";
+const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
 function stripHtml(s: string): string {
   if (!s) return "";
@@ -71,7 +72,7 @@ REGRAS ESTRITAS:
 - Tom técnico-clínico, objetivo, sem adjetivos vazios ("incrível", "revolucionário").
 - Responda APENAS com a frase, nada mais.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch(DEEPSEEK_API, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -89,7 +90,7 @@ REGRAS ESTRITAS:
 
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`AI Gateway ${res.status}: ${txt.slice(0, 200)}`);
+    throw new Error(`DeepSeek ${res.status}: ${txt.slice(0, 200)}`);
   }
   const data = await res.json();
   const raw = data?.choices?.[0]?.message?.content || "";
@@ -102,9 +103,9 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
+    const DEEPSEEK_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    if (!DEEPSEEK_KEY) {
+      return new Response(JSON.stringify({ error: "DEEPSEEK_API_KEY missing" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -146,7 +147,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const newDesc = await generateDescription(LOVABLE_KEY, p);
+        const newDesc = await generateDescription(DEEPSEEK_KEY, p);
         if (!newDesc || newDesc.length < 20) {
           failures.push({ slug: p.slug, error: "empty_or_too_short", generated: newDesc });
           continue;
