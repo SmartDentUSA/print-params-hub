@@ -257,10 +257,8 @@ const findResinBySubset = (
 
 export default function KbTabCatalogo() {
   const { t } = useLanguage();
-  const [rows, setRows] = useState<CatalogRow[]>([]);
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
-  const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
