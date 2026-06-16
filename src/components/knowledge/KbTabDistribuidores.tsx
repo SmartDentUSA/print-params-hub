@@ -7,7 +7,6 @@ import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbChips, { KbChipOption } from './KbChips';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
