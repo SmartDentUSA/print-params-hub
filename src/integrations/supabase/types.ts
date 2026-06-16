@@ -4984,6 +4984,99 @@ export type Database = {
         }
         Relationships: []
       }
+      google_oauth_tokens: {
+        Row: {
+          access_token: string
+          account_name: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string | null
+          scopes: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          account_name?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token?: string | null
+          scopes?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          account_name?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string | null
+          scopes?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      google_reviews: {
+        Row: {
+          account_id: string | null
+          ai_response_draft: string | null
+          comment: string | null
+          create_time: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          location_id: string | null
+          reply_text: string | null
+          reply_time: string | null
+          response_status: string
+          review_id: string
+          reviewer_name: string | null
+          reviewer_photo_url: string | null
+          star_rating: number | null
+          update_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          ai_response_draft?: string | null
+          comment?: string | null
+          create_time?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id?: string | null
+          reply_text?: string | null
+          reply_time?: string | null
+          response_status?: string
+          review_id: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          star_rating?: number | null
+          update_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          ai_response_draft?: string | null
+          comment?: string | null
+          create_time?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id?: string | null
+          reply_text?: string | null
+          reply_time?: string | null
+          response_status?: string
+          review_id?: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          star_rating?: number | null
+          update_time?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       identity_keys: {
         Row: {
           confidence: string

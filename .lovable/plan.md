@@ -1,146 +1,127 @@
-## Objetivo
-Na modal de **Specs técnicos** dos cards de resina (Base de Conhecimento → Catálogo), substituir as chaves snake_case por rótulos legíveis e formatar booleans/arrays — com **suporte aos 3 idiomas** (PT / EN / ES) trocando ao vivo quando o usuário muda a língua via seletor.
+# ⭐ Avaliações Google — 100% Automático (Vitrine) + Cascata de IA
 
-Escopo: **somente** `src/components/knowledge/KbTabCatalogo.tsx` (helper `normalizeSpecs` + modal `specsModal`). Nenhuma outra alteração.
+Resposta automática por IA, sem interação humana após o setup. Frontend é só leitura. `google-reviews-respond` tem cascata de 3 provedores.
 
-## Mudanças
+## Fluxo
 
-### 1. Dicionário de labels por idioma (no topo do arquivo, antes de `normalizeSpecs`)
-
-```ts
-type SpecLang = 'pt' | 'en' | 'es';
-
-const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
-  pt: {
-    tipo: "Tipo",
-    carga_por_peso: "Carga por Peso",
-    carga_por_volume: "Carga por Volume",
-    resistencia_flexural_mpa: "Resistência Flexural (MPa)",
-    resistencia_flexural_source: "Fonte / Certificação",
-    modulo_flexural_gpa: "Módulo Flexural (GPa)",
-    dureza_shore_d: "Dureza Shore D",
-    sorcao_agua: "Sorção de Água",
-    radiopacidade: "Radiopacidade",
-    carga_inorganica: "Carga Inorgânica",
-    compatibilidade_camada: "Compatibilidade de Camada",
-    luz_uv_cura: "Luz UV para Cura",
-    resin_class: "Classe da Resina",
-    fda_510k: "Certificação FDA 510(k)",
-    wavelength_nm: "Comprimento de Onda (nm)",
-    ceramic_dominant: "Dominância Cerâmica",
-    vickers_hardness: "Dureza Vickers",
-    inorganic_load_pct: "Carga Inorgânica (%)",
-    flexural_strength_mpa: "Resistência à Flexão (MPa)",
-    flexural_strength_source: "Fonte / Certificação",
-    aplicacoes_definitivas: "Aplicações Definitivas",
-    comprovacao_clinica: "Comprovação Clínica",
-    resina_permanente: "Resina Permanente",
-  },
-  en: {
-    tipo: "Type",
-    carga_por_peso: "Filler by Weight",
-    carga_por_volume: "Filler by Volume",
-    resistencia_flexural_mpa: "Flexural Strength (MPa)",
-    resistencia_flexural_source: "Source / Certification",
-    modulo_flexural_gpa: "Flexural Modulus (GPa)",
-    dureza_shore_d: "Shore D Hardness",
-    sorcao_agua: "Water Sorption",
-    radiopacidade: "Radiopacity",
-    carga_inorganica: "Inorganic Filler",
-    compatibilidade_camada: "Layer Compatibility",
-    luz_uv_cura: "UV Curing Light",
-    resin_class: "Resin Class",
-    fda_510k: "FDA 510(k) Clearance",
-    wavelength_nm: "Wavelength (nm)",
-    ceramic_dominant: "Ceramic Dominant",
-    vickers_hardness: "Vickers Hardness",
-    inorganic_load_pct: "Inorganic Filler (%)",
-    flexural_strength_mpa: "Flexural Strength (MPa)",
-    flexural_strength_source: "Source / Certification",
-    aplicacoes_definitivas: "Definitive Applications",
-    comprovacao_clinica: "Clinical Evidence",
-    resina_permanente: "Permanent Resin",
-  },
-  es: {
-    tipo: "Tipo",
-    carga_por_peso: "Carga por Peso",
-    carga_por_volume: "Carga por Volumen",
-    resistencia_flexural_mpa: "Resistencia a la Flexión (MPa)",
-    resistencia_flexural_source: "Fuente / Certificación",
-    modulo_flexural_gpa: "Módulo Flexural (GPa)",
-    dureza_shore_d: "Dureza Shore D",
-    sorcao_agua: "Sorción de Agua",
-    radiopacidade: "Radiopacidad",
-    carga_inorganica: "Carga Inorgánica",
-    compatibilidade_camada: "Compatibilidad de Capa",
-    luz_uv_cura: "Luz UV para Curado",
-    resin_class: "Clase de Resina",
-    fda_510k: "Certificación FDA 510(k)",
-    wavelength_nm: "Longitud de Onda (nm)",
-    ceramic_dominant: "Dominancia Cerámica",
-    vickers_hardness: "Dureza Vickers",
-    inorganic_load_pct: "Carga Inorgánica (%)",
-    flexural_strength_mpa: "Resistencia a la Flexión (MPa)",
-    flexural_strength_source: "Fuente / Certificación",
-    aplicacoes_definitivas: "Aplicaciones Definitivas",
-    comprovacao_clinica: "Comprobación Clínica",
-    resina_permanente: "Resina Permanente",
-  },
-};
-
-const BOOL_LABELS: Record<SpecLang, { yes: string; no: string }> = {
-  pt: { yes: "Sim", no: "Não" },
-  en: { yes: "Yes", no: "No" },
-  es: { yes: "Sí",  no: "No" },
-};
-
-const prettifyKey = (k: string) =>
-  k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-
-const translateSpecLabel = (raw: string, lang: SpecLang) => {
-  const norm = raw.trim().toLowerCase();
-  if (SPEC_LABELS[lang][norm]) return SPEC_LABELS[lang][norm];
-  // Strings já legíveis (com espaços/acentos/maiúsculas internas) passam intactas.
-  // Só capitaliza quando vier puro snake_case.
-  if (/^[a-z0-9_]+$/.test(raw)) return prettifyKey(raw);
-  return raw;
-};
+```text
+Cron 3d (0 9 */3 * *)
+   └─► google-reviews-pull
+          ├─ refresh token se expirado
+          ├─ lista accounts → locations → reviews
+          └─ p/ review NOVO (UNIQUE review_id):
+                 INSERT
+                 → invoke google-reviews-respond
+                        ├─ Cascata IA: gemini-2.5-flash → deepseek-chat → claude-sonnet
+                        ├─ PUT no Google
+                        └─ UPDATE response_status='published'
 ```
 
-### 2. `normalizeSpecs` passa a receber o idioma
+## 1. Migration
 
-Assinatura: `normalizeSpecs(raw: any, lang: SpecLang): SpecRow[]`.
+- `google_oauth_tokens`: spec original.
+- `google_reviews`: spec original + UNIQUE(review_id), índices em `create_time DESC` e `response_status`.
+- RLS: `SELECT` para `authenticated` (vitrine read-only). `service_role` gerencia tudo.
+- GRANTS: `SELECT` para `authenticated`, `ALL` para `service_role` em ambas as tabelas.
+- Trigger `updated_at` usando `public.update_updated_at_column()`.
 
-Estender `SpecRow`:
+Cron registrado via `supabase--insert` (não migration, porque embute service role key).
+
+## 2. Edge Functions
+
+`_shared/google-oauth.ts`: `getValidAccessToken()` — lê último token, refresh via `https://oauth2.googleapis.com/token` se expirado, persiste, preserva `refresh_token` antigo com COALESCE.
+
+### a) `google-oauth-callback` (`verify_jwt=false`)
+- Recebe `?code=`, troca por tokens (`grant_type=authorization_code`), INSERT em `google_oauth_tokens`.
+- 302 → `/social/avaliacoes?connected=true`.
+
+### b) `google-reviews-pull` (`verify_jwt=false`, chamado pelo cron)
+1. `getValidAccessToken()`.
+2. `GET mybusinessaccountmanagement.googleapis.com/v1/accounts`.
+3. Para cada account → `locations?readMask=name,title,storefrontAddress`.
+4. Para cada location → `mybusiness.googleapis.com/v4/{account}/{location}/reviews?pageSize=50&orderBy=updateTime desc`.
+5. Para cada review:
+   - `INSERT ... ON CONFLICT (review_id) DO NOTHING RETURNING id`.
+   - Se novo: `EdgeRuntime.waitUntil(supabase.functions.invoke('google-reviews-respond', { body: { review_id }}))`.
+   - Se existente e `reviewReply.comment` mudou no Google: UPDATE `reply_text` + `reply_time`.
+6. Retorna `{ new_reviews, updated, errors }`.
+
+### c) `google-reviews-respond` (interna)
+- Body: `{ review_id: uuid }`.
+- Carrega review do banco.
+- Monta prompt exatamente como spec (nome, agradecimento específico, regras por estrela, assinatura "Equipe Smart Dent 💙", WhatsApp (16) 98115-8403 nos 1-2★, sem "Ficamos felizes"/"É um prazer", máx. 150 palavras, PT-BR).
+
+**Cascata de IA** (helper `callLovableAI(model, prompt)` que chama `https://ai.gateway.lovable.dev/v1/chat/completions` com `Authorization: Bearer ${LOVABLE_API_KEY}`, retorna texto ou throw):
 
 ```ts
-interface SpecRow { label: string; value: string; items?: string[] }
+const providers = [
+  'google/gemini-2.5-flash',
+  'deepseek/deepseek-chat',
+  'poe/claude-sonnet',
+];
+let response: string | null = null;
+let lastError: Error | null = null;
+let usedProvider: string | null = null;
+
+for (const provider of providers) {
+  try {
+    response = await callLovableAI(provider, prompt);
+    if (response) { usedProvider = provider; break; }
+  } catch (err) {
+    lastError = err as Error;
+    console.error(`[reviews-respond] ${provider} falhou:`, (err as Error).message);
+    continue;
+  }
+}
+
+if (!response) {
+  await supabase.from('google_reviews').update({
+    response_status: 'error',
+    error_message: 'Todos os provedores de IA falharam: ' + (lastError?.message ?? 'desconhecido'),
+  }).eq('id', review_id);
+  return { success: false };
+}
 ```
 
-Regras de formatação de valor (substituir `pushPair`):
+- Cada chamada chama `logAIUsage` (padrão do projeto) com o modelo efetivamente usado.
+- `PUT mybusiness.googleapis.com/v4/{account}/{location}/reviews/{reviewId}/reply` com `{ comment: response }` e Bearer token.
+- Sucesso → UPDATE `ai_response_draft`, `reply_text`, `reply_time=now()`, `response_status='published'`.
+- Erro de publicação → UPDATE `response_status='error'`, `error_message`. Sem throw.
 
-- `null` / `undefined` / `""` → **skip** (linha não renderizada).
-- `boolean` → `BOOL_LABELS[lang].yes` ou `.no`.
-- `Array` → guardar em `items: string[]` (cada item para string, nulos descartados; array vazio → skip).
-- `number` → `String(value)`.
-- `object` (não array) → `JSON.stringify` (mantém comportamento atual).
-- Label transformado por `translateSpecLabel(label, lang)`.
-- Deduplicação atual preservada.
+## 3. Frontend — `/social/avaliacoes`
 
-### 3. Recalcular specs quando o idioma muda
+- Rota lazy em `src/App.tsx` dentro de `<Route path="/social" element={<SocialLayout />}>`.
+- Item **"⭐ Avaliações"** em `SocialSidebar.tsx` (ícone `Star`).
+- Componente `src/components/social/reviews/SocialReviews.tsx` + hook `useGoogleReviews.ts`.
 
-No componente, já existe `const { t, language } = useLanguage();` (ou similar). Garantir que a chamada a `normalizeSpecs` use `language as SpecLang` e que `specs` seja recomputado quando `language` mudar (já acontece porque o render reexecuta a cada mudança de contexto; nenhum `useMemo` extra necessário).
+### Estado 1 — Não conectado
+- Card centralizado, explicação curta, único botão **"Conectar Google Business Profile"**.
+- Click → URL OAuth Google com `client_id` de `VITE_GOOGLE_CLIENT_ID`, scopes `business.manage openid email`, `access_type=offline`, `prompt=consent`, `redirect_uri` apontando para a edge `google-oauth-callback`.
 
-Também atualizar o estado `specsModal` para ser recalculado: quando o usuário troca de idioma com a modal aberta, recomputar `specsModal.specs` derivando do novo `language`. Implementação simples: usar `useEffect` que, ao mudar `language` enquanto `specsModal` está aberto, re-normaliza os specs da resina/produto correntes (manter o `name` e refazer o `normalizeSpecs` com o mesmo `raw` original — guardar `raw` no estado da modal: `{ name, raw }` em vez de `{ name, specs }`, e derivar `specs` no render via `useMemo([raw, language])`).
+### Estado 2 — Conectado (vitrine pura)
+- Header: rating médio, total de reviews, "Última sincronização: {MAX(updated_at)}".
+- **Tabela única** (shadcn `<Table>`), ordenada por `create_time DESC`:
 
-### 4. Modal: render de listas
+| Coluna | Conteúdo |
+|---|---|
+| Usuário | Avatar + reviewer_name |
+| Avaliação | ⭐ × star_rating (badge colorido) |
+| Mensagem do usuário | comment (truncate + tooltip) |
+| Resposta publicada | reply_text (truncate); `pending` → "⏳ Gerando…"; `error` → badge vermelho com `error_message` |
+| Data da avaliação | dd/MM/yyyy |
+| Data da resposta | dd/MM/yyyy ou "—" |
 
-No `<td>` do valor:
+**Zero botões de ação.** Sem sync manual, sem regenerar, sem editar, sem aprovar.
 
-- Se `row.items` existir → `<ul style="list-style: disc; padding-left: 18px; margin: 0">` com um `<li>` por item.
-- Caso contrário → `row.value` como hoje.
+Realtime opcional (`postgres_changes` em `google_reviews`) para atualização ao vivo quando o cron rodar.
 
-## Não fazer
-- Não alterar `KbResinSheetDialog`, `KbResinDocsDialog`, `ProductPage`, edge functions, schema do banco, nem o fluxo de tradução automática via `useCardTranslations` (este mapeamento é local/determinístico, independente do gateway de IA).
-- Não traduzir os **valores** textuais (ex.: itens de `aplicacoes_definitivas`) — eles vêm do banco e já são alvo do tradutor automático separado. Aqui só labels + booleans mudam de idioma.
-- Não mexer em CTAs, tabela de apresentações, nem em qualquer outra parte do card.
+## Ordem de execução
+
+1. Migration (tabelas + RLS read-only + grants + índices + trigger).
+2. `supabase--insert` registrando cron `google-reviews-pull-3days`.
+3. `_shared/google-oauth.ts` + 3 edge functions.
+4. `supabase/config.toml`: `verify_jwt=false` em `google-oauth-callback` e `google-reviews-pull`.
+5. Adicionar `VITE_GOOGLE_CLIENT_ID` no `.env`.
+6. Sidebar item + rota + `SocialReviews.tsx` + `useGoogleReviews.ts`.
+
+Aprovando, parto direto para o build.
