@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PenSquare, Calendar, Database, BarChart3, Workflow, Megaphone, Users, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, PenSquare, Calendar, Database, BarChart3, Workflow, Megaphone, Users, ArrowLeft, Star } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -17,6 +17,7 @@ const items = [
   { title: 'Broadcasts',    url: '/social/broadcasts',  icon: Megaphone },
   { title: 'Sequências',    url: '/social/sequencias',  icon: Workflow },
   { title: 'Contatos',      url: '/social/contatos',    icon: Users },
+  { title: 'Avaliações',    url: '/social/avaliacoes',  icon: Star },
 ];
 
 export function SocialSidebar() {
