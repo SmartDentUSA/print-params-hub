@@ -11,6 +11,7 @@ import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getOgLocale } from "@/utils/i18nPaths";
+import { cn } from "@/lib/utils";
 
 interface SpecRow { label: string; value: string }
 
