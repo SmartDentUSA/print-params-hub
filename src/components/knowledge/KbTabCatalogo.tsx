@@ -261,6 +261,8 @@ export default function KbTabCatalogo() {
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [resins, setResins] = useState<Map<string, ResinInfo>>(new Map());
+  const [rowsRaw, setRowsRaw] = useState<any[]>([]);
+  const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -279,7 +281,7 @@ export default function KbTabCatalogo() {
       const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
-          .select('id, name, slug, description, image_url, product_category, product_subcategory, cta_1_label, cta_1_url, cta_2_label, cta_2_url, technical_specs, extra_data')
+          .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, extra_data')
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
@@ -294,7 +296,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, slug, image_url, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url, cta_4_label, cta_4_url, processing_instructions, technical_specs')
+          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs')
           .eq('active', true)
           .limit(500),
         supabase
@@ -341,24 +343,7 @@ export default function KbTabCatalogo() {
         extraMap.set(d.product_id, list);
       });
       setExtraDocs(extraMap);
-      const resinMap = new Map<string, ResinInfo>();
-      (rs || []).forEach((r: any) => {
-        if (!r?.name || !r?.slug || !r?.id) return;
-        const info: ResinInfo = {
-          id: r.id, slug: r.slug, name: r.name,
-          cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
-          cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
-          cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
-          cta_4_label: r.cta_4_label, cta_4_url: r.cta_4_url,
-          processing_instructions: r.processing_instructions || null,
-          image_url: r.image_url || null,
-          technical_specs: r.technical_specs ?? null,
-        };
-        resinMap.set(r.name.toLowerCase().trim(), info);
-        const fk = resinKey(r.name);
-        if (fk) resinMap.set('fk:' + fk, info);
-      });
-      setResins(resinMap);
+      setResinsRaw((rs || []) as any[]);
       const rdMap = new Map<string, ResinDoc[]>();
       (rd || []).forEach((d: any) => {
         if (!d?.resin_id || !d?.file_url) return;
@@ -389,7 +374,7 @@ export default function KbTabCatalogo() {
       });
       setResinPres(rpMap);
       setDocs(docMap);
-      setRows((cat || []) as any);
+      setRowsRaw((cat || []) as any[]);
       setLoading(false);
     })();
     return () => { cancel = true; };
