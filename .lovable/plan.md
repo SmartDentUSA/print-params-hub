@@ -1,12 +1,22 @@
-## Adicionar filtro "Filtrar por país" em Revendas
+## Alterar rota inicial
 
-**Onde**: `src/components/knowledge/KbTabDistribuidores.tsx`
+### Arquivo alvo
+- `src/App.tsx`
 
-**O que fazer**:
-1. Calcular `availableCountries` a partir de `rows` (apenas países com ISO conhecido em `COUNTRY_TO_ISO`), ordenados alfabeticamente, deduplicados.
-2. Adicionar estado `country: string` (default `'all'`).
-3. Renderizar um `<Select>` (shadcn) ao lado/abaixo do `KbSearchBar` com placeholder "Filtrar por país", opção "Todos" + uma opção por país disponível, cada uma com `<CountryFlag>` + nome.
-4. Estender o `useMemo` de `filtered` para incluir `country !== 'all' && normalize(r.pais) !== normalize(country)`.
-5. Não exibir o select se `availableCountries.length <= 1`.
+### Alteracao
+Substituir a rota `/` para redirecionar automaticamente para `/base-conhecimento?tab=parametros`.
 
-**Fora de escopo**: nenhum outro componente, schema ou lógica de negócio.
+**Trecho atual (linha ~99):**
+```tsx
+<Route path="/" element={<Index />} />
+```
+
+**Trecho novo:**
+```tsx
+<Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
+```
+
+### Observacoes
+- `Navigate` ja esta importado em `src/App.tsx` (`import { ..., Navigate } from "react-router-dom"`).
+- Nenhuma outra alteracao sera feita.
+- `Index` deixa de ser usado como rota inicial, mas continua importado no arquivo por precaucao (sem remocao de import para evitar quebra de build caso seja referenciado em outro lugar).
