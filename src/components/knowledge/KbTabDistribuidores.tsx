@@ -211,7 +211,9 @@ export default function KbTabDistribuidores() {
           filtered.map((d) => {
             const title = d.nome_fantasia || d.razao_social || t('kb.distribuidores.fallback_name');
             const hasCountryFlag = !!countryIso(d.pais);
-            const cats = Object.keys(d.authorized_scope || {});
+            const cats = Object.keys(d.authorized_scope || {}).filter(
+              (c) => !/sku|produto|cobertura/i.test(c)
+            );
             return (
               <div
                 key={d.id}
