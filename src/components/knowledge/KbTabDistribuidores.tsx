@@ -7,6 +7,7 @@ import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbChips, { KbChipOption } from './KbChips';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CHIP_KEYS, AuthorizedScope, scopeAllowsCategory, scopeHasAnything } from './kbCategoryTaxonomy';
 import { CATALOG_COLORS } from './kbCategoryColors';
 import 'flag-icons/css/flag-icons.min.css';
@@ -151,6 +152,7 @@ export default function KbTabDistribuidores() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [chip, setChip] = useState('all');
+  const [country, setCountry] = useState('all');
 
   useEffect(() => {
     (async () => {
@@ -169,12 +171,21 @@ export default function KbTabDistribuidores() {
     const s = q.trim().toLowerCase();
     return rows.filter((r) => {
       if (chip !== 'all' && !scopeAllowsCategory(r.authorized_scope, chip)) return false;
+      if (country !== 'all' && normalize(r.pais || '') !== normalize(country)) return false;
       if (!s) return true;
       return [r.nome_fantasia, r.razao_social, r.cidade, r.estado, r.pais]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(s));
     });
-  }, [rows, q, chip]);
+  }, [rows, q, chip, country]);
+
+  const availableCountries = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.pais && countryIso(r.pais)) set.add(r.pais.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [rows]);
 
   // Apenas exibe chips de categorias que têm ao menos um distribuidor autorizado
   const availableCategories = useMemo(() => {
@@ -199,6 +210,26 @@ export default function KbTabDistribuidores() {
     <section>
       <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
+      {availableCountries.length > 1 && (
+        <div style={{ margin: '8px 0 12px', maxWidth: 280 }}>
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por país" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os países</SelectItem>
+              {availableCountries.map((c) => (
+                <SelectItem key={c} value={c}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <CountryFlag country={c} />
+                    {c}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <KbChips options={chips} active={chip} onChange={setChip} />
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
       <div className="kb-dgrid">
