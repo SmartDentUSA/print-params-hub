@@ -73,7 +73,7 @@ function SocialIcons({ d }: { d: Distributor }) {
   const visible = links.filter((l) => !!l.url);
   if (!visible.length) return null;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {visible.map(({ label, url, Icon, color }) => (
         <a
           key={label}
