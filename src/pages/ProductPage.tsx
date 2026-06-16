@@ -331,6 +331,56 @@ const ProductPage = () => {
             </Card>
           )}
 
+          {(() => {
+            const specs = normalizeSpecs(product.technical_specs);
+            return specs.length > 0 ? (
+              <Card className="mb-8">
+                <CardContent className="pt-6">
+                  <Accordion type="single" collapsible defaultValue="">
+                    <AccordionItem value="tech-specs" className="border-0">
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex items-center gap-2 text-base font-semibold">
+                          <BarChart3 className="w-5 h-5 text-primary" />
+                          {t('product.technical_specs') || '📊 Tabela técnica'}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="mt-4 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground w-2/5">
+                                  {t('product.spec_label') || 'Especificação'}
+                                </th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                                  {t('product.spec_value') || 'Valor'}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {specs.map((row, idx) => (
+                                <tr
+                                  key={idx}
+                                  className={cn(
+                                    "border-b border-border/50 last:border-0",
+                                    idx % 2 === 1 && "bg-muted/40"
+                                  )}
+                                >
+                                  <td className="py-2 px-3 font-medium text-foreground">{row.label}</td>
+                                  <td className="py-2 px-3 text-muted-foreground">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
+
           {(product as any).documents && (product as any).documents.length > 0 && (
             <Card className="mb-8">
               <CardHeader>
