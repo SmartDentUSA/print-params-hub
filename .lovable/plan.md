@@ -1,100 +1,77 @@
-## Objetivo
-Tornar distribuidores e eventos indexáveis por bots (Google, Perplexity, ChatGPT) através de URLs com path real + SSR no middleware de bot.
 
-## Mudanças
+# Estender o tradutor existente a todos os cards (PT/EN/ES)
 
-### 1. Frontend — rotas SPA reais (`src/App.tsx`)
-Adicionar duas rotas que reaproveitam `KnowledgeBase` forçando o tab correspondente:
+Reutilizar o padrão já em produção (`translate-content` + colunas `_en`/`_es` na própria linha + auto-trigger no viewer). Aplicar a todas as tabelas que alimentam cards da Base de Conhecimento.
 
+## Padrão atual (já funciona em artigos)
+- Tabela `knowledge_contents` tem `title_en`, `title_es`, `content_html_en`, `content_html_es`.
+- Quando o usuário entra com `language=en|es` e a coluna está vazia → edge function `translate-content` traduz via Lovable AI e faz `UPDATE` no row.
+- Próximos acessos leem direto do banco (cache permanente, custo zero).
+
+## Tabelas a estender (cards de KB)
+
+| Tabela | Campos PT a traduzir |
+|---|---|
+| `system_a_catalog` (produtos) | `name`, `description`, `product_category`, `product_subcategory`, `cta_1_label`, `cta_1_description`, `cta_2_label`, `cta_3_label`, `cta_4_label` |
+| `resins` | `name`, `description`, `processing_instructions`, `cta_1..4_label` |
+| `products_catalog` | `technical_specifications` (jsonb com `{label,value}`) |
+| `knowledge_videos` | `title`, `description` |
+| `distributors` | `name`, `description`, `region`, `specialty` |
+| `smartops_events` | `title`, `description`, `location` |
+| `knowledge_categories` | `name`, `description` |
+
+Cada campo `X` ganha `X_en` e `X_es` (text ou jsonb conforme o original). Migration única.
+
+## Edge function: `translate-card-row` (nova, genérica)
+
+Input:
+```json
+{ "table": "system_a_catalog", "id": "uuid", "target": "en"|"es" }
 ```
-/distribuidores  → <KnowledgeBase lang="pt" forcedTab="distribuidores" />
-/eventos         → <KnowledgeBase lang="pt" forcedTab="eventos" />
-```
+- Whitelist de tabelas e campos (definida no código da function).
+- Lê linha PT, monta JSON `{field: text}`, chama Lovable AI Gateway (`google/gemini-3-flash-preview`) com system prompt:
+  > "Traduza PT→{EN|ES}. Preserve nomes próprios, marcas, unidades, números, URLs. Para jsonb arrays de `{label,value}`, traduza apenas os textos descritivos. Retorne JSON com as mesmas chaves."
+- Atualiza `UPDATE <table> SET field_en=..., field_es=... WHERE id=...`.
+- Idempotente: pula campos que já têm valor não nulo.
+- Concurrency: lock leve via coluna `translating_until` (1 min) — opcional, dropável.
 
-Em `src/pages/KnowledgeBase.tsx`:
-- Adicionar prop opcional `forcedTab?: KbTab`.
-- Se presente, usar como initial tab e sincronizar URL sem query param (`?tab=...`).
+Reaproveita `aiComplete` (`_shared/ai-router.ts`) e `logAIUsage` como o `translate-content` já faz.
 
-Resultado: links e bots conseguem navegar para `/distribuidores` e `/eventos` diretamente; o conteúdo da SPA é o mesmo das abas atuais (zero duplicação).
+## Frontend
 
-### 2. Sitemap (`scripts/generate-sitemap.ts` ou `public/sitemap.xml`)
-Adicionar entradas:
-- `/distribuidores` — priority 0.8, changefreq monthly
-- `/eventos` — priority 0.8, changefreq weekly
-
-### 3. Bot SSR — `supabase/functions/seo-proxy/index.ts`
-Adicionar dois branches no roteador (linha ~2256):
-
+### Hook genérico
+`src/hooks/useTranslatedRow.ts`
 ```ts
-} else if (segments[0] === 'distribuidores' && segments.length === 1) {
-  html = await generateDistribuidoresHTML(supabase);
-} else if (segments[0] === 'eventos' && segments.length === 1) {
-  html = await generateEventosHTML(supabase);
-}
+useTranslatedRow(table, row, fields)
 ```
+- Se `language === 'pt'` → retorna PT.
+- Se já tem `field_<lang>` → retorna direto.
+- Caso contrário, dispara `supabase.functions.invoke('translate-card-row', { table, id, target })` em background, mostra PT enquanto carrega, e re-renderiza com os novos valores (refetch ou estado local).
+- Deduplica chamadas concorrentes via `Map<id+lang, Promise>` em memória.
 
-#### `generateDistribuidoresHTML(supabase)`
-- Query: `from('distributors').select('razao_social, nome_fantasia, pais, cidade, estado, site_url, instagram, owner_whatsapp, authorized_scope, logo_url, tipo, canal_venda').eq('active', true)`
-- HTML: `<title>Distribuidores e Revendas Oficiais Smart Dent | América Latina</title>`, meta description conforme briefing, canonical `${BASE_URL}/distribuidores`, hreflang PT/EN/ES (mesma URL por enquanto), OG tags, breadcrumbs schema.
-- JSON-LD `ItemList` com um `Organization` por distribuidor:
-  ```json
-  {
-    "@type": "Organization",
-    "name": "...",
-    "url": "site_url",
-    "logo": "logo_url",
-    "address": { "@type": "PostalAddress", "addressLocality": "cidade", "addressRegion": "estado", "addressCountry": "pais" },
-    "sameAs": ["instagram"],
-    "areaServed": "pais"
-  }
-  ```
-- Body visível: agrupado por país (Brasil → Chile → Colômbia → Costa Rica → República Dominicana → EUA → Uruguai → Venezuela), cards com nome, cidade/estado, escopo autorizado, link para site e WhatsApp.
-- Rodapé com link para `/base-conhecimento` e `buildBotRedirectScript('/distribuidores')` para devolver o usuário humano à SPA.
+### Aplicação nos cards
+- **`KbTabCatalogo`**: ao montar cada card, chama o hook com os fields do produto/resina; usa os valores traduzidos para `name`, `description`, CTAs e tabela técnica.
+- **Demais tabs da KB** (vídeos, distribuidores, eventos, categorias): mesmo padrão.
 
-#### `generateEventosHTML(supabase)`
-- Query: `from('smartops_events').select('*').eq('is_active', true).order('start_date')`
-- HTML: `<title>Eventos de Odontologia Digital 2026 | Smart Dent</title>`, meta description completa, canonical, OG, breadcrumbs.
-- JSON-LD `ItemList` com um `Event` por registro:
-  ```json
-  {
-    "@type": "Event",
-    "name": "...",
-    "startDate": "start_date",
-    "endDate": "end_date",
-    "eventStatus": "https://schema.org/EventScheduled",
-    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-    "location": { "@type": "Place", "name": "location", "address": { "addressCountry": "country" } },
-    "url": "website_url",
-    "image": "cover_image_url",
-    "organizer": { "@type": "Organization", "name": "Smart Dent", "url": BASE_URL }
-  }
-  ```
-- Body visível: cards com nome, datas formatadas, local, stand, link para o site oficial.
-- `buildBotRedirectScript('/eventos')` no final.
+## Migration
 
-### 4. Edge middleware (`api/middleware-bot.ts`)
-Hoje só intercepta `/base-conhecimento/{letter}/{slug}`. Ampliar o regex para também capturar `/distribuidores` e `/eventos`:
+Bloco único `ALTER TABLE ... ADD COLUMN IF NOT EXISTS field_en TEXT, ADD COLUMN IF NOT EXISTS field_es TEXT` para cada tabela/coluna. Para `technical_specifications` (jsonb), criar `technical_specifications_en JSONB`, `technical_specifications_es JSONB`. Sem alteração de RLS (colunas seguem políticas existentes).
 
-```ts
-const match =
-  url.pathname.match(/^\/base-conhecimento\/[a-z]\/([a-zA-Z0-9-]+)/) ||
-  url.pathname.match(/^\/(distribuidores|eventos)\/?$/);
-```
+## Garantias
+- **Custo único por linha+idioma**: depois de traduzir, não chama IA novamente.
+- **Sem regressão para PT**: fonte permanece intacta; tradução só lê/escreve nas colunas `_en`/`_es`.
+- **Fallback transparente**: se a tradução falhar, card aparece em PT.
+- **Whitelist no edge**: client não pode mandar tabela/campo arbitrário.
 
-Mesma lógica de fetch para o seo-proxy com `originalPath=${url.pathname}`, mesmo timeout e fallback para SPA.
+## Entregáveis
+1. Migration adicionando colunas `_en`/`_es` nas 7 tabelas.
+2. Edge function `translate-card-row` (genérica, whitelisted).
+3. Hook `useTranslatedRow`.
+4. Integração em `KbTabCatalogo` e nos demais componentes de card da KB.
 
-### 5. robots.txt / canonical
-Nenhuma mudança necessária — `Allow: /` já cobre. Garantir que canonical SSR aponta para `https://admin.smartdent.com.br/distribuidores` e `/eventos`.
+## Fora de escopo
+- Traduzir conteúdo dentro de modais já cobertos pelo `translate-content` (artigos full).
+- Tradução manual por admin (override) — pode vir depois.
+- Páginas que não são cards (parameter pages, landing, etc.).
 
-## Arquivos afetados
-- `src/App.tsx` — 2 rotas novas
-- `src/pages/KnowledgeBase.tsx` — prop `forcedTab`
-- `scripts/generate-sitemap.ts` (ou `public/sitemap.xml`) — 2 entradas
-- `supabase/functions/seo-proxy/index.ts` — 2 funções + 2 branches do roteador
-- `api/middleware-bot.ts` — regex ampliado
-
-## Validação
-1. Após deploy do edge function, `curl -A "Googlebot" https://admin.smartdent.com.br/distribuidores` deve retornar HTML server-rendered com 200 e `x-ssr-source: middleware-bot`.
-2. Idem para `/eventos`.
-3. Usuário humano em `/distribuidores` vê a SPA com a aba "Distribuidores" já ativa.
-4. Rich Results Test do Google valida o `ItemList`/`Organization`/`Event`.
+Confirma este plano para eu rodar a migration e implementar?
