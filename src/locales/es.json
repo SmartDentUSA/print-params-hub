@@ -243,7 +243,8 @@
       "catalogo": "Catálogo",
       "videos": "Videos",
       "artigos": "Artículos",
-      "distribuidores": "Revendedores"
+      "distribuidores": "Revendedores",
+      "eventos": "Eventos"
     },
     "parametros": {
       "title": "Parámetros de Impresión 3D",
