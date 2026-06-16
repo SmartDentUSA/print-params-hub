@@ -1,5 +1,7 @@
-import { useMemo } from "react";
-import { Star, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Star, Loader2, Play } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +62,23 @@ function StatusBadge({ r }: { r: GoogleReview }) {
 export function SocialReviews() {
   const { data: connection, isLoading: connLoading } = useGoogleConnection();
   const { data: reviews = [], isLoading } = useGoogleReviews();
+  const [syncing, setSyncing] = useState(false);
+
+  async function runFirstSync() {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-reviews-pull");
+      if (error) throw error;
+      const d = (data ?? {}) as { new_reviews?: number; updated?: number; errors?: number };
+      toast.success(
+        `Sincronização concluída — novos: ${d.new_reviews ?? 0}, atualizados: ${d.updated ?? 0}, erros: ${d.errors ?? 0}`,
+      );
+    } catch (err) {
+      toast.error(`Falha na sincronização: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const stats = useMemo(() => {
     if (!reviews.length) return { total: 0, avg: 0, lastSync: null as string | null };
@@ -118,6 +137,12 @@ export function SocialReviews() {
           </p>
         </div>
         <div className="flex gap-3">
+          {reviews.length === 0 && !isLoading && (
+            <Button onClick={runFirstSync} disabled={syncing} size="sm">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              Executar primeira sincronização
+            </Button>
+          )}
           <Card className="px-4 py-2">
             <div className="text-xs text-muted-foreground">Total</div>
             <div className="text-lg font-semibold">{stats.total}</div>
