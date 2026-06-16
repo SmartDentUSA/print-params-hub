@@ -291,7 +291,35 @@
       "subtitle": "Produtos Smart Dent para odontologia digital",
       "search": "Buscar produtos, resinas, scanners...",
       "count_one": "{{count}} produto encontrado",
-      "count_other": "{{count}} produtos encontrados"
+      "count_other": "{{count}} produtos encontrados",
+      "presentations": "Apresentações",
+      "print_type": "Tipo de impressão",
+      "prints_per_bottle": "Imp/Frasco",
+      "actions": {
+        "loja": "🛒 Loja",
+        "loja_title": "Loja",
+        "fds_title": "Ficha de Dados de Segurança",
+        "ifu_title": "Instruções de Uso",
+        "docs": "📑 Documentos ({{count}})",
+        "docs_title": "Certificados, laudos, apresentações e guias",
+        "specs": "📊 Tabela técnica",
+        "specs_title": "Tabela de especificações técnicas",
+        "pre_post": "🧪 Pré/Pós-Processamento",
+        "pre_post_title": "Instruções de Pré e Pós Processamento",
+        "parametrization": "📖 Parametrização",
+        "parametrization_title": "Ir para a aba Parâmetros"
+      },
+      "dialogs": {
+        "pre_post": "🧪 Pré e Pós Processamento — {{name}}",
+        "specs": "📊 Tabela técnica — {{name}}"
+      },
+      "doc_kind": {
+        "guia": "Guia",
+        "perfil": "Perfil",
+        "certificado": "Certificado",
+        "laudo": "Laudo",
+        "apresentacao": "Apresentação"
+      }
     },
     "distribuidores": {
       "title": "Revendas",
@@ -306,7 +334,11 @@
       "subtitle": "Mantenha-se atualizado sobre nossas atividades",
       "search": "Buscar eventos por nome, país ou localização...",
       "count_one": "{{count}} evento encontrado",
-      "count_other": "{{count}} eventos encontrados"
+      "count_other": "{{count}} eventos encontrados",
+      "stand": "Stand",
+      "event_site": "Site do evento",
+      "country_label": "País",
+      "flag_aria": "Bandeira do {{country}}"
     },
     "chips": {
       "all": "Todos",
