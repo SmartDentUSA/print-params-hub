@@ -1,75 +1,61 @@
-## 1. Ajuste no card de Distribuidor (`KbTabDistribuidores.tsx`)
+## Objetivo
 
-- Aumentar `CountryFlag` de 20px para **40x40 px** (border-radius proporcional, mesmo aspect).
-- Mover a linha bandeira + ícones sociais para ficar **flush à esquerda** do bloco de nome (sem padding/margem extra), alinhados ao início do título — exatamente como no print de referência.
-- Manter logo 96px, nome 700, layout horizontal.
+Substituir as descrições longas (importadas do e-commerce) por uma descrição curta (1 frase, ~160 caracteres) gerada via IA, usando os dados ricos do Sistema A (live API) + `system_a_catalog` como contexto RAG. Aplica-se **apenas às resinas** (~14 produtos da tab Catálogo).
 
-## 2. Banco de dados — nova tabela `smartops_events`
+## 1. Edge function: `smart-ops-generate-card-descriptions`
 
-Migration cria tabela pública com:
+`supabase/functions/smart-ops-generate-card-descriptions/index.ts`
 
-- `name` (texto, obrigatório)
-- `country` (texto)
-- `start_date`, `end_date` (date)
-- `location` (texto — cidade/venue)
-- `company_stand` (texto)
-- `website_url` (texto)
-- `cover_image_url` (texto — URL da capa)
-- `is_active` (boolean, default true)
-- `display_order` (int, default 0)
+- **Seleção:** `system_a_catalog` onde `active=true AND approved=true AND visible_in_ui=true` E (`product_category ILIKE '%resina%'` OR `product_subcategory ILIKE '%resina%'` OR `name ILIKE '%resina%'`).
+- **Parâmetros:** `?dry_run=true|false`, `?slug=<slug>` (gerar para 1 só), `?force=true` (regerar mesmo se já curto).
+- **Por produto:**
+  1. Buscar dossier enriquecido via `fetchEnrichedProductDossier(supabase, product.name)` (reaproveita `_shared/product-rag.ts` — junta `description`, `extra_data.benefits`, `technical_specs`, `clinical_indications` + live API: `features`, `applications`, `target_audience`).
+  2. Montar prompt com nome, categoria, descrição original (truncada), specs e benefícios.
+  3. Chamar Lovable AI Gateway (`google/gemini-2.5-flash`, `LOVABLE_API_KEY`) com instruções rígidas:
+     - 1 frase, **máx 160 chars** (cortar se exceder).
+     - Português, tom técnico-clínico.
+     - **Sem preços, sem CTA, sem aspas, sem emojis** (respeita Core memory "no prices").
+     - Estrutura: indicação clínica + 1 diferencial técnico (ex: viscosidade, cor, comprimento de onda, compatibilidade).
+  4. `UPDATE system_a_catalog SET description = <novo>, extra_data = jsonb_set(extra_data, '{description_original}', to_jsonb(description), true), updated_at=now() WHERE id = ...` — preserva original em `extra_data.description_original` para auditoria/rollback.
+  5. Log em `system_health_logs` (`function_name`, `severity:info`, contagem, falhas).
+- **Resposta JSON:** `{ processed, updated, skipped, failures: [{slug, error}] }`.
+- **CORS + verify_jwt=false** (chamada pelo Admin via `supabase.functions.invoke`).
+- **Rate limit:** delay 800ms entre chamadas; tratar 429/402 com backoff e parar gracefully.
 
-**GRANTs:** `SELECT` para `anon` + `authenticated` (público), `ALL` para `service_role`. RLS:
-- Leitura pública (qualquer um vê `is_active = true`)
-- Insert/Update/Delete restrito a `authenticated` com role `admin` (via `has_role`)
+## 2. Botão no Admin
 
-Bucket de storage `event-covers` (público) para upload das capas.
+Adicionar em `src/components/AdminCatalog.tsx` (ou onde o admin lista produtos do System A — confirmar ao implementar) um botão **"Regenerar descrições das resinas"**:
+- Confirm dialog: "Isso vai sobrescrever a descrição de ~14 resinas. Original será preservada em `extra_data.description_original`. Continuar?"
+- `supabase.functions.invoke('smart-ops-generate-card-descriptions', { body: { dry_run: false } })`
+- Toast com resultado (`processed`, `updated`, `failures.length`).
+- Botão secundário **"Dry run"** que mostra preview das descrições propostas sem gravar.
 
-## 3. Editor no SmartOps — `SmartOpsEvents.tsx`
+## 3. Frontend (sem mudança visual)
 
-Novo componente admin (estilo dos outros editores SmartOps: `SmartOpsTeam`, `SmartOpsGoals`):
+`src/components/knowledge/KbTabCatalogo.tsx` já lê `description` e roda `stripHtml()`. Como sobrescrevemos `description` direto, o card passa a renderizar a versão curta automaticamente. **Sem mudanças no componente.**
 
-- Tabela listando eventos com colunas: capa miniatura, nome, país, datas, localização, stand, site, ações (editar / desativar / excluir).
-- Botão "Novo evento" abre `Dialog` com formulário:
-  - Nome do evento (input)
-  - País (select com lista de países, mesma fonte usada em distribuidores)
-  - Data início / Data fim (Calendar shadcn com `pointer-events-auto`)
-  - Localização (input livre)
-  - Stand da empresa (input)
-  - Site do evento (input URL)
-  - Upload de capa (`ImageUpload` reaproveitado, bucket `event-covers`)
-- Salvar via `supabase.from('smartops_events').insert/update`.
+## 4. Memória
 
-Registrar a nova entrada no `AdminSidebar` (categoria SmartOps) e rota correspondente no `AdminViewSecure` / arquivo que lista as tabs SmartOps.
-
-## 4. Aba pública "Eventos" na Base de Conhecimento — `KbTabEventos.tsx`
-
-Espelho de `KbTabDistribuidores`:
-
-- `KbSectionHeader` com **título "Eventos"** e **subtítulo "Mantenha-se atualizado sobre nossas atividades"**.
-- Campo de busca idêntico (filtra por nome, país, localização).
-- Fetch `smartops_events` onde `is_active=true`, ordenado por `start_date` ascendente (próximos primeiro).
-- Card com:
-  - Capa do evento (imagem topo, 16:9, fallback placeholder)
-  - Nome (700)
-  - Datas formatadas (ex: "12–14 mar 2026")
-  - Localização + bandeira do país (40px, mesma `CountryFlag` reutilizada)
-- Skeletons e estado vazio mantendo o mesmo visual.
-
-Registrar a tab no componente pai da Base de Conhecimento (onde `?tab=distribuidores` é roteado) adicionando `?tab=eventos`.
+Adicionar `mem://catalog/ai-card-descriptions-v1`:
+- Descrições dos cards de resina são geradas pela edge `smart-ops-generate-card-descriptions` (Gemini 2.5 Flash via Lovable AI Gateway).
+- Original preservada em `extra_data.description_original`.
+- Re-sync do Loja Integrada pode sobrescrever — rodar regeneração depois de cada sync grande.
 
 ## 5. Validação
 
-- Abrir `/base-conhecimento?tab=distribuidores` — confirmar bandeira 40px e ícones flush à esquerda.
-- Abrir editor SmartOps → criar evento de teste com capa → verificar persistência.
-- Abrir `/base-conhecimento?tab=eventos` — confirmar listagem, busca e layout dos cards.
+1. Dry run para 1 resina (`?dry_run=true&slug=...`) — validar formato (≤160 chars, sem preço).
+2. Rodar para todas as resinas.
+3. Conferir no preview `/base-conhecimento?tab=catalogo&category=resinas` se os cards ficaram limpos.
 
-## Arquivos afetados
+## Arquivos
 
-- `src/components/knowledge/KbTabDistribuidores.tsx` (ajuste bandeira/alinhamento)
-- `src/components/knowledge/KbTabEventos.tsx` (novo)
-- pai da Base de Conhecimento (adicionar tab "Eventos")
-- `src/components/SmartOpsEvents.tsx` (novo)
-- `AdminSidebar.tsx` e roteamento SmartOps (adicionar entrada)
-- Migration SQL (`smartops_events` + bucket `event-covers`)
+- **Novo:** `supabase/functions/smart-ops-generate-card-descriptions/index.ts`
+- **Edit:** `src/components/AdminCatalog.tsx` (botão + invoke)
+- **Novo:** `mem/catalog/ai-card-descriptions-v1.md` + entrada em `mem/index.md`
 
-Nenhuma alteração em lógica de negócio existente, CDP, CRM ou pipelines.
+## Não muda
+
+- Schema do banco (usa coluna `description` existente + `extra_data` JSONB).
+- Sync do Sistema A / Loja Integrada.
+- Lógica de RAG da Dra. LIA (que usa `description` para dossier — texto curto continua válido; campos ricos via Sistema A live ficam intactos).
+- Outros produtos (impressoras, scanners) não são tocados.
