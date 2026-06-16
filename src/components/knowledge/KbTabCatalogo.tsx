@@ -540,18 +540,18 @@ export default function KbTabCatalogo() {
                           className="kb-action-btn"
                           onClick={() => open(lojaUrl)}
                           style={{ background: '#1A73E8', color: '#fff', borderColor: '#1A73E8' }}
-                          title="Loja"
+                          title={t('kb.catalogo.actions.loja_title')}
                         >
-                          🛒 Loja
+                          {t('kb.catalogo.actions.loja')}
                         </button>
                       )}
                       {fdsUrl && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(fdsUrl)} title="Ficha de Dados de Segurança">
+                        <button type="button" className="kb-action-btn" onClick={() => open(fdsUrl)} title={t('kb.catalogo.actions.fds_title')}>
                           📄 FDS
                         </button>
                       )}
                       {ifuUrl && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(ifuUrl)} title="Instruções de Uso">
+                        <button type="button" className="kb-action-btn" onClick={() => open(ifuUrl)} title={t('kb.catalogo.actions.ifu_title')}>
                           📘 IFU
                         </button>
                       )}
@@ -560,9 +560,9 @@ export default function KbTabCatalogo() {
                           type="button"
                           className="kb-action-btn"
                           onClick={() => setDocsModal({ name: resin?.name || p.name, docs: allExtraDocs })}
-                          title="Certificados, laudos, apresentações e guias"
+                          title={t('kb.catalogo.actions.docs_title')}
                         >
-                          📑 Documentos ({allExtraDocs.length})
+                          {t('kb.catalogo.actions.docs', { count: allExtraDocs.length })}
                         </button>
                       )}
                       {specs.length > 0 && (
@@ -570,9 +570,9 @@ export default function KbTabCatalogo() {
                           type="button"
                           className="kb-action-btn"
                           onClick={() => setSpecsModal({ name: resin?.name || p.name, specs })}
-                          title="Tabela de especificações técnicas"
+                          title={t('kb.catalogo.actions.specs_title')}
                         >
-                          📊 Tabela técnica
+                          {t('kb.catalogo.actions.specs')}
                         </button>
                       )}
                     </div>
@@ -580,14 +580,14 @@ export default function KbTabCatalogo() {
                   {presDeduped.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#5F6368', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                        Apresentações
+                        {t('kb.catalogo.presentations')}
                       </div>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: '#202124', tableLayout: 'fixed' }}>
                         <thead>
                           <tr style={{ background: '#F6F8FB', color: '#5F6368' }}>
                             <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '22%' }}>grs</th>
-                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600 }}>Tipo de impressão</th>
-                            <th style={{ textAlign: 'right', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '26%' }}>Imp/Frasco</th>
+                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600 }}>{t('kb.catalogo.print_type')}</th>
+                            <th style={{ textAlign: 'right', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '26%' }}>{t('kb.catalogo.prints_per_bottle')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -609,9 +609,9 @@ export default function KbTabCatalogo() {
                         className="kb-action-btn"
                         onClick={() => setProcResin(resin)}
                         style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                        title="Instruções de Pré e Pós Processamento"
+                        title={t('kb.catalogo.actions.pre_post_title')}
                       >
-                        🧪 Pré/Pós-Processamento
+                        {t('kb.catalogo.actions.pre_post')}
                       </button>
                     </div>
                   )}
@@ -626,9 +626,9 @@ export default function KbTabCatalogo() {
                            window.location.search = params.toString();
                          }}
                          style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                         title="Ir para a aba Parâmetros"
+                         title={t('kb.catalogo.actions.parametrization_title')}
                        >
-                         📖 Parametrização
+                         {t('kb.catalogo.actions.parametrization')}
                        </button>
                     </div>
                   )}
@@ -655,7 +655,7 @@ export default function KbTabCatalogo() {
       <Dialog open={!!procResin} onOpenChange={(v) => !v && setProcResin(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>🧪 Pré e Pós Processamento — {procResin?.name}</DialogTitle>
+            <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
           {procResin?.processing_instructions && (
             <div
@@ -669,7 +669,7 @@ export default function KbTabCatalogo() {
       <Dialog open={!!specsModal} onOpenChange={(v) => !v && setSpecsModal(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>📊 Tabela técnica — {specsModal?.name}</DialogTitle>
+            <DialogTitle>{t('kb.catalogo.dialogs.specs', { name: specsModal?.name || '' })}</DialogTitle>
           </DialogHeader>
           {specsModal && specsModal.specs.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#202124' }}>
