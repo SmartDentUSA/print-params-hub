@@ -140,6 +140,26 @@ const classifyResinDoc = (name: string, category: string | null): ResinDocKind =
   if (u.includes('PERFIL') || u.includes('CARACTER')) return 'PERFIL';
   return 'DOC';
 };
+
+const CATEGORY_I18N_KEY: Record<string, string> = {
+  'RESINAS 3D': 'kb.chips.resinas',
+  'PÓS-IMPRESSÃO': 'kb.chips.pos_impressao',
+  'POS-IMPRESSAO': 'kb.chips.pos_impressao',
+  'CARACTERIZAÇÃO': 'kb.chips.caracterizacao',
+  'CARACTERIZACAO': 'kb.chips.caracterizacao',
+  'DENTÍSTICA, ESTÉTICA E ORTODONTIA': 'kb.chips.dentistica',
+  'DENTISTICA, ESTETICA E ORTODONTIA': 'kb.chips.dentistica',
+  'SOFTWARES': 'kb.chips.softwares',
+  'SCANNERS 3D': 'kb.chips.scanners',
+  'IMPRESSÃO 3D': 'kb.chips.impressao',
+  'IMPRESSAO 3D': 'kb.chips.impressao',
+};
+const categoryLabel = (canon: string, t: (k: string) => string): string => {
+  const key = CATEGORY_I18N_KEY[canon];
+  if (!key) return canon;
+  const translated = t(key);
+  return translated && translated !== key ? translated : canon;
+};
 const resinDocIcon = (k: ResinDocKind) =>
   k === 'FDS' ? '📄' : k === 'IFU' ? '📘' : k === 'GUIA' ? '📗' : k === 'PERFIL' ? '📋'
   : k === 'CERT' ? '🏅' : k === 'LAUDO' ? '🧪' : k === 'APRES' ? '🎯' : k === 'MSDS' ? '⚠️' : '📎';
@@ -523,7 +543,7 @@ export default function KbTabCatalogo() {
                 <div className="kb-cbody">
                   <div className="kb-meta">
                     <span className="kb-cat-badge" style={{ background: bgBadge, color }}>•</span>
-                    <span className="kb-cat-label" style={{ color }}>{canon}</span>
+                    <span className="kb-cat-label" style={{ color }}>{categoryLabel(canon, t)}</span>
                     {special && (
                       <span className="kb-special-badge" style={{ background: '#1A73E810', color: '#1A73E8' }}>{special}</span>
                     )}
