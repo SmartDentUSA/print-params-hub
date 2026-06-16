@@ -250,8 +250,25 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
 
   if (!r.ok) {
     console.error("[caption] ai-router falhou", JSON.stringify(r.attempts));
+    const attemptsStr = JSON.stringify(r.attempts || []);
+    const isCredits =
+      /402|payment_required|not enough credits|used up your points|insufficient/i.test(
+        attemptsStr + " " + (r.error || ""),
+      );
+    const isRateLimited = /429|rate.?limit/i.test(attemptsStr + " " + (r.error || ""));
     const err: any = new Error(r.error || "Falha ao chamar IA");
-    err.status = 502;
+    err.code = isCredits
+      ? "AI_CREDITS_EXHAUSTED"
+      : isRateLimited
+      ? "AI_RATE_LIMITED"
+      : "AI_UNAVAILABLE";
+    err.userMessage = isCredits
+      ? "Créditos de IA esgotados. Use uma copy pronta do Sistema A ou escreva manualmente — quando os créditos forem recarregados, a geração volta automaticamente."
+      : isRateLimited
+      ? "IA temporariamente sobrecarregada. Aguarde alguns segundos e tente novamente."
+      : "IA indisponível no momento. Use uma copy pronta ou escreva manualmente.";
+    err.fallback = true;
+    err.status = 200; // responder como fallback, não 5xx
     throw err;
   }
   const raw = r.text || "{}";
@@ -332,8 +349,22 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    const status = (e as any)?.status ?? 500;
+    const anyE = e as any;
+    const status = anyE?.status ?? 500;
     console.error("[social-caption-generator]", status, (e as Error).message);
+    if (anyE?.fallback) {
+      return new Response(
+        JSON.stringify({
+          fallback: true,
+          error: anyE.code || "AI_UNAVAILABLE",
+          message: anyE.userMessage || (e as Error).message,
+          caption: "",
+          hashtags: [],
+          first_comment: "",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     return new Response(JSON.stringify({ error: (e as Error).message || "Erro interno" }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
