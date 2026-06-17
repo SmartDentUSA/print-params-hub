@@ -42,7 +42,7 @@ export default function KbTabVideos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (chip !== 'all') query = query.eq('category_id', chip);
