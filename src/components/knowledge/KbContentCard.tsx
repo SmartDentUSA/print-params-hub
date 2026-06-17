@@ -39,6 +39,13 @@ function formatDate(iso: string): string {
   } catch { return ''; }
 }
 
+function formatViews(n: number | null | undefined): string | null {
+  if (!n || n <= 0) return null;
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return `${n}`;
+}
+
 export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
   return (
