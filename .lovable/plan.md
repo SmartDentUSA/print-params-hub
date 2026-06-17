@@ -1,106 +1,33 @@
+## Objetivo
+Adicionar um campo de busca no topo do painel **Gerenciar Base de Conhecimento** (admin) que filtra os conteúdos listados em todas as categorias (A–G + ROI) por título, slug e excerpt em tempo real.
 
-# Auditoria Completa SmartDent Revenue OS
+## Onde
+- Componente: `src/components/AdminKnowledgeHub.tsx` (painel admin que renderiza as pills A•Vídeos, B•Falhas, … G•Catálogo, F•Calculadora ROI e a lista de conteúdos abaixo).
 
-Vou gerar um único arquivo Markdown consolidando uma auditoria 360° do sistema, salvo em `docs/AUDITORIA_COMPLETA_SISTEMA_2026.md` (e cópia em `/mnt/documents/` para download).
+Preciso primeiro abrir o arquivo para confirmar a estrutura exata do estado (lista de conteúdos, categoria ativa) antes de decidir se o filtro vive no estado local do Hub ou se passamos a query como prop para o sub-listador.
 
-## Escopo da auditoria
+## Mudanças
+1. Adicionar `useState<string>('')` para `search` no topo do componente.
+2. Renderizar um `<Input>` (shadcn) com ícone `Search` (lucide), placeholder "Buscar por título, slug ou trecho…", logo abaixo do título "Gerenciar Base de Conhecimento" e acima/ao lado das pills de categoria.
+3. Filtrar a lista exibida com:
+   ```ts
+   const q = search.trim().toLowerCase();
+   const filtered = !q ? items : items.filter(c =>
+     c.title?.toLowerCase().includes(q) ||
+     c.slug?.toLowerCase().includes(q) ||
+     c.excerpt?.toLowerCase().includes(q)
+   );
+   ```
+4. Quando `search` tiver valor, ignorar o filtro de categoria selecionada (busca global em todos os conteúdos carregados) e mostrar um chip "Limpando filtro de categoria" + botão "x Limpar".
+5. Estado vazio: se `filtered.length === 0 && q`, exibir "Nenhum conteúdo encontrado para '{q}'".
+6. Debounce leve (150ms) opcional — só se a lista for grande; caso contrário filtro síncrono.
 
-### 1. Arquitetura & Engenharia
-- Stack (React 18 + Vite + TS + Tailwind + shadcn, Supabase, Vercel Edge)
-- Topologia: Frontend SPA · Edge Functions (Deno) · Postgres · Cron Jobs · Bot Middleware
-- Mapa de integrações externas: PipeRun, Omie, Sellflux, Loja Integrada, Meta CAPI, Evolution API, Google Business, Astron, Panda Video, tl;dv, Zernio
-- Inventário de tabelas (190+) agrupadas por domínio (CDP, CRM, ERP, AI, Social, Conteúdo, Cursos)
-- Edge Functions ativas e responsabilidades
-- Cron jobs e locks de concorrência (cognitive_lock_ttl, smartops_deal_note_locks)
+## Não-objetivos
+- Não altera a busca pública (`/base-conhecimento`).
+- Não altera schema, RPC, nem edge functions.
+- Não toca em vídeos/catálogo separados — somente a listagem de conteúdos do Hub admin.
 
-### 2. CDP & Identidade
-- Golden Rule (`merged_into IS NULL`)
-- Identity cascade (piperun_id > email > phone)
-- Lead merge system, Smart Merge, person origin frozen
-- Commercial Intent Guard
-
-### 3. Inteligência Artificial
-- AI Router (Poe / Lovable Gateway / DeepSeek) com fallback
-- Agentes: Copilot (Senior Manager), Dra. LIA (SDR), Cognitive Engine
-- RAG architecture v4, threshold 0.56, fallback FTS/ILIKE
-- Visual Diagnostic (Gemini Flash Lite)
-- Capability Snapshot anti-alucinação
-- Logging de tokens (ai_token_usage)
-- Modelos por task type (ai_model_routing)
-
-### 4. Receita & BI
-- Fórmula: `Max(CRM_Won, Omie_Billing) + LTV_Ecommerce`
-- Pipeline funnel 4-bands
-- RFM scoring, Intelligence Score (4 eixos, 81pts)
-- Revenue gauge, forecast
-
-### 5. SEO / GEO / SERP / E-E-A-T
-- Arquitetura AI-First semantic 10/10
-- Bot middleware Vercel → seo-proxy SSR Supabase
-- llms.txt / llms-full.txt
-- Sitemap dinâmico (vídeo, conteúdo, produtos)
-- JSON-LD (Article, Product, Person, FAQ, Dataset, BreadcrumbList)
-- Person Schema E-E-A-T authors
-- Canonical paths Knowledge Base
-- Video Search Optimization
-
-### 6. Server-Side / Edge
-- Middleware Vercel detecta bots
-- SSR proxy para crawlers (Google, GPT, Perplexity)
-- Edge functions com `verify_jwt` configuradas
-- Per-instance Evolution credentials
-
-### 7. Tracking & Analytics
-- GTM-NZ64Q899 dataLayer
-- Page views omnichannel (10 tipos)
-- Tracking context persistente (sessionStorage)
-- Meta CAPI dedup
-
-### 8. Conteúdo & Knowledge Base
-- Taxonomia A-G
-- Pipeline geração conteúdo (sem preços)
-- RAG sobre knowledge_contents/videos/products
-- Slug sanitization
-
-### 9. Segurança
-- RLS em todas tabelas user-facing
-- has_role function (anti-recursão)
-- Grants explícitos public schema
-- Secrets via Supabase Vault
-- Anti prompt injection guards
-- service_role nunca no frontend
-
-### 10. Pontos Fortes
-- Cobertura ponta-a-ponta lead→cliente→retenção
-- Memory architecture (mem://) com 80+ regras versionadas
-- Resilência: cascata IA, locks TTL, fallbacks
-- AI-First SEO raro no setor
-
-### 11. Gaps & Riscos Identificados
-- Google Business Profile API aguardando quota
-- Tabelas com RLS off (revisar: agent_actions_log, social_*, cad_*, astron_*)
-- `lia_attendances` com 565 colunas (sinal de necessidade de normalização)
-- Dependência de credenciais Evolution per-instance
-- Algumas migrations sem GRANTs explícitos (verificar)
-
-### 12. Recomendações Priorizadas
-- P0: Habilitar RLS em tabelas social_* e cad_* públicas
-- P0: Normalização parcial lia_attendances (jsonb spillover)
-- P1: Observabilidade unificada (system_health_logs dashboard)
-- P1: Substituir Google Reviews v4 (deprecated) por integração alternativa enquanto aguarda quota
-- P2: Documentar SLA das cascatas IA
-- P2: Lighthouse + Core Web Vitals tracking automatizado
-
-## Entrega
-
-Arquivo único `.md` (~1500-2500 linhas) com:
-- Sumário executivo
-- Diagramas ASCII (arquitetura, fluxo CDP, cascata IA)
-- Tabelas inventário (edge functions, tabelas por domínio, integrações)
-- Checklists por dimensão
-- Matriz de riscos
-- Roadmap de remediação
-
-Saída em `docs/AUDITORIA_COMPLETA_SISTEMA_2026.md` + `<presentation-artifact>` para download.
-
-Aprovando, parto para o build.
+## Validação
+- Digitar termo → lista filtra instantaneamente em todas as categorias.
+- Apagar termo → volta ao comportamento normal (filtro por pill).
+- Sem termo + clique em pill → comportamento atual preservado.

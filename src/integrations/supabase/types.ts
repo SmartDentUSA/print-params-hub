@@ -16440,6 +16440,7 @@ export type Database = {
           enrollment_id: string
           especialidade: string | null
           id: string
+          instagram: string | null
           name: string
           phone: string | null
         }
@@ -16453,6 +16454,7 @@ export type Database = {
           enrollment_id: string
           especialidade?: string | null
           id?: string
+          instagram?: string | null
           name: string
           phone?: string | null
         }
@@ -16466,6 +16468,7 @@ export type Database = {
           enrollment_id?: string
           especialidade?: string | null
           id?: string
+          instagram?: string | null
           name?: string
           phone?: string | null
         }
