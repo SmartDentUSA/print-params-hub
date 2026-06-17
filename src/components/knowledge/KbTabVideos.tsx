@@ -21,9 +21,9 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string;
+  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
   knowledge_categories: { letter: string; name: string } | null;
-  knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null }[];
+  knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null; analytics_views: number | null }[];
 }
 
 interface Props { onOpen: (slug: string) => void }
