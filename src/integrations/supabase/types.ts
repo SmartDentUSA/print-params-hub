@@ -16213,6 +16213,10 @@ export type Database = {
           created_at: string | null
           end_date: string | null
           enrolled_count: number
+          factory_drive_folder_id: string | null
+          factory_drive_folder_url: string | null
+          factory_processed_at: string | null
+          factory_status: string | null
           id: string
           label: string
           launch_date: string | null
@@ -16234,6 +16238,10 @@ export type Database = {
           created_at?: string | null
           end_date?: string | null
           enrolled_count?: number
+          factory_drive_folder_id?: string | null
+          factory_drive_folder_url?: string | null
+          factory_processed_at?: string | null
+          factory_status?: string | null
           id?: string
           label: string
           launch_date?: string | null
@@ -16255,6 +16263,10 @@ export type Database = {
           created_at?: string | null
           end_date?: string | null
           enrolled_count?: number
+          factory_drive_folder_id?: string | null
+          factory_drive_folder_url?: string | null
+          factory_processed_at?: string | null
+          factory_status?: string | null
           id?: string
           label?: string
           launch_date?: string | null
@@ -19874,6 +19886,194 @@ export type Database = {
           tldv_id?: string | null
         }
         Relationships: []
+      }
+      training_factory_assets: {
+        Row: {
+          asset_type: string
+          caption: string | null
+          created_at: string | null
+          description: string | null
+          enrollment_id: string | null
+          first_comment: string | null
+          hashtags: string[] | null
+          id: string
+          media_height: number | null
+          media_type: string | null
+          media_url: string | null
+          media_width: number | null
+          participant_instagram: string | null
+          participant_name: string | null
+          participant_phone: string | null
+          publish_error: string | null
+          published_at: string | null
+          published_url: string | null
+          run_id: string
+          status: string
+          title: string | null
+          transcription: string | null
+          turma_id: string
+          turma_number: number
+          updated_at: string | null
+          wa_error: string | null
+          wa_sent_at: string | null
+          whatsapp_text: string | null
+          zernio_post_id: string | null
+        }
+        Insert: {
+          asset_type: string
+          caption?: string | null
+          created_at?: string | null
+          description?: string | null
+          enrollment_id?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_height?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          media_width?: number | null
+          participant_instagram?: string | null
+          participant_name?: string | null
+          participant_phone?: string | null
+          publish_error?: string | null
+          published_at?: string | null
+          published_url?: string | null
+          run_id: string
+          status?: string
+          title?: string | null
+          transcription?: string | null
+          turma_id: string
+          turma_number: number
+          updated_at?: string | null
+          wa_error?: string | null
+          wa_sent_at?: string | null
+          whatsapp_text?: string | null
+          zernio_post_id?: string | null
+        }
+        Update: {
+          asset_type?: string
+          caption?: string | null
+          created_at?: string | null
+          description?: string | null
+          enrollment_id?: string | null
+          first_comment?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_height?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          media_width?: number | null
+          participant_instagram?: string | null
+          participant_name?: string | null
+          participant_phone?: string | null
+          publish_error?: string | null
+          published_at?: string | null
+          published_url?: string | null
+          run_id?: string
+          status?: string
+          title?: string | null
+          transcription?: string | null
+          turma_id?: string
+          turma_number?: number
+          updated_at?: string | null
+          wa_error?: string | null
+          wa_sent_at?: string | null
+          whatsapp_text?: string | null
+          zernio_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_factory_assets_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_factory_assets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "training_factory_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_factory_assets_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_factory_assets_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_factory_runs: {
+        Row: {
+          created_at: string | null
+          drive_folder_id: string | null
+          drive_folder_url: string | null
+          error_message: string | null
+          id: string
+          media_uploaded: Json | null
+          published_at: string | null
+          ready_at: string | null
+          started_at: string | null
+          status: string
+          turma_id: string
+          turma_number: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
+          error_message?: string | null
+          id?: string
+          media_uploaded?: Json | null
+          published_at?: string | null
+          ready_at?: string | null
+          started_at?: string | null
+          status?: string
+          turma_id: string
+          turma_number: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
+          error_message?: string | null
+          id?: string
+          media_uploaded?: Json | null
+          published_at?: string | null
+          ready_at?: string | null
+          started_at?: string | null
+          status?: string
+          turma_id?: string
+          turma_number?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_factory_runs_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_factory_runs_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       upsell_predictions: {
         Row: {
@@ -25822,6 +26022,7 @@ export type Database = {
           whatsapp_number: string
         }[]
       }
+      fn_get_turma_factory_data: { Args: { p_turma_id: string }; Returns: Json }
       fn_import_dh_leads: {
         Args: { p_leads: Json }
         Returns: {
