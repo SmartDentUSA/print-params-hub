@@ -1,5 +1,6 @@
 import { getCategoryColor } from './kbCategoryColors';
 import { LanguageFlags } from '@/components/LanguageFlags';
+import { Share2 } from 'lucide-react';
 
 export interface KbContentCardData {
   id: string;
