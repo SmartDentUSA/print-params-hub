@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getArticleUrl } from '@/utils/knowledgeUrls';
+import { getPublicOrigin } from '@/utils/publicOrigin';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -82,7 +83,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
     viewCount: r.view_count ?? 0,
-    shareUrl: typeof window !== 'undefined' ? `${window.location.origin}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}` : undefined,
+    shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
