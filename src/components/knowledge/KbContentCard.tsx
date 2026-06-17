@@ -48,6 +48,21 @@ function formatViews(n: number | null | undefined): string | null {
 
 export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.shareUrl) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: data.title, url: data.shareUrl });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(data.shareUrl);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const viewsText = formatViews(data.viewCount);
+
   return (
     <article className="kb-card" style={{ animationDelay: `${index * 22}ms` }}>
       <div className="kb-cthumb-wrap" onClick={onClick} role="button" tabIndex={0}>
@@ -73,8 +88,23 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
         {data.excerpt && <p className="kb-excerpt">{data.excerpt}</p>}
         <LanguageFlags size="sm" className="mt-2" />
         <div className="kb-cfoot">
-          <span className="kb-date">{formatDate(data.createdAt)}</span>
-          <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>
+          <span className="kb-date">
+            {formatDate(data.createdAt)}
+            {viewsText && <span style={{ marginLeft: 4, color: '#5F6368', fontWeight: 500 }}>· {viewsText} views</span>}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {data.shareUrl && (
+              <button
+                type="button"
+                onClick={handleShare}
+                title="Compartilhar"
+                style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#5F6368', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}
+              >
+                <Share2 size={14} />
+              </button>
+            )}
+            <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>
+          </div>
         </div>
       </div>
     </article>
