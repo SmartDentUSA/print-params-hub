@@ -35,6 +35,7 @@ export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('A');
   const [contents, setContents] = useState<any[]>([]);
+  const [contentSearch, setContentSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
