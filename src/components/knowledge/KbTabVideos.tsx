@@ -73,6 +73,8 @@ export default function KbTabVideos({ onOpen }: Props) {
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
     durationSeconds: r.knowledge_videos?.[0]?.video_duration_seconds || null,
+    viewCount: r.knowledge_videos?.[0]?.analytics_views ?? r.view_count ?? 0,
+    shareUrl: typeof window !== 'undefined' ? `${window.location.origin}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}` : undefined,
   }));
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
