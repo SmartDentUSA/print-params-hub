@@ -35,6 +35,7 @@ export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('A');
   const [contents, setContents] = useState<any[]>([]);
+  const [contentSearch, setContentSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
@@ -1659,6 +1660,27 @@ Receba o texto bruto abaixo e:
         <CardTitle>Gerenciar Base de Conhecimento</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Search bar */}
+        <div className="relative mb-4">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={contentSearch}
+            onChange={(e) => setContentSearch(e.target.value)}
+            placeholder="Buscar por título, slug ou trecho…"
+            className="pl-9 pr-9"
+          />
+          {contentSearch && (
+            <button
+              type="button"
+              onClick={() => setContentSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded"
+              title="Limpar busca"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-2">
@@ -1726,7 +1748,21 @@ Receba o texto bruto abaixo e:
 
               {/* Contents List */}
               <div className="space-y-3">
-                {contents.map((content) => (
+                {(() => {
+                  const q = contentSearch.trim().toLowerCase();
+                  const filtered = !q ? contents : contents.filter((c: any) =>
+                    (c.title || '').toLowerCase().includes(q) ||
+                    (c.slug || '').toLowerCase().includes(q) ||
+                    (c.excerpt || '').toLowerCase().includes(q)
+                  );
+                  if (q && filtered.length === 0) {
+                    return (
+                      <div className="p-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg text-center">
+                        Nenhum conteúdo encontrado para "{contentSearch}" nesta categoria.
+                      </div>
+                    );
+                  }
+                  return filtered.map((content: any) => (
                   <div key={content.id} className="p-4 border border-border rounded-lg bg-card">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1751,7 +1787,8 @@ Receba o texto bruto abaixo e:
                       </div>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
 
                 {/* Add Button */}
                 <Button 
