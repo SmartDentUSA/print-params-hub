@@ -40,11 +40,11 @@ function formatDate(iso: string): string {
   } catch { return ''; }
 }
 
-function formatViews(n: number | null | undefined): string | null {
-  if (!n || n <= 0) return null;
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return `${n}`;
+function formatViews(n: number | null | undefined): string {
+  const v = typeof n === 'number' && n > 0 ? n : 0;
+  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+  return `${v}`;
 }
 
 export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
@@ -120,7 +120,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
         <div className="kb-cfoot">
           <span className="kb-date">
             {formatDate(data.createdAt)}
-            {viewsText && <span style={{ marginLeft: 4, color: '#5F6368', fontWeight: 500 }}>· {viewsText} views</span>}
+            <span style={{ marginLeft: 4, color: '#5F6368', fontWeight: 500 }}>· {viewsText} views</span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {data.shareUrl && (
