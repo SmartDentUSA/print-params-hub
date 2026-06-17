@@ -1660,6 +1660,27 @@ Receba o texto bruto abaixo e:
         <CardTitle>Gerenciar Base de Conhecimento</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Search bar */}
+        <div className="relative mb-4">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={contentSearch}
+            onChange={(e) => setContentSearch(e.target.value)}
+            placeholder="Buscar por título, slug ou trecho…"
+            className="pl-9 pr-9"
+          />
+          {contentSearch && (
+            <button
+              type="button"
+              onClick={() => setContentSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded"
+              title="Limpar busca"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-2">
