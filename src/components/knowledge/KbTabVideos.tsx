@@ -56,7 +56,15 @@ export default function KbTabVideos({ onOpen }: Props) {
       const { data, error } = await query;
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
-        else setRows((data || []) as any);
+        else {
+          const sorted = ((data || []) as any[]).slice().sort((a, b) => {
+            const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
+            const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
+            if (vb !== va) return vb - va;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+          setRows(sorted as any);
+        }
         setLoading(false);
       }
     })();

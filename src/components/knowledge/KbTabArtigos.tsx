@@ -64,7 +64,13 @@ export default function KbTabArtigos({ onOpen }: Props) {
         if (error) { console.error(error); setRows([]); }
         else {
           const filtered = (data || []).filter((r: any) => !videoIds.has(r.id));
-          setRows(filtered as any);
+          const sorted = filtered.slice().sort((a: any, b: any) => {
+            const va = a.view_count ?? 0;
+            const vb = b.view_count ?? 0;
+            if (vb !== va) return vb - va;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+          setRows(sorted as any);
         }
         setLoading(false);
       }
