@@ -11,6 +11,8 @@ export interface KbContentCardData {
   categoryLetter: string | null;
   categoryName: string | null;
   durationSeconds?: number | null;
+  viewCount?: number | null;
+  shareUrl?: string;
 }
 
 interface Props {
