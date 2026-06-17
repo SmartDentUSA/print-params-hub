@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getArticleUrl } from '@/utils/knowledgeUrls';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -20,9 +21,9 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string;
+  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
   knowledge_categories: { letter: string; name: string } | null;
-  knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null }[];
+  knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null; analytics_views: number | null }[];
 }
 
 interface Props { onOpen: (slug: string) => void }
@@ -41,7 +42,7 @@ export default function KbTabVideos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (chip !== 'all') query = query.eq('category_id', chip);
@@ -72,6 +73,8 @@ export default function KbTabVideos({ onOpen }: Props) {
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
     durationSeconds: r.knowledge_videos?.[0]?.video_duration_seconds || null,
+    viewCount: r.knowledge_videos?.[0]?.analytics_views ?? r.view_count ?? 0,
+    shareUrl: typeof window !== 'undefined' ? `${window.location.origin}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}` : undefined,
   }));
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));

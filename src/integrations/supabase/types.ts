@@ -5896,6 +5896,7 @@ export type Database = {
           title_es: string | null
           updated_at: string | null
           veredict_data: Json | null
+          view_count: number | null
         }
         Insert: {
           active?: boolean | null
@@ -5952,6 +5953,7 @@ export type Database = {
           title_es?: string | null
           updated_at?: string | null
           veredict_data?: Json | null
+          view_count?: number | null
         }
         Update: {
           active?: boolean | null
@@ -6008,6 +6010,7 @@ export type Database = {
           title_es?: string | null
           updated_at?: string | null
           veredict_data?: Json | null
+          view_count?: number | null
         }
         Relationships: [
           {

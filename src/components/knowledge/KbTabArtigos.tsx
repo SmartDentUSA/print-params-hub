@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getArticleUrl } from '@/utils/knowledgeUrls';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbChips, { KbChipOption } from './KbChips';
@@ -20,7 +21,7 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string;
+  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
   knowledge_categories: { letter: string; name: string } | null;
 }
 
@@ -47,7 +48,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, knowledge_categories!inner(letter,name)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (chip !== 'all') query = query.eq('category_id', chip);
@@ -80,6 +81,8 @@ export default function KbTabArtigos({ onOpen }: Props) {
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
+    viewCount: r.view_count ?? 0,
+    shareUrl: typeof window !== 'undefined' ? `${window.location.origin}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}` : undefined,
   }));
 
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));

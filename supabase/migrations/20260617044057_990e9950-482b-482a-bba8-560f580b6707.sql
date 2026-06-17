@@ -1,0 +1,1 @@
+ALTER TABLE knowledge_contents ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0;
