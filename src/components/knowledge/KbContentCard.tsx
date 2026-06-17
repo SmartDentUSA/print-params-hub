@@ -1,6 +1,7 @@
 import { getCategoryColor } from './kbCategoryColors';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface KbContentCardData {
   id: string;
@@ -49,16 +50,45 @@ function formatViews(n: number | null | undefined): string | null {
 export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
 
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* fallthrough */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch { return false; }
+  };
+
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (!data.shareUrl) return;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: data.title, url: data.shareUrl });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(data.shareUrl);
+    const url = data.shareUrl;
+    // Try native share first (mobile); falls through to clipboard on failure or unsupported
+    if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
+      try {
+        await (navigator as any).share({ title: data.title, url });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return; // user cancelled
+        // otherwise fall back to clipboard
       }
-    } catch { /* ignore */ }
+    }
+    const ok = await copyToClipboard(url);
+    if (ok) toast.success('Link copiado!', { description: url });
+    else toast.error('Não foi possível copiar o link');
   };
 
   const viewsText = formatViews(data.viewCount);
