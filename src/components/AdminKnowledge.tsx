@@ -1748,7 +1748,21 @@ Receba o texto bruto abaixo e:
 
               {/* Contents List */}
               <div className="space-y-3">
-                {contents.map((content) => (
+                {(() => {
+                  const q = contentSearch.trim().toLowerCase();
+                  const filtered = !q ? contents : contents.filter((c: any) =>
+                    (c.title || '').toLowerCase().includes(q) ||
+                    (c.slug || '').toLowerCase().includes(q) ||
+                    (c.excerpt || '').toLowerCase().includes(q)
+                  );
+                  if (q && filtered.length === 0) {
+                    return (
+                      <div className="p-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg text-center">
+                        Nenhum conteúdo encontrado para "{contentSearch}" nesta categoria.
+                      </div>
+                    );
+                  }
+                  return filtered.map((content: any) => (
                   <div key={content.id} className="p-4 border border-border rounded-lg bg-card">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1773,7 +1787,8 @@ Receba o texto bruto abaixo e:
                       </div>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
 
                 {/* Add Button */}
                 <Button 
