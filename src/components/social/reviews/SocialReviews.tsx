@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useGoogleConnection, useGoogleReviews, type GoogleReview } from "./useGoogleReviews";
+import { useGoogleConnection, useGoogleReviews, usePlacesReputation, type GoogleReview, type PlacesReview } from "./useGoogleReviews";
+import { useQueryClient } from "@tanstack/react-query";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
@@ -62,17 +63,23 @@ function StatusBadge({ r }: { r: GoogleReview }) {
 export function SocialReviews() {
   const { data: connection, isLoading: connLoading } = useGoogleConnection();
   const { data: reviews = [], isLoading } = useGoogleReviews();
+  const { data: places, isLoading: placesLoading, refetch: refetchPlaces } = usePlacesReputation();
   const [syncing, setSyncing] = useState(false);
+  const qc = useQueryClient();
 
   async function runFirstSync() {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-reviews-pull");
+      const { data, error } = await supabase.functions.invoke("sync-google-reviews");
       if (error) throw error;
-      const d = (data ?? {}) as { new_reviews?: number; updated?: number; errors?: number };
+      const d = (data ?? {}) as { rating?: number; review_count?: number; reviews_synced?: number };
       toast.success(
-        `Sincronização concluída — novos: ${d.new_reviews ?? 0}, atualizados: ${d.updated ?? 0}, erros: ${d.errors ?? 0}`,
+        `Sincronização concluída — ${d.reviews_synced ?? 0} avaliações (média ${d.rating ?? 0}★ • ${d.review_count ?? 0} total)`,
       );
+      await Promise.all([
+        refetchPlaces(),
+        qc.invalidateQueries({ queryKey: ["places-reputation"] }),
+      ]);
     } catch (err) {
       toast.error(`Falha na sincronização: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -80,47 +87,25 @@ export function SocialReviews() {
     }
   }
 
-  const stats = useMemo(() => {
-    if (!reviews.length) return { total: 0, avg: 0, lastSync: null as string | null };
-    const total = reviews.length;
-    const sum = reviews.reduce((acc, r) => acc + (r.star_rating ?? 0), 0);
-    const avg = sum / total;
-    const lastSync = reviews
-      .map((r) => r.reply_time ?? r.create_time)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0] ?? null;
-    return { total, avg, lastSync };
-  }, [reviews]);
+  const placesReviews: PlacesReview[] = useMemo(() => {
+    if (!places) return [];
+    return [
+      ...(places.google_reviews_pt ?? []),
+      ...(places.google_reviews_en ?? []),
+      ...(places.google_reviews_es ?? []),
+    ].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+  }, [places]);
 
-  if (connLoading) {
+  const stats = useMemo(() => ({
+    total: places?.google_review_count ?? 0,
+    avg: places?.google_rating ?? 0,
+    lastSync: places?.last_synced_at ?? null,
+  }), [places]);
+
+  if (placesLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!connection) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] px-6">
-        <Card className="max-w-lg w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500" /> Avaliações Google
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Conecte o Google Business Profile para que a IA responda automaticamente,
-              a cada 3 dias, todas as novas avaliações da sua empresa no Google.
-              Não há ações manuais — tudo roda sozinho.
-            </p>
-            <Button asChild className="w-full" size="lg">
-              <a href={buildOAuthUrl()}>Conectar Google Business Profile</a>
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -133,23 +118,15 @@ export function SocialReviews() {
             <Star className="w-6 h-6 text-yellow-500" /> Avaliações Google
           </h1>
           <p className="text-sm text-muted-foreground">
-            Histórico de avaliações e respostas publicadas automaticamente pela IA.
+            Reputação no Google (Places API). Respostas automáticas via Business Profile API serão liberadas quando a aprovação chegar.
           </p>
       </div>
 
-      {reviews.length === 0 && !isLoading && (
-        <div className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-200">
-          ⏳ Aguardando liberação da Google Business Profile API pelo Google. A sincronização automática será ativada assim que a aprovação for concluída (prazo: algumas horas a dias úteis). Nenhuma ação necessária.
-        </div>
-      )}
-
         <div className="flex gap-3">
-          {reviews.length === 0 && !isLoading && (
-            <Button onClick={runFirstSync} disabled={syncing} size="sm">
-              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              Executar primeira sincronização
-            </Button>
-          )}
+          <Button onClick={runFirstSync} disabled={syncing} size="sm">
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {placesReviews.length === 0 ? "Executar primeira sincronização" : "Sincronizar agora"}
+          </Button>
           <Card className="px-4 py-2">
             <div className="text-xs text-muted-foreground">Total</div>
             <div className="text-lg font-semibold">{stats.total}</div>
@@ -157,7 +134,7 @@ export function SocialReviews() {
           <Card className="px-4 py-2">
             <div className="text-xs text-muted-foreground">Média</div>
             <div className="text-lg font-semibold flex items-center gap-1">
-              {stats.avg.toFixed(1)} <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              {Number(stats.avg).toFixed(1)} <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
             </div>
           </Card>
           <Card className="px-4 py-2">
@@ -168,14 +145,77 @@ export function SocialReviews() {
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Avaliações públicas (Places API)</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
+          {placesReviews.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">
+              Nenhuma avaliação carregada ainda. Clique em "Executar primeira sincronização".
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Avaliação</TableHead>
+                  <TableHead className="min-w-[320px]">Mensagem</TableHead>
+                  <TableHead>Quando</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {placesReviews.map((r, i) => (
+                  <TableRow key={`${r.author_name}-${r.time}-${i}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-8 h-8">
+                          {r.profile_photo_url && <AvatarImage src={r.profile_photo_url} alt={r.author_name ?? ""} />}
+                          <AvatarFallback>{(r.author_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{r.author_name ?? "Anônimo"}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell><Stars n={r.rating} /></TableCell>
+                    <TableCell>
+                      <p className="text-sm line-clamp-4 max-w-xl" title={r.text ?? ""}>
+                        {r.text || <span className="text-muted-foreground italic">(sem comentário)</span>}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {r.relative_time_description ?? (r.time ? fmtDate(new Date(r.time * 1000).toISOString()) : "—")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            Respostas automáticas (Business Profile API)
+            <Badge variant="outline">Em breve</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!connection ? (
+            <div className="px-6 py-8 space-y-3 text-sm text-muted-foreground">
+              <p>
+                Aguardando liberação da Google Business Profile API. Quando aprovada, conecte sua conta para que a IA responda automaticamente cada nova avaliação.
+              </p>
+              <Button asChild variant="outline" size="sm">
+                <a href={buildOAuthUrl()}>Conectar Google Business Profile</a>
+              </Button>
+            </div>
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : reviews.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
-              Nenhuma avaliação ainda. A sincronização automática roda a cada 3 dias.
+              Nenhuma resposta automatizada ainda. A sincronização roda a cada 3 dias após a aprovação.
             </div>
           ) : (
             <Table>
