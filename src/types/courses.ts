@@ -44,6 +44,8 @@ export interface Turma {
   end_date?: string;
   end_time?: string;
   turma_number?: number | null;
+  factory_status?: 'processando' | 'pronto' | 'publicando' | 'concluido' | 'erro' | string | null;
+  factory_processed_at?: string | null;
 }
 
 export interface TurmaComVagas extends Turma {
