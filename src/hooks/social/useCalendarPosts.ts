@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CalendarPost {
@@ -17,6 +18,32 @@ export interface CalendarPost {
 }
 
 export function useCalendarPosts(from: Date, to: Date) {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('social-calendar-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'social_scheduled_posts' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['social-calendar-posts'] });
+          qc.invalidateQueries({ queryKey: ['social-upcoming-posts'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'social_posts' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['social-calendar-posts'] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
   return useQuery({
     queryKey: ['social-calendar-posts', from.toISOString(), to.toISOString()],
     queryFn: async (): Promise<CalendarPost[]> => {

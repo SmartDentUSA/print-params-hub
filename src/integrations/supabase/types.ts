@@ -4504,6 +4504,7 @@ export type Database = {
           facebook: string | null
           id: string
           instagram: string | null
+          last_published_at: string | null
           linkedin: string | null
           logo_url: string | null
           name_en: string | null
@@ -4521,7 +4522,9 @@ export type Database = {
           razao_social: string
           region_en: string | null
           region_es: string | null
+          schema_json: Json | null
           site_url: string | null
+          slug: string | null
           specialty_en: string | null
           specialty_es: string | null
           tipo: string
@@ -4549,6 +4552,7 @@ export type Database = {
           facebook?: string | null
           id?: string
           instagram?: string | null
+          last_published_at?: string | null
           linkedin?: string | null
           logo_url?: string | null
           name_en?: string | null
@@ -4566,7 +4570,9 @@ export type Database = {
           razao_social: string
           region_en?: string | null
           region_es?: string | null
+          schema_json?: Json | null
           site_url?: string | null
+          slug?: string | null
           specialty_en?: string | null
           specialty_es?: string | null
           tipo?: string
@@ -4594,6 +4600,7 @@ export type Database = {
           facebook?: string | null
           id?: string
           instagram?: string | null
+          last_published_at?: string | null
           linkedin?: string | null
           logo_url?: string | null
           name_en?: string | null
@@ -4611,7 +4618,9 @@ export type Database = {
           razao_social?: string
           region_en?: string | null
           region_es?: string | null
+          schema_json?: Json | null
           site_url?: string | null
+          slug?: string | null
           specialty_en?: string | null
           specialty_es?: string | null
           tipo?: string
@@ -16808,11 +16817,15 @@ export type Database = {
           end_date: string | null
           id: string
           is_active: boolean
+          knowledge_content_id: string | null
+          last_published_at: string | null
           location: string | null
           location_en: string | null
           location_es: string | null
           name: string
           notes: string | null
+          schema_json: Json | null
+          slug: string | null
           start_date: string | null
           title_en: string | null
           title_es: string | null
@@ -16832,11 +16845,15 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          knowledge_content_id?: string | null
+          last_published_at?: string | null
           location?: string | null
           location_en?: string | null
           location_es?: string | null
           name: string
           notes?: string | null
+          schema_json?: Json | null
+          slug?: string | null
           start_date?: string | null
           title_en?: string | null
           title_es?: string | null
@@ -16856,11 +16873,15 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          knowledge_content_id?: string | null
+          last_published_at?: string | null
           location?: string | null
           location_en?: string | null
           location_es?: string | null
           name?: string
           notes?: string | null
+          schema_json?: Json | null
+          slug?: string | null
           start_date?: string | null
           title_en?: string | null
           title_es?: string | null
@@ -16869,7 +16890,15 @@ export type Database = {
           updated_at?: string
           website_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smartops_events_knowledge_content_id_fkey"
+            columns: ["knowledge_content_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_contents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       smartops_form_field_responses: {
         Row: {

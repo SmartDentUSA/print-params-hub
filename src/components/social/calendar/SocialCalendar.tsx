@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, addMonths, format, isSameDay, isSameMonth,
@@ -92,6 +92,19 @@ export function SocialCalendar() {
           <p className="text-sm text-muted-foreground">Arraste posts entre datas para reagendar</p>
         </div>
         <Button onClick={() => navigate('/social/novo')}>Criar Post</Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            window.open(
+              '/social/calendario',
+              'social-calendar-popout',
+              'noopener,noreferrer,width=1400,height=900',
+            )
+          }
+          title="Abrir em nova janela (atualiza em tempo real)"
+        >
+          <ExternalLink className="w-4 h-4" /> Abrir em nova janela
+        </Button>
       </div>
 
       <Card className="p-4 space-y-3">
