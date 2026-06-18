@@ -290,7 +290,7 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto da me
           enrollment_id: d.enrollment_id || null,
           media_url: d.video_url || null,
           media_type: "video",
-          transcription: d.transcription || null,
+          transcription: d.transcricao || null,
           participant_name: d.nome,
           participant_phone: d.telefone,
           participant_instagram: d.instagram,
