@@ -110,8 +110,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-6",
-        max_tokens: 1024,
+        model: "openai/gpt-4o-mini-transcribe",
         messages: [
           {
             role: "user",
@@ -119,11 +118,11 @@ Deno.serve(async (req) => {
               {
                 type: "text",
                 text:
-                  "Transcreva este depoimento odontológico em português. Retorne apenas a transcrição limpa, sem formatação adicional.",
+                  "Transcreva este depoimento em português. Retorne apenas a transcrição limpa.",
               },
               {
-                type: "image_url",
-                image_url: { url: `data:${mime};base64,${b64}` },
+                type: "input_audio",
+                input_audio: { data: b64, format: "mp4" },
               },
             ],
           },
