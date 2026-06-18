@@ -198,7 +198,7 @@ Requisitos:
 - Mencionar número da turma (#${turma_number}), curso e equipamento
 - Quantidade de participantes (${qtdParticipantes}) e estados representados (${estados.join(", ")})
 - Convite para comentar
-- Terminar com: #odontologiadigital #smartdent #chairsideprint #impressao3d #ino200 #odontologia
+- NÃO inclua hashtags na caption — o sistema de publicação anexa as hashtags automaticamente
 
 Dados da turma:
 ${turmaContext}
