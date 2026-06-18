@@ -87,14 +87,15 @@ export function SocialReviews() {
     }
   }
 
+  const [lang, setLang] = useState<"pt" | "en" | "es">("pt");
   const placesReviews: PlacesReview[] = useMemo(() => {
     if (!places) return [];
-    return [
-      ...(places.google_reviews_pt ?? []),
-      ...(places.google_reviews_en ?? []),
-      ...(places.google_reviews_es ?? []),
-    ].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
-  }, [places]);
+    const src =
+      lang === "en" ? places.google_reviews_en
+      : lang === "es" ? places.google_reviews_es
+      : places.google_reviews_pt;
+    return [...(src ?? [])].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+  }, [places, lang]);
 
   const stats = useMemo(() => ({
     total: places?.google_review_count ?? 0,
