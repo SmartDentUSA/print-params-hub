@@ -95,7 +95,7 @@ body{width:1080px;height:1080px;font-family:'Helvetica Neue',Arial,sans-serif;po
 .logo-tr svg,.logo-tr img{width:100%;height:auto;display:block;}
 .foot-logo svg,.foot-logo img{width:100%;height:auto;display:block;}`;
 
-function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoWhite: string }) {
+function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 .logo-tr{top:32px;right:32px;}
 body{background:#0A0F1E;color:#fff;}
@@ -112,7 +112,7 @@ body{background:#0A0F1E;color:#fff;}
 </style></head><body>
 <div class="bg"></div><div class="overlay-top"></div><div class="overlay-bottom"></div>
 <div class="badge">${escapeHtml(p.num)}</div>
-<img class="logo-tr" src="${p.logoWhite}" />
+<div class="logo-tr">${LOGO_WHITE_SVG}</div>
 <div class="content">
   <div class="label">CURSO IMERSIVO</div>
   <div class="h1">ODONTOLOGIA DIGITAL</div>
