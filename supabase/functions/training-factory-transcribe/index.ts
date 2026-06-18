@@ -101,26 +101,42 @@ Deno.serve(async (req) => {
     assetIdForError = asset_id;
 
     const { bytes } = await fetchCapped(audio_url, MAX_BYTES);
-
-    const audioBlob = new Blob([bytes], { type: "audio/mp4" });
-    const formData = new FormData();
-    formData.append("file", audioBlob, "audio.mp4");
-    formData.append("model", "openai/gpt-4o-mini-transcribe");
-    formData.append("language", "pt");
-    formData.append("response_format", "text");
+    const b64 = toBase64(bytes);
 
     const res = await fetch(LOVABLE_AI_URL, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: formData,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Transcreva este depoimento em português brasileiro. Retorne apenas a transcrição limpa, sem formatação, sem timestamps, sem identificação de falantes.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:video/mp4;base64,${b64}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
     });
     if (!res.ok) {
       const txt = await res.text();
       throw new Error(`AI Gateway ${res.status}: ${txt}`);
     }
-    const transcription = (await res.text()).trim();
+    const data = await res.json();
+    const transcription = (data?.choices?.[0]?.message?.content ?? "").trim();
 
     const { error: updErr } = await supabase
       .from("training_factory_assets")
