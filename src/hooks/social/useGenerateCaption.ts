@@ -9,6 +9,7 @@ export interface GenerateCaptionInput {
   tone?: string;
   language?: string;
   external_enrichment?: any;
+  extra_products?: Array<{ name: string; slug?: string; category?: string }>;
 }
 
 export interface GenerateCaptionResult {
