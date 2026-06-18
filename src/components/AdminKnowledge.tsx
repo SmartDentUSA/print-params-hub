@@ -186,7 +186,8 @@ Receba o texto bruto abaixo e:
     aiPromptTemplate: '',
     selected_pdf_ids_pt: [] as string[],
     selected_pdf_ids_es: [] as string[],
-    selected_pdf_ids_en: [] as string[]
+    selected_pdf_ids_en: [] as string[],
+    category_id: '' as string,
   });
   
   const { 
@@ -908,7 +909,8 @@ Receba o texto bruto abaixo e:
       aiPromptTemplate: (content as any).ai_prompt_template || '',
       selected_pdf_ids_pt: content.selected_pdf_ids_pt || [],
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
-      selected_pdf_ids_en: content.selected_pdf_ids_en || []
+      selected_pdf_ids_en: content.selected_pdf_ids_en || [],
+      category_id: content.category_id || '',
     });
     
     // Load multilingual content
@@ -962,7 +964,8 @@ Receba o texto bruto abaixo e:
       aiPromptTemplate: '',
       selected_pdf_ids_pt: [],
       selected_pdf_ids_es: [],
-      selected_pdf_ids_en: []
+      selected_pdf_ids_en: [],
+      category_id: '',
     });
     
     // Reset multilingual states
@@ -1049,7 +1052,8 @@ Receba o texto bruto abaixo e:
     }
 
     try {
-      const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
+      const categoryId = formData.category_id
+        || categories.find(c => c.letter === selectedCategory)?.id;
       
       const contentData = {
         title: formData.title,
@@ -1863,6 +1867,28 @@ Receba o texto bruto abaixo e:
                     value={formData.excerpt}
                     onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
                   />
+                </div>
+
+                <div>
+                  <Label>Categoria</Label>
+                  <Select
+                    value={formData.category_id || categories.find(c => c.letter === selectedCategory)?.id || ''}
+                    onValueChange={(value) => setFormData({...formData, category_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.letter} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use este seletor para mover o artigo para outra categoria.
+                  </p>
                 </div>
                 
                 {/* Botão Gerar Título + Resumo por IA */}
