@@ -8,16 +8,16 @@ const DepoimentoSchema = z.object({
   enrollment_id: z.string().optional().nullable(),
   nome: z.string().optional().default(""),
   telefone: z.string().optional().default(""),
-  instagram: z.string().optional().default(""),
+  instagram: z.string().nullable().optional(),
   video_url: z.string().optional().default(""),
-  audio_url: z.string().optional().default(""),
+  audio_url: z.string().nullable().optional(),
 });
 
 const BodySchema = z.object({
   turma_number: z.number().int(),
   media: z.object({
-    foto_grupo: z.string().optional().default(""),
-    reel_url: z.string().optional().default(""),
+    foto_grupo: z.string().nullable().optional(),
+    reel_url: z.string().nullable().optional(),
     depoimentos: z.array(DepoimentoSchema).default([]),
     fotos_dia: z
       .object({
