@@ -302,8 +302,9 @@ function CatalogoTab() {
           recurrence_until, recurrence_time_start, recurrence_time_end,
           whatsapp_group_link,
           turmas:smartops_course_turmas (
-            id, label, slots, enrolled_count, active,
+            id, label, turma_number, slots, enrolled_count, active,
             recurrence_parent_id, recurrence_index, sort_order,
+            factory_status, factory_processed_at,
             days:smartops_turma_days (day_number, date, start_time, end_time)
           )
         `)
