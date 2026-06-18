@@ -1,5 +1,5 @@
-import React from "react";
-import { Share2, MoreVertical, MapPin, Video, User } from "lucide-react";
+import React, { useState } from "react";
+import { Share2, MoreVertical, MapPin, Video, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -13,6 +13,7 @@ import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroup
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
+import { TurmaFactoryDialog } from "@/components/smartops/TurmaFactoryDialog";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -56,6 +57,21 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
   const effectiveWaGroup = waGroup ?? (turma.whatsapp_group_link
     ? { id: "link-only", nome: null }
     : null);
+  const [factoryOpen, setFactoryOpen] = useState(false);
+  const hasFactory = turma.factory_status != null;
+  const factoryVariant: Variant =
+    turma.factory_status === "concluido" ? "green"
+    : turma.factory_status === "pronto" ? "blue"
+    : turma.factory_status === "processando" ? "amber"
+    : turma.factory_status === "erro" ? "red"
+    : "muted";
+  const factoryLabel =
+    turma.factory_status === "concluido" ? "Publicado"
+    : turma.factory_status === "pronto" ? "Pronto para publicar"
+    : turma.factory_status === "processando" ? "Processando"
+    : turma.factory_status === "publicando" ? "Publicando"
+    : turma.factory_status === "erro" ? "Erro"
+    : "Factory";
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -109,6 +125,22 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
           </DropdownMenu>
         </div>
       </div>
+
+      {hasFactory && (
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => setFactoryOpen(true)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium hover:opacity-80 transition",
+              STATUS_PILL[factoryVariant]
+            )}
+          >
+            <Sparkles className="w-3 h-3" />
+            Factory · {factoryLabel}
+          </button>
+        </div>
+      )}
 
       {/* Title */}
       <h3 className="font-semibold text-foreground leading-snug mb-1 line-clamp-2">
@@ -174,6 +206,18 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
           </Button>
         </div>
       </div>
+
+      {hasFactory && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <TurmaFactoryDialog
+            open={factoryOpen}
+            onOpenChange={setFactoryOpen}
+            turmaId={turma.id}
+            turmaLabel={turma.label}
+            factoryStatus={turma.factory_status as any}
+          />
+        </div>
+      )}
     </div>
   );
 }
