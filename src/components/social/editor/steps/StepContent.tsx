@@ -46,8 +46,30 @@ export function StepContent({
   onPickSystemACarousel,
 }: Props) {
   const [tagInput, setTagInput] = useState('');
-  const [aiInstructions, setAiInstructions] = useState('');
+  const TONE_PROMPTS: Record<string, string> = {
+    Profissional:
+      'Tom consultivo e técnico para dentistas e protéticos. Destaque precisão, previsibilidade clínica, fluxo digital integrado e ROI no consultório/laboratório. Evite gírias. Use vocabulário do setor odontológico (CAD/CAM, escaneamento intraoral, impressão 3D, fluxo digital).',
+    Educativo:
+      'Tom didático passo a passo, como se ensinasse um colega. Explique o "porquê" antes do "como", traga 1 dica prática aplicável hoje no consultório/lab e finalize com um convite para aprender mais. Use bullets curtos e analogias do dia a dia clínico.',
+    Direto:
+      'Tom curto, objetivo e de alta conversão. Gancho forte na 1ª linha, 3 bullets de benefício, 1 CTA claro. Sem rodeios, sem floreios. Foco em quem precisa decidir rápido.',
+    Inspirador:
+      'Tom motivacional e aspiracional. Conecte tecnologia + transformação da rotina do dentista/protético. Mostre o "antes x depois" do fluxo digital, traga visão de futuro da odontologia e finalize com uma frase de impacto que provoque ação.',
+  };
   const [aiTone, setAiTone] = useState('Profissional');
+  const [aiInstructions, setAiInstructions] = useState(TONE_PROMPTS['Profissional']);
+
+  const handleToneChange = (newTone: string) => {
+    setAiTone(newTone);
+    // Substitui o prompt apenas se o usuário não digitou conteúdo customizado
+    // (vazio ou igual a algum preset conhecido)
+    const current = aiInstructions.trim();
+    const isPreset = current === '' || Object.values(TONE_PROMPTS).some((p) => p.trim() === current);
+    if (isPreset) {
+      setAiInstructions(TONE_PROMPTS[newTone] || '');
+    }
+  };
+
   const generate = useGenerateCaption();
 
   const platform = value.channels?.[0]?.platform || 'instagram';
@@ -459,7 +481,7 @@ export function StepContent({
             onChange={(e) => setAiInstructions(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={aiTone} onValueChange={setAiTone}>
+            <Select value={aiTone} onValueChange={handleToneChange}>
               <SelectTrigger className="w-44 h-9">
                 <SelectValue />
               </SelectTrigger>
@@ -471,6 +493,16 @@ export function StepContent({
               </SelectContent>
             </Select>
             <Badge variant="outline" className="capitalize">{platform}</Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-9 text-xs"
+              onClick={() => setAiInstructions(TONE_PROMPTS[aiTone] || '')}
+              title="Substitui o campo de instruções pelo prompt padrão deste tom"
+            >
+              Aplicar prompt do tom
+            </Button>
             <Button
               type="button"
               size="sm"
