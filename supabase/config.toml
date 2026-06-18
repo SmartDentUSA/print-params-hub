@@ -389,3 +389,6 @@ verify_jwt = false
 
 [functions.training-factory-trigger]
 verify_jwt = false
+
+[functions.training-factory-publish]
+verify_jwt = false
