@@ -81,13 +81,21 @@ async function geminiOneLiner(topico: string): Promise<string> {
   } catch { return ""; }
 }
 
+const LOGO_WHITE_SVG = `<svg width="160" height="48" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <path d="M18 8 Q8 8 8 18 Q8 35 18 42 Q28 35 28 18 Q28 8 18 8Z" fill="white" opacity="0.9"/>
+  <path d="M18 8 Q28 4 34 12 Q38 20 28 28" fill="none" stroke="white" stroke-width="3" opacity="0.9"/>
+  <text x="40" y="28" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="white" letter-spacing="2">SMART DENT</text>
+</svg>`;
+
 // ────────── SLIDES ──────────
 const COMMON_CSS = `*{margin:0;padding:0;box-sizing:border-box;}
 body{width:1080px;height:1080px;font-family:'Helvetica Neue',Arial,sans-serif;position:relative;overflow:hidden;background:#fff;}
 .badge{position:absolute;top:40px;left:40px;background:#E8821A;color:#fff;font-size:22px;font-weight:800;padding:8px 18px;border-radius:6px;letter-spacing:2px;z-index:5;}
-.logo-tr{position:absolute;top:40px;right:40px;width:160px;z-index:5;}`;
+.logo-tr{position:absolute;top:40px;right:40px;width:160px;z-index:5;}
+.logo-tr svg,.logo-tr img{width:100%;height:auto;display:block;}
+.foot-logo svg,.foot-logo img{width:100%;height:auto;display:block;}`;
 
-function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoWhite: string }) {
+function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 .logo-tr{top:32px;right:32px;}
 body{background:#0A0F1E;color:#fff;}
@@ -104,7 +112,7 @@ body{background:#0A0F1E;color:#fff;}
 </style></head><body>
 <div class="bg"></div><div class="overlay-top"></div><div class="overlay-bottom"></div>
 <div class="badge">${escapeHtml(p.num)}</div>
-<img class="logo-tr" src="${p.logoWhite}" />
+<div class="logo-tr">${LOGO_WHITE_SVG}</div>
 <div class="content">
   <div class="label">CURSO IMERSIVO</div>
   <div class="h1">ODONTOLOGIA DIGITAL</div>
@@ -192,7 +200,7 @@ function slideParticipante(p: { num: string; fotoB64: string; nome: string; espe
 </body></html>`;
 }
 
-function slideCTA(p: { num: string; logoWhite: string }) {
+function slideCTA(p: { num: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 body{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d44 100%);color:#fff;}
 .icon-top{position:absolute;top:200px;left:0;right:0;text-align:center;font-size:96px;}
@@ -211,7 +219,7 @@ body{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d44 100%);color:#fff;}
   <div class="btn">💬 ENTRE EM CONTATO</div>
   <div class="btn">@ SMARTDENTOFICIAL</div>
 </div>
-<img class="foot-logo" src="${p.logoWhite}" />
+<div class="foot-logo">${LOGO_WHITE_SVG}</div>
 </body></html>`;
 }
 
@@ -261,22 +269,10 @@ Deno.serve(async (req) => {
 
     // ───── Builder: monta HTML de UM slide específico (só carrega o que precisa) ─────
     async function buildSlideHtml(n: number): Promise<string> {
-      let logoWhite = "";
-      try {
-        const resp = await fetch("https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png");
-        if (resp.ok) {
-          const buf = await resp.arrayBuffer();
-          logoWhite = `data:image/png;base64,${bufToB64(buf)}`;
-        }
-      } catch {}
-      if (!logoWhite) {
-        const logoB64Raw = Deno.env.get("LOGO_BRANCO_B64") || "";
-        if (logoB64Raw) logoWhite = `data:image/png;base64,${logoB64Raw}`;
-      }
-      const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || logoWhite;
+      const logoColor = await urlToBase64(LOGO_COLOR_URL);
       if (n === 1) {
         const fotoGrupoB64 = await urlToBase64(fotoGrupoUrl);
-        return slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite });
+        return slideCapa({ num: "01", fotoGrupoB64, mesAno });
       }
       if (n >= 2 && n <= 4) {
         const i = n - 2;
@@ -312,7 +308,7 @@ Deno.serve(async (req) => {
         return slideParticipante({ num: String(n).padStart(2, "0"), nome: partName, especialidade: espec, quote, fotoB64, logoColor });
       }
       // n === 9
-      return slideCTA({ num: "09", logoWhite });
+      return slideCTA({ num: "09" });
     }
 
     async function renderAndPersist(n: number) {
