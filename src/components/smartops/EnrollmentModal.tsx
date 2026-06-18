@@ -88,6 +88,10 @@ function CompanionsInline({ companions, onChange }: {
                 <Input value={draft.phone || ""} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} />
               </div>
               <div>
+                <Label className="text-xs">Instagram</Label>
+                <Input value={draft.instagram || ""} onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value }))} placeholder="@usuario" />
+              </div>
+              <div>
                 <Label className="text-xs">Área de atuação</Label>
                 <TaxonomySelect
                   options={AREA_ATUACAO_OPTIONS}
@@ -753,6 +757,18 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                             onChange={(e) => {
                               const updated = [...companions];
                               updated[i] = { ...updated[i], phone: e.target.value };
+                              setCompanions(updated);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Instagram</Label>
+                          <Input
+                            value={c.instagram || ""}
+                            placeholder="@usuario"
+                            onChange={(e) => {
+                              const updated = [...companions];
+                              updated[i] = { ...updated[i], instagram: e.target.value };
                               setCompanions(updated);
                             }}
                           />

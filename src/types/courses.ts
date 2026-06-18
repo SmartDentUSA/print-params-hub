@@ -159,6 +159,7 @@ export interface EnrollmentCompanion {
   phone?: string;
   area_atuacao?: string;
   especialidade?: string;
+  instagram?: string;
 }
 
 export interface DealSearchResult {
