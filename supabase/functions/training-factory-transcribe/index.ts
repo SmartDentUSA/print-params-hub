@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_MODEL = "gemini-2.0-flash";
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB cap to avoid memory/timeout issues
 
 const BodySchema = z.object({
@@ -87,8 +87,8 @@ Deno.serve(async (req) => {
 
   let assetIdForError: string | null = null;
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_AI_KEY");
+    if (!apiKey) throw new Error("Missing GEMINI_API_KEY / GOOGLE_AI_KEY");
 
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) {
@@ -100,43 +100,36 @@ Deno.serve(async (req) => {
     const { asset_id, audio_url } = parsed.data;
     assetIdForError = asset_id;
 
-    const { bytes } = await fetchCapped(audio_url, MAX_BYTES);
+    const { bytes, mime } = await fetchCapped(audio_url, MAX_BYTES);
     const b64 = toBase64(bytes);
 
-    const res = await fetch(LOVABLE_AI_URL, {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const res = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Transcreva este depoimento em português brasileiro. Retorne apenas a transcrição limpa, sem formatação, sem timestamps, sem identificação de falantes.",
+        contents: [{
+          parts: [
+            {
+              text:
+                "Transcreva este depoimento em português brasileiro. Retorne apenas a transcrição limpa, sem formatação, sem timestamps, sem identificação de falantes.",
+            },
+            {
+              inline_data: {
+                mime_type: mime?.startsWith("video/") || mime?.startsWith("audio/") ? mime : "video/mp4",
+                data: b64,
               },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:video/mp4;base64,${b64}`,
-                },
-              },
-            ],
-          },
-        ],
+            },
+          ],
+        }],
       }),
     });
     if (!res.ok) {
       const txt = await res.text();
-      throw new Error(`AI Gateway ${res.status}: ${txt}`);
+      throw new Error(`Gemini ${res.status}: ${txt}`);
     }
     const data = await res.json();
-    const transcription = (data?.choices?.[0]?.message?.content ?? "").trim();
+    const transcription = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
 
     const { error: updErr } = await supabase
       .from("training_factory_assets")
