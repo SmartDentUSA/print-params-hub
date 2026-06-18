@@ -1,6 +1,72 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { callPoe } from "../_shared/providers/poe.ts";
+
+// ============================================================
+// IMAGE GEN VIA POE (Nano-Banana)
+// ============================================================
+const POE_IMAGE_MODEL = "Nano-Banana";
+
+function extractImageUrlFromPoe(text: string): string | null {
+  if (!text) return null;
+  const md = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/);
+  if (md) return md[1];
+  const bare = text.match(/(https?:\/\/[^\s)"']+\.(?:png|jpe?g|webp)(?:\?[^\s)"']*)?)/i);
+  if (bare) return bare[1];
+  const any = text.match(/(https?:\/\/[^\s)"']+)/);
+  return any ? any[1] : null;
+}
+
+// Returns a response shaped like the Lovable Gateway image response,
+// so the existing extractor (`data.choices[0].message.images[0].image_url.url`)
+// keeps working without further refactor.
+async function poeGenerateImageAsGatewayShape(messages: any[]) {
+  const r = await callPoe({ model: POE_IMAGE_MODEL, messages });
+  if (!r.ok) {
+    return {
+      ok: false,
+      status: r.status || 502,
+      text: async () => r.error || "Poe failed",
+      json: async () => ({ error: r.error, raw: r.raw }),
+    } as unknown as Response;
+  }
+  const url = extractImageUrlFromPoe(r.text ?? "");
+  if (!url) {
+    return {
+      ok: false,
+      status: 502,
+      text: async () => "Poe não retornou URL de imagem",
+      json: async () => ({ error: "no image url", raw: r.text }),
+    } as unknown as Response;
+  }
+  const imgResp = await fetch(url);
+  if (!imgResp.ok) {
+    return {
+      ok: false,
+      status: imgResp.status,
+      text: async () => `Falha ao baixar imagem Poe (${imgResp.status})`,
+      json: async () => ({ error: "download failed" }),
+    } as unknown as Response;
+  }
+  const buf = new Uint8Array(await imgResp.arrayBuffer());
+  const contentType = imgResp.headers.get("content-type") || "image/png";
+  let bin = "";
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const dataUrl = `data:${contentType};base64,${btoa(bin)}`;
+  const fakeJson = {
+    choices: [{
+      message: { images: [{ image_url: { url: dataUrl } }] },
+    }],
+    usage: r.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+  };
+  return {
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(fakeJson),
+    json: async () => fakeJson,
+  } as unknown as Response;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -369,8 +435,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    const POE_API_KEY = Deno.env.get("POE_API_KEY");
+    if (!POE_API_KEY) throw new Error("POE_API_KEY não configurada");
 
     const { title, productName, documentType, extractedTextPreview, productImageUrl, referenceImageUrls } = await req.json();
 
@@ -441,15 +507,9 @@ CRITICAL RULES:
         }))
       ];
 
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [{ role: "user", content: contentParts }],
-          modalities: ["image", "text"]
-        })
-      });
+      response = await poeGenerateImageAsGatewayShape([
+        { role: "user", content: contentParts },
+      ]);
     } else if (mode === 'EDIT') {
       // ========================================
       // MODO EDIÇÃO: Transforma imagem real com ZOOM OUT
@@ -497,21 +557,15 @@ STYLE: 100mm macro lens, f/2.8, photorealistic, Unreal Engine 5 render quality.
 - Keep product EXACT as original but rendered SMALLER in frame
 ${finalConfig.regra_anti_alucinacao}`;
 
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: editPrompt },
-              { type: "image_url", image_url: { url: productImageUrl } }
-            ]
-          }],
-          modalities: ["image", "text"]
-        })
-      });
+      response = await poeGenerateImageAsGatewayShape([
+        {
+          role: "user",
+          content: [
+            { type: "text", text: editPrompt },
+            { type: "image_url", image_url: { url: productImageUrl } },
+          ],
+        },
+      ]);
     } else {
       // ========================================
       // MODO GERAÇÃO: Criar imagem do zero
@@ -545,15 +599,9 @@ ${GLOBAL_ANTI_HALLUCINATION}
 
 ${finalConfig.regra_anti_alucinacao}`;
 
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [{ role: "user", content: generatePrompt }],
-          modalities: ["image", "text"]
-        })
-      });
+      response = await poeGenerateImageAsGatewayShape([
+        { role: "user", content: generatePrompt },
+      ]);
     }
 
     if (!response.ok) {
@@ -567,7 +615,7 @@ ${finalConfig.regra_anti_alucinacao}`;
     await logAIUsage({
       functionName: "ai-generate-og-image",
       actionLabel: mode === 'EDIT' ? "edit-og-image" : "generate-og-image",
-      model: "google/gemini-2.5-flash-image-preview",
+      model: `poe:${POE_IMAGE_MODEL}`,
       promptTokens: usage.prompt_tokens,
       completionTokens: usage.completion_tokens,
     });
