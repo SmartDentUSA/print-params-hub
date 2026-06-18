@@ -133,7 +133,14 @@ Deno.serve(async (req) => {
     const fd: any = factoryData ?? {};
 
     const cursoNome = fd?.curso?.nome || (turma as any)?.smartops_courses?.title || "Curso";
-    const equipamento = fd?.curso?.equipamento || fd?.equipamento || "";
+    const rawEquip = fd?.curso?.equipamento || fd?.equipamento || "";
+    const rawLabel = fd?.curso?.label || fd?.label || (turma as any)?.label || "";
+    // Extrai apenas o modelo do equipamento (ex: "BLZ INO 200") de qualquer string suja
+    // tipo "144 BLZ INO 200 Dias 10,11,12/06".
+    const extractEquip = (s: string) =>
+      (s || "").match(/BLZ\s*INO\s*\d+|INO\s*\d+|RayShape\s*\w+/i)?.[0]?.trim() || "";
+    const equipamento =
+      extractEquip(rawEquip) || extractEquip(rawLabel) || rawEquip || "";
     const participantes: any[] = fd?.participantes || [];
     const estados: string[] = Array.from(
       new Set(
