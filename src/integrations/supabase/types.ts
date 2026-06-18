@@ -16864,6 +16864,12 @@ export type Database = {
       }
       smartops_events: {
         Row: {
+          about_event_en: string | null
+          about_event_es: string | null
+          about_event_pt: string | null
+          ai_image_prompt_en: string | null
+          ai_image_prompt_es: string | null
+          ai_image_prompt_pt: string | null
           canva_image_en: string | null
           canva_image_es: string | null
           canva_image_pt: string | null
@@ -16871,12 +16877,16 @@ export type Database = {
           canva_template_id: string | null
           company_stand: string | null
           country: string | null
+          cover_image_en: string | null
+          cover_image_es: string | null
+          cover_image_pt: string | null
           cover_image_url: string | null
           created_at: string
           description_en: string | null
           description_es: string | null
           display_order: number
           end_date: string | null
+          event_logo_url: string | null
           id: string
           is_active: boolean
           knowledge_content_id: string | null
@@ -16886,6 +16896,7 @@ export type Database = {
           location_es: string | null
           name: string
           notes: string | null
+          reference_image_url: string | null
           schema_json: Json | null
           slug: string | null
           start_date: string | null
@@ -16897,6 +16908,12 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          about_event_en?: string | null
+          about_event_es?: string | null
+          about_event_pt?: string | null
+          ai_image_prompt_en?: string | null
+          ai_image_prompt_es?: string | null
+          ai_image_prompt_pt?: string | null
           canva_image_en?: string | null
           canva_image_es?: string | null
           canva_image_pt?: string | null
@@ -16904,12 +16921,16 @@ export type Database = {
           canva_template_id?: string | null
           company_stand?: string | null
           country?: string | null
+          cover_image_en?: string | null
+          cover_image_es?: string | null
+          cover_image_pt?: string | null
           cover_image_url?: string | null
           created_at?: string
           description_en?: string | null
           description_es?: string | null
           display_order?: number
           end_date?: string | null
+          event_logo_url?: string | null
           id?: string
           is_active?: boolean
           knowledge_content_id?: string | null
@@ -16919,6 +16940,7 @@ export type Database = {
           location_es?: string | null
           name: string
           notes?: string | null
+          reference_image_url?: string | null
           schema_json?: Json | null
           slug?: string | null
           start_date?: string | null
@@ -16930,6 +16952,12 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          about_event_en?: string | null
+          about_event_es?: string | null
+          about_event_pt?: string | null
+          ai_image_prompt_en?: string | null
+          ai_image_prompt_es?: string | null
+          ai_image_prompt_pt?: string | null
           canva_image_en?: string | null
           canva_image_es?: string | null
           canva_image_pt?: string | null
@@ -16937,12 +16965,16 @@ export type Database = {
           canva_template_id?: string | null
           company_stand?: string | null
           country?: string | null
+          cover_image_en?: string | null
+          cover_image_es?: string | null
+          cover_image_pt?: string | null
           cover_image_url?: string | null
           created_at?: string
           description_en?: string | null
           description_es?: string | null
           display_order?: number
           end_date?: string | null
+          event_logo_url?: string | null
           id?: string
           is_active?: boolean
           knowledge_content_id?: string | null
@@ -16952,6 +16984,7 @@ export type Database = {
           location_es?: string | null
           name?: string
           notes?: string | null
+          reference_image_url?: string | null
           schema_json?: Json | null
           slug?: string | null
           start_date?: string | null

@@ -1,46 +1,83 @@
-## Causa-raiz
 
-As hashtags aparecem duplicadas porque há **duas fontes** alimentando o mesmo lugar:
+## Objetivo
+Editor de eventos com IA + capa por idioma na base de conhecimento, **respeitando os formatos de imagem oficiais por canal**.
 
-1. **`training-factory-trigger`** instrui o LLM (linha 201) a **terminar a caption do Instagram** com:
-   `#odontologiadigital #smartdent #chairsideprint #impressao3d #ino200 #odontologia`
-2. **Logo depois**, o código salva exatamente as **mesmas hashtags** no array `hashtags[]` do asset (linhas 257–264).
-3. Na hora de publicar, **`social-publish-worker`** (linha 128–133) faz:
-   ```
-   content = caption + "\n\n" + hashtags.join(" ")
-   ```
-   → o Instagram recebe as hashtags duas vezes.
+## Formatos oficiais (aplicados em TODA geração/upload de imagem)
 
-No diálogo Factory você vê o mesmo efeito: as hashtags aparecem **no textarea da caption** e **nos chips abaixo** — porque ambos vêm do mesmo asset, mas de campos diferentes.
+| Uso                                         | Proporção | Tamanho (px)  | Limite |
+|---------------------------------------------|-----------|---------------|--------|
+| Instagram / Facebook — Feed & Stories       | 4:5       | 1080 × 1350   | 8 MB   |
+| Reddit                                      | 1:1       | 1080 × 1080   | 8 MB   |
+| LinkedIn — Carrossel PDF (por página)       | 4:5       | 1080 × 1350   | —      |
+| Capa Hero — Base de Conhecimento / Evento   | 16:9      | 1200 × 675    | 5 MB   |
 
-## Correção (três camadas, complementares)
+Esses presets viram um único dicionário compartilhado em `src/lib/social/imagePresets.ts` e são usados em:
+- Editor de eventos (capa hero 16:9 por idioma)
+- `StepMedia` do Social Publisher (presets por canal selecionado)
+- Edge function `social-generate-image` (já existe — passar `aspect` + dimensão correta)
+- Edge function nova `event-generate-image` (16:9, 1200×675)
 
-### 1. `social-publish-worker` — dedup defensivo (fix imediato para dados existentes)
+## Comportamento confirmado (idiomas)
+- 3 imagens **separadas** (PT/EN/ES) geradas pela IA, persistidas em colunas distintas.
+- `KbTabEventos.tsx` lê `useLanguage()` e troca a capa para o idioma escolhido; fallback PT → `cover_image_url` legado.
 
-Antes de concatenar, remover do final da caption qualquer bloco de hashtags que já esteja em `hashtags[]`. Algo como:
+## Schema (`smartops_events`)
+Adicionar:
+- `about_event_pt/en/es text`
+- `cover_image_pt/en/es text` (16:9, 1200×675)
+- `reference_image_url text`, `event_logo_url text`
+- `ai_image_prompt_pt/en/es text`
 
-```ts
-const tagSet = new Set((post.hashtags ?? []).map(h => h.toLowerCase().replace(/^#/, "")));
-const cleanCaption = (post.caption ?? "")
-  .replace(/(?:\s*#[\p{L}\p{N}_]+)+\s*$/u, (match) => {
-    // Mantém só hashtags que NÃO estão no array
-    const kept = match.trim().split(/\s+/).filter(h => !tagSet.has(h.replace(/^#/, "").toLowerCase()));
-    return kept.length ? "\n" + kept.join(" ") : "";
-  })
-  .trimEnd();
+## Editor (`SmartOpsEvents.tsx`)
+```
+Nome • País • Site [🔎 Buscar info na web]
+Sobre o evento — Tabs PT/EN/ES (textarea + [✨ Gerar IA])
+Data início • Data fim • Local • Stand • Ordem • Ativo
+
+— Mídia de referência (alimenta a IA) —
+[Upload imagem referência] [Upload logo do evento]
+
+— Capa do evento por idioma — (preset 16:9 / 1200×675 / ≤5MB)
+Tabs: PT | EN | ES
+  • Preview 16:9
+  • Upload manual com validação do preset
+  • Crop 16:9 (react-easy-crop)
+  • Painel IA: prompt editável + [Gerar com Poe Nano-Banana]
+Notas internas
 ```
 
-Resultado: posts já gerados (turma #144 inclusa) deixam de duplicar imediatamente, sem precisar regerar nada.
+## Edge functions novas
+1. **`event-web-research`** — Firecrawl scrape do site → pré-preenche campos + sugere `og:image` como referência.
+2. **`event-generate-about`** — Lovable AI (`google/gemini-2.5-flash`), 300–500 palavras no idioma alvo, sem preços (Core rule). Persiste em `about_event_{lang}`.
+3. **`event-generate-image`** — `callPoe({ model: 'Nano-Banana' })` com referência + logo, **força 16:9 / 1200×675**, salva em `wa-media/events-ai/{event_id}/{lang}-{ts}.png`, grava `cover_image_{lang}`.
 
-### 2. `training-factory-trigger` — prompt limpo (evita repetir o problema no futuro)
+## StepMedia (Social Publisher) — alinhamento aos novos presets
+- Em `AIImagePanel`, substituir o seletor genérico (Square/Vertical/Horizontal) por **opções dirigidas ao canal selecionado**:
+  - Instagram/Facebook Feed & Stories → 4:5 (1080×1350)
+  - Reddit → 1:1 (1080×1080)
+  - LinkedIn Carrossel → 4:5 (1080×1350) por página
+- Uploads manuais validam contra o preset do canal (avisar "imagem fora do recomendado").
+- `social-generate-image` recebe `aspect` + `width`/`height` exatos do preset.
 
-No prompt do Instagram, **remover a linha que pede para terminar com as hashtags literais** e **instruir o LLM a NÃO incluir hashtags** ("o sistema de publicação anexa as hashtags automaticamente"). O array `hashtags[]` continua sendo a única fonte estruturada.
+## Frontend público (`KbTabEventos.tsx`)
+- Adicionar `cover_image_pt/en/es` ao `select`.
+- Helper `pickCover(e, language)` → `cover_image_{lang}` ⟶ `cover_image_pt` ⟶ `cover_image_url`.
+- Troca de idioma no header re-renderiza o card e troca a capa.
 
-### 3. `TurmaFactoryDialog` — preview consistente
+## Componentes novos
+- `src/lib/social/imagePresets.ts` — dicionário único de presets.
+- `src/components/smartops/events/EventReferenceUploads.tsx`
+- `src/components/smartops/events/EventAboutByLanguage.tsx`
+- `src/components/smartops/events/EventCoverByLanguage.tsx`
+- `src/components/smartops/events/EventAIImagePanel.tsx`
+- `src/components/smartops/events/EventWebResearchButton.tsx`
 
-Manter os chips de hashtags abaixo (já existem), mas como a caption agora não terá hashtags embutidas, o preview fica claro: caption no textarea, hashtags como chips, sem repetição visual.
+## Fora de escopo
+- Layout do listing admin.
+- Geração de PDF do carrossel LinkedIn (só preset visual por página por enquanto).
+- Fluxo Canva existente (`canva_image_*`) permanece intocado.
 
-## Fora do escopo
-
-- Não vou regerar os assets existentes — a correção (1) já neutraliza o problema na publicação.
-- Não vou mexer na lógica do LinkedIn (o prompt dele já pede "no máximo 3–4 hashtags ao final" e o array `hashtags[]` não duplica nesse asset, pois lá está vazio).
+## Perguntas finais
+1. **Texto literal na imagem**: a capa gerada deve conter o nome do evento renderizado no idioma (ex: "INTERNATIONAL DENTAL SHOW 2026") ou apenas visual + título em overlay no card?
+2. **Sobre o evento**: ao salvar, **publica automaticamente** um artigo em `knowledge_contents` (Ciência & Tecnologia) ou fica armazenado no evento até você publicar manualmente?
+3. **Validação de upload**: bloqueio rígido fora do preset, ou só aviso amarelo e segue?

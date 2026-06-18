@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { MediaItemsEditor } from '../MediaItemsEditor';
 import type { PostInput } from '@/lib/social/postSchema';
+import { presetForPlatform, IMAGE_PRESETS, type ImagePresetId } from '@/lib/social/imagePresets';
 import {
   DndContext,
   closestCenter,
@@ -56,9 +57,12 @@ function AIImagePanel({
   onChange: (patch: Partial<PostInput>) => void;
 }) {
   const [prompt, setPrompt] = useState('');
-  const [aspect, setAspect] = useState<'square' | 'vertical' | 'horizontal'>('square');
   const [loading, setLoading] = useState(false);
   const platform = value.channels?.[0]?.platform || 'instagram';
+  const recommended = useMemo(() => presetForPlatform(platform), [platform]);
+  const [presetId, setPresetId] = useState<ImagePresetId>(recommended.id as ImagePresetId);
+  useEffect(() => { setPresetId(recommended.id as ImagePresetId); }, [recommended.id]);
+  const preset = IMAGE_PRESETS[presetId];
 
   const generate = async () => {
     if (!prompt.trim()) {
@@ -72,7 +76,10 @@ function AIImagePanel({
           prompt,
           product_name: value.product_name || undefined,
           platform,
-          aspect,
+          preset_id: preset.id,
+          aspect: preset.aspect === '1:1' ? 'square' : preset.aspect === '16:9' ? 'horizontal' : 'vertical',
+          width: preset.width,
+          height: preset.height,
         },
       });
       if (error) throw new Error(error.message);
@@ -112,14 +119,16 @@ function AIImagePanel({
           disabled={loading}
         />
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={aspect} onValueChange={(v) => setAspect(v as any)} disabled={loading}>
-            <SelectTrigger className="w-44 h-9">
+          <Select value={presetId} onValueChange={(v) => setPresetId(v as ImagePresetId)} disabled={loading}>
+            <SelectTrigger className="w-72 h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="square">Quadrado 1:1 (feed)</SelectItem>
-              <SelectItem value="vertical">Vertical 4:5 (feed/story)</SelectItem>
-              <SelectItem value="horizontal">Horizontal 16:9</SelectItem>
+              {Object.values(IMAGE_PRESETS).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.label} — {p.width}×{p.height}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button type="button" size="sm" onClick={generate} disabled={loading} className="ml-auto">
@@ -131,7 +140,7 @@ function AIImagePanel({
           </Button>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          A imagem é gerada pelo Nano-Banana (Poe), salva no Storage e adicionada à mídia padrão.
+          {preset.note} Recomendado para <strong>{platform}</strong>. Gerada por Nano-Banana (Poe) e salva no Storage.
         </p>
       </CardContent>
     </Card>
