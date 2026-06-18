@@ -200,7 +200,7 @@ function slideParticipante(p: { num: string; fotoB64: string; nome: string; espe
 </body></html>`;
 }
 
-function slideCTA(p: { num: string; logoWhite: string }) {
+function slideCTA(p: { num: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 body{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d44 100%);color:#fff;}
 .icon-top{position:absolute;top:200px;left:0;right:0;text-align:center;font-size:96px;}
@@ -219,7 +219,7 @@ body{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d44 100%);color:#fff;}
   <div class="btn">💬 ENTRE EM CONTATO</div>
   <div class="btn">@ SMARTDENTOFICIAL</div>
 </div>
-<img class="foot-logo" src="${p.logoWhite}" />
+<div class="foot-logo">${LOGO_WHITE_SVG}</div>
 </body></html>`;
 }
 
