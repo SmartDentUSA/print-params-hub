@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
         return slideParticipante({ num: String(n).padStart(2, "0"), nome: partName, especialidade: espec, quote, fotoB64, logoColor });
       }
       // n === 9
-      return slideCTA({ num: "09", logoWhite: LOGO_WHITE });
+      return slideCTA({ num: "09", logoWhite });
     }
 
     async function renderAndPersist(n: number) {
