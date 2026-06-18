@@ -125,10 +125,28 @@ serve(async (req) => {
         throw new Error(`Nenhum canal mapeado com conta Zernio. Skipped: ${JSON.stringify(skipped)}`);
       }
 
+      // Dedup defensivo: remove do final da caption qualquer bloco de hashtags
+      // que já esteja no array hashtags[], evitando duplicação visual no post final.
+      const hashtagsArr = Array.isArray(post.hashtags) ? post.hashtags : [];
+      const tagSet = new Set(
+        hashtagsArr.map((h: string) => h.toLowerCase().replace(/^#/, '').trim()).filter(Boolean)
+      );
+      const rawCaption = (post.caption ?? '') as string;
+      const cleanedCaption = rawCaption.replace(
+        /(?:\s*#[\p{L}\p{N}_]+)+\s*$/u,
+        (match: string) => {
+          const kept = match
+            .trim()
+            .split(/\s+/)
+            .filter((h: string) => !tagSet.has(h.replace(/^#/, '').toLowerCase()));
+          return kept.length ? '\n' + kept.join(' ') : '';
+        },
+      ).trimEnd();
+
       const content = [
-        post.caption ?? '',
-        Array.isArray(post.hashtags) && post.hashtags.length > 0
-          ? post.hashtags.map((h: string) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+        cleanedCaption,
+        hashtagsArr.length > 0
+          ? hashtagsArr.map((h: string) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
           : '',
       ].filter(Boolean).join('\n\n');
 
