@@ -72,6 +72,7 @@ function feedHtml(p: {
   turmaNumber: number;
   equipamento: string;
   mesAno: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -103,7 +104,7 @@ body{width:1080px;height:1080px;background:#0A0F1E;font-family:Arial,sans-serif;
 </div>
 <div class="info-row">📍 São Carlos – SP &nbsp;|&nbsp; ${escapeHtml(p.mesAno)}</div>
 </div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 </body></html>`;
 }
 
@@ -115,6 +116,7 @@ function depoimentoHtml(p: {
   especialidade: string;
   cidade: string;
   estado: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -133,7 +135,7 @@ body{width:1080px;height:1920px;font-family:Arial,sans-serif;position:relative;o
 .rodape{position:absolute;bottom:60px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.5);font-size:18px;letter-spacing:5px;}
 </style></head><body>
 <div class="bg"></div><div class="overlay"></div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 <div class="quote-block">
 <div class="aspas">"</div>
 <div class="quote-text">${escapeHtml(p.transcricaoCurta)} <span class="curso-bold">${escapeHtml(p.cursoNome)}</span>"</div>
@@ -153,6 +155,7 @@ function linkedinHtml(p: {
   equipamento: string;
   total: number;
   estados: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -167,7 +170,7 @@ body{width:1920px;height:1080px;font-family:Arial,sans-serif;position:relative;o
 .info{color:#E8821A;font-size:24px;letter-spacing:2px;font-weight:600;}
 </style></head><body>
 <div class="bg"></div><div class="overlay"></div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 <div class="content">
 <div class="subtitulo">TURMA #${escapeHtml(String(p.turmaNumber))} CONCLUÍDA</div>
 <div class="titulo">${escapeHtml(p.cursoNome)}</div>
