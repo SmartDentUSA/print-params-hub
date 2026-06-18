@@ -75,6 +75,7 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
     : (turma.meeting_link ? "Link online" : "—");
 
   return (
+    <>
     <TableRow
       className={cn("cursor-pointer", isMuted && "opacity-60")}
       onClick={onEnroll}
