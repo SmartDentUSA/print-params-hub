@@ -24295,6 +24295,8 @@ export type Database = {
           end_date: string | null
           end_time: string | null
           enrolled_count: number | null
+          factory_processed_at: string | null
+          factory_status: string | null
           id: string | null
           instructor_name: string | null
           label: string | null
