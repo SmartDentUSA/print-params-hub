@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Info, GripVertical, X, Pin } from 'lucide-react';
+import { Info, GripVertical, X, Pin, Sparkles, Loader2, Image as ImageIcon, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { MediaItemsEditor } from '../MediaItemsEditor';
 import type { PostInput } from '@/lib/social/postSchema';
 import {
@@ -42,6 +47,199 @@ interface Props {
 }
 
 const CAROUSEL_SUPPORTED = ['instagram', 'facebook'];
+
+function AIImagePanel({
+  value,
+  onChange,
+}: {
+  value: PostInput;
+  onChange: (patch: Partial<PostInput>) => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [aspect, setAspect] = useState<'square' | 'vertical' | 'horizontal'>('square');
+  const [loading, setLoading] = useState(false);
+  const platform = value.channels?.[0]?.platform || 'instagram';
+
+  const generate = async () => {
+    if (!prompt.trim()) {
+      toast.error('Descreva a imagem que deseja gerar');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('social-generate-image', {
+        body: {
+          prompt,
+          product_name: value.product_name || undefined,
+          platform,
+          aspect,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok || !data?.url) {
+        throw new Error(data?.error || data?.details || 'Falha ao gerar imagem');
+      }
+      onChange({
+        media_items: [...value.media_items, { url: data.url, type: 'image' as const, path: data.path }],
+      });
+      toast.success('Imagem gerada e adicionada à mídia');
+      setPrompt('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao gerar imagem');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <Label className="text-sm font-semibold">Gerar imagem por IA</Label>
+          <Badge variant="outline" className="text-[10px]">Poe · Nano-Banana</Badge>
+          {value.product_name && (
+            <Badge variant="secondary" className="text-[10px] ml-auto">
+              Produto: {value.product_name}
+            </Badge>
+          )}
+        </div>
+        <Textarea
+          rows={3}
+          placeholder="Ex.: cena minimalista de uma impressora 3D dental sobre bancada de mármore com iluminação azul suave, foco em precisão e fluxo digital"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          disabled={loading}
+        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={aspect} onValueChange={(v) => setAspect(v as any)} disabled={loading}>
+            <SelectTrigger className="w-44 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="square">Quadrado 1:1 (feed)</SelectItem>
+              <SelectItem value="vertical">Vertical 4:5 (feed/story)</SelectItem>
+              <SelectItem value="horizontal">Horizontal 16:9</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button type="button" size="sm" onClick={generate} disabled={loading} className="ml-auto">
+            {loading ? (
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Gerando...</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-1" /> Gerar imagem</>
+            )}
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          A imagem é gerada pelo Nano-Banana (Poe), salva no Storage e adicionada à mídia padrão.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProductImagesPanel({
+  value,
+  onChange,
+}: {
+  value: PostInput;
+  onChange: (patch: Partial<PostInput>) => void;
+}) {
+  const [images, setImages] = useState<Array<{ url: string; name: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  const slugs = useMemo(() => {
+    const all = [value.product_slug, ...(value.extra_products || []).map((e) => e.slug)].filter(Boolean) as string[];
+    return Array.from(new Set(all));
+  }, [value.product_slug, value.extra_products]);
+
+  const names = useMemo(() => {
+    const all = [value.product_name, ...(value.extra_products || []).map((e) => e.name)].filter(Boolean) as string[];
+    return Array.from(new Set(all));
+  }, [value.product_name, value.extra_products]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (slugs.length === 0 && names.length === 0) {
+      setImages([]);
+      return;
+    }
+    (async () => {
+      setLoading(true);
+      try {
+        let q = supabase
+          .from('system_a_catalog')
+          .select('name, slug, image_url, og_image_url')
+          .eq('active', true)
+          .limit(20);
+        if (slugs.length) {
+          q = q.in('slug', slugs);
+        } else if (names.length) {
+          q = q.or(names.map((n) => `name.ilike.%${n.replace(/[%_,]/g, '')}%`).join(','));
+        }
+        const { data } = await q;
+        if (!mounted) return;
+        const list: Array<{ url: string; name: string }> = [];
+        for (const r of (data || []) as any[]) {
+          const u = r.image_url || r.og_image_url;
+          if (u) list.push({ url: u, name: r.name });
+        }
+        setImages(list);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [slugs.join('|'), names.join('|')]);
+
+  const addImage = (url: string) => {
+    if (value.media_items.some((m) => m.url === url)) {
+      toast.info('Imagem já adicionada');
+      return;
+    }
+    onChange({ media_items: [...value.media_items, { url, type: 'image' as const }] });
+    toast.success('Imagem do produto adicionada');
+  };
+
+  if (slugs.length === 0 && names.length === 0) return null;
+
+  return (
+    <Card className="border-emerald-500/30 bg-emerald-500/5">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="w-4 h-4 text-emerald-600" />
+          <Label className="text-sm font-semibold">Imagens dos produtos selecionados</Label>
+          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+          <Badge variant="outline" className="text-[10px] ml-auto">{images.length} disponível(eis)</Badge>
+        </div>
+        {!loading && images.length === 0 && (
+          <p className="text-[11px] text-muted-foreground">Nenhuma imagem encontrada no catálogo para os produtos selecionados.</p>
+        )}
+        {images.length > 0 && (
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+            {images.map((img) => (
+              <button
+                key={img.url}
+                type="button"
+                onClick={() => addImage(img.url)}
+                className="group relative aspect-square border rounded-md overflow-hidden bg-muted hover:ring-2 hover:ring-emerald-500/50"
+                title={`Adicionar ${img.name}`}
+              >
+                <img src={img.url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-white" />
+                </div>
+                <span className="absolute bottom-0 inset-x-0 px-1 py-0.5 text-[9px] bg-black/60 text-white truncate">
+                  {img.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function CarrosselSortableCard({
   url,
@@ -190,6 +388,10 @@ export function StepMedia({
         <p className="text-xs text-muted-foreground mb-2">
           Para carrosséis do Instagram envie até 10 itens nesta lista.
         </p>
+        <div className="space-y-3 mb-3">
+          <ProductImagesPanel value={value} onChange={onChange} />
+          <AIImagePanel value={value} onChange={onChange} />
+        </div>
         <MediaItemsEditor
           items={value.media_items}
           onChange={(next) => onChange({ media_items: next })}
