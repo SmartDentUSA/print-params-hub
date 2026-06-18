@@ -10,7 +10,13 @@ const LOGO_WHITE_B64_RAW = Deno.env.get("LOGO_BRANCO_B64") || "";
 const LOGO_WHITE = LOGO_WHITE_B64_RAW ? `data:image/png;base64,${LOGO_WHITE_B64_RAW}` : "";
 const LOGO_COLOR_URL = `${SUPABASE_URL}/storage/v1/object/public/wa-media/brand/logo-smart-dent.png`;
 
-const BodySchema = z.object({ run_id: z.string().uuid() });
+const BodySchema = z.object({
+  run_id: z.string().uuid(),
+  slide: z.number().int().min(1).max(9).optional(),
+});
+
+const SELF_URL = `${SUPABASE_URL}/functions/v1/training-factory-carousel`;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 const MESES = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 
@@ -249,112 +255,116 @@ Deno.serve(async (req) => {
       .from("training_factory_assets").select("*").eq("run_id", run_id);
     const depoimentos = (assets || []).filter((a: any) => a.asset_type === "depoimento");
 
-    // ───── Pré-carregar imagens em base64 ─────
-    const [fotoGrupoB64, logoColorB64Raw, ...diaB64Arr] = await Promise.all([
-      urlToBase64(fotoGrupoUrl),
-      urlToBase64(LOGO_COLOR_URL),
-      ...dia3Photos.slice(0, 3).map(u => urlToBase64(u)),
-    ]);
-    const logoColor = logoColorB64Raw || LOGO_WHITE; // fallback
-
-    // Certificado: 3 fotos (preferir dia3, fallback genérico)
-    const certFotos: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      certFotos.push(diaB64Arr[i] || fotoGrupoB64);
-    }
-
-    // Participantes: usar média_url do depoimento como foto (geralmente o vídeo/thumb); fallback dia photos
-    const partSlides: Array<{ nome: string; especialidade: string; quote: string; fotoB64: string }> = [];
-    for (let i = 0; i < 3; i++) {
-      const dep = depoimentos[i];
-      const matchPart = dep
-        ? participantes.find((p: any) => p.enrollment_id === dep.enrollment_id || p.nome === dep.participant_name) || {}
-        : (participantes[i] || {});
-      const partName = (dep?.participant_name || matchPart?.nome || "Participante").toUpperCase();
-      const espec = matchPart?.especialidade || matchPart?.especialidade_nome || "Dentista";
-      const quote = truncate(dep?.transcription || "Uma experiência transformadora que mudou minha prática clínica.", 180);
-      const fotoSource = matchPart?.foto || matchPart?.foto_url || allDiaPhotos[i + 3] || allDiaPhotos[i] || fotoGrupoUrl;
-      const fotoB64 = await urlToBase64(fotoSource);
-      partSlides.push({ nome: partName, especialidade: espec, quote, fotoB64: fotoB64 || fotoGrupoB64 });
-    }
-
-    // Quotes para certificados (slides 02-04): primeiras frases dos depoimentos
-    const certQuotes: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      const q = depoimentos[i]?.transcription || "Experiência marcante de aprendizado prático e aplicável.";
-      certQuotes.push(truncate(q, 80));
-    }
-
-    // Slide 05 — descrições via Gemini
-    const topicos = [tDia(0), tDia(1), tDia(2)];
-    const descs = await Promise.all(topicos.map(t => geminiOneLiner(t)));
-    const dias05 = [
-      { icon: "🖥️", titulo: topicos[0] || "Planejamento Digital", desc: descs[0] || "Domine o fluxo digital do diagnóstico ao planejamento." },
-      { icon: "🦷", titulo: topicos[1] || "CAD Clínico", desc: descs[1] || "Desenhe restaurações com precisão e velocidade clínica." },
-      { icon: "🖨️", titulo: topicos[2] || "Impressão Chairside", desc: descs[2] || "Imprima e entregue no mesmo dia com previsibilidade." },
-    ];
-
-    // ───── Montar e renderizar 9 slides ─────
-    const slides: Array<{ n: number; html: string }> = [];
-    slides.push({ n: 1, html: slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite: LOGO_WHITE }) });
-    for (let i = 0; i < 3; i++) {
-      slides.push({
-        n: 2 + i,
-        html: slideCertificado({
-          num: String(2 + i).padStart(2, "0"),
-          fotoB64: certFotos[i],
-          quote: certQuotes[i],
-          logoColor,
-        }),
-      });
-    }
-    slides.push({ n: 5, html: slideConhecimento({ num: "05", dias: dias05, logoColor }) });
-    for (let i = 0; i < 3; i++) {
-      slides.push({
-        n: 6 + i,
-        html: slideParticipante({ num: String(6 + i).padStart(2, "0"), ...partSlides[i], logoColor }),
-      });
-    }
-    slides.push({ n: 9, html: slideCTA({ num: "09", logoWhite: LOGO_WHITE }) });
-
+    const requestedSlide = parsed.data.slide;
     const basePath = `training/${turmaNumber}/carousel`;
-    const results: Array<{ slide: number; url: string; asset_id?: string; error?: string }> = [];
 
-    for (const s of slides) {
+    // ───── Builder: monta HTML de UM slide específico (só carrega o que precisa) ─────
+    async function buildSlideHtml(n: number): Promise<string> {
+      if (n === 1) {
+        const fotoGrupoB64 = await urlToBase64(fotoGrupoUrl);
+        return slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite: LOGO_WHITE });
+      }
+      if (n >= 2 && n <= 4) {
+        const i = n - 2;
+        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
+        const photoSrc = dia3Photos[i] || fotoGrupoUrl;
+        const fotoB64 = await urlToBase64(photoSrc);
+        const quote = truncate(depoimentos[i]?.transcription || "Experiência marcante de aprendizado prático e aplicável.", 80);
+        return slideCertificado({ num: String(n).padStart(2, "0"), fotoB64, quote, logoColor });
+      }
+      if (n === 5) {
+        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
+        const topicos = [tDia(0), tDia(1), tDia(2)];
+        const descs = await Promise.all(topicos.map(t => geminiOneLiner(t)));
+        const dias05 = [
+          { icon: "🖥️", titulo: topicos[0] || "Planejamento Digital", desc: descs[0] || "Domine o fluxo digital do diagnóstico ao planejamento." },
+          { icon: "🦷", titulo: topicos[1] || "CAD Clínico", desc: descs[1] || "Desenhe restaurações com precisão e velocidade clínica." },
+          { icon: "🖨️", titulo: topicos[2] || "Impressão Chairside", desc: descs[2] || "Imprima e entregue no mesmo dia com previsibilidade." },
+        ];
+        return slideConhecimento({ num: "05", dias: dias05, logoColor });
+      }
+      if (n >= 6 && n <= 8) {
+        const i = n - 6;
+        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
+        const dep = depoimentos[i];
+        const matchPart = dep
+          ? participantes.find((p: any) => p.enrollment_id === dep.enrollment_id || p.nome === dep.participant_name) || {}
+          : (participantes[i] || {});
+        const partName = (dep?.participant_name || matchPart?.nome || "Participante").toUpperCase();
+        const espec = matchPart?.especialidade || matchPart?.especialidade_nome || "Dentista";
+        const quote = truncate(dep?.transcription || "Uma experiência transformadora que mudou minha prática clínica.", 180);
+        const fotoSource = matchPart?.foto || matchPart?.foto_url || allDiaPhotos[i + 3] || allDiaPhotos[i] || fotoGrupoUrl;
+        const fotoB64 = (await urlToBase64(fotoSource)) || (await urlToBase64(fotoGrupoUrl));
+        return slideParticipante({ num: String(n).padStart(2, "0"), nome: partName, especialidade: espec, quote, fotoB64, logoColor });
+      }
+      // n === 9
+      return slideCTA({ num: "09", logoWhite: LOGO_WHITE });
+    }
+
+    async function renderAndPersist(n: number) {
+      const html = await buildSlideHtml(n);
+      const png = await renderViaVercel(html, 1080, 1080);
+      const storagePath = `${basePath}/slide_${String(n).padStart(2, "0")}.png`;
+      const { error: upErr } = await supabase.storage.from("wa-media")
+        .upload(storagePath, png, { contentType: "image/png", upsert: true });
+      if (upErr) throw new Error(upErr.message);
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/wa-media/${storagePath}`;
+      const assetType = `carousel_slide_${String(n).padStart(2, "0")}`;
+      const { data: existing } = await supabase
+        .from("training_factory_assets")
+        .select("id").eq("run_id", run_id).eq("asset_type", assetType).maybeSingle();
+      let assetId = existing?.id;
+      if (assetId) {
+        await supabase.from("training_factory_assets")
+          .update({ media_url: publicUrl, media_type: "image", media_width: 1080, media_height: 1080, status: "ready", updated_at: new Date().toISOString() })
+          .eq("id", assetId);
+      } else {
+        const { data: ins } = await supabase.from("training_factory_assets")
+          .insert({ run_id, turma_id: run.turma_id, turma_number: turmaNumber, asset_type: assetType, media_url: publicUrl, media_type: "image", media_width: 1080, media_height: 1080, status: "ready" })
+          .select("id").maybeSingle();
+        assetId = ins?.id;
+      }
+      return { slide: n, url: publicUrl, asset_id: assetId };
+    }
+
+    // ───── MODO 1: slide específico ─────
+    if (requestedSlide) {
+      const result = await renderAndPersist(requestedSlide);
+      return new Response(JSON.stringify({ success: true, run_id, ...result }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ───── MODO 2: orquestrador — renderiza slide 01 + dispara 02..09 fire-and-forget ─────
+    const slide01 = await renderAndPersist(1);
+
+    const auth = ANON_KEY || SERVICE_ROLE;
+    const dispatched: number[] = [];
+    for (let n = 2; n <= 9; n++) {
       try {
-        const png = await renderViaVercel(s.html, 1080, 1080);
-        const storagePath = `${basePath}/slide_${String(s.n).padStart(2, "0")}.png`;
-        const { error: upErr } = await supabase.storage.from("wa-media")
-          .upload(storagePath, png, { contentType: "image/png", upsert: true });
-        if (upErr) throw new Error(upErr.message);
-        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/wa-media/${storagePath}`;
-        const assetType = `carousel_slide_${String(s.n).padStart(2, "0")}`;
-
-        // upsert manual via select + update/insert
-        const { data: existing } = await supabase
-          .from("training_factory_assets")
-          .select("id").eq("run_id", run_id).eq("asset_type", assetType).maybeSingle();
-        let assetId = existing?.id;
-        if (assetId) {
-          await supabase.from("training_factory_assets")
-            .update({ media_url: publicUrl, media_type: "image", media_width: 1080, media_height: 1080, status: "ready", updated_at: new Date().toISOString() })
-            .eq("id", assetId);
-        } else {
-          const { data: ins } = await supabase.from("training_factory_assets")
-            .insert({ run_id, turma_id: run.turma_id, turma_number: turmaNumber, asset_type: assetType, media_url: publicUrl, media_type: "image", media_width: 1080, media_height: 1080, status: "ready" })
-            .select("id").maybeSingle();
-          assetId = ins?.id;
-        }
-        results.push({ slide: s.n, url: publicUrl, asset_id: assetId });
-      } catch (e: any) {
-        console.error(`slide ${s.n} erro:`, e);
-        results.push({ slide: s.n, url: "", error: String(e?.message || e) });
+        // fire-and-forget: não dá await na response, só dispara
+        fetch(SELF_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${auth}`,
+            "apikey": auth,
+          },
+          body: JSON.stringify({ run_id, slide: n }),
+        }).catch((e) => console.warn(`dispatch slide ${n} falhou:`, e));
+        dispatched.push(n);
+      } catch (e) {
+        console.warn(`dispatch slide ${n} erro:`, e);
       }
     }
 
-    return new Response(JSON.stringify({ success: true, run_id, slides: results }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      success: true,
+      run_id,
+      slide_01: slide01,
+      dispatched_async: dispatched,
+      message: "Slide 01 renderizado; slides 02-09 disparados em background.",
+    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[training-factory-carousel] erro:", e);
     return new Response(JSON.stringify({ error: String(e?.message || e) }), {
