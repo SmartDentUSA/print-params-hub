@@ -54,31 +54,53 @@ async function callLovableAI(
 async function transcribeAudio(apiKey: string, audioUrl: string): Promise<string> {
   if (!audioUrl) return "";
   try {
-    // Fetch audio and convert to base64 for multimodal input
     const audioRes = await fetch(audioUrl);
     if (!audioRes.ok) throw new Error(`audio fetch ${audioRes.status}`);
     const buf = new Uint8Array(await audioRes.arrayBuffer());
     let bin = "";
     for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
     const b64 = btoa(bin);
-    const mime = audioRes.headers.get("content-type") || "audio/mpeg";
+    const mime = audioRes.headers.get("content-type") || "video/mp4";
 
-    return await callLovableAI(apiKey, [
-      {
-        role: "user",
-        content: [
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        messages: [
           {
-            type: "text",
-            text:
-              "Transcreva este áudio de depoimento odontológico em português. Retorne apenas a transcrição limpa.",
-          },
-          {
-            type: "input_audio",
-            input_audio: { data: b64, format: mime.includes("wav") ? "wav" : "mp3" },
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Transcreva este depoimento em português. Retorne apenas a transcrição limpa, sem formatação.",
+              },
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: mime,
+                  data: b64,
+                },
+              },
+            ],
           },
         ],
-      },
-    ], "google/gemini-2.5-flash");
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Anthropic ${res.status}: ${txt}`);
+    }
+    const data = await res.json();
+    const parts = data?.content || [];
+    return parts.map((p: any) => p?.text || "").join("").trim();
   } catch (e) {
     console.error("transcribeAudio error", e);
     return "";
@@ -138,7 +160,7 @@ Deno.serve(async (req) => {
     // Extrai apenas o modelo do equipamento (ex: "BLZ INO 200") de qualquer string suja
     // tipo "144 BLZ INO 200 Dias 10,11,12/06".
     const extractEquip = (s: string) =>
-      (s || "").match(/BLZ\s*INO\s*\d+|INO\s*\d+|RayShape\s*\w+/i)?.[0]?.trim() || "";
+      (s || "").match(/(?:BLZ\s+)?INO\s*\d+|RayShape\s*\w*/i)?.[0]?.trim() || "";
     const equipamento =
       extractEquip(rawEquip) || extractEquip(rawLabel) || rawEquip || "";
     const participantes: any[] = fd?.participantes || [];

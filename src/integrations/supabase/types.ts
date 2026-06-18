@@ -10785,6 +10785,284 @@ export type Database = {
           },
         ]
       }
+      loja_integrada_order_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome_produto: string | null
+          order_id: string
+          pedido_id: string
+          produto_id: string | null
+          quantidade: number | null
+          sku: string | null
+          url_imagem: string | null
+          valor_total: number | null
+          valor_unitario: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome_produto?: string | null
+          order_id: string
+          pedido_id: string
+          produto_id?: string | null
+          quantidade?: number | null
+          sku?: string | null
+          url_imagem?: string | null
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome_produto?: string | null
+          order_id?: string
+          pedido_id?: string
+          produto_id?: string | null
+          quantidade?: number | null
+          sku?: string | null
+          url_imagem?: string | null
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loja_integrada_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "loja_integrada_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loja_integrada_orders: {
+        Row: {
+          attendance_id: string | null
+          bandeira_cartao: string | null
+          cliente_id: string | null
+          created_at: string | null
+          cupom_codigo: string | null
+          cupom_json: Json | null
+          data_modificacao: string | null
+          data_pedido: string | null
+          forma_envio: string | null
+          forma_pagamento: string | null
+          id: string
+          itens_json: Json | null
+          marketplace: string | null
+          numero_pedido: string | null
+          parcelas: number | null
+          pedido_id: string
+          raw_payload: Json | null
+          status: string | null
+          synced_at: string | null
+          tracking_code: string | null
+          updated_at: string | null
+          utm_campaign: string | null
+          valor_desconto: number | null
+          valor_envio: number | null
+          valor_subtotal: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          attendance_id?: string | null
+          bandeira_cartao?: string | null
+          cliente_id?: string | null
+          created_at?: string | null
+          cupom_codigo?: string | null
+          cupom_json?: Json | null
+          data_modificacao?: string | null
+          data_pedido?: string | null
+          forma_envio?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          itens_json?: Json | null
+          marketplace?: string | null
+          numero_pedido?: string | null
+          parcelas?: number | null
+          pedido_id: string
+          raw_payload?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tracking_code?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          valor_desconto?: number | null
+          valor_envio?: number | null
+          valor_subtotal?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          attendance_id?: string | null
+          bandeira_cartao?: string | null
+          cliente_id?: string | null
+          created_at?: string | null
+          cupom_codigo?: string | null
+          cupom_json?: Json | null
+          data_modificacao?: string | null
+          data_pedido?: string | null
+          forma_envio?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          itens_json?: Json | null
+          marketplace?: string | null
+          numero_pedido?: string | null
+          parcelas?: number | null
+          pedido_id?: string
+          raw_payload?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tracking_code?: string | null
+          updated_at?: string | null
+          utm_campaign?: string | null
+          valor_desconto?: number | null
+          valor_envio?: number | null
+          valor_subtotal?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_assets: {
         Row: {
           archived_at: string | null
