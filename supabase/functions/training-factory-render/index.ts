@@ -2,18 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-// Logo hardcoded como SVG inline (data URL) — elimina qualquer dependência
-// de rede / Supabase Storage durante a renderização.
-// Smart Dent | Fluxo Digital — versão branca.
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 90">
-  <g fill="#ffffff" font-family="Arial, Helvetica, sans-serif">
-    <text x="0" y="50" font-size="44" font-weight="900" letter-spacing="-1">SMART</text>
-    <text x="148" y="50" font-size="44" font-weight="300" letter-spacing="-1">DENT</text>
-    <rect x="0" y="62" width="262" height="2" fill="#E8821A"/>
-    <text x="0" y="84" font-size="14" font-weight="400" letter-spacing="6" fill="#E8821A">FLUXO DIGITAL</text>
-  </g>
-</svg>`;
-const LOGO_BASE64 = `data:image/svg+xml;base64,${btoa(LOGO_SVG)}`;
+const logoRaw = Deno.env.get('LOGO_BRANCO_B64') || '';
+const LOGO_BASE64 = logoRaw ? `data:image/png;base64,${logoRaw}` : '';
 
 const BodySchema = z.object({ run_id: z.string().uuid() });
 
@@ -102,7 +92,7 @@ function feedHtml(p: {
 *{margin:0;padding:0;box-sizing:border-box;}
 body{width:1080px;height:1080px;background:#0A0F1E;font-family:Arial,sans-serif;position:relative;overflow:hidden;}
 .bg{position:absolute;inset:0;background-image:url('${p.fotoGrupo}');background-size:cover;background-position:center;}
-.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.95) 50%,rgba(0,0,0,0.35) 100%);}
+.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 40%,rgba(0,0,0,0.35) 100%);}
 .badge{position:absolute;top:48px;left:48px;background:#E8821A;color:white;font-size:22px;font-weight:700;padding:8px 20px;border-radius:6px;letter-spacing:1px;}
 .equipamento{position:absolute;top:108px;left:52px;color:rgba(255,255,255,0.7);font-size:18px;letter-spacing:4px;}
 .content{position:absolute;bottom:0;left:0;right:0;padding:0 52px 52px;}
@@ -185,7 +175,7 @@ function linkedinHtml(p: {
 *{margin:0;padding:0;box-sizing:border-box;}
 body{width:1920px;height:1080px;font-family:Arial,sans-serif;position:relative;overflow:hidden;background:#050A14;}
 .bg{position:absolute;inset:0;background-image:url('${p.fotoTurma}');background-size:cover;background-position:center;}
-.overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(5,10,20,0.92) 50%,rgba(5,10,20,0.15) 100%);}
+.overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(5,10,20,0.75) 45%,rgba(5,10,20,0.15) 100%);}
 .logo{position:absolute;top:60px;left:70px;width:180px;}
 .content{position:absolute;bottom:80px;left:70px;right:50%;}
 .subtitulo{color:rgba(255,255,255,0.6);font-size:22px;letter-spacing:4px;font-weight:300;margin-bottom:16px;}
@@ -336,7 +326,7 @@ Deno.serve(async (req) => {
             (p) => p.enrollment_id === asset.enrollment_id ||
                    p.nome === asset.participant_name,
           ) || {};
-          const transcricaoCurta = firstWords(asset.transcription || "", 80);
+          const transcricaoCurta = firstWords(asset.transcription || `Uma experiência transformadora. O treinamento de ${cursoNome} mudou minha prática clínica.`, 80);
           // thumb do depoimento: media_url do asset > foto do grupo como fallback
           const thumbSource = asset.media_url || fotoGrupo;
           const thumbB64 = thumbSource === fotoGrupo
