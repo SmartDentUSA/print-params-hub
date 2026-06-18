@@ -81,11 +81,19 @@ async function geminiOneLiner(topico: string): Promise<string> {
   } catch { return ""; }
 }
 
+const LOGO_WHITE_SVG = `<svg width="160" height="48" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <path d="M18 8 Q8 8 8 18 Q8 35 18 42 Q28 35 28 18 Q28 8 18 8Z" fill="white" opacity="0.9"/>
+  <path d="M18 8 Q28 4 34 12 Q38 20 28 28" fill="none" stroke="white" stroke-width="3" opacity="0.9"/>
+  <text x="40" y="28" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="white" letter-spacing="2">SMART DENT</text>
+</svg>`;
+
 // ────────── SLIDES ──────────
 const COMMON_CSS = `*{margin:0;padding:0;box-sizing:border-box;}
 body{width:1080px;height:1080px;font-family:'Helvetica Neue',Arial,sans-serif;position:relative;overflow:hidden;background:#fff;}
 .badge{position:absolute;top:40px;left:40px;background:#E8821A;color:#fff;font-size:22px;font-weight:800;padding:8px 18px;border-radius:6px;letter-spacing:2px;z-index:5;}
-.logo-tr{position:absolute;top:40px;right:40px;width:160px;z-index:5;}`;
+.logo-tr{position:absolute;top:40px;right:40px;width:160px;z-index:5;}
+.logo-tr svg,.logo-tr img{width:100%;height:auto;display:block;}
+.foot-logo svg,.foot-logo img{width:100%;height:auto;display:block;}`;
 
 function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoWhite: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
