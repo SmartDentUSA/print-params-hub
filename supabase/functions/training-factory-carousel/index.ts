@@ -6,8 +6,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VERCEL_URL = Deno.env.get("VERCEL_URL") || "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
-const LOGO_WHITE_B64_RAW = Deno.env.get("LOGO_BRANCO_B64") || "";
-const LOGO_WHITE = LOGO_WHITE_B64_RAW ? `data:image/png;base64,${LOGO_WHITE_B64_RAW}` : "";
+const LOGO_WHITE_URL = `${SUPABASE_URL}/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png`;
 const LOGO_COLOR_URL = `${SUPABASE_URL}/storage/v1/object/public/wa-media/brand/logo-smart-dent.png`;
 
 const BodySchema = z.object({
@@ -92,7 +91,7 @@ function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoW
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 body{background:#0A0F1E;color:#fff;}
 .bg{position:absolute;inset:0;background:url('${p.fotoGrupoB64}') center/cover no-repeat;}
-.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.85) 45%,rgba(0,0,0,0.2) 100%);}
+.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 45%,rgba(0,0,0,0.1) 100%);}
 .content{position:absolute;bottom:48px;left:48px;right:48px;}
 .label{font-size:20px;letter-spacing:4px;color:rgba(255,255,255,0.85);margin-bottom:10px;}
 .h1{font-size:52px;font-weight:900;color:#E8821A;line-height:1;margin-bottom:8px;}
