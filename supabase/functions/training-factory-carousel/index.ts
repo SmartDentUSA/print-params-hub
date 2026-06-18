@@ -89,9 +89,11 @@ body{width:1080px;height:1080px;font-family:'Helvetica Neue',Arial,sans-serif;po
 
 function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoWhite: string }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
+.logo-tr{top:32px;right:32px;}
 body{background:#0A0F1E;color:#fff;}
 .bg{position:absolute;inset:0;background:url('${p.fotoGrupoB64}') center/cover no-repeat;}
-.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 45%,rgba(0,0,0,0.1) 100%);}
+.overlay-top{position:absolute;top:0;left:0;right:0;height:65%;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0));}
+.overlay-bottom{position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(to top,rgba(0,0,0,0.88),rgba(0,0,0,0));}
 .content{position:absolute;bottom:48px;left:48px;right:48px;}
 .label{font-size:20px;letter-spacing:4px;color:rgba(255,255,255,0.85);margin-bottom:10px;}
 .h1{font-size:52px;font-weight:900;color:#E8821A;line-height:1;margin-bottom:8px;}
@@ -100,7 +102,7 @@ body{background:#0A0F1E;color:#fff;}
 .icons span{display:inline-flex;align-items:center;gap:8px;}
 .local{color:rgba(255,255,255,0.75);font-size:18px;letter-spacing:1px;}
 </style></head><body>
-<div class="bg"></div><div class="overlay"></div>
+<div class="bg"></div><div class="overlay-top"></div><div class="overlay-bottom"></div>
 <div class="badge">${escapeHtml(p.num)}</div>
 <img class="logo-tr" src="${p.logoWhite}" />
 <div class="content">
@@ -259,7 +261,18 @@ Deno.serve(async (req) => {
 
     // ───── Builder: monta HTML de UM slide específico (só carrega o que precisa) ─────
     async function buildSlideHtml(n: number): Promise<string> {
-      const logoWhite = (await urlToBase64(LOGO_WHITE_URL)) || "";
+      let logoWhite = "";
+      try {
+        const resp = await fetch("https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png");
+        if (resp.ok) {
+          const buf = await resp.arrayBuffer();
+          logoWhite = `data:image/png;base64,${bufToB64(buf)}`;
+        }
+      } catch {}
+      if (!logoWhite) {
+        const logoB64Raw = Deno.env.get("LOGO_BRANCO_B64") || "";
+        if (logoB64Raw) logoWhite = `data:image/png;base64,${logoB64Raw}`;
+      }
       const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || logoWhite;
       if (n === 1) {
         const fotoGrupoB64 = await urlToBase64(fotoGrupoUrl);
