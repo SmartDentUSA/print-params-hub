@@ -383,3 +383,6 @@ verify_jwt = false
 
 [functions.social-caption-generator]
 verify_jwt = false
+
+[functions.training-create-drive-folder]
+verify_jwt = false
