@@ -1052,7 +1052,8 @@ Receba o texto bruto abaixo e:
     }
 
     try {
-      const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
+      const categoryId = formData.category_id
+        || categories.find(c => c.letter === selectedCategory)?.id;
       
       const contentData = {
         title: formData.title,
