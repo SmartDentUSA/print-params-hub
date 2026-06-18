@@ -386,3 +386,6 @@ verify_jwt = false
 
 [functions.training-create-drive-folder]
 verify_jwt = false
+
+[functions.training-factory-trigger]
+verify_jwt = false
