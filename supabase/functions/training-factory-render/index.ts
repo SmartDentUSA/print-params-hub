@@ -12,6 +12,46 @@ const MESES = [
   "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO",
 ];
 
+// Google Drive: força versão reduzida para evitar payloads > 2MB
+function normalizeImageUrl(url: string): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    if (/(^|\.)googleusercontent\.com$/i.test(u.hostname) ||
+        /(^|\.)drive\.google\.com$/i.test(u.hostname)) {
+      // remove sz/size existentes e força w1200
+      u.searchParams.delete("sz");
+      u.searchParams.set("sz", "w1200");
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
+async function urlToBase64(url: string): Promise<string> {
+  if (!url) return "";
+  try {
+    const res = await fetch(normalizeImageUrl(url));
+    if (!res.ok) return "";
+    const buf = await res.arrayBuffer();
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    return `data:${contentType};base64,${bufferToBase64(buf)}`;
+  } catch {
+    return "";
+  }
+}
+
 function escapeHtml(s: string): string {
   return (s ?? "")
     .replace(/&/g, "&amp;")
@@ -32,6 +72,7 @@ function feedHtml(p: {
   turmaNumber: number;
   equipamento: string;
   mesAno: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -63,7 +104,7 @@ body{width:1080px;height:1080px;background:#0A0F1E;font-family:Arial,sans-serif;
 </div>
 <div class="info-row">📍 São Carlos – SP &nbsp;|&nbsp; ${escapeHtml(p.mesAno)}</div>
 </div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 </body></html>`;
 }
 
@@ -75,6 +116,7 @@ function depoimentoHtml(p: {
   especialidade: string;
   cidade: string;
   estado: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -93,7 +135,7 @@ body{width:1080px;height:1920px;font-family:Arial,sans-serif;position:relative;o
 .rodape{position:absolute;bottom:60px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.5);font-size:18px;letter-spacing:5px;}
 </style></head><body>
 <div class="bg"></div><div class="overlay"></div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 <div class="quote-block">
 <div class="aspas">"</div>
 <div class="quote-text">${escapeHtml(p.transcricaoCurta)} <span class="curso-bold">${escapeHtml(p.cursoNome)}</span>"</div>
@@ -113,6 +155,7 @@ function linkedinHtml(p: {
   equipamento: string;
   total: number;
   estados: string;
+  logo: string;
 }) {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -127,7 +170,7 @@ body{width:1920px;height:1080px;font-family:Arial,sans-serif;position:relative;o
 .info{color:#E8821A;font-size:24px;letter-spacing:2px;font-weight:600;}
 </style></head><body>
 <div class="bg"></div><div class="overlay"></div>
-<img class="logo" src="${LOGO_BRANCO}" />
+<img class="logo" src="${p.logo}" />
 <div class="content">
 <div class="subtitulo">TURMA #${escapeHtml(String(p.turmaNumber))} CONCLUÍDA</div>
 <div class="titulo">${escapeHtml(p.cursoNome)}</div>
@@ -220,6 +263,12 @@ Deno.serve(async (req) => {
     const mediaUploaded: any = run.media_uploaded ?? {};
     const fotoGrupo: string = mediaUploaded?.foto_grupo || "";
 
+    // Pré-converter imagens compartilhadas (Puppeteer não busca URLs externas confiavelmente)
+    const [logoB64, fotoGrupoB64] = await Promise.all([
+      urlToBase64(LOGO_BRANCO),
+      urlToBase64(fotoGrupo),
+    ]);
+
     // 3. Assets
     const { data: assets, error: assetsErr } = await supabase
       .from("training_factory_assets")
@@ -238,17 +287,18 @@ Deno.serve(async (req) => {
         let storagePath = "";
 
         if (asset.asset_type === "feed_instagram") {
-          html = feedHtml({ fotoGrupo, turmaNumber, equipamento, mesAno });
+          html = feedHtml({ fotoGrupo: fotoGrupoB64, turmaNumber, equipamento, mesAno, logo: logoB64 });
           width = 1080; height = 1080;
           storagePath = `${basePath}/feed_instagram.png`;
         } else if (asset.asset_type === "linkedin") {
           html = linkedinHtml({
-            fotoTurma: fotoGrupo,
+            fotoTurma: fotoGrupoB64,
             turmaNumber,
             cursoNome,
             equipamento,
             total,
             estados: estadosStr,
+            logo: logoB64,
           });
           width = 1920; height = 1080;
           storagePath = `${basePath}/linkedin.png`;
@@ -258,14 +308,20 @@ Deno.serve(async (req) => {
                    p.nome === asset.participant_name,
           ) || {};
           const transcricaoCurta = firstWords(asset.transcription || "", 80);
+          // thumb do depoimento: media_url do asset > foto do grupo como fallback
+          const thumbSource = asset.media_url || fotoGrupo;
+          const thumbB64 = thumbSource === fotoGrupo
+            ? fotoGrupoB64
+            : await urlToBase64(thumbSource);
           html = depoimentoHtml({
-            videoThumb: fotoGrupo,
+            videoThumb: thumbB64 || fotoGrupoB64,
             transcricaoCurta,
             cursoNome,
             nome: asset.participant_name || part.nome || "",
             especialidade: part.especialidade || part.especialidade_nome || "Dentista",
             cidade: part.cidade || part.city || "",
             estado: part.estado || part.uf || "",
+            logo: logoB64,
           });
           width = 1080; height = 1920;
           storagePath = `${basePath}/depoimento_${asset.enrollment_id || asset.id}.png`;
