@@ -105,7 +105,19 @@ export async function generateEmbedding(input: EmbedInput): Promise<number[] | n
           .eq(cacheColumn, cacheHash)
           .then(() => {});
         console.log(`[generate-embedding] Cache HIT (${cacheTable})`);
-        return cached.embedding as unknown as number[];
+        // pgvector returns the embedding as a string like "[0.1,0.2,...]" via PostgREST.
+        // Normalize to number[] so callers can do array math (reduce/map/etc).
+        const raw = cached.embedding as unknown;
+        if (Array.isArray(raw)) return raw as number[];
+        if (typeof raw === "string") {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed as number[];
+          } catch {
+            // fall through to regenerate
+          }
+        }
+        console.warn("[generate-embedding] Cached embedding had unexpected shape, regenerating");
       }
     } catch {
       // Cache miss or error — continue to generate
