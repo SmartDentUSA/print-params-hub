@@ -61,7 +61,7 @@ function StatusBadge({ r }: { r: GoogleReview }) {
 }
 
 export function SocialReviews() {
-  const { data: connection, isLoading: connLoading } = useGoogleConnection();
+  const { data: connection } = useGoogleConnection();
   const { data: reviews = [], isLoading } = useGoogleReviews();
   const { data: places, isLoading: placesLoading, refetch: refetchPlaces } = usePlacesReputation();
   const [syncing, setSyncing] = useState(false);
