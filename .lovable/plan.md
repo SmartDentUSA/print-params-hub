@@ -1,38 +1,46 @@
-## Problema
+## Causa-raiz
 
-A turma #144 aparece sim na lista de Agendamentos (linha "#144 Chairside Print - Odontologia Digital ... 10 de Jun de 2026"), mas **sem o badge "✨ Factory: pronto"** que adicionamos.
+As hashtags aparecem duplicadas porque há **duas fontes** alimentando o mesmo lugar:
 
-Causa-raiz identificada via inspeção do schema: a aba Agendamentos consome a **view `v_turmas_com_vagas`** (não a tabela direta). Essa view **não expõe** as colunas `factory_status` e `factory_processed_at`, então o campo chega `undefined` no `TurmaListRow` e o badge nunca renderiza.
+1. **`training-factory-trigger`** instrui o LLM (linha 201) a **terminar a caption do Instagram** com:
+   `#odontologiadigital #smartdent #chairsideprint #impressao3d #ino200 #odontologia`
+2. **Logo depois**, o código salva exatamente as **mesmas hashtags** no array `hashtags[]` do asset (linhas 257–264).
+3. Na hora de publicar, **`social-publish-worker`** (linha 128–133) faz:
+   ```
+   content = caption + "\n\n" + hashtags.join(" ")
+   ```
+   → o Instagram recebe as hashtags duas vezes.
 
-## Correção proposta
+No diálogo Factory você vê o mesmo efeito: as hashtags aparecem **no textarea da caption** e **nos chips abaixo** — porque ambos vêm do mesmo asset, mas de campos diferentes.
 
-### 1. Migração SQL — recriar a view incluindo os campos
+## Correção (três camadas, complementares)
 
-`CREATE OR REPLACE VIEW public.v_turmas_com_vagas` adicionando ao `SELECT`:
+### 1. `social-publish-worker` — dedup defensivo (fix imediato para dados existentes)
 
-- `t.factory_status`
-- `t.factory_processed_at`
-
-(mantendo todas as 39 colunas atuais e os mesmos joins/filtros).
-
-### 2. Tipos TypeScript
-
-Acrescentar em `TurmaComVagas` (`src/types/courses.ts`):
+Antes de concatenar, remover do final da caption qualquer bloco de hashtags que já esteja em `hashtags[]`. Algo como:
 
 ```ts
-factory_status?: 'processando' | 'pronto' | 'publicando' | 'concluido' | 'erro' | string | null;
-factory_processed_at?: string | null;
+const tagSet = new Set((post.hashtags ?? []).map(h => h.toLowerCase().replace(/^#/, "")));
+const cleanCaption = (post.caption ?? "")
+  .replace(/(?:\s*#[\p{L}\p{N}_]+)+\s*$/u, (match) => {
+    // Mantém só hashtags que NÃO estão no array
+    const kept = match.trim().split(/\s+/).filter(h => !tagSet.has(h.replace(/^#/, "").toLowerCase()));
+    return kept.length ? "\n" + kept.join(" ") : "";
+  })
+  .trimEnd();
 ```
 
-### 3. UI (nada a mudar)
+Resultado: posts já gerados (turma #144 inclusa) deixam de duplicar imediatamente, sem precisar regerar nada.
 
-`TurmaListRow.tsx` já lê `(turma as any).factory_status` e renderiza o badge azul "✨ Factory: pronto". Após a view ser atualizada, o badge aparecerá automaticamente na #144.
+### 2. `training-factory-trigger` — prompt limpo (evita repetir o problema no futuro)
 
-## Resultado esperado
+No prompt do Instagram, **remover a linha que pede para terminar com as hashtags literais** e **instruir o LLM a NÃO incluir hashtags** ("o sistema de publicação anexa as hashtags automaticamente"). O array `hashtags[]` continua sendo a única fonte estruturada.
 
-Após aplicar a migração, ao filtrar por **"Encerrados"** ou **"Todos"** e buscar por **`144`**, a linha aparecerá com o badge azul **"✨ Factory: pronto"**, deixando claro que ela está disponível para publicação via o diálogo Factory.
+### 3. `TurmaFactoryDialog` — preview consistente
+
+Manter os chips de hashtags abaixo (já existem), mas como a caption agora não terá hashtags embutidas, o preview fica claro: caption no textarea, hashtags como chips, sem repetição visual.
 
 ## Fora do escopo
 
-- Não vou mover a turma para outra aba de filtro (Encerrados é o status temporal correto).
-- Não vou adicionar a coluna `factory_status` ao CourseCard do Catálogo — Catálogo é por curso, não por turma.
+- Não vou regerar os assets existentes — a correção (1) já neutraliza o problema na publicação.
+- Não vou mexer na lógica do LinkedIn (o prompt dele já pede "no máximo 3–4 hashtags ao final" e o array `hashtags[]` não duplica nesse asset, pois lá está vazio).
