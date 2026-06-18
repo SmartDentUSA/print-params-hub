@@ -6,8 +6,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VERCEL_URL = Deno.env.get("VERCEL_URL") || "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
-const LOGO_WHITE_B64_RAW = Deno.env.get("LOGO_BRANCO_B64") || "";
-const LOGO_WHITE = LOGO_WHITE_B64_RAW ? `data:image/png;base64,${LOGO_WHITE_B64_RAW}` : "";
+const LOGO_WHITE_URL = `${SUPABASE_URL}/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png`;
 const LOGO_COLOR_URL = `${SUPABASE_URL}/storage/v1/object/public/wa-media/brand/logo-smart-dent.png`;
 
 const BodySchema = z.object({
@@ -92,7 +91,7 @@ function slideCapa(p: { num: string; fotoGrupoB64: string; mesAno: string; logoW
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${COMMON_CSS}
 body{background:#0A0F1E;color:#fff;}
 .bg{position:absolute;inset:0;background:url('${p.fotoGrupoB64}') center/cover no-repeat;}
-.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.85) 45%,rgba(0,0,0,0.2) 100%);}
+.overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 45%,rgba(0,0,0,0.1) 100%);}
 .content{position:absolute;bottom:48px;left:48px;right:48px;}
 .label{font-size:20px;letter-spacing:4px;color:rgba(255,255,255,0.85);margin-bottom:10px;}
 .h1{font-size:52px;font-weight:900;color:#E8821A;line-height:1;margin-bottom:8px;}
@@ -260,32 +259,34 @@ Deno.serve(async (req) => {
 
     // ───── Builder: monta HTML de UM slide específico (só carrega o que precisa) ─────
     async function buildSlideHtml(n: number): Promise<string> {
+      const logoWhite = (await urlToBase64(LOGO_WHITE_URL)) || "";
+      const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || logoWhite;
       if (n === 1) {
         const fotoGrupoB64 = await urlToBase64(fotoGrupoUrl);
-        return slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite: LOGO_WHITE });
+        return slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite });
       }
       if (n >= 2 && n <= 4) {
         const i = n - 2;
-        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
         const photoSrc = dia3Photos[i] || fotoGrupoUrl;
         const fotoB64 = await urlToBase64(photoSrc);
         const quote = truncate(depoimentos[i]?.transcription || "Experiência marcante de aprendizado prático e aplicável.", 80);
         return slideCertificado({ num: String(n).padStart(2, "0"), fotoB64, quote, logoColor });
       }
       if (n === 5) {
-        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
         const topicos = [tDia(0), tDia(1), tDia(2)];
         const descs = await Promise.all(topicos.map(t => geminiOneLiner(t)));
+        const ICON_MONITOR = `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#E8821A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
+        const ICON_TOOTH = `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#E8821A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 2 5 4 5 8c0 3 1 5 1.5 8 .3 2 .7 4 2 4 1.2 0 1.5-2 2-4.5.2-1 .8-1.5 1.5-1.5s1.3.5 1.5 1.5C14 18 14.3 20 15.5 20c1.3 0 1.7-2 2-4 .5-3 1.5-5 1.5-8 0-4-3-6-7-6z"/></svg>`;
+        const ICON_PRINTER = `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#E8821A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><rect x="7" y="14" width="10" height="7"/></svg>`;
         const dias05 = [
-          { icon: "🖥️", titulo: topicos[0] || "Planejamento Digital", desc: descs[0] || "Domine o fluxo digital do diagnóstico ao planejamento." },
-          { icon: "🦷", titulo: topicos[1] || "CAD Clínico", desc: descs[1] || "Desenhe restaurações com precisão e velocidade clínica." },
-          { icon: "🖨️", titulo: topicos[2] || "Impressão Chairside", desc: descs[2] || "Imprima e entregue no mesmo dia com previsibilidade." },
+          { icon: ICON_MONITOR, titulo: topicos[0] || "Planejamento Digital", desc: descs[0] || "Domine o fluxo digital do diagnóstico ao planejamento." },
+          { icon: ICON_TOOTH, titulo: topicos[1] || "CAD Clínico", desc: descs[1] || "Desenhe restaurações com precisão e velocidade clínica." },
+          { icon: ICON_PRINTER, titulo: topicos[2] || "Impressão Chairside", desc: descs[2] || "Imprima e entregue no mesmo dia com previsibilidade." },
         ];
         return slideConhecimento({ num: "05", dias: dias05, logoColor });
       }
       if (n >= 6 && n <= 8) {
         const i = n - 6;
-        const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || LOGO_WHITE;
         const dep = depoimentos[i];
         const matchPart = dep
           ? participantes.find((p: any) => p.enrollment_id === dep.enrollment_id || p.nome === dep.participant_name) || {}
@@ -298,7 +299,7 @@ Deno.serve(async (req) => {
         return slideParticipante({ num: String(n).padStart(2, "0"), nome: partName, especialidade: espec, quote, fotoB64, logoColor });
       }
       // n === 9
-      return slideCTA({ num: "09", logoWhite: LOGO_WHITE });
+      return slideCTA({ num: "09", logoWhite });
     }
 
     async function renderAndPersist(n: number) {
