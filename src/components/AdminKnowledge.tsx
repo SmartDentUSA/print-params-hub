@@ -909,7 +909,8 @@ Receba o texto bruto abaixo e:
       aiPromptTemplate: (content as any).ai_prompt_template || '',
       selected_pdf_ids_pt: content.selected_pdf_ids_pt || [],
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
-      selected_pdf_ids_en: content.selected_pdf_ids_en || []
+      selected_pdf_ids_en: content.selected_pdf_ids_en || [],
+      category_id: content.category_id || '',
     });
     
     // Load multilingual content
@@ -963,7 +964,8 @@ Receba o texto bruto abaixo e:
       aiPromptTemplate: '',
       selected_pdf_ids_pt: [],
       selected_pdf_ids_es: [],
-      selected_pdf_ids_en: []
+      selected_pdf_ids_en: [],
+      category_id: '',
     });
     
     // Reset multilingual states
