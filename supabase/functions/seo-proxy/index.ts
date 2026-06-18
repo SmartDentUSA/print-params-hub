@@ -1898,7 +1898,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     const contentType = detectContentType(content);
     const canonicalUrl = `${baseUrl}/base-conhecimento/${letter}/${slug}`;
     const authorSchema = buildAuthorSchema(content.authors, baseUrl);
-    const publisherSchema = buildPublisherSchema(baseUrl);
+    const publisherSchema = buildPublisherSchema(baseUrl, companyReviews);
     
     // Construir schema principal baseado no tipo detectado
     let mainArticleSchema: any;
