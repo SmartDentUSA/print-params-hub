@@ -2,18 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-// Logo hardcoded como SVG inline (data URL) — elimina qualquer dependência
-// de rede / Supabase Storage durante a renderização.
-// Smart Dent | Fluxo Digital — versão branca.
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 90">
-  <g fill="#ffffff" font-family="Arial, Helvetica, sans-serif">
-    <text x="0" y="50" font-size="44" font-weight="900" letter-spacing="-1">SMART</text>
-    <text x="148" y="50" font-size="44" font-weight="300" letter-spacing="-1">DENT</text>
-    <rect x="0" y="62" width="262" height="2" fill="#E8821A"/>
-    <text x="0" y="84" font-size="14" font-weight="400" letter-spacing="6" fill="#E8821A">FLUXO DIGITAL</text>
-  </g>
-</svg>`;
-const LOGO_BASE64 = `data:image/svg+xml;base64,${btoa(LOGO_SVG)}`;
+const logoRaw = Deno.env.get('LOGO_BRANCO_B64') || '';
+const LOGO_BASE64 = logoRaw ? `data:image/png;base64,${logoRaw}` : '';
 
 const BodySchema = z.object({ run_id: z.string().uuid() });
 
