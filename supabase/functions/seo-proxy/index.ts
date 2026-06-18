@@ -521,9 +521,39 @@ function detectContentType(content: any): 'MedicalWebPage' | 'ScholarlyArticle' 
   return 'TechArticle';
 }
 
+// Buscar reviews da empresa (Places API → system_a_catalog.extra_data.reviews_reputation)
+async function fetchCompanyReviews(supabase: any): Promise<{
+  rating: number;
+  reviewCount: number;
+  reviews: Array<{ author_name: string; rating: number; text: string; time: number; profile_photo_url?: string }>;
+}> {
+  try {
+    const { data } = await supabase
+      .from('system_a_catalog')
+      .select('extra_data')
+      .eq('category', 'company_info')
+      .eq('active', true)
+      .limit(1)
+      .maybeSingle();
+    const rep = (data as any)?.extra_data?.reviews_reputation;
+    return {
+      rating: Number(rep?.google_rating ?? 5),
+      reviewCount: Number(rep?.google_review_count ?? 0),
+      reviews: Array.isArray(rep?.google_reviews_pt) ? rep.google_reviews_pt : [],
+    };
+  } catch (e) {
+    console.error('fetchCompanyReviews error:', (e as Error).message);
+    return { rating: 5, reviewCount: 0, reviews: [] };
+  }
+}
+
 // Publisher Schema completo com dados corporativos (FONTE DA VERDADE — Smart Dent / MMTech)
-function buildPublisherSchema(baseUrl: string) {
-  return {
+function buildPublisherSchema(baseUrl: string, companyReviews?: {
+  rating: number;
+  reviewCount: number;
+  reviews: Array<{ author_name: string; rating: number; text: string; time: number; profile_photo_url?: string }>;
+}) {
+  const schema: any = {
     "@type": ["Organization", "Corporation"],
     "@id": `${baseUrl}/#organization`,
     "name": "Smart Dent",
@@ -692,6 +722,32 @@ function buildPublisherSchema(baseUrl: string) {
       }
     ]
   };
+
+  if (companyReviews && companyReviews.reviewCount > 0) {
+    schema.aggregateRating = {
+      "@type": "AggregateRating",
+      "ratingValue": String(companyReviews.rating),
+      "reviewCount": String(companyReviews.reviewCount),
+      "bestRating": "5",
+      "worstRating": "1"
+    };
+    if (companyReviews.reviews.length > 0) {
+      schema.review = companyReviews.reviews.slice(0, 5).map((r) => ({
+        "@type": "Review",
+        "author": { "@type": "Person", "name": r.author_name },
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": String(r.rating),
+          "bestRating": "5",
+          "worstRating": "1"
+        },
+        "reviewBody": r.text,
+        "datePublished": r.time ? new Date(r.time * 1000).toISOString().split('T')[0] : undefined
+      }));
+    }
+  }
+
+  return schema;
 }
 
 // Author Schema completo com credenciais profissionais (E-E-A-T)
