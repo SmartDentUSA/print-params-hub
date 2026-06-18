@@ -12,6 +12,46 @@ const MESES = [
   "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO",
 ];
 
+// Google Drive: força versão reduzida para evitar payloads > 2MB
+function normalizeImageUrl(url: string): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    if (/(^|\.)googleusercontent\.com$/i.test(u.hostname) ||
+        /(^|\.)drive\.google\.com$/i.test(u.hostname)) {
+      // remove sz/size existentes e força w1200
+      u.searchParams.delete("sz");
+      u.searchParams.set("sz", "w1200");
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
+async function urlToBase64(url: string): Promise<string> {
+  if (!url) return "";
+  try {
+    const res = await fetch(normalizeImageUrl(url));
+    if (!res.ok) return "";
+    const buf = await res.arrayBuffer();
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    return `data:${contentType};base64,${bufferToBase64(buf)}`;
+  } catch {
+    return "";
+  }
+}
+
 function escapeHtml(s: string): string {
   return (s ?? "")
     .replace(/&/g, "&amp;")
