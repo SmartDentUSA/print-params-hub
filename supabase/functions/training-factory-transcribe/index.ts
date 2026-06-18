@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
             },
             {
               inline_data: {
-                mime_type: mime?.startsWith("video/") || mime?.startsWith("audio/") ? mime : "video/mp4",
+                mime_type: mime?.startsWith("video/") || mime?.startsWith("audio/") ? mime : "audio/mp4",
                 data: b64,
               },
             },
