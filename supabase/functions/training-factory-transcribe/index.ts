@@ -65,6 +65,17 @@ async function fetchCapped(url: string, maxBytes: number) {
   return { bytes: out, mime };
 }
 
+function toBase64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk)) as any,
+    );
+  }
+  return btoa(bin);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
