@@ -2,8 +2,18 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-const LOGO_BRANCO =
-  "https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png";
+// Logo hardcoded como SVG inline (data URL) — elimina qualquer dependência
+// de rede / Supabase Storage durante a renderização.
+// Smart Dent | Fluxo Digital — versão branca.
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 90">
+  <g fill="#ffffff" font-family="Arial, Helvetica, sans-serif">
+    <text x="0" y="50" font-size="44" font-weight="900" letter-spacing="-1">SMART</text>
+    <text x="148" y="50" font-size="44" font-weight="300" letter-spacing="-1">DENT</text>
+    <rect x="0" y="62" width="262" height="2" fill="#E8821A"/>
+    <text x="0" y="84" font-size="14" font-weight="400" letter-spacing="6" fill="#E8821A">FLUXO DIGITAL</text>
+  </g>
+</svg>`;
+const LOGO_BASE64 = `data:image/svg+xml;base64,${btoa(LOGO_SVG)}`;
 
 const BodySchema = z.object({ run_id: z.string().uuid() });
 
@@ -276,16 +286,17 @@ Deno.serve(async (req) => {
     const mediaUploaded: any = run.media_uploaded ?? {};
     const fotoGrupo: string = mediaUploaded?.foto_grupo || "";
 
-    // Pré-converter imagens compartilhadas (Puppeteer não busca URLs externas confiavelmente)
+    // Logo embutido (constante). Apenas a foto do grupo precisa ser baixada.
     console.log("foto_grupo URL recebida:", fotoGrupo);
-    console.log("logo URL:", LOGO_BRANCO);
-    const [logoB64, fotoGrupoB64] = await Promise.all([
-      urlToBase64(LOGO_BRANCO, SUPABASE_SERVICE_KEY),
-      urlToBase64(fotoGrupo),
-    ]);
-    console.log("logoB64 length:", logoB64.length, "fotoGrupoB64 length:", fotoGrupoB64.length);
-    if (!logoB64) console.warn("⚠️ logo não carregou — templates ficarão sem logo");
-    if (!fotoGrupoB64) console.warn("⚠️ foto_grupo não carregou — feed/linkedin sem background");
+    const logoB64 = LOGO_BASE64;
+    const fotoGrupoB64 = await urlToBase64(fotoGrupo);
+    console.log(
+      "logoB64 length:", logoB64.length,
+      "fotoGrupoB64 length:", fotoGrupoB64.length,
+    );
+    if (!fotoGrupoB64) {
+      console.warn("⚠️ foto_grupo não carregou — feed/linkedin sem background");
+    }
 
     // 3. Assets
     const { data: assets, error: assetsErr } = await supabase
