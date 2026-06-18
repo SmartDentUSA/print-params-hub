@@ -11,6 +11,9 @@ const BodySchema = z.object({
   product_name: z.string().trim().max(200).optional().default(""),
   platform: z.string().trim().max(40).optional().default("instagram"),
   aspect: z.enum(["square", "vertical", "horizontal"]).optional().default("square"),
+  preset_id: z.string().trim().max(60).optional(),
+  width: z.number().int().min(256).max(4096).optional(),
+  height: z.number().int().min(256).max(4096).optional(),
 });
 
 function extractImageUrl(text: string): string | null {
@@ -23,10 +26,15 @@ function extractImageUrl(text: string): string | null {
   return any ? any[1] : null;
 }
 
-function aspectHint(a: string): string {
-  if (a === "vertical") return "Formato vertical 4:5 (1080x1350px), ideal para Instagram feed/stories.";
-  if (a === "horizontal") return "Formato horizontal 16:9 (1920x1080px), ideal para LinkedIn/YouTube.";
-  return "Formato quadrado 1:1 (1080x1080px), ideal para Instagram feed.";
+function aspectHint(a: string, w?: number, h?: number, presetId?: string): string {
+  const dims = w && h ? `${w}x${h}px` : "";
+  if (presetId === "reddit") return `Formato quadrado 1:1 (${dims || "1080x1080px"}) — Reddit.`;
+  if (presetId === "linkedin_carousel") return `Formato vertical 4:5 (${dims || "1080x1350px"}) — Página de carrossel LinkedIn (PDF).`;
+  if (presetId === "ig_fb_feed") return `Formato vertical 4:5 (${dims || "1080x1350px"}) — Instagram/Facebook Feed & Stories.`;
+  if (presetId === "hero_kb") return `Formato horizontal 16:9 (${dims || "1200x675px"}) — Capa hero Base de Conhecimento.`;
+  if (a === "vertical") return `Formato vertical 4:5 (${dims || "1080x1350px"}).`;
+  if (a === "horizontal") return `Formato horizontal 16:9 (${dims || "1920x1080px"}).`;
+  return `Formato quadrado 1:1 (${dims || "1080x1080px"}).`;
 }
 
 Deno.serve(async (req) => {
@@ -38,11 +46,11 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { prompt, product_name, platform, aspect } = parsed.data;
+    const { prompt, product_name, platform, aspect, preset_id, width, height } = parsed.data;
 
     const fullPrompt = [
       `Crie uma imagem premium para post de ${platform} da marca Smart Dent (fluxo digital odontológico, impressão 3D).`,
-      aspectHint(aspect),
+      aspectHint(aspect, width, height, preset_id),
       product_name ? `Produto em destaque: ${product_name}.` : "",
       "Estética: editorial premium, tecnológica, alto contraste, espaço respirado, sem texto literal (a menos que explicitado).",
       "Brief do usuário:",
