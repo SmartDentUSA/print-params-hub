@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays
 import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
+import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
 
 type EventRow = {
   id: string;
@@ -29,6 +30,17 @@ type EventRow = {
   is_active: boolean;
   display_order: number;
   notes: string | null;
+  about_event_pt: string | null;
+  about_event_en: string | null;
+  about_event_es: string | null;
+  cover_image_pt: string | null;
+  cover_image_en: string | null;
+  cover_image_es: string | null;
+  reference_image_url: string | null;
+  event_logo_url: string | null;
+  ai_image_prompt_pt: string | null;
+  ai_image_prompt_en: string | null;
+  ai_image_prompt_es: string | null;
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -46,6 +58,17 @@ function emptyForm(): Partial<EventRow> {
     is_active: true,
     display_order: 0,
     notes: "",
+    about_event_pt: "",
+    about_event_en: "",
+    about_event_es: "",
+    cover_image_pt: "",
+    cover_image_en: "",
+    cover_image_es: "",
+    reference_image_url: "",
+    event_logo_url: "",
+    ai_image_prompt_pt: "",
+    ai_image_prompt_en: "",
+    ai_image_prompt_es: "",
   };
 }
 
@@ -116,18 +139,29 @@ export function SmartOpsEvents() {
         is_active: editing.is_active ?? true,
         display_order: editing.display_order ?? 0,
         notes: editing.notes || null,
+        about_event_pt: editing.about_event_pt || null,
+        about_event_en: editing.about_event_en || null,
+        about_event_es: editing.about_event_es || null,
+        cover_image_pt: editing.cover_image_pt || null,
+        cover_image_en: editing.cover_image_en || null,
+        cover_image_es: editing.cover_image_es || null,
+        reference_image_url: editing.reference_image_url || null,
+        event_logo_url: editing.event_logo_url || null,
+        ai_image_prompt_pt: editing.ai_image_prompt_pt || null,
+        ai_image_prompt_en: editing.ai_image_prompt_en || null,
+        ai_image_prompt_es: editing.ai_image_prompt_es || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
         if (error) throw error;
         toast.success("Evento atualizado");
       } else {
-        const { error } = await supabase.from("smartops_events").insert(payload);
+        const { data: inserted, error } = await supabase.from("smartops_events").insert(payload).select("id").single();
         if (error) throw error;
+        // Mantém o diálogo aberto com o id real para permitir gerar IA na sequência.
+        if (inserted?.id) setEditing((cur) => cur ? { ...cur, id: inserted.id } as any : cur);
         toast.success("Evento criado");
       }
-      setOpen(false);
-      setEditing(null);
       await load();
     } catch (e: any) {
       toast.error(e?.message || "Falha ao salvar");
