@@ -87,14 +87,15 @@ export function SocialReviews() {
     }
   }
 
+  const [lang, setLang] = useState<"pt" | "en" | "es">("pt");
   const placesReviews: PlacesReview[] = useMemo(() => {
     if (!places) return [];
-    return [
-      ...(places.google_reviews_pt ?? []),
-      ...(places.google_reviews_en ?? []),
-      ...(places.google_reviews_es ?? []),
-    ].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
-  }, [places]);
+    const src =
+      lang === "en" ? places.google_reviews_en
+      : lang === "es" ? places.google_reviews_es
+      : places.google_reviews_pt;
+    return [...(src ?? [])].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+  }, [places, lang]);
 
   const stats = useMemo(() => ({
     total: places?.google_review_count ?? 0,
@@ -146,7 +147,22 @@ export function SocialReviews() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Avaliações públicas (Places API)</CardTitle>
+          <CardTitle className="text-base flex items-center justify-between gap-3">
+            <span>Avaliações públicas (Places API)</span>
+            <div className="flex gap-1">
+              {(["pt", "en", "es"] as const).map((l) => (
+                <Button
+                  key={l}
+                  size="sm"
+                  variant={lang === l ? "default" : "outline"}
+                  onClick={() => setLang(l)}
+                  className="h-7 px-2 text-xs uppercase"
+                >
+                  {l}
+                </Button>
+              ))}
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {placesReviews.length === 0 ? (
