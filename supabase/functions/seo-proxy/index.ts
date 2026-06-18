@@ -1719,10 +1719,11 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     return '';
   }
 
-  // Buscar vídeos, resinas e knowledge context em paralelo
-  const [videosRes, knowledgeCtx] = await Promise.all([
+  // Buscar vídeos, resinas, knowledge context e reviews em paralelo
+  const [videosRes, knowledgeCtx, companyReviews] = await Promise.all([
     supabase.from('knowledge_videos').select('*').eq('content_id', content.id).order('order_index'),
     fetchKnowledgeContext(supabase, { categoryId: content.category_id, limit: 5 }),
+    fetchCompanyReviews(supabase),
   ]);
   const videos = videosRes.data;
 
