@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
 
     // 5. Poe image gen
     const poeRes = await callPoe({
-      model: "GPT-Image-1",
+      model: "Nano-Banana",
       messages: [{ role: "user", content: prompt }],
     });
     if (!poeRes.ok) {
