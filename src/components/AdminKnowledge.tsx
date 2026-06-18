@@ -186,7 +186,8 @@ Receba o texto bruto abaixo e:
     aiPromptTemplate: '',
     selected_pdf_ids_pt: [] as string[],
     selected_pdf_ids_es: [] as string[],
-    selected_pdf_ids_en: [] as string[]
+    selected_pdf_ids_en: [] as string[],
+    category_id: '' as string,
   });
   
   const { 
