@@ -92,7 +92,7 @@ export function TurmaFactoryDialog({ open, onOpenChange, turmaId, turmaLabel, fa
         .order("created_at", { ascending: false })
         .limit(1);
       if (cancelled) return;
-      const r = (runs?.[0] ?? null) as FactoryRun | null;
+      const r = (runs?.[0] ?? null) as unknown as FactoryRun | null;
       setRun(r);
       if (r) {
         const { data: a } = await supabase
