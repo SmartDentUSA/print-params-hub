@@ -762,6 +762,18 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                           />
                         </div>
                         <div>
+                          <Label className="text-xs">Instagram</Label>
+                          <Input
+                            value={c.instagram || ""}
+                            placeholder="@usuario"
+                            onChange={(e) => {
+                              const updated = [...companions];
+                              updated[i] = { ...updated[i], instagram: e.target.value };
+                              setCompanions(updated);
+                            }}
+                          />
+                        </div>
+                        <div>
                           <Label className="text-xs">Especialidade</Label>
                           <TaxonomySelect
                             options={ESPECIALIDADE_OPTIONS}
