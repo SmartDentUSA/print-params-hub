@@ -3243,6 +3243,39 @@ export type Database = {
         }
         Relationships: []
       }
+      copa_comentarios: {
+        Row: {
+          comentario: string | null
+          created_at: string | null
+          id: string
+          ig_user_id: string | null
+          ig_username: string | null
+          jogo: string
+          palpite_normalizado: string | null
+          post_id: string
+        }
+        Insert: {
+          comentario?: string | null
+          created_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          ig_username?: string | null
+          jogo: string
+          palpite_normalizado?: string | null
+          post_id: string
+        }
+        Update: {
+          comentario?: string | null
+          created_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          ig_username?: string | null
+          jogo?: string
+          palpite_normalizado?: string | null
+          post_id?: string
+        }
+        Relationships: []
+      }
       crm_product_sales: {
         Row: {
           category: string
