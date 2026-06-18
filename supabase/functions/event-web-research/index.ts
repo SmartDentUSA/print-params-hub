@@ -1,4 +1,4 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 import { z } from "npm:zod";
 
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
