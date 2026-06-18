@@ -23,6 +23,7 @@ interface ReqBody {
   tone?: string;
   language?: string;
   external_enrichment?: any;
+  extra_products?: Array<{ name?: string; slug?: string; category?: string }>;
 }
 
 function sanitizeHashtags(arr: unknown): string[] {
@@ -190,7 +191,7 @@ function buildExportBlock(enr: any): string {
   return parts.join("\n");
 }
 
-function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr: any): string {
+function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr: any, extraCtx: any[]): string {
   const tone = body.tone || "Profissional";
   const lang = body.language || "pt-BR";
   const product = body.product_name || body.product_slug || "(produto não especificado)";
@@ -207,9 +208,18 @@ function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr:
 
   const exportBlock = buildExportBlock(exportEnr);
 
+  const extras = (body.extra_products || []).filter((p) => p?.name || p?.slug);
+  const extraNames = extras.map((p) => p.name || p.slug).join(", ");
+  const extraBlock = extraCtx.length
+    ? extraCtx
+        .map((c) => `- [${c.source}] ${c.name || ""}${c.category ? " (" + c.category + ")" : ""}: ${c.text}`)
+        .join("\n")
+    : "(nenhum produto complementar)";
+
   return `Você é o copywriter da marca **Smart Dent | Fluxo Digital** (impressão 3D e fluxo digital odontológico).
 
-Gere um post para redes sociais sobre: **${product}**.
+Gere um post para redes sociais sobre: **${product}**${extras.length ? ` em conjunto com: **${extraNames}**` : ""}.
+${extras.length ? "Conduza a narrativa apresentando o produto principal e complementando com os demais (sinergia, fluxo integrado, vantagens combinadas)." : ""}
 
 ${platformGuidance(body.platform || "instagram")}
 Tom: ${tone}. Idioma: ${lang}.
@@ -223,6 +233,9 @@ REGRAS OBRIGATÓRIAS:
 
 CONTEXTO DO PRODUTO (catálogo Smart Dent):
 ${productBlock}
+
+PRODUTOS COMPLEMENTARES (para enriquecer o post):
+${extraBlock}
 
 EXPORT SISTEMA A (knowledge-export-full):
 ${exportBlock}
@@ -306,6 +319,16 @@ Deno.serve(async (req) => {
     }
 
     const productCtx = await fetchProductContext(body.product_name, body.product_slug);
+    const extraCtx: any[] = [];
+    for (const ep of (body.extra_products || []).slice(0, 3)) {
+      if (!ep?.name && !ep?.slug) continue;
+      try {
+        const c = await fetchProductContext(ep.name, ep.slug);
+        if (c.length) extraCtx.push(...c.slice(0, 2));
+      } catch (e) {
+        console.warn("[caption] extra product ctx err", (e as Error).message);
+      }
+    }
     const ragQuery = [body.product_name, body.product_slug, body.instructions].filter(Boolean).join(" ").trim();
     const ragCtx = await fetchKnowledgeRag(ragQuery);
 
@@ -330,7 +353,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr);
+    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr, extraCtx);
     const result = await callLLM(prompt);
 
     return new Response(
@@ -340,6 +363,7 @@ Deno.serve(async (req) => {
         first_comment: result.first_comment,
         _meta: {
           product_hits: productCtx.length,
+          extra_hits: extraCtx.length,
           rag_hits: ragCtx.length,
           export_hits: exportEnr ? 1 : 0,
           export_matched_slug: exportMatchedSlug,

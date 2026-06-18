@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon } from 'lucide-react';
+import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,6 +147,11 @@ export function StepContent({
         tone: aiTone,
         language: 'pt-BR',
         external_enrichment: knowledge.data?.enrichment || undefined,
+        extra_products: (value.extra_products || []).map((p) => ({
+          name: p.name,
+          slug: p.slug || undefined,
+          category: p.category || undefined,
+        })),
       });
       onChange({
         caption: res.caption,
@@ -172,6 +177,46 @@ export function StepContent({
         toast.error(e?.message || 'Falha ao gerar legenda');
       }
     }
+  };
+
+  // ─── Multi-produto (até 3 complementares = 4 no total) ───
+  const extras = value.extra_products || [];
+  const MAX_EXTRAS = 3;
+  const [extraPick, setExtraPick] = useState<string>('none');
+
+  const addExtraProduct = (val: string) => {
+    if (!val || val === 'none') return;
+    if (extras.length >= MAX_EXTRAS) {
+      toast.error(`Máximo de ${MAX_EXTRAS} produtos complementares`);
+      return;
+    }
+    if (val === value.product_ref || extras.some((e) => e.ref === val)) {
+      toast.error('Produto já selecionado');
+      return;
+    }
+    let entry: { ref: string; name: string; slug: string; category: string } | null = null;
+    if (val.startsWith('product:')) {
+      const id = val.slice('product:'.length);
+      const p = products.find((x) => x.id === id);
+      if (p) entry = { ref: val, name: p.name, slug: p.slug || '', category: p.category || '' };
+    } else if (val.startsWith('resin:')) {
+      const id = val.slice('resin:'.length);
+      const r = resins.find((x) => x.id === id);
+      if (r) entry = {
+        ref: val,
+        name: `${r.manufacturer} ${r.name}`.trim(),
+        slug: r.slug || '',
+        category: r.type ? `Resina ${r.type}` : 'Resina',
+      };
+    }
+    if (entry) {
+      onChange({ extra_products: [...extras, entry] });
+      setExtraPick('none');
+    }
+  };
+
+  const removeExtra = (ref: string) => {
+    onChange({ extra_products: extras.filter((e) => e.ref !== ref) });
   };
 
   const applyReadyCopy = (c: ReadyCopy) => {
@@ -324,6 +369,43 @@ export function StepContent({
               </p>
             )}
           </div>
+
+          {hasProduct && (
+            <div className="rounded-md border bg-background/60 p-3 space-y-2">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5" /> Produtos complementares
+                <span className="text-[10px] text-muted-foreground">(até {MAX_EXTRAS} · a IA conduz a sinergia entre eles)</span>
+              </Label>
+              {extras.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {extras.map((e) => (
+                    <Badge key={e.ref} variant="secondary" className="gap-1 pr-1">
+                      <span className="truncate max-w-[200px]">{e.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeExtra(e.ref)}
+                        className="ml-1 rounded hover:bg-destructive/20 p-0.5"
+                        aria-label="Remover"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {extras.length < MAX_EXTRAS && (
+                <SearchableProductSelect
+                  value={extraPick}
+                  onValueChange={addExtraProduct}
+                  products={products}
+                  resins={resins as any}
+                />
+              )}
+              {extras.length >= MAX_EXTRAS && (
+                <p className="text-[11px] text-muted-foreground">Limite de {MAX_EXTRAS} produtos complementares atingido.</p>
+              )}
+            </div>
+          )}
 
           {hasProduct && (
             <div className="rounded-md border bg-background/60 p-3 space-y-2">
