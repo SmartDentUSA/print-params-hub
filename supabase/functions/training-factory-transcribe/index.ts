@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/audio/transcriptions";
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB cap to avoid memory/timeout issues
 
 const BodySchema = z.object({
@@ -65,17 +65,6 @@ async function fetchCapped(url: string, maxBytes: number) {
   return { bytes: out, mime };
 }
 
-function toBase64(bytes: Uint8Array): string {
-  let bin = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(
-      null,
-      Array.from(bytes.subarray(i, i + chunk)) as any,
-    );
-  }
-  return btoa(bin);
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -100,41 +89,27 @@ Deno.serve(async (req) => {
     const { asset_id, audio_url } = parsed.data;
     assetIdForError = asset_id;
 
-    const { bytes, mime } = await fetchCapped(audio_url, MAX_BYTES);
-    const b64 = toBase64(bytes);
+    const { bytes } = await fetchCapped(audio_url, MAX_BYTES);
+
+    const audioBlob = new Blob([bytes], { type: "audio/mp4" });
+    const formData = new FormData();
+    formData.append("file", audioBlob, "audio.mp4");
+    formData.append("model", "openai/gpt-4o-mini-transcribe");
+    formData.append("language", "pt");
+    formData.append("response_format", "text");
 
     const res = await fetch(LOVABLE_AI_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini-transcribe",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Transcreva este depoimento em português. Retorne apenas a transcrição limpa.",
-              },
-              {
-                type: "input_audio",
-                input_audio: { data: b64, format: "mp4" },
-              },
-            ],
-          },
-        ],
-      }),
+      body: formData,
     });
     if (!res.ok) {
       const txt = await res.text();
       throw new Error(`AI Gateway ${res.status}: ${txt}`);
     }
-    const data = await res.json();
-    const transcription = (data?.choices?.[0]?.message?.content ?? "").trim();
+    const transcription = (await res.text()).trim();
 
     const { error: updErr } = await supabase
       .from("training_factory_assets")
