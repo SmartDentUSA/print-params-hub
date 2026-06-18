@@ -8,16 +8,16 @@ const DepoimentoSchema = z.object({
   enrollment_id: z.string().optional().nullable(),
   nome: z.string().optional().default(""),
   telefone: z.string().optional().default(""),
-  instagram: z.string().optional().default(""),
+  instagram: z.string().nullable().optional(),
   video_url: z.string().optional().default(""),
-  audio_url: z.string().optional().default(""),
+  audio_url: z.string().nullable().optional(),
 });
 
 const BodySchema = z.object({
   turma_number: z.number().int(),
   media: z.object({
-    foto_grupo: z.string().optional().default(""),
-    reel_url: z.string().optional().default(""),
+    foto_grupo: z.string().nullable().optional(),
+    reel_url: z.string().nullable().optional(),
     depoimentos: z.array(DepoimentoSchema).default([]),
     fotos_dia: z
       .object({
@@ -271,13 +271,34 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto da me
       // 6. Insert assets
       const assets: any[] = [];
 
+      if (media.reel_url) {
+        assets.push({
+          run_id: run.id,
+          turma_id: turma.id,
+          turma_number,
+          asset_type: "reel_turma",
+          media_url: media.reel_url,
+          media_type: "video",
+          caption: captionIG,
+          hashtags: [
+            "odontologiadigital",
+            "smartdent",
+            "chairsideprint",
+            "impressao3d",
+            "ino200",
+            "odontologia",
+          ],
+          status: "pronto",
+        });
+      }
+
       assets.push({
         run_id: run.id,
         turma_id: turma.id,
         turma_number,
         asset_type: "feed_instagram",
-        media_url: media.foto_grupo || media.reel_url || null,
-        media_type: media.reel_url ? "video" : "image",
+        media_url: media.foto_grupo || null,
+        media_type: "image",
         caption: captionIG,
         hashtags: [
           "odontologiadigital",
