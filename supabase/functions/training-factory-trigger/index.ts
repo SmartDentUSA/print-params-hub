@@ -51,58 +51,6 @@ async function callLovableAI(
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
-async function transcribeAudio(apiKey: string, audioUrl: string): Promise<string> {
-  if (!audioUrl) return "";
-  try {
-    const audioRes = await fetch(audioUrl);
-    if (!audioRes.ok) throw new Error(`audio fetch ${audioRes.status}`);
-    const buf = new Uint8Array(await audioRes.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-    const b64 = btoa(bin);
-    const mime = audioRes.headers.get("content-type") || "video/mp4";
-
-    const res = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-6",
-        max_tokens: 1024,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Transcreva este depoimento odontológico em português. Retorne apenas a transcrição limpa, sem formatação adicional.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mime};base64,${b64}`,
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`AI Gateway ${res.status}: ${txt}`);
-    }
-    const data = await res.json();
-    return (data?.choices?.[0]?.message?.content ?? "").trim();
-  } catch (e) {
-    console.error("transcribeAudio error", e);
-    return "";
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -184,13 +132,11 @@ Deno.serve(async (req) => {
     if (runErr || !run) throw new Error(`run insert: ${runErr?.message}`);
 
     try {
-      // 4. Transcribe each depoimento
-      const depoimentosWithTranscription = await Promise.all(
-        media.depoimentos.map(async (d) => ({
-          ...d,
-          transcription: await transcribeAudio(apiKey, d.audio_url),
-        })),
-      );
+      // 4. Skip inline transcription — dispatch async after assets created
+      const depoimentosWithTranscription = media.depoimentos.map((d) => ({
+        ...d,
+        transcription: "",
+      }));
 
       // 5. Generate texts
       const turmaContext = JSON.stringify({
@@ -332,7 +278,9 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto da me
       });
 
       // Depoimentos + whatsapp per participant
+      const depoimentoAssetIndices: number[] = [];
       for (const d of depoimentosWithTranscription) {
+        depoimentoAssetIndices.push(assets.length);
         assets.push({
           run_id: run.id,
           turma_id: turma.id,
@@ -345,7 +293,7 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto da me
           participant_name: d.nome,
           participant_phone: d.telefone,
           participant_instagram: d.instagram,
-          status: "pronto",
+          status: d.audio_url ? "aguardando_transcricao" : "pronto",
         });
 
         const waMsg = await callLovableAI(apiKey, [
@@ -375,10 +323,30 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto.`,
         });
       }
 
-      const { error: assetsErr } = await supabase
+      const { data: insertedAssets, error: assetsErr } = await supabase
         .from("training_factory_assets")
-        .insert(assets);
+        .insert(assets)
+        .select("id");
       if (assetsErr) throw new Error(`assets insert: ${assetsErr.message}`);
+
+      // 6.5 Dispatch async transcription jobs (fire-and-forget)
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      for (let i = 0; i < depoimentosWithTranscription.length; i++) {
+        const d = depoimentosWithTranscription[i];
+        if (!d.audio_url) continue;
+        const assetId = insertedAssets?.[depoimentoAssetIndices[i]]?.id;
+        if (!assetId) continue;
+        // fire-and-forget
+        fetch(`${supabaseUrl}/functions/v1/training-factory-transcribe`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ asset_id: assetId, audio_url: d.audio_url }),
+        }).catch((e) => console.error("dispatch transcribe error", e));
+      }
 
       // 7. Update run
       await supabase
