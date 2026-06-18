@@ -19,6 +19,9 @@ interface EventRow {
   company_stand: string | null;
   website_url: string | null;
   cover_image_url: string | null;
+  cover_image_pt: string | null;
+  cover_image_en: string | null;
+  cover_image_es: string | null;
 }
 
 const COUNTRY_PT_ALIASES: Record<string, string> = {
@@ -82,6 +85,13 @@ function fmtRange(start: string | null | undefined, end: string | null | undefin
   return fmt((start || end)!, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function pickCover(e: EventRow, language: string): string | null {
+  if (language === 'en' && e.cover_image_en) return e.cover_image_en;
+  if (language === 'es' && e.cover_image_es) return e.cover_image_es;
+  if (language === 'pt' && e.cover_image_pt) return e.cover_image_pt;
+  return e.cover_image_pt || e.cover_image_url || null;
+}
+
 export default function KbTabEventos() {
   const { t, language } = useLanguage();
   const dateLocale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
@@ -94,7 +104,7 @@ export default function KbTabEventos() {
       setLoading(true);
       const { data, error } = await supabase
         .from('smartops_events')
-        .select('id,name,country,start_date,end_date,location,company_stand,website_url,cover_image_url')
+        .select('id,name,country,start_date,end_date,location,company_stand,website_url,cover_image_url,cover_image_pt,cover_image_en,cover_image_es')
         .eq('is_active', true)
         .order('display_order', { ascending: true })
         .order('start_date', { ascending: true, nullsFirst: false });
@@ -126,6 +136,7 @@ export default function KbTabEventos() {
         ) : (
           filtered.map((e) => {
             const dates = fmtRange(e.start_date, e.end_date, dateLocale);
+            const cover = pickCover(e, language);
             return (
               <div
                 key={e.id}
@@ -140,8 +151,8 @@ export default function KbTabEventos() {
                 }}
               >
                 <div style={{ aspectRatio: '16 / 9', background: '#f1f5f9', position: 'relative' }}>
-                  {e.cover_image_url ? (
-                    <img src={e.cover_image_url} alt={e.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  {cover ? (
+                    <img src={cover} alt={e.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 40 }}>📅</div>
                   )}
