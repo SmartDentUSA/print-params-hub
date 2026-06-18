@@ -39,7 +39,7 @@ async function callLovableAI(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ model, messages }),
   });
@@ -62,15 +62,14 @@ async function transcribeAudio(apiKey: string, audioUrl: string): Promise<string
     const b64 = btoa(bin);
     const mime = audioRes.headers.get("content-type") || "video/mp4";
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(LOVABLE_AI_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "anthropic/claude-sonnet-4-6",
         max_tokens: 1024,
         messages: [
           {
@@ -79,14 +78,12 @@ async function transcribeAudio(apiKey: string, audioUrl: string): Promise<string
               {
                 type: "text",
                 text:
-                  "Transcreva este depoimento em português. Retorne apenas a transcrição limpa, sem formatação.",
+                  "Transcreva este depoimento odontológico em português. Retorne apenas a transcrição limpa, sem formatação adicional.",
               },
               {
-                type: "document",
-                source: {
-                  type: "base64",
-                  media_type: mime,
-                  data: b64,
+                type: "image_url",
+                image_url: {
+                  url: `data:${mime};base64,${b64}`,
                 },
               },
             ],
@@ -96,11 +93,10 @@ async function transcribeAudio(apiKey: string, audioUrl: string): Promise<string
     });
     if (!res.ok) {
       const txt = await res.text();
-      throw new Error(`Anthropic ${res.status}: ${txt}`);
+      throw new Error(`AI Gateway ${res.status}: ${txt}`);
     }
     const data = await res.json();
-    const parts = data?.content || [];
-    return parts.map((p: any) => p?.text || "").join("").trim();
+    return (data?.choices?.[0]?.message?.content ?? "").trim();
   } catch (e) {
     console.error("transcribeAudio error", e);
     return "";
