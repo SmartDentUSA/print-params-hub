@@ -398,3 +398,6 @@ verify_jwt = false
 
 [functions.training-factory-generate-image]
 verify_jwt = false
+
+[functions.training-factory-carousel]
+verify_jwt = false
