@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { MapPin, Video, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroup
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
+import { TurmaFactoryDialog } from "@/components/smartops/TurmaFactoryDialog";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -53,6 +54,8 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
   const effectiveWaGroup = waGroup ?? (turma.whatsapp_group_link
     ? { id: "link-only", nome: null }
     : null);
+  const [factoryOpen, setFactoryOpen] = useState(false);
+  const factoryStatus = (turma as any).factory_status as string | null | undefined;
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -72,6 +75,7 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
     : (turma.meeting_link ? "Link online" : "—");
 
   return (
+    <>
     <TableRow
       className={cn("cursor-pointer", isMuted && "opacity-60")}
       onClick={onEnroll}
@@ -94,18 +98,22 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
           <div className="min-w-0">
             <div className="font-medium text-sm leading-tight truncate">{turma.course_title || "Sem curso"}</div>
             <div className="text-xs text-muted-foreground truncate">{turma.label}</div>
-            {(turma as any).factory_status && (
+            {factoryStatus && (
               <div className="mt-0.5">
-                <span className={cn(
-                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold",
-                  (turma as any).factory_status === "concluido" ? "bg-emerald-100 text-emerald-700"
-                  : (turma as any).factory_status === "pronto" ? "bg-sky-100 text-sky-700"
-                  : (turma as any).factory_status === "processando" ? "bg-amber-100 text-amber-700"
-                  : (turma as any).factory_status === "erro" ? "bg-rose-100 text-rose-700"
-                  : "bg-muted text-muted-foreground"
-                )}>
-                  ✨ Factory: {(turma as any).factory_status}
-                </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFactoryOpen(true); }}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold hover:opacity-80 transition cursor-pointer",
+                    factoryStatus === "concluido" ? "bg-emerald-100 text-emerald-700"
+                    : factoryStatus === "pronto" ? "bg-sky-100 text-sky-700"
+                    : factoryStatus === "processando" ? "bg-amber-100 text-amber-700"
+                    : factoryStatus === "erro" ? "bg-rose-100 text-rose-700"
+                    : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  ✨ Factory: {factoryStatus}
+                </button>
               </div>
             )}
           </div>
@@ -171,5 +179,15 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
         </div>
       </TableCell>
     </TableRow>
+    {factoryStatus && (
+      <TurmaFactoryDialog
+        open={factoryOpen}
+        onOpenChange={setFactoryOpen}
+        turmaId={turma.id}
+        turmaLabel={turma.label}
+        factoryStatus={factoryStatus as any}
+      />
+    )}
+    </>
   );
 }
