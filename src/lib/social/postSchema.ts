@@ -25,6 +25,14 @@ export const mediaItemSchema = z.object({
 });
 export type MediaItem = z.infer<typeof mediaItemSchema>;
 
+export const extraProductSchema = z.object({
+  ref: z.string().trim().max(80),
+  name: z.string().trim().max(120),
+  slug: z.string().trim().max(160).optional().default(''),
+  category: z.string().trim().max(120).optional().default(''),
+});
+export type ExtraProduct = z.infer<typeof extraProductSchema>;
+
 export const postSchema = z
   .object({
     caption: z.string().trim().max(2200, 'Máximo 2200 caracteres').optional().default(''),
@@ -34,6 +42,7 @@ export const postSchema = z
     product_slug: z.string().trim().max(160).optional().default(''),
     product_ref: z.string().trim().max(80).optional().default(''),
     product_category: z.string().trim().max(120).optional().default(''),
+    extra_products: z.array(extraProductSchema).max(3).default([]),
     media_items: z.array(mediaItemSchema).default([]),
     per_channel_media: z.record(z.string(), z.array(mediaItemSchema)).default({}),
     channels: z.array(channelSchema).min(1, 'Selecione pelo menos 1 canal'),
@@ -103,6 +112,7 @@ export const defaultPost: PostInput = {
   scheduled_at: '',
   timezone: 'America/Sao_Paulo',
   post_type: 'feed',
+  extra_products: [],
 };
 
 export const defaultChannelFor = (platform: SocialPlatform): ChannelInput => {
