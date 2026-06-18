@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon } from 'lucide-react';
+import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,6 +147,11 @@ export function StepContent({
         tone: aiTone,
         language: 'pt-BR',
         external_enrichment: knowledge.data?.enrichment || undefined,
+        extra_products: (value.extra_products || []).map((p) => ({
+          name: p.name,
+          slug: p.slug || undefined,
+          category: p.category || undefined,
+        })),
       });
       onChange({
         caption: res.caption,
@@ -172,6 +177,46 @@ export function StepContent({
         toast.error(e?.message || 'Falha ao gerar legenda');
       }
     }
+  };
+
+  // ─── Multi-produto (até 3 complementares = 4 no total) ───
+  const extras = value.extra_products || [];
+  const MAX_EXTRAS = 3;
+  const [extraPick, setExtraPick] = useState<string>('none');
+
+  const addExtraProduct = (val: string) => {
+    if (!val || val === 'none') return;
+    if (extras.length >= MAX_EXTRAS) {
+      toast.error(`Máximo de ${MAX_EXTRAS} produtos complementares`);
+      return;
+    }
+    if (val === value.product_ref || extras.some((e) => e.ref === val)) {
+      toast.error('Produto já selecionado');
+      return;
+    }
+    let entry: { ref: string; name: string; slug: string; category: string } | null = null;
+    if (val.startsWith('product:')) {
+      const id = val.slice('product:'.length);
+      const p = products.find((x) => x.id === id);
+      if (p) entry = { ref: val, name: p.name, slug: p.slug || '', category: p.category || '' };
+    } else if (val.startsWith('resin:')) {
+      const id = val.slice('resin:'.length);
+      const r = resins.find((x) => x.id === id);
+      if (r) entry = {
+        ref: val,
+        name: `${r.manufacturer} ${r.name}`.trim(),
+        slug: r.slug || '',
+        category: r.type ? `Resina ${r.type}` : 'Resina',
+      };
+    }
+    if (entry) {
+      onChange({ extra_products: [...extras, entry] });
+      setExtraPick('none');
+    }
+  };
+
+  const removeExtra = (ref: string) => {
+    onChange({ extra_products: extras.filter((e) => e.ref !== ref) });
   };
 
   const applyReadyCopy = (c: ReadyCopy) => {
