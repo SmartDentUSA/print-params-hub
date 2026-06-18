@@ -393,5 +393,5 @@ verify_jwt = false
 [functions.training-factory-publish]
 verify_jwt = false
 
-[functions.training-factory-transcribe]
+[functions.training-factory-render]
 verify_jwt = false
