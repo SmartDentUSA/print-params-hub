@@ -39,15 +39,28 @@ function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(bin);
 }
 
-async function urlToBase64(url: string): Promise<string> {
+async function urlToBase64(url: string, authToken?: string): Promise<string> {
   if (!url) return "";
   try {
-    const res = await fetch(normalizeImageUrl(url));
-    if (!res.ok) return "";
+    const normalized = normalizeImageUrl(url);
+    const headers: Record<string, string> = {};
+    if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+    let res = await fetch(normalized, { headers });
+    if (!res.ok && authToken) {
+      // retry sem auth (URL pública)
+      res = await fetch(normalized);
+    }
+    if (!res.ok) {
+      console.warn(`urlToBase64 failed ${res.status} for ${normalized}`);
+      return "";
+    }
     const buf = await res.arrayBuffer();
     const contentType = res.headers.get("content-type") || "image/jpeg";
-    return `data:${contentType};base64,${bufferToBase64(buf)}`;
-  } catch {
+    const b64 = `data:${contentType};base64,${bufferToBase64(buf)}`;
+    console.log(`urlToBase64 ok: ${normalized} (${buf.byteLength} bytes)`);
+    return b64;
+  } catch (e) {
+    console.warn(`urlToBase64 exception for ${url}:`, e);
     return "";
   }
 }
@@ -264,10 +277,15 @@ Deno.serve(async (req) => {
     const fotoGrupo: string = mediaUploaded?.foto_grupo || "";
 
     // Pré-converter imagens compartilhadas (Puppeteer não busca URLs externas confiavelmente)
+    console.log("foto_grupo URL recebida:", fotoGrupo);
+    console.log("logo URL:", LOGO_BRANCO);
     const [logoB64, fotoGrupoB64] = await Promise.all([
-      urlToBase64(LOGO_BRANCO),
+      urlToBase64(LOGO_BRANCO, SUPABASE_SERVICE_KEY),
       urlToBase64(fotoGrupo),
     ]);
+    console.log("logoB64 length:", logoB64.length, "fotoGrupoB64 length:", fotoGrupoB64.length);
+    if (!logoB64) console.warn("⚠️ logo não carregou — templates ficarão sem logo");
+    if (!fotoGrupoB64) console.warn("⚠️ foto_grupo não carregou — feed/linkedin sem background");
 
     // 3. Assets
     const { data: assets, error: assetsErr } = await supabase
