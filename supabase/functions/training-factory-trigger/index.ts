@@ -11,6 +11,7 @@ const DepoimentoSchema = z.object({
   instagram: z.string().nullable().optional(),
   video_url: z.string().optional().default(""),
   audio_url: z.string().nullable().optional(),
+  transcricao: z.string().optional().default(""),
 });
 
 const BodySchema = z.object({
@@ -132,10 +133,10 @@ Deno.serve(async (req) => {
     if (runErr || !run) throw new Error(`run insert: ${runErr?.message}`);
 
     try {
-      // 4. Skip inline transcription — dispatch async after assets created
+      // 4. Transcrição já vem pronta no payload (campo `transcricao`)
       const depoimentosWithTranscription = media.depoimentos.map((d) => ({
         ...d,
-        transcription: "",
+        transcription: d.transcricao || "",
       }));
 
       // 5. Generate texts
@@ -293,7 +294,7 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto da me
           participant_name: d.nome,
           participant_phone: d.telefone,
           participant_instagram: d.instagram,
-          status: d.audio_url ? "aguardando_transcricao" : "pronto",
+          status: "pronto",
         });
 
         const waMsg = await callLovableAI(apiKey, [
@@ -328,25 +329,6 @@ Mantenha [LINK_INSTAGRAM] como placeholder literal. Retorne APENAS o texto.`,
         .insert(assets)
         .select("id");
       if (assetsErr) throw new Error(`assets insert: ${assetsErr.message}`);
-
-      // 6.5 Dispatch async transcription jobs (fire-and-forget)
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      for (let i = 0; i < depoimentosWithTranscription.length; i++) {
-        const d = depoimentosWithTranscription[i];
-        if (!d.audio_url) continue;
-        const assetId = insertedAssets?.[depoimentoAssetIndices[i]]?.id;
-        if (!assetId) continue;
-        // fire-and-forget
-        fetch(`${supabaseUrl}/functions/v1/training-factory-transcribe`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ asset_id: assetId, audio_url: d.audio_url }),
-        }).catch((e) => console.error("dispatch transcribe error", e));
-      }
 
       // 7. Update run
       await supabase
