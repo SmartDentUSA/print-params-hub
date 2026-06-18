@@ -10,8 +10,32 @@ const BodySchema = z.object({
   audio_url: z.string().url(),
 });
 
+function extractDriveFileId(url: string): string | null {
+  const m1 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m2) return m2[1];
+  return null;
+}
+
+async function driveAwareFetch(url: string): Promise<Response> {
+  const headers = { "User-Agent": "Mozilla/5.0", Accept: "*/*" };
+  let res = await fetch(url, { headers, redirect: "follow" });
+  const ct = res.headers.get("content-type") || "";
+  const isDrive = /drive\.google\.com|drive\.usercontent\.google\.com/.test(url);
+  if (isDrive && ct.includes("text/html")) {
+    // Drive served a confirmation page — try usercontent direct download
+    try { await res.body?.cancel(); } catch (_) {}
+    const fileId = extractDriveFileId(url);
+    if (!fileId) throw new Error("Drive confirmation page and no file id");
+    const alt = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+    res = await fetch(alt, { headers, redirect: "follow" });
+  }
+  return res;
+}
+
 async function fetchCapped(url: string, maxBytes: number) {
-  const res = await fetch(url);
+  const res = await driveAwareFetch(url);
   if (!res.ok || !res.body) throw new Error(`fetch ${res.status}`);
   const mime = res.headers.get("content-type") || "video/mp4";
   const reader = res.body.getReader();
@@ -128,7 +152,11 @@ Deno.serve(async (req) => {
     if (assetIdForError) {
       await supabase
         .from("training_factory_assets")
-        .update({ status: "erro_transcricao", transcription: null })
+        .update({
+          status: "erro_transcricao",
+          transcription: null,
+          publish_error: String(err?.message || err),
+        })
         .eq("id", assetIdForError)
         .then(() => {}, () => {});
     }
