@@ -3437,6 +3437,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ddd_referencia: {
+        Row: {
+          cidade: string
+          ddd: string
+          regiao: string | null
+          uf: string
+        }
+        Insert: {
+          cidade: string
+          ddd: string
+          regiao?: string | null
+          uf: string
+        }
+        Update: {
+          cidade?: string
+          ddd?: string
+          regiao?: string | null
+          uf?: string
+        }
+        Relationships: []
+      }
       deal_items: {
         Row: {
           cod_produto: string | null
