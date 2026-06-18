@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/audio/transcriptions";
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB cap to avoid memory/timeout issues
 
 const BodySchema = z.object({
@@ -65,6 +65,17 @@ async function fetchCapped(url: string, maxBytes: number) {
   return { bytes: out, mime };
 }
 
+function toBase64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk)) as any,
+    );
+  }
+  return btoa(bin);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -90,26 +101,42 @@ Deno.serve(async (req) => {
     assetIdForError = asset_id;
 
     const { bytes } = await fetchCapped(audio_url, MAX_BYTES);
-
-    const audioBlob = new Blob([bytes], { type: "audio/mp4" });
-    const formData = new FormData();
-    formData.append("file", audioBlob, "audio.mp4");
-    formData.append("model", "openai/gpt-4o-mini-transcribe");
-    formData.append("language", "pt");
-    formData.append("response_format", "text");
+    const b64 = toBase64(bytes);
 
     const res = await fetch(LOVABLE_AI_URL, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: formData,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Transcreva este depoimento em português brasileiro. Retorne apenas a transcrição limpa, sem formatação, sem timestamps, sem identificação de falantes.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:video/mp4;base64,${b64}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
     });
     if (!res.ok) {
       const txt = await res.text();
       throw new Error(`AI Gateway ${res.status}: ${txt}`);
     }
-    const transcription = (await res.text()).trim();
+    const data = await res.json();
+    const transcription = (data?.choices?.[0]?.message?.content ?? "").trim();
 
     const { error: updErr } = await supabase
       .from("training_factory_assets")
