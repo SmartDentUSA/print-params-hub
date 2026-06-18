@@ -269,22 +269,10 @@ Deno.serve(async (req) => {
 
     // ───── Builder: monta HTML de UM slide específico (só carrega o que precisa) ─────
     async function buildSlideHtml(n: number): Promise<string> {
-      let logoWhite = "";
-      try {
-        const resp = await fetch("https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/wa-media/brand/logo-smart-dent-branco.png");
-        if (resp.ok) {
-          const buf = await resp.arrayBuffer();
-          logoWhite = `data:image/png;base64,${bufToB64(buf)}`;
-        }
-      } catch {}
-      if (!logoWhite) {
-        const logoB64Raw = Deno.env.get("LOGO_BRANCO_B64") || "";
-        if (logoB64Raw) logoWhite = `data:image/png;base64,${logoB64Raw}`;
-      }
-      const logoColor = (await urlToBase64(LOGO_COLOR_URL)) || logoWhite;
+      const logoColor = await urlToBase64(LOGO_COLOR_URL);
       if (n === 1) {
         const fotoGrupoB64 = await urlToBase64(fotoGrupoUrl);
-        return slideCapa({ num: "01", fotoGrupoB64, mesAno, logoWhite });
+        return slideCapa({ num: "01", fotoGrupoB64, mesAno });
       }
       if (n >= 2 && n <= 4) {
         const i = n - 2;
