@@ -1868,6 +1868,28 @@ Receba o texto bruto abaixo e:
                     onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
                   />
                 </div>
+
+                <div>
+                  <Label>Categoria</Label>
+                  <Select
+                    value={formData.category_id || categories.find(c => c.letter === selectedCategory)?.id || ''}
+                    onValueChange={(value) => setFormData({...formData, category_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.letter} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use este seletor para mover o artigo para outra categoria.
+                  </p>
+                </div>
                 
                 {/* Botão Gerar Título + Resumo por IA */}
                 <div className="flex justify-center">
