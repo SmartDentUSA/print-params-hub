@@ -2518,6 +2518,48 @@ export type Database = {
           },
         ]
       }
+      canva_templates: {
+        Row: {
+          active: boolean | null
+          category: string
+          created_at: string | null
+          fields: Json | null
+          format: string
+          height: number
+          id: string
+          languages: string[] | null
+          name: string
+          template_id: string
+          width: number
+        }
+        Insert: {
+          active?: boolean | null
+          category: string
+          created_at?: string | null
+          fields?: Json | null
+          format: string
+          height: number
+          id?: string
+          languages?: string[] | null
+          name: string
+          template_id: string
+          width: number
+        }
+        Update: {
+          active?: boolean | null
+          category?: string
+          created_at?: string | null
+          fields?: Json | null
+          format?: string
+          height?: number
+          id?: string
+          languages?: string[] | null
+          name?: string
+          template_id?: string
+          width?: number
+        }
+        Relationships: []
+      }
       catalog_documents: {
         Row: {
           active: boolean | null
@@ -5879,6 +5921,11 @@ export type Database = {
           ai_prompt_template: string | null
           answer_block: string | null
           author_id: string | null
+          canva_image_en: string | null
+          canva_image_es: string | null
+          canva_image_pt: string | null
+          canva_last_generated_at: string | null
+          canva_template_id: string | null
           canva_template_url: string | null
           category_id: string | null
           client_name: string | null
@@ -5936,6 +5983,11 @@ export type Database = {
           ai_prompt_template?: string | null
           answer_block?: string | null
           author_id?: string | null
+          canva_image_en?: string | null
+          canva_image_es?: string | null
+          canva_image_pt?: string | null
+          canva_last_generated_at?: string | null
+          canva_template_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
           client_name?: string | null
@@ -5993,6 +6045,11 @@ export type Database = {
           ai_prompt_template?: string | null
           answer_block?: string | null
           author_id?: string | null
+          canva_image_en?: string | null
+          canva_image_es?: string | null
+          canva_image_pt?: string | null
+          canva_last_generated_at?: string | null
+          canva_template_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
           client_name?: string | null
@@ -16807,6 +16864,11 @@ export type Database = {
       }
       smartops_events: {
         Row: {
+          canva_image_en: string | null
+          canva_image_es: string | null
+          canva_image_pt: string | null
+          canva_last_generated_at: string | null
+          canva_template_id: string | null
           company_stand: string | null
           country: string | null
           cover_image_url: string | null
@@ -16835,6 +16897,11 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          canva_image_en?: string | null
+          canva_image_es?: string | null
+          canva_image_pt?: string | null
+          canva_last_generated_at?: string | null
+          canva_template_id?: string | null
           company_stand?: string | null
           country?: string | null
           cover_image_url?: string | null
@@ -16863,6 +16930,11 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          canva_image_en?: string | null
+          canva_image_es?: string | null
+          canva_image_pt?: string | null
+          canva_last_generated_at?: string | null
+          canva_template_id?: string | null
           company_stand?: string | null
           country?: string | null
           cover_image_url?: string | null
