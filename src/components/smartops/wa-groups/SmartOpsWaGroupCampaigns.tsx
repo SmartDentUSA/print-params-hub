@@ -548,8 +548,8 @@ export function SmartOpsWaGroupCampaigns() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-56 rounded-lg" />)}
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
@@ -557,7 +557,7 @@ export function SmartOpsWaGroupCampaigns() {
           <p>Nenhum grupo encontrado. Clique em "Sincronizar grupos".</p>
         </div>
       ) : (
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${selectionMode ? "pb-24" : ""}`}>
+        <div className={`space-y-3 ${selectionMode ? "pb-24" : ""}`}>
           {filtered.map(row => {
             const disabled = !row.is_admin;
             const hasCampaign = !!row.campaign_id;
@@ -570,142 +570,157 @@ export function SmartOpsWaGroupCampaigns() {
             return (
               <Card
                 key={row.group_id}
-                className={`flex flex-col transition-shadow ${dimmed ? "opacity-50" : "hover:shadow-md"} ${isSelected ? "ring-2 ring-primary" : ""}`}
+                className={`transition-shadow ${dimmed ? "opacity-50" : "hover:shadow-md"} ${isSelected ? "ring-2 ring-primary" : ""}`}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-4 flex-wrap lg:flex-nowrap">
+                    {/* Coluna 1 — Identificação */}
+                    <div className="flex items-center gap-2 min-w-0 lg:w-64 shrink-0">
                       {selectionMode && (
                         <Checkbox
                           checked={isSelected}
                           disabled={!canSelect}
                           onCheckedChange={() => canSelect && toggleSelect(row.group_id)}
-                          className="mt-0.5"
                         />
                       )}
-                      <CardTitle className="text-sm line-clamp-2 flex-1">{row.group_name ?? "Grupo sem nome"}</CardTitle>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate" title={row.group_name ?? ""}>
+                          {row.group_name ?? "Grupo sem nome"}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {row.is_admin ? (
+                            <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400 text-[10px] h-4 px-1.5">
+                              Admin
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400 text-[10px] h-4 px-1.5">
+                              <ShieldAlert className="w-3 h-3 mr-0.5" /> Não admin
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    {row.is_admin ? (
-                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400 shrink-0">
-                        Admin
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0">
-                        <ShieldAlert className="w-3 h-3 mr-1" /> Não admin
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3 h-3" />
-                      {row.member_count ?? 0} membros
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <span className="text-[10px]">{row.enabled ? "ativado" : "desativ."}</span>
-                      <Switch
-                        checked={row.enabled}
-                        onCheckedChange={(v) => handleToggleEnabled(row, v)}
-                      />
-                    </label>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col gap-3 pt-0">
-                  {hasCampaign ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <Badge className={statusVariant[row.campaign_status ?? "draft"]}>
-                          {statusLabel[row.campaign_status ?? "draft"]}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground truncate">{row.campaign_name}</span>
-                        {row.in_shared_campaign && (
-                          <Badge variant="outline" className="text-[10px] border-primary/40">compartilhada</Badge>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-muted-foreground">
-                          <span>Nó {(row.current_node_index ?? 0) + 1} de {row.total_nodes ?? 0}</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-                        <div className="rounded bg-muted/40 p-1.5">
-                          <div className="font-semibold text-emerald-600">{row.msgs_sent ?? 0}</div>
-                          <div className="text-muted-foreground">Enviadas</div>
-                        </div>
-                        <div className="rounded bg-muted/40 p-1.5">
-                          <div className="font-semibold">{row.msgs_pending ?? 0}</div>
-                          <div className="text-muted-foreground">Pendentes</div>
-                        </div>
-                        <div className="rounded bg-muted/40 p-1.5">
-                          <div className="font-semibold text-red-600">{row.msgs_failed ?? 0}</div>
-                          <div className="text-muted-foreground">Falhas</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        Próximo: {formatDateTime(row.next_send_at)}
-                      </div>
-                      {row.campaign_id && (
-                        <WaCampaignHealthBadge campaignId={row.campaign_id} compact />
-                      )}
-                      <WaGroupSessionBadge
-                        groupJid={row.group_jid}
-                        sessionHealth={row.session_health}
-                        lastError={row.last_send_error}
-                        lastErrorAt={row.last_send_error_at}
-                        autoFallback={row.group_key_auto_fallback}
-                        onReactivated={fetchRows}
-                      />
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">Sem campanha ativa</p>
-                  )}
 
-                  <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
+                    {/* Coluna 2 — Membros + Toggle */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="w-3 h-3" />
+                        {row.member_count ?? 0}
+                      </div>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <span className="text-[10px] text-muted-foreground">{row.enabled ? "ativado" : "desativ."}</span>
+                        <Switch
+                          checked={row.enabled}
+                          onCheckedChange={(v) => handleToggleEnabled(row, v)}
+                        />
+                      </label>
+                    </div>
+
+                    {/* Coluna 3 — Campanha */}
+                    <div className="flex-1 min-w-[260px] flex flex-col gap-1.5">
+                      {hasCampaign ? (
+                        <>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={statusVariant[row.campaign_status ?? "draft"]}>
+                              {statusLabel[row.campaign_status ?? "draft"]}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground truncate max-w-[180px]">{row.campaign_name}</span>
+                            {row.in_shared_campaign && (
+                              <Badge variant="outline" className="text-[10px] border-primary/40">compartilhada</Badge>
+                            )}
+                            <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDateTime(row.next_send_at)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-[120px] space-y-0.5">
+                              <div className="flex justify-between text-[10px] text-muted-foreground">
+                                <span>Nó {(row.current_node_index ?? 0) + 1}/{row.total_nodes ?? 0}</span>
+                                <span>{progress}%</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-semibold text-emerald-600">{row.msgs_sent ?? 0}</span>
+                                <span className="text-muted-foreground">env</span>
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-semibold">{row.msgs_pending ?? 0}</span>
+                                <span className="text-muted-foreground">pend</span>
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-semibold text-red-600">{row.msgs_failed ?? 0}</span>
+                                <span className="text-muted-foreground">falhas</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {row.campaign_id && (
+                              <WaCampaignHealthBadge campaignId={row.campaign_id} compact />
+                            )}
+                            <WaGroupSessionBadge
+                              groupJid={row.group_jid}
+                              sessionHealth={row.session_health}
+                              lastError={row.last_send_error}
+                              lastErrorAt={row.last_send_error_at}
+                              autoFallback={row.group_key_auto_fallback}
+                              onReactivated={fetchRows}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">Sem campanha ativa</p>
+                      )}
+                    </div>
+
+                    {/* Coluna 4 — Ações */}
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button
+                              size="sm"
+                              variant={hasCampaign ? "outline" : "default"}
+                              disabled={disabled}
+                              onClick={() => {
+                                setBuilderGroupId(row.group_id);
+                                setBuilderCampaignId(row.campaign_id);
+                              }}
+                            >
+                              {hasCampaign ? <Pencil className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                              {hasCampaign ? "Editar" : "Criar régua"}
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {disabled && <TooltipContent>Somente grupos onde somos admin</TooltipContent>}
+                      </Tooltip>
+                      {hasCampaign && (
+                        <>
                           <Button
                             size="sm"
-                            variant={hasCampaign ? "outline" : "default"}
-                            disabled={disabled}
-                            onClick={() => {
-                              setBuilderGroupId(row.group_id);
-                              setBuilderCampaignId(row.campaign_id);
-                            }}
+                            variant="outline"
+                            onClick={() => navigate(`/smartops/wa-flow-visualizer?campaign_id=${row.campaign_id}`)}
                           >
-                            {hasCampaign ? <Pencil className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                            {hasCampaign ? "Editar" : "Criar régua"}
+                            <Eye className="w-3 h-3 mr-1" /> Visualizar
                           </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {disabled && <TooltipContent>Somente grupos onde somos admin</TooltipContent>}
-                    </Tooltip>
-                    {hasCampaign && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/smartops/wa-flow-visualizer?campaign_id=${row.campaign_id}`)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" /> Visualizar
-                        </Button>
-                        {(row.campaign_status === "active" || row.campaign_status === "paused") && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handlePauseResume(row)}
-                          >
-                            {row.campaign_status === "active"
-                              ? <><PauseCircle className="w-3 h-3 mr-1" /> Pausar</>
-                              : <><PlayCircle className="w-3 h-3 mr-1" /> Retomar</>}
-                          </Button>
-                        )}
-                      </>
-                    )}
+                          {(row.campaign_status === "active" || row.campaign_status === "paused") && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handlePauseResume(row)}
+                            >
+                              {row.campaign_status === "active"
+                                ? <><PauseCircle className="w-3 h-3 mr-1" /> Pausar</>
+                                : <><PlayCircle className="w-3 h-3 mr-1" /> Retomar</>}
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
