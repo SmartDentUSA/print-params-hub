@@ -9,7 +9,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BodySchema = z.object({
   event_id: z.string().uuid(),
   language: z.enum(["pt", "en", "es"]),
-  prompt: z.string().trim().min(3).max(2000),
+  prompt: z.string().trim().max(2000).optional(),
   reference_image_url: z.string().url().optional(),
   logo_url: z.string().url().optional(),
 });
@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
       ...cinematicLayers,
       "",
       logo_url ? "Posicionar o logo do evento fornecido no canto superior direito, discreto, com leve sombra." : "",
-      "Brief adicional do usuário:",
-      prompt,
+      prompt ? "Brief adicional do usuário:" : "",
+      prompt || "",
     ].filter(Boolean).join("\n");
 
     const content: any[] = [{ type: "text", text: fullPrompt }];
