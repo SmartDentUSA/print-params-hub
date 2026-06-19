@@ -168,14 +168,16 @@ Deno.serve(async (req) => {
       "=== COMPOSIÇÃO CINEMATOGRÁFICA EM 4 CAMADAS ===",
       ...cinematicLayers,
       "",
-      logo_url ? "Posicionar o logo do evento fornecido no canto superior direito, discreto, com leve sombra." : "",
+      logo_url ? "Reservar o canto superior direito para o logo do evento, discreto, com leve sombra. Se o logo não estiver disponível como referência visual nesta chamada, não inventar detalhes ilegíveis — usar uma marca tipográfica limpa do nome do evento." : "",
       prompt ? "Brief adicional do usuário:" : "",
       prompt || "",
     ].filter(Boolean).join("\n");
 
     const content: any[] = [{ type: "text", text: fullPrompt }];
-    if (reference_image_url) content.push({ type: "image_url", image_url: { url: reference_image_url } });
-    if (logo_url) content.push({ type: "image_url", image_url: { url: logo_url } });
+    // Poe/Ideogram interpreta múltiplas imagens como init image + mask, causando 400
+    // ("mask and init image must have the same height and width"). Enviamos só 1 imagem.
+    const visualReferenceUrl = reference_image_url || logo_url;
+    if (visualReferenceUrl) content.push({ type: "image_url", image_url: { url: visualReferenceUrl } });
 
     const poeRes = await callPoe({
       model: "Ideogram-v3",
@@ -243,7 +245,7 @@ Deno.serve(async (req) => {
       url: pub.publicUrl,
       path,
       prompt_used: fullPrompt,
-      model: "Nano-Banana (Poe)",
+      model: "Ideogram-v3 (Poe)",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[event-generate-image] erro:", e);
