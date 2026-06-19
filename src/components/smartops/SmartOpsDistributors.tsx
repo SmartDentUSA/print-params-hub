@@ -1,22 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Upload, X, Check, ChevronsUpDown } from "lucide-react";
-import { Country, State, City } from "country-state-city";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2 } from "lucide-react";
+import { AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
+import { DistributorForm, emptyDistributorForm, DistributorFormValue } from "./DistributorForm";
 
 type Distributor = {
   id: string;
@@ -46,183 +37,13 @@ type Distributor = {
   notes: string | null;
   authorized_scope: AuthorizedScope | null;
 };
-
-// Aliases para nomes de país em PT-BR usados em registros legados.
-const COUNTRY_NAME_ALIASES: Record<string, string> = {
-  "Brasil": "Brazil",
-  "Estados Unidos": "United States",
-  "México": "Mexico",
-  "Paraguai": "Paraguay",
-  "Uruguai": "Uruguay",
-  "Colombia": "Colombia",
-  "Alemanha": "Germany",
-  "Espanha": "Spain",
-  "França": "France",
-  "Inglaterra": "United Kingdom",
-  "Reino Unido": "United Kingdom",
-  "Itália": "Italy",
-  "Japão": "Japan",
-  "China": "China",
-  "Canadá": "Canada",
-  "Suíça": "Switzerland",
-  "Países Baixos": "Netherlands",
-  "Holanda": "Netherlands",
-};
-
-const ALL_COUNTRIES = Country.getAllCountries();
-
-function resolveCountry(name?: string | null) {
-  if (!name) return undefined;
-  const target = COUNTRY_NAME_ALIASES[name] || name;
-  return ALL_COUNTRIES.find(
-    (c) => c.name.toLowerCase() === target.toLowerCase()
-  );
-}
-
-function formatDdi(phonecode?: string) {
-  if (!phonecode) return "+55";
-  const trimmed = phonecode.trim();
-  return trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
-}
-
-const DDI_OPTIONS = Array.from(
-  new Map(
-    ALL_COUNTRIES
-      .filter((c) => c.phonecode)
-      .map((c) => {
-        const code = formatDdi(c.phonecode);
-        return [code, { code, label: `${c.flag || ""} ${code} ${c.name}`.trim() }];
-      })
-  ).values()
-).sort((a, b) => a.label.localeCompare(b.label));
-
-function Combobox({
-  value,
-  options,
-  placeholder,
-  emptyText,
-  disabled,
-  onChange,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  placeholder: string;
-  emptyText: string;
-  disabled?: boolean;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.value === value);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          disabled={disabled}
-          className="w-full justify-between font-normal"
-        >
-          <span className={cn("truncate", !selected && "text-muted-foreground")}>
-            {selected ? selected.label : placeholder}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar…" />
-          <CommandList className="max-h-64">
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {options.map((o) => (
-                <CommandItem
-                  key={o.value}
-                  value={o.label}
-                  onSelect={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === o.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {o.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-const emptyForm = (): Partial<Distributor> => ({
-  razao_social: "",
-  nome_fantasia: "",
-  logo_url: "",
-  pais: "Brasil",
-  estado: "",
-  cidade: "",
-  endereco: "",
-  cep: "",
-  numero_unidades: 1,
-  site_url: "",
-  instagram: "",
-  facebook: "",
-  linkedin: "",
-  youtube: "",
-  owner_name: "",
-  owner_email: "",
-  owner_whatsapp_ddi: "+55",
-  owner_whatsapp: "",
-  buyer_name: "",
-  buyer_email: "",
-  buyer_whatsapp_ddi: "+55",
-  buyer_whatsapp: "",
-  active: true,
-  notes: "",
-  authorized_scope: {},
-});
-
 export function SmartOpsDistributors() {
   const [items, setItems] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Distributor | null>(null);
-  const [form, setForm] = useState<Partial<Distributor>>(emptyForm());
+  const [form, setForm] = useState<DistributorFormValue>(emptyDistributorForm());
   const [saving, setSaving] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [catalogTaxonomy, setCatalogTaxonomy] = useState<Record<string, string[]>>({});
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("system_a_catalog")
-        .select("product_category, product_subcategory")
-        .eq("active", true)
-        .eq("approved", true)
-        .eq("visible_in_ui", true)
-        .not("product_category", "is", null);
-      const map: Record<string, Set<string>> = {};
-      (data || []).forEach((r: any) => {
-        const canon = normCat(r.product_category);
-        if (!canon) return;
-        if (!map[canon]) map[canon] = new Set<string>();
-        const sub = (r.product_subcategory || "").trim();
-        if (sub) map[canon].add(sub);
-      });
-      const out: Record<string, string[]> = {};
-      CANONICAL_CATS.forEach((c) => {
-        out[c] = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
-      });
-      setCatalogTaxonomy(out);
-    })();
-  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -239,75 +60,15 @@ export function SmartOpsDistributors() {
 
   const openNew = () => {
     setEditing(null);
-    setForm(emptyForm());
+    setForm(emptyDistributorForm());
     setOpen(true);
   };
 
   const openEdit = (d: Distributor) => {
     setEditing(d);
-    setForm({ ...d });
+    setForm({ ...d } as DistributorFormValue);
     setOpen(true);
   };
-
-  const handleCountryChange = (pais: string) => {
-    const country = resolveCountry(pais);
-    const ddi = formatDdi(country?.phonecode);
-    setForm((f) => ({
-      ...f,
-      pais,
-      estado: "",
-      cidade: "",
-      owner_whatsapp_ddi: f.owner_whatsapp_ddi || ddi,
-      buyer_whatsapp_ddi: f.buyer_whatsapp_ddi || ddi,
-    }));
-  };
-
-  const handleLogoUpload = async (file: File) => {
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Logo deve ter no máximo 5MB");
-      return;
-    }
-    setUploadingLogo(true);
-    const ext = file.name.split(".").pop() || "png";
-    const path = `${crypto.randomUUID()}.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from("distributor-logos")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
-    if (upErr) {
-      setUploadingLogo(false);
-      toast.error("Erro no upload: " + upErr.message);
-      return;
-    }
-    const { data } = supabase.storage.from("distributor-logos").getPublicUrl(path);
-    setForm((f) => ({ ...f, logo_url: data.publicUrl }));
-    setUploadingLogo(false);
-    toast.success("Logo enviado");
-  };
-
-  const selectedCountry = useMemo(() => resolveCountry(form.pais), [form.pais]);
-  const statesList = useMemo(
-    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
-    [selectedCountry]
-  );
-  const selectedState = useMemo(
-    () =>
-      selectedCountry && form.estado
-        ? statesList.find(
-            (s) =>
-              s.name.toLowerCase() === (form.estado || "").toLowerCase() ||
-              s.isoCode.toLowerCase() === (form.estado || "").toLowerCase()
-          )
-        : undefined,
-    [selectedCountry, form.estado, statesList]
-  );
-  const citiesList = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState]
-  );
 
   const save = async () => {
     if (!form.razao_social?.trim()) {
@@ -339,6 +100,16 @@ export function SmartOpsDistributors() {
     load();
   };
 
+  const copyPublicLink = async () => {
+    const url = `${window.location.origin}/cadastro-distribuidor`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link público copiado", { description: url });
+    } catch {
+      toast.info(url, { description: "Copie manualmente" });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -346,7 +117,12 @@ export function SmartOpsDistributors() {
           <h3 className="text-lg font-semibold">Distribuição</h3>
           <p className="text-sm text-muted-foreground">Cadastro de distribuidores credenciados</p>
         </div>
-        <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Novo Distribuidor</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={copyPublicLink}>
+            <Link2 className="w-4 h-4 mr-2" /> Copiar link público
+          </Button>
+          <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Novo Distribuidor</Button>
+        </div>
       </div>
 
       {loading ? (
