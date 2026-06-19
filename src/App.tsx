@@ -20,6 +20,7 @@ const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
+const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
 const KnowledgeArticleRedirect = lazy(() => import("./pages/KnowledgeArticleRedirect"));
 const SupportResources = lazy(() => import("./pages/SupportResources"));
 const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
