@@ -86,24 +86,59 @@ function base64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string }): Uint8Array {
+  const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
+  const meta = escapeXml(`${args.flag ? args.flag + " " : ""}${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
+  const country = escapeXml(args.countryLabel || "");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="0.52" stop-color="#12324b"/><stop offset="1" stop-color="#0b1118"/></linearGradient>
+    <radialGradient id="glow" cx="72%" cy="38%" r="55%"><stop offset="0" stop-color="#78d8ff" stop-opacity="0.26"/><stop offset="1" stop-color="#78d8ff" stop-opacity="0"/></radialGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.55"/></filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#glow)"/>
+  <path d="M0 520 C220 430 340 610 540 510 C780 390 930 500 1200 390 L1200 675 L0 675 Z" fill="#ffffff" opacity="0.05"/>
+  <text x="72" y="70" fill="#f7fbff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">Smart Dent ${country ? "  " + country : ""}</text>
+  <text x="72" y="250" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
+  <foreignObject x="70" y="285" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
+  <text x="72" y="616" fill="#edf7ff" opacity="0.92" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">${meta}</text>
+</svg>`;
+  return new TextEncoder().encode(svg);
+}
+
 async function generateImageWithLovable(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | { error: string; status: number; details?: string }> {
   if (!LOVABLE_API_KEY) return { error: "LOVABLE_API_KEY não configurada", status: 500 };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/gpt-image-2",
-      prompt,
-      size: "1536x1024",
-      quality: "high",
-      n: 1,
-      stream: false,
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "openai/gpt-image-2",
+        prompt,
+        size: "1536x1024",
+        quality: "low",
+        n: 1,
+        stream: false,
+      }),
+    });
+  } catch (e: any) {
+    clearTimeout(timeout);
+    return { error: "Lovable AI Gateway indisponível", status: 502, details: e?.name === "AbortError" ? "Tempo limite da geração atingido" : e?.message || String(e) };
+  }
+  clearTimeout(timeout);
 
   const text = await resp.text();
   let json: any = null;
