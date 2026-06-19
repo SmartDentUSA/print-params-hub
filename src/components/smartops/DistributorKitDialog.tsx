@@ -74,8 +74,8 @@ export function DistributorKitDialog({
     }[lang];
     const cta = { pt: "Verificar no site oficial", es: "Verificar en el sitio oficial", en: "Verify on official website" }[lang];
     return `<!-- Selo Distribuidor Oficial Smart Dent -->
-<a href="${canonical}" target="_blank" rel="noopener" title="${label}" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:#0f172a;font-family:system-ui,sans-serif;">
-  <img src="${sealUrl}" alt="${label}" width="64" height="64" loading="lazy" style="border:0;" />
+<a href="${canonical}" target="_blank" rel="noopener" title="${label}" style="display:inline-flex;align-items:center;gap:12px;text-decoration:none;color:#0f172a;font-family:system-ui,sans-serif;">
+  <img src="${sealUrl}" alt="Distribuidor Oficial Certificado Smart Dent Brasil" width="140" height="140" loading="lazy" style="border:0;" />
   <span style="display:flex;flex-direction:column;line-height:1.2;">
     <strong style="font-size:13px;">${label}</strong>
     <small style="font-size:11px;color:#64748b;">${cta} →</small>

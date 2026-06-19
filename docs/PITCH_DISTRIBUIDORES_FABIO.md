@@ -32,7 +32,7 @@ Para ativar e manter o status de **Distribuidor Oficial Smart Dent** no portal, 
 - **Citar Smart Dent como fabricante** nas descrições dos produtos das linhas representadas.
 - **Marcar @smartdent_oficial** ao postar conteúdo de produtos Smart Dent nas redes (bios prontas em PT/ES/EN no Kit).
 
-O sistema **verifica automaticamente todo dia** se o backlink ainda existe (job `verify-distributor-backlink`) e exibe um badge no painel: 🔗 ok · ≈ cita s/ link · ✗ sem backlink · ? offline. Distribuidores com `missing` por mais de 30 dias podem perder o selo até regularizar — argumento de retenção para você cobrar.
+O sistema **verifica automaticamente todo mês** (cron `verify-distributor-backlinks-monthly`, dia 1 às 04:15 UTC) se o backlink ainda existe e exibe um badge no painel: 🔗 ok · ≈ cita s/ link · ✗ sem backlink · ? offline. O botão **Verificar backlinks** no topo da lista também dispara a checagem sob demanda. Distribuidores com `missing` por mais de 30 dias podem perder o selo até regularizar — argumento de retenção para você cobrar.
 
 ---
 
@@ -122,7 +122,7 @@ E a **Dra. LIA** consulta esses dados em tempo real: se um lead internacional pe
 - [ ] **Publicação** — Página `/distribuidores/{país}/{slug}` vai pro ar (canônica + LocalBusiness + Wikidata sameAs).
 - [ ] **Kit entregue** — Você abre o card no Smart Ops, clica em **Kit** e envia para o distribuidor: link canônico + selo PNG + 4 snippets (HTML selo, HTML logo backlink, bio social, texto institucional) em PT/ES/EN.
 - [ ] **Backlink instalado** — Distribuidor cola o snippet do logo no rodapé do site.
-- [ ] **Verificação** — Job diário `verify-distributor-backlink` confirma o status. Badge no painel = 🔗 ok.
+- [ ] **Verificação** — Cron mensal `verify-distributor-backlinks-monthly` (dia 1, 04:15 UTC) confirma o status. Badge no painel = 🔗 ok. Botão manual disponível para checagem imediata.
 - [ ] **Indexação** — Sitemap reenviado (automático); em 7-14 dias o Google indexa e Perplexity/ChatGPT começam a responder com o parceiro.
 
 ---
