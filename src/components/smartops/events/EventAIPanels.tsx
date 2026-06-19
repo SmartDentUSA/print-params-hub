@@ -208,6 +208,7 @@ export function EventCoverByLanguage({
 }) {
   const [busyUp, setBusyUp] = useState<Lang | null>(null);
   const [busyAi, setBusyAi] = useState<Lang | null>(null);
+  const [busyAll, setBusyAll] = useState(false);
   const inputs = { pt: useRef<HTMLInputElement>(null), en: useRef<HTMLInputElement>(null), es: useRef<HTMLInputElement>(null) };
 
   async function up(lang: Lang, file: File) {
@@ -250,11 +251,45 @@ export function EventCoverByLanguage({
     }
   }
 
+  async function genAllLangs() {
+    if (!eventId) return toast.error("Salve o evento antes de gerar imagem.");
+    setBusyAll(true);
+    const langs: Lang[] = ["pt", "en", "es"];
+    const results = await Promise.allSettled(
+      langs.map((lang) =>
+        supabase.functions.invoke("event-generate-image", {
+          body: {
+            event_id: eventId,
+            language: lang,
+            reference_image_url: referenceImageUrl || undefined,
+            logo_url: eventLogoUrl || undefined,
+          },
+        }).then(({ data, error }) => {
+          if (error) throw error;
+          if (!(data as any)?.ok) throw new Error((data as any)?.error || "Falha");
+          onCoverChange(lang, (data as any).url);
+          return lang;
+        })
+      )
+    );
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const fail = results.length - ok;
+    if (ok) toast.success(`Capas geradas: ${ok}/${results.length}`);
+    if (fail) toast.error(`${fail} idioma(s) falharam`);
+    setBusyAll(false);
+  }
+
   return (
     <Tabs defaultValue="pt">
-      <TabsList>
-        {LANGS.map((l) => <TabsTrigger key={l.id} value={l.id}>{l.label}</TabsTrigger>)}
-      </TabsList>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <TabsList>
+          {LANGS.map((l) => <TabsTrigger key={l.id} value={l.id}>{l.label}</TabsTrigger>)}
+        </TabsList>
+        <Button type="button" size="sm" variant="secondary" disabled={busyAll} onClick={genAllLangs}>
+          {busyAll ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
+          Gerar todas (PT/EN/ES)
+        </Button>
+      </div>
       {LANGS.map((l) => (
         <TabsContent key={l.id} value={l.id} className="space-y-3">
           <div className="aspect-[16/9] w-full max-w-md rounded border bg-muted overflow-hidden">
