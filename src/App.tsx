@@ -101,6 +101,9 @@ const App = () => (
       {/* SEO-friendly aliases for distributors and events tabs */}
       <Route path="/distribuidores" element={<KnowledgeBase lang="pt" forcedTab="distribuidores" />} />
       <Route path="/eventos" element={<KnowledgeBase lang="pt" forcedTab="eventos" />} />
+
+      {/* Public distributor registration (no auth) */}
+      <Route path="/cadastro-distribuidor" element={<PublicDistributorRegister />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
