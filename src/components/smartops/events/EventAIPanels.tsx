@@ -196,19 +196,15 @@ export function EventAboutByLanguage({
 export function EventCoverByLanguage({
   eventId,
   covers,
-  prompts,
   referenceImageUrl,
   eventLogoUrl,
   onCoverChange,
-  onPromptChange,
 }: {
   eventId?: string;
   covers: { pt?: string | null; en?: string | null; es?: string | null };
-  prompts: { pt?: string | null; en?: string | null; es?: string | null };
   referenceImageUrl?: string | null;
   eventLogoUrl?: string | null;
   onCoverChange: (lang: Lang, url: string) => void;
-  onPromptChange: (lang: Lang, value: string) => void;
 }) {
   const [busyUp, setBusyUp] = useState<Lang | null>(null);
   const [busyAi, setBusyAi] = useState<Lang | null>(null);
@@ -233,15 +229,12 @@ export function EventCoverByLanguage({
 
   async function genAi(lang: Lang) {
     if (!eventId) return toast.error("Salve o evento antes de gerar imagem.");
-    const prompt = prompts[lang]?.trim();
-    if (!prompt) return toast.error("Escreva um prompt para a IA.");
     setBusyAi(lang);
     try {
       const { data, error } = await supabase.functions.invoke("event-generate-image", {
         body: {
           event_id: eventId,
           language: lang,
-          prompt,
           reference_image_url: referenceImageUrl || undefined,
           logo_url: eventLogoUrl || undefined,
         },
