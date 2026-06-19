@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2 } from "lucide-react";
 import { AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { DistributorForm, emptyDistributorForm, DistributorFormValue } from "./DistributorForm";
+import { DistributorKitDialog, KitDistributor } from "./DistributorKitDialog";
 
 type Distributor = {
   id: string;
@@ -44,6 +45,8 @@ export function SmartOpsDistributors() {
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [form, setForm] = useState<DistributorFormValue>(emptyDistributorForm());
   const [saving, setSaving] = useState(false);
+  const [kitOpen, setKitOpen] = useState(false);
+  const [kitTarget, setKitTarget] = useState<KitDistributor | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -178,6 +181,21 @@ export function SmartOpsDistributors() {
                   <Button size="sm" variant="outline" onClick={() => openEdit(d)}>
                     <Pencil className="w-3 h-3 mr-1" /> Editar
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setKitTarget({
+                        razao_social: d.razao_social,
+                        nome_fantasia: d.nome_fantasia,
+                        pais: d.pais,
+                        slug: (d as any).slug ?? null,
+                      });
+                      setKitOpen(true);
+                    }}
+                  >
+                    <Share2 className="w-3 h-3 mr-1" /> Kit
+                  </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove(d)}>
                     <Trash2 className="w-3 h-3 mr-1" /> Excluir
                   </Button>
@@ -202,6 +220,8 @@ export function SmartOpsDistributors() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DistributorKitDialog open={kitOpen} onOpenChange={setKitOpen} distributor={kitTarget} />
     </div>
   );
 }
