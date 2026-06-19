@@ -1,10 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 import { z } from "npm:zod";
-import { callPoe } from "../_shared/providers/poe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
@@ -79,14 +79,60 @@ function fmtDateRange(start?: string | null, end?: string | null): string {
   return s || e || "";
 }
 
-function extractImageUrl(text: string): string | null {
-  if (!text) return null;
-  const md = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/);
-  if (md) return md[1];
-  const bare = text.match(/(https?:\/\/[^\s)"']+\.(?:png|jpg|jpeg|webp)(?:\?[^\s)"']*)?)/i);
-  if (bare) return bare[1];
-  const any = text.match(/(https?:\/\/[^\s)"']+)/);
-  return any ? any[1] : null;
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function generateImageWithLovable(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | { error: string; status: number; details?: string }> {
+  if (!LOVABLE_API_KEY) return { error: "LOVABLE_API_KEY não configurada", status: 500 };
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "openai/gpt-image-2",
+      prompt,
+      size: "1536x1024",
+      quality: "high",
+      n: 1,
+      stream: false,
+    }),
+  });
+
+  const text = await resp.text();
+  let json: any = null;
+  try { json = JSON.parse(text); } catch { /* keep raw text */ }
+
+  if (!resp.ok) {
+    return {
+      error: "Lovable AI Gateway falhou",
+      status: resp.status,
+      details: json?.error?.message || json?.message || text.slice(0, 800),
+    };
+  }
+
+  const b64 = json?.data?.[0]?.b64_json;
+  if (typeof b64 === "string" && b64.length > 0) {
+    return { bytes: base64ToBytes(b64), contentType: "image/png" };
+  }
+
+  const url = json?.data?.[0]?.url;
+  if (typeof url === "string" && url.startsWith("http")) {
+    const imgResp = await fetch(url);
+    if (!imgResp.ok) return { error: "Falha ao baixar imagem gerada", status: imgResp.status, details: await imgResp.text().catch(() => "") };
+    return {
+      bytes: new Uint8Array(await imgResp.arrayBuffer()),
+      contentType: imgResp.headers.get("content-type") || "image/png",
+    };
+  }
+
+  return { error: "Imagem não retornada pela IA", status: 502, details: text.slice(0, 800) };
 }
 
 Deno.serve(async (req) => {
