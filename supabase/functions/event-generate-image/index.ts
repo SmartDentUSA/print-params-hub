@@ -21,6 +21,12 @@ const LANG_LABEL: Record<string, string> = {
   es: "espanhol",
 };
 
+const CONFIRMED_LABEL: Record<string, string> = {
+  pt: "PRESENÇA CONFIRMADA",
+  en: "ATTENDANCE CONFIRMED",
+  es: "ASISTENCIA CONFIRMADA",
+};
+
 const COUNTRY_FLAGS: Record<string, { flag: string; label: string }> = {
   "brasil": { flag: "🇧🇷", label: "Brasil" },
   "brazil": { flag: "🇧🇷", label: "Brasil" },
@@ -67,12 +73,17 @@ function resolveFlag(country?: string | null): { flag: string; label: string } {
   return COUNTRY_FLAGS[key] ?? { flag: "", label: country };
 }
 
-const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-function fmtDateRange(start?: string | null, end?: string | null): string {
+const MONTHS: Record<string, string[]> = {
+  pt: ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"],
+  en: ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"],
+  es: ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"],
+};
+function fmtDateRange(start?: string | null, end?: string | null, language = "pt"): string {
+  const months = MONTHS[language] ?? MONTHS.pt;
   const fmt = (iso: string) => {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return "";
-    return `${MONTHS_PT[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,"0")}`;
+    return `${months[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,"0")}`;
   };
   const s = start ? fmt(start) : "";
   const e = end ? fmt(end) : "";
@@ -91,8 +102,9 @@ function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string }): Uint8Array {
+function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string; confirmedLabel: string }): Uint8Array {
   const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
+  const confirmed = escapeXml((args.confirmedLabel || "PRESENÇA CONFIRMADA").toUpperCase());
   const meta = escapeXml(`${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
   const country = escapeXml(args.countryLabel || "");
   const flag = escapeXml(args.flag || "");
@@ -110,7 +122,7 @@ function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string
     <path d="M6 50 C 30 30, 70 30, 96 70 C 70 56, 36 60, 14 72 Z" fill="#ffffff"/>
     <text x="110" y="58" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="44" font-weight="900" letter-spacing="2">SMART DENT</text>
   </g>
-  <text x="72" y="290" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
+  <text x="72" y="290" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">${confirmed}</text>
   <foreignObject x="70" y="305" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
   <g transform="translate(990,55)" filter="url(#shadow)">
     <rect x="0" y="0" width="150" height="100" rx="8" fill="#0b1118" stroke="#ffffff" stroke-width="2"/>
