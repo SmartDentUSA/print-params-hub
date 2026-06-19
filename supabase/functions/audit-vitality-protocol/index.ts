@@ -323,6 +323,7 @@ Deno.serve(async (req) => {
       skipped,
       results,
     }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    */
   } catch (e) {
     console.error("[audit-vitality-protocol] error:", e);
     return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
