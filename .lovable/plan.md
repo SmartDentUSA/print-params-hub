@@ -1,23 +1,24 @@
-## Firecrawl conectado — próximos passos
+## Remover campo de prompt manual nas capas de evento
 
-Com o conector Firecrawl linkado, `FIRECRAWL_API_KEY` já está disponível para as Edge Functions. A função `event-web-research` que criamos vai funcionar imediatamente.
+A geração de capa por IA passa a usar **apenas** o prompt cinematográfico fixo (4 camadas) já definido em `event-generate-image`. O usuário não precisa mais escrever nada.
 
-### Validação rápida (sem alterar código)
-1. Abrir o **Editor de Eventos** em SmartOps.
-2. Criar/abrir um evento, preencher **Site do evento** (ex.: `https://www.ids-cologne.de`).
-3. Clicar **Buscar info na web** → confirmar que os campos (nome, datas, local, país, descrição PT) são pré-preenchidos.
-4. Em **Sobre o evento**, gerar PT / EN / ES via IA (Gemini 2.5 Flash).
-5. Em **Capa do evento**, em cada idioma:
-   - Upload manual (valida proporção 16:9 / 1200×675), **ou**
-   - Escrever prompt e **Gerar capa por IA** (Nano-Banana via Poe).
-6. Abrir a Base de Conhecimento pública → aba **Eventos** → trocar idioma e confirmar que a capa muda conforme `cover_image_{lang}`.
+### Frontend — `src/components/smartops/events/EventAIPanels.tsx`
+Em `EventCoverByLanguage`:
+- Remover o bloco `Label + Textarea` "Prompt para IA (Poe — Nano-Banana)".
+- Remover a validação `if (!prompt) return toast.error(...)` em `genAi`.
+- Remover props `prompts` e `onPromptChange` da assinatura do componente.
+- Não enviar `prompt` no `supabase.functions.invoke("event-generate-image", { body: ... })` (apenas `event_id`, `language`, `reference_image_url`, `logo_url`).
+- Manter o botão "Gerar capa por IA ({lang})" como única ação.
 
-### Se algo falhar — ajustes previstos (só aplico após aprovação)
+### Callsite do componente
+Localizar onde `EventCoverByLanguage` é usado (provavelmente no editor de evento em `src/components/smartops/events/...`) e remover as props `prompts` / `onPromptChange` e o estado correspondente. Não mexer em nada além disso.
 
-- **Firecrawl 402 (sem créditos):** orientar top-up; sem mudança de código.
-- **Firecrawl v2 retornando shape diferente:** ajustar parser em `event-web-research/index.ts` (já tem fallback em `root.json / root.extract / root.data.json`, mas posso adicionar logs estruturados se vier vazio).
-- **Poe Nano-Banana indisponível:** fallback para `imagegen` (Gemini) em `event-generate-image`.
-- **Pré-preenchimento do formulário:** hoje `EventWebResearchButton` devolve `extracted` via callback; preciso confirmar se o `SmartOpsEvents.tsx` já consome esse callback e faz `setForm({...})` nos campos certos (name, start_date, end_date, location, country, website_url, about_event_pt). Se não, adiciono o merge.
+### Backend — `supabase/functions/event-generate-image/index.ts`
+- Tornar `prompt` opcional no `BodySchema` (`z.string().trim().max(2000).optional()`).
+- Remover do `fullPrompt` final as linhas "Brief adicional do usuário:" + `prompt` quando não vier nada (manter caso ainda venha, por compatibilidade).
+- Resto do prompt cinematográfico em 4 camadas permanece intacto e obrigatório.
+- Redeploy da função.
 
-### Pergunta
-Quer que eu rode a validação acima de forma assistida agora (você testa em tela, eu observo console/logs) ou prefere testar sozinho e me chamar se algo quebrar?
+### Fora de escopo
+- Coluna `ai_image_prompt_{lang}` no banco fica como está (continua salvando o prompt fixo usado, útil para auditoria).
+- Sem mudanças em `event-generate-about`, `event-web-research`, upload manual de capa, ou UI de "Imagem de referência / Logo do evento".

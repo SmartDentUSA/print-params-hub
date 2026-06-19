@@ -196,19 +196,15 @@ export function EventAboutByLanguage({
 export function EventCoverByLanguage({
   eventId,
   covers,
-  prompts,
   referenceImageUrl,
   eventLogoUrl,
   onCoverChange,
-  onPromptChange,
 }: {
   eventId?: string;
   covers: { pt?: string | null; en?: string | null; es?: string | null };
-  prompts: { pt?: string | null; en?: string | null; es?: string | null };
   referenceImageUrl?: string | null;
   eventLogoUrl?: string | null;
   onCoverChange: (lang: Lang, url: string) => void;
-  onPromptChange: (lang: Lang, value: string) => void;
 }) {
   const [busyUp, setBusyUp] = useState<Lang | null>(null);
   const [busyAi, setBusyAi] = useState<Lang | null>(null);
@@ -233,15 +229,12 @@ export function EventCoverByLanguage({
 
   async function genAi(lang: Lang) {
     if (!eventId) return toast.error("Salve o evento antes de gerar imagem.");
-    const prompt = prompts[lang]?.trim();
-    if (!prompt) return toast.error("Escreva um prompt para a IA.");
     setBusyAi(lang);
     try {
       const { data, error } = await supabase.functions.invoke("event-generate-image", {
         body: {
           event_id: eventId,
           language: lang,
-          prompt,
           reference_image_url: referenceImageUrl || undefined,
           logo_url: eventLogoUrl || undefined,
         },
@@ -295,13 +288,9 @@ export function EventCoverByLanguage({
           <p className="text-[11px] text-muted-foreground">{HERO.note}</p>
 
           <div className="space-y-2 border-t pt-3">
-            <Label className="text-xs">Prompt para IA (Poe — Nano-Banana) — {l.label}</Label>
-            <Textarea
-              rows={3}
-              value={prompts[l.id] || ""}
-              onChange={(e) => onPromptChange(l.id, e.target.value)}
-              placeholder={`Descreva a cena/estética desejada para a capa em ${l.label}…`}
-            />
+            <p className="text-[11px] text-muted-foreground">
+              A IA usa automaticamente o prompt cinematográfico fixo Smart Dent (4 camadas) + a imagem de referência enviada acima.
+            </p>
             <Button type="button" size="sm" disabled={busyAi === l.id} onClick={() => genAi(l.id)}>
               {busyAi === l.id ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
               Gerar capa por IA ({l.label})
