@@ -13,6 +13,8 @@ const BodySchema = z.object({
   prompt: z.string().trim().max(2000).optional(),
   reference_image_url: z.string().url().optional(),
   logo_url: z.string().url().optional(),
+  base_image_url: z.string().url().optional(),
+  base_language: z.enum(["pt", "en", "es"]).optional(),
 });
 
 const LANG_LABEL: Record<string, string> = {
