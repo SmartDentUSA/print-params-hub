@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
     if (logo_url) content.push({ type: "image_url", image_url: { url: logo_url } });
 
     const poeRes = await callPoe({
-      model: "Nano-Banana",
+      model: "Ideogram-v3-Quality",
       messages: [{ role: "user", content }],
     });
     if (!poeRes.ok) {
