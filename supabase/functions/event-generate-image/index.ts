@@ -213,15 +213,28 @@ Deno.serve(async (req) => {
     const stand = ev.company_stand || "";
     const eventName = ev.name || "";
 
+    // Referências visuais nesta ordem: [0] Logo Smart Dent oficial, [1] Logo do evento (opcional), [2] Imagem de referência do venue (opcional)
+    const refImages: string[] = [SMARTDENT_LOGO_URL];
+    let eventLogoIndex = -1;
+    let venueImageIndex = -1;
+    if (logo_url) { refImages.push(logo_url); eventLogoIndex = refImages.length - 1; }
+    if (reference_image_url) { refImages.push(reference_image_url); venueImageIndex = refImages.length - 1; }
+
     const layoutBlock = [
+      "=== REFERÊNCIAS VISUAIS ANEXADAS (USE-AS LITERALMENTE — NÃO REDESENHE, NÃO INVENTE) ===",
+      `- IMAGEM 1: Logo OFICIAL Smart Dent (ícone swoosh + wordmark "SMART DENT"). É OBRIGATÓRIO copiar este logo EXATAMENTE como está, preservando proporções, formas e tipografia. NUNCA redesenhar, NUNCA inventar versão alternativa.`,
+      eventLogoIndex >= 0 ? `- IMAGEM ${eventLogoIndex + 1}: Logo do CONGRESSO/EVENTO. É OBRIGATÓRIO incorporar este logo EXATAMENTE como está, sem redesenhar, sem reinterpretar.` : "- Logo do evento: NÃO foi fornecido — NÃO inventar nenhum logo fictício para o evento.",
+      venueImageIndex >= 0 ? `- IMAGEM ${venueImageIndex + 1}: Foto de referência do venue/cidade. Usar como FUNDO cinematográfico integral.` : "",
+      "",
       "=== POSICIONAMENTO TIPOGRÁFICO (peça editorial cinematográfica, NÃO mockup de UI) ===",
       "Canvas 16:9 (1200x675px). Tudo flutua integrado à atmosfera cinematográfica — NUNCA caixas, NUNCA blocos sólidos, NUNCA fundos cinza atrás de texto, NUNCA placeholders visíveis.",
       "",
-      "TOPO ESQUERDO (logo Smart Dent — OBRIGATÓRIO, renderizar com fidelidade absoluta):",
-      '- Logo oficial Smart Dent: à esquerda um ÍCONE de movimento composto por DUAS curvas (uma fina arco superior cinza-azulado e uma curva inferior larga preenchida em branco) formando um swoosh dinâmico estilo "T" inclinado; ao lado direito do ícone, o WORDMARK "SMART DENT" em SANS-SERIF GEOMÉTRICA BOLD, todas as letras em CAIXA ALTA, espaçamento regular, na cor BRANCO PURO. Renderizar nítido, sem distorção, sem letras erradas. Altura do logo ~70px, margem 60px do topo e 60px da esquerda.',
+      "TOPO ESQUERDO — Logo Smart Dent (IMAGEM 1):",
+      "- Inserir a IMAGEM 1 (logo oficial Smart Dent) pixel-perfect no canto superior esquerdo. Altura ~80px, margem 60px do topo e 60px da esquerda. NÃO redesenhar, NÃO substituir por versão estilizada — usar a imagem fornecida.",
       "",
-      "TOPO DIREITO (bandeira do país em destaque):",
-      `- Bandeira de ${countryLabel || "país"} renderizada como retângulo grande, cantos levemente arredondados, LARGURA ~150px (proporção 3:2), com borda branca fina 2px e sombra suave. Cores oficiais da bandeira nítidas e corretas. Posicionada no canto superior direito com margem 60px. Esta é uma âncora visual forte — NÃO discreta.`,
+      `TOPO DIREITO — Bandeira de ${countryLabel || "país"} + Logo do evento:`,
+      `- Bandeira de ${countryLabel || "país"}: retângulo grande LARGURA ~160px (proporção 3:2), cantos arredondados 10px, borda branca 2px, sombra suave. Cores OFICIAIS e nítidas. Posicionada no canto superior direito, margem 60px.`,
+      eventLogoIndex >= 0 ? `- Logo do evento (IMAGEM ${eventLogoIndex + 1}): inserir pixel-perfect logo abaixo da bandeira, altura ~90px, alinhado à direita. NÃO redesenhar, usar a imagem anexada.` : "",
       "",
       "EIXO CENTRAL ESQUERDO (hierarquia editorial vertical, alinhada à esquerda com respiro generoso):",
       '- Eyebrow pequeno em caps, tracking amplo, branco fino: "PRESENÇA CONFIRMADA".',
