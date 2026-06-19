@@ -288,13 +288,9 @@ export function EventCoverByLanguage({
           <p className="text-[11px] text-muted-foreground">{HERO.note}</p>
 
           <div className="space-y-2 border-t pt-3">
-            <Label className="text-xs">Prompt para IA (Poe — Nano-Banana) — {l.label}</Label>
-            <Textarea
-              rows={3}
-              value={prompts[l.id] || ""}
-              onChange={(e) => onPromptChange(l.id, e.target.value)}
-              placeholder={`Descreva a cena/estética desejada para a capa em ${l.label}…`}
-            />
+            <p className="text-[11px] text-muted-foreground">
+              A IA usa automaticamente o prompt cinematográfico fixo Smart Dent (4 camadas) + a imagem de referência enviada acima.
+            </p>
             <Button type="button" size="sm" disabled={busyAi === l.id} onClick={() => genAi(l.id)}>
               {busyAi === l.id ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
               Gerar capa por IA ({l.label})
