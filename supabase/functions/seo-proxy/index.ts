@@ -2887,6 +2887,10 @@ Deno.serve(async (req) => {
       html = await generatePublicFormHTML(segments[1], supabase);
     } else if (segments[0] === 'distribuidores' && segments.length === 1) {
       html = await generateDistribuidoresHTML(supabase);
+    } else if (segments[0] === 'distribuidores' && segments.length === 2) {
+      html = await generateDistribuidorCountryHTML(segments[1], supabase);
+    } else if (segments[0] === 'distribuidores' && segments.length === 3) {
+      html = await generateDistribuidorDetailHTML(segments[1], segments[2], supabase);
     } else if (segments[0] === 'eventos' && segments.length === 1) {
       html = await generateEventosHTML(supabase);
     } else if (segments[0] === 'base-conhecimento') {
