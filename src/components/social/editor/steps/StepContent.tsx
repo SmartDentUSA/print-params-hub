@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus } from 'lucide-react';
+import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus, Instagram, Facebook, Youtube, Linkedin, Music2, Image as PinIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,70 @@ interface Props {
   onPickSystemACarousel?: (c: SystemACarousel) => void;
 }
 
+const PLATFORM_LABELS: Record<string, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  linkedin: 'LinkedIn',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  pinterest: 'Pinterest',
+};
+
+function PlatformIcon({ platform, className = 'w-3.5 h-3.5' }: { platform: string; className?: string }) {
+  switch (platform) {
+    case 'instagram': return <Instagram className={`${className} text-pink-600`} />;
+    case 'facebook':  return <Facebook  className={`${className} text-blue-600`} />;
+    case 'linkedin':  return <Linkedin  className={`${className} text-sky-700`} />;
+    case 'youtube':   return <Youtube   className={`${className} text-red-600`} />;
+    case 'tiktok':    return <Music2    className={`${className} text-foreground`} />;
+    case 'pinterest': return <PinIcon   className={`${className} text-red-500`} />;
+    default:          return <ImageIcon className={className} />;
+  }
+}
+
+// Matriz Plataforma × Tom — cada combinação carrega tom de voz + objetivo do post
+const PLATFORM_TONE_PROMPTS: Record<string, Record<string, string>> = {
+  instagram: {
+    Profissional: 'Plataforma: Instagram (Feed/Reels). Objetivo: autoridade técnica + salvamento. Tom consultivo para dentistas/protéticos. Gancho forte na 1ª linha, 3-5 linhas curtas, emojis pontuais, CTA "salve este post" + "compartilhe com um colega". Use vocabulário CAD/CAM, escaneamento intraoral, impressão 3D, fluxo digital.',
+    Educativo:    'Plataforma: Instagram (Carrossel/Reels). Objetivo: salvar e compartilhar. Didático passo a passo com bullets curtos. Abra com pergunta provocativa, explique "porquê" antes do "como", traga 1 dica aplicável hoje. Encerre com "salve para consultar depois".',
+    Direto:       'Plataforma: Instagram. Objetivo: clique no link da bio / DM. Gancho de 1 linha, 3 bullets de benefício, CTA único e claro ("Chama no direct" ou "Link na bio"). Sem floreios.',
+    Inspirador:   'Plataforma: Instagram (Reels). Objetivo: engajamento emocional + compartilhamento. Conecte tecnologia + transformação da rotina clínica. Antes x depois do fluxo digital. Finalize com frase de impacto que provoque salvar/compartilhar.',
+  },
+  facebook: {
+    Profissional: 'Plataforma: Facebook (Feed/Grupos). Objetivo: gerar discussão na comunidade odontológica. Texto pode ser mais longo (até 8 linhas). Tom consultivo, cite caso/dado real, termine com pergunta aberta para puxar comentários. Link clicável no final.',
+    Educativo:    'Plataforma: Facebook. Objetivo: educar + atrair comentários. Estrutura: contexto → problema → solução → 3 takeaways. Convide o leitor a contar sua experiência nos comentários.',
+    Direto:       'Plataforma: Facebook. Objetivo: clique no link. Gancho forte, prova social rápida (clientes/casos), CTA direto com link. Texto curto e escaneável.',
+    Inspirador:   'Plataforma: Facebook. Objetivo: compartilhamento orgânico. Storytelling em 1ª pessoa (jornada do dentista/protético), virada com tecnologia, lição aplicável. Final com convite a marcar um colega.',
+  },
+  linkedin: {
+    Profissional: 'Plataforma: LinkedIn. Objetivo: autoridade B2B (clínicas/laboratórios/distribuidores). Tom corporativo e analítico. Foco em ROI, produtividade, previsibilidade clínica e dados. Sem hashtags em excesso (máx 3). Estrutura: insight → dado/caso → implicação para o gestor → CTA consultivo.',
+    Educativo:    'Plataforma: LinkedIn. Objetivo: educar gestores e líderes de laboratório. Texto em formato "ensaio curto" (6-10 linhas), 1 conceito por parágrafo. Encerre com 1 pergunta estratégica sobre gestão/fluxo.',
+    Direto:       'Plataforma: LinkedIn. Objetivo: agendar reunião/demonstração. Gancho com número/resultado, 3 bullets de impacto operacional, CTA "agende uma conversa" ou "fale com nosso time".',
+    Inspirador:   'Plataforma: LinkedIn. Objetivo: posicionamento de marca. Storytelling de visão de futuro da odontologia digital. Conecte propósito + tecnologia + transformação do setor. Tom maduro, sem clichês motivacionais.',
+  },
+  youtube: {
+    Profissional: 'Plataforma: YouTube (descrição de vídeo). Objetivo: SEO + retenção. Comece com a frase-chave do vídeo nos 2 primeiros parágrafos. Estrutura: resumo do vídeo → o que o espectador vai aprender → timestamps mentais → CTA "inscreva-se" + link de produto/curso. Termine com hashtags (3-5).',
+    Educativo:    'Plataforma: YouTube. Objetivo: aula completa em texto-apoio. Liste os tópicos do vídeo em bullets, explique brevemente cada um, peça para o usuário comentar dúvidas. CTA: "inscreva-se e ative o sininho".',
+    Direto:       'Plataforma: YouTube. Objetivo: clique no link da descrição. Frase de impacto, 3 bullets do que o vídeo entrega, CTA com link em destaque. Mantenha SEO com 1 keyword nos primeiros 150 caracteres.',
+    Inspirador:   'Plataforma: YouTube. Objetivo: aumentar tempo de exibição + inscrição. Texto curto + provocativo que reforça a promessa do vídeo. Convide a assistir até o fim para "ver a transformação".',
+  },
+  tiktok: {
+    Profissional: 'Plataforma: TikTok. Objetivo: alcance orgânico + perfil. Linguagem direta sem jargão pesado. Gancho em 1 linha (≤8 palavras), 2-3 linhas de contexto, CTA "siga para mais dicas de odonto digital". Trends quando aplicável.',
+    Educativo:    'Plataforma: TikTok. Objetivo: salvar + seguir. Estrutura: "Você sabia que…" → fato técnico em 1 linha → mini-explicação → CTA "salva esse vídeo". Sem jargão excessivo, traduza para linguagem cotidiana.',
+    Direto:       'Plataforma: TikTok. Objetivo: viralizar. Gancho em 1s, frase de choque ou contraste, CTA único. Texto cabe na tela do celular sem rolar.',
+    Inspirador:   'Plataforma: TikTok. Objetivo: identificação + share. Storytelling rápido (antes/depois do consultório), trilha emocional sugerida no texto. Final com hashtag temática + CTA "compartilha com quem precisa ver".',
+  },
+  pinterest: {
+    Profissional: 'Plataforma: Pinterest. Objetivo: salvamento para referência futura. Descrição rica em keywords visuais e técnicas (impressão 3D odontológica, resinas, scanner intraoral). Estrutura: o que é → para quem → benefício prático. Sem CTAs agressivos.',
+    Educativo:    'Plataforma: Pinterest. Objetivo: pin "tutorial" salvável. Liste passos numerados (1, 2, 3…), use keywords visuais (cor, formato, antes/depois). Finalize com link para guia completo.',
+    Direto:       'Plataforma: Pinterest. Objetivo: clique para a página de produto. Descrição com keywords + benefício único + CTA "veja mais detalhes". Mantenha 200-300 caracteres.',
+    Inspirador:   'Plataforma: Pinterest. Objetivo: salvar como inspiração. Linguagem visual e aspiracional (consultório do futuro, sorriso transformado). Foco em estética e resultado final.',
+  },
+};
+
+const ALL_PRESETS_FLAT = Object.values(PLATFORM_TONE_PROMPTS).flatMap((m) => Object.values(m));
+const TONES = ['Profissional', 'Educativo', 'Direto', 'Inspirador'] as const;
+
 export function StepContent({
   value,
   onChange,
@@ -46,33 +110,48 @@ export function StepContent({
   onPickSystemACarousel,
 }: Props) {
   const [tagInput, setTagInput] = useState('');
-  const TONE_PROMPTS: Record<string, string> = {
-    Profissional:
-      'Tom consultivo e técnico para dentistas e protéticos. Destaque precisão, previsibilidade clínica, fluxo digital integrado e ROI no consultório/laboratório. Evite gírias. Use vocabulário do setor odontológico (CAD/CAM, escaneamento intraoral, impressão 3D, fluxo digital).',
-    Educativo:
-      'Tom didático passo a passo, como se ensinasse um colega. Explique o "porquê" antes do "como", traga 1 dica prática aplicável hoje no consultório/lab e finalize com um convite para aprender mais. Use bullets curtos e analogias do dia a dia clínico.',
-    Direto:
-      'Tom curto, objetivo e de alta conversão. Gancho forte na 1ª linha, 3 bullets de benefício, 1 CTA claro. Sem rodeios, sem floreios. Foco em quem precisa decidir rápido.',
-    Inspirador:
-      'Tom motivacional e aspiracional. Conecte tecnologia + transformação da rotina do dentista/protético. Mostre o "antes x depois" do fluxo digital, traga visão de futuro da odontologia e finalize com uma frase de impacto que provoque ação.',
+
+  // Plataformas presentes nos canais selecionados (dedupe). Fallback: instagram.
+  const availablePlatforms = (() => {
+    const list = Array.from(new Set((value.channels ?? []).map((c: any) => c?.platform).filter(Boolean)));
+    return list.length ? (list as string[]) : ['instagram'];
+  })();
+
+  const [selectedPlatform, setSelectedPlatform] = useState<string>(availablePlatforms[0]);
+  const [aiTone, setAiTone] = useState<string>('Profissional');
+  const [aiInstructions, setAiInstructions] = useState<string>(
+    PLATFORM_TONE_PROMPTS[selectedPlatform]?.['Profissional'] ?? '',
+  );
+
+  // Se a lista de canais mudar e a plataforma atual sumir, realinha
+  useEffect(() => {
+    if (!availablePlatforms.includes(selectedPlatform)) {
+      setSelectedPlatform(availablePlatforms[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availablePlatforms.join('|')]);
+
+  const applyPreset = (platform: string, tone: string) => {
+    const current = aiInstructions.trim();
+    const isPreset = current === '' || ALL_PRESETS_FLAT.some((p) => p.trim() === current);
+    if (isPreset) {
+      setAiInstructions(PLATFORM_TONE_PROMPTS[platform]?.[tone] ?? '');
+    }
   };
-  const [aiTone, setAiTone] = useState('Profissional');
-  const [aiInstructions, setAiInstructions] = useState(TONE_PROMPTS['Profissional']);
 
   const handleToneChange = (newTone: string) => {
     setAiTone(newTone);
-    // Substitui o prompt apenas se o usuário não digitou conteúdo customizado
-    // (vazio ou igual a algum preset conhecido)
-    const current = aiInstructions.trim();
-    const isPreset = current === '' || Object.values(TONE_PROMPTS).some((p) => p.trim() === current);
-    if (isPreset) {
-      setAiInstructions(TONE_PROMPTS[newTone] || '');
-    }
+    applyPreset(selectedPlatform, newTone);
+  };
+
+  const handlePlatformChange = (newPlatform: string) => {
+    setSelectedPlatform(newPlatform);
+    applyPreset(newPlatform, aiTone);
   };
 
   const generate = useGenerateCaption();
 
-  const platform = value.channels?.[0]?.platform || 'instagram';
+  const platform = selectedPlatform;
 
   // Catálogo (Sistema A) + Resinas para o dropdown de produto
   const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
@@ -486,22 +565,40 @@ export function StepContent({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Profissional">Profissional</SelectItem>
-                <SelectItem value="Educativo">Educativo</SelectItem>
-                <SelectItem value="Direto">Direto</SelectItem>
-                <SelectItem value="Inspirador">Inspirador</SelectItem>
+                {TONES.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Badge variant="outline" className="capitalize">{platform}</Badge>
+            <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue>
+                  <span className="inline-flex items-center gap-1.5">
+                    <PlatformIcon platform={selectedPlatform} />
+                    {PLATFORM_LABELS[selectedPlatform] ?? selectedPlatform}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availablePlatforms.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <PlatformIcon platform={p} />
+                      {PLATFORM_LABELS[p] ?? p}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               size="sm"
               variant="ghost"
               className="h-9 text-xs"
-              onClick={() => setAiInstructions(TONE_PROMPTS[aiTone] || '')}
-              title="Substitui o campo de instruções pelo prompt padrão deste tom"
+              onClick={() => setAiInstructions(PLATFORM_TONE_PROMPTS[selectedPlatform]?.[aiTone] ?? '')}
+              title="Substitui o campo de instruções pelo prompt padrão desta rede + tom"
             >
-              Aplicar prompt do tom
+              Aplicar prompt
             </Button>
             <Button
               type="button"
