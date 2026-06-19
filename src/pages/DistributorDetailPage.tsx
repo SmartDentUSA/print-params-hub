@@ -49,6 +49,10 @@ interface D {
   logo_url: string | null;
   authorized_scope: any;
   slug: string | null;
+  service_areas?: any;
+  linhas_representadas?: string[] | null;
+  wikidata_id?: string | null;
+  language_preference?: string | null;
 }
 
 export default function DistributorDetailPage() {
@@ -63,7 +67,7 @@ export default function DistributorDetailPage() {
       setLoading(true);
       const { data } = await supabase
         .from("distributors")
-        .select("id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_name,owner_email,owner_whatsapp,owner_whatsapp_ddi,logo_url,authorized_scope,slug")
+        .select("id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_name,owner_email,owner_whatsapp,owner_whatsapp_ddi,logo_url,authorized_scope,slug,service_areas,linhas_representadas,wikidata_id,language_preference")
         .eq("active", true);
       const list = ((data || []) as D[]).filter(x => findCountry(x.pais)?.slug === country.slug);
       const want = normalizeKey(distSlug);
@@ -112,6 +116,7 @@ export default function DistributorDetailPage() {
     "@id": canonical,
     "name": name,
     "url": canonical,
+    "inLanguage": d.language_preference || "pt",
     "logo": d.logo_url || undefined,
     "image": d.logo_url || undefined,
     "address": {
@@ -124,10 +129,43 @@ export default function DistributorDetailPage() {
     },
     "telephone": waDigits ? `+${waDigits}` : undefined,
     "email": d.owner_email || undefined,
-    "sameAs": [d.site_url, d.instagram, d.facebook, d.linkedin, d.youtube].filter(Boolean),
-    "areaServed": country.name,
-    "brand": { "@type": "Brand", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
-    "parentOrganization": { "@type": "Organization", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
+    "sameAs": [
+      d.site_url, d.instagram, d.facebook, d.linkedin, d.youtube,
+      d.wikidata_id ? `https://www.wikidata.org/wiki/${d.wikidata_id}` : null,
+    ].filter(Boolean),
+    "areaServed": (() => {
+      const arr: any[] = [{ "@type": "Country", "name": country.name, "identifier": country.iso }];
+      const sa = Array.isArray(d.service_areas) ? d.service_areas : [];
+      for (const a of sa) {
+        if (!a) continue;
+        if (typeof a === "string") arr.push({ "@type": "AdministrativeArea", "name": a });
+        else if (a.name) arr.push({ "@type": a.type || "AdministrativeArea", "name": a.name });
+      }
+      return arr;
+    })(),
+    "brand": {
+      "@type": "Brand",
+      "name": "Smart Dent",
+      "url": "https://www.smartdent.com.br",
+      "sameAs": ["https://www.wikidata.org/wiki/Q138636902"],
+    },
+    "parentOrganization": {
+      "@type": "Organization",
+      "name": "Smart Dent",
+      "url": "https://www.smartdent.com.br",
+      "sameAs": ["https://www.wikidata.org/wiki/Q138636902"],
+    },
+    "makesOffer": (Array.isArray(d.linhas_representadas) ? d.linhas_representadas : []).map((line) => ({
+      "@type": "Offer",
+      "itemOffered": {
+        "@type": "Product",
+        "name": line,
+        "brand": { "@type": "Brand", "name": "Smart Dent" },
+      },
+      "areaServed": country.name,
+      "seller": { "@type": "Organization", "name": name },
+    })),
+    "knowsAbout": Array.isArray(d.linhas_representadas) ? d.linhas_representadas : undefined,
     "description": scope ? `Distribuidor oficial Smart Dent em ${country.name} — linhas autorizadas: ${scope}.` : undefined,
   }), [d, country, canonical, name, scope, waDigits]);
 
