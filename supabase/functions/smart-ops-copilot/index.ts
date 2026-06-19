@@ -955,6 +955,99 @@ const tools = [
         required: ["product"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_social_flows",
+      description: "Lista automações de Instagram DM (social_flows). Use quando o usuário mencionar: automação, social publisher, flow IG, DM automática, comment-to-DM. Mostra nome, status ativo/pausado, canal e resumo do trigger.",
+      parameters: {
+        type: "object",
+        properties: {
+          channel: { type: "string", description: "Filtrar por canal: instagram (padrão)" },
+          only_active: { type: "boolean", description: "Se true, retorna só flows ativos" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_social_flow",
+      description: "Retorna o flow completo com todos os nós numerados em formato legível. Use quando o usuário quiser ver detalhes ou editar um flow específico.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "string", description: "UUID do flow em social_flows" } },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_social_flow",
+      description: "Cria um novo flow de automação Instagram DM. SEMPRE cria com is_active:false. Nunca ativar sem confirmação explícita. Templates: comment_keyword_dm, welcome_new_follower, mention_reply, lead_capture_dm, ads_click_to_messenger, dra_lia_handoff, content_sequence.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+          channel: { type: "string", description: "instagram (padrão)" },
+          template: {
+            type: "string",
+            enum: ["comment_keyword_dm","welcome_new_follower","mention_reply","lead_capture_dm","ads_click_to_messenger","dra_lia_handoff","content_sequence"]
+          },
+          config: {
+            type: "object",
+            description: "Campos do template. comment_keyword_dm:{keywords[],public_reply,dm_message,dm_link}. lead_capture_dm:{keywords[],form_name,tag}. content_sequence:{keywords[],steps:[{message,delay_hours}]}. dra_lia_handoff:{keywords[]}. welcome_new_follower:{dm_message}. mention_reply:{dm_message}. ads_click_to_messenger:{keywords[],produto,form_name}."
+          }
+        },
+        required: ["name","template","config"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_social_flow",
+      description: "Atualiza um flow existente. Pode alterar nome/descrição/is_active, ou substituir um nó específico via replace_node:{node_id,fields}. Use após get_social_flow para saber IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          patch: { type: "object", description: "{name?, description?, is_active?} OU {replace_node:{node_id,fields}}" }
+        },
+        required: ["id","patch"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "toggle_social_flow",
+      description: "Ativa ou pausa um flow. Sempre confirmar com o usuário antes de ativar.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "string" }, is_active: { type: "boolean" } },
+        required: ["id","is_active"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_social_flow",
+      description: "Exclui permanentemente um flow. SEMPRE pedir confirmação explícita antes. Destrutivo e irreversível.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          confirmed: { type: "boolean", description: "Deve ser true confirmado pelo usuário" }
+        },
+        required: ["id","confirmed"]
+      }
+    }
   }
 ];
 
