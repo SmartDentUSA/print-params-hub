@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
     const dryRun = body.dry_run !== false; // default true
     const limit = Number(body.limit ?? 100);
     const onlySlug = body.slug as string | undefined;
+    const asyncMode = body.async === true;
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -159,6 +160,70 @@ Deno.serve(async (req) => {
     const { data: articles, error: aErr } = await q;
     if (aErr) throw aErr;
 
+    const runJob = async () => {
+      const results: any[] = [];
+      let updated = 0, flagged = 0, skipped = 0;
+      for (const art of articles || []) {
+        const html = String(art.content_html || "");
+        if (!/(pós[- ]?processamento|pós[- ]?cura|lavagem|pré[- ]?processamento|pre[- ]?processamento|asiga|ipa\s*9|micron|inclinação|ultrass[oô]n)/i.test(html)) {
+          results.push({ slug: art.slug, skipped: "no_protocol_keywords" });
+          continue;
+        }
+        let verdict: any = {};
+        try {
+          const userPrompt = `TÍTULO: ${art.title}\nSLUG: ${art.slug}\n\nHTML DO ARTIGO:\n${html.slice(0, 18000)}`;
+          verdict = await callAI(SYSTEM_PROMPT, userPrompt);
+        } catch (e) {
+          results.push({ slug: art.slug, error: String((e as Error).message) });
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        const hasHall = !!verdict.has_hallucinated_protocol;
+        const conf = Number(verdict.confidence || 0);
+        const block = verdict.hallucinated_html_block as string | null;
+        if (!hasHall) { results.push({ slug: art.slug, flagged: false, confidence: conf }); await new Promise((r) => setTimeout(r, 800)); continue; }
+        flagged++;
+        if (conf < MIN_CONFIDENCE || !block || block.length < 30) { skipped++; results.push({ slug: art.slug, flagged: true, skipped: "low_confidence_or_no_block", confidence: conf }); await new Promise((r) => setTimeout(r, 800)); continue; }
+        if (block.length > html.length * 0.4) { skipped++; results.push({ slug: art.slug, flagged: true, skipped: "block_too_large" }); await new Promise((r) => setTimeout(r, 800)); continue; }
+        const { ok, result: newHtml } = findAndReplace(html, block, canonicalHtml);
+        if (!ok) {
+          skipped++;
+          await supabase.from("system_health_logs").insert({ function_name: "audit-vitality-protocol", severity: "warning", error_type: "block_not_found", details: { slug: art.slug, reason: verdict.reason, block_preview: block.slice(0, 200) } });
+          results.push({ slug: art.slug, flagged: true, skipped: "block_not_found" });
+          await new Promise((r) => setTimeout(r, 800));
+          continue;
+        }
+        results.push({ slug: art.slug, flagged: true, confidence: conf, will_update: !dryRun });
+        if (!dryRun) {
+          const { error: upErr } = await supabase.from("knowledge_contents").update({ content_html: newHtml, updated_at: new Date().toISOString() }).eq("id", art.id);
+          if (upErr) { results[results.length - 1].update_error = upErr.message; }
+          else {
+            updated++;
+            await supabase.from("system_health_logs").insert({ function_name: "audit-vitality-protocol", severity: "info", error_type: "updated", details: { slug: art.slug, confidence: conf, reason: verdict.reason, before_html: html, after_html: newHtml } });
+          }
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      await supabase.from("system_health_logs").insert({
+        function_name: "audit-vitality-protocol",
+        severity: "info",
+        error_type: dryRun ? "batch_complete_dry_run" : "batch_complete_applied",
+        details: { scanned: articles?.length || 0, flagged, updated, skipped, results },
+      });
+      return { scanned: articles?.length || 0, flagged, updated, skipped, results };
+    };
+
+    if (asyncMode) {
+      // @ts-ignore EdgeRuntime
+      EdgeRuntime.waitUntil(runJob());
+      return new Response(JSON.stringify({ success: true, async: true, scheduled: articles?.length || 0, dry_run: dryRun }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const summary = await runJob();
+    return new Response(JSON.stringify({ success: true, dry_run: dryRun, ...summary }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    // legacy sync path (unreachable below)
+    /*
     const results: any[] = [];
     let updated = 0, flagged = 0, skipped = 0;
 
