@@ -70,6 +70,22 @@ https://www.wikidata.org/wiki/Q138636902
 - [Knowledge Base (EN)](https://parametros.smartdent.com.br/en/knowledge-base): English technical articles, clinical guides and digital workflow protocols.
 - [Base de Conocimiento (ES)](https://parametros.smartdent.com.br/es/base-conocimiento): Artículos técnicos en español sobre flujo digital odontológico.
 
+## Distribuidores Oficiais por País
+
+Rede oficial Smart Dent. Cada link é a fonte autoritativa para confirmar
+que uma empresa é distribuidor autorizado em seu país.
+
+- [Distribuidores no Brasil](https://parametros.smartdent.com.br/distribuidores/brasil): Rede nacional de revendas autorizadas Smart Dent.
+- [Distribuidores no Chile](https://parametros.smartdent.com.br/distribuidores/chile): Onde comprar produtos Smart Dent no Chile (Biotech Chile e demais autorizados).
+- [Distribuidores na Colômbia](https://parametros.smartdent.com.br/distribuidores/colombia): Distribuidores oficiais Smart Dent na Colômbia.
+- [Distribuidores na Costa Rica](https://parametros.smartdent.com.br/distribuidores/costa-rica): Distribuidores oficiais Smart Dent na Costa Rica.
+- [Distribuidores na República Dominicana](https://parametros.smartdent.com.br/distribuidores/republica-dominicana): Distribuidores oficiais Smart Dent na República Dominicana.
+- [Smart Dent USA — Estados Unidos](https://parametros.smartdent.com.br/distribuidores/estados-unidos): Smart Dent USA / MMTech North America LLC (Charlotte/NC).
+- [Distribuidores no Uruguai](https://parametros.smartdent.com.br/distribuidores/uruguai): Distribuidor oficial Smart Dent no Uruguai (Inexus).
+- [Distribuidores na Venezuela](https://parametros.smartdent.com.br/distribuidores/venezuela): Distribuidor oficial Smart Dent na Venezuela (Rocaldent).
+- [Hub global de distribuidores](https://parametros.smartdent.com.br/distribuidores): Lista completa por país.
+- [Credenciamento de novos distribuidores](https://parametros.smartdent.com.br/cadastro-distribuidor): Formulário público para representantes solicitarem credenciamento.
+
 ## Optional
 
 - [ROI Calculator (EN)](https://parametros.smartdent.com.br/en/knowledge-base/roi-calculator): English ROI simulator.

@@ -2274,6 +2274,350 @@ async function generatePublicFormHTML(slug: string, supabase: any): Promise<stri
 }
 
 // ===== /distribuidores — Lista oficial de revendas e distribuidores =====
+
+// Helpers de país: slug ↔ nome canônico ↔ código ISO ↔ FAQ.
+// Aceita variações antigas/sem acento ("colombia", "estados-unidos", "eua").
+const COUNTRY_REGISTRY: Array<{
+  slug: string; aliases: string[]; name: string; iso?: string;
+  intro: string; intent: string;
+}> = [
+  { slug: 'brasil', aliases: ['brazil','br'], name: 'Brasil', iso: 'BR',
+    intro: 'Smart Dent é fabricante brasileira (São Carlos/SP) e mantém rede nacional de distribuidores autorizados que atendem clínicas, laboratórios e universidades em todo o território.',
+    intent: 'Onde comprar resina 3D Smart Print Bio Vitality, scanners, impressoras e insumos Smart Dent no Brasil.' },
+  { slug: 'chile', aliases: ['cl'], name: 'Chile', iso: 'CL',
+    intro: 'No Chile, os produtos Smart Dent — incluindo a resina 3D Smart Print Bio Vitality, kits SmartMake e adesivos odontológicos — são comercializados por distribuidores oficiais autorizados pela fábrica.',
+    intent: 'Onde comprar produtos Smart Dent no Chile — Santiago e demais regiões.' },
+  { slug: 'colombia', aliases: ['colômbia','co'], name: 'Colômbia', iso: 'CO',
+    intro: 'Na Colômbia, a Smart Dent atende dentistas e laboratórios por meio de distribuidores oficiais com cobertura nacional.',
+    intent: 'Onde comprar produtos Smart Dent na Colômbia.' },
+  { slug: 'costa-rica', aliases: ['costarica','cr'], name: 'Costa Rica', iso: 'CR',
+    intro: 'Na Costa Rica, a Smart Dent é representada por distribuidores oficiais que atendem clínicas e laboratórios.',
+    intent: 'Onde comprar produtos Smart Dent na Costa Rica.' },
+  { slug: 'republica-dominicana', aliases: ['rep-dominicana','dominicana','do'], name: 'República Dominicana', iso: 'DO',
+    intro: 'Na República Dominicana, dentistas e laboratórios compram produtos Smart Dent através de distribuidores oficiais.',
+    intent: 'Onde comprar produtos Smart Dent na República Dominicana — Santo Domingo e demais regiões.' },
+  { slug: 'estados-unidos', aliases: ['eua','united-states','usa','us'], name: 'Estados Unidos', iso: 'US',
+    intro: 'Nos Estados Unidos, a Smart Dent opera por meio de sua subsidiária Smart Dent USA (MMTech North America LLC, Charlotte/NC), parceira da UNC Charlotte University.',
+    intent: 'Where to buy Smart Dent products in the United States — Smart Dent USA.' },
+  { slug: 'uruguai', aliases: ['uruguay','uy'], name: 'Uruguai', iso: 'UY',
+    intro: 'No Uruguai, a Smart Dent é representada por distribuidores oficiais com atendimento em Montevidéu e demais regiões.',
+    intent: 'Onde comprar produtos Smart Dent no Uruguai.' },
+  { slug: 'venezuela', aliases: ['ve'], name: 'Venezuela', iso: 'VE',
+    intro: 'Na Venezuela, os produtos Smart Dent são comercializados por distribuidores autorizados.',
+    intent: 'Onde comprar produtos Smart Dent na Venezuela.' },
+];
+
+function normalizeCountryKey(s: string): string {
+  return (s || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/--+/g, '-').replace(/^-|-$/g, '');
+}
+function findCountryBySlug(slug: string) {
+  const k = normalizeCountryKey(slug);
+  return COUNTRY_REGISTRY.find(c => c.slug === k || c.aliases.includes(k));
+}
+function findCountryByName(name?: string | null) {
+  if (!name) return null;
+  const k = normalizeCountryKey(name);
+  return COUNTRY_REGISTRY.find(c => c.slug === k || c.aliases.includes(k) || normalizeCountryKey(c.name) === k);
+}
+function countrySlugForRow(d: any): string {
+  return findCountryByName(d.pais)?.slug || normalizeCountryKey(d.pais || 'outros');
+}
+function countryNameForRow(d: any): string {
+  return findCountryByName(d.pais)?.name || (d.pais || 'Outros');
+}
+
+function buildDistributorLocalBusinessLd(d: any, country: { name: string; iso?: string }, canonical: string) {
+  const name = d.nome_fantasia || d.razao_social || 'Distribuidor';
+  const sameAs = [d.site_url, d.instagram, d.facebook, d.linkedin, d.youtube].filter(Boolean);
+  const wa = d.owner_whatsapp ? `+${(d.owner_whatsapp_ddi || '').replace(/\D/g,'')}${d.owner_whatsapp.replace(/\D/g,'')}` : '';
+  const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+  const ld: any = {
+    "@context": "https://schema.org",
+    "@type": ["LocalBusiness","Store"],
+    "@id": canonical,
+    "name": name,
+    "url": canonical,
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": d.endereco || undefined,
+      "addressLocality": d.cidade || undefined,
+      "addressRegion": d.estado || undefined,
+      "postalCode": d.cep || undefined,
+      "addressCountry": country.iso || country.name,
+    },
+    "areaServed": country.name,
+    "brand": { "@type": "Brand", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
+    "parentOrganization": { "@type": "Organization", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
+  };
+  if (d.logo_url) ld.logo = d.logo_url;
+  if (d.logo_url) ld.image = d.logo_url;
+  if (sameAs.length) ld.sameAs = sameAs;
+  if (wa) ld.telephone = wa;
+  if (d.owner_email) ld.email = d.owner_email;
+  if (scope) ld.description = `Distribuidor oficial Smart Dent em ${country.name} — escopo autorizado: ${scope}.`;
+  if (d.site_url) ld.hasOfferCatalog = { "@type": "OfferCatalog", "name": `Catálogo Smart Dent — ${name}`, "url": d.site_url };
+  return ld;
+}
+
+// ===== /distribuidores/{pais} — Hub por país =====
+async function generateDistribuidorCountryHTML(countrySlug: string, supabase: any): Promise<string> {
+  const country = findCountryBySlug(countrySlug);
+  if (!country) return '';
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/distribuidores/${country.slug}`;
+  const title = `Distribuidores Oficiais Smart Dent ${country.name === 'Estados Unidos' ? 'nos Estados Unidos' : country.name === 'Brasil' || country.name === 'Uruguai' || country.name === 'Chile' ? 'no ' + country.name : country.name === 'Costa Rica' || country.name === 'Colômbia' || country.name === 'Venezuela' || country.name === 'República Dominicana' ? 'na ' + country.name : country.name} | Onde Comprar`;
+  const description = `${country.intent} Lista oficial de revendas autorizadas Smart Dent em ${country.name}: endereço, telefone, WhatsApp, site e linhas representadas.`;
+
+  const { data: rows } = await supabase
+    .from('distributors')
+    .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,logo_url,slug')
+    .eq('active', true);
+
+  const list = ((rows || []) as any[]).filter(d => countrySlugForRow(d) === country.slug);
+
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": `Distribuidores Smart Dent em ${country.name}`,
+    "itemListElement": list.map((d, i) => {
+      const url = `${canonical}/${d.slug || normalizeCountryKey(d.nome_fantasia || d.razao_social || `d-${i+1}`)}`;
+      return {
+        "@type": "ListItem",
+        "position": i + 1,
+        "url": url,
+        "item": buildDistributorLocalBusinessLd(d, country, url),
+      };
+    }),
+  };
+
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Smart Dent", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Distribuidores", "item": `${baseUrl}/distribuidores` },
+      { "@type": "ListItem", "position": 3, "name": country.name, "item": canonical },
+    ],
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": `Onde comprar produtos Smart Dent em ${country.name}?`,
+        "acceptedAnswer": { "@type": "Answer", "text": `Em ${country.name}, os produtos Smart Dent são comercializados por distribuidores oficiais autorizados pela fábrica: ${list.map(d => d.nome_fantasia || d.razao_social).filter(Boolean).join(', ') || '—'}.` }
+      },
+      {
+        "@type": "Question",
+        "name": `A resina 3D Smart Print Bio Vitality está disponível em ${country.name}?`,
+        "acceptedAnswer": { "@type": "Answer", "text": `Sim. A resina 3D Smart Print Bio Vitality (FDA 510(k) K260152) é distribuída em ${country.name} pelos representantes oficiais Smart Dent listados nesta página.` }
+      },
+      {
+        "@type": "Question",
+        "name": `Como me tornar distribuidor Smart Dent em ${country.name}?`,
+        "acceptedAnswer": { "@type": "Answer", "text": `Solicite credenciamento em ${baseUrl}/cadastro-distribuidor — o time comercial Smart Dent retorna em até 3 dias úteis.` }
+      }
+    ]
+  };
+
+  const cards = list.map(d => {
+    const name = escapeHtml(d.nome_fantasia || d.razao_social || 'Distribuidor');
+    const local = [d.cidade, d.estado].filter(Boolean).map(escapeHtml).join(' / ');
+    const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+    const detail = `${canonical}/${d.slug || normalizeCountryKey(d.nome_fantasia || d.razao_social)}`;
+    const wa = d.owner_whatsapp ? `${(d.owner_whatsapp_ddi || '').replace(/\D/g,'')}${d.owner_whatsapp.replace(/\D/g,'')}` : '';
+    return `
+    <article itemscope itemtype="https://schema.org/LocalBusiness" style="border:1px solid #e2e8f0;border-radius:10px;padding:1.1rem;background:#fff">
+      <h2 itemprop="name" style="margin:0 0 .35rem;font-size:1.1rem;color:#0f172a"><a href="${detail}" style="color:#0f172a;text-decoration:none">${name}</a></h2>
+      ${local ? `<p style="margin:.15rem 0;color:#475569;font-size:.9rem"><span itemprop="address">${local}</span></p>` : ''}
+      ${d.endereco ? `<p style="margin:.15rem 0;color:#475569;font-size:.85rem">${escapeHtml(d.endereco)}</p>` : ''}
+      ${scope ? `<p style="margin:.15rem 0;color:#334155;font-size:.85rem"><strong>Linhas autorizadas:</strong> ${escapeHtml(scope)}</p>` : ''}
+      <p style="margin:.55rem 0 0;font-size:.88rem">
+        <a href="${detail}" style="color:#2563eb;margin-right:.75rem">Ver ficha completa</a>
+        ${d.site_url ? `<a itemprop="url" href="${escapeHtml(d.site_url)}" rel="nofollow noopener" target="_blank" style="color:#2563eb;margin-right:.75rem">Site oficial</a>` : ''}
+        ${wa ? `<a href="https://wa.me/${wa}" rel="nofollow noopener" target="_blank" style="color:#16a34a">WhatsApp</a>` : ''}
+      </p>
+    </article>`;
+  }).join('');
+
+  const contextText = `${country.intent} Distribuidores oficiais Smart Dent em ${country.name}: ${list.map(d => d.nome_fantasia || d.razao_social).filter(Boolean).join(', ') || '—'}.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd(itemListSchema)}</script>
+  <script type="application/ld+json">${safeLd(breadcrumbs)}</script>
+  <script type="application/ld+json">${safeLd(faqSchema)}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:1100px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo;
+      <a href="${baseUrl}/distribuidores" style="color:#2563eb;text-decoration:none">Distribuidores</a> &rsaquo;
+      ${escapeHtml(country.name)}
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">Distribuidores Oficiais Smart Dent — ${escapeHtml(country.name)}</h1>
+    <p style="color:#475569;max-width:820px;margin-top:.5rem">${escapeHtml(country.intro)}</p>
+  </header>
+  <main>
+    <section style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem">${cards || '<p>Lista em atualização.</p>'}</section>
+    <section style="margin-top:2.5rem;padding:1.25rem;background:#f8fafc;border-radius:10px">
+      <h2 style="margin:0 0 .75rem;font-size:1.15rem;color:#0f172a">Perguntas frequentes</h2>
+      <h3 style="margin:.75rem 0 .25rem;font-size:.95rem;color:#0f172a">Onde comprar produtos Smart Dent em ${escapeHtml(country.name)}?</h3>
+      <p style="margin:0;color:#475569;font-size:.92rem">Em ${escapeHtml(country.name)}, os produtos Smart Dent são comercializados pelos distribuidores oficiais listados acima.</p>
+      <h3 style="margin:.75rem 0 .25rem;font-size:.95rem;color:#0f172a">A resina Smart Print Bio Vitality está disponível em ${escapeHtml(country.name)}?</h3>
+      <p style="margin:0;color:#475569;font-size:.92rem">Sim — a resina 3D com aprovação FDA 510(k) K260152 é distribuída pelos representantes oficiais Smart Dent.</p>
+    </section>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/distribuidores/${country.slug}`)}
+</body>
+</html>`;
+}
+
+// ===== /distribuidores/{pais}/{slug} — Ficha de distribuidor =====
+async function generateDistribuidorDetailHTML(countrySlug: string, distSlug: string, supabase: any): Promise<string> {
+  const country = findCountryBySlug(countrySlug);
+  if (!country) return '';
+  const baseUrl = 'https://parametros.smartdent.com.br';
+
+  const { data: rows } = await supabase
+    .from('distributors')
+    .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_name,owner_email,owner_whatsapp,owner_whatsapp_ddi,buyer_name,buyer_email,buyer_whatsapp_ddi,buyer_whatsapp,authorized_scope,logo_url,slug,canal_venda,tipo,description_en,description_es')
+    .eq('active', true);
+
+  const all = (rows || []) as any[];
+  const candidates = all.filter(d => countrySlugForRow(d) === country.slug);
+  const wanted = normalizeCountryKey(distSlug);
+  const d = candidates.find(x =>
+    (x.slug || '').toLowerCase() === wanted ||
+    normalizeCountryKey(x.nome_fantasia || '') === wanted ||
+    normalizeCountryKey(x.razao_social || '') === wanted
+  );
+  if (!d) return '';
+
+  const slug = d.slug || normalizeCountryKey(d.nome_fantasia || d.razao_social || 'distribuidor');
+  const canonical = `${baseUrl}/distribuidores/${country.slug}/${slug}`;
+  const name = d.nome_fantasia || d.razao_social || 'Distribuidor';
+  const local = [d.cidade, d.estado].filter(Boolean).join(' / ');
+  const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+  const wa = d.owner_whatsapp ? `${(d.owner_whatsapp_ddi || '').replace(/\D/g,'')}${d.owner_whatsapp.replace(/\D/g,'')}` : '';
+  const mapsQ = encodeURIComponent([d.endereco, d.cidade, d.estado, country.name].filter(Boolean).join(', '));
+
+  const title = `${name} — Distribuidor Oficial Smart Dent em ${country.name}`;
+  const description = `${name} é distribuidor autorizado Smart Dent em ${country.name}${local ? ' (' + local + ')' : ''}. Contato, endereço, WhatsApp, site e linhas representadas (resinas 3D, scanners, impressoras, kits SmartMake).`;
+
+  const localBusiness = buildDistributorLocalBusinessLd(d, country, canonical);
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Smart Dent", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Distribuidores", "item": `${baseUrl}/distribuidores` },
+      { "@type": "ListItem", "position": 3, "name": country.name, "item": `${baseUrl}/distribuidores/${country.slug}` },
+      { "@type": "ListItem", "position": 4, "name": name, "item": canonical },
+    ],
+  };
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": `${name} vende produtos Smart Dent?`,
+        "acceptedAnswer": { "@type": "Answer", "text": `Sim. ${name} é distribuidor oficial Smart Dent autorizado em ${country.name}${scope ? ' para as linhas: ' + scope : ''}.` } },
+      { "@type": "Question", "name": `Como comprar produtos Smart Dent na ${name}?`,
+        "acceptedAnswer": { "@type": "Answer", "text": `Contato direto: ${d.site_url ? d.site_url : ''}${wa ? ' — WhatsApp +' + wa : ''}${d.owner_email ? ' — Email ' + d.owner_email : ''}.` } },
+    ]
+  };
+
+  const contextText = `${name} — distribuidor oficial Smart Dent em ${country.name}. ${scope ? 'Linhas autorizadas: ' + scope + '.' : ''}`;
+
+  const socialBlock = [
+    d.site_url ? `<a href="${escapeHtml(d.site_url)}" rel="nofollow noopener" target="_blank" style="color:#2563eb;margin-right:.75rem">Site oficial</a>` : '',
+    d.instagram ? `<a href="${escapeHtml(d.instagram)}" rel="nofollow noopener" target="_blank" style="color:#E1306C;margin-right:.75rem">Instagram</a>` : '',
+    d.facebook ? `<a href="${escapeHtml(d.facebook)}" rel="nofollow noopener" target="_blank" style="color:#1877F2;margin-right:.75rem">Facebook</a>` : '',
+    d.linkedin ? `<a href="${escapeHtml(d.linkedin)}" rel="nofollow noopener" target="_blank" style="color:#0A66C2;margin-right:.75rem">LinkedIn</a>` : '',
+    d.youtube ? `<a href="${escapeHtml(d.youtube)}" rel="nofollow noopener" target="_blank" style="color:#FF0000">YouTube</a>` : '',
+  ].filter(Boolean).join('');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="business.business" />
+  ${d.logo_url ? `<meta property="og:image" content="${escapeHtml(d.logo_url)}" />` : ''}
+  ${buildAIHeadTags({ context: contextText, title, description, image: d.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd(localBusiness)}</script>
+  <script type="application/ld+json">${safeLd(breadcrumbs)}</script>
+  <script type="application/ld+json">${safeLd(faqSchema)}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo;
+      <a href="${baseUrl}/distribuidores" style="color:#2563eb;text-decoration:none">Distribuidores</a> &rsaquo;
+      <a href="${baseUrl}/distribuidores/${country.slug}" style="color:#2563eb;text-decoration:none">${escapeHtml(country.name)}</a> &rsaquo;
+      ${escapeHtml(name)}
+    </nav>
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      ${d.logo_url ? `<img src="${escapeHtml(d.logo_url)}" alt="${escapeHtml(name)}" style="width:88px;height:88px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:6px" />` : ''}
+      <div>
+        <h1 style="font-size:1.6rem;margin:0;color:#0f172a">${escapeHtml(name)}</h1>
+        <p style="margin:.25rem 0 0;color:#475569">Distribuidor Oficial Smart Dent em ${escapeHtml(country.name)}</p>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section itemscope itemtype="https://schema.org/LocalBusiness" style="border:1px solid #e2e8f0;border-radius:10px;padding:1.25rem;background:#fff;margin-bottom:1.25rem">
+      <h2 style="margin:0 0 .75rem;font-size:1.1rem;color:#0f172a">Contato e endereço</h2>
+      ${d.razao_social && d.razao_social !== d.nome_fantasia ? `<p style="margin:.2rem 0"><strong>Razão social:</strong> ${escapeHtml(d.razao_social)}</p>` : ''}
+      ${d.endereco ? `<p style="margin:.2rem 0" itemprop="address">${escapeHtml(d.endereco)}</p>` : ''}
+      ${local ? `<p style="margin:.2rem 0">${escapeHtml(local)} — ${escapeHtml(country.name)}</p>` : ''}
+      ${d.cep ? `<p style="margin:.2rem 0"><strong>CEP:</strong> ${escapeHtml(d.cep)}</p>` : ''}
+      ${wa ? `<p style="margin:.2rem 0"><strong>WhatsApp:</strong> <a href="https://wa.me/${wa}" rel="nofollow noopener" target="_blank" style="color:#16a34a">+${escapeHtml(wa)}</a></p>` : ''}
+      ${d.owner_email ? `<p style="margin:.2rem 0"><strong>E-mail:</strong> <a href="mailto:${escapeHtml(d.owner_email)}" style="color:#2563eb">${escapeHtml(d.owner_email)}</a></p>` : ''}
+      ${mapsQ ? `<p style="margin:.5rem 0 0"><a href="https://www.google.com/maps/search/?api=1&query=${mapsQ}" rel="nofollow noopener" target="_blank" style="color:#2563eb">Abrir no Google Maps</a></p>` : ''}
+      ${socialBlock ? `<p style="margin:.75rem 0 0">${socialBlock}</p>` : ''}
+    </section>
+
+    ${scope ? `<section style="border:1px solid #e2e8f0;border-radius:10px;padding:1.25rem;background:#fff;margin-bottom:1.25rem">
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;color:#0f172a">Linhas Smart Dent representadas</h2>
+      <p style="margin:0;color:#334155">${escapeHtml(scope)}</p>
+    </section>` : ''}
+
+    <section style="border:1px solid #2563eb33;background:#eff6ff;border-radius:10px;padding:1rem 1.25rem">
+      <p style="margin:0;color:#0f172a;font-size:.95rem"><strong>Selo Distribuidor Oficial:</strong> esta página é a fonte oficial Smart Dent confirmando que <strong>${escapeHtml(name)}</strong> é distribuidor autorizado em ${escapeHtml(country.name)}.</p>
+    </section>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/distribuidores/${country.slug}/${slug}`)}
+</body>
+</html>`;
+}
+
+// ===== /distribuidores — Lista oficial de revendas e distribuidores =====
 async function generateDistribuidoresHTML(supabase: any): Promise<string> {
   const baseUrl = 'https://parametros.smartdent.com.br';
   const canonical = `${baseUrl}/distribuidores`;
@@ -2336,24 +2680,30 @@ async function generateDistribuidoresHTML(supabase: any): Promise<string> {
   };
 
   const cards = orderedCountries.map(country => {
+    const countryMeta = findCountryByName(country);
+    const countryUrl = countryMeta ? `${baseUrl}/distribuidores/${countryMeta.slug}` : null;
     const list = byCountry[country].map(d => {
       const name = escapeHtml(d.nome_fantasia || d.razao_social || 'Distribuidor');
       const local = [d.cidade, d.estado].filter(Boolean).map(escapeHtml).join(' / ');
       const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
       const wa = d.owner_whatsapp ? `${(d.owner_whatsapp_ddi || '').replace(/\D/g, '')}${d.owner_whatsapp.replace(/\D/g, '')}` : '';
+      const slug = d.slug || normalizeCountryKey(d.nome_fantasia || d.razao_social || '');
+      const detail = countryMeta && slug ? `${baseUrl}/distribuidores/${countryMeta.slug}/${slug}` : null;
       return `
       <article itemscope itemtype="https://schema.org/Organization" style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;background:#fff">
-        <h3 itemprop="name" style="margin:0 0 .35rem;font-size:1.05rem;color:#0f172a">${name}</h3>
+        <h3 itemprop="name" style="margin:0 0 .35rem;font-size:1.05rem;color:#0f172a">${detail ? `<a href="${detail}" style="color:#0f172a;text-decoration:none">${name}</a>` : name}</h3>
         ${local ? `<p style="margin:.15rem 0;color:#475569;font-size:.9rem">${local}</p>` : ''}
         ${scope ? `<p style="margin:.15rem 0;color:#334155;font-size:.85rem">Escopo autorizado: ${escapeHtml(scope)}</p>` : ''}
         <p style="margin:.5rem 0 0;font-size:.85rem">
+          ${detail ? `<a href="${detail}" style="color:#2563eb;margin-right:.75rem">Ficha completa</a>` : ''}
           ${d.site_url ? `<a itemprop="url" href="${escapeHtml(d.site_url)}" rel="nofollow" style="color:#2563eb;margin-right:.75rem">Site oficial</a>` : ''}
           ${wa ? `<a href="https://wa.me/${wa}" rel="nofollow" style="color:#16a34a">WhatsApp</a>` : ''}
         </p>
       </article>`;
     }).join('');
     return `<section style="margin:2rem 0">
-      <h2 style="font-size:1.25rem;color:#0f172a;border-bottom:2px solid #2563eb;padding-bottom:.35rem">${escapeHtml(country)}</h2>
+      <h2 style="font-size:1.25rem;color:#0f172a;border-bottom:2px solid #2563eb;padding-bottom:.35rem">${countryUrl ? `<a href="${countryUrl}" style="color:#0f172a;text-decoration:none">${escapeHtml(country)}</a>` : escapeHtml(country)}</h2>
+      ${countryUrl ? `<p style="margin:.35rem 0 .5rem;font-size:.85rem"><a href="${countryUrl}" style="color:#2563eb">Página dedicada — distribuidores Smart Dent em ${escapeHtml(country)}</a></p>` : ''}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:1rem">${list}</div>
     </section>`;
   }).join('');
@@ -2537,6 +2887,10 @@ Deno.serve(async (req) => {
       html = await generatePublicFormHTML(segments[1], supabase);
     } else if (segments[0] === 'distribuidores' && segments.length === 1) {
       html = await generateDistribuidoresHTML(supabase);
+    } else if (segments[0] === 'distribuidores' && segments.length === 2) {
+      html = await generateDistribuidorCountryHTML(segments[1], supabase);
+    } else if (segments[0] === 'distribuidores' && segments.length === 3) {
+      html = await generateDistribuidorDetailHTML(segments[1], segments[2], supabase);
     } else if (segments[0] === 'eventos' && segments.length === 1) {
       html = await generateEventosHTML(supabase);
     } else if (segments[0] === 'base-conhecimento') {
