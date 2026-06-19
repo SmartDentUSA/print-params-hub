@@ -2680,24 +2680,30 @@ async function generateDistribuidoresHTML(supabase: any): Promise<string> {
   };
 
   const cards = orderedCountries.map(country => {
+    const countryMeta = findCountryByName(country);
+    const countryUrl = countryMeta ? `${baseUrl}/distribuidores/${countryMeta.slug}` : null;
     const list = byCountry[country].map(d => {
       const name = escapeHtml(d.nome_fantasia || d.razao_social || 'Distribuidor');
       const local = [d.cidade, d.estado].filter(Boolean).map(escapeHtml).join(' / ');
       const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
       const wa = d.owner_whatsapp ? `${(d.owner_whatsapp_ddi || '').replace(/\D/g, '')}${d.owner_whatsapp.replace(/\D/g, '')}` : '';
+      const slug = d.slug || normalizeCountryKey(d.nome_fantasia || d.razao_social || '');
+      const detail = countryMeta && slug ? `${baseUrl}/distribuidores/${countryMeta.slug}/${slug}` : null;
       return `
       <article itemscope itemtype="https://schema.org/Organization" style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;background:#fff">
-        <h3 itemprop="name" style="margin:0 0 .35rem;font-size:1.05rem;color:#0f172a">${name}</h3>
+        <h3 itemprop="name" style="margin:0 0 .35rem;font-size:1.05rem;color:#0f172a">${detail ? `<a href="${detail}" style="color:#0f172a;text-decoration:none">${name}</a>` : name}</h3>
         ${local ? `<p style="margin:.15rem 0;color:#475569;font-size:.9rem">${local}</p>` : ''}
         ${scope ? `<p style="margin:.15rem 0;color:#334155;font-size:.85rem">Escopo autorizado: ${escapeHtml(scope)}</p>` : ''}
         <p style="margin:.5rem 0 0;font-size:.85rem">
+          ${detail ? `<a href="${detail}" style="color:#2563eb;margin-right:.75rem">Ficha completa</a>` : ''}
           ${d.site_url ? `<a itemprop="url" href="${escapeHtml(d.site_url)}" rel="nofollow" style="color:#2563eb;margin-right:.75rem">Site oficial</a>` : ''}
           ${wa ? `<a href="https://wa.me/${wa}" rel="nofollow" style="color:#16a34a">WhatsApp</a>` : ''}
         </p>
       </article>`;
     }).join('');
     return `<section style="margin:2rem 0">
-      <h2 style="font-size:1.25rem;color:#0f172a;border-bottom:2px solid #2563eb;padding-bottom:.35rem">${escapeHtml(country)}</h2>
+      <h2 style="font-size:1.25rem;color:#0f172a;border-bottom:2px solid #2563eb;padding-bottom:.35rem">${countryUrl ? `<a href="${countryUrl}" style="color:#0f172a;text-decoration:none">${escapeHtml(country)}</a>` : escapeHtml(country)}</h2>
+      ${countryUrl ? `<p style="margin:.35rem 0 .5rem;font-size:.85rem"><a href="${countryUrl}" style="color:#2563eb">Página dedicada — distribuidores Smart Dent em ${escapeHtml(country)}</a></p>` : ''}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:1rem">${list}</div>
     </section>`;
   }).join('');
