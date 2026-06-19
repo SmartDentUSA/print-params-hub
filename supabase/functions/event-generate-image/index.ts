@@ -53,15 +53,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    const cinematicLayers = reference_image_url ? [
+      "REGRA PRINCIPAL: a MESMA imagem de referência fornecida (skyline, ponte, venue, arquitetura ou paisagem urbana do evento) deve ser usada simultaneamente como FUNDO TOTAL e como ELEMENTO DE DESTAQUE. Nunca usar fundo independente, sólido preto, genérico ou vazio.",
+      "CAMADA 1 — BASE: expandir a imagem de referência para ocupar 100% do canvas 16:9 (1200x675px).",
+      "CAMADA 2 — PROFUNDIDADE: aplicar nessa base Gaussian Blur forte, leve ampliação (105–120%), redução de nitidez e contraste para não competir com o conteúdo.",
+      "CAMADA 3 — FILTRO CINEMATOGRÁFICO: sobrepor overlay escuro 60–85%, gradiente preto→transparente vindo da esquerda, vinheta suave, textura premium discreta, leve glow branco, reflexo metálico sutil e luz volumétrica.",
+      "CAMADA 4 — DESTAQUE: inserir novamente a MESMA imagem original em alta definição ocupando a lateral direita (ou área de destaque), sem desfoque, contraste elevado, recorte elegante, bordas suaves e profundidade.",
+      "RESULTADO ESPERADO: unidade visual entre fundo desfocado e destaque nítido — sensação tecnológica, premium, editorial, corporativa, de evento internacional.",
+      "PROIBIDO: fundo sólido preto puro, fundo genérico diferente da imagem lateral, colagem evidente, imagens desconectadas, fundo totalmente vazio.",
+    ] : [
+      "Sem imagem de referência: criar cenário sintético editorial Smart Dent (azul profundo + acentos metálicos), cinematográfico, com profundidade e atmosfera de evento internacional. NUNCA fundo sólido preto puro nem fundo vazio.",
+    ];
+
     const fullPrompt = [
       `Crie uma capa hero horizontal 16:9 (1200x675px) para o evento "${ev.name}" — material da marca Smart Dent (fluxo digital odontológico).`,
-      `Idioma da arte: ${LANG_LABEL[language]}. Aplique tipografia limpa e palavras-chave nesse idioma se houver overlay.`,
+      `Idioma da arte: ${LANG_LABEL[language]}. Tipografia limpa, palavras-chave no idioma, área de respiro no canto esquerdo para overlay de título.`,
       ev.location || ev.country ? `Contexto: ${[ev.location, ev.country].filter(Boolean).join(" — ")}.` : "",
       ev.start_date || ev.end_date ? `Datas: ${[ev.start_date, ev.end_date].filter(Boolean).join(" → ")}.` : "",
-      "Estética: editorial premium, alto contraste, tecnológica, cores Smart Dent (azul profundo + acentos). Composição cinematográfica com espaço para overlay de título no canto esquerdo.",
-      reference_image_url ? "Use a imagem de referência fornecida como inspiração visual (paleta, ambiente)." : "",
-      logo_url ? "Considere posicionar o logo do evento fornecido no canto superior direito, discreto." : "",
-      "Brief do usuário:",
+      "",
+      "=== COMPOSIÇÃO CINEMATOGRÁFICA EM 4 CAMADAS ===",
+      ...cinematicLayers,
+      "",
+      logo_url ? "Posicionar o logo do evento fornecido no canto superior direito, discreto, com leve sombra." : "",
+      "Brief adicional do usuário:",
       prompt,
     ].filter(Boolean).join("\n");
 
