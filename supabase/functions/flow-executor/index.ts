@@ -128,6 +128,34 @@ serve(async (req) => {
           await supabase.rpc('increment', { table_name: 'social_flows', id_val: flow.id, col: 'total_completed' }).catch(() => null);
           results.push({ session: s.id, status: 'completed' });
           currentId = null; break;
+        } else if (type === 'dra_lia_chat') {
+          // Conta sessões anteriores deste contato (excluindo a atual)
+          let prevCount = 0;
+          try {
+            const { count } = await supabase
+              .from('social_sessions')
+              .select('*', { count: 'exact', head: true })
+              .eq('ig_user_id', s.ig_user_id)
+              .neq('id', s.id);
+            prevCount = count ?? 0;
+          } catch { /* ignore */ }
+          try {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/lia-instagram-responder`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+              body: JSON.stringify({
+                ig_user_id: s.ig_user_id,
+                ig_username: s.ig_username,
+                conversation_id: state.conversation_id ?? undefined,
+                is_follower: state.is_follower ?? false,
+                incoming_payload: { type: 'dm', text: state.trigger_text ?? '' },
+                context: { historico_sessoes: prevCount, flow_name: node.data?.label },
+              }),
+            });
+          } catch (e) { console.error('dra_lia_chat fail', e); }
+          await supabase.from('social_sessions').update({ status: 'completed', state }).eq('id', s.id);
+          results.push({ session: s.id, status: 'completed_lia_handoff' });
+          currentId = null; break;
         }
 
         // próximo nó (sem branching)
