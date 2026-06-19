@@ -8,7 +8,8 @@ import "flag-icons/css/flag-icons.min.css";
 
 const BASE_URL = "https://parametros.smartdent.com.br";
 
-const COUNTRIES = [
+type CountryDef = { slug: string; aliases: string[]; name: string; iso: string; prep: string };
+const COUNTRIES: CountryDef[] = [
   { slug: "brasil",                aliases: ["brazil","br"],                 name: "Brasil",                iso: "BR", prep: "no" },
   { slug: "chile",                 aliases: ["cl"],                          name: "Chile",                 iso: "CL", prep: "no" },
   { slug: "colombia",              aliases: ["colômbia","co"],               name: "Colômbia",              iso: "CO", prep: "na" },
@@ -17,14 +18,14 @@ const COUNTRIES = [
   { slug: "estados-unidos",        aliases: ["eua","usa","united-states"],   name: "Estados Unidos",        iso: "US", prep: "nos" },
   { slug: "uruguai",               aliases: ["uruguay","uy"],                name: "Uruguai",               iso: "UY", prep: "no" },
   { slug: "venezuela",             aliases: ["ve"],                          name: "Venezuela",             iso: "VE", prep: "na" },
-] as const;
+];
 
 function normalizeKey(s?: string | null) {
   return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 function findCountry(slugOrName?: string | null) {
   const k = normalizeKey(slugOrName);
-  return COUNTRIES.find(c => c.slug === k || c.aliases.includes(k as any) || normalizeKey(c.name) === k);
+  return COUNTRIES.find(c => c.slug === k || c.aliases.includes(k) || normalizeKey(c.name) === k);
 }
 
 interface D {
