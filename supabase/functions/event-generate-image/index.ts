@@ -178,16 +178,18 @@ Deno.serve(async (req) => {
     if (logo_url) content.push({ type: "image_url", image_url: { url: logo_url } });
 
     const poeRes = await callPoe({
-      model: "Ideogram-v3-Quality",
+      model: "Ideogram-v3",
       messages: [{ role: "user", content }],
     });
     if (!poeRes.ok) {
+      console.error("[event-generate-image] Poe falhou:", poeRes.status, poeRes.error);
       return new Response(JSON.stringify({ error: "Poe falhou", details: poeRes.error }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const imageUrl = extractImageUrl(poeRes.text ?? "");
     if (!imageUrl) {
+      console.error("[event-generate-image] Sem URL na resposta Poe:", poeRes.text?.slice(0, 800));
       return new Response(JSON.stringify({ error: "URL de imagem não retornada pela IA", raw: poeRes.text?.slice(0, 500) }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
