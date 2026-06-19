@@ -124,7 +124,20 @@ export function WaGroupBlastModal({
           campaign_name: `Blast ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let serverMsg = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === "function") {
+            const j = await ctx.json();
+            if (j?.error) serverMsg = j.error;
+          } else if (ctx && typeof ctx.text === "function") {
+            const t = await ctx.text();
+            if (t) serverMsg = t;
+          }
+        } catch { /* keep error.message */ }
+        throw new Error(serverMsg);
+      }
       if (!data?.ok) throw new Error(data?.error ?? "Falha desconhecida");
       toast.success(`Blast agendado para ${data.groups} grupos — ${data.queued} mensagens na fila`);
       reset();
