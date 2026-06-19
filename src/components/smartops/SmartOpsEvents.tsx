@@ -374,7 +374,6 @@ export function SmartOpsEvents() {
                 <EventCoverByLanguage
                   eventId={editing.id}
                   covers={{ pt: editing.cover_image_pt, en: editing.cover_image_en, es: editing.cover_image_es }}
-                  prompts={{ pt: editing.ai_image_prompt_pt, en: editing.ai_image_prompt_en, es: editing.ai_image_prompt_es }}
                   referenceImageUrl={editing.reference_image_url}
                   eventLogoUrl={editing.event_logo_url}
                   onCoverChange={(lang, url) => setEditing((cur) => cur ? {
@@ -382,7 +381,6 @@ export function SmartOpsEvents() {
                     [`cover_image_${lang}`]: url,
                     ...(lang === "pt" ? { cover_image_url: url || cur.cover_image_url } : {}),
                   } as any : cur)}
-                  onPromptChange={(lang, v) => setEditing({ ...editing, [`ai_image_prompt_${lang}`]: v } as any)}
                 />
                 <details className="pt-2">
                   <summary className="text-xs text-muted-foreground cursor-pointer">Capa legada (fallback único)</summary>
