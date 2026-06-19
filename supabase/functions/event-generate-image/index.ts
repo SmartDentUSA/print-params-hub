@@ -219,38 +219,17 @@ Deno.serve(async (req) => {
       prompt || "",
     ].filter(Boolean).join("\n");
 
-    const content: any[] = [{ type: "text", text: fullPrompt }];
-    // Poe/Ideogram interpreta múltiplas imagens como init image + mask, causando 400
-    // ("mask and init image must have the same height and width"). Enviamos só 1 imagem.
-    const visualReferenceUrl = reference_image_url || logo_url;
-    if (visualReferenceUrl) content.push({ type: "image_url", image_url: { url: visualReferenceUrl } });
-
-    const poeRes = await callPoe({
-      model: "Ideogram-v3",
-      messages: [{ role: "user", content }],
-    });
-    if (!poeRes.ok) {
-      console.error("[event-generate-image] Poe falhou:", poeRes.status, poeRes.error);
-      return new Response(JSON.stringify({ error: "Poe falhou", details: poeRes.error }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const imageUrl = extractImageUrl(poeRes.text ?? "");
-    if (!imageUrl) {
-      console.error("[event-generate-image] Sem URL na resposta Poe:", poeRes.text?.slice(0, 800));
-      return new Response(JSON.stringify({ error: "URL de imagem não retornada pela IA", raw: poeRes.text?.slice(0, 500) }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const generation = await generateImageWithLovable(fullPrompt);
+    if ("error" in generation) {
+      console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
+      return new Response(JSON.stringify({ error: generation.error, details: generation.details }), {
+        status: generation.status >= 400 && generation.status < 600 ? generation.status : 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const imgResp = await fetch(imageUrl);
-    if (!imgResp.ok) {
-      return new Response(JSON.stringify({ error: "Falha ao baixar imagem gerada", status: imgResp.status }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const bytes = new Uint8Array(await imgResp.arrayBuffer());
-    const contentType = imgResp.headers.get("content-type") || "image/png";
+    const bytes = generation.bytes;
+    const contentType = generation.contentType;
     const ext = contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
     const ts = Date.now();
     const path = `events-ai/${event_id}/${language}-${ts}.${ext}`;
@@ -291,7 +270,7 @@ Deno.serve(async (req) => {
       url: pub.publicUrl,
       path,
       prompt_used: fullPrompt,
-      model: "Ideogram-v3 (Poe)",
+      model: "openai/gpt-image-2 (Lovable AI Gateway)",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[event-generate-image] erro:", e);
