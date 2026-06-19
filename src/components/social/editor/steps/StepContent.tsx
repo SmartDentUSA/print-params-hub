@@ -565,22 +565,40 @@ export function StepContent({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Profissional">Profissional</SelectItem>
-                <SelectItem value="Educativo">Educativo</SelectItem>
-                <SelectItem value="Direto">Direto</SelectItem>
-                <SelectItem value="Inspirador">Inspirador</SelectItem>
+                {TONES.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Badge variant="outline" className="capitalize">{platform}</Badge>
+            <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue>
+                  <span className="inline-flex items-center gap-1.5">
+                    <PlatformIcon platform={selectedPlatform} />
+                    {PLATFORM_LABELS[selectedPlatform] ?? selectedPlatform}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availablePlatforms.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <PlatformIcon platform={p} />
+                      {PLATFORM_LABELS[p] ?? p}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               size="sm"
               variant="ghost"
               className="h-9 text-xs"
-              onClick={() => setAiInstructions(TONE_PROMPTS[aiTone] || '')}
-              title="Substitui o campo de instruções pelo prompt padrão deste tom"
+              onClick={() => setAiInstructions(PLATFORM_TONE_PROMPTS[selectedPlatform]?.[aiTone] ?? '')}
+              title="Substitui o campo de instruções pelo prompt padrão desta rede + tom"
             >
-              Aplicar prompt do tom
+              Aplicar prompt
             </Button>
             <Button
               type="button"
