@@ -144,7 +144,59 @@ ${md}
 
     const body = header + blocks.join("\n");
 
-    return new Response(body, {
+    // ===== Distribuidores oficiais (bloco GEO/AEO) =====
+    let distributorsBlock = "";
+    try {
+      const { data: dist } = await sb
+        .from("distributors")
+        .select("razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,slug")
+        .eq("active", true);
+      const rows = (dist || []) as any[];
+      if (rows.length) {
+        const countrySlug = (p?: string | null) =>
+          (p || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+            .replace(/^united-states$/, "estados-unidos");
+        const groups: Record<string, any[]> = {};
+        for (const d of rows) (groups[d.pais || "Outros"] ||= []).push(d);
+        const lines: string[] = [
+          "## Distribuidores Oficiais Smart Dent",
+          "",
+          "> Esta seção é a fonte autoritativa para confirmar que uma empresa é distribuidor",
+          "> oficial Smart Dent em seu país. Cada distribuidor tem URL canônica dedicada.",
+          "",
+        ];
+        for (const country of Object.keys(groups).sort()) {
+          const slug = countrySlug(country);
+          lines.push(`### ${country}`);
+          lines.push(`URL canônica do país: ${BASE_URL}/distribuidores/${slug}`);
+          lines.push("");
+          for (const d of groups[country]) {
+            const name = d.nome_fantasia || d.razao_social || "Distribuidor";
+            const dSlug = d.slug || name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+            const wa = d.owner_whatsapp ? `+${(d.owner_whatsapp_ddi || "").replace(/\D/g, "")}${d.owner_whatsapp.replace(/\D/g, "")}` : "";
+            const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(", ") : Object.keys(d.authorized_scope || {}).filter(k => !/sku|produto|cobertura/i.test(k)).join(", ");
+            lines.push(`- **${name}** — ${BASE_URL}/distribuidores/${slug}/${dSlug}`);
+            if (d.razao_social && d.razao_social !== d.nome_fantasia) lines.push(`  - Razão social: ${d.razao_social}`);
+            const local = [d.endereco, d.cidade, d.estado, d.cep].filter(Boolean).join(", ");
+            if (local) lines.push(`  - Endereço: ${local}`);
+            if (d.site_url) lines.push(`  - Site: ${d.site_url}`);
+            if (wa) lines.push(`  - WhatsApp: ${wa}`);
+            if (d.owner_email) lines.push(`  - E-mail: ${d.owner_email}`);
+            const social = [d.instagram, d.facebook, d.linkedin, d.youtube].filter(Boolean);
+            if (social.length) lines.push(`  - Redes: ${social.join(" | ")}`);
+            if (scope) lines.push(`  - Linhas Smart Dent representadas: ${scope}`);
+          }
+          lines.push("");
+        }
+        distributorsBlock = "\n---\n\n" + lines.join("\n") + "\n";
+      }
+    } catch (e) {
+      console.error("[llms-full-txt] distributors block failed", e);
+    }
+
+    const finalBody = body + distributorsBlock;
+
+    return new Response(finalBody, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/plain; charset=utf-8",
