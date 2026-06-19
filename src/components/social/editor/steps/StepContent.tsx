@@ -111,10 +111,17 @@ export function StepContent({
 }: Props) {
   const [tagInput, setTagInput] = useState('');
 
-  // Plataformas presentes nos canais selecionados (dedupe). Fallback: instagram.
+  // Todas as plataformas suportadas — sempre disponíveis no seletor de tom/objetivo,
+  // independentemente dos canais marcados em StepChannels. Plataformas com canal
+  // selecionado aparecem primeiro.
+  const ALL_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'youtube', 'tiktok', 'pinterest'] as const;
   const availablePlatforms = (() => {
-    const list = Array.from(new Set((value.channels ?? []).map((c: any) => c?.platform).filter(Boolean)));
-    return list.length ? (list as string[]) : ['instagram'];
+    const selected = new Set(
+      (value.channels ?? []).map((c: any) => c?.platform).filter(Boolean) as string[],
+    );
+    const withSelected = ALL_PLATFORMS.filter((p) => selected.has(p));
+    const rest = ALL_PLATFORMS.filter((p) => !selected.has(p));
+    return [...withSelected, ...rest] as string[];
   })();
 
   const [selectedPlatform, setSelectedPlatform] = useState<string>(availablePlatforms[0]);
