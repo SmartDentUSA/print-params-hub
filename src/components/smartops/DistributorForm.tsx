@@ -280,12 +280,13 @@ export function DistributorForm({
 
   // Garante service_areas e language_preference quando país já existe (edição).
   useEffect(() => {
-    if (!selectedCountry) return;
+    const country = resolveCountry(form.pais);
+    if (!country) return;
     const updates: Partial<DistributorFormValue> = {};
     if (!form.service_areas || form.service_areas.length === 0) {
-      updates.service_areas = State.getStatesOfCountry(selectedCountry.isoCode).map((s) => s.name);
+      updates.service_areas = State.getStatesOfCountry(country.isoCode).map((s) => s.name);
     }
-    const expectedLang = languageForCountry(selectedCountry.isoCode);
+    const expectedLang = languageForCountry(country.isoCode);
     if (!form.language_preference) {
       updates.language_preference = expectedLang;
     }
@@ -293,7 +294,7 @@ export function DistributorForm({
       setForm((f) => ({ ...f, ...updates }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountry?.isoCode]);
+  }, [form.pais]);
 
   const handleLogoFile = async (file: File) => {
     if (!file) return;
