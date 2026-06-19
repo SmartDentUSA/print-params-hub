@@ -2543,6 +2543,255 @@ async function executeQueryOwnerPurchaseHistory(args: any) {
   return data;
 }
 
+// ── SOCIAL FLOWS (IG DM) ────────────────────────────────────────────────────
+
+function buildFlowFromTemplate(template: string, config: any): { nodes: any[]; edges: any[]; trigger: any } {
+  const nid = () => "n" + Math.random().toString(36).slice(2, 8);
+  const mkNode = (id: string, type: string, label: string, extra: any = {}) => ({
+    id,
+    type: "default",
+    position: { x: 0, y: 0 },
+    data: { label, nodeType: type, config: extra },
+  });
+  const mkEdge = (id: string, source: string, target: string) => ({ id, source, target });
+
+  if (template === "comment_keyword_dm") {
+    const a = nid(), b = nid(), c = nid(), d = nid();
+    const kws = config.keywords || ["BRASIL"];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Comentário com keyword", { trigger_type: "comment_keyword", keywords: kws }),
+        mkNode(b, "send_comment_reply", "Resposta pública no comentário", { message: config.public_reply || "Obrigado! Mandei no Direct." }),
+        mkNode(c, "wait", "Aguardar 3s", { seconds: 3 }),
+        mkNode(d, "send_dm", "DM principal", { message: (config.dm_message || "Olá! Aqui está o que você pediu.") + (config.dm_link ? "\n\n" + config.dm_link : "") }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d)],
+      trigger: { trigger_type: "comment_keyword", keywords: kws, is_regex: false, priority: 90 },
+    };
+  }
+
+  if (template === "welcome_new_follower") {
+    const a = nid(), b = nid();
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Novo seguidor", { trigger_type: "new_follower" }),
+        mkNode(b, "send_dm", "DM — Boas-vindas", { message: config.dm_message || "Olá! Seja bem-vindo ao perfil da SmartDent! 😊" }),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "new_follower", keywords: [], is_regex: false, priority: 50 },
+    };
+  }
+
+  if (template === "mention_reply") {
+    const a = nid(), b = nid();
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Menção em Story", { trigger_type: "mention" }),
+        mkNode(b, "send_dm", "DM — Resposta à menção", { message: config.dm_message || "Obrigado por nos mencionar! 🙏" }),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "mention", keywords: [], is_regex: false, priority: 60 },
+    };
+  }
+
+  if (template === "lead_capture_dm") {
+    const a = nid(), b = nid(), c = nid(), d = nid(), e = nid(), f = nid(), g = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws }),
+        mkNode(b, "send_dm", "Boas-vindas", { message: "Olá! Vou te ajudar. Qual é o seu nome completo?" }),
+        mkNode(c, "collect_input", "Capturar nome", { field: "nome", prompt: "" }),
+        mkNode(d, "send_dm", "Pede WhatsApp", { message: "Perfeito! Qual é o seu WhatsApp com DDD?" }),
+        mkNode(e, "collect_input", "Capturar telefone", { field: "telefone", prompt: "" }),
+        mkNode(f, "collect_input", "Capturar área", { field: "area_atuacao", prompt: "Você trabalha em clínica, laboratório ou outra área?" }),
+        mkNode(g, "create_lead", "Criar lead no CRM", { form_name: config.form_name || "# - INSTAGRAM - Auto atendimento", tag: config.tag || null }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d), mkEdge("e4", d, e), mkEdge("e5", e, f), mkEdge("e6", f, g)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 70 },
+    };
+  }
+
+  if (template === "ads_click_to_messenger") {
+    const a = nid(), b = nid(), c = nid(), d = nid(), e = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM de anúncio", { trigger_type: "dm_keyword", keywords: kws, source: "ad" }),
+        mkNode(b, "send_dm", "Boas-vindas do anúncio", { message: `Olá! Vi que você veio pelo anúncio de ${config.produto || "produto"}. Qual é o seu nome?` }),
+        mkNode(c, "collect_input", "Capturar nome", { field: "nome" }),
+        mkNode(d, "collect_input", "Capturar telefone", { field: "telefone" }),
+        mkNode(e, "create_lead", "Criar lead no CRM", { form_name: config.form_name || "# - INSTAGRAM - Auto atendimento", produto_interesse_auto: config.produto || null }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d), mkEdge("e4", d, e)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 80 },
+    };
+  }
+
+  if (template === "dra_lia_handoff") {
+    const a = nid(), b = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws }),
+        mkNode(b, "dra_lia_chat", "Delegar para Dra. LIA", {}),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 75 },
+    };
+  }
+
+  if (template === "content_sequence") {
+    const steps: any[] = config.steps || [{ message: "Conteúdo 1", delay_hours: 0 }, { message: "Follow-up", delay_hours: 24 }];
+    const kws = config.keywords || [];
+    const a = nid();
+    const nodes: any[] = [mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws })];
+    const edges: any[] = [];
+    let prev = a;
+    steps.forEach((step: any, i: number) => {
+      if (step.delay_hours > 0) {
+        const w = nid();
+        nodes.push(mkNode(w, "wait", `Aguardar ${step.delay_hours}h`, { seconds: step.delay_hours * 3600 }));
+        edges.push(mkEdge(`ew${i}`, prev, w));
+        prev = w;
+      }
+      const s = nid();
+      nodes.push(mkNode(s, "send_dm", `Mensagem ${i + 1}`, { message: step.message }));
+      edges.push(mkEdge(`es${i}`, prev, s));
+      prev = s;
+    });
+    return { nodes, edges, trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 65 } };
+  }
+
+  // Fallback
+  const a = nid(), b = nid();
+  return {
+    nodes: [
+      mkNode(a, "trigger", "TRIGGER", { trigger_type: "dm_keyword", keywords: [] }),
+      mkNode(b, "send_dm", "DM", { message: "" }),
+    ],
+    edges: [mkEdge("e1", a, b)],
+    trigger: { trigger_type: "dm_keyword", keywords: [], is_regex: false, priority: 50 },
+  };
+}
+
+async function executeListSocialFlows(args: any) {
+  const channel = args.channel || "instagram";
+  let q = supabase.from("social_flows")
+    .select("id, name, is_active, channel, total_triggered, total_completed, nodes, updated_at")
+    .eq("channel", channel)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  if (args.only_active) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return (data || []).map((f: any) => {
+    const trig = (f.nodes || []).find((n: any) => n?.data?.nodeType === "trigger");
+    const cfg = trig?.data?.config || {};
+    return {
+      id: f.id,
+      name: f.name,
+      status: f.is_active ? "✅ ativo" : "⏸ pausado",
+      canal: f.channel,
+      disparos: f.total_triggered || 0,
+      concluidos: f.total_completed || 0,
+      trigger_tipo: cfg.trigger_type || "—",
+      keywords: cfg.keywords || [],
+      ultima_atualizacao: f.updated_at?.slice(0, 10),
+    };
+  });
+}
+
+async function executeGetSocialFlow(args: any) {
+  const { data, error } = await supabase.from("social_flows").select("*").eq("id", args.id).single();
+  if (error || !data) return { error: error?.message || "flow não encontrado" };
+  const passos = (data.nodes || []).map((n: any, i: number) => ({
+    passo: i + 1,
+    id: n.id,
+    tipo: n?.data?.nodeType,
+    label: n?.data?.label,
+    config: n?.data?.config || {},
+  }));
+  return {
+    id: data.id,
+    nome: data.name,
+    status: data.is_active ? "ativo" : "pausado",
+    canal: data.channel,
+    total_passos: passos.length,
+    passos,
+    edges: data.edges || [],
+  };
+}
+
+async function executeCreateSocialFlow(args: any) {
+  const { name, description, channel = "instagram", template, config = {} } = args;
+  const flowId = crypto.randomUUID();
+  const { nodes, edges, trigger } = buildFlowFromTemplate(template, config);
+  const insertRow: any = {
+    id: flowId,
+    name,
+    description: description || null,
+    channel,
+    is_active: false,
+    nodes,
+    edges,
+    total_triggered: 0,
+    total_completed: 0,
+    total_leads_converted: 0,
+  };
+  const { error: flowErr } = await supabase.from("social_flows").insert(insertRow);
+  if (flowErr) return { error: flowErr.message };
+  if (trigger) {
+    await supabase.from("social_triggers").insert({ ...trigger, flow_id: flowId }).then(() => null, () => null);
+  }
+  return {
+    ok: true,
+    flow_id: flowId,
+    nome: name,
+    status: "pausado (is_active: false)",
+    template,
+    aviso: template === "comment_keyword_dm" ? "Lembrete: este flow depende de automação nativa Zernio com a mesma keyword." : undefined,
+    proximos_passos: "Confirme se deseja ativar agora.",
+  };
+}
+
+async function executeUpdateSocialFlow(args: any) {
+  const { id, patch } = args;
+  if (patch?.replace_node) {
+    const { data: flow } = await supabase.from("social_flows").select("nodes").eq("id", id).single();
+    const nodes = (flow?.nodes || []).map((n: any) =>
+      n.id === patch.replace_node.node_id
+        ? { ...n, data: { ...(n.data || {}), ...(patch.replace_node.fields || {}), config: { ...(n.data?.config || {}), ...(patch.replace_node.fields?.config || {}) } } }
+        : n
+    );
+    const { error } = await supabase.from("social_flows").update({ nodes, updated_at: new Date().toISOString() }).eq("id", id);
+    return error ? { error: error.message } : { ok: true, node_atualizado: patch.replace_node.node_id };
+  }
+  const allowed: any = { updated_at: new Date().toISOString() };
+  for (const k of ["name", "description", "is_active"]) {
+    if (patch?.[k] !== undefined) allowed[k] = patch[k];
+  }
+  const { error } = await supabase.from("social_flows").update(allowed).eq("id", id);
+  return error ? { error: error.message } : { ok: true, campos_atualizados: Object.keys(allowed).filter(k => k !== "updated_at") };
+}
+
+async function executeToggleSocialFlow(args: any) {
+  const { id, is_active } = args;
+  const { data: flow } = await supabase.from("social_flows").select("name").eq("id", id).single();
+  const { error } = await supabase.from("social_flows").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
+  return error ? { error: error.message } : { ok: true, flow: flow?.name, status: is_active ? "✅ ativado" : "⏸ pausado" };
+}
+
+async function executeDeleteSocialFlow(args: any) {
+  const { id, confirmed } = args;
+  if (!confirmed) return { error: "Exclusão não confirmada. Peça confirmação explícita antes de deletar." };
+  const { data: flow } = await supabase.from("social_flows").select("name").eq("id", id).single();
+  await supabase.from("social_triggers").delete().eq("flow_id", id).then(() => null, () => null);
+  await supabase.from("social_sessions").delete().eq("flow_id", id).then(() => null, () => null);
+  const { error } = await supabase.from("social_flows").delete().eq("id", id);
+  return error ? { error: error.message } : { ok: true, excluido: flow?.name, aviso: "Flow, triggers e sessões removidos." };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
