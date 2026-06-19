@@ -4563,6 +4563,10 @@ export type Database = {
         Row: {
           active: boolean
           authorized_scope: Json
+          backlink_last_error: string | null
+          backlink_status: string | null
+          backlink_url: string | null
+          backlink_verified_at: string | null
           buyer_email: string | null
           buyer_name: string | null
           buyer_whatsapp: string | null
@@ -4579,7 +4583,9 @@ export type Database = {
           facebook: string | null
           id: string
           instagram: string | null
+          language_preference: string
           last_published_at: string | null
+          linhas_representadas: string[]
           linkedin: string | null
           logo_url: string | null
           name_en: string | null
@@ -4598,6 +4604,7 @@ export type Database = {
           region_en: string | null
           region_es: string | null
           schema_json: Json | null
+          service_areas: Json
           site_url: string | null
           slug: string | null
           specialty_en: string | null
@@ -4606,11 +4613,16 @@ export type Database = {
           translated_at_en: string | null
           translated_at_es: string | null
           updated_at: string
+          wikidata_id: string | null
           youtube: string | null
         }
         Insert: {
           active?: boolean
           authorized_scope?: Json
+          backlink_last_error?: string | null
+          backlink_status?: string | null
+          backlink_url?: string | null
+          backlink_verified_at?: string | null
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_whatsapp?: string | null
@@ -4627,7 +4639,9 @@ export type Database = {
           facebook?: string | null
           id?: string
           instagram?: string | null
+          language_preference?: string
           last_published_at?: string | null
+          linhas_representadas?: string[]
           linkedin?: string | null
           logo_url?: string | null
           name_en?: string | null
@@ -4646,6 +4660,7 @@ export type Database = {
           region_en?: string | null
           region_es?: string | null
           schema_json?: Json | null
+          service_areas?: Json
           site_url?: string | null
           slug?: string | null
           specialty_en?: string | null
@@ -4654,11 +4669,16 @@ export type Database = {
           translated_at_en?: string | null
           translated_at_es?: string | null
           updated_at?: string
+          wikidata_id?: string | null
           youtube?: string | null
         }
         Update: {
           active?: boolean
           authorized_scope?: Json
+          backlink_last_error?: string | null
+          backlink_status?: string | null
+          backlink_url?: string | null
+          backlink_verified_at?: string | null
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_whatsapp?: string | null
@@ -4675,7 +4695,9 @@ export type Database = {
           facebook?: string | null
           id?: string
           instagram?: string | null
+          language_preference?: string
           last_published_at?: string | null
+          linhas_representadas?: string[]
           linkedin?: string | null
           logo_url?: string | null
           name_en?: string | null
@@ -4694,6 +4716,7 @@ export type Database = {
           region_en?: string | null
           region_es?: string | null
           schema_json?: Json | null
+          service_areas?: Json
           site_url?: string | null
           slug?: string | null
           specialty_en?: string | null
@@ -4702,6 +4725,7 @@ export type Database = {
           translated_at_en?: string | null
           translated_at_es?: string | null
           updated_at?: string
+          wikidata_id?: string | null
           youtube?: string | null
         }
         Relationships: []

@@ -2330,15 +2330,28 @@ function countryNameForRow(d: any): string {
 
 function buildDistributorLocalBusinessLd(d: any, country: { name: string; iso?: string }, canonical: string) {
   const name = d.nome_fantasia || d.razao_social || 'Distribuidor';
-  const sameAs = [d.site_url, d.instagram, d.facebook, d.linkedin, d.youtube].filter(Boolean);
+  const sameAs = [
+    d.site_url, d.instagram, d.facebook, d.linkedin, d.youtube,
+    d.wikidata_id ? `https://www.wikidata.org/wiki/${d.wikidata_id}` : null,
+  ].filter(Boolean);
   const wa = d.owner_whatsapp ? `+${(d.owner_whatsapp_ddi || '').replace(/\D/g,'')}${d.owner_whatsapp.replace(/\D/g,'')}` : '';
   const scope = Array.isArray(d.authorized_scope) ? d.authorized_scope.join(', ') : '';
+  const linhas: string[] = Array.isArray(d.linhas_representadas) ? d.linhas_representadas : [];
+  const serviceAreas: any[] = [{ "@type": "Country", "name": country.name, "identifier": country.iso || country.name }];
+  if (Array.isArray(d.service_areas)) {
+    for (const a of d.service_areas) {
+      if (!a) continue;
+      if (typeof a === 'string') serviceAreas.push({ "@type": "AdministrativeArea", "name": a });
+      else if (a.name) serviceAreas.push({ "@type": a.type || "AdministrativeArea", "name": a.name });
+    }
+  }
   const ld: any = {
     "@context": "https://schema.org",
     "@type": ["LocalBusiness","Store"],
     "@id": canonical,
     "name": name,
     "url": canonical,
+    "inLanguage": d.language_preference || 'pt',
     "address": {
       "@type": "PostalAddress",
       "streetAddress": d.endereco || undefined,
@@ -2347,9 +2360,9 @@ function buildDistributorLocalBusinessLd(d: any, country: { name: string; iso?: 
       "postalCode": d.cep || undefined,
       "addressCountry": country.iso || country.name,
     },
-    "areaServed": country.name,
-    "brand": { "@type": "Brand", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
-    "parentOrganization": { "@type": "Organization", "name": "Smart Dent", "url": "https://www.smartdent.com.br" },
+    "areaServed": serviceAreas,
+    "brand": { "@type": "Brand", "name": "Smart Dent", "url": "https://www.smartdent.com.br", "sameAs": ["https://www.wikidata.org/wiki/Q138636902"] },
+    "parentOrganization": { "@type": "Organization", "name": "Smart Dent", "url": "https://www.smartdent.com.br", "sameAs": ["https://www.wikidata.org/wiki/Q138636902"] },
   };
   if (d.logo_url) ld.logo = d.logo_url;
   if (d.logo_url) ld.image = d.logo_url;
@@ -2358,6 +2371,15 @@ function buildDistributorLocalBusinessLd(d: any, country: { name: string; iso?: 
   if (d.owner_email) ld.email = d.owner_email;
   if (scope) ld.description = `Distribuidor oficial Smart Dent em ${country.name} — escopo autorizado: ${scope}.`;
   if (d.site_url) ld.hasOfferCatalog = { "@type": "OfferCatalog", "name": `Catálogo Smart Dent — ${name}`, "url": d.site_url };
+  if (linhas.length) {
+    ld.makesOffer = linhas.map((line) => ({
+      "@type": "Offer",
+      "itemOffered": { "@type": "Product", "name": line, "brand": { "@type": "Brand", "name": "Smart Dent" } },
+      "areaServed": country.name,
+      "seller": { "@type": "Organization", "name": name },
+    }));
+    ld.knowsAbout = linhas;
+  }
   return ld;
 }
 
@@ -2372,7 +2394,7 @@ async function generateDistribuidorCountryHTML(countrySlug: string, supabase: an
 
   const { data: rows } = await supabase
     .from('distributors')
-    .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,logo_url,slug')
+    .select('id,razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,logo_url,slug,service_areas,linhas_representadas,wikidata_id,language_preference')
     .eq('active', true);
 
   const list = ((rows || []) as any[]).filter(d => countrySlugForRow(d) === country.slug);

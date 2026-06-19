@@ -83,6 +83,21 @@ export function DistributorKitDialog({
 </a>`;
   };
 
+  const slug = (distributor.slug || distributor.nome_fantasia || distributor.razao_social || "parceiro")
+    .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const utm = `?utm_source=distribuidor&utm_medium=backlink&utm_campaign=${slug}`;
+  const logoBacklink = (lang: "pt" | "es" | "en") => {
+    const alt = {
+      pt: "Smart Dent — fabricante oficial",
+      es: "Smart Dent — fabricante oficial",
+      en: "Smart Dent — official manufacturer",
+    }[lang];
+    return `<!-- Backlink obrigatório para o fabricante Smart Dent -->
+<a href="https://www.smartdent.com.br${utm}" target="_blank" rel="noopener" title="${alt}" style="display:inline-block;text-decoration:none;">
+  <img src="https://www.smartdent.com.br/logo-smartdent.png" alt="${alt}" width="140" height="48" loading="lazy" style="border:0;" />
+</a>`;
+  };
+
   const bio = (lang: "pt" | "es" | "en") =>
     ({
       pt: `🦷 ${name} — Distribuidor Oficial Smart Dent ${prep} ${countryName}. Resinas 3D, kits e insumos odontológicos. Verificado: ${canonical}`,
@@ -155,6 +170,7 @@ export function DistributorKitDialog({
             {(["pt", "es", "en"] as const).map((lang) => (
               <TabsContent key={lang} value={lang} className="space-y-4 pt-4">
                 <Block label="Selo HTML — cole no rodapé do site / e-commerce" value={htmlSnippet(lang)} />
+                <Block label="Backlink obrigatório — logo Smart Dent linkado (com UTM)" value={logoBacklink(lang)} />
                 <Block label="Bio para Instagram / WhatsApp / LinkedIn" value={bio(lang)} />
                 <Block label="Texto institucional (sobre / press kit)" value={press(lang)} />
               </TabsContent>

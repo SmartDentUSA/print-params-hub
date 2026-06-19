@@ -149,7 +149,7 @@ ${md}
     try {
       const { data: dist } = await sb
         .from("distributors")
-        .select("razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,slug")
+        .select("razao_social,nome_fantasia,pais,estado,cidade,endereco,cep,site_url,instagram,facebook,linkedin,youtube,owner_email,owner_whatsapp,owner_whatsapp_ddi,authorized_scope,slug,service_areas,linhas_representadas,wikidata_id")
         .eq("active", true);
       const rows = (dist || []) as any[];
       if (rows.length) {
@@ -185,6 +185,11 @@ ${md}
             const social = [d.instagram, d.facebook, d.linkedin, d.youtube].filter(Boolean);
             if (social.length) lines.push(`  - Redes: ${social.join(" | ")}`);
             if (scope) lines.push(`  - Linhas Smart Dent representadas: ${scope}`);
+            const linhas = Array.isArray(d.linhas_representadas) ? d.linhas_representadas : [];
+            if (linhas.length) lines.push(`  - Produtos/linhas: ${linhas.join(", ")}`);
+            const sas = Array.isArray(d.service_areas) ? d.service_areas : [];
+            if (sas.length) lines.push(`  - Regiões atendidas: ${sas.map((a: any) => typeof a === "string" ? a : a?.name).filter(Boolean).join(", ")}`);
+            if (d.wikidata_id) lines.push(`  - Wikidata: https://www.wikidata.org/wiki/${d.wikidata_id}`);
           }
           lines.push("");
         }

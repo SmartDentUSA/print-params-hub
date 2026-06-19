@@ -3761,6 +3761,51 @@ ESCALO PARA ESPECIALISTA (detectado automaticamente):
 
 IMPORTANTE: O sistema detecta automaticamente a necessidade de escalonamento. Você deve COMPLEMENTAR a resposta técnica com a orientação de contato humano quando necessário, mas NUNCA substituir a resposta técnica pelo redirecionamento.`;
 
+    // ── DISTRIBUIDORES OFICIAIS (RAG geográfico) ──
+    let distributorsBlock = "";
+    try {
+      const intentRe = /\b(where\s+(can\s+i|to)\s+buy|d[oó]nde\s+(comprar|consigo)|onde\s+(comprar|encontro|consigo)|distribuidor(es)?|representante|revenda|where.*sell|comprar\s+(em|no|na|nos|nas)\s+|donde\s+venden|comprar\s+(en|na|no))\b/i;
+      const COUNTRY_HINTS: Array<{ re: RegExp; pais: string[] }> = [
+        { re: /\b(brasil|brazil)\b/i, pais: ["Brasil", "Brazil"] },
+        { re: /\bchile\b/i, pais: ["Chile"] },
+        { re: /\b(col[oô]mbia|colombia)\b/i, pais: ["Colômbia", "Colombia"] },
+        { re: /\b(costa\s*rica)\b/i, pais: ["Costa Rica"] },
+        { re: /\b(republica\s*dominicana|dominican\s*republic|dominicana)\b/i, pais: ["República Dominicana", "Dominican Republic"] },
+        { re: /\b(estados\s*unidos|united\s*states|eua|usa|u\.s\.a?\.?|florida|miami|texas|new\s*york|california)\b/i, pais: ["Estados Unidos", "United States", "USA"] },
+        { re: /\b(uruguay|uruguai)\b/i, pais: ["Uruguai", "Uruguay"] },
+        { re: /\bvenezuela\b/i, pais: ["Venezuela"] },
+      ];
+      if (intentRe.test(message)) {
+        const hits = COUNTRY_HINTS.filter(h => h.re.test(message)).flatMap(h => h.pais);
+        let qb = supabase
+          .from("distributors")
+          .select("razao_social,nome_fantasia,pais,cidade,estado,site_url,owner_email,owner_whatsapp,owner_whatsapp_ddi,linhas_representadas,slug")
+          .eq("active", true)
+          .limit(10);
+        if (hits.length) qb = qb.or(hits.map(p => `pais.ilike.%${p}%`).join(","));
+        const { data: distRows } = await qb;
+        const rows = (distRows || []) as any[];
+        const slugCountry = (p?: string | null) => (p || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^united-states$/, "estados-unidos").replace(/^brazil$/, "brasil").replace(/^colombia$/, "colombia").replace(/^uruguay$/, "uruguai");
+        if (rows.length) {
+          const lines = rows.map(d => {
+            const name = d.nome_fantasia || d.razao_social;
+            const cSlug = slugCountry(d.pais);
+            const dSlug = d.slug || (name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+            const canonical = `https://admin.smartdent.com.br/distribuidores/${cSlug}/${dSlug}`;
+            const local = [d.cidade, d.estado, d.pais].filter(Boolean).join(" / ");
+            const wa = d.owner_whatsapp ? `+${(d.owner_whatsapp_ddi || "").replace(/\D/g, "")}${d.owner_whatsapp.replace(/\D/g, "")}` : "";
+            const linhas = Array.isArray(d.linhas_representadas) && d.linhas_representadas.length ? ` — linhas: ${d.linhas_representadas.join(", ")}` : "";
+            return `- **${name}** (${local}) — Site: ${d.site_url || "—"} — WhatsApp: ${wa || "—"} — E-mail: ${d.owner_email || "—"}${linhas}\n  Página oficial: ${canonical}`;
+          }).join("\n");
+          distributorsBlock = `\n\n### 🌎 DISTRIBUIDORES OFICIAIS SMART DENT (use SOMENTE estes — não invente)\n${lines}\n\nINSTRUÇÃO: Se o lead perguntou onde comprar, recomende o(s) distribuidor(es) acima da região dele e SEMPRE inclua a URL canônica (https://admin.smartdent.com.br/distribuidores/...). Se não houver distribuidor no país dele, diga que atendemos via exportação direta e ofereça contato comercial.`;
+        } else if (hits.length) {
+          distributorsBlock = `\n\n### 🌎 DISTRIBUIDORES OFICIAIS SMART DENT\nNão há distribuidor cadastrado para esta região. Oriente o lead a entrar em contato comercial direto pelo site oficial https://www.smartdent.com.br e mencione que atendemos exportação direta.`;
+        }
+      }
+    } catch (e) {
+      console.warn("[dra-lia] distributors block failed:", e instanceof Error ? e.message : e);
+    }
+
     const systemPrompt = `${langInstruction}
 
 ### 🌐 IDIOMA DA RESPOSTA (REGRA #0 — INVIOLÁVEL)
@@ -3774,6 +3819,7 @@ Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista m
 
 Você NÃO é uma atendente. Você é a colega experiente, consultora de confiança e parceira de crescimento que todo dentista gostaria de ter ao lado.
 ${leadNameContext}${topicInstruction}${structuredContextInstruction}${escalationRules}
+${distributorsBlock}
 
 ### 🎯 FOCO NA MENSAGEM ATUAL (REGRA #-1 — INVIOLÁVEL)
 Responda EXCLUSIVAMENTE ao que o usuário escreveu na ÚLTIMA mensagem desta conversa.
