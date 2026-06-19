@@ -1,64 +1,51 @@
+## Problema
 
-# Copilot Social Flows — end-to-end
+Quando o usuário pede "criar automação de menção em Story", o Copilot diz:
+> "você precisará também configurar o gatilho no Zernio com a mesma configuração."
 
-Adiciona ao Copilot 6 tools para gerenciar `social_flows` (Instagram DM) via diálogo. Canvas `/automacoes/flows` permanece read-only — toda edição passa pelo Copilot.
+Isso está errado. A API Zernio **não tem endpoint de automação para menção em Story** — menções chegam direto via webhook (o `zernio-webhook` já trata `event.includes('mention') → trigger_type:'mention'` e dispara o flow). Nenhuma configuração extra é necessária. Apenas `comment_keyword_dm` precisa do POST `/v1/comment-automations` (que já é feito automaticamente pela tool).
 
-## 1. `supabase/functions/smart-ops-copilot/index.ts`
+## Mudanças
 
-**1a. Registrar 6 tools** no array `tools` (após a última existente):
-- `list_social_flows({ channel?, only_active? })`
-- `get_social_flow({ id })`
-- `create_social_flow({ name, description?, channel?, template, config })` — sempre `is_active:false`
-- `update_social_flow({ id, patch })` — suporta `replace_node:{node_id, fields}`
-- `toggle_social_flow({ id, is_active })`
-- `delete_social_flow({ id, confirmed })` — exige `confirmed:true`
+### 1. `supabase/functions/smart-ops-copilot/index.ts` — `executeCreateSocialFlow` (~linha 2756)
 
-**1b. Handlers** no switch de execução de tools (`list/get/create/update/toggle/delete`) — leem/escrevem em `social_flows` e `social_triggers` via service role; `delete` também limpa `social_sessions` e `social_triggers` antes de deletar o flow.
+Adicionar bloco específico para `mention_reply` logo após o bloco Zernio do `comment_keyword_dm`, antes do `return result;`:
 
-**1c. Função `buildFlowFromTemplate(template, config)`** antes do `serve(...)`, suportando 7 templates: `comment_keyword_dm`, `welcome_new_follower`, `mention_reply`, `lead_capture_dm`, `ads_click_to_messenger`, `dra_lia_handoff`, `content_sequence`. Cada um devolve `{nodes, edges, trigger}` no shape consumido por `flow-executor` e `SocialFlowEditor`.
+```ts
+// Menções em Story: webhook Zernio já entrega evento 'mention' nativamente.
+// Não existe endpoint de automação no Zernio para isso — o webhook dispara direto.
+if (template === "mention_reply") {
+  result.zernio_status = "ℹ️ Menções em Story são detectadas automaticamente pelo webhook Zernio. Nenhuma configuração extra necessária.";
+}
+```
 
-**1d. Bloco no `SYSTEM_PROMPT`** definindo:
-- Gatilhos: "automação", "flow", "IG DM", "social publisher", "quando comentarem", etc.
-- Fluxo: listar → perguntar (editar / pausar / excluir / nova) → se nova, perguntar tipo, coletar inputs **um por vez**, mostrar resumo, confirmar, criar inativo, perguntar se ativa.
-- Inferência de intent quando o usuário manda tudo em uma frase ("quando comentarem VITA…").
-- Regras NUNCA: criar/ativar/excluir sem confirmação explícita.
-- Aviso para `comment_keyword_dm`: depende de automação nativa Zernio.
+### 2. `SYSTEM_PROMPT` — substituir a seção `### REGRA — COMMENT_KEYWORD_DM` (~linhas 2993-2994)
 
-## 2. `supabase/functions/flow-executor/index.ts`
+De:
+```
+### REGRA — COMMENT_KEYWORD_DM
+Flows comment_keyword_dm dependem da automação nativa do Zernio. Ao criar, avise: "Este flow funciona via automação Zernio. Após ativar aqui, crie também a automação no Zernio com a mesma keyword."
+```
 
-Adicionar handlers (não removem nada existente):
-- **`dra_lia_chat`**: conta sessões anteriores do `ig_user_id`, chama EF `lia-instagram-responder` com contexto e marca sessão `completed`.
-- **`collect_input`**: pausa sessão (`status:'waiting_input'`, guarda `aguardando_campo` no state) avançando `current_node_id` para o próximo nó.
-- **`create_lead`**: chama EF `smart-ops-ingest-lead` com `source:'instagram_flow'`, `form_name` do nó (fallback `# - INSTAGRAM - Auto atendimento`), campos do state (nome/telefone/email/área/especialidade) + `produto_interesse_auto` do nó/state + `tags` do nó; segue para o próximo nó.
+Para:
+```
+### REGRA — COMMENT_KEYWORD_DM (criação automática no Zernio)
+A tool `create_social_flow` JÁ chama o POST /v1/comment-automations do Zernio automaticamente para comment_keyword_dm. NÃO peça ao usuário para configurar manualmente no Zernio — apenas reporte o campo `zernio_status` retornado pela tool (✅ criado / ⚠️ falhou).
 
-## 3. `src/components/social/flows/SocialFlowEditor.tsx`
+### REGRA — MENTION_REPLY / WELCOME_NEW_FOLLOWER / DRA_LIA_HANDOFF
+Esses templates funcionam direto via webhook do Zernio (eventos `mention`, `new_follower`, `dm.received`). NÃO existe automação a configurar no Zernio para eles — basta criar e ativar o flow aqui. NUNCA diga ao usuário para "configurar o gatilho no Zernio" para estes templates.
+```
 
-- `TRIGGER_TYPES`: adicionar `new_follower` e (se não existir) reforçar `mention`.
-- `NODE_TYPES`: adicionar `dra_lia_chat`, `collect_input`, `create_lead`.
-- Painel lateral: manter visualização atual; quando um nó é selecionado, exibir banner informativo no topo:
-  > ℹ️ Para editar este flow, use o Copilot: "editar flow [nome]"
+### 3. Deploy
 
-Sem edição inline.
+Deployar `smart-ops-copilot`.
 
-## 4. Deploy e verificação
+### 4. Verificação
 
-Ordem: (1) `flow-executor`, (2) `smart-ops-copilot`, (3) frontend.
+- "criar automação de menção em Story SmartDent" → pergunta só nome + mensagem DM, cria inativo, NÃO menciona configuração Zernio.
+- "criar automação de comentário VITA → DM com link X" → cria e reporta `zernio_status` sem pedir ação manual.
 
-Testes manuais no Copilot:
-1. "quando alguém comentar VITA, responde 'Enviamos!' e manda DM com link https://…" → infere `comment_keyword_dm`, mostra resumo, confirma, cria inativo, pergunta se ativa.
-2. "lista todos os flows" → `list_social_flows` em tabela.
-3. "ativa o flow VITA" → `toggle_social_flow({is_active:true})`.
-4. Conferir em `/automacoes/flows` que o flow aparece com os nós corretos e que o banner read-only é exibido no painel lateral.
+## Fora de escopo
 
-## 5. Fora de escopo (NÃO fazer)
-
-- Não alterar `social-publish-worker`, flows Copa 2026, `LeadDetailPanel.tsx`, `lead_activity_log`, contratos PipeRun/SellFlux.
-- Não implementar edição inline no canvas.
-- Não substituir `flow-executor` por LLM.
-- Não ativar flows automaticamente.
-
-## Notas técnicas
-
-- Tools usam service role (já é o padrão da EF). Sem allowlist necessária (blocklist vazia — `mem://smart-ops/copilot-full-data-access`).
-- IDs de nó gerados com `crypto.randomUUID()`/sufixo curto, compatíveis com o shape lido por `flow-executor` (`node.id`, `node.type`, `node.next_node_id`, `edges[]`).
-- Após implementar, salvar memória `mem://smart-ops/copilot-social-flows-tools` documentando as 6 tools + 7 templates + fluxo conversacional; adicionar linha em `mem://index.md`.
+- Não tocar em `zernio-webhook`, `flow-executor`, `SocialFlowEditor`.
+- Não adicionar template novo (ex: `story_reply` via API) — usuário confirmou que quer apenas `mention_reply`.
