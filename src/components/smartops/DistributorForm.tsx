@@ -14,6 +14,42 @@ import { Country, State, City } from "country-state-city";
 import { cn } from "@/lib/utils";
 import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+
+// País (ISO-2) → idioma preferencial da página pública.
+const COUNTRY_LANG: Record<string, "pt" | "es" | "en"> = {
+  BR: "pt", PT: "pt",
+  US: "en", CA: "en", GB: "en", AU: "en", IE: "en", NZ: "en",
+  // LatAm + Espanha → es
+  AR: "es", BO: "es", CL: "es", CO: "es", CR: "es", CU: "es", DO: "es",
+  EC: "es", SV: "es", GT: "es", HN: "es", MX: "es", NI: "es", PA: "es",
+  PY: "es", PE: "es", PR: "es", UY: "es", VE: "es", ES: "es",
+};
+const LANG_LABEL: Record<string, string> = { pt: "Português", es: "Español", en: "English" };
+function languageForCountry(isoCode?: string): "pt" | "es" | "en" {
+  if (!isoCode) return "pt";
+  return COUNTRY_LANG[isoCode.toUpperCase()] || "pt";
+}
+
+// Heurística: extrai a "linha" comercial a partir do nome do produto.
+// Ex.: "Smart Print Atos Try-In A2" → "Smart Print Atos"
+//      "SmartMake Kit Inicial"     → "SmartMake"
+//      "Vitality Resin 1kg"        → "Vitality"
+function extractLine(name: string): string | null {
+  if (!name) return null;
+  const clean = name.replace(/\s+/g, " ").trim();
+  // Remove sufixos comuns (cores, tamanhos, kits)
+  const tokens = clean.split(" ");
+  // Pega até 3 primeiros tokens que comecem com letra (não números/cores)
+  const out: string[] = [];
+  for (const t of tokens) {
+    if (out.length >= 3) break;
+    if (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9.-]*$/.test(t)) out.push(t);
+    else break;
+  }
+  const line = out.join(" ").trim();
+  return line.length >= 2 ? line : null;
+}
 
 export type DistributorFormValue = {
   id?: string;
@@ -157,6 +193,8 @@ export function DistributorForm({
     onChange(updater(form));
 
   const [catalogTaxonomy, setCatalogTaxonomy] = useState<Record<string, string[]>>({});
+  // Mapa: categoria → subcategoria ("" = sem sub) → Set<linha>
+  const [linesIndex, setLinesIndex] = useState<Record<string, Record<string, string[]>>>({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
 
@@ -164,34 +202,98 @@ export function DistributorForm({
     (async () => {
       const { data } = await supabase
         .from("system_a_catalog")
-        .select("product_category, product_subcategory")
+        .select("name, product_category, product_subcategory")
         .eq("active", true).eq("approved", true).eq("visible_in_ui", true)
         .not("product_category", "is", null);
       const map: Record<string, Set<string>> = {};
+      const lines: Record<string, Record<string, Set<string>>> = {};
       (data || []).forEach((r: any) => {
         const canon = normCat(r.product_category);
         if (!canon) return;
         if (!map[canon]) map[canon] = new Set<string>();
         const sub = (r.product_subcategory || "").trim();
         if (sub) map[canon].add(sub);
+        const line = extractLine(r.name || "");
+        if (!line) return;
+        if (!lines[canon]) lines[canon] = {};
+        const key = sub || "__all__";
+        if (!lines[canon][key]) lines[canon][key] = new Set<string>();
+        lines[canon][key].add(line);
       });
       const out: Record<string, string[]> = {};
       CANONICAL_CATS.forEach((c) => {
         out[c] = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
       });
       setCatalogTaxonomy(out);
+      const linesOut: Record<string, Record<string, string[]>> = {};
+      Object.entries(lines).forEach(([cat, subs]) => {
+        linesOut[cat] = {};
+        Object.entries(subs).forEach(([sub, set]) => {
+          linesOut[cat][sub] = Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+        });
+      });
+      setLinesIndex(linesOut);
     })();
   }, []);
 
   const handleCountryChange = (pais: string) => {
     const country = resolveCountry(pais);
     const ddi = formatDdi(country?.phonecode);
+    const lang = languageForCountry(country?.isoCode);
+    const allStates = country
+      ? State.getStatesOfCountry(country.isoCode).map((s) => s.name)
+      : [];
     setForm((f) => ({
       ...f, pais, estado: "", cidade: "",
       owner_whatsapp_ddi: f.owner_whatsapp_ddi || ddi,
       buyer_whatsapp_ddi: f.buyer_whatsapp_ddi || ddi,
+      language_preference: lang,
+      service_areas: allStates,
     }));
   };
+
+  // Linhas derivadas da Autorização Comercial — recalcula a cada mudança.
+  const derivedLines = useMemo(() => {
+    const scope = (form.authorized_scope || {}) as AuthorizedScope;
+    const acc = new Set<string>();
+    Object.entries(scope).forEach(([cat, subs]) => {
+      const subMap = linesIndex[cat] || {};
+      const list = subs && subs.length ? subs : Object.keys(subMap);
+      list.forEach((sub) => {
+        (subMap[sub] || []).forEach((l) => acc.add(l));
+        // Também inclui linhas marcadas como "__all__" da categoria
+        (subMap["__all__"] || []).forEach((l) => acc.add(l));
+      });
+    });
+    return Array.from(acc).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [form.authorized_scope, linesIndex]);
+
+  // Sincroniza linhas_representadas com o valor derivado.
+  useEffect(() => {
+    const current = (form.linhas_representadas || []).join("|");
+    const next = derivedLines.join("|");
+    if (current !== next) {
+      setForm((f) => ({ ...f, linhas_representadas: derivedLines }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedLines]);
+
+  // Garante service_areas e language_preference quando país já existe (edição).
+  useEffect(() => {
+    if (!selectedCountry) return;
+    const updates: Partial<DistributorFormValue> = {};
+    if (!form.service_areas || form.service_areas.length === 0) {
+      updates.service_areas = State.getStatesOfCountry(selectedCountry.isoCode).map((s) => s.name);
+    }
+    const expectedLang = languageForCountry(selectedCountry.isoCode);
+    if (!form.language_preference) {
+      updates.language_preference = expectedLang;
+    }
+    if (Object.keys(updates).length) {
+      setForm((f) => ({ ...f, ...updates }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCountry?.isoCode]);
 
   const handleLogoFile = async (file: File) => {
     if (!file) return;
