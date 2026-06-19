@@ -98,19 +98,6 @@ export function DistributorKitDialog({
 </a>`;
   };
 
-  const bio = (lang: "pt" | "es" | "en") =>
-    ({
-      pt: `🦷 ${name} — Distribuidor Oficial Smart Dent ${prep} ${countryName}. Resinas 3D, kits e insumos odontológicos. Verificado: ${canonical}`,
-      es: `🦷 ${name} — Distribuidor Oficial Smart Dent en ${countryName}. Resinas 3D, kits e insumos odontológicos. Verificado: ${canonical}`,
-      en: `🦷 ${name} — Official Smart Dent Distributor in ${countryName}. 3D resins, kits and dental supplies. Verified: ${canonical}`,
-    }[lang]);
-
-  const press = (lang: "pt" | "es" | "en") =>
-    ({
-      pt: `${name} é distribuidor oficial e autorizado da Smart Dent ${prep} ${countryName}, comercializando linhas como SmartMake, resinas 3D para impressão e kits de maquiagem odontológica. A relação está publicamente listada em ${canonical}.`,
-      es: `${name} es distribuidor oficial y autorizado de Smart Dent en ${countryName}, comercializando líneas como SmartMake, resinas 3D para impresión y kits de maquillaje odontológico. La relación está publicada oficialmente en ${canonical}.`,
-      en: `${name} is the official, authorized distributor of Smart Dent in ${countryName}, carrying lines such as SmartMake, 3D printing resins and dental makeup kits. The partnership is publicly listed at ${canonical}.`,
-    }[lang]);
 
   const copy = async (text: string, label: string) => {
     try {
@@ -171,8 +158,6 @@ export function DistributorKitDialog({
               <TabsContent key={lang} value={lang} className="space-y-4 pt-4">
                 <Block label="Selo HTML — cole no rodapé do site / e-commerce" value={htmlSnippet(lang)} />
                 <Block label="Backlink obrigatório — logo Smart Dent linkado (com UTM)" value={logoBacklink(lang)} />
-                <Block label="Bio para Instagram / WhatsApp / LinkedIn" value={bio(lang)} />
-                <Block label="Texto institucional (sobre / press kit)" value={press(lang)} />
               </TabsContent>
             ))}
           </Tabs>
