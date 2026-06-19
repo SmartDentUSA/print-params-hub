@@ -37,6 +37,10 @@ type Distributor = {
   active: boolean;
   notes: string | null;
   authorized_scope: AuthorizedScope | null;
+  backlink_status?: string | null;
+  backlink_url?: string | null;
+  backlink_verified_at?: string | null;
+  site_url?: string | null;
 };
 export function SmartOpsDistributors() {
   const [items, setItems] = useState<Distributor[]>([]);
@@ -47,6 +51,8 @@ export function SmartOpsDistributors() {
   const [saving, setSaving] = useState(false);
   const [kitOpen, setKitOpen] = useState(false);
   const [kitTarget, setKitTarget] = useState<KitDistributor | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [verifyingAll, setVerifyingAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -103,6 +109,47 @@ export function SmartOpsDistributors() {
     load();
   };
 
+  const verifyBacklink = async (d?: Distributor) => {
+    try {
+      if (d) setVerifyingId(d.id);
+      else setVerifyingAll(true);
+      const { data, error } = await supabase.functions.invoke("verify-distributor-backlink", {
+        body: d ? { distributor_id: d.id } : {},
+        method: "POST" as any,
+      });
+      if (error) throw error;
+      const checked = (data as any)?.checked ?? 0;
+      toast.success(`Verificação concluída (${checked} distribuidor${checked === 1 ? "" : "es"})`);
+      load();
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "tente novamente"));
+    } finally {
+      setVerifyingId(null);
+      setVerifyingAll(false);
+    }
+  };
+
+  const backlinkBadge = (d: Distributor) => {
+    if (!d.site_url) return null;
+    const s = d.backlink_status;
+    const map: Record<string, { label: string; cls: string }> = {
+      found:       { label: "🔗 backlink ok",  cls: "bg-green-100 text-green-800 border-green-300" },
+      mention:     { label: "≈ cita s/ link",  cls: "bg-amber-100 text-amber-800 border-amber-300" },
+      missing:     { label: "✗ sem backlink",  cls: "bg-red-100 text-red-800 border-red-300" },
+      unreachable: { label: "? site offline",  cls: "bg-slate-100 text-slate-700 border-slate-300" },
+    };
+    const cfg = s ? map[s] : { label: "— não verificado", cls: "bg-slate-50 text-slate-500 border-slate-200" };
+    if (!cfg) return null;
+    const tip = d.backlink_verified_at
+      ? `Verificado em ${new Date(d.backlink_verified_at).toLocaleString("pt-BR")}${d.backlink_url ? ` — encontrado: ${d.backlink_url}` : ""}`
+      : "Nunca verificado";
+    return (
+      <span title={tip} className={`text-[10px] px-1.5 py-0.5 rounded border ${cfg.cls}`}>
+        {cfg.label}
+      </span>
+    );
+  };
+
   const copyPublicLink = async () => {
     const url = `${window.location.origin}/cadastro-distribuidor`;
     try {
@@ -123,6 +170,9 @@ export function SmartOpsDistributors() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={copyPublicLink}>
             <Link2 className="w-4 h-4 mr-2" /> Copiar link público
+          </Button>
+          <Button variant="outline" onClick={() => verifyBacklink()} disabled={verifyingAll}>
+            <Globe className="w-4 h-4 mr-2" /> {verifyingAll ? "Verificando…" : "Verificar backlinks"}
           </Button>
           <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Novo Distribuidor</Button>
         </div>
@@ -177,6 +227,19 @@ export function SmartOpsDistributors() {
                   {d.linkedin && <Linkedin className="w-4 h-4" />}
                   {d.youtube && <Youtube className="w-4 h-4" />}
                 </div>
+                {d.site_url && (
+                  <div className="flex items-center gap-2 pt-1">
+                    {backlinkBadge(d)}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); verifyBacklink(d); }}
+                      disabled={verifyingId === d.id}
+                      className="text-[10px] text-primary hover:underline"
+                    >
+                      {verifyingId === d.id ? "verificando…" : "re-verificar"}
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="outline" onClick={() => openEdit(d)}>
                     <Pencil className="w-3 h-3 mr-1" /> Editar

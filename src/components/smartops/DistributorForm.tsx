@@ -522,6 +522,67 @@ export function DistributorForm({
           })}
         </div>
       </section>
+
+      <section className="space-y-3">
+        <div>
+          <h4 className="text-sm font-semibold">SEO / GEO &amp; IA</h4>
+          <p className="text-xs text-muted-foreground">
+            Estes campos alimentam o schema.org da página pública do distribuidor e o RAG da Dra. LIA.
+          </p>
+        </div>
+        <div>
+          <Label>Regiões / cidades atendidas (separadas por vírgula)</Label>
+          <Input
+            value={(form.service_areas || []).join(", ")}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                service_areas: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+              }))
+            }
+            placeholder="Ex: Santiago, Valparaíso, Concepción"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">Vira <code>areaServed</code> no schema.org — IAs usam para responder por geografia.</p>
+        </div>
+        <div>
+          <Label>Linhas Smart Dent representadas (separadas por vírgula)</Label>
+          <Input
+            value={(form.linhas_representadas || []).join(", ")}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                linhas_representadas: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+              }))
+            }
+            placeholder="Ex: SmartMake, Vitality, NanoClean, GlazeON"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">Vira <code>makesOffer</code> — treina IAs a responder "onde comprar Vitality no Chile".</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label>Wikidata ID (opcional)</Label>
+            <Input
+              value={form.wikidata_id || ""}
+              onChange={(e) => setForm((f) => ({ ...f, wikidata_id: e.target.value.trim() }))}
+              placeholder="Q12345678"
+            />
+          </div>
+          <div>
+            <Label>Idioma preferencial da página</Label>
+            <Select
+              value={form.language_preference || "pt"}
+              onValueChange={(v) => setForm((f) => ({ ...f, language_preference: v }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">Português</SelectItem>
+                <SelectItem value="es">Español</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
