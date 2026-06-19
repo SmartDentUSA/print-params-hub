@@ -276,12 +276,11 @@ Deno.serve(async (req) => {
       "=== COMPOSIÇÃO CINEMATOGRÁFICA EM 4 CAMADAS ===",
       ...cinematicLayers,
       "",
-      logo_url ? "Reservar o canto superior direito para o logo do evento, discreto, com leve sombra. Se o logo não estiver disponível como referência visual nesta chamada, não inventar detalhes ilegíveis — usar uma marca tipográfica limpa do nome do evento." : "",
       prompt ? "Brief adicional do usuário:" : "",
       prompt || "",
     ].filter(Boolean).join("\n");
 
-    let generation = await generateImageWithLovable(fullPrompt);
+    let generation = await generateImageWithLovable(fullPrompt, refImages);
     if ("error" in generation) {
       console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
       generation = {
