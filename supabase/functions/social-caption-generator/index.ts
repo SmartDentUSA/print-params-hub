@@ -144,7 +144,10 @@ function platformGuidance(platform: string): string {
     case "instagram":
     case "facebook":
       return [
-        "Plataforma: Instagram/Facebook — modo INSTAGRAM-RICH obrigatório:",
+        "Plataforma: Instagram/Facebook.",
+        "OBJETIVO: gerar SALVAMENTOS + COMENTÁRIOS e direcionar tráfego qualificado para WhatsApp/link da bio (consideração → conversão).",
+        "TOM DE VOZ: especialista próximo, didático, confiante, levemente entusiasmado. Português BR coloquial-profissional. Sem clichê de coach, sem 'galera', sem caps lock gritado.",
+        "FORMATO INSTAGRAM-RICH obrigatório:",
         "• 1ª linha = gancho forte com 1 emoji marcante (ex.: 🚀 ✨ 🦷 🔬 💡 ⚡ 🎯).",
         "• Linha em branco depois do gancho.",
         "• 3 a 6 bullets começando com '▸ ' OU '✔️ ', cada um com 1 emoji contextual.",
@@ -157,13 +160,54 @@ function platformGuidance(platform: string): string {
         "• NÃO use # nas hashtags do array JSON 'hashtags' (apenas a palavra). MAS dentro da caption pode colocar 1 hashtag-âncora opcional após o CTA.",
       ].join("\n");
     case "tiktok":
-      return "Plataforma: TikTok. Caption curta (até 150 chars), gancho forte na 1ª frase, sem formatação longa.";
+      return [
+        "Plataforma: TikTok.",
+        "OBJETIVO: maximizar retenção e comentários (sinal de algoritmo) para puxar tráfego ao perfil/WhatsApp.",
+        "TOM DE VOZ: direto, jovem-profissional, ritmo de fala, frases curtas, leve provocação/curiosidade. Sem jargão técnico pesado.",
+        "FORMATO: caption até 150 chars, gancho-bomba na 1ª frase ('Você ainda usa…?', 'Ninguém te conta que…'), 1-2 emojis MÁX, 3-5 hashtags de descoberta (ex.: odonto, fy, dentista, impressao3d). Sem bullets, sem separadores, sem markdown.",
+      ].join("\n");
     case "youtube":
-      return "Plataforma: YouTube Shorts. Caption objetiva, foco em curiosidade e CTA para canal.";
+      return [
+        "Plataforma: YouTube Shorts.",
+        "OBJETIVO: ganhar inscritos e cliques no link da descrição; reforçar autoridade técnica de longo prazo (SEO de vídeo).",
+        "TOM DE VOZ: educativo, claro, autoral. Mistura curiosidade ('Veja por que…') com prova ('testado em X casos').",
+        "FORMATO: caption objetiva 2-4 linhas, 1ª linha = promessa de aprendizado, CTA explícito para inscrever-se ou ver vídeo completo. Hashtags 3-6 com keywords de busca (#impressao3d #odontologiadigital). Sem emojis excessivos.",
+      ].join("\n");
     case "linkedin":
-      return "Plataforma: LinkedIn. Tom profissional, abertura provocativa, 6-10 linhas, sem emojis em excesso.";
+      return [
+        "Plataforma: LinkedIn.",
+        "OBJETIVO: construir autoridade B2B, gerar conversas com clínicas/laboratórios/distribuidores e leads qualificados via DM.",
+        "TOM DE VOZ: consultivo-sênior, analítico, baseado em dados e cases. Primeira pessoa, sem hype, sem emojis decorativos (máx 1-2 funcionais).",
+        "FORMATO: abertura provocativa em 1 linha (quebra de padrão ou estatística), linha em branco, 6-10 linhas com parágrafos curtos (1-2 frases), insight prático ou aprendizado, CTA reflexivo ('Como vocês resolvem isso na clínica?'). 3-5 hashtags técnicas no fim.",
+      ].join("\n");
     case "pinterest":
-      return "Plataforma: Pinterest. Descrição rica em palavras-chave, focada em busca.";
+      return [
+        "Plataforma: Pinterest.",
+        "OBJETIVO: SEO visual de longa duração — capturar buscas 'como fazer / qual melhor / passo a passo' e levar ao site.",
+        "TOM DE VOZ: descritivo, informativo, neutro-profissional. Sem gírias, sem emojis.",
+        "FORMATO: título 1ª linha (até 100 chars) com keyword principal, descrição rica 2-3 frases com sinônimos e termos de busca (resina 3D, impressora odontológica, protocolo digital), CTA suave ('Saiba mais'). 5-10 hashtags categóricas.",
+      ].join("\n");
+    case "reddit":
+      return [
+        "Plataforma: Reddit.",
+        "OBJETIVO: gerar discussão genuína dentro do subreddit, NUNCA soar como anúncio (autopromoção é banida).",
+        "TOM DE VOZ: par-a-par, humilde, técnico-honesto, primeira pessoa. Admite limitações. Zero marketing-speak, zero emojis, zero hashtags.",
+        "FORMATO: título estilo pergunta ou observação ('Anyone else noticed…?'), corpo em parágrafos, contexto + dúvida/insight, sem links promocionais diretos no corpo.",
+      ].join("\n");
+    case "twitter":
+      return [
+        "Plataforma: X/Twitter.",
+        "OBJETIVO: viralização por insight curto, ganhar follows e cliques no link.",
+        "TOM DE VOZ: incisivo, opinativo, com personalidade. Frases curtas, quebra de linha entre ideias. Pode ter 1 emoji âncora.",
+        "FORMATO: tweet único até 270 chars OU thread (1ª linha = hook absoluto). 1-3 hashtags MÁX no fim. Sem markdown.",
+      ].join("\n");
+    case "gmb":
+      return [
+        "Plataforma: Google Business Profile (Posts/Updates).",
+        "OBJETIVO: melhorar conversão local — quem busca a marca decide visitar/contatar.",
+        "TOM DE VOZ: institucional acolhedor, claro, confiável. Pode ter 1 emoji discreto.",
+        "FORMATO: 1 frase de oferta/novidade + 2-3 frases de benefício + CTA explícito ('Fale conosco', 'Agendar'). Sem hashtags. Até 1500 chars.",
+      ].join("\n");
     default:
       return `Plataforma: ${platform}.`;
   }
