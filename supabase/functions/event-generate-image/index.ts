@@ -92,8 +92,9 @@ function escapeXml(value: string): string {
 
 function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string }): Uint8Array {
   const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
-  const meta = escapeXml(`${args.flag ? args.flag + " " : ""}${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
+  const meta = escapeXml(`${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
   const country = escapeXml(args.countryLabel || "");
+  const flag = escapeXml(args.flag || "");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="0.52" stop-color="#12324b"/><stop offset="1" stop-color="#0b1118"/></linearGradient>
@@ -103,10 +104,19 @@ function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string
   <rect width="1200" height="675" fill="url(#bg)"/>
   <rect width="1200" height="675" fill="url(#glow)"/>
   <path d="M0 520 C220 430 340 610 540 510 C780 390 930 500 1200 390 L1200 675 L0 675 Z" fill="#ffffff" opacity="0.05"/>
-  <text x="72" y="70" fill="#f7fbff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">Smart Dent ${country ? "  " + country : ""}</text>
-  <text x="72" y="250" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
-  <foreignObject x="70" y="285" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
-  <text x="72" y="616" fill="#edf7ff" opacity="0.92" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">${meta}</text>
+  <g transform="translate(72,50)" filter="url(#shadow)">
+    <path d="M0 40 C 20 10, 50 6, 80 18 L 70 26 C 50 18, 30 22, 12 44 Z" fill="#9fb8cc"/>
+    <path d="M6 50 C 30 30, 70 30, 96 70 C 70 56, 36 60, 14 72 Z" fill="#ffffff"/>
+    <text x="110" y="58" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="44" font-weight="900" letter-spacing="2">SMART DENT</text>
+  </g>
+  <text x="72" y="290" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
+  <foreignObject x="70" y="305" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
+  <g transform="translate(990,55)" filter="url(#shadow)">
+    <rect x="0" y="0" width="150" height="100" rx="8" fill="#0b1118" stroke="#ffffff" stroke-width="2"/>
+    <text x="75" y="68" text-anchor="middle" font-size="58" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${flag}</text>
+    <text x="75" y="125" text-anchor="middle" fill="#ffffff" font-size="18" font-family="Arial, Helvetica, sans-serif" font-weight="600" letter-spacing="2">${country.toUpperCase()}</text>
+  </g>
+  <text x="72" y="620" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="2" filter="url(#shadow)">${meta}</text>
 </svg>`;
   return new TextEncoder().encode(svg);
 }
@@ -203,20 +213,20 @@ Deno.serve(async (req) => {
       "=== POSICIONAMENTO TIPOGRÁFICO (peça editorial cinematográfica, NÃO mockup de UI) ===",
       "Canvas 16:9 (1200x675px). Tudo flutua integrado à atmosfera cinematográfica — NUNCA caixas, NUNCA blocos sólidos, NUNCA fundos cinza atrás de texto, NUNCA placeholders visíveis.",
       "",
-      "TOPO ESQUERDO (discreto, pequeno, margem generosa):",
-      `- Wordmark "Smart Dent" em branco fino, e ao lado a bandeira ${flag || ""} ${countryLabel} renderizada como pequeno retângulo com cantos levemente arredondados (largura ~28px). Ambos pequenos, elegantes, integrados — não dominantes.`,
+      "TOPO ESQUERDO (logo Smart Dent — OBRIGATÓRIO, renderizar com fidelidade absoluta):",
+      '- Logo oficial Smart Dent: à esquerda um ÍCONE de movimento composto por DUAS curvas (uma fina arco superior cinza-azulado e uma curva inferior larga preenchida em branco) formando um swoosh dinâmico estilo "T" inclinado; ao lado direito do ícone, o WORDMARK "SMART DENT" em SANS-SERIF GEOMÉTRICA BOLD, todas as letras em CAIXA ALTA, espaçamento regular, na cor BRANCO PURO. Renderizar nítido, sem distorção, sem letras erradas. Altura do logo ~70px, margem 60px do topo e 60px da esquerda.',
       "",
-      "TOPO DIREITO:",
-      "- Logo do evento fornecido, tamanho médio, integrado com leve glow branco e sombra suave. Sem moldura, sem fundo branco atrás. Se não houver logo, omitir esta área.",
+      "TOPO DIREITO (bandeira do país em destaque):",
+      `- Bandeira de ${countryLabel || "país"} renderizada como retângulo grande, cantos levemente arredondados, LARGURA ~150px (proporção 3:2), com borda branca fina 2px e sombra suave. Cores oficiais da bandeira nítidas e corretas. Posicionada no canto superior direito com margem 60px. Esta é uma âncora visual forte — NÃO discreta.`,
       "",
       "EIXO CENTRAL ESQUERDO (hierarquia editorial vertical, alinhada à esquerda com respiro generoso):",
       '- Eyebrow pequeno em caps, tracking amplo, branco fino: "PRESENÇA CONFIRMADA".',
       `- Título display abaixo, MUITO grande, peso black, branco puro, leading apertado, em caps: "${eventName.toUpperCase()}". Pode ocupar 2 linhas se necessário. Esta é a âncora visual da peça.`,
       "- NÃO inserir nenhum bloco cinza, retângulo placeholder, texto fake, lorem ipsum ou área reservada visível. Apenas o eyebrow + título sobre o fundo cinematográfico.",
       "",
-      "RODAPÉ (linha única horizontal na base, alinhada à esquerda, tipografia fina caps branca, separadores verticais finos translúcidos entre blocos — sem barra preta atrás):",
-      `- ${flag || ""} ${cityLine.toUpperCase()}${dateRange ? "  ·  " + dateRange : ""}${stand ? "  ·  STAND " + stand : ""}`,
-      "- Tudo em uma única linha discreta, peso regular, tamanho pequeno, branco 90% opacidade. Sem caixas, sem fundos, sem ícones extras.",
+      "RODAPÉ (linha horizontal na base, alinhada à esquerda, tipografia caps branca, GRANDE e legível):",
+      `- ${cityLine.toUpperCase()}${dateRange ? "  ·  " + dateRange : ""}${stand ? "  ·  STAND " + stand : ""}`,
+      "- Tamanho de fonte GRANDE (~42px), peso semibold/bold, branco puro, alta legibilidade. A data e o local devem ser claramente visíveis à distância — esta é uma informação CRÍTICA, não decorativa. Separadores verticais finos translúcidos entre blocos. Sem caixas atrás, sem barra preta.",
       "",
       "REGRAS DE OURO:",
       "- ZERO mockup de UI, ZERO retângulos cinza, ZERO caixas com fundo sólido, ZERO placeholder visível.",
