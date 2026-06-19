@@ -1,26 +1,44 @@
-## Plano
+## Objetivo
 
-### 1. Cron de verificação de backlinks (mensal)
-- Agendar `verify-distributor-backlinks-monthly` via `pg_cron`: `15 4 1 * *` (dia 1 de cada mês, 04:15 UTC).
-- Job invoca a Edge Function `verify-distributor-backlink` para cada distribuidor ativo (loop SQL `SELECT id FROM distributors WHERE active = true`).
-- Manter o botão manual "Verificar backlinks" em `SmartOpsDistributors.tsx` para Fábio rodar sob demanda.
-- Nenhum cron diário será criado (o anterior foi interrompido antes de existir).
+Eliminar três campos manuais redundantes no `DistributorForm` (admin e público), preenchendo-os automaticamente a partir de dados que já existem no formulário/banco:
 
-### 2. Selo Oficial — substituir pelo PNG enviado
-- Upload do PNG (`/mnt/user-uploads/SmartDent_Oficial.png`) via `lovable-assets create` → sobrescreve `src/assets/selo-distribuidor-oficial-smart-dent.png.asset.json`.
-- `DistributorKitDialog.tsx` já lê esse pointer → selo novo aparece automaticamente nos snippets HTML, em `/distribuidores/{pais}/{slug}` e no kit de imprensa.
-- Ajustar o snippet HTML do selo para `width=140 height=140` (proporção quadrada do novo selo) e `alt="Distribuidor Oficial Certificado Smart Dent Brasil"`.
+1. **Linhas Smart Dent representadas** — derivadas da Autorização Comercial.
+2. **Idioma preferencial** — derivado do país.
+3. **Regiões / cidades atendidas** — derivadas do país (todas as regiões).
 
-### 3. Documentação
-- Atualizar `docs/PITCH_DISTRIBUIDORES_FABIO.md`:
-  - Cron mudou de diário para **mensal** (dia 1, 04:15 UTC).
-  - Selo oficial agora é o PNG redondo "Distribuidor Oficial · Certificado · Brasil".
+## Mudanças no `src/components/smartops/DistributorForm.tsx`
 
-### Fora de escopo
-- Não mexer em rotas canônicas `/distribuidores/...` (já corretas).
-- Não alterar schema, RAG da Dra. LIA, nem JSON-LD da Fase 3.
+### 1. Linhas Smart Dent representadas (auto)
+- Ampliar a query de `system_a_catalog` no `useEffect` para trazer também `name`, `product_category`, `product_subcategory`.
+- Montar um mapa `cat → sub → Set<linha>` onde `linha` = nome curto do produto (heurística: primeiras 2–3 palavras de `name` normalizadas, ex.: "Smart Print Atos Try-in" → "Smart Print Atos"; "SmartMake Kit" → "SmartMake"). Lista final ordenada e deduplicada.
+- Sempre que `authorized_scope` mudar:
+  - Se categoria marcada com subs → unir linhas das subs selecionadas.
+  - Se categoria marcada sem subs → unir linhas de todas as subs da categoria.
+- Aplicar em `form.linhas_representadas` automaticamente (sobrescreve, não merge).
+- Trocar o `<Input>` editável por um bloco **read-only** com as linhas exibidas como chips + texto "Calculado a partir da Autorização Comercial".
 
-### Detalhes técnicos
-- Migration nova com `cron.schedule('verify-distributor-backlinks-monthly', '15 4 1 * *', $$ ... $$)`.
-- Loop chama a edge function via `net.http_post` com `service_role` JWT (mesmo padrão dos outros crons do projeto).
-- Pointer `.asset.json` é regerado pelo CLI — não editar manualmente.
+### 2. Idioma preferencial (auto pelo país)
+- Mapa `paisCodigo → idioma`:
+  - `BR` → `pt`
+  - `US, CA (en), GB, AU, IE` → `en`
+  - resto da América Latina + Espanha → `es`
+  - fallback → `pt`.
+- Em `handleCountryChange`, setar `language_preference` automaticamente.
+- Remover o `<Select>` manual; substituir por um campo informativo: "Idioma: Español (definido automaticamente pelo país Chile)".
+
+### 3. Regiões / cidades atendidas (auto pelo país)
+- Em `handleCountryChange`, popular `service_areas` com **todas as regiões/estados** do país via `State.getStatesOfCountry(country.isoCode)` (já temos `country-state-city` importado). Para Chile retorna as 16 regiões oficiais; para Brasil os 26 estados + DF; etc.
+- Remover o `<Input>` manual; substituir por bloco read-only mostrando "Cobertura nacional: 16 regiões do Chile" com lista colapsável (chips).
+- Manter botão **"Restringir cobertura"** (opcional, futuro) — fora do escopo agora.
+
+### 4. Defaults em `emptyDistributorForm`
+- `language_preference` permanece `"pt"` (será sobrescrito quando país for escolhido).
+- `service_areas` começa `[]` e é preenchido no primeiro `handleCountryChange`.
+
+## Efeitos colaterais
+- Páginas SSR (`seo-proxy`) já consomem `service_areas`, `linhas_representadas` e `language_preference` direto do banco — sem mudanças no edge function. O JSON-LD `areaServed` e `makesOffer` vão ficar mais completos automaticamente para distribuidores que forem re-salvos.
+
+## Fora do escopo
+- Não mexer no schema do banco.
+- Não recalcular distribuidores existentes em massa (só vão atualizar ao re-salvar). Posso fazer um backfill em seguida se quiser.
+- Não mexer em `seo-proxy`, sitemap, ou backlinks.
