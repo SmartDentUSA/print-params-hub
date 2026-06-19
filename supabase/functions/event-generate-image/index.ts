@@ -20,6 +20,65 @@ const LANG_LABEL: Record<string, string> = {
   es: "espanhol",
 };
 
+const COUNTRY_FLAGS: Record<string, { flag: string; label: string }> = {
+  "brasil": { flag: "🇧🇷", label: "Brasil" },
+  "brazil": { flag: "🇧🇷", label: "Brasil" },
+  "estados unidos": { flag: "🇺🇸", label: "Estados Unidos" },
+  "eua": { flag: "🇺🇸", label: "Estados Unidos" },
+  "usa": { flag: "🇺🇸", label: "Estados Unidos" },
+  "united states": { flag: "🇺🇸", label: "Estados Unidos" },
+  "italia": { flag: "🇮🇹", label: "Itália" },
+  "itália": { flag: "🇮🇹", label: "Itália" },
+  "italy": { flag: "🇮🇹", label: "Itália" },
+  "alemanha": { flag: "🇩🇪", label: "Alemanha" },
+  "germany": { flag: "🇩🇪", label: "Alemanha" },
+  "franca": { flag: "🇫🇷", label: "França" },
+  "frança": { flag: "🇫🇷", label: "França" },
+  "france": { flag: "🇫🇷", label: "França" },
+  "espanha": { flag: "🇪🇸", label: "Espanha" },
+  "spain": { flag: "🇪🇸", label: "Espanha" },
+  "reino unido": { flag: "🇬🇧", label: "Reino Unido" },
+  "uk": { flag: "🇬🇧", label: "Reino Unido" },
+  "united kingdom": { flag: "🇬🇧", label: "Reino Unido" },
+  "portugal": { flag: "🇵🇹", label: "Portugal" },
+  "mexico": { flag: "🇲🇽", label: "México" },
+  "méxico": { flag: "🇲🇽", label: "México" },
+  "argentina": { flag: "🇦🇷", label: "Argentina" },
+  "china": { flag: "🇨🇳", label: "China" },
+  "japao": { flag: "🇯🇵", label: "Japão" },
+  "japão": { flag: "🇯🇵", label: "Japão" },
+  "japan": { flag: "🇯🇵", label: "Japão" },
+  "emirados arabes": { flag: "🇦🇪", label: "Emirados Árabes" },
+  "emirados árabes": { flag: "🇦🇪", label: "Emirados Árabes" },
+  "uae": { flag: "🇦🇪", label: "Emirados Árabes" },
+  "canada": { flag: "🇨🇦", label: "Canadá" },
+  "canadá": { flag: "🇨🇦", label: "Canadá" },
+  "suica": { flag: "🇨🇭", label: "Suíça" },
+  "suíça": { flag: "🇨🇭", label: "Suíça" },
+  "switzerland": { flag: "🇨🇭", label: "Suíça" },
+  "holanda": { flag: "🇳🇱", label: "Holanda" },
+  "netherlands": { flag: "🇳🇱", label: "Holanda" },
+};
+
+function resolveFlag(country?: string | null): { flag: string; label: string } {
+  if (!country) return { flag: "", label: "" };
+  const key = country.trim().toLowerCase();
+  return COUNTRY_FLAGS[key] ?? { flag: "", label: country };
+}
+
+const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+function fmtDateRange(start?: string | null, end?: string | null): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return `${MONTHS_PT[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,"0")}`;
+  };
+  const s = start ? fmt(start) : "";
+  const e = end ? fmt(end) : "";
+  if (s && e) return `${s} - ${e}`;
+  return s || e || "";
+}
+
 function extractImageUrl(text: string): string | null {
   if (!text) return null;
   const md = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/);
@@ -53,6 +112,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { flag, label: countryLabel } = resolveFlag(ev.country);
+    const dateRange = fmtDateRange(ev.start_date, ev.end_date);
+    const cityLine = ev.location || "";
+    const stand = ev.company_stand || "";
+    const eventName = ev.name || "";
+
+    const layoutBlock = [
+      "=== LAYOUT OBRIGATÓRIO (posicionamento dos elementos) ===",
+      "Canvas 16:9 (1200x675px), fundo escuro premium conforme camadas cinematográficas.",
+      "",
+      "CANTO SUPERIOR ESQUERDO:",
+      `- Logo Smart Dent (branco, traço fino) + ao lado a bandeira do país do evento (${flag || "[bandeira]"} ${countryLabel}), pequena, com cantos arredondados sutis.`,
+      "",
+      "CANTO SUPERIOR DIREITO:",
+      "- Logo do evento fornecido, grande, em branco, com leve sombra. Se não houver logo, escrever o nome do evento em tipografia display branca, peso bold, alinhado à direita.",
+      "",
+      "ÁREA CENTRAL ESQUERDA (texto principal):",
+      '- Linha 1: "PRESENÇA CONFIRMADA" em caps, peso bold, branco, tracking amplo, fonte pequena.',
+      "- Linha 2: bloco de respiro de ~3 linhas reservado para copy posterior — NÃO renderizar texto fictício, lorem ipsum ou placeholder visível; manter a área limpa apenas com o fundo cinematográfico.",
+      "",
+      "RODAPÉ (faixa inferior, alinhada à esquerda, separadores verticais finos brancos entre blocos):",
+      `- Bloco 1: bandeira ${flag || "[bandeira do país]"} grande (cantos arredondados) + ao lado, em duas linhas: "${cityLine.toUpperCase()}" em caps bold branco / "${dateRange}" em caps branco fino.`,
+      `- Bloco 2: "STAND:" label fino caps + número do stand "${stand}" em display bold branco.`,
+      `- Bloco 3: nome do evento "${eventName.toUpperCase()}" em caps bold branco, alinhado à esquerda.`,
+      "",
+      "REGRAS:",
+      "- Sem textos inventados, sem lorem ipsum, sem datas falsas — usar EXATAMENTE os valores fornecidos acima.",
+      "- Tipografia sans-serif geométrica condensada, branca pura sobre o fundo cinematográfico.",
+      "- Manter respiro generoso entre blocos; nada deve encostar nas bordas.",
+      "- Bandeiras sempre como retângulos com cantos levemente arredondados, nunca como círculos.",
+    ].join("\n");
+
     const cinematicLayers = reference_image_url ? [
       "REGRA PRINCIPAL: a MESMA imagem de referência fornecida (skyline, ponte, venue, arquitetura ou paisagem urbana do evento) deve ser usada simultaneamente como FUNDO TOTAL e como ELEMENTO DE DESTAQUE. Nunca usar fundo independente, sólido preto, genérico ou vazio.",
       "CAMADA 1 — BASE: expandir a imagem de referência para ocupar 100% do canvas 16:9 (1200x675px).",
@@ -70,6 +161,8 @@ Deno.serve(async (req) => {
       `Idioma da arte: ${LANG_LABEL[language]}. Tipografia limpa, palavras-chave no idioma, área de respiro no canto esquerdo para overlay de título.`,
       ev.location || ev.country ? `Contexto: ${[ev.location, ev.country].filter(Boolean).join(" — ")}.` : "",
       ev.start_date || ev.end_date ? `Datas: ${[ev.start_date, ev.end_date].filter(Boolean).join(" → ")}.` : "",
+      "",
+      layoutBlock,
       "",
       "=== COMPOSIÇÃO CINEMATOGRÁFICA EM 4 CAMADAS ===",
       ...cinematicLayers,
