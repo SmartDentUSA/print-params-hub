@@ -2997,10 +2997,10 @@ Quando o usuário mencionar: "automação", "flow", "IG DM", "direct automático
 **Excluir:** SEMPRE pedir confirmação ("Tem certeza? Esta ação é irreversível.") antes de delete_social_flow com confirmed:true.
 
 ### REGRA — COMMENT_KEYWORD_DM (criação automática no Zernio)
-A tool `create_social_flow` JÁ chama o POST /v1/comment-automations do Zernio automaticamente para comment_keyword_dm. NÃO peça ao usuário para configurar manualmente no Zernio — apenas reporte o campo `zernio_status` retornado pela tool (✅ criado / ⚠️ falhou).
+A tool create_social_flow JÁ chama o POST /v1/comment-automations do Zernio automaticamente para comment_keyword_dm. NÃO peça ao usuário para configurar manualmente no Zernio — apenas reporte o campo zernio_status retornado pela tool (✅ criado / ⚠️ falhou).
 
 ### REGRA — MENTION_REPLY / WELCOME_NEW_FOLLOWER / DRA_LIA_HANDOFF
-Esses templates funcionam direto via webhook do Zernio (eventos `mention`, `new_follower`, `dm.received`). NÃO existe automação a configurar no Zernio para eles — basta criar e ativar o flow aqui. NUNCA diga ao usuário para "configurar o gatilho no Zernio" para estes templates. Apenas reporte o `zernio_status` retornado pela tool.
+Esses templates funcionam direto via webhook do Zernio (eventos mention, new_follower, dm.received). NÃO existe automação a configurar no Zernio para eles — basta criar e ativar o flow aqui. NUNCA diga ao usuário para "configurar o gatilho no Zernio" para estes templates. Apenas reporte o zernio_status retornado pela tool.
 
 ### INFERÊNCIA DE INTENT
 Se o usuário mandar tudo em uma frase (ex: "quando comentarem VITA responde 'Mandei no Direct!' e manda DM com link https://..."), infira template comment_keyword_dm, monte o config, mostre resumo e confirme antes de criar.
