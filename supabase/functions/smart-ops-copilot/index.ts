@@ -2599,6 +2599,12 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_product_owners: executeQueryProductOwners,
   query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
   get_product_anti_hallucination: executeGetProductAntiHallucination,
+  list_social_flows: executeListSocialFlows,
+  get_social_flow: executeGetSocialFlow,
+  create_social_flow: executeCreateSocialFlow,
+  update_social_flow: executeUpdateSocialFlow,
+  toggle_social_flow: executeToggleSocialFlow,
+  delete_social_flow: executeDeleteSocialFlow,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
