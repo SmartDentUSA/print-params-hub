@@ -87,14 +87,14 @@ export function DistributorKitDialog({
     .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   const utm = `?utm_source=distribuidor&utm_medium=backlink&utm_campaign=${slug}`;
   const logoBacklink = (lang: "pt" | "es" | "en") => {
-    const alt = {
+    const label = {
       pt: "Smart Dent — fabricante oficial",
       es: "Smart Dent — fabricante oficial",
       en: "Smart Dent — official manufacturer",
     }[lang];
     return `<!-- Backlink obrigatório para o fabricante Smart Dent -->
-<a href="https://www.smartdent.com.br${utm}" target="_blank" rel="noopener" title="${alt}" style="display:inline-block;text-decoration:none;">
-  <img src="https://www.smartdent.com.br/logo-smartdent.png" alt="${alt}" width="140" height="48" loading="lazy" style="border:0;" />
+<a href="https://www.smartdent.com.br${utm}" target="_blank" rel="noopener" title="${label}" style="display:inline-block;font-family:system-ui,sans-serif;font-size:13px;font-weight:600;color:#0f172a;text-decoration:none;border-bottom:1px solid #0f172a;padding-bottom:2px;">
+  ${label} — smartdent.com.br
 </a>`;
   };
 
