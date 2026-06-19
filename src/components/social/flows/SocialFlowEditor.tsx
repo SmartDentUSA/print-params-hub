@@ -37,6 +37,7 @@ const NODE_TYPES = [
   { type: 'set_field', label: 'Definir campo', color: 'hsl(142 70% 45%)' },
   { type: 'trigger', label: 'Trigger', color: 'hsl(280 70% 55%)' },
   { type: 'create_lead', label: 'Criar lead no CRM', color: 'hsl(142 70% 45%)' },
+  { type: 'dra_lia_chat', label: 'Delegar para Dra. LIA', color: 'hsl(280 70% 55%)' },
   { type: 'end', label: 'Fim', color: 'hsl(var(--destructive))' },
 ];
 
@@ -45,6 +46,7 @@ const TRIGGER_TYPES = [
   { value: 'dm_keyword', label: 'Palavra-chave em DM' },
   { value: 'story_reply', label: 'Resposta em story' },
   { value: 'mention', label: 'Menção' },
+  { value: 'new_follower', label: 'Novo seguidor' },
 ];
 
 export function SocialFlowEditor() {
