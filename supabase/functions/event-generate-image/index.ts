@@ -5,6 +5,7 @@ import { z } from "npm:zod";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const SMARTDENT_LOGO_URL = "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
@@ -121,10 +122,15 @@ function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string
   return new TextEncoder().encode(svg);
 }
 
-async function generateImageWithLovable(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | { error: string; status: number; details?: string }> {
+async function generateImageWithLovable(prompt: string, imageUrls: string[] = []): Promise<{ bytes: Uint8Array; contentType: string } | { error: string; status: number; details?: string }> {
   if (!LOVABLE_API_KEY) return { error: "LOVABLE_API_KEY não configurada", status: 500 };
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
+
+  const content: any[] = [{ type: "text", text: prompt }];
+  for (const url of imageUrls) {
+    if (url) content.push({ type: "image_url", image_url: { url } });
+  }
 
   let resp: Response;
   try {
@@ -136,11 +142,9 @@ async function generateImageWithLovable(prompt: string): Promise<{ bytes: Uint8A
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "openai/gpt-image-2",
-        prompt,
-        size: "1536x1024",
-        quality: "low",
-        n: 1,
+        model: "google/gemini-3-pro-image-preview",
+        messages: [{ role: "user", content }],
+        modalities: ["image", "text"],
         stream: false,
       }),
     });
