@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { event_id, language, prompt, reference_image_url, logo_url } = parsed.data;
+    const { event_id, language, prompt, reference_image_url, logo_url, base_image_url, base_language } = parsed.data;
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: ev, error: evErr } = await supabase
@@ -227,6 +227,7 @@ Deno.serve(async (req) => {
     const stand = ev.company_stand || "";
     const eventName = ev.name || "";
     const confirmedLabel = CONFIRMED_LABEL[language] ?? CONFIRMED_LABEL.pt;
+    const baseConfirmedLabel = base_language ? (CONFIRMED_LABEL[base_language] ?? CONFIRMED_LABEL.pt) : CONFIRMED_LABEL.pt;
 
     // Referências visuais nesta ordem: [0] Logo Smart Dent oficial, [1] Logo do evento (opcional), [2] Imagem de referência do venue (opcional)
     const refImages: string[] = [SMARTDENT_LOGO_URL];
@@ -281,7 +282,21 @@ Deno.serve(async (req) => {
       "Sem imagem de referência: criar cenário sintético editorial Smart Dent (azul profundo + acentos metálicos), cinematográfico, com profundidade e atmosfera de evento internacional. NUNCA fundo sólido preto puro nem fundo vazio.",
     ];
 
-    const fullPrompt = [
+    // MODO EDIÇÃO: se recebermos uma imagem base de outro idioma, NÃO geramos uma nova arte.
+    // Apenas pedimos pro Gemini reaproveitar pixel-a-pixel e trocar UNICAMENTE o eyebrow traduzido.
+    const editPrompt = base_image_url ? [
+      "=== MODO EDIÇÃO DE TEXTO PIXEL-PERFECT ===",
+      "A IMAGEM 1 é a arte final já aprovada. Sua ÚNICA tarefa é devolver EXATAMENTE essa mesma imagem, idêntica pixel a pixel (mesmo fundo, mesmas fotos, mesmos logos, mesmo título, mesma bandeira, mesma data, mesmo rodapé, mesma tipografia, mesmas cores, mesmo enquadramento, mesma composição), trocando APENAS o trecho de texto do eyebrow.",
+      `TROCAR: "${baseConfirmedLabel}"  →  "${confirmedLabel}".`,
+      "REGRAS ABSOLUTAS:",
+      "- NÃO redesenhar nada além desse texto.",
+      "- NÃO recompor, NÃO reenquadrar, NÃO mudar iluminação, NÃO mudar fundo, NÃO mudar logo, NÃO mudar bandeira, NÃO mudar título, NÃO mudar datas, NÃO mudar stand.",
+      "- Manter a MESMA fonte, MESMO tamanho, MESMO peso, MESMO tracking, MESMA cor e MESMA posição do eyebrow original.",
+      "- Devolver a imagem inteira em 1200x675 (16:9), idêntica à original, apenas com o eyebrow traduzido.",
+      "- Se a tradução tiver largura levemente diferente, manter o alinhamento à esquerda — NÃO reposicionar nenhum outro elemento.",
+    ].join("\n") : null;
+
+    const fullPrompt = editPrompt ?? [
       `Crie uma capa hero horizontal 16:9 (1200x675px) para o evento "${ev.name}" — material da marca Smart Dent (fluxo digital odontológico).`,
       `Idioma da arte: ${LANG_LABEL[language]}. Tipografia limpa, palavras-chave no idioma, área de respiro no canto esquerdo para overlay de título.`,
       ev.location || ev.country ? `Contexto: ${[ev.location, ev.country].filter(Boolean).join(" — ")}.` : "",
@@ -296,7 +311,10 @@ Deno.serve(async (req) => {
       prompt || "",
     ].filter(Boolean).join("\n");
 
-    let generation = await generateImageWithLovable(fullPrompt, refImages);
+    // Em modo edição, mandamos APENAS a imagem base como referência (não o logo/venue),
+    // pra Gemini não confundir e tentar redesenhar a composição.
+    const promptImages = editPrompt ? [base_image_url!] : refImages;
+    let generation = await generateImageWithLovable(fullPrompt, promptImages);
     if ("error" in generation) {
       console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
       generation = {
