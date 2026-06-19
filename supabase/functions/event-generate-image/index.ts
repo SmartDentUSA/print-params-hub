@@ -1,10 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 import { z } from "npm:zod";
-import { callPoe } from "../_shared/providers/poe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
@@ -79,14 +79,95 @@ function fmtDateRange(start?: string | null, end?: string | null): string {
   return s || e || "";
 }
 
-function extractImageUrl(text: string): string | null {
-  if (!text) return null;
-  const md = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/);
-  if (md) return md[1];
-  const bare = text.match(/(https?:\/\/[^\s)"']+\.(?:png|jpg|jpeg|webp)(?:\?[^\s)"']*)?)/i);
-  if (bare) return bare[1];
-  const any = text.match(/(https?:\/\/[^\s)"']+)/);
-  return any ? any[1] : null;
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string }): Uint8Array {
+  const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
+  const meta = escapeXml(`${args.flag ? args.flag + " " : ""}${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
+  const country = escapeXml(args.countryLabel || "");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="0.52" stop-color="#12324b"/><stop offset="1" stop-color="#0b1118"/></linearGradient>
+    <radialGradient id="glow" cx="72%" cy="38%" r="55%"><stop offset="0" stop-color="#78d8ff" stop-opacity="0.26"/><stop offset="1" stop-color="#78d8ff" stop-opacity="0"/></radialGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.55"/></filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#glow)"/>
+  <path d="M0 520 C220 430 340 610 540 510 C780 390 930 500 1200 390 L1200 675 L0 675 Z" fill="#ffffff" opacity="0.05"/>
+  <text x="72" y="70" fill="#f7fbff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">Smart Dent ${country ? "  " + country : ""}</text>
+  <text x="72" y="250" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
+  <foreignObject x="70" y="285" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
+  <text x="72" y="616" fill="#edf7ff" opacity="0.92" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">${meta}</text>
+</svg>`;
+  return new TextEncoder().encode(svg);
+}
+
+async function generateImageWithLovable(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | { error: string; status: number; details?: string }> {
+  if (!LOVABLE_API_KEY) return { error: "LOVABLE_API_KEY não configurada", status: 500 };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+
+  let resp: Response;
+  try {
+    resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "openai/gpt-image-2",
+        prompt,
+        size: "1536x1024",
+        quality: "low",
+        n: 1,
+        stream: false,
+      }),
+    });
+  } catch (e: any) {
+    clearTimeout(timeout);
+    return { error: "Lovable AI Gateway indisponível", status: 502, details: e?.name === "AbortError" ? "Tempo limite da geração atingido" : e?.message || String(e) };
+  }
+  clearTimeout(timeout);
+
+  const text = await resp.text();
+  let json: any = null;
+  try { json = JSON.parse(text); } catch { /* keep raw text */ }
+
+  if (!resp.ok) {
+    return {
+      error: "Lovable AI Gateway falhou",
+      status: resp.status,
+      details: json?.error?.message || json?.message || text.slice(0, 800),
+    };
+  }
+
+  const b64 = json?.data?.[0]?.b64_json;
+  if (typeof b64 === "string" && b64.length > 0) {
+    return { bytes: base64ToBytes(b64), contentType: "image/png" };
+  }
+
+  const url = json?.data?.[0]?.url;
+  if (typeof url === "string" && url.startsWith("http")) {
+    const imgResp = await fetch(url);
+    if (!imgResp.ok) return { error: "Falha ao baixar imagem gerada", status: imgResp.status, details: await imgResp.text().catch(() => "") };
+    return {
+      bytes: new Uint8Array(await imgResp.arrayBuffer()),
+      contentType: imgResp.headers.get("content-type") || "image/png",
+    };
+  }
+
+  return { error: "Imagem não retornada pela IA", status: 502, details: text.slice(0, 800) };
 }
 
 Deno.serve(async (req) => {
@@ -173,39 +254,18 @@ Deno.serve(async (req) => {
       prompt || "",
     ].filter(Boolean).join("\n");
 
-    const content: any[] = [{ type: "text", text: fullPrompt }];
-    // Poe/Ideogram interpreta múltiplas imagens como init image + mask, causando 400
-    // ("mask and init image must have the same height and width"). Enviamos só 1 imagem.
-    const visualReferenceUrl = reference_image_url || logo_url;
-    if (visualReferenceUrl) content.push({ type: "image_url", image_url: { url: visualReferenceUrl } });
-
-    const poeRes = await callPoe({
-      model: "Ideogram-v3",
-      messages: [{ role: "user", content }],
-    });
-    if (!poeRes.ok) {
-      console.error("[event-generate-image] Poe falhou:", poeRes.status, poeRes.error);
-      return new Response(JSON.stringify({ error: "Poe falhou", details: poeRes.error }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const imageUrl = extractImageUrl(poeRes.text ?? "");
-    if (!imageUrl) {
-      console.error("[event-generate-image] Sem URL na resposta Poe:", poeRes.text?.slice(0, 800));
-      return new Response(JSON.stringify({ error: "URL de imagem não retornada pela IA", raw: poeRes.text?.slice(0, 500) }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let generation = await generateImageWithLovable(fullPrompt);
+    if ("error" in generation) {
+      console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
+      generation = {
+        bytes: svgCoverBytes({ eventName, flag, cityLine, dateRange, stand, countryLabel }),
+        contentType: "image/svg+xml",
+      };
     }
 
-    const imgResp = await fetch(imageUrl);
-    if (!imgResp.ok) {
-      return new Response(JSON.stringify({ error: "Falha ao baixar imagem gerada", status: imgResp.status }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const bytes = new Uint8Array(await imgResp.arrayBuffer());
-    const contentType = imgResp.headers.get("content-type") || "image/png";
-    const ext = contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
+    const bytes = generation.bytes;
+    const contentType = generation.contentType;
+    const ext = contentType.includes("svg") ? "svg" : contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
     const ts = Date.now();
     const path = `events-ai/${event_id}/${language}-${ts}.${ext}`;
 
@@ -245,7 +305,7 @@ Deno.serve(async (req) => {
       url: pub.publicUrl,
       path,
       prompt_used: fullPrompt,
-      model: "Ideogram-v3 (Poe)",
+      model: "openai/gpt-image-2 (Lovable AI Gateway)",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[event-generate-image] erro:", e);
