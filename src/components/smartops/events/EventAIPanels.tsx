@@ -254,29 +254,49 @@ export function EventCoverByLanguage({
   async function genAllLangs() {
     if (!eventId) return toast.error("Salve o evento antes de gerar imagem.");
     setBusyAll(true);
-    const langs: Lang[] = ["pt", "en", "es"];
-    const results = await Promise.allSettled(
-      langs.map((lang) =>
-        supabase.functions.invoke("event-generate-image", {
-          body: {
-            event_id: eventId,
-            language: lang,
-            reference_image_url: referenceImageUrl || undefined,
-            logo_url: eventLogoUrl || undefined,
-          },
-        }).then(({ data, error }) => {
-          if (error) throw error;
-          if (!(data as any)?.ok) throw new Error((data as any)?.error || "Falha");
-          onCoverChange(lang, (data as any).url);
-          return lang;
-        })
-      )
-    );
-    const ok = results.filter((r) => r.status === "fulfilled").length;
-    const fail = results.length - ok;
-    if (ok) toast.success(`Capas geradas: ${ok}/${results.length}`);
-    if (fail) toast.error(`${fail} idioma(s) falharam`);
-    setBusyAll(false);
+    try {
+      // 1) PT é a arte mestra — gera primeiro.
+      const ptRes = await supabase.functions.invoke("event-generate-image", {
+        body: {
+          event_id: eventId,
+          language: "pt",
+          reference_image_url: referenceImageUrl || undefined,
+          logo_url: eventLogoUrl || undefined,
+        },
+      });
+      if (ptRes.error) throw ptRes.error;
+      const ptData: any = ptRes.data;
+      if (!ptData?.ok) throw new Error(ptData?.error || "Falha na arte PT");
+      const baseUrl: string = ptData.url;
+      onCoverChange("pt", baseUrl);
+
+      // 2) EN e ES reusam a arte PT pixel-a-pixel, trocando só o eyebrow.
+      const others: Lang[] = ["en", "es"];
+      const results = await Promise.allSettled(
+        others.map((lang) =>
+          supabase.functions.invoke("event-generate-image", {
+            body: {
+              event_id: eventId,
+              language: lang,
+              base_image_url: baseUrl,
+              base_language: "pt",
+            },
+          }).then(({ data, error }) => {
+            if (error) throw error;
+            if (!(data as any)?.ok) throw new Error((data as any)?.error || "Falha");
+            onCoverChange(lang, (data as any).url);
+          })
+        )
+      );
+      const ok = 1 + results.filter((r) => r.status === "fulfilled").length;
+      const fail = 3 - ok;
+      toast.success(`Capas geradas: ${ok}/3`);
+      if (fail) toast.error(`${fail} idioma(s) falharam`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha");
+    } finally {
+      setBusyAll(false);
+    }
   }
 
   return (
