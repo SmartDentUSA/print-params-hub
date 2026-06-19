@@ -955,6 +955,99 @@ const tools = [
         required: ["product"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_social_flows",
+      description: "Lista automações de Instagram DM (social_flows). Use quando o usuário mencionar: automação, social publisher, flow IG, DM automática, comment-to-DM. Mostra nome, status ativo/pausado, canal e resumo do trigger.",
+      parameters: {
+        type: "object",
+        properties: {
+          channel: { type: "string", description: "Filtrar por canal: instagram (padrão)" },
+          only_active: { type: "boolean", description: "Se true, retorna só flows ativos" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_social_flow",
+      description: "Retorna o flow completo com todos os nós numerados em formato legível. Use quando o usuário quiser ver detalhes ou editar um flow específico.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "string", description: "UUID do flow em social_flows" } },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_social_flow",
+      description: "Cria um novo flow de automação Instagram DM. SEMPRE cria com is_active:false. Nunca ativar sem confirmação explícita. Templates: comment_keyword_dm, welcome_new_follower, mention_reply, lead_capture_dm, ads_click_to_messenger, dra_lia_handoff, content_sequence.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+          channel: { type: "string", description: "instagram (padrão)" },
+          template: {
+            type: "string",
+            enum: ["comment_keyword_dm","welcome_new_follower","mention_reply","lead_capture_dm","ads_click_to_messenger","dra_lia_handoff","content_sequence"]
+          },
+          config: {
+            type: "object",
+            description: "Campos do template. comment_keyword_dm:{keywords[],public_reply,dm_message,dm_link}. lead_capture_dm:{keywords[],form_name,tag}. content_sequence:{keywords[],steps:[{message,delay_hours}]}. dra_lia_handoff:{keywords[]}. welcome_new_follower:{dm_message}. mention_reply:{dm_message}. ads_click_to_messenger:{keywords[],produto,form_name}."
+          }
+        },
+        required: ["name","template","config"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_social_flow",
+      description: "Atualiza um flow existente. Pode alterar nome/descrição/is_active, ou substituir um nó específico via replace_node:{node_id,fields}. Use após get_social_flow para saber IDs.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          patch: { type: "object", description: "{name?, description?, is_active?} OU {replace_node:{node_id,fields}}" }
+        },
+        required: ["id","patch"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "toggle_social_flow",
+      description: "Ativa ou pausa um flow. Sempre confirmar com o usuário antes de ativar.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "string" }, is_active: { type: "boolean" } },
+        required: ["id","is_active"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_social_flow",
+      description: "Exclui permanentemente um flow. SEMPRE pedir confirmação explícita antes. Destrutivo e irreversível.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          confirmed: { type: "boolean", description: "Deve ser true confirmado pelo usuário" }
+        },
+        required: ["id","confirmed"]
+      }
+    }
   }
 ];
 
@@ -2450,6 +2543,255 @@ async function executeQueryOwnerPurchaseHistory(args: any) {
   return data;
 }
 
+// ── SOCIAL FLOWS (IG DM) ────────────────────────────────────────────────────
+
+function buildFlowFromTemplate(template: string, config: any): { nodes: any[]; edges: any[]; trigger: any } {
+  const nid = () => "n" + Math.random().toString(36).slice(2, 8);
+  const mkNode = (id: string, type: string, label: string, extra: any = {}) => ({
+    id,
+    type: "default",
+    position: { x: 0, y: 0 },
+    data: { label, nodeType: type, config: extra },
+  });
+  const mkEdge = (id: string, source: string, target: string) => ({ id, source, target });
+
+  if (template === "comment_keyword_dm") {
+    const a = nid(), b = nid(), c = nid(), d = nid();
+    const kws = config.keywords || ["BRASIL"];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Comentário com keyword", { trigger_type: "comment_keyword", keywords: kws }),
+        mkNode(b, "send_comment_reply", "Resposta pública no comentário", { message: config.public_reply || "Obrigado! Mandei no Direct." }),
+        mkNode(c, "wait", "Aguardar 3s", { seconds: 3 }),
+        mkNode(d, "send_dm", "DM principal", { message: (config.dm_message || "Olá! Aqui está o que você pediu.") + (config.dm_link ? "\n\n" + config.dm_link : "") }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d)],
+      trigger: { trigger_type: "comment_keyword", keywords: kws, is_regex: false, priority: 90 },
+    };
+  }
+
+  if (template === "welcome_new_follower") {
+    const a = nid(), b = nid();
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Novo seguidor", { trigger_type: "new_follower" }),
+        mkNode(b, "send_dm", "DM — Boas-vindas", { message: config.dm_message || "Olá! Seja bem-vindo ao perfil da SmartDent! 😊" }),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "new_follower", keywords: [], is_regex: false, priority: 50 },
+    };
+  }
+
+  if (template === "mention_reply") {
+    const a = nid(), b = nid();
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — Menção em Story", { trigger_type: "mention" }),
+        mkNode(b, "send_dm", "DM — Resposta à menção", { message: config.dm_message || "Obrigado por nos mencionar! 🙏" }),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "mention", keywords: [], is_regex: false, priority: 60 },
+    };
+  }
+
+  if (template === "lead_capture_dm") {
+    const a = nid(), b = nid(), c = nid(), d = nid(), e = nid(), f = nid(), g = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws }),
+        mkNode(b, "send_dm", "Boas-vindas", { message: "Olá! Vou te ajudar. Qual é o seu nome completo?" }),
+        mkNode(c, "collect_input", "Capturar nome", { field: "nome", prompt: "" }),
+        mkNode(d, "send_dm", "Pede WhatsApp", { message: "Perfeito! Qual é o seu WhatsApp com DDD?" }),
+        mkNode(e, "collect_input", "Capturar telefone", { field: "telefone", prompt: "" }),
+        mkNode(f, "collect_input", "Capturar área", { field: "area_atuacao", prompt: "Você trabalha em clínica, laboratório ou outra área?" }),
+        mkNode(g, "create_lead", "Criar lead no CRM", { form_name: config.form_name || "# - INSTAGRAM - Auto atendimento", tag: config.tag || null }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d), mkEdge("e4", d, e), mkEdge("e5", e, f), mkEdge("e6", f, g)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 70 },
+    };
+  }
+
+  if (template === "ads_click_to_messenger") {
+    const a = nid(), b = nid(), c = nid(), d = nid(), e = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM de anúncio", { trigger_type: "dm_keyword", keywords: kws, source: "ad" }),
+        mkNode(b, "send_dm", "Boas-vindas do anúncio", { message: `Olá! Vi que você veio pelo anúncio de ${config.produto || "produto"}. Qual é o seu nome?` }),
+        mkNode(c, "collect_input", "Capturar nome", { field: "nome" }),
+        mkNode(d, "collect_input", "Capturar telefone", { field: "telefone" }),
+        mkNode(e, "create_lead", "Criar lead no CRM", { form_name: config.form_name || "# - INSTAGRAM - Auto atendimento", produto_interesse_auto: config.produto || null }),
+      ],
+      edges: [mkEdge("e1", a, b), mkEdge("e2", b, c), mkEdge("e3", c, d), mkEdge("e4", d, e)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 80 },
+    };
+  }
+
+  if (template === "dra_lia_handoff") {
+    const a = nid(), b = nid();
+    const kws = config.keywords || [];
+    return {
+      nodes: [
+        mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws }),
+        mkNode(b, "dra_lia_chat", "Delegar para Dra. LIA", {}),
+      ],
+      edges: [mkEdge("e1", a, b)],
+      trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 75 },
+    };
+  }
+
+  if (template === "content_sequence") {
+    const steps: any[] = config.steps || [{ message: "Conteúdo 1", delay_hours: 0 }, { message: "Follow-up", delay_hours: 24 }];
+    const kws = config.keywords || [];
+    const a = nid();
+    const nodes: any[] = [mkNode(a, "trigger", "TRIGGER — DM com keyword", { trigger_type: "dm_keyword", keywords: kws })];
+    const edges: any[] = [];
+    let prev = a;
+    steps.forEach((step: any, i: number) => {
+      if (step.delay_hours > 0) {
+        const w = nid();
+        nodes.push(mkNode(w, "wait", `Aguardar ${step.delay_hours}h`, { seconds: step.delay_hours * 3600 }));
+        edges.push(mkEdge(`ew${i}`, prev, w));
+        prev = w;
+      }
+      const s = nid();
+      nodes.push(mkNode(s, "send_dm", `Mensagem ${i + 1}`, { message: step.message }));
+      edges.push(mkEdge(`es${i}`, prev, s));
+      prev = s;
+    });
+    return { nodes, edges, trigger: { trigger_type: "dm_keyword", keywords: kws, is_regex: false, priority: 65 } };
+  }
+
+  // Fallback
+  const a = nid(), b = nid();
+  return {
+    nodes: [
+      mkNode(a, "trigger", "TRIGGER", { trigger_type: "dm_keyword", keywords: [] }),
+      mkNode(b, "send_dm", "DM", { message: "" }),
+    ],
+    edges: [mkEdge("e1", a, b)],
+    trigger: { trigger_type: "dm_keyword", keywords: [], is_regex: false, priority: 50 },
+  };
+}
+
+async function executeListSocialFlows(args: any) {
+  const channel = args.channel || "instagram";
+  let q = supabase.from("social_flows")
+    .select("id, name, is_active, channel, total_triggered, total_completed, nodes, updated_at")
+    .eq("channel", channel)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  if (args.only_active) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return (data || []).map((f: any) => {
+    const trig = (f.nodes || []).find((n: any) => n?.data?.nodeType === "trigger");
+    const cfg = trig?.data?.config || {};
+    return {
+      id: f.id,
+      name: f.name,
+      status: f.is_active ? "✅ ativo" : "⏸ pausado",
+      canal: f.channel,
+      disparos: f.total_triggered || 0,
+      concluidos: f.total_completed || 0,
+      trigger_tipo: cfg.trigger_type || "—",
+      keywords: cfg.keywords || [],
+      ultima_atualizacao: f.updated_at?.slice(0, 10),
+    };
+  });
+}
+
+async function executeGetSocialFlow(args: any) {
+  const { data, error } = await supabase.from("social_flows").select("*").eq("id", args.id).single();
+  if (error || !data) return { error: error?.message || "flow não encontrado" };
+  const passos = (data.nodes || []).map((n: any, i: number) => ({
+    passo: i + 1,
+    id: n.id,
+    tipo: n?.data?.nodeType,
+    label: n?.data?.label,
+    config: n?.data?.config || {},
+  }));
+  return {
+    id: data.id,
+    nome: data.name,
+    status: data.is_active ? "ativo" : "pausado",
+    canal: data.channel,
+    total_passos: passos.length,
+    passos,
+    edges: data.edges || [],
+  };
+}
+
+async function executeCreateSocialFlow(args: any) {
+  const { name, description, channel = "instagram", template, config = {} } = args;
+  const flowId = crypto.randomUUID();
+  const { nodes, edges, trigger } = buildFlowFromTemplate(template, config);
+  const insertRow: any = {
+    id: flowId,
+    name,
+    description: description || null,
+    channel,
+    is_active: false,
+    nodes,
+    edges,
+    total_triggered: 0,
+    total_completed: 0,
+    total_leads_converted: 0,
+  };
+  const { error: flowErr } = await supabase.from("social_flows").insert(insertRow);
+  if (flowErr) return { error: flowErr.message };
+  if (trigger) {
+    await supabase.from("social_triggers").insert({ ...trigger, flow_id: flowId }).then(() => null, () => null);
+  }
+  return {
+    ok: true,
+    flow_id: flowId,
+    nome: name,
+    status: "pausado (is_active: false)",
+    template,
+    aviso: template === "comment_keyword_dm" ? "Lembrete: este flow depende de automação nativa Zernio com a mesma keyword." : undefined,
+    proximos_passos: "Confirme se deseja ativar agora.",
+  };
+}
+
+async function executeUpdateSocialFlow(args: any) {
+  const { id, patch } = args;
+  if (patch?.replace_node) {
+    const { data: flow } = await supabase.from("social_flows").select("nodes").eq("id", id).single();
+    const nodes = (flow?.nodes || []).map((n: any) =>
+      n.id === patch.replace_node.node_id
+        ? { ...n, data: { ...(n.data || {}), ...(patch.replace_node.fields || {}), config: { ...(n.data?.config || {}), ...(patch.replace_node.fields?.config || {}) } } }
+        : n
+    );
+    const { error } = await supabase.from("social_flows").update({ nodes, updated_at: new Date().toISOString() }).eq("id", id);
+    return error ? { error: error.message } : { ok: true, node_atualizado: patch.replace_node.node_id };
+  }
+  const allowed: any = { updated_at: new Date().toISOString() };
+  for (const k of ["name", "description", "is_active"]) {
+    if (patch?.[k] !== undefined) allowed[k] = patch[k];
+  }
+  const { error } = await supabase.from("social_flows").update(allowed).eq("id", id);
+  return error ? { error: error.message } : { ok: true, campos_atualizados: Object.keys(allowed).filter(k => k !== "updated_at") };
+}
+
+async function executeToggleSocialFlow(args: any) {
+  const { id, is_active } = args;
+  const { data: flow } = await supabase.from("social_flows").select("name").eq("id", id).single();
+  const { error } = await supabase.from("social_flows").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
+  return error ? { error: error.message } : { ok: true, flow: flow?.name, status: is_active ? "✅ ativado" : "⏸ pausado" };
+}
+
+async function executeDeleteSocialFlow(args: any) {
+  const { id, confirmed } = args;
+  if (!confirmed) return { error: "Exclusão não confirmada. Peça confirmação explícita antes de deletar." };
+  const { data: flow } = await supabase.from("social_flows").select("name").eq("id", id).single();
+  await supabase.from("social_triggers").delete().eq("flow_id", id).then(() => null, () => null);
+  await supabase.from("social_sessions").delete().eq("flow_id", id).then(() => null, () => null);
+  const { error } = await supabase.from("social_flows").delete().eq("id", id);
+  return error ? { error: error.message } : { ok: true, excluido: flow?.name, aviso: "Flow, triggers e sessões removidos." };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -2506,6 +2848,12 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_product_owners: executeQueryProductOwners,
   query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
   get_product_anti_hallucination: executeGetProductAntiHallucination,
+  list_social_flows: executeListSocialFlows,
+  get_social_flow: executeGetSocialFlow,
+  create_social_flow: executeCreateSocialFlow,
+  update_social_flow: executeUpdateSocialFlow,
+  toggle_social_flow: executeToggleSocialFlow,
+  delete_social_flow: executeDeleteSocialFlow,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -2570,6 +2918,50 @@ Para AÇÕES (send_sms, send_whatsapp, notify_seller, send_to_sellflux, bulk_cam
 - Tamanho: até 8 linhas para perguntas simples. Para análises, use tabelas curtas Markdown.
 - Sempre que apresentar números do mês, mostre o período (\`brain.overview.periodo\`) e a hora de atualização do Cérebro.
 - Termine com 1 recomendação executiva quando houver risco ou oportunidade óbvia nos dados.
+
+## SOCIAL PUBLISHER — FLOWS IG DM (Automações Instagram)
+Você gerencia automações de Instagram Direct via 6 tools: list_social_flows, get_social_flow, create_social_flow, update_social_flow, toggle_social_flow, delete_social_flow.
+
+### GATILHOS DE ATIVAÇÃO
+Quando o usuário mencionar: "automação", "flow", "IG DM", "direct automático", "comment-to-DM", "social publisher", "quando comentarem", "quando alguém mandar DM" — chame imediatamente list_social_flows para mostrar o estado atual.
+
+### FLUXO CONVERSACIONAL
+**Passo 0:** list_social_flows({channel:'instagram'}) → tabela (nome | status | disparos) → pergunte: "Quer editar, pausar, excluir uma existente ou criar uma nova?"
+
+**Criar nova:**
+1. Pergunte qual tipo:
+   1) Comentário com keyword → DM automático (comment_keyword_dm)
+   2) Boas-vindas a novo seguidor (welcome_new_follower)
+   3) Captura de lead via DM (lead_capture_dm)
+   4) DM de anúncio → captura de lead (ads_click_to_messenger)
+   5) Sequência de conteúdo com delays (content_sequence)
+   6) Delegar para Dra. LIA (dra_lia_handoff)
+   7) Resposta a menção em Story (mention_reply)
+2. Colete inputs UM POR VEZ:
+   - comment_keyword_dm: keyword(s) → resposta pública → DM → link
+   - lead_capture_dm: keyword(s) → form_name → tag
+   - content_sequence: keyword(s) → N mensagens com delay_hours
+   - Demais: peça só o necessário.
+3. Mostre resumo e peça confirmação.
+4. create_social_flow (sempre is_active:false).
+5. Pergunte: "Quer ativar agora?" → toggle_social_flow só com confirmação explícita.
+
+**Editar:** get_social_flow → narrar passos numerados → perguntar qual etapa → update_social_flow com replace_node.
+
+**Pausar/Ativar:** toggle_social_flow — confirmar antes de ativar.
+
+**Excluir:** SEMPRE pedir confirmação ("Tem certeza? Esta ação é irreversível.") antes de delete_social_flow com confirmed:true.
+
+### REGRA — COMMENT_KEYWORD_DM
+Flows comment_keyword_dm dependem da automação nativa do Zernio. Ao criar, avise: "Este flow funciona via automação Zernio. Após ativar aqui, crie também a automação no Zernio com a mesma keyword."
+
+### INFERÊNCIA DE INTENT
+Se o usuário mandar tudo em uma frase (ex: "quando comentarem VITA responde 'Mandei no Direct!' e manda DM com link https://..."), infira template comment_keyword_dm, monte o config, mostre resumo e confirme antes de criar.
+
+### NUNCA
+- Criar com is_active:true sem confirmação.
+- Ativar sem confirmação.
+- Excluir sem confirmed:true explícito.
 `;
 // --- Helper: simulate SSE from a string ---
 function createSSEFromText(text: string): ReadableStream<Uint8Array> {
