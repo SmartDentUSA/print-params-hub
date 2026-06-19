@@ -1,51 +1,35 @@
-## Diagnóstico
+## Objetivo
+Alterar a exibição dos grupos de WhatsApp na Central de Campanhas (aba "Grupos WA") do formato de **cards em grid** para **lista de 1 item por linha**, mantendo todas as informações visíveis hoje no card.
 
-A mensagem `Falha no blast: Edge Function returned a non-2xx status code` é a **string genérica** do `supabase.functions.invoke()` — ela aparece **sempre** que a edge function `wa-group-blast` responde com qualquer status fora de 2xx, mesmo quando o corpo já traz o motivo real (ex.: `Nenhum grupo elegível (admin + enabled)`, `group_jids obrigatório`, erro de insert em `wa_campaigns`, etc.).
+## Escopo
+- **Arquivo:** `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx`
+- **Apenas frontend** — nenhuma alteração de lógica, API, banco ou edge functions.
 
-Confirmado em produção:
-- A função está deployada e respondendo (testei `POST /wa-group-blast` → 400 com JSON `{ ok:false, error:"Nenhum grupo elegível (admin + enabled)" }`).
-- Há 154 grupos elegíveis (`is_admin=true AND enabled=true`) de 504 — então, dependendo do que foi escolhido na publicação histórica, é totalmente possível que todos os JIDs selecionados caiam fora do filtro e a função devolva 400.
-- Logs recentes da EF não mostram exceção — só boots/shutdowns. Ou seja, **não é crash**, é resposta 4xx/5xx legítima que o frontend está engolindo.
+## Alterações planejadas
 
-O problema operacional é que o usuário não consegue agir sem ver a causa real.
+### 1. Container de listagem (linhas 560–714)
+- Substituir `<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` por `<div className="space-y-3">`.
+- Cada item continuará usando `<Card>`, mas com layout horizontal/linha em vez de vertical/card.
 
-## Mudança proposta (frontend-only, escopo mínimo)
+### 2. Estrutura interna do item (linha por linha)
+Cada linha será organizada em zonas para manter **todas** as informações existentes:
+- **Coluna 1 — Identificação:** checkbox (modo seleção), nome do grupo (sem line-clamp), badge Admin/Não-admin.
+- **Coluna 2 — Métricas:** contagem de membros, toggle ativado/desativado.
+- **Coluna 3 — Campanha (se houver):** status, nome, badge "compartilhada", progresso barra + percentual, estatísticas (enviadas/pendentes/falhas), próximo envio, health badge compacto, session badge.
+- **Coluna 4 — Ações:** botões Criar/Editar régua, Visualizar, Pausar/Retomar (todos os botões atuais preservados).
+- **Estado sem campanha:** exibir "Sem campanha ativa" com botão de criar régua.
+- **Dimming/destaque:** manter `opacity-50` para desativados e `ring-2 ring-primary` para selecionados.
 
-Arquivo: `src/components/smartops/wa-groups/WaGroupBlastModal.tsx` (função `handleSend`, ~linhas 116-138).
+### 3. Skeleton de loading (linhas 550–553)
+- Adaptar o skeleton do grid (`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`) para o formato lista (`space-y-3` com 3 `<Skeleton className="h-24 rounded-lg" />`).
 
-Trocar o tratamento de erro do `invoke` para extrair o corpo JSON quando o supabase-js devolver `FunctionsHttpError`:
+### 4. Réguas compartilhadas (linhas 466–547)
+- Manter como está (já é um formato lista vertical dentro de um Card). Apenas garantir consistência visual se necessário.
 
-```ts
-const { data, error } = await supabase.functions.invoke("wa-group-blast", { body: {...} });
-
-if (error) {
-  // supabase-js esconde o body em error.context (Response). Lê pra mostrar o motivo real.
-  let serverMsg = error.message;
-  try {
-    const ctx: any = (error as any).context;
-    if (ctx && typeof ctx.json === "function") {
-      const j = await ctx.json();
-      if (j?.error) serverMsg = j.error;
-    } else if (ctx && typeof ctx.text === "function") {
-      const t = await ctx.text();
-      if (t) serverMsg = t;
-    }
-  } catch { /* mantém error.message */ }
-  throw new Error(serverMsg);
-}
-if (!data?.ok) throw new Error(data?.error ?? "Falha desconhecida");
-```
-
-Sem mexer no `toast.error("Falha no blast: " + ...)` — ele continua igual; só passa a mostrar `Nenhum grupo elegível (admin + enabled)` ou o motivo verdadeiro, em vez do texto genérico.
-
-## Fora de escopo
-
-- **Não alterar a edge function** `wa-group-blast` nem nenhuma outra EF (sem mudança de contrato, sem redeploy).
-- Não tocar nas EFs Instagram/Copa listadas como protegidas.
-- Não alterar schema, RLS, migrations.
+## O que NÃO muda
+- Lógica de: busca, filtros (ativados/desativados), seleção múltipla, botão de blast, sincronização, pausar/retomar campanhas, toggle enabled.
+- Todos os badges, ícones, tooltips, session badges e health badges existentes.
+- Nenhuma chamada a Supabase, edge function ou API.
 
 ## Validação
-
-1. Build passa.
-2. Reabrir Central de Campanhas → Grupos WA → Publicação histórica → Configurar envio → Disparar com a mesma seleção que falhou. O toast vai mostrar o motivo real (provavelmente `Nenhum grupo elegível (admin + enabled)`, indicando que os grupos selecionados não estão marcados como admin+enabled — aí o usuário ajusta a seleção ou habilita o grupo).
-3. Caso o motivo real seja outro (erro em insert, JID inválido, etc.), o toast também passa a expor — e aí decidimos a próxima ação com base no texto.
+Após implementação, a tela de Grupos WA deve exibir cada grupo em uma linha única, com todas as informações anteriores visíveis (nome, membros, toggle, status da campanha, progresso, estatísticas de mensagens, próximo envio, badges e botões de ação).
