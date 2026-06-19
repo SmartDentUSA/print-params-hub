@@ -401,3 +401,6 @@ verify_jwt = false
 
 [functions.training-factory-carousel]
 verify_jwt = false
+
+[functions.public-distributor-register]
+verify_jwt = false
