@@ -1,85 +1,119 @@
-## Objetivo
-Tornar a rede de distribuidores autorizados Smart Dent **descobrível por IAs (Perplexity, ChatGPT, Gemini, Google AI Overviews) e buscadores tradicionais**, transformando os dados já cadastrados em `distributors` em páginas SEO/GEO-first com SSR via `seo-proxy`, schema LocalBusiness e citações cruzadas (sites dos próprios distribuidores → backlink → Smart Dent).
+## Fase 3 — Autoridade Global: Schema rico, backlinks bidirecionais, RAG e argumentação comercial
 
-## Diagnóstico atual
-- Existe `/distribuidores` (KnowledgeBase tab) renderizada **client-side** — bots/IAs leem HTML vazio.
-- Sitemap lista apenas 1 URL agregada (`/distribuidores`), sem páginas por país nem por distribuidor.
-- `public/llms.txt` não menciona a rede de distribuição internacional.
-- `seo-proxy` edge function existe (já intercepta bots) mas não tem renderer dedicado para distribuidores.
-- Não há schema.org `LocalBusiness` nem hreflang nas páginas atuais.
+Fases 1 e 2 já entregaram páginas SSR por país/distribuidor, sitemap, llms.txt, selo PNG e Kit de Divulgação multilíngue. Esta fase fecha a teia de autoridade semântica que você descreveu.
 
-## Estratégia em 4 camadas
+---
 
-### Camada 1 — URLs canônicas dedicadas (descoberta)
-Criar 3 níveis de páginas, cada uma com URL própria e SSR:
+### 1. Schema.org enriquecido (LocalBusiness + Brand + Wikidata)
 
-```text
-/onde-comprar                              (hub global, 3 idiomas)
-/onde-comprar/{pais-slug}                  (ex: /onde-comprar/chile)
-/onde-comprar/{pais-slug}/{distribuidor}   (ex: /onde-comprar/chile/biotech-chile)
+**Onde:** `src/pages/DistributorDetailPage.tsx` e `supabase/functions/seo-proxy/index.ts` (renderizador de distribuidor, hoje em ~linha 2333).
+
+**Mudanças no JSON-LD de cada distribuidor:**
+
+- `brand` e `parentOrganization` ganham `sameAs: ["https://www.wikidata.org/wiki/Q138636902"]` — amarra cada distribuidor à entidade Smart Dent já validada no Wikidata.
+- `areaServed` deixa de ser uma string e passa a ser um array de objetos `AdministrativeArea` (país + cidades/estados/regiões cadastradas), alimentado por uma nova coluna `service_areas jsonb` em `distributors` (ver §4).
+- `makesOffer` lista cada linha autorizada (SmartMake, Vitality, NanoClean, etc.) como `Offer` com `itemOffered.brand` Smart Dent → treina IAs a responder "onde comprar Vitality nos EUA".
+- `knowsAbout` mapeia o `authorized_scope` para as entidades já existentes em `ENTITY_INDEX` do seo-proxy (CAD/CAM, Impressão 3D, Resina Composta…) com seus respectivos Wikidata IDs.
+- Hub global `/distribuidores` ganha um `Organization` Smart Dent com `subOrganization` listando todos os distribuidores ativos + `sameAs` Wikidata — consolida a visão "fabricante com capilaridade global".
+
+**Página do hub `/distribuidores/{pais}`:** acrescentar `Place` com `containedInPlace` (continente) para reforçar contexto geográfico.
+
+---
+
+### 2. Backlinks bidirecionais rastreáveis
+
+**Objetivo do Fábio:** transformar o item "linkar de volta para smartdent.com.br" em obrigação contratual verificável.
+
+**Entregas:**
+
+- Nova coluna `backlink_url text` + `backlink_verified_at timestamptz` + `backlink_status text` em `distributors`.
+- Edge function `verify-distributor-backlink` (cron diário): para cada distribuidor com `site_url`, faz fetch da home, procura por `smartdent.com.br` (qualquer URL), grava status (`found` / `missing` / `unreachable`) e a URL exata encontrada. Sem scraping invasivo — só HEAD + GET da raiz e da `/about`/`/sobre`.
+- Painel em `SmartOpsDistributors`: badge verde/amarelo/vermelho por distribuidor com tooltip da última verificação. Lista "Distribuidores sem backlink" para o Fábio cobrar.
+- No Kit de Divulgação (já entregue na Fase 2) adicionar um 4º snippet: **logo Smart Dent linkado** (HTML pronto) com `rel="noopener"` e UTM `?utm_source=distribuidor&utm_medium=backlink&utm_campaign={slug}` — para rastrear tráfego real no GA.
+
+---
+
+### 3. Integração com a Dra. LIA (RAG em tempo real)
+
+A LIA hoje não tem contexto de distribuidores. Quando um lead internacional pergunta "onde comprar Vitality no Chile?", ela responde genericamente.
+
+**Entrega:** novo bloco de contexto injetado no system prompt da Dra. LIA (em `supabase/functions/dra-lia/index.ts`), seguindo o mesmo padrão de `Dynamic Context Enrichment` já existente.
+
+- Detector de intenção `where_to_buy` (regex: "where can i buy", "donde comprar", "onde comprar", "distribuidor", "comprar em/no/na", nome de país).
+- Quando dispara, faz `SELECT * FROM distributors WHERE active = true AND (pais ILIKE '%{pais}%' OR service_areas @> '...')` e injeta um bloco markdown:
+  ```
+  ## Distribuidores oficiais relevantes
+  - {nome} — {cidade/país} — WhatsApp +{ddi}{tel} — {site} — linhas: {scope}
+    Página oficial: {canonical}
+  ```
+- Se não houver distribuidor no país: resposta padrão "atendemos via export direto" + link `/distribuidores` + e-mail do Fábio.
+- Caching leve: lista de distribuidores em memória da edge function por 5 min (já há padrão de cache nas outras tools da LIA).
+
+Sem alterar o fluxo de qualificação progressiva — só enriquece o contexto.
+
+---
+
+### 4. Captura ampliada no formulário público
+
+Para alimentar o schema rico, o formulário `PublicDistributorRegister` e o `DistributorForm` interno ganham:
+
+- `service_areas` (multi-input): países + estados/províncias + cidades que o parceiro cobre. Render como tags.
+- `linhas_representadas` (multi-select a partir de `system_a_catalog`): SmartMake, Vitality, NanoClean, kits, etc. — alimenta `makesOffer`.
+- `wikidata_id` (opcional, só admin): caso o distribuidor já tenha entidade própria.
+- `language_preference` (pt/es/en): usado pelo seo-proxy para escolher a `inLanguage` da página.
+
+Migração SQL:
+```sql
+ALTER TABLE public.distributors
+  ADD COLUMN service_areas jsonb DEFAULT '[]'::jsonb,
+  ADD COLUMN linhas_representadas text[] DEFAULT '{}',
+  ADD COLUMN wikidata_id text,
+  ADD COLUMN language_preference text DEFAULT 'pt',
+  ADD COLUMN backlink_url text,
+  ADD COLUMN backlink_status text,
+  ADD COLUMN backlink_verified_at timestamptz;
 ```
+RLS atual em `distributors` permanece (2 policies já existentes). Grants já existem.
 
-Mais aliases em EN/ES (`/where-to-buy/...`, `/donde-comprar/...`) com `hreflang`.
+---
 
-### Camada 2 — SSR via seo-proxy (visibilidade real)
-Estender `supabase/functions/seo-proxy/index.ts` com handlers para os 3 padrões acima:
-- Busca em `distributors` (filtra `is_active`, `is_published`).
-- Renderiza HTML completo com `<title>`, `<meta description>`, `og:*`, `canonical`, `hreflang`, JSON-LD.
-- Bots já são interceptados pelo middleware Vercel existente.
+### 5. One-pager comercial para o Fábio
 
-### Camada 3 — Schema.org rico (GEO/AEO)
-Cada página de distribuidor injeta JSON-LD com:
-- `@type: LocalBusiness` (subtipo `Store`) — nome, endereço estruturado (`PostalAddress`), `telephone`, `email`, `url`, `geo` (lat/lng se houver), `openingHours`, `sameAs` (Instagram/Facebook/LinkedIn/YouTube).
-- `brand: { @type: Brand, name: "Smart Dent" }` + `parentOrganization` apontando para a Organization Smart Dent.
-- Lista de produtos representados (`makesOffer` → resinas, kits) puxada do `authorized_scope`.
-- Página de país: `ItemList` com todos distribuidores + `FAQPage` ("Onde comprar Smart Dent no {país}?").
-- Hub global: `Organization` com `hasMerchantReturnPolicy`, `areaServed` (lista de países).
+Novo arquivo `docs/PITCH_DISTRIBUIDORES_FABIO.md` (markdown puro, fácil de imprimir ou colar em PDF) com:
 
-### Camada 4 — Sinalização para IAs
-- **llms.txt**: adicionar seção `## Distribuidores oficiais por país` listando cada hub de país com 1 linha de descrição.
-- **llms-full.txt**: incluir bloco completo com nome/endereço/site/contato de cada distribuidor ativo (gerado dinamicamente pela edge function `llms-full-txt`).
-- **sitemap.xml**: gerar 1 entrada por país + 1 por distribuidor (script `scripts/generate-sitemap.ts` lendo `distributors`).
-- **robots.txt**: confirmar `Allow: /onde-comprar` e `Sitemap:` apontando para o sitemap.
+1. **4 argumentos de venda** já redigidos na sua mensagem (visibilidade imediata, controle de portfólio, fim do gargalo TI/marketing, bônus B2B), reescritos em linguagem direta para uso em ligação/proposta.
+2. **Roteiro de e-mail** PT/ES/EN pronto para o Fábio mandar ao distribuidor pedindo o preenchimento + a contrapartida do backlink.
+3. **Checklist de onboarding do distribuidor** (formulário preenchido → página publicada → selo instalado → backlink verificado).
+4. **Métricas de sucesso** que o Fábio pode mostrar internamente: nº de páginas indexadas, nº de backlinks verificados, queries de IA respondidas, tráfego inbound dos sites parceiros (via UTM).
 
-## Conteúdo SEO por página (templates)
+Sem rota nova no app — é um documento interno consumível por humanos.
 
-**Hub global `/onde-comprar`** — H1: "Onde comprar produtos Smart Dent no mundo" · grid de países com bandeira + nº de distribuidores · CTA por país.
+---
 
-**País `/onde-comprar/chile`** — H1: "Distribuidores Smart Dent no Chile" · intro 80–120 palavras com cidades atendidas · lista de distribuidores (card por unidade) · FAQ: "Onde comprar resina Smart Print Bio Vitality no Chile?", "Qual o distribuidor oficial Smart Dent em Santiago?".
+### Arquivos tocados
 
-**Distribuidor `/onde-comprar/chile/biotech-chile`** — H1: "Biotech Chile — Distribuidor oficial Smart Dent" · ficha completa (endereço, telefone, WhatsApp, site, redes) · "Produtos representados" (do `authorized_scope`) · mapa (link Google Maps) · selo "Distribuidor Autorizado Smart Dent" · CTA cotação.
+- `supabase/migrations/` — 1 migração nova (colunas adicionais).
+- `src/pages/DistributorDetailPage.tsx` — schema enriquecido + `inLanguage`.
+- `src/pages/DistributorCountryPage.tsx` — `Place`/`containedInPlace`.
+- `supabase/functions/seo-proxy/index.ts` — mesmo schema enriquecido no SSR.
+- `supabase/functions/llms-full-txt/index.ts` — incluir `makesOffer`/`service_areas` no bloco markdown.
+- `supabase/functions/verify-distributor-backlink/index.ts` — nova edge function + cron.
+- `supabase/functions/dra-lia/index.ts` — bloco `where_to_buy` no system prompt.
+- `src/components/smartops/DistributorForm.tsx` + `PublicDistributorRegister.tsx` — novos campos.
+- `src/components/smartops/SmartOpsDistributors.tsx` — badge de backlink + filtro "sem backlink".
+- `src/components/smartops/DistributorKitDialog.tsx` — 4º snippet (logo Smart Dent com UTM).
+- `docs/PITCH_DISTRIBUIDORES_FABIO.md` — one-pager.
 
-## Programa de citação cruzada (relevância externa)
-Adicionar à área interna **Smart Ops → Distribuição** ou ao link público de cadastro:
-- **Selo HTML/PNG** "Distribuidor Oficial Smart Dent" com URL canônica embutida (backlink dofollow).
-- **Snippet pronto** para o distribuidor colar no site: `<a href="https://admin.smartdent.com.br/onde-comprar/chile/biotech-chile">Distribuidor oficial Smart Dent</a>` + JSON-LD reverso (`OrganizationRole` apontando para Smart Dent).
-- **Texto bio padrão** para Instagram/LinkedIn em PT/EN/ES.
-- Esses backlinks recíprocos são o sinal #1 que IAs e buscadores usam para confirmar "X é distribuidor oficial de Y no país Z".
+### Fora de escopo
 
-## Entregáveis técnicos
-1. `src/pages/WhereToBuyHub.tsx`, `WhereToBuyCountry.tsx`, `WhereToBuyDistributor.tsx` (3 páginas com Helmet + render visual).
-2. Rotas em `src/App.tsx` (PT/EN/ES com aliases).
-3. Extensão de `supabase/functions/seo-proxy/index.ts` com 3 novos handlers + JSON-LD builder.
-4. Extensão de `supabase/functions/llms-full-txt/index.ts` para incluir bloco distribuidores.
-5. Atualização de `public/llms.txt` (estática, 1 seção curta).
-6. Atualização de `scripts/generate-sitemap.ts` (ler `distributors` via Supabase, emitir URLs).
-7. Componente "Kit de Divulgação" dentro de `SmartOpsDistributors.tsx`: gera selo + snippet HTML + bio social por distribuidor.
-8. Migration: 2 colunas em `distributors` — `is_published boolean default true`, `slug text` (único por país) + trigger de slugify; campo `latitude`/`longitude` opcional para `geo` no schema.
+- Submissão automática a Wikidata (manual via curador).
+- Google Business Profile OAuth (continua adiada).
+- Tradução completa das páginas de distribuidor para EN/ES (apenas `inLanguage` + bloco de descrição traduzido; UI permanece PT por ora).
+- Reescrita do fluxo de qualificação da Dra. LIA — só injeção de contexto.
 
-## O que NÃO muda
-- Tabela `distributors` mantém RLS atual (só adiciona colunas).
-- `/distribuidores` (tab da KB) continua existindo — redireciona 301 para `/onde-comprar`.
-- Nenhuma EF do Instagram/Copa/Zernio é tocada.
+### Validação
 
-## Validação
-1. `curl -A "Googlebot" https://admin.smartdent.com.br/onde-comprar/chile/biotech-chile` deve retornar HTML com `<title>`, descrição, e JSON-LD `LocalBusiness` válido (testar em https://validator.schema.org).
-2. Perplexity/ChatGPT consultados com "onde comprar Smart Dent no Chile" devem encontrar a página em 7–14 dias após indexação.
-3. Google Search Console → "Inspecionar URL" deve mostrar página renderizada com conteúdo.
-4. Rich Results Test deve reconhecer LocalBusiness em cada página de distribuidor.
-
-## Faseamento sugerido
-- **Fase 1 (1 task):** páginas + rotas + Helmet + SSR seo-proxy + JSON-LD + sitemap + llms.txt — entrega visibilidade imediata.
-- **Fase 2 (1 task):** Kit de Divulgação interno + selo PNG + snippets multilíngues — ativa backlinks recíprocos.
-- **Fase 3 (opcional):** Solicitar verificação no Google Business Profile via OAuth dos distribuidores para amarrar Knowledge Graph.
-
-Posso começar pela Fase 1 quando aprovado.
+- `curl -A "Googlebot" /distribuidores/chile/biotech-chile` mostra `makesOffer`, `parentOrganization.sameAs` com Wikidata e `areaServed` como array.
+- Rich Results Test aceita o LocalBusiness expandido.
+- Edge function `verify-distributor-backlink` corre manualmente e popula `backlink_status` para os distribuidores atuais.
+- Mensagem em PT/ES/EN "onde comprar resina no Chile" para a Dra. LIA retorna Biotech Chile com link canônico.
