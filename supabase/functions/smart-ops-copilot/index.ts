@@ -2790,6 +2790,12 @@ async function executeCreateSocialFlow(args: any) {
     }
   }
 
+  // Menções em Story: webhook Zernio entrega evento 'mention' nativamente.
+  // Não existe endpoint de automação no Zernio para isso — o webhook dispara direto.
+  if (template === "mention_reply") {
+    result.zernio_status = "ℹ️ Menções em Story são detectadas automaticamente pelo webhook Zernio. Nenhuma configuração extra necessária.";
+  }
+
   return result;
 }
 
