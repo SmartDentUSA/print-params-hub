@@ -257,10 +257,10 @@ Deno.serve(async (req) => {
     const generation = await generateImageWithLovable(fullPrompt);
     if ("error" in generation) {
       console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
-      return new Response(JSON.stringify({ error: generation.error, details: generation.details }), {
-        status: generation.status >= 400 && generation.status < 600 ? generation.status : 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      generation = {
+        bytes: svgCoverBytes({ eventName, flag, cityLine, dateRange, stand, countryLabel }),
+        contentType: "image/svg+xml",
+      };
     }
 
     const bytes = generation.bytes;
