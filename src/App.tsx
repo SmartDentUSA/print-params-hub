@@ -20,6 +20,7 @@ const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
+const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
 const KnowledgeArticleRedirect = lazy(() => import("./pages/KnowledgeArticleRedirect"));
 const SupportResources = lazy(() => import("./pages/SupportResources"));
 const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
@@ -100,6 +101,9 @@ const App = () => (
       {/* SEO-friendly aliases for distributors and events tabs */}
       <Route path="/distribuidores" element={<KnowledgeBase lang="pt" forcedTab="distribuidores" />} />
       <Route path="/eventos" element={<KnowledgeBase lang="pt" forcedTab="eventos" />} />
+
+      {/* Public distributor registration (no auth) */}
+      <Route path="/cadastro-distribuidor" element={<PublicDistributorRegister />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />

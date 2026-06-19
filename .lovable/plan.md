@@ -1,51 +1,73 @@
-## Problema
+## Objetivo
 
-Quando o usuário pede "criar automação de menção em Story", o Copilot diz:
-> "você precisará também configurar o gatilho no Zernio com a mesma configuração."
+Permitir que representantes cadastrem novos distribuidores via URL pública (sem login), com os mesmos campos do modal interno de Smart Ops → Distribuição. Cadastro entra direto aprovado (`active = true`).
 
-Isso está errado. A API Zernio **não tem endpoint de automação para menção em Story** — menções chegam direto via webhook (o `zernio-webhook` já trata `event.includes('mention') → trigger_type:'mention'` e dispara o flow). Nenhuma configuração extra é necessária. Apenas `comment_keyword_dm` precisa do POST `/v1/comment-automations` (que já é feito automaticamente pela tool).
+## Arquitetura
+
+```
+Rep abre /cadastro-distribuidor
+        │
+        ▼
+PublicDistributorRegister.tsx (mesmo form do modal, sem botão Editar/Excluir)
+        │ POST { payload, logoBase64? }
+        ▼
+edge function public-distributor-register  ◄── service_role (bypass RLS)
+        │ 1) valida payload com zod
+        │ 2) upload do logo no bucket distributor-logos (se houver)
+        │ 3) insert em public.distributors com active = true
+        │ 4) rate-limit por IP (smart_form_rate_limit, 5 req / hora)
+        ▼
+Sucesso → tela "Distribuidor cadastrado ✅" + opção "Cadastrar outro"
+```
+
+Por que edge function em vez de insert direto do anon: a tabela `distributors` tem RLS ativa e os logos são enviados para um bucket de Storage que não deve aceitar upload anônimo livre. A função usa `SUPABASE_SERVICE_ROLE_KEY` para escrever, mas valida tudo server-side e impõe rate-limit.
 
 ## Mudanças
 
-### 1. `supabase/functions/smart-ops-copilot/index.ts` — `executeCreateSocialFlow` (~linha 2756)
+### 1. Novo componente `src/pages/PublicDistributorRegister.tsx`
+- Reaproveita a UI do `SmartOpsDistributors` (todas as seções: Identificação, Localização, Presença Digital, Contato Proprietário, Contato Compras, Observações, Autorização Comercial).
+- Extrair as seções de formulário do `SmartOpsDistributors.tsx` para um componente compartilhado `DistributorForm.tsx` (mesmo `Partial<Distributor>` + `onChange`) — evita duplicar 280 linhas de JSX.
+- Layout standalone: header com logo SmartDent + título "Cadastro de Distribuidor Credenciado", sem sidebar/admin chrome.
+- Submit envia `supabase.functions.invoke('public-distributor-register', { body: { payload, logoBase64 } })`.
+- Após sucesso: tela de confirmação + botão "Cadastrar outro".
 
-Adicionar bloco específico para `mention_reply` logo após o bloco Zernio do `comment_keyword_dm`, antes do `return result;`:
+### 2. Refator `src/components/smartops/SmartOpsDistributors.tsx`
+- Mover o `<Dialog>` interno para usar `<DistributorForm>` — sem mudança de UX no painel interno.
+- Adicionar botão **"Copiar link público"** ao lado do botão "Novo Distribuidor", que copia `https://admin.smartdent.com.br/cadastro-distribuidor` para o clipboard com toast.
 
-```ts
-// Menções em Story: webhook Zernio já entrega evento 'mention' nativamente.
-// Não existe endpoint de automação no Zernio para isso — o webhook dispara direto.
-if (template === "mention_reply") {
-  result.zernio_status = "ℹ️ Menções em Story são detectadas automaticamente pelo webhook Zernio. Nenhuma configuração extra necessária.";
-}
-```
+### 3. Novo componente `src/components/smartops/DistributorForm.tsx`
+- Recebe `value: Partial<Distributor>`, `onChange`, `onLogoUpload` (opcional — no modo público, upload acontece junto com submit final).
+- Mesmas 6 seções; lógica de país/estado/cidade e autorização comercial idênticas.
 
-### 2. `SYSTEM_PROMPT` — substituir a seção `### REGRA — COMMENT_KEYWORD_DM` (~linhas 2993-2994)
+### 4. Rota em `src/App.tsx`
+- `<Route path="/cadastro-distribuidor" element={<PublicDistributorRegister />} />`
+- Sem proteção de auth.
 
-De:
-```
-### REGRA — COMMENT_KEYWORD_DM
-Flows comment_keyword_dm dependem da automação nativa do Zernio. Ao criar, avise: "Este flow funciona via automação Zernio. Após ativar aqui, crie também a automação no Zernio com a mesma keyword."
-```
+### 5. Nova edge function `supabase/functions/public-distributor-register/index.ts`
+- CORS aberto.
+- `verify_jwt = false`.
+- Valida com zod (razao_social obrigatório, emails válidos, scope é objeto, etc.).
+- Rate-limit: 5 submissões / hora por IP (reusa tabela `smart_form_rate_limit`).
+- Se `logoBase64` presente: decode → upload no bucket `distributor-logos` com `crypto.randomUUID()` → pega publicUrl.
+- `insert` na tabela `distributors` via service role com `active: true`.
+- Retorna `{ ok: true, id }` ou `{ error }`.
 
-Para:
-```
-### REGRA — COMMENT_KEYWORD_DM (criação automática no Zernio)
-A tool `create_social_flow` JÁ chama o POST /v1/comment-automations do Zernio automaticamente para comment_keyword_dm. NÃO peça ao usuário para configurar manualmente no Zernio — apenas reporte o campo `zernio_status` retornado pela tool (✅ criado / ⚠️ falhou).
-
-### REGRA — MENTION_REPLY / WELCOME_NEW_FOLLOWER / DRA_LIA_HANDOFF
-Esses templates funcionam direto via webhook do Zernio (eventos `mention`, `new_follower`, `dm.received`). NÃO existe automação a configurar no Zernio para eles — basta criar e ativar o flow aqui. NUNCA diga ao usuário para "configurar o gatilho no Zernio" para estes templates.
-```
-
-### 3. Deploy
-
-Deployar `smart-ops-copilot`.
-
-### 4. Verificação
-
-- "criar automação de menção em Story SmartDent" → pergunta só nome + mensagem DM, cria inativo, NÃO menciona configuração Zernio.
-- "criar automação de comentário VITA → DM com link X" → cria e reporta `zernio_status` sem pedir ação manual.
+### 6. SEO da página pública
+- `<title>` Cadastro de Distribuidor Credenciado | SmartDent (<60 chars)
+- meta description, H1 único, viewport responsivo.
+- `<meta name="robots" content="noindex">` (não queremos esse form aparecendo em busca pública — é só para reps com o link).
 
 ## Fora de escopo
 
-- Não tocar em `zernio-webhook`, `flow-executor`, `SocialFlowEditor`.
-- Não adicionar template novo (ex: `story_reply` via API) — usuário confirmou que quer apenas `mention_reply`.
+- Sem token por rep, sem fila de aprovação, sem login (conforme suas respostas).
+- Sem alterar RLS atual de `distributors` (admin continua usando o cliente autenticado pelo painel).
+- Sem mudar nada em Knowledge Base / `/distribuidores` (página pública de listagem já existe).
+
+## Validação
+
+1. Build passa.
+2. Abrir `/cadastro-distribuidor` em aba anônima → form renderiza completo.
+3. Preencher razão social + alguns campos + logo → submeter → toast verde, registro aparece no painel interno como ativo.
+4. Submit sem razão social → erro de validação client-side.
+5. 6ª submissão da mesma IP em < 1h → 429.
+6. Botão "Copiar link público" no painel interno copia a URL correta.
