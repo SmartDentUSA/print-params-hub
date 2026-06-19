@@ -42,6 +42,10 @@ export type DistributorFormValue = {
   active?: boolean;
   notes?: string | null;
   authorized_scope?: AuthorizedScope | null;
+  service_areas?: string[] | null;
+  linhas_representadas?: string[] | null;
+  wikidata_id?: string | null;
+  language_preference?: string | null;
 };
 
 const COUNTRY_NAME_ALIASES: Record<string, string> = {
@@ -127,6 +131,7 @@ export const emptyDistributorForm = (): DistributorFormValue => ({
   owner_name: "", owner_email: "", owner_whatsapp_ddi: "+55", owner_whatsapp: "",
   buyer_name: "", buyer_email: "", buyer_whatsapp_ddi: "+55", buyer_whatsapp: "",
   active: true, notes: "", authorized_scope: {},
+  service_areas: [], linhas_representadas: [], wikidata_id: "", language_preference: "pt",
 });
 
 type Props = {
