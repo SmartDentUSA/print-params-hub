@@ -251,6 +251,9 @@ export function SocialFlowEditor() {
                 <Button variant="ghost" size="sm" onClick={() => deleteNode(selectedNode.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
               <div className="mb-3"><Badge variant="outline">{(selectedNode.data as any).nodeType}</Badge></div>
+              <div className="mb-3 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                ℹ️ Para editar este flow, use o Copilot: <span className="font-mono">editar flow {name || '[nome]'}</span>
+              </div>
               <NodeInspector
                 node={selectedNode}
                 onUpdate={(p) => updateNodeConfig(selectedNode.id, p)}
