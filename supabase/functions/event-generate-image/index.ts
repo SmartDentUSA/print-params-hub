@@ -92,8 +92,9 @@ function escapeXml(value: string): string {
 
 function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string }): Uint8Array {
   const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
-  const meta = escapeXml(`${args.flag ? args.flag + " " : ""}${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
+  const meta = escapeXml(`${args.cityLine.toUpperCase()}${args.dateRange ? "  ·  " + args.dateRange : ""}${args.stand ? "  ·  STAND " + args.stand : ""}`.trim());
   const country = escapeXml(args.countryLabel || "");
+  const flag = escapeXml(args.flag || "");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="0.52" stop-color="#12324b"/><stop offset="1" stop-color="#0b1118"/></linearGradient>
@@ -103,10 +104,19 @@ function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string
   <rect width="1200" height="675" fill="url(#bg)"/>
   <rect width="1200" height="675" fill="url(#glow)"/>
   <path d="M0 520 C220 430 340 610 540 510 C780 390 930 500 1200 390 L1200 675 L0 675 Z" fill="#ffffff" opacity="0.05"/>
-  <text x="72" y="70" fill="#f7fbff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">Smart Dent ${country ? "  " + country : ""}</text>
-  <text x="72" y="250" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
-  <foreignObject x="70" y="285" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
-  <text x="72" y="616" fill="#edf7ff" opacity="0.92" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="500" filter="url(#shadow)">${meta}</text>
+  <g transform="translate(72,50)" filter="url(#shadow)">
+    <path d="M0 40 C 20 10, 50 6, 80 18 L 70 26 C 50 18, 30 22, 12 44 Z" fill="#9fb8cc"/>
+    <path d="M6 50 C 30 30, 70 30, 96 70 C 70 56, 36 60, 14 72 Z" fill="#ffffff"/>
+    <text x="110" y="58" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="44" font-weight="900" letter-spacing="2">SMART DENT</text>
+  </g>
+  <text x="72" y="290" fill="#f7fbff" font-family="Arial Narrow, Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="5" filter="url(#shadow)">PRESENÇA CONFIRMADA</text>
+  <foreignObject x="70" y="305" width="900" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial Narrow,Arial,Helvetica,sans-serif;font-size:86px;line-height:0.9;font-weight:900;color:#f7fbff;text-transform:uppercase;text-shadow:0 10px 28px rgba(0,0,0,.75);word-break:normal;overflow-wrap:break-word;letter-spacing:0">${title}</div></foreignObject>
+  <g transform="translate(990,55)" filter="url(#shadow)">
+    <rect x="0" y="0" width="150" height="100" rx="8" fill="#0b1118" stroke="#ffffff" stroke-width="2"/>
+    <text x="75" y="68" text-anchor="middle" font-size="58" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${flag}</text>
+    <text x="75" y="125" text-anchor="middle" fill="#ffffff" font-size="18" font-family="Arial, Helvetica, sans-serif" font-weight="600" letter-spacing="2">${country.toUpperCase()}</text>
+  </g>
+  <text x="72" y="620" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="42" font-weight="800" letter-spacing="2" filter="url(#shadow)">${meta}</text>
 </svg>`;
   return new TextEncoder().encode(svg);
 }
