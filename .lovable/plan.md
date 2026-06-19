@@ -1,48 +1,61 @@
-## Objetivo
-Incorporar o layout da imagem de referência (anexada) como **regra fixa de posicionamento** no prompt da capa de evento, incluindo a **bandeira do país** selecionado no editor.
+## Resposta direta
 
-## Mudança única: `supabase/functions/event-generate-image/index.ts`
+Você tem razão — Poe tem modelos MUITO melhores que Nano-Banana pra esse tipo de peça. O Nano-Banana (Gemini Flash Image) é bom pra fotos e edição, **péssimo pra tipografia e layouts editoriais com texto**. É exatamente por isso que sai colagem com letra torta.
 
-### 1. Adicionar mapa de bandeiras por país
-Mapa simples `country → emoji/nome de bandeira` (PT-BR como label legível):
-- Brasil 🇧🇷, Estados Unidos 🇺🇸, Itália 🇮🇹, Alemanha 🇩🇪, França 🇫🇷, Espanha 🇪🇸, Reino Unido 🇬🇧, Portugal 🇵🇹, México 🇲🇽, Argentina 🇦🇷, China 🇨🇳, Japão 🇯🇵, Emirados Árabes 🇦🇪, Canadá 🇨🇦, Suíça 🇨🇭, Holanda 🇳🇱
-- Fallback: usar o nome do país literal de `ev.country` se não estiver no mapa.
+## Cardápio Poe relevante pro nosso caso (capa de evento com tipografia + logo + bandeira + rodapé)
 
-### 2. Bloco fixo `=== LAYOUT OBRIGATÓRIO (posicionamento dos elementos) ===`
-Inserido no `fullPrompt` logo antes do bloco de 4 camadas cinematográficas. Conteúdo (texto literal no prompt):
+| Modelo Poe | Força | Fraqueza | Nota pra capa de evento |
+|---|---|---|---|
+| **Ideogram-v3** | **Rei absoluto em texto dentro de imagem.** Foi desenhado pra pôster/branding/tipografia legível. Renderiza headlines, captions, logos com kerning real. | Menos fotorrealista que FLUX | ⭐⭐⭐⭐⭐ |
+| **GPT-Image-1** | Excelente em texto + composição editorial + segue layout literal. Aceita imagem de referência (edit mode). | Mais caro, mais lento | ⭐⭐⭐⭐⭐ |
+| **Recraft-v3** | Especialista em design gráfico/pôster, vetor-like, tipografia crisp. Tem modo "any-text". | Estética mais "design system", menos cinematográfica | ⭐⭐⭐⭐ |
+| **FLUX-pro-1.1-ultra** | Fotorrealismo top, atmosfera cinematográfica linda. | Texto ainda erra (não compete com Ideogram/GPT). | ⭐⭐⭐ (só pra background) |
+| **Imagen-4** / **Imagen-4-Ultra** | Boa qualidade geral, melhor que Nano-Banana em texto. | Inferior a Ideogram pra pôster com texto. | ⭐⭐⭐ |
+| **Seedream-4** | Composição de design forte, bom em pôster asiático/editorial. | Texto em português às vezes erra acento. | ⭐⭐⭐ |
+| **Nano-Banana** (atual) | Foto/edição leve | **Texto fica torto, vira colagem, ignora layout.** | ⭐ (não usar) |
 
+## Minha recomendação: **Ideogram-v3**
+
+Pra essa ferramenta específica (capa de evento Smart Dent com "PRESENÇA CONFIRMADA", nome do evento gigante, bandeira, logo, rodapé com cidade/datas/stand), **Ideogram-v3 é o match perfeito**:
+
+- Foi treinado especificamente pra **posters, álbuns, branding, capas** — exatamente o caso de uso
+- **Renderiza texto em português corretamente** (com acento, caps, kerning amplo)
+- **Respeita hierarquia tipográfica** (eyebrow pequeno, título display, rodapé fino) sem virar mockup de UI
+- **Não inventa retângulos cinza** nem "STAND: " vazio
+- Disponível no Poe via `Ideogram-v3` (também tem `Ideogram-v3-Quality` pra máxima fidelidade)
+
+GPT-Image-1 seria o segundo lugar, mas tem 2 desvantagens no nosso caso: não está em todos os planos Poe e é ~5x mais lento.
+
+## O que muda na função
+
+Único ponto de mudança em `supabase/functions/event-generate-image/index.ts`:
+
+```ts
+// ANTES
+const poeRes = await callPoe({
+  model: "Nano-Banana",
+  messages: [{ role: "user", content }],
+});
+
+// DEPOIS
+const poeRes = await callPoe({
+  model: "Ideogram-v3-Quality",  // ou "Ideogram-v3" pra mais rápido/barato
+  messages: [{ role: "user", content }],
+});
 ```
-Canvas 16:9 (1200x675px), fundo escuro premium conforme camadas cinematográficas.
 
-CANTO SUPERIOR ESQUERDO:
-- Logo Smart Dent (branco, traço fino) + ao lado a bandeira do país do evento ({FLAG} {COUNTRY}), pequena, com cantos arredondados sutis.
+**Mais nada muda** — `callPoe` já existe, o prompt cinematográfico atual funciona, o upload no Storage permanece igual, o frontend não precisa mexer.
 
-CANTO SUPERIOR DIREITO:
-- Logo do evento fornecido, grande, em branco, com leve sombra. Se não houver logo, escrever o nome do evento em tipografia display branca, peso bold, alinhado à direita.
+## Ajuste fino no prompt (opcional mas recomendado)
 
-ÁREA CENTRAL ESQUERDA (texto principal):
-- Linha 1: "PRESENÇA CONFIRMADA" em caps, peso bold, branco, tracking amplo, fonte pequena.
-- Linha 2 (espaço reservado, NÃO renderizar texto fictício): bloco de respiro de ~3 linhas para a copy gerada por IA depois (deixar a área limpa, apenas com o fundo cinematográfico — não inventar lorem ipsum nem texto placeholder visível).
+Ideogram entende melhor instruções **declaradas em inglês** pra texto, mesmo que o texto final seja em PT. Posso adaptar o `layoutBlock` pra usar diretivas como:
+- `Render the exact text: "PRESENÇA CONFIRMADA" in white condensed sans-serif caps, small, wide tracking`
+- `Render the exact event title: "${eventName}" in massive white display caps, black weight`
+- `Render the exact footer line: "${cityLine} · ${dateRange} · STAND ${stand}"`
 
-RODAPÉ (faixa inferior, alinhada à esquerda, separadores verticais finos brancos entre blocos):
-- Bloco 1: bandeira {FLAG} grande (cantos arredondados) + ao lado, em duas linhas: "{CITY}" em caps bold branco / "{MONTH} {DAY_RANGE}" em caps branco fino.
-- Bloco 2: "STAND:" label fino caps + número do stand "{STAND}" em display bold branco.
-- Bloco 3: nome do evento "{EVENT_NAME}" em caps bold branco, alinhado à esquerda.
+Isso garante que ele **escreve exatamente esses textos** sem inventar nada.
 
-REGRAS:
-- Sem textos inventados, sem lorem ipsum, sem datas falsas — usar EXATAMENTE os valores fornecidos abaixo.
-- Tipografia sans-serif geométrica condensada, branca pura sobre o fundo cinematográfico.
-- Manter respiro generoso entre blocos; nada deve encostar nas bordas.
-- Bandeiras sempre como retângulos com cantos levemente arredondados, nunca como círculos.
-```
+## Confirmações
 
-Os placeholders `{FLAG}`, `{COUNTRY}`, `{CITY}`, `{MONTH} {DAY_RANGE}`, `{STAND}`, `{EVENT_NAME}` são substituídos no servidor pelos dados reais de `ev` (`country`, `location`, `start_date`/`end_date` formatados em PT como `NOV 29 - DEZ 01`, `company_stand`, `name`). Se faltar algum, omitir o bloco correspondente.
-
-### 3. Manter intacto
-- Bloco de 4 camadas cinematográficas (REGRA PRINCIPAL + CAMADAS 1-4).
-- Upload, persistência em `cover_image_{lang}` e `ai_image_prompt_{lang}`.
-- `reference_image_url` continua sendo enviada ao Nano-Banana como `image_url`.
-
-## Fora de escopo
-- Frontend (`EventAIPanels.tsx`) não muda — já não pede prompt manual.
-- `event-generate-about`, sociais, upload manual.
+1. Topa trocar pra **`Ideogram-v3-Quality`** (melhor pra texto/pôster)?
+2. Quer que eu já adapte o prompt com as diretivas estilo Ideogram (declarar texto exato em inglês) pra extrair o máximo do modelo?
