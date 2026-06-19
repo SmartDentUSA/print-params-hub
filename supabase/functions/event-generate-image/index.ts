@@ -104,6 +104,12 @@ function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function isAiReadableImageUrl(url?: string | null): url is string {
+  if (!url) return false;
+  const clean = url.split("?")[0].toLowerCase();
+  return /\.(png|jpe?g|webp)$/i.test(clean);
+}
+
 function svgCoverBytes(args: { eventName: string; flag: string; cityLine: string; dateRange: string; stand: string; countryLabel: string; confirmedLabel: string }): Uint8Array {
   const title = escapeXml((args.eventName || "SMART DENT EVENT").toUpperCase());
   const confirmed = escapeXml((args.confirmedLabel || "PRESENÇA CONFIRMADA").toUpperCase());
@@ -229,17 +235,20 @@ Deno.serve(async (req) => {
     const confirmedLabel = CONFIRMED_LABEL[language] ?? CONFIRMED_LABEL.pt;
     const baseConfirmedLabel = base_language ? (CONFIRMED_LABEL[base_language] ?? CONFIRMED_LABEL.pt) : CONFIRMED_LABEL.pt;
 
-    // Referências visuais nesta ordem: [0] Logo Smart Dent oficial, [1] Logo do evento (opcional), [2] Imagem de referência do venue (opcional)
+    // Referências visuais nesta ordem: [0] Logo Smart Dent oficial, [1] Logo do evento raster (opcional), [2] Imagem de referência raster do venue (opcional)
+    // A Lovable AI/Gemini rejeita SVG/HTML como image_url (ex.: logo.svg), então nunca enviamos URLs não-raster para o modelo.
     const refImages: string[] = [SMARTDENT_LOGO_URL];
     let eventLogoIndex = -1;
     let venueImageIndex = -1;
-    if (logo_url) { refImages.push(logo_url); eventLogoIndex = refImages.length - 1; }
-    if (reference_image_url) { refImages.push(reference_image_url); venueImageIndex = refImages.length - 1; }
+    const aiLogoUrl = isAiReadableImageUrl(logo_url) ? logo_url : undefined;
+    const aiReferenceImageUrl = isAiReadableImageUrl(reference_image_url) ? reference_image_url : undefined;
+    if (aiLogoUrl) { refImages.push(aiLogoUrl); eventLogoIndex = refImages.length - 1; }
+    if (aiReferenceImageUrl) { refImages.push(aiReferenceImageUrl); venueImageIndex = refImages.length - 1; }
 
     const layoutBlock = [
       "=== REFERÊNCIAS VISUAIS ANEXADAS (USE-AS LITERALMENTE — NÃO REDESENHE, NÃO INVENTE) ===",
       `- IMAGEM 1: Logo OFICIAL Smart Dent (ícone swoosh + wordmark "SMART DENT"). É OBRIGATÓRIO copiar este logo EXATAMENTE como está, preservando proporções, formas e tipografia. NUNCA redesenhar, NUNCA inventar versão alternativa.`,
-      eventLogoIndex >= 0 ? `- IMAGEM ${eventLogoIndex + 1}: Logo do CONGRESSO/EVENTO. É OBRIGATÓRIO incorporar este logo EXATAMENTE como está, sem redesenhar, sem reinterpretar.` : "- Logo do evento: NÃO foi fornecido — NÃO inventar nenhum logo fictício para o evento.",
+      eventLogoIndex >= 0 ? `- IMAGEM ${eventLogoIndex + 1}: Logo do CONGRESSO/EVENTO. É OBRIGATÓRIO incorporar este logo EXATAMENTE como está, sem redesenhar, sem reinterpretar.` : logo_url ? "- Logo do evento foi fornecido em formato SVG/externo não aceito pela IA; NÃO inventar logo fictício do evento." : "- Logo do evento: NÃO foi fornecido — NÃO inventar nenhum logo fictício para o evento.",
       venueImageIndex >= 0 ? `- IMAGEM ${venueImageIndex + 1}: Foto de referência do venue/cidade. Usar como FUNDO cinematográfico integral.` : "",
       "",
       "=== POSICIONAMENTO TIPOGRÁFICO (peça editorial cinematográfica, NÃO mockup de UI) ===",
@@ -271,7 +280,7 @@ Deno.serve(async (req) => {
       `- Se "STAND ${stand}" estiver vazio, OMITIR completamente o bloco de stand (não escrever "STAND:" sozinho).`,
     ].join("\n");
 
-    const cinematicLayers = reference_image_url ? [
+    const cinematicLayers = aiReferenceImageUrl ? [
       "FUNDO CINEMATOGRÁFICO ÚNICO: a imagem de referência fornecida (skyline, ponte, venue, arquitetura, paisagem urbana do evento) ocupa 100% do canvas como FUNDO INTEGRAL — sem moldura, sem recorte, sem inserção duplicada como 'cartão lateral'.",
       "CAMADA 1 — BASE: expandir a imagem em fullbleed cobrindo todo o canvas 16:9.",
       "CAMADA 2 — PROFUNDIDADE: blur gaussiano médio (apenas o suficiente para o texto respirar — ainda dá pra reconhecer o local), leve ampliação 110%, dessaturação parcial, contraste cinematográfico.",
