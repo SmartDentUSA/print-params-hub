@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
       prompt || "",
     ].filter(Boolean).join("\n");
 
-    const generation = await generateImageWithLovable(fullPrompt);
+    let generation = await generateImageWithLovable(fullPrompt);
     if ("error" in generation) {
       console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
       generation = {
@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
 
     const bytes = generation.bytes;
     const contentType = generation.contentType;
-    const ext = contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
+    const ext = contentType.includes("svg") ? "svg" : contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
     const ts = Date.now();
     const path = `events-ai/${event_id}/${language}-${ts}.${ext}`;
 
