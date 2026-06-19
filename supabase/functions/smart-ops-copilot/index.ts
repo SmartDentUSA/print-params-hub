@@ -2744,15 +2744,53 @@ async function executeCreateSocialFlow(args: any) {
   if (trigger) {
     await supabase.from("social_triggers").insert({ ...trigger, flow_id: flowId }).then(() => null, () => null);
   }
-  return {
+  const result: any = {
     ok: true,
     flow_id: flowId,
     nome: name,
     status: "pausado (is_active: false)",
     template,
-    aviso: template === "comment_keyword_dm" ? "Lembrete: este flow depende de automação nativa Zernio com a mesma keyword." : undefined,
     proximos_passos: "Confirme se deseja ativar agora.",
   };
+
+  // Auto-criar automação no Zernio para comment_keyword_dm
+  if (template === "comment_keyword_dm") {
+    const zernioKey = Deno.env.get("ZERNIO_API_KEY");
+    if (!zernioKey) {
+      result.zernio_status = "⚠️ ZERNIO_API_KEY ausente. Crie a automação manualmente no Zernio.";
+    } else {
+      try {
+        const zRes = await fetch("https://zernio.com/api/v1/comment-automations", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profileId: "6a1e1a2368fd70c014724ef0",
+            accountId: "6a1e1b992b2567671a925559",
+            name,
+            keywords: config.keywords || [],
+            matchMode: "contains",
+            dmMessage: (config.dm_message || "") + (config.dm_link ? "\n\n" + config.dm_link : ""),
+            commentReply: config.public_reply || "",
+            linkTracking: false,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        const zData = await zRes.json().catch(() => ({} as any));
+        const zernioId = zData?.automation?.id ?? zData?.id ?? null;
+        if (zernioId) {
+          await supabase.from("social_flows").update({ zernio_automation_id: zernioId }).eq("id", flowId);
+          result.zernio_automation_id = zernioId;
+          result.zernio_status = "✅ Automação criada no Zernio automaticamente";
+        } else {
+          result.zernio_status = `⚠️ Flow criado no banco mas automação Zernio falhou (HTTP ${zRes.status}). Verifique manualmente.`;
+        }
+      } catch (e) {
+        result.zernio_status = `⚠️ Flow criado mas erro ao chamar Zernio: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+  }
+
+  return result;
 }
 
 async function executeUpdateSocialFlow(args: any) {
