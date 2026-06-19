@@ -220,10 +220,11 @@ Deno.serve(async (req) => {
     }
 
     const { flag, label: countryLabel } = resolveFlag(ev.country);
-    const dateRange = fmtDateRange(ev.start_date, ev.end_date);
+    const dateRange = fmtDateRange(ev.start_date, ev.end_date, language);
     const cityLine = ev.location || "";
     const stand = ev.company_stand || "";
     const eventName = ev.name || "";
+    const confirmedLabel = CONFIRMED_LABEL[language] ?? CONFIRMED_LABEL.pt;
 
     // Referências visuais nesta ordem: [0] Logo Smart Dent oficial, [1] Logo do evento (opcional), [2] Imagem de referência do venue (opcional)
     const refImages: string[] = [SMARTDENT_LOGO_URL];
@@ -249,7 +250,7 @@ Deno.serve(async (req) => {
       eventLogoIndex >= 0 ? `- Logo do evento (IMAGEM ${eventLogoIndex + 1}): inserir pixel-perfect logo abaixo da bandeira, altura ~90px, alinhado à direita. NÃO redesenhar, usar a imagem anexada.` : "",
       "",
       "EIXO CENTRAL ESQUERDO (hierarquia editorial vertical, alinhada à esquerda com respiro generoso):",
-      '- Eyebrow pequeno em caps, tracking amplo, branco fino: "PRESENÇA CONFIRMADA".',
+      `- Eyebrow pequeno em caps, tracking amplo, branco fino, NO IDIOMA DA ARTE: "${confirmedLabel}". É PROIBIDO usar "PRESENÇA CONFIRMADA" quando o idioma não for português.`,
       `- Título display abaixo, MUITO grande, peso black, branco puro, leading apertado, em caps: "${eventName.toUpperCase()}". Pode ocupar 2 linhas se necessário. Esta é a âncora visual da peça.`,
       "- NÃO inserir nenhum bloco cinza, retângulo placeholder, texto fake, lorem ipsum ou área reservada visível. Apenas o eyebrow + título sobre o fundo cinematográfico.",
       "",
@@ -262,6 +263,7 @@ Deno.serve(async (req) => {
       "- ZERO inserção de fotos recortadas em moldura dentro do canvas (sem 'cartão' com foto do evento à direita).",
       "- Tipografia sans-serif geométrica condensada (estilo Druk, Founders Grotesk Condensed, Neue Haas Unica).",
       "- Texto sempre branco puro sobre a atmosfera cinematográfica, integrado com leve glow para legibilidade.",
+      `- Todo texto fixo precisa estar em ${LANG_LABEL[language]}: eyebrow exatamente "${confirmedLabel}"; meses/data no idioma selecionado; nunca misturar português em artes EN/ES.`,
       "- Usar EXATAMENTE os valores fornecidos acima. Nunca inventar datas, cidades, nomes ou números de stand.",
       `- Se "STAND ${stand}" estiver vazio, OMITIR completamente o bloco de stand (não escrever "STAND:" sozinho).`,
     ].join("\n");
@@ -296,7 +298,7 @@ Deno.serve(async (req) => {
     if ("error" in generation) {
       console.error("[event-generate-image] geração falhou:", generation.status, generation.details || generation.error);
       generation = {
-        bytes: svgCoverBytes({ eventName, flag, cityLine, dateRange, stand, countryLabel }),
+        bytes: svgCoverBytes({ eventName, flag, cityLine, dateRange, stand, countryLabel, confirmedLabel }),
         contentType: "image/svg+xml",
       };
     }
@@ -343,7 +345,7 @@ Deno.serve(async (req) => {
       url: pub.publicUrl,
       path,
       prompt_used: fullPrompt,
-      model: "openai/gpt-image-2 (Lovable AI Gateway)",
+      model: "google/gemini-3-pro-image-preview (Lovable AI Gateway)",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[event-generate-image] erro:", e);
