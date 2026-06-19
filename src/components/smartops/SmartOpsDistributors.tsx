@@ -40,7 +40,6 @@ type Distributor = {
   backlink_status?: string | null;
   backlink_url?: string | null;
   backlink_verified_at?: string | null;
-  site_url?: string | null;
 };
 export function SmartOpsDistributors() {
   const [items, setItems] = useState<Distributor[]>([]);
