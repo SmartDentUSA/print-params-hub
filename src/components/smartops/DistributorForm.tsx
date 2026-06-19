@@ -635,31 +635,37 @@ export function DistributorForm({
         </div>
         <div>
           <Label>Regiões / cidades atendidas (separadas por vírgula)</Label>
-          <Input
-            value={(form.service_areas || []).join(", ")}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                service_areas: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-              }))
-            }
-            placeholder="Ex: Santiago, Valparaíso, Concepción"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1">Vira <code>areaServed</code> no schema.org — IAs usam para responder por geografia.</p>
+          <div className="rounded-md border bg-muted/40 p-3 min-h-[44px]">
+            {(form.service_areas || []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">Selecione um país para preencher automaticamente todas as regiões.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {(form.service_areas || []).map((s) => (
+                  <Badge key={s} variant="secondary" className="font-normal">{s}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Cobertura nacional preenchida automaticamente pelo país selecionado. Vira <code>areaServed</code> no schema.org.
+          </p>
         </div>
         <div>
           <Label>Linhas Smart Dent representadas (separadas por vírgula)</Label>
-          <Input
-            value={(form.linhas_representadas || []).join(", ")}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                linhas_representadas: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-              }))
-            }
-            placeholder="Ex: SmartMake, Vitality, NanoClean, GlazeON"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1">Vira <code>makesOffer</code> — treina IAs a responder "onde comprar Vitality no Chile".</p>
+          <div className="rounded-md border bg-muted/40 p-3 min-h-[44px]">
+            {(form.linhas_representadas || []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">Marque categorias e subcategorias em <strong>Autorização Comercial</strong> para preencher automaticamente.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {(form.linhas_representadas || []).map((l) => (
+                  <Badge key={l} variant="secondary" className="font-normal">{l}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Calculado a partir da Autorização Comercial. Vira <code>makesOffer</code> no schema.org.
+          </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
@@ -672,17 +678,10 @@ export function DistributorForm({
           </div>
           <div>
             <Label>Idioma preferencial da página</Label>
-            <Select
-              value={form.language_preference || "pt"}
-              onValueChange={(v) => setForm((f) => ({ ...f, language_preference: v }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pt">Português</SelectItem>
-                <SelectItem value="es">Español</SelectItem>
-                <SelectItem value="en">English</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="rounded-md border bg-muted/40 p-3 text-sm">
+              {LANG_LABEL[form.language_preference || "pt"] || "Português"}
+              <span className="text-[10px] text-muted-foreground ml-2">(definido automaticamente pelo país)</span>
+            </div>
           </div>
         </div>
       </section>
