@@ -18,6 +18,7 @@ import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 import { SmartOpsCourses } from "./SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
 import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
+import { IntelligenceWithSentinela } from "./smartops/sentinela/IntelligenceWithSentinela";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "./SmartOpsCopilot";
@@ -142,7 +143,7 @@ export function SmartOpsTab() {
           <SmartOpsAIUsageDashboard />
         </TabsContent>
         <TabsContent value="intelligence">
-          <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />
+          <IntelligenceWithSentinela key={`intelligence-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="roi">
           <SmartOpsSmartFlowAnalytics />
