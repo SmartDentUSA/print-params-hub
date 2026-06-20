@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.zernio-webhook]
 verify_jwt = false
 
+[functions.sentinela-webhook-receiver]
+verify_jwt = false
+
 [functions.flow-executor]
 verify_jwt = false
 
