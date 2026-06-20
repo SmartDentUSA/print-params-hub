@@ -45,7 +45,7 @@ const SmartOpsFormBuilder = lazy(() => import("@/components/SmartOpsFormBuilder"
 const SmartOpsCourses = lazy(() => import("@/components/SmartOpsCourses").then(m => ({ default: m.SmartOpsCourses })));
 const SmartOpsAIUsageDashboard = lazy(() => import("@/components/SmartOpsAIUsageDashboard").then(m => ({ default: m.SmartOpsAIUsageDashboard })));
 const SmartOpsAIRouting = lazy(() => import("@/components/SmartOpsAIRouting").then(m => ({ default: m.SmartOpsAIRouting })));
-const SmartOpsIntelligenceDashboard = lazy(() => import("@/components/SmartOpsIntelligenceDashboard").then(m => ({ default: m.SmartOpsIntelligenceDashboard })));
+const SmartOpsIntelligenceDashboard = lazy(() => import("@/components/smartops/sentinela/IntelligenceWithSentinela").then(m => ({ default: m.IntelligenceWithSentinela })));
 const SmartOpsReports = lazy(() => import("@/components/SmartOpsReports").then(m => ({ default: m.SmartOpsReports })));
 const SmartOpsSmartFlowAnalytics = lazy(() => import("@/components/SmartOpsSmartFlowAnalytics").then(m => ({ default: m.SmartOpsSmartFlowAnalytics })));
 const SmartOpsCopilot = lazy(() => import("@/components/SmartOpsCopilot").then(m => ({ default: m.SmartOpsCopilot })));
