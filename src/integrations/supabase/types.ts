@@ -16025,6 +16025,231 @@ export type Database = {
           },
         ]
       }
+      sentinela_config: {
+        Row: {
+          created_at: string
+          focus_topics: string[] | null
+          group_id: string | null
+          id: string
+          monitoring_active: boolean
+          notes: string | null
+          priority: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          focus_topics?: string[] | null
+          group_id?: string | null
+          id?: string
+          monitoring_active?: boolean
+          notes?: string | null
+          priority?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          focus_topics?: string[] | null
+          group_id?: string | null
+          id?: string
+          monitoring_active?: boolean
+          notes?: string | null
+          priority?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentinela_config_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "sentinela_config_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sentinela_group_messages: {
+        Row: {
+          ai_batch_id: string | null
+          buy_signals: boolean
+          competitor_mentions: string[] | null
+          created_at: string
+          from_me: boolean | null
+          group_id: string | null
+          group_jid: string
+          group_name: string | null
+          id: string
+          instance_name: string
+          intent: string | null
+          lead_id: string | null
+          media_type: string | null
+          media_url: string | null
+          message_id: string | null
+          message_text: string | null
+          message_ts: string | null
+          pain_points: string[] | null
+          processed: boolean
+          processed_at: string | null
+          product_mentions: string[] | null
+          raw_payload: Json | null
+          relevance_score: number | null
+          sender_jid: string | null
+          sender_name: string | null
+          sender_phone: string | null
+          sentiment: string | null
+          topics: string[] | null
+          urgency: string | null
+        }
+        Insert: {
+          ai_batch_id?: string | null
+          buy_signals?: boolean
+          competitor_mentions?: string[] | null
+          created_at?: string
+          from_me?: boolean | null
+          group_id?: string | null
+          group_jid: string
+          group_name?: string | null
+          id?: string
+          instance_name?: string
+          intent?: string | null
+          lead_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_id?: string | null
+          message_text?: string | null
+          message_ts?: string | null
+          pain_points?: string[] | null
+          processed?: boolean
+          processed_at?: string | null
+          product_mentions?: string[] | null
+          raw_payload?: Json | null
+          relevance_score?: number | null
+          sender_jid?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          sentiment?: string | null
+          topics?: string[] | null
+          urgency?: string | null
+        }
+        Update: {
+          ai_batch_id?: string | null
+          buy_signals?: boolean
+          competitor_mentions?: string[] | null
+          created_at?: string
+          from_me?: boolean | null
+          group_id?: string | null
+          group_jid?: string
+          group_name?: string | null
+          id?: string
+          instance_name?: string
+          intent?: string | null
+          lead_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_id?: string | null
+          message_text?: string | null
+          message_ts?: string | null
+          pain_points?: string[] | null
+          processed?: boolean
+          processed_at?: string | null
+          product_mentions?: string[] | null
+          raw_payload?: Json | null
+          relevance_score?: number | null
+          sender_jid?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          sentiment?: string | null
+          topics?: string[] | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentinela_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "sentinela_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sentinela_insights: {
+        Row: {
+          action_items: Json | null
+          category: string | null
+          created_at: string
+          detail: string | null
+          groups_analyzed: number | null
+          id: string
+          insight_type: string
+          messages_analyzed: number | null
+          metrics: Json | null
+          period_end: string | null
+          period_start: string | null
+          resolution_note: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: string
+          summary: string
+          supporting_msgs: string[] | null
+          title: string
+        }
+        Insert: {
+          action_items?: Json | null
+          category?: string | null
+          created_at?: string
+          detail?: string | null
+          groups_analyzed?: number | null
+          id?: string
+          insight_type: string
+          messages_analyzed?: number | null
+          metrics?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          resolution_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          summary: string
+          supporting_msgs?: string[] | null
+          title: string
+        }
+        Update: {
+          action_items?: Json | null
+          category?: string | null
+          created_at?: string
+          detail?: string | null
+          groups_analyzed?: number | null
+          id?: string
+          insight_type?: string
+          messages_analyzed?: number | null
+          metrics?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          resolution_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          summary?: string
+          supporting_msgs?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
       short_links: {
         Row: {
           click_count: number | null
