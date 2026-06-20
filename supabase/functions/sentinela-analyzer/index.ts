@@ -55,10 +55,10 @@ Não invente. Se não houver sinal, devolva arrays vazios e relevance_score baix
 async function logHealth(level: "info" | "warning" | "error", message: string, payload?: any) {
   try {
     await sb.from("system_health_logs").insert({
-      source: "sentinela-analyzer",
-      level,
-      message,
-      payload: payload ?? null,
+      function_name: "sentinela-analyzer",
+      severity: level,
+      error_type: "sentinela",
+      details: { message, payload: payload ?? null },
     });
   } catch (_) {}
 }

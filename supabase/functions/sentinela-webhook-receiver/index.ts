@@ -34,10 +34,10 @@ function extractText(message: any): { text: string | null; mediaType: string; me
 async function logHealth(level: "info" | "warning" | "error", message: string, payload?: any) {
   try {
     await sb.from("system_health_logs").insert({
-      source: "sentinela-webhook-receiver",
-      level,
-      message,
-      payload: payload ?? null,
+      function_name: "sentinela-webhook-receiver",
+      severity: level,
+      error_type: "sentinela",
+      details: { message, payload: payload ?? null },
     });
   } catch (_) {}
 }

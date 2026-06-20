@@ -21,10 +21,10 @@ const DANILO_JID = "5519992612348@s.whatsapp.net";
 async function logHealth(level: "info" | "warning" | "error", message: string, payload?: any) {
   try {
     await sb.from("system_health_logs").insert({
-      source: "sentinela-daily-report",
-      level,
-      message,
-      payload: payload ?? null,
+      function_name: "sentinela-daily-report",
+      severity: level,
+      error_type: "sentinela",
+      details: { message, payload: payload ?? null },
     });
   } catch (_) {}
 }
@@ -32,10 +32,10 @@ async function logHealth(level: "info" | "warning" | "error", message: string, p
 async function isInstanceBlocked(instance: string): Promise<boolean> {
   const { data } = await sb
     .from("system_config")
-    .select("value")
+    .select("config_value")
     .eq("config_key", "evolution_blocked_instances")
     .maybeSingle();
-  const blocked: string[] = (data?.value as any)?.blocked ?? [];
+  const blocked: string[] = (data?.config_value as any)?.blocked ?? [];
   return blocked.includes(instance);
 }
 
