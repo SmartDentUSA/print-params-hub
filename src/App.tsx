@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Analytics } from '@vercel/analytics/react';
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
@@ -59,6 +60,7 @@ function RouteFallback() {
 
 const App = () => (
   <>
+    <Analytics />
     <ChunkErrorBoundary>
     <Suspense fallback={<RouteFallback />}>
     <Routes>
