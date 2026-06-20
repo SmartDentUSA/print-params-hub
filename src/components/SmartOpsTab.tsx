@@ -17,7 +17,6 @@ import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 import { SmartOpsCourses } from "./SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
-import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { IntelligenceWithSentinela } from "./smartops/sentinela/IntelligenceWithSentinela";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
