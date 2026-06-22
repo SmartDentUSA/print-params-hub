@@ -218,7 +218,10 @@ export default function RelatorioMensalComercial() {
       };
       cur.receita = Number(v.receita ?? 0);
       cur.ticket = Number(v.ticket_medio ?? 0);
-      // prefer vendedor data for ganhos/perdidos when detalhe missing
+      // fn_relatorio_mes_vendedor é a fonte canônica para ganhos/perdidos do mês
+      // (acompanha o deal mesmo após mudar para CS Onboarding); detalhe zera porque filtra pipelines.
+      cur.ganhos = Number(v.deals_ganhos ?? 0);
+      cur.perdidos = Number(v.perdidos ?? 0);
       if (!cur.total) cur.total = Number(v.leads_mes ?? 0);
       map.set(name, cur);
     }
