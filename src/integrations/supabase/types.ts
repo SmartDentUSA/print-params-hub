@@ -25070,6 +25070,7 @@ export type Database = {
           category: string | null
           companions_count: number | null
           course_id: string | null
+          course_slug: string | null
           course_title: string | null
           course_whatsapp_group_link: string | null
           cover_image_url: string | null
@@ -25086,6 +25087,8 @@ export type Database = {
           meeting_link: string | null
           modality: string | null
           pipeline_id_kanban: number | null
+          public_enrollment_enabled: boolean | null
+          public_visible: boolean | null
           recurrence_enabled: boolean | null
           recurrence_index: number | null
           recurrence_interval: number | null
