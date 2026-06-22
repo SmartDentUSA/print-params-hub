@@ -646,6 +646,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     }
     setSaving(true);
     try {
+      console.log("[course-save] start", { isEdit, modality });
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
@@ -830,12 +831,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   return (
     <>
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0 border-b">
           <DialogTitle>{isEdit ? "Editar Curso" : "Novo Curso"}</DialogTitle>
         </DialogHeader>
 
-          <div className="space-y-6 pb-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {/* ─── Dados do curso ─── */}
             <div className="space-y-4">
               <div>
@@ -1220,10 +1221,15 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
             </div>
           </div>
 
-        {/* Footer */}
-        <div className="flex gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button className="flex-1" onClick={handleSave} disabled={saving}>
+        {/* Footer fixo — sempre visível */}
+        <div className="shrink-0 flex gap-2 px-6 py-4 border-t bg-background">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button
+            type="button"
+            className="flex-1"
+            onClick={handleSave}
+            disabled={saving}
+          >
             {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar curso"}
           </Button>
         </div>
