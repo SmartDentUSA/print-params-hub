@@ -302,6 +302,23 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [allTurmas, publicCourseIds]);
 
+  // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
+  const onlineCourseGroups = useMemo(() => {
+    if (variant !== "online") return [];
+    const map = new Map<string, TurmaComVagas[]>();
+    for (const t of turmas) {
+      const arr = map.get(t.course_id) || [];
+      arr.push(t);
+      map.set(t.course_id, arr);
+    }
+    return Array.from(map.entries())
+      .map(([course_id, list]) => ({
+        course_id,
+        turmas: list.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || "")),
+      }))
+      .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
+  }, [turmas, variant]);
+
   return (
     <div className="pp-root min-h-screen">
       <style>{publicPageStyles}</style>
@@ -339,13 +356,14 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{config.emptyLabel}</p>
           </div>
+        ) : variant === "online" ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {onlineCourseGroups.map((g) => (
+              <PublicOnlineCourseCard key={g.course_id} sessions={g.turmas} />
+            ))}
+          </div>
         ) : (
-          <div className={cn(
-            "grid grid-cols-1 gap-4",
-            variant === "online"
-              ? "md:grid-cols-2 xl:grid-cols-3"
-              : "md:grid-cols-2 xl:grid-cols-3"
-          )}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {turmas.map((t) => (
               <PublicTurmaCard
                 key={t.id}
@@ -568,6 +586,137 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
 }
 
 function DateBlock({ label, date, time }: { label: string; date?: string | null; time?: string | null }) {
+  return DateBlockImpl({ label, date, time });
+}
+
+function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
+  const getCountdown = useCountdown();
+  if (sessions.length === 0) return null;
+  const first = sessions[0];
+  const coverUrl = (first as any).cover_image_url as string | undefined;
+  const products = (first as any).related_product_names as string[] | undefined;
+  const slug = (first as any).course_slug as string | undefined;
+  const publicEnabled = Boolean((first as any).public_enrollment_enabled);
+  const externalUrl = (first as any).signup_form_url as string | undefined;
+  const href = publicEnabled && slug ? `/inscricao/${slug}` : externalUrl;
+  const isInternal = href?.startsWith("/");
+
+  // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || first;
+  const upcomingStatus = getCountdown(
+    upcoming.start_date, upcoming.start_time,
+    upcoming.end_date, upcoming.end_time, upcoming.modality,
+  );
+  const showLiveTimer = upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
+
+  const hhmm = (t?: string | null) => (t ? t.substring(0, 5) : "");
+  const fmtShort = (iso?: string | null) =>
+    iso ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${iso}T12:00:00`)) : "—";
+  const computeDur = (s?: string | null, e?: string | null) => {
+    if (!s || !e) return "";
+    const [sh, sm] = s.split(":").map(Number);
+    const [eh, em] = e.split(":").map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    const h = Math.floor(mins / 60); const m = mins % 60;
+    return m === 0 ? `${h}h` : h === 0 ? `${m}min` : `${h}h${m}`;
+  };
+
+  return (
+    <div className="pp-card relative overflow-hidden flex flex-col min-h-[360px]">
+      {coverUrl && (
+        <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
+          <img src={coverUrl} alt={first.course_title || "Curso"} className="w-full h-full object-cover" loading="lazy" />
+          <LiveBadge modality={first.modality} className="absolute top-2 left-2" />
+        </div>
+      )}
+      <div className="p-5 flex flex-col flex-1">
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          {!coverUrl && <LiveBadge modality={first.modality} />}
+          {showLiveTimer && (
+            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[upcomingStatus.variant])}>
+              <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[upcomingStatus.variant])} />
+              <LiveCountdownInline startDate={upcoming.start_date} startTime={upcoming.start_time} fallback={upcomingStatus.label} />
+            </span>
+          )}
+          <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+            {sessions.length} {sessions.length === 1 ? "sessão" : "sessões"}
+          </span>
+        </div>
+
+        <h3 className="font-semibold text-foreground leading-snug mb-3 line-clamp-2">
+          {first.course_title || "Sem curso"}
+        </h3>
+
+        <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
+          {sessions.map((s) => {
+            const start = hhmm(s.start_time);
+            const end = hhmm(s.end_time);
+            const tag = formatTurmaNumber(s.turma_number, s.modality);
+            const dur = computeDur(start, end);
+            return (
+              <div key={s.id} className="flex items-center gap-3 px-3 py-2 text-xs">
+                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="font-semibold tabular-nums text-foreground min-w-[64px]">{fmtShort(s.start_date)}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {start && end ? `${start} — ${end}` : start || ""}
+                </span>
+                {dur && <span className="text-muted-foreground">· {dur}</span>}
+                {tag && (
+                  <span className="ml-auto inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    Turma {tag}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t">
+          <div className="flex flex-col gap-1.5 min-w-0">
+            {products && products.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {products.slice(0, 4).map((name) => (
+                  <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60" title={name}>
+                    {name}
+                  </span>
+                ))}
+                {products.length > 4 && (
+                  <span className="text-[10.5px] text-muted-foreground self-center">+{products.length - 4}</span>
+                )}
+              </div>
+            )}
+            {first.instructor_name && (
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate">
+                <User className="w-4 h-4 shrink-0 text-muted-foreground" />
+                {first.instructor_name}
+              </span>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Vagas/sessão</div>
+            <div className="text-2xl font-semibold leading-tight tabular-nums">{first.slots}</div>
+          </div>
+        </div>
+
+        {href && (
+          <div className="mt-4 flex justify-center">
+            <a
+              href={href}
+              {...(isInternal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+              className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold uppercase tracking-wide hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
+            >
+              Inscreva-se
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DateBlockImpl({ label, date, time }: { label: string; date?: string | null; time?: string | null }) {
   return (
     <div className="flex flex-col">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
