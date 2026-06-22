@@ -84,10 +84,11 @@ Deno.serve(async (req) => {
         const course: any = (e as any).course;
         if (!course || !["online_ao_vivo", "online"].includes(course.modality)) continue;
 
-        // Reentrância: claim
+        // Reentrância: claim atômico marcando sent_at = now (evita double-send se falhar)
+        const claimedAt = new Date().toISOString();
         const { data: claim } = await supabase
           .from("smartops_course_enrollments")
-          .update({ wa_reminder_sent_at: new Date(0).toISOString() }) // placeholder; será sobrescrito
+          .update({ wa_reminder_sent_at: claimedAt })
           .eq("id", (e as any).id)
           .is("wa_reminder_sent_at", null)
           .select("id")
