@@ -382,11 +382,19 @@ function CatalogoTab() {
     if (!window.confirm(`Excluir o curso "${c.title}"? Esta ação não pode ser desfeita e removerá todas as turmas.`)) return;
     try {
       const turmaIds = (c.turmas ?? []).map((t: any) => t.id).filter(Boolean);
+      const sb = supabase as any;
+      const check = (label: string, res: any) => { if (res?.error) throw new Error(`${label}: ${res.error.message}`); };
       if (turmaIds.length) {
-        await (supabase as any).from("smartops_turma_days").delete().in("turma_id", turmaIds);
-        await (supabase as any).from("smartops_course_turmas").delete().in("id", turmaIds);
+        // Quebra FKs sem ON DELETE CASCADE antes de remover as turmas
+        check("recurrence_parent_id", await sb.from("smartops_course_turmas").update({ recurrence_parent_id: null }).in("recurrence_parent_id", turmaIds));
+        check("wa_groups", await sb.from("wa_groups").update({ turma_id: null }).in("turma_id", turmaIds));
+        check("training_factory_runs", await sb.from("training_factory_runs").update({ turma_id: null }).in("turma_id", turmaIds));
+        check("training_factory_assets", await sb.from("training_factory_assets").update({ turma_id: null }).in("turma_id", turmaIds));
+        check("smartops_course_enrollments", await sb.from("smartops_course_enrollments").delete().in("turma_id", turmaIds));
+        check("smartops_turma_days", await sb.from("smartops_turma_days").delete().in("turma_id", turmaIds));
+        check("smartops_course_turmas", await sb.from("smartops_course_turmas").delete().in("id", turmaIds));
       }
-      const { error } = await (supabase as any).from("smartops_courses").delete().eq("id", c.id);
+      const { error } = await sb.from("smartops_courses").delete().eq("id", c.id);
       if (error) throw error;
       toast({ title: "Curso excluído" });
       qc.invalidateQueries({ queryKey: ["smartops_courses"] });
