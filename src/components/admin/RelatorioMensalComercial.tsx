@@ -40,6 +40,9 @@ interface VendedorDetalheRow {
   perdidas: number | null;
   estagnados: number | null;
   estagnados_pct: number | null;
+  avg_dias_etapa_vendas: number | null;
+  cs_count: number | null;
+  cs_lead_time_dias: number | null;
 }
 interface FunilRow {
   vendedor: string | null;
@@ -260,7 +263,10 @@ export default function RelatorioMensalComercial() {
       const abertas = Number(d?.abertas ?? 0);
       const perdidas = Number(d?.perdidas ?? 0);
       const totalCriados = Number(d?.total_criados ?? 0);
-      return { v, top, funilTotal, estagnados, estagnadosPct, abertas, perdidas, totalCriados };
+      const avgDiasEtapa = Number(d?.avg_dias_etapa_vendas ?? 0);
+      const csCount = Number(d?.cs_count ?? 0);
+      const csLeadTime = Number(d?.cs_lead_time_dias ?? 0);
+      return { v, top, funilTotal, estagnados, estagnadosPct, abertas, perdidas, totalCriados, avgDiasEtapa, csCount, csLeadTime };
     }).sort((a, b) => b.estagnados - a.estagnados);
   }, [vendedoresUnificados, detalheByVendor, funilPorVendedor]);
 
