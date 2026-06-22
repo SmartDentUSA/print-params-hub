@@ -408,12 +408,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   // ─── Turma management ───
   const addTurma = () => {
     const idx = turmas.length;
-    const defaultStart = isOnlineAoVivo ? "09:00" : "09:00";
+    const defaultStart = "09:00";
     const defaultEnd = isOnlineAoVivo ? "10:00" : "17:00";
     setTurmas((prev) => [
       ...prev,
       {
-        label: isOnlineAoVivo ? `Sessão ${idx + 1}` : `Turma ${idx + 1}`,
+        label: isOnlineAoVivo ? `Opção ${idx + 1}` : `Turma ${idx + 1}`,
         slots: 20,
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
@@ -996,10 +996,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">
-                    {isOnlineAoVivo ? "Sessões (datas e horários)" : "Turmas e Cronograma"}
+                    {isOnlineAoVivo
+                      ? "Opções do curso (datas e horários)"
+                      : "Turmas e Cronograma"}
                   </h3>
                   <Button type="button" variant="outline" size="sm" onClick={addTurma}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> {isOnlineAoVivo ? "Adicionar sessão" : "Adicionar turma"}
+                    <Plus className="w-3.5 h-3.5 mr-1" /> {isOnlineAoVivo ? "Adicionar opção (data e horário)" : "Adicionar turma"}
                   </Button>
                 </div>
 
