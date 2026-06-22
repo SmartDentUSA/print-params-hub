@@ -945,6 +945,43 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_revenue_forecast",
+      description: "Previsão de receita do mês baseada em pipeline ponderado por etapa + ganhos já fechados + média dos últimos 3 meses. Retorna 3 cenários (conservador/realista/otimista), receita já fechada, valor aberto total, valor ponderado, breakdown por etapa com peso, projeção por pace e dias restantes no mês. USE SEMPRE que o usuário perguntar 'quanto vamos faturar', 'previsão do mês', 'forecast', 'vamos bater a meta', 'projeção de receita'. Pesos por etapa: Fechamento 60%, Negociação 40%, Proposta 30%, C3 25%, Apresentação 20%, C2 15%, C1 10%, demais ≤8%.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_churn_risk",
+      description: "Análise de risco de churn em tempo real: (1) leads estagnados há mais de 90 dias no Funil Estagnados com vendedor e ação sugerida; (2) clientes ativos com compra ganha mas SEM RECOMPRA há mais de 90 dias (top 100 por receita histórica); (3) summary agregado por vendedor. USE SEMPRE que o usuário pedir 'risco de churn', 'leads estagnados', 'clientes inativos', 'quem está abandonando', 'precisamos reativar quem', 'vendedor com mais leads parados'. NUNCA invente nomes — só cite leads/clientes retornados literalmente no payload.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "suggest_cross_sell",
+      description: "Sugere produtos de cross-sell/upsell para um lead canônico específico baseado em co-compra histórica: o que outros clientes que adquiriram os mesmos produtos deste lead também compraram (mínimo 2 ocorrências). Retorna produtos já comprados pelo lead, sugestões com score (% de clientes similares que também adquiriram), categoria, preço médio e fonte. Inclui também regras explícitas do Sistema A (opportunity_rules) quando aplicáveis. USE SEMPRE que o usuário pedir 'o que oferecer pro lead X', 'cross-sell', 'upsell', 'próxima oferta', 'recomendação de produto'. Se 'produtos_ja_comprados' vier vazio, responda que o lead ainda não tem compras ganhas registradas.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead canônico (obtenha via get_lead_card ou query_product_owners)" }
+        },
+        required: ["lead_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "get_product_anti_hallucination",
       description: "FONTE ÚNICA DE VERDADE para compatibilidade, integrações, combos, comparações com concorrentes e regras técnicas de um produto SmartDent. Resolve o produto em system_a_catalog (por slug, external_id ou nome) e busca live no Sistema A (cache 10 min). Use SEMPRE antes de afirmar 'X é compatível com Y', 'X integra com Y', 'X substitui Y', 'X vs concorrente Y' ou 'combo X+Y'. Retorna never_claim, always_require, never_mix_with, forbidden_products, required_products e tabela de comparação oficial.",
       parameters: {
