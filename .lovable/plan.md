@@ -1,32 +1,40 @@
-# Correção: botão Criar curso deve salvar qualquer modalidade
+# Card único por treinamento Online (datas agrupadas)
 
 ## Objetivo
 
-Fazer o botão **Criar curso** realmente criar o curso, independente da modalidade selecionada.
+Para cursos **Online ao Vivo** e **Online**, mostrar **um único card por treinamento** na Agenda Pública, com todas as datas/horários listados dentro do card — em vez de um card separado para cada turma.
 
-## O que será alterado
+Cursos **Presenciais** continuam como hoje (um card por turma).
 
-Em `src/components/smartops/CourseCreateModal.tsx`:
+## Mudanças
 
-1. **Garantir que o botão chame `handleSave`**
-   - Manter o botão `Criar curso` ligado diretamente à função de salvamento.
-   - Evitar qualquer dependência de modalidade para disparar o salvamento.
+### `src/pages/AgendaPublica.tsx`
 
-2. **Deixar o botão sempre acessível**
-   - Ajustar o footer do modal para ficar visível no final da janela/modal, sem depender de rolar até o fim do formulário.
-   - Isso evita a sensação de que “não faz nada” quando o botão fica fora da área visível.
+1. **Agrupar turmas por curso quando online**
+   - Para `modality ∈ {online, online_ao_vivo}`, agrupar `turmas` por `course_id` e renderizar 1 card.
+   - Para `presencial`, manter 1 card por turma.
 
-3. **Não bloquear criação por modalidade**
-   - Presencial, Online ao Vivo, Online, Workshop/Webinar devem passar pelo mesmo fluxo base de criação.
-   - Campos extras continuam opcionais e não devem impedir o cadastro.
+2. **Card online consolidado**
+   - Cabeçalho: badge LIVE + título + categoria/instrutor/capa (do curso).
+   - Bloco de **Sessões** (substitui o `OnlineDateRow` único): lista enxuta com cada data:
+     ```
+     📅 29 jun  ·  09:00 – 10:00  ·  1h   [Turma #001]
+     📅 06 jul  ·  09:00 – 10:00  ·  1h   [Turma #002]
+     ```
+   - Próxima sessão destacada com o cronômetro `LiveCountdownInline` no topo (a mais próxima de hoje).
+   - Vagas: somar `slots` de todas as turmas futuras (ou mostrar “Vagas por sessão: 20”).
+   - Botão **INSCREVA-SE** (já implementado) leva a `/inscricao/{course_slug}` — a página de inscrição já lista as turmas para o usuário escolher.
 
-4. **Melhorar feedback se der erro real**
-   - Se o Supabase retornar erro, mostrar mensagem clara no toast.
-   - Se salvar com sucesso, fechar o modal e atualizar a lista como já acontece.
+3. **Ordenação e filtro**
+   - Filtrar turmas com `end_date >= hoje` antes de agrupar.
+   - Ordenar cards pela menor `start_date` do grupo.
 
-## Fora do escopo
+4. **Compartilhamento / ShareButton**
+   - Botão de compartilhar passa a apontar para o curso (link `/inscricao/{slug}` ou agenda pública), não para uma turma específica.
 
-- Não vou criar novas regras de inscrição pública.
-- Não vou alterar banco de dados.
-- Não vou mexer em NPS, WhatsApp, lembretes ou captura de lead.
-- Não vou mudar regras comerciais por modalidade.
+### O que NÃO muda
+
+- Schema do banco continua igual (`smartops_course_turmas` por sessão).
+- Página `/inscricao/:slug` continua mostrando seletor de turmas (não duplica info).
+- Página Presencial inalterada (1 card por turma).
+- Fluxo de inscrição, WhatsApp, NPS, lembrete 1h antes — tudo intacto.
