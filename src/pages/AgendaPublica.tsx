@@ -503,18 +503,27 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
             </div>
           </div>
 
-          {(turma as any).signup_form_url && (
-            <div className="mt-4 flex justify-center">
-              <a
-                href={(turma as any).signup_form_url as string}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
-              >
-                Inscreva-se
-              </a>
-            </div>
-          )}
+          {(() => {
+            const publicEnabled = Boolean((turma as any).public_enrollment_enabled);
+            const slug = (turma as any).course_slug as string | undefined;
+            const externalUrl = (turma as any).signup_form_url as string | undefined;
+            const href = publicEnabled && slug
+              ? `/inscricao/${slug}`
+              : externalUrl;
+            if (!href) return null;
+            const isInternal = href.startsWith('/');
+            return (
+              <div className="mt-4 flex justify-center">
+                <a
+                  href={href}
+                  {...(isInternal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+                  className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold uppercase tracking-wide hover:shadow-glow transition-smooth hover:scale-[1.02] active:scale-95"
+                >
+                  Inscreva-se
+                </a>
+              </div>
+            );
+          })()}
         </>
       ) : (
         <>
