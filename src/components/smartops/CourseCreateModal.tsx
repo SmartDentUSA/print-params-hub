@@ -295,6 +295,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
 
   const isOnline = modality === 'online' || modality === 'online_ao_vivo';
+  const isOnlineAoVivo = modality === 'online_ao_vivo';
 
   // Turmas
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
@@ -407,16 +408,18 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   // ─── Turma management ───
   const addTurma = () => {
     const idx = turmas.length;
+    const defaultStart = isOnlineAoVivo ? "09:00" : "09:00";
+    const defaultEnd = isOnlineAoVivo ? "10:00" : "17:00";
     setTurmas((prev) => [
       ...prev,
       {
-        label: `Turma ${idx + 1}`,
+        label: isOnlineAoVivo ? `Sessão ${idx + 1}` : `Turma ${idx + 1}`,
         slots: 20,
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
         sort_order: idx,
         enrolled_count: 0,
-        days: [{ day_number: 1, date: "", start_time: "09:00", end_time: "17:00", topic: "" }],
+        days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
       },
     ]);
   };
