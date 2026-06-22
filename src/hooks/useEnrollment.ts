@@ -44,6 +44,28 @@ export function useEnrollment() {
         days: [...p.turmadays].sort((a, b) => a.day_number - b.day_number),
       };
 
+      // Reminder scheduling (apenas modalidades online)
+      const isOnline = p.course.modality === 'online_ao_vivo' || p.course.modality === 'online';
+      let waReminderScheduledFor: string | null = null;
+      if (isOnline && turmaSnapshot.days.length > 0) {
+        const d0 = turmaSnapshot.days[0];
+        if (d0?.date && d0?.start_time) {
+          // America/Sao_Paulo = UTC-3 (sem DST desde 2019)
+          const startSp = new Date(`${d0.date}T${d0.start_time}-03:00`);
+          if (!isNaN(startSp.getTime())) {
+            waReminderScheduledFor = new Date(startSp.getTime() - 60 * 60 * 1000).toISOString();
+          }
+        }
+      }
+
+      // Resolver CS team member id (para o cron achar a waleads_api_key)
+      let csTeamMemberId: string | null = null;
+      try {
+        const { data: csRow } = await (supabase as any).from('team_members')
+          .select('id').eq('email', user.email!).eq('ativo', true).maybeSingle();
+        csTeamMemberId = csRow?.id ?? null;
+      } catch (e) { console.warn('[cs lookup]', e); }
+
       // 1. INSERT enrollment
       const { data: enrollment, error: eEnroll } = await (supabase as any)
         .from('smartops_course_enrollments')
@@ -77,6 +99,8 @@ export function useEnrollment() {
           enrolled_at:             new Date().toISOString(),
           notes:                   p.notes,
           created_by:              user.id,
+          cs_team_member_id:       csTeamMemberId,
+          wa_reminder_scheduled_for: waReminderScheduledFor,
         })
         .select('id').single();
 
