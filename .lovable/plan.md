@@ -1,33 +1,31 @@
-Dois ajustes independentes:
+## Problema
 
-## 1. Esconder cursos já realizados na Agenda Pública (presencial + online)
+"Excluir curso" falha silenciosamente (ou com erro) em cursos recorrentes como "Teste 02" porque existem foreign keys sem `ON DELETE CASCADE` apontando para `smartops_course_turmas`:
 
-`src/pages/AgendaPublica.tsx`
-- Hoje o filtro é `!t.end_date || t.end_date >= today`, então cursos que terminaram hoje cedo continuam aparecendo até o fim do dia.
-- Substituir por filtro baseado em **datetime real do fim da sessão** (`end_date` + `end_time`, fallback `start_date` + `end_time` ou 23:59):
-  - Se `now() > endDateTime` → ocultar.
-- Aplicar no `useMemo turmas` e refletir tanto em presencial quanto em online.
-- Para cards online agrupados (`onlineCourseGroups`): se todas as sessões do curso já estiverem realizadas, o curso some inteiro do grid.
+- `smartops_course_turmas.recurrence_parent_id` (auto-referência) — bloqueia delete do turma-pai enquanto filhos referenciam.
+- `wa_groups.turma_id`
+- `training_factory_runs.turma_id`
+- `training_factory_assets.turma_id`
+- `smartops_course_enrollments.turma_id` (sem cascade)
 
-## 2. Persistência ao editar curso (`CourseCreateModal.tsx`)
+Hoje o `deleteCourse` em `src/components/SmartOpsCourses.tsx` só apaga `smartops_turma_days` e `smartops_course_turmas`, então qualquer linha nas tabelas acima dispara erro de FK e nada acontece visualmente.
 
-Inspecionei `useEffect` que carrega `course` para os states. Identifiquei campos da recorrência que **não são restaurados** ao reabrir um curso em edição:
+## Correção (frontend apenas, em `SmartOpsCourses.tsx` → `deleteCourse`)
 
-- `recurrenceSlotsPerSession` — nunca é setado a partir de `course.max_capacity` ao editar; volta sempre para 20.
-- (Confirmar) `recurrenceBaseDate` — só é carregado se `recurrence_enabled === true`; caso o curso tenha recorrência mas a primeira turma já não tenha `days`, fica vazio.
+Antes de deletar as turmas, na ordem:
 
-Correções:
-- Após `setRecurrenceWeekdays(...)`, adicionar `setRecurrenceSlotsPerSession(course.max_capacity || 20)`.
-- Garantir que o `useEffect` rode apenas quando o `course.id` mudar (não a cada re-render do pai), trocando dependência para `[course?.id]` para evitar que um refetch do pai reseta o formulário enquanto o usuário ainda digita.
-- Não vou alterar `handleSave` — o payload já envia todos os campos corretamente.
+1. `update smartops_course_turmas set recurrence_parent_id = null where recurrence_parent_id in (turmaIds)` — quebra auto-FK.
+2. `update wa_groups set turma_id = null where turma_id in (turmaIds)`.
+3. `update training_factory_runs set turma_id = null where turma_id in (turmaIds)`.
+4. `update training_factory_assets set turma_id = null where turma_id in (turmaIds)`.
+5. `delete from smartops_course_enrollments where turma_id in (turmaIds)` (já validamos enrolled_count = 0; cobre eventuais órfãos cancelados).
+6. `delete from smartops_turma_days where turma_id in (turmaIds)` (já existe).
+7. `delete from smartops_course_turmas where id in (turmaIds)` (já existe).
+8. `delete from smartops_courses where id = c.id` (já existe).
 
-**Importante:** Você mencionou "as opções selecionadas não persistem" mas não detalhou quais campos. Se o problema for em campos diferentes dos acima (ex.: produtos relacionados, modalidade, formulário público), me diga quais para eu corrigir especificamente. Mesmo assim, vou aplicar as correções acima já identificadas.
+Também: surfacing real do erro caso ocorra — fazer `await` em cada passo e jogar no `catch` já existente (que mostra toast). Hoje os 2 deletes iniciais não tratam erro; envolver com checagem `if (error) throw error`.
 
 ## Fora de escopo
-- Editor de Turma, formulário público de inscrição, edge functions.
-- Layout dos cards (já ajustado anteriormente).
 
-## Critério de aceite
-1. Cursos com data/hora de fim no passado não aparecem mais em `/agenda` nem `/agenda/online`.
-2. Ao reabrir um curso recorrente em edição, o campo "Vagas por sessão" exibe o valor salvo (não mais 20 fixo).
-3. Editar e salvar um curso não reseta os outros campos enquanto o modal está aberto.
+- Mudar FKs no banco (migration) — pode ser feito depois se quiser cascade global; nesta correção fica só no client.
+- Editor de curso, agenda pública, outras telas.
