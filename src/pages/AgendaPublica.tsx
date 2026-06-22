@@ -650,23 +650,41 @@ function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
         </h3>
 
         <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
+          <div className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/50">
+            <span>Turma</span>
+            <span>Dia</span>
+            <span>Início</span>
+            <span>Fim</span>
+            <span>Duração</span>
+            <span className="text-right">Contagem</span>
+          </div>
           {sessions.map((s) => {
             const start = hhmm(s.start_time);
             const end = hhmm(s.end_time);
             const tag = formatTurmaNumber(s.turma_number, s.modality);
             const dur = computeDur(start, end);
+            const sStatus = getCountdown(s.start_date, s.start_time, s.end_date, s.end_time, s.modality);
+            const showTimer = sStatus && (sStatus.variant === "green" || sStatus.variant === "amber");
             return (
-              <div key={s.id} className="flex items-center gap-3 px-3 py-2 text-xs">
-                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="font-semibold tabular-nums text-foreground min-w-[64px]">{fmtShort(s.start_date)}</span>
-                <span className="text-muted-foreground tabular-nums">
-                  {start && end ? `${start} — ${end}` : start || ""}
+              <div key={s.id} className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] items-center gap-3 px-3 py-2 text-xs">
+                <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {tag ? `#${tag}` : "—"}
                 </span>
-                {dur && <span className="text-muted-foreground">· {dur}</span>}
-                {tag && (
-                  <span className="ml-auto inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                    Turma {tag}
+                <span className="font-semibold tabular-nums text-foreground">{fmtShort(s.start_date)}</span>
+                <span className="text-muted-foreground tabular-nums">{start || "—"}</span>
+                <span className="text-muted-foreground tabular-nums">{end || "—"}</span>
+                <span className="text-muted-foreground tabular-nums">{dur || "—"}</span>
+                {sStatus ? (
+                  <span className={cn("justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums", STATUS_PILL[sStatus.variant])}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full", showTimer && "animate-pulse", STATUS_DOT[sStatus.variant])} />
+                    {showTimer ? (
+                      <LiveCountdownInline startDate={s.start_date} startTime={s.start_time} fallback={sStatus.label} />
+                    ) : (
+                      sStatus.label
+                    )}
                   </span>
+                ) : (
+                  <span className="justify-self-end text-muted-foreground">—</span>
                 )}
               </div>
             );
@@ -693,10 +711,6 @@ function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
                 {first.instructor_name}
               </span>
             )}
-          </div>
-          <div className="text-right shrink-0">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Vagas/sessão</div>
-            <div className="text-2xl font-semibold leading-tight tabular-nums">{first.slots}</div>
           </div>
         </div>
 
