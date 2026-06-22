@@ -646,6 +646,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     }
     setSaving(true);
     try {
+      console.log("[course-save] start", { isEdit, modality });
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
