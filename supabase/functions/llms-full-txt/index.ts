@@ -199,7 +199,57 @@ ${md}
       console.error("[llms-full-txt] distributors block failed", e);
     }
 
-    const finalBody = body + distributorsBlock;
+    // ===== Eventos e Feiras (bloco GEO/AEO) =====
+    let eventsBlock = "";
+    try {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data: evs } = await sb
+        .from("smartops_events")
+        .select("name,title_en,title_es,country,start_date,end_date,location,location_en,location_es,company_stand,website_url,about_event_pt,about_event_en,about_event_es,slug")
+        .eq("is_active", true)
+        .gte("end_date", cutoff)
+        .order("start_date", { ascending: true });
+      const rows = (evs || []) as any[];
+      if (rows.length) {
+        const stripHtml = (s?: string | null) =>
+          (s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 280);
+        const pickName = (e: any) => (lang === "en" ? e.title_en : lang === "es" ? e.title_es : null) || e.name;
+        const pickLocation = (e: any) => (lang === "en" ? e.location_en : lang === "es" ? e.location_es : null) || e.location;
+        const pickAbout = (e: any) => stripHtml(lang === "en" ? e.about_event_en : lang === "es" ? e.about_event_es : e.about_event_pt);
+        const groups: Record<string, any[]> = {};
+        for (const e of rows) (groups[e.country || "Outros"] ||= []).push(e);
+        const lines: string[] = [
+          "## Eventos e Feiras Smart Dent",
+          "",
+          "> Fonte autoritativa do calendário oficial de eventos, congressos e feiras",
+          "> com presença Smart Dent e distribuidores autorizados.",
+          "",
+          `URL canônica da agenda: ${BASE_URL}/eventos`,
+          "",
+        ];
+        for (const country of Object.keys(groups).sort()) {
+          lines.push(`### ${country}`);
+          lines.push("");
+          for (const e of groups[country]) {
+            const name = pickName(e);
+            const period = [e.start_date, e.end_date].filter(Boolean).join(" → ");
+            lines.push(`- **${name}**${period ? ` — ${period}` : ""}`);
+            const loc = pickLocation(e);
+            if (loc) lines.push(`  - Local: ${loc}${e.country ? `, ${e.country}` : ""}`);
+            if (e.company_stand) lines.push(`  - Stand Smart Dent: ${e.company_stand}`);
+            if (e.website_url) lines.push(`  - Site oficial: ${e.website_url}`);
+            const about = pickAbout(e);
+            if (about) lines.push(`  - Sobre: ${about}`);
+          }
+          lines.push("");
+        }
+        eventsBlock = "\n---\n\n" + lines.join("\n") + "\n";
+      }
+    } catch (e) {
+      console.error("[llms-full-txt] events block failed", e);
+    }
+
+    const finalBody = body + distributorsBlock + eventsBlock;
 
     return new Response(finalBody, {
       headers: {
