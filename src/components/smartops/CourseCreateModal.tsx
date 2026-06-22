@@ -657,7 +657,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         instructor_name: instructorName || null,
         cover_image_url: coverImageUrl || null,
         max_capacity: useRecurrence ? recurrenceSlotsPerSession : (turmas[0]?.slots || 20),
-        duration_days: durationDays,
+        duration_days: isOnlineAoVivo ? 1 : durationDays,
         duration_hours_per_day: durationHoursPerDay || null,
         location: location || null,
         meeting_link: meetingLink || null,
