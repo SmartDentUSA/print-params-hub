@@ -1028,7 +1028,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                               )}
                               {turma.label}
                             </>
-                          ) : `Nova turma ${tIdx + 1}`}
+                          ) : (isOnlineAoVivo ? `Nova opção ${tIdx + 1}` : `Nova turma ${tIdx + 1}`)}
                           {turma.id && turma.enrolled_count > 0 && (
                             <Badge variant="outline" className="ml-2">{turma.enrolled_count} inscritos</Badge>
                           )}
