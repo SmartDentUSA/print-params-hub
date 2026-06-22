@@ -2363,6 +2363,40 @@ async function executeQueryProposalItemsSold(args: any) {
   }
 }
 
+async function executeQueryRevenueForecast(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_revenue_forecast", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem dados de forecast para o período." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+async function executeQueryChurnRisk(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("fn_churn_risk");
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem dados de risco." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+async function executeSuggestCrossSell(args: any) {
+  try {
+    if (!args?.lead_id) return { error: "Parâmetro 'lead_id' (UUID do lead canônico) é obrigatório." };
+    const { data, error } = await supabase.rpc("fn_suggest_cross_sell", { p_lead_id: args.lead_id });
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem sugestões geradas." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeGenerateCommercialReport(args: any) {
   try {
     const now = new Date();
