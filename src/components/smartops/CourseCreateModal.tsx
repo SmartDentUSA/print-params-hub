@@ -271,6 +271,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [pipelineId, setPipelineId] = useState(83896);
   const [stageAfterEnroll, setStageAfterEnroll] = useState("treinamento_agendado");
   const [publicVisible, setPublicVisible] = useState(false);
+  const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
@@ -312,6 +313,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setSignupFormUrl("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
+      setPublicEnrollmentEnabled(false);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
       setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
@@ -337,6 +339,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setPipelineId(course.pipeline_id_kanban);
     setStageAfterEnroll(course.stage_after_enroll);
     setPublicVisible(course.public_visible);
+    setPublicEnrollmentEnabled(Boolean((course as any).public_enrollment_enabled));
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
@@ -668,6 +671,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
+        public_enrollment_enabled: ['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality)
+          ? publicEnrollmentEnabled
+          : false,
         active: true,
         ...(isEdit ? {} : { created_by: user.id }),
         recurrence_enabled: useRecurrence,
@@ -970,6 +976,43 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Label>Visível publicamente</Label>
                 </div>
               </div>
+
+              {['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality) && (
+                <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={publicEnrollmentEnabled}
+                      onCheckedChange={setPublicEnrollmentEnabled}
+                    />
+                    <Label>Abrir inscrições públicas</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Gera um formulário público de inscrição (Nome, E-mail, Celular).
+                    Clientes Smart Dent recebem NPS; não clientes viram leads com conversão
+                    <span className="font-mono"> # - Inscrição [{title || 'curso'}]</span>.
+                  </p>
+                  {isEdit && publicEnrollmentEnabled && (course as any)?.slug && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <code className="px-2 py-1 rounded bg-background border border-border break-all">
+                        {window.location.origin}/inscricao/{(course as any).slug}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/inscricao/${(course as any).slug}`,
+                          );
+                          toast({ title: 'Link copiado' });
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isOnline && (
                 <div className="space-y-2 pt-2 border-t">

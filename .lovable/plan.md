@@ -1,86 +1,87 @@
-## Objetivo
+# Inscrição Pública para Cursos Online / Workshop / Webinar + NPS
 
-Para cursos com `modality = 'online_ao_vivo'` ou `'online'`, além da mensagem de confirmação no agendamento (já implementada), enviar **automaticamente um lembrete pelo WhatsApp do CS responsável 1 hora antes do início** da sessão.
+Adicionar página pública de inscrição para cursos cuja modalidade seja **Online ao Vivo**, **Online**, **Workshop** ou **Webinar**, com fluxo diferenciado para clientes Smart Dent (NPS) e não clientes (captura de lead seguindo o padrão atual de formulários).
 
-## Escopo
+## 1. Página pública `/inscricao/:courseSlug` (ou `/inscricao/:turmaId`)
 
-- Apenas modalidades online (`online_ao_vivo` e `online`). Presencial não recebe lembrete automático.
-- Envio único por enrollment, pela mesma `waleads_api_key` do CS que fez o agendamento.
-- Idempotente: nunca envia duas vezes para o mesmo enrollment.
+- Lista as opções/datas disponíveis (turmas) do curso.
+- Formulário curto: **Nome completo**, **E-mail**, **Celular** (com máscara), checkbox de consentimento.
+- Após submit, pergunta "**É cliente Smart Dent?**" (Sim / Não).
+  - Decisão guiada pelo back-end: se o e-mail/telefone bater com `lia_attendances` que tenha `piperun_id` ou `omie_cliente_id` (cliente real), forçamos "Sim" e exibimos NPS.
+  - Caso contrário, oferecemos a pergunta + permitimos auto-declaração.
+- Validação com `zod`: nome ≥ 3, e-mail válido, telefone BR (10–11 dígitos).
+- Rate-limit por IP usando `smart_form_rate_limit`.
 
----
+## 2. Fluxo "Cliente Smart Dent = Sim" → NPS nativo
 
-## 1. Migration (DB)
+Formulário com 3 perguntas de 5 estrelas (espelho da imagem):
+1. Nível de satisfação com a Smart Dent
+2. Qualidade dos treinamentos recebidos até o momento
+3. Probabilidade de recomendar (NPS clássico)
+- Campo e-mail (pré-preenchido)
+- Campo livre opcional "Comentário"
 
-Adicionar em `smartops_course_enrollments`:
+Resposta salva em nova tabela `smartops_nps_responses` ligada a `enrollment_id` + `lead_id`.
+A inscrição é confirmada normalmente (cria enrollment, dispara WhatsApp de confirmação + lembrete 1h já existente).
 
-- `wa_reminder_sent_at timestamptz` — marca envio do lembrete.
-- `wa_reminder_error text` — erro do último envio, se houver.
-- `wa_reminder_scheduled_for timestamptz` — calculado no insert (1h antes do `start_time` do 1º dia da `turma_snapshot`), para indexar/consultar rápido.
-- `cs_team_member_id uuid` — guarda quem agendou (hoje só temos `created_by = auth.user.id`), necessário para o cron achar a `waleads_api_key` do CS sem depender de `csEmail` em runtime.
+## 3. Fluxo "Não cliente" → captura de lead (padrão dos formulários do sistema)
 
-Índice parcial: `(wa_reminder_scheduled_for) WHERE wa_reminder_sent_at IS NULL AND status = 'agendado'`.
+Antes de criar qualquer registro:
 
-## 2. `src/lib/courseWhatsapp.ts`
+1. **Buscar lead existente** por e-mail OU telefone normalizado em `lia_attendances WHERE merged_into IS NULL` (mesma cascata de identidade usada nos formulários Meta/sistema).
+2. Se existir → **enriquece** o lead (sem sobrescrever origem original, conforme `person-origin-frozen`).
+3. Se não existir → cria novo lead via edge function `smart-ops-form-ingest` (ou equivalente já usada para forms públicos), com:
+   - `form_name = "Inscrição — {course.title}"`
+   - `origem_primeiro_contato = "Inscrição Curso"` (apenas no create)
+   - `produto_interesse_auto` = produtos vinculados ao curso (`related_product_names`/`related_product_ids` do `smartops_courses`)
+4. Registrar em `lead_conversion_history`:
+   - `conversion_type = 'inscricao_curso'`
+   - `conversion_name = "# - Inscrição [{course.title}]"`
+   - `source_entity_id = enrollment.id`
+5. Marcar no `lead_activity_log` evento `inscricao_curso_publica`.
+6. Cria o enrollment com `status = 'agendado'` e dispara WhatsApp de confirmação + lembrete 1h (fluxo já existente).
+7. **Sem NPS** para não clientes.
 
-Adicionar:
+Importante: respeita o **Commercial Intent Guard** — `form_name` presente + source whitelisted permite criação de Person no PipeRun apenas se houver e-mail OU telefone (sempre teremos).
 
-- `DEFAULT_REMINDER_TEMPLATE` — mensagem curta de lembrete (1h antes), variáveis: `{{nome}}`, `{{curso}}`, `{{horario_inicio}}`, `{{link_reuniao}}`, `{{grupo_whatsapp}}`, `{{cs_nome}}`.
-- `buildReminderMessage(course, turma, days, personName, csName)` reaproveitando `interpolateTemplate`.
+## 4. Schema
 
-Template proposto:
+Migration adiciona:
 
-```
-Olá, {{nome}}! 👋
+- `smartops_courses.public_enrollment_enabled boolean default false` — liga a página pública apenas quando o admin marcar.
+- `smartops_courses.public_slug text unique` — slug amigável (gerado no create se vazio).
+- `smartops_course_enrollments.source text default 'admin'` — `'admin' | 'public'`.
+- `smartops_course_enrollments.is_client_smartdent boolean`.
+- `smartops_course_enrollments.public_form_payload jsonb` — snapshot do que o usuário enviou.
+- Nova tabela `smartops_nps_responses` (`id`, `enrollment_id`, `lead_id`, `score_satisfacao`, `score_treinamentos`, `score_recomendacao`, `email`, `comment`, `created_at`) — com RLS e GRANTs (anon insert via edge function service_role; authenticated select).
 
-Lembrete: seu treinamento *{{curso}}* começa em 1 hora, às {{horario_inicio}}.
+## 5. Edge functions
 
-{{link_reuniao}}
+- **`smartops-public-enrollment`** (verify_jwt=false, CORS, zod):
+  - Input: `course_slug`, `turma_id`, `nome`, `email`, `telefone`, `is_client_smartdent`.
+  - Faz lookup de lead, enriquece/cria, registra `lead_conversion_history`, cria enrollment, dispara WA, retorna `{ enrollment_id, show_nps: boolean }`.
+- **`smartops-public-nps`** (verify_jwt=false, CORS, zod):
+  - Input: `enrollment_id`, scores, email, comment.
+  - Insert em `smartops_nps_responses`.
 
-{{grupo_whatsapp}}
+## 6. UI Admin
 
-Até já!
-*{{cs_nome}}*
-```
-
-## 3. `src/hooks/useEnrollment.ts`
-
-No INSERT do enrollment:
-
-- Calcular `wa_reminder_scheduled_for` = `turma_snapshot.days[0].date + start_time - 1h` (timezone America/Sao_Paulo) somente quando `course.modality ∈ {online_ao_vivo, online}`. Caso contrário `null`.
-- Buscar `team_members.id` do CS via `email = user.email` e gravar em `cs_team_member_id`.
-
-## 4. Edge function `smartops-send-course-reminder` (nova)
-
-Cron-driven. A cada execução:
-
-1. `SELECT` em `smartops_course_enrollments` onde:
-   - `status = 'agendado'`
-   - `wa_reminder_sent_at IS NULL`
-   - `wa_reminder_scheduled_for BETWEEN now() AND now() + interval '5 minutes'`
-   - `JOIN smartops_courses` com `modality IN ('online_ao_vivo','online')` (defesa em profundidade).
-2. Para cada enrollment:
-   - Buscar `team_members` por `cs_team_member_id` → `waleads_api_key`, `nome_completo`.
-   - Buscar `lia_attendances.telefone` por `lead_id` (com `merged_into IS NULL`).
-   - Renderizar `DEFAULT_REMINDER_TEMPLATE` com `buildTemplateVars` (mesmo helper, modo lembrete).
-   - Chamar `smart-ops-send-waleads` com `source: 'enrollment_reminder_1h'`.
-   - Atualizar `wa_reminder_sent_at` ou `wa_reminder_error`.
-
-Inclui CORS, validação Zod do payload (vazio aceito), e proteção contra reentrância (`UPDATE ... WHERE wa_reminder_sent_at IS NULL RETURNING id` antes de enviar).
-
-## 5. Agendamento (pg_cron)
-
-`pg_cron` job a cada 5 minutos invocando `smartops-send-course-reminder` via `pg_net.http_post` (padrão já usado no projeto).
-
-## 6. Backfill
-
-Migration popula `wa_reminder_scheduled_for` dos enrollments existentes (futuros, online) a partir de `turma_snapshot->days[0]`.
-
----
+- No `CourseCreateModal`, quando `modality ∈ {online, online_ao_vivo, workshop, webinar}`:
+  - Mostrar toggle **"Abrir inscrições públicas"** → grava `public_enrollment_enabled`.
+  - Mostrar o link público copiável após salvar.
 
 ## Fora de escopo
 
-- Notificações por e-mail/SMS.
-- Lembretes para presencial.
-- Múltiplos lembretes (24h, 30min). Apenas 1h antes.
-- Edição do template via UI (usa `DEFAULT_REMINDER_TEMPLATE` fixo; pode ser estendido depois via coluna `whatsapp_reminder_template` no curso, se solicitado).
+- NPS para clientes inscritos por não-clientes (sem `lead_id` válido).
+- NPS pós-treinamento (este é NPS de expectativa, na inscrição).
+- Página de relatório agregado de NPS (apenas a coleta).
+- Editor de perguntas do NPS (template fixo).
+
+## Detalhes técnicos
+
+- **Arquivos novos**: `src/pages/PublicEnrollment.tsx`, `src/pages/PublicEnrollmentNPS.tsx`, `supabase/functions/smartops-public-enrollment/index.ts`, `supabase/functions/smartops-public-nps/index.ts`.
+- **Arquivos editados**: `src/App.tsx` (rotas), `src/components/smartops/CourseCreateModal.tsx` (toggle público + link), `src/hooks/useEnrollment.ts` (não muda — fluxo admin segue igual).
+- **Identidade do lead**: `piperun_id > email > phone` (memory rule).
+- **Origem congelada**: usamos `origem_primeiro_contato` só no create; nunca sobrescrevemos.
+- **Timestamps**: `enrolled_at = now()`; `lead_conversion_history.created_at` herda do submit real.
+- **CDP**: toda query a `lia_attendances` filtra `merged_into IS NULL`.
