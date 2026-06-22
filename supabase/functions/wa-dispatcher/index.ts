@@ -44,12 +44,33 @@ serve(async (req) => {
   let processedCount = 0
 
   try {
-    const { data: pending, error } = await supabase.from('wa_message_queue')
-      .select(`id, campaign_id, group_jid, node_index, node_type, content_json, retry_count, evo_message_id, delivery_status, wa_campaigns!inner(delay_seconds, daily_limit, status)`)
-      .eq('status', 'pending').lte('scheduled_at', new Date().toISOString()).eq('wa_campaigns.status', 'active')
-      .order('scheduled_at', { ascending: true }).limit(MAX_PER_RUN)
+    // ATOMIC CLAIM: marca como 'sending' via FOR UPDATE SKIP LOCKED para impedir
+    // que invocações concorrentes do cron disparem a mesma mensagem múltiplas vezes.
+    const { data: claimed, error } = await supabase.rpc('claim_pending_wa_messages', { p_limit: MAX_PER_RUN })
     if (error) throw error
-    if (!pending?.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
+    const claimedRows = (claimed ?? []) as any[]
+    if (!claimedRows.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
+
+    // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
+    const campaignIds = Array.from(new Set(claimedRows.map(r => r.campaign_id).filter(Boolean)))
+    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string }>()
+    if (campaignIds.length) {
+      const { data: campRows } = await supabase.from('wa_campaigns')
+        .select('id, delay_seconds, daily_limit, status').in('id', campaignIds)
+      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status })
+    }
+
+    const pending: any[] = []
+    for (const row of claimedRows) {
+      const c = campByIdMap.get(row.campaign_id)
+      if (!c || c.status !== 'active') {
+        // devolve para 'pending' para ser retomada quando/se a campanha voltar a ativa
+        await supabase.from('wa_message_queue').update({ status: 'pending' }).eq('id', row.id)
+        continue
+      }
+      pending.push({ ...row, wa_campaigns: c })
+    }
+    if (!pending.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
 
     const jids = Array.from(new Set(pending.map((p: any) => p.group_jid)))
     const { data: groupRows } = await supabase.from('wa_groups').select('group_jid, instance_name, session_health').in('group_jid', jids)
@@ -82,7 +103,7 @@ serve(async (req) => {
         await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Grupo bloqueado.' }).eq('id', item.id)
         results.push({ id: item.id, status: 'blocked_session' }); continue
       }
-      await supabase.from('wa_message_queue').update({ status: 'sending' }).eq('id', item.id)
+      // status='sending' já foi setado atomicamente por claim_pending_wa_messages
 
       try {
         if (item.evo_message_id && instance && !useEvoGo) {
