@@ -16585,6 +16585,7 @@ export type Database = {
           especialidade: string | null
           id: string
           instagram: string | null
+          is_client_smartdent: boolean | null
           lead_id: string | null
           notes: string | null
           numero_contrato: string | null
@@ -16593,7 +16594,9 @@ export type Database = {
           person_name: string | null
           person_piperun_id: string | null
           proposal_items_snapshot: Json | null
+          public_form_payload: Json | null
           rastreamento: string | null
+          source: string
           status: string | null
           tipo_entrega: string | null
           turma_id: string
@@ -16628,6 +16631,7 @@ export type Database = {
           especialidade?: string | null
           id?: string
           instagram?: string | null
+          is_client_smartdent?: boolean | null
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
@@ -16636,7 +16640,9 @@ export type Database = {
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
+          public_form_payload?: Json | null
           rastreamento?: string | null
+          source?: string
           status?: string | null
           tipo_entrega?: string | null
           turma_id: string
@@ -16671,6 +16677,7 @@ export type Database = {
           especialidade?: string | null
           id?: string
           instagram?: string | null
+          is_client_smartdent?: boolean | null
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
@@ -16679,7 +16686,9 @@ export type Database = {
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
+          public_form_payload?: Json | null
           rastreamento?: string | null
+          source?: string
           status?: string | null
           tipo_entrega?: string | null
           turma_id?: string
@@ -16971,6 +16980,7 @@ export type Database = {
           meeting_link: string | null
           modality: string
           pipeline_id_kanban: number
+          public_enrollment_enabled: boolean
           public_visible: boolean | null
           recurrence_duration_h: number | null
           recurrence_enabled: boolean | null
@@ -17008,6 +17018,7 @@ export type Database = {
           meeting_link?: string | null
           modality: string
           pipeline_id_kanban?: number
+          public_enrollment_enabled?: boolean
           public_visible?: boolean | null
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
@@ -17045,6 +17056,7 @@ export type Database = {
           meeting_link?: string | null
           modality?: string
           pipeline_id_kanban?: number
+          public_enrollment_enabled?: boolean
           public_visible?: boolean | null
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
@@ -17739,6 +17751,60 @@ export type Database = {
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "knowledge_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smartops_nps_responses: {
+        Row: {
+          comment: string | null
+          course_id: string | null
+          created_at: string
+          email: string | null
+          enrollment_id: string | null
+          id: string
+          lead_id: string | null
+          score_recomendacao: number | null
+          score_satisfacao: number | null
+          score_treinamentos: number | null
+        }
+        Insert: {
+          comment?: string | null
+          course_id?: string | null
+          created_at?: string
+          email?: string | null
+          enrollment_id?: string | null
+          id?: string
+          lead_id?: string | null
+          score_recomendacao?: number | null
+          score_satisfacao?: number | null
+          score_treinamentos?: number | null
+        }
+        Update: {
+          comment?: string | null
+          course_id?: string | null
+          created_at?: string
+          email?: string | null
+          enrollment_id?: string | null
+          id?: string
+          lead_id?: string | null
+          score_recomendacao?: number | null
+          score_satisfacao?: number | null
+          score_treinamentos?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_nps_responses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_nps_responses_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_enrollments"
             referencedColumns: ["id"]
           },
         ]
