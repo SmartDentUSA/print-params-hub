@@ -571,6 +571,18 @@ export default function RelatorioMensalComercial() {
                     <div className="vsl">Funil vendas</div>
                     <div className="vsv" style={{ color: "var(--blue)" }}>{fmtNum(c.funilTotal)}</div>
                   </div>
+                  <div className="vst">
+                    <div className="vsl">Média dias/etapa</div>
+                    <div className="vsv" style={{ color: c.avgDiasEtapa >= 30 ? "var(--red)" : c.avgDiasEtapa >= 14 ? "var(--amber)" : "var(--green)" }}>
+                      {c.avgDiasEtapa > 0 ? `${c.avgDiasEtapa.toFixed(1)}d` : "—"}
+                    </div>
+                  </div>
+                  <div className="vst">
+                    <div className="vsl">→ CS Onboarding</div>
+                    <div className="vsv" style={{ color: c.csCount > 0 ? "var(--teal)" : "var(--text3)" }}>
+                      {fmtNum(c.csCount)} <span style={{ fontSize: 10, color: "var(--text3)" }}>{c.csLeadTime > 0 ? `${c.csLeadTime.toFixed(0)}d` : ""}</span>
+                    </div>
+                  </div>
                   {c.top.map((e, i) => (
                     <div className="vst" key={i}>
                       <div className="vsl" title={e.funil}>{e.etapa}</div>
@@ -585,7 +597,7 @@ export default function RelatorioMensalComercial() {
                   ))}
                 </div>
                 <div className="vd">
-                  De {fmtNum(c.totalCriados)} deals criados no mês: {fmtNum(c.estagnados)} já em Estagnados ({fmtPct(c.estagnadosPct)}) · {fmtNum(c.funilTotal)} ativos no funil de vendas
+                  De {fmtNum(c.totalCriados)} deals criados no mês: {fmtNum(c.estagnados)} já em Estagnados ({fmtPct(c.estagnadosPct)}) · {fmtNum(c.funilTotal)} ativos no funil de vendas · {c.avgDiasEtapa > 0 ? `${c.avgDiasEtapa.toFixed(1)} dias média na etapa atual` : "sem histórico de etapa"} · {fmtNum(c.csCount)} movidos p/ CS{c.csLeadTime > 0 ? ` (lead time ${c.csLeadTime.toFixed(0)}d)` : ""}
                 </div>
               </div>
             );
