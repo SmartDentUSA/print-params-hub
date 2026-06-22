@@ -1,37 +1,86 @@
 ## Objetivo
 
-Permitir cadastrar no Painel Administrativo → Catálogo um curso **Online ao Vivo** medido em **horas** (não em dias), onde o mesmo treinamento pode ter várias turmas em datas e horários diferentes — exatamente como no exemplo "Software Scan BLZ – da Calibração à exportação de arquivos" com 5 sessões (06/07 09:00–10:00, 20/07 15:30–16:30, 03/08 09:00–10:00, 17/08 15:30–16:30, 31/08 09:00–10:00).
+Para cursos com `modality = 'online_ao_vivo'` ou `'online'`, além da mensagem de confirmação no agendamento (já implementada), enviar **automaticamente um lembrete pelo WhatsApp do CS responsável 1 hora antes do início** da sessão.
 
-Hoje o `CourseCreateModal` já tem a modalidade `online_ao_vivo`, mas força `duration_days ≥ 1` e cada turma é tratada como bloco de dias. Vamos adicionar um modo "Sessão única em horas" para esse tipo de curso.
+## Escopo
 
-## Mudanças
+- Apenas modalidades online (`online_ao_vivo` e `online`). Presencial não recebe lembrete automático.
+- Envio único por enrollment, pela mesma `waleads_api_key` do CS que fez o agendamento.
+- Idempotente: nunca envia duas vezes para o mesmo enrollment.
 
-### 1. `CourseCreateModal.tsx` (Painel Administrativo)
-- Quando a modalidade for **Online ao Vivo**:
-  - Esconder o campo "Duração (dias)" e mostrar **"Duração (horas)"** (campo já existente `durationHoursPerDay` reaproveitado, com label trocado e aceitando frações tipo 1.5).
-  - Forçar internamente `duration_days = 1` no save (cada turma = 1 sessão de N horas), sem expor isso na UI.
-  - Na seção de Turmas, simplificar o editor: cada turma passa a ter **1 único dia** com `date`, `start_time`, `end_time` (esconder o botão "Adicionar dia" e o campo `day_number` para essa modalidade).
-  - Botão "Adicionar sessão" cria uma turma com um único `LocalDay` pré-preenchido.
-- Quando a modalidade NÃO for online ao vivo: comportamento atual inalterado (turmas com múltiplos dias).
+---
 
-### 2. Recorrência (já existe, só ajustar copy)
-- Para Online ao Vivo, ajustar o label da seção de "Sessões Recorrentes" para deixar claro que cada ocorrência gera **uma turma de 1 sessão**. Lógica de geração permanece igual (`previewRecurrenceDates` já suporta intervalos por dias/semanas/meses/horas/dias-da-semana).
+## 1. Migration (DB)
 
-### 3. Renderização (lista/calendário/agenda pública)
-- `TurmaCard.tsx`, `TurmaListRow.tsx`, `CoursesCalendarTab.tsx`, `AgendaPublica.tsx`: quando a modalidade do curso for `online_ao_vivo` e a turma tiver 1 único dia, exibir como **"DD/MM/AAAA · HH:MM–HH:MM"** em vez de "X dias". Sem mudança de schema.
+Adicionar em `smartops_course_enrollments`:
 
-### 4. WhatsApp (`courseWhatsapp.ts`)
-- `buildCronogramaText` já formata uma linha por dia com horário — funciona naturalmente. Apenas validar que para 1 sessão a saída fica limpa (ex.: "06/07/2026 · 09:00–10:00"). Sem alteração de template.
+- `wa_reminder_sent_at timestamptz` — marca envio do lembrete.
+- `wa_reminder_error text` — erro do último envio, se houver.
+- `wa_reminder_scheduled_for timestamptz` — calculado no insert (1h antes do `start_time` do 1º dia da `turma_snapshot`), para indexar/consultar rápido.
+- `cs_team_member_id uuid` — guarda quem agendou (hoje só temos `created_by = auth.user.id`), necessário para o cron achar a `waleads_api_key` do CS sem depender de `csEmail` em runtime.
 
-### 5. Sem mudanças de banco
-- `smartops_courses` + `smartops_course_turmas` + `smartops_turma_days` já comportam o modelo (turma com 1 day). Não criamos tabela nem coluna nova.
+Índice parcial: `(wa_reminder_scheduled_for) WHERE wa_reminder_sent_at IS NULL AND status = 'agendado'`.
+
+## 2. `src/lib/courseWhatsapp.ts`
+
+Adicionar:
+
+- `DEFAULT_REMINDER_TEMPLATE` — mensagem curta de lembrete (1h antes), variáveis: `{{nome}}`, `{{curso}}`, `{{horario_inicio}}`, `{{link_reuniao}}`, `{{grupo_whatsapp}}`, `{{cs_nome}}`.
+- `buildReminderMessage(course, turma, days, personName, csName)` reaproveitando `interpolateTemplate`.
+
+Template proposto:
+
+```
+Olá, {{nome}}! 👋
+
+Lembrete: seu treinamento *{{curso}}* começa em 1 hora, às {{horario_inicio}}.
+
+{{link_reuniao}}
+
+{{grupo_whatsapp}}
+
+Até já!
+*{{cs_nome}}*
+```
+
+## 3. `src/hooks/useEnrollment.ts`
+
+No INSERT do enrollment:
+
+- Calcular `wa_reminder_scheduled_for` = `turma_snapshot.days[0].date + start_time - 1h` (timezone America/Sao_Paulo) somente quando `course.modality ∈ {online_ao_vivo, online}`. Caso contrário `null`.
+- Buscar `team_members.id` do CS via `email = user.email` e gravar em `cs_team_member_id`.
+
+## 4. Edge function `smartops-send-course-reminder` (nova)
+
+Cron-driven. A cada execução:
+
+1. `SELECT` em `smartops_course_enrollments` onde:
+   - `status = 'agendado'`
+   - `wa_reminder_sent_at IS NULL`
+   - `wa_reminder_scheduled_for BETWEEN now() AND now() + interval '5 minutes'`
+   - `JOIN smartops_courses` com `modality IN ('online_ao_vivo','online')` (defesa em profundidade).
+2. Para cada enrollment:
+   - Buscar `team_members` por `cs_team_member_id` → `waleads_api_key`, `nome_completo`.
+   - Buscar `lia_attendances.telefone` por `lead_id` (com `merged_into IS NULL`).
+   - Renderizar `DEFAULT_REMINDER_TEMPLATE` com `buildTemplateVars` (mesmo helper, modo lembrete).
+   - Chamar `smart-ops-send-waleads` com `source: 'enrollment_reminder_1h'`.
+   - Atualizar `wa_reminder_sent_at` ou `wa_reminder_error`.
+
+Inclui CORS, validação Zod do payload (vazio aceito), e proteção contra reentrância (`UPDATE ... WHERE wa_reminder_sent_at IS NULL RETURNING id` antes de enviar).
+
+## 5. Agendamento (pg_cron)
+
+`pg_cron` job a cada 5 minutos invocando `smartops-send-course-reminder` via `pg_net.http_post` (padrão já usado no projeto).
+
+## 6. Backfill
+
+Migration popula `wa_reminder_scheduled_for` dos enrollments existentes (futuros, online) a partir de `turma_snapshot->days[0]`.
+
+---
 
 ## Fora de escopo
-- Alterar `DEFAULT_ENROLLMENT_TEMPLATE` ou variáveis WhatsApp.
-- Mudar enrollments, certificados ou integração Sellflux/PipeRun.
-- Bloquear campos de outras modalidades.
 
-## Validação
-1. Criar curso "Software Scan BLZ – da Calibração à exportação de arquivos", modalidade Online ao Vivo, duração 1 hora.
-2. Adicionar 5 turmas com as datas/horários do exemplo.
-3. Conferir lista do catálogo, agenda pública e mensagem de confirmação de inscrição (cronograma + horário corretos).
+- Notificações por e-mail/SMS.
+- Lembretes para presencial.
+- Múltiplos lembretes (24h, 30min). Apenas 1h antes.
+- Edição do template via UI (usa `DEFAULT_REMINDER_TEMPLATE` fixo; pode ser estendido depois via coluna `whatsapp_reminder_template` no curso, se solicitado).
