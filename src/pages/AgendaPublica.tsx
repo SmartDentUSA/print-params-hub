@@ -590,8 +590,8 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
 }
 
 function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
-  if (sessions.length === 0) return null;
   const getCountdown = useCountdown();
+  if (sessions.length === 0) return null;
   const first = sessions[0];
   const coverUrl = (first as any).cover_image_url as string | undefined;
   const products = (first as any).related_product_names as string[] | undefined;
