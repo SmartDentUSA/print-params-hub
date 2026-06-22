@@ -26645,6 +26645,33 @@ export type Database = {
           title: string
         }[]
       }
+      claim_pending_wa_messages: {
+        Args: { p_limit?: number }
+        Returns: {
+          campaign_id: string
+          content_json: Json
+          created_at: string
+          delivery_attempts: number
+          delivery_checked_at: string | null
+          delivery_status: string | null
+          error_message: string | null
+          evo_message_id: string | null
+          group_jid: string
+          id: string
+          node_index: number
+          node_type: string
+          retry_count: number
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wa_message_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
       compute_lead_portfolio_from_mappings: {
         Args: { p_lead_id: string }
