@@ -40,6 +40,9 @@ interface VendedorDetalheRow {
   perdidas: number | null;
   estagnados: number | null;
   estagnados_pct: number | null;
+  avg_dias_etapa_vendas: number | null;
+  cs_count: number | null;
+  cs_lead_time_dias: number | null;
 }
 interface FunilRow {
   vendedor: string | null;
@@ -260,7 +263,10 @@ export default function RelatorioMensalComercial() {
       const abertas = Number(d?.abertas ?? 0);
       const perdidas = Number(d?.perdidas ?? 0);
       const totalCriados = Number(d?.total_criados ?? 0);
-      return { v, top, funilTotal, estagnados, estagnadosPct, abertas, perdidas, totalCriados };
+      const avgDiasEtapa = Number(d?.avg_dias_etapa_vendas ?? 0);
+      const csCount = Number(d?.cs_count ?? 0);
+      const csLeadTime = Number(d?.cs_lead_time_dias ?? 0);
+      return { v, top, funilTotal, estagnados, estagnadosPct, abertas, perdidas, totalCriados, avgDiasEtapa, csCount, csLeadTime };
     }).sort((a, b) => b.estagnados - a.estagnados);
   }, [vendedoresUnificados, detalheByVendor, funilPorVendedor]);
 
@@ -565,6 +571,18 @@ export default function RelatorioMensalComercial() {
                     <div className="vsl">Funil vendas</div>
                     <div className="vsv" style={{ color: "var(--blue)" }}>{fmtNum(c.funilTotal)}</div>
                   </div>
+                  <div className="vst">
+                    <div className="vsl">Média dias/etapa</div>
+                    <div className="vsv" style={{ color: c.avgDiasEtapa >= 30 ? "var(--red)" : c.avgDiasEtapa >= 14 ? "var(--amber)" : "var(--green)" }}>
+                      {c.avgDiasEtapa > 0 ? `${c.avgDiasEtapa.toFixed(1)}d` : "—"}
+                    </div>
+                  </div>
+                  <div className="vst">
+                    <div className="vsl">→ CS Onboarding</div>
+                    <div className="vsv" style={{ color: c.csCount > 0 ? "var(--teal)" : "var(--text3)" }}>
+                      {fmtNum(c.csCount)} <span style={{ fontSize: 10, color: "var(--text3)" }}>{c.csLeadTime > 0 ? `${c.csLeadTime.toFixed(0)}d` : ""}</span>
+                    </div>
+                  </div>
                   {c.top.map((e, i) => (
                     <div className="vst" key={i}>
                       <div className="vsl" title={e.funil}>{e.etapa}</div>
@@ -579,7 +597,7 @@ export default function RelatorioMensalComercial() {
                   ))}
                 </div>
                 <div className="vd">
-                  De {fmtNum(c.totalCriados)} deals criados no mês: {fmtNum(c.estagnados)} já em Estagnados ({fmtPct(c.estagnadosPct)}) · {fmtNum(c.funilTotal)} ativos no funil de vendas
+                  De {fmtNum(c.totalCriados)} deals criados no mês: {fmtNum(c.estagnados)} já em Estagnados ({fmtPct(c.estagnadosPct)}) · {fmtNum(c.funilTotal)} ativos no funil de vendas · {c.avgDiasEtapa > 0 ? `${c.avgDiasEtapa.toFixed(1)} dias média na etapa atual` : "sem histórico de etapa"} · {fmtNum(c.csCount)} movidos p/ CS{c.csLeadTime > 0 ? ` (lead time ${c.csLeadTime.toFixed(0)}d)` : ""}
                 </div>
               </div>
             );

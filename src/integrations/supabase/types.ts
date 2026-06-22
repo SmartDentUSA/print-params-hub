@@ -27142,6 +27142,9 @@ export type Database = {
         Args: { p_ano: number; p_mes: number }
         Returns: {
           abertas: number
+          avg_dias_etapa_vendas: number
+          cs_count: number
+          cs_lead_time_dias: number
           estagnados: number
           estagnados_pct: number
           ganhas: number
