@@ -21,6 +21,17 @@ Qualquer dúvida, estou à disposição!
 *{{cs_nome}}*
 _Equipe SmartDent_ 🦷`;
 
+export const DEFAULT_REMINDER_TEMPLATE = `Olá, {{nome}}! 👋
+
+⏰ Lembrete: seu treinamento *{{curso}}* começa em *1 hora*, às {{horario_inicio}}.
+
+{{link_reuniao}}
+
+{{grupo_whatsapp}}
+
+Até já!
+*{{cs_nome}}*`;
+
 export const TEMPLATE_VARIABLES = [
   { key: '{{nome}}',           desc: 'Nome do participante' },
   { key: '{{curso}}',          desc: 'Título do curso' },
