@@ -69,12 +69,17 @@ async function handleMessage(instance: string, raw: any) {
   if (fromMe) return { skipped: "from_me" };
 
   // Resolve group config / wa_groups row
-  const { data: group } = await sb
+  const { data: group, error: groupErr } = await sb
     .from("wa_groups")
     .select("id, name")
     .eq("instance_name", instance)
     .eq("group_jid", remoteJid)
     .maybeSingle();
+  if (groupErr) {
+    await logHealth("warning", "wa_groups lookup error", { instance, remoteJid, msg: groupErr.message });
+  } else if (!group) {
+    await logHealth("info", "wa_groups not found", { instance, remoteJid });
+  }
 
   // Check sentinela_config if group is known
   if (group?.id) {
