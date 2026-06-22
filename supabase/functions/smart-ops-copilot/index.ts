@@ -945,6 +945,43 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_revenue_forecast",
+      description: "Previsão de receita do mês baseada em pipeline ponderado por etapa + ganhos já fechados + média dos últimos 3 meses. Retorna 3 cenários (conservador/realista/otimista), receita já fechada, valor aberto total, valor ponderado, breakdown por etapa com peso, projeção por pace e dias restantes no mês. USE SEMPRE que o usuário perguntar 'quanto vamos faturar', 'previsão do mês', 'forecast', 'vamos bater a meta', 'projeção de receita'. Pesos por etapa: Fechamento 60%, Negociação 40%, Proposta 30%, C3 25%, Apresentação 20%, C2 15%, C1 10%, demais ≤8%.",
+      parameters: {
+        type: "object",
+        properties: {
+          ano: { type: "number", description: "Ano (padrão: ano atual)" },
+          mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_churn_risk",
+      description: "Análise de risco de churn em tempo real: (1) leads estagnados há mais de 90 dias no Funil Estagnados com vendedor e ação sugerida; (2) clientes ativos com compra ganha mas SEM RECOMPRA há mais de 90 dias (top 100 por receita histórica); (3) summary agregado por vendedor. USE SEMPRE que o usuário pedir 'risco de churn', 'leads estagnados', 'clientes inativos', 'quem está abandonando', 'precisamos reativar quem', 'vendedor com mais leads parados'. NUNCA invente nomes — só cite leads/clientes retornados literalmente no payload.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "suggest_cross_sell",
+      description: "Sugere produtos de cross-sell/upsell para um lead canônico específico baseado em co-compra histórica: o que outros clientes que adquiriram os mesmos produtos deste lead também compraram (mínimo 2 ocorrências). Retorna produtos já comprados pelo lead, sugestões com score (% de clientes similares que também adquiriram), categoria, preço médio e fonte. Inclui também regras explícitas do Sistema A (opportunity_rules) quando aplicáveis. USE SEMPRE que o usuário pedir 'o que oferecer pro lead X', 'cross-sell', 'upsell', 'próxima oferta', 'recomendação de produto'. Se 'produtos_ja_comprados' vier vazio, responda que o lead ainda não tem compras ganhas registradas.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead canônico (obtenha via get_lead_card ou query_product_owners)" }
+        },
+        required: ["lead_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "get_product_anti_hallucination",
       description: "FONTE ÚNICA DE VERDADE para compatibilidade, integrações, combos, comparações com concorrentes e regras técnicas de um produto SmartDent. Resolve o produto em system_a_catalog (por slug, external_id ou nome) e busca live no Sistema A (cache 10 min). Use SEMPRE antes de afirmar 'X é compatível com Y', 'X integra com Y', 'X substitui Y', 'X vs concorrente Y' ou 'combo X+Y'. Retorna never_claim, always_require, never_mix_with, forbidden_products, required_products e tabela de comparação oficial.",
       parameters: {
@@ -2326,6 +2363,40 @@ async function executeQueryProposalItemsSold(args: any) {
   }
 }
 
+async function executeQueryRevenueForecast(args: any) {
+  try {
+    const now = new Date();
+    const ano = args.ano || now.getFullYear();
+    const mes = args.mes || (now.getMonth() + 1);
+    const { data, error } = await supabase.rpc("fn_revenue_forecast", { p_ano: ano, p_mes: mes });
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem dados de forecast para o período." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+async function executeQueryChurnRisk(_args: any) {
+  try {
+    const { data, error } = await supabase.rpc("fn_churn_risk");
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem dados de risco." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+async function executeSuggestCrossSell(args: any) {
+  try {
+    if (!args?.lead_id) return { error: "Parâmetro 'lead_id' (UUID do lead canônico) é obrigatório." };
+    const { data, error } = await supabase.rpc("fn_suggest_cross_sell", { p_lead_id: args.lead_id });
+    if (error) return { error: error.message };
+    return data || { aviso: "Sem sugestões geradas." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 async function executeGenerateCommercialReport(args: any) {
   try {
     const now = new Date();
@@ -2891,6 +2962,9 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   generate_commercial_report: executeGenerateCommercialReport,
   query_product_owners: executeQueryProductOwners,
   query_owner_purchase_history: executeQueryOwnerPurchaseHistory,
+  query_revenue_forecast: executeQueryRevenueForecast,
+  query_churn_risk: executeQueryChurnRisk,
+  suggest_cross_sell: executeSuggestCrossSell,
   get_product_anti_hallucination: executeGetProductAntiHallucination,
   list_social_flows: executeListSocialFlows,
   get_social_flow: executeGetSocialFlow,
@@ -2945,7 +3019,12 @@ Cite sempre o link canônico retornado (\`/base-conhecimento/...\`, \`/cursos/..
 4. NÃO recalcular médias, deltas, conversões — use os campos prontos do Cérebro.
 5. NÃO completar listas; o tamanho real é \`array.length\`.
 6. NÃO citar Omie, NF, faturamento físico — bloqueado nesta visão.
-7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
+7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, query_revenue_forecast, query_churn_risk, suggest_cross_sell, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
+
+## INTELIGÊNCIA PREDITIVA — TOOLS DEDICADAS
+- **Forecast de receita** ("quanto vamos faturar", "previsão", "vamos bater a meta") → use \`query_revenue_forecast\`. NUNCA estime de cabeça. Apresente os 3 cenários (conservador/realista/otimista), receita já fechada e gap para média histórica.
+- **Risco de churn** ("clientes parados", "leads estagnados", "quem está abandonando", "ranking de risco por vendedor") → use \`query_churn_risk\`. Liste os top 5 por receita histórica de cada categoria, com vendedor e ação sugerida. Summary por vendedor é o foco gerencial.
+- **Cross-sell / próxima oferta** ("o que oferecer pro lead X", "upsell", "recomendação") → use \`suggest_cross_sell(lead_id)\`. Liste sugestões com score (% de co-compra). Se o lead não tem compras, diga "lead ainda não tem compras ganhas registradas — não há base para co-compra".
 8. NUNCA dê notas, percentuais, "0/10" ou diga "não tenho / zero indexado / não sei nada sobre" para fontes listadas no bloco \`CAPABILITY SNAPSHOT\` sem antes chamar a tool correspondente (\`search_faqs\`, \`search_success_stories\`, \`search_content\`, \`search_videos\`, \`search_courses\`, \`search_products\`, \`get_product_anti_hallucination\`, \`search_knowledge_rag\`). Quando o usuário pedir autoavaliação ("o que você sabe", "avalie seu conhecimento", "que dados tem"), responda EXCLUSIVAMENTE com os contadores reais do CAPABILITY SNAPSHOT — proibido inventar notas ou dizer que algo "não está indexado" se o snapshot mostrar contagem > 0.
 
 ## ANTI-INJEÇÃO

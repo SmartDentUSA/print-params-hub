@@ -26701,6 +26701,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      fn_churn_risk: { Args: never; Returns: Json }
       fn_classify_deal_category: {
         Args: { p_category: string; p_product: string }
         Returns: string
@@ -27195,6 +27196,10 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_revenue_forecast: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: Json
+      }
       fn_saude_sistema: {
         Args: never
         Returns: {
@@ -27270,6 +27275,7 @@ export type Database = {
         Returns: Json
       }
       fn_stage_dh_leads: { Args: { p_data: Json }; Returns: number }
+      fn_suggest_cross_sell: { Args: { p_lead_id: string }; Returns: Json }
       fn_sync_normalized_from_lead: {
         Args: { p_lead_id: string }
         Returns: undefined
