@@ -1,48 +1,25 @@
-## Objetivo
+## Fix: Sentinela aceita instância `Danilo-Henrique`
 
-Expor a aba **Eventos** (`/eventos`, tabela `smartops_events`) para crawlers de IA, no mesmo padrão já usado para Distribuidores (Revenda).
+### Mudança única
+Normalizar comparação de `instanceName` em 2 edge functions para aceitar variações (`Danilo-Henrique`, `Danilo Henrique`, case-insensitive):
 
-## Estado atual
+1. `supabase/functions/sentinela-webhook-receiver/index.ts`
+2. `supabase/functions/sentinela-daily-report/index.ts`
 
-- **Revenda/Distribuidores**: já presente em `public/llms.txt` (estático) e em `supabase/functions/llms-full-txt/index.ts` (bloco dinâmico GEO/AEO com URL canônica por país e por distribuidor).
-- **Eventos**: ausente em ambos. Nenhuma referência a `smartops_events` nem à rota `/eventos`.
-
-## Mudanças
-
-### 1. `public/llms.txt` (estático)
-Adicionar, logo após o bloco `## Distribuidores Oficiais por País`, uma nova seção:
-
-```
-## Eventos e Feiras
-
-Calendário oficial de eventos, congressos e feiras com presença Smart Dent.
-
-- [Agenda de eventos Smart Dent](https://parametros.smartdent.com.br/eventos): Próximos congressos, feiras e workshops com Smart Dent e distribuidores autorizados.
+Substituir comparação literal `=== "Danilo Henrique"` por:
+```ts
+const normalize = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
+if (normalize(instanceName) !== normalize("Danilo Henrique")) return skipped;
 ```
 
-### 2. `supabase/functions/llms-full-txt/index.ts` (dinâmico)
-Adicionar, depois do `distributorsBlock` (antes de `finalBody`), um `eventsBlock` análogo, lendo `smartops_events` onde `is_active = true`, ordenado por `start_date`:
+### O que NÃO muda
+- Credenciais EvolutionGo (5519992612348 continua intacto)
+- `team_members`, `lia-assign`, schema, RLS, UI
+- Webhooks existentes da instância (usuário adiciona o endpoint Sentinela como destino adicional, apenas `MESSAGES_UPSERT`)
+- Lógica do analyzer e do daily-report
 
-- Cabeçalho `## Eventos e Feiras Smart Dent` com blockquote explicando que é a fonte autoritativa do calendário.
-- URL canônica da agenda: `${BASE_URL}/eventos`.
-- Agrupar por **país** (mesma lógica de `countrySlug`) para reforçar sinal geográfico.
-- Para cada evento, listar:
-  - Nome (`name`, com tradução `title_en`/`title_es` quando `lang` ≠ pt)
-  - Período (`start_date` → `end_date`, formato ISO)
-  - Local (`location` + `country`)
-  - Stand Smart Dent (`company_stand`) quando preenchido
-  - Site oficial (`website_url`)
-  - Descrição curta (`about_event_pt`/`_en`/`_es`, primeiros ~280 chars, sem HTML)
-- Filtrar eventos passados (`end_date >= today - 30d`) para manter o corpus enxuto e relevante.
-- Wrap em `try/catch` com `console.error` (mesmo padrão de `distributorsBlock`), para nunca quebrar a resposta.
-
-### 3. Sem mudanças em
-- `supabase/functions/llms-txt/index.ts` (curto, só índice — não lista distribuidores individuais, então também não vai listar eventos individuais).
-- Schema / migrações.
-- UI da aba Eventos.
-
-## Validação
-
-1. Deploy de `llms-full-txt`.
-2. `curl https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-full-txt | grep -A2 "Eventos e Feiras"` para confirmar o bloco.
-3. Conferir `public/llms.txt` servido em `https://parametros.smartdent.com.br/llms.txt` após deploy do frontend.
+### Validação
+1. Deploy das 2 functions
+2. `curl` POST em `/sentinela-webhook-receiver` com `instance: "Danilo-Henrique"` e remoteJid `@g.us` → esperar 200 e linha em `sentinela_group_messages`
+3. Checar `system_health_logs` sem erros
+4. Após usuário registrar endpoint no painel Evolution, confirmar crescimento de `sentinela_group_messages`

@@ -13,7 +13,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const TARGET_INSTANCE = "Danilo Henrique";
+const TARGET_INSTANCE = "Danilo-Henrique";
+const normalizeInstance = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
 
 function digits(s?: string | null): string {
   return (s ?? "").replace(/\D/g, "");
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
     const instanceName: string =
       (typeof body?.instance === "string" ? body.instance : body?.instance?.instanceName) ?? TARGET_INSTANCE;
 
-    if (instanceName !== TARGET_INSTANCE) {
+    if (normalizeInstance(instanceName) !== normalizeInstance(TARGET_INSTANCE)) {
       return Response.json({ skipped: "other_instance", instanceName }, { headers: corsHeaders });
     }
 
