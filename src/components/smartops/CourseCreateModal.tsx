@@ -295,6 +295,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
 
   const isOnline = modality === 'online' || modality === 'online_ao_vivo';
+  const isOnlineAoVivo = modality === 'online_ao_vivo';
 
   // Turmas
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
@@ -407,16 +408,18 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   // ─── Turma management ───
   const addTurma = () => {
     const idx = turmas.length;
+    const defaultStart = isOnlineAoVivo ? "09:00" : "09:00";
+    const defaultEnd = isOnlineAoVivo ? "10:00" : "17:00";
     setTurmas((prev) => [
       ...prev,
       {
-        label: `Turma ${idx + 1}`,
+        label: isOnlineAoVivo ? `Sessão ${idx + 1}` : `Turma ${idx + 1}`,
         slots: 20,
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
         sort_order: idx,
         enrolled_count: 0,
-        days: [{ day_number: 1, date: "", start_time: "09:00", end_time: "17:00", topic: "" }],
+        days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
       },
     ]);
   };
@@ -654,7 +657,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         instructor_name: instructorName || null,
         cover_image_url: coverImageUrl || null,
         max_capacity: useRecurrence ? recurrenceSlotsPerSession : (turmas[0]?.slots || 20),
-        duration_days: durationDays,
+        duration_days: isOnlineAoVivo ? 1 : durationDays,
         duration_hours_per_day: durationHoursPerDay || null,
         location: location || null,
         meeting_link: meetingLink || null,
@@ -888,23 +891,42 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <Label>Duração (dias)</Label>
-                  <Input type="number" min={1} value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value) || 1)} />
-                </div>
-                <div>
-                  <Label>Horas/dia</Label>
-                  <Input
-                    type="number"
-                    step="0.5"
-                    min={0}
-                    value={durationHoursPerDay ?? ""}
-                    onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Opcional — calculado automaticamente pelos horários da turma quando vazio.
-                  </p>
-                </div>
+                {isOnlineAoVivo ? (
+                  <div className="sm:col-span-2">
+                    <Label>Duração (horas)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      value={durationHoursPerDay ?? ""}
+                      onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="Ex: 1 ou 1.5"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cada sessão tem essa duração. Adicione abaixo as datas/horários de cada sessão.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <Label>Duração (dias)</Label>
+                      <Input type="number" min={1} value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value) || 1)} />
+                    </div>
+                    <div>
+                      <Label>Horas/dia</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min={0}
+                        value={durationHoursPerDay ?? ""}
+                        onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Opcional — calculado automaticamente pelos horários da turma quando vazio.
+                      </p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <Label>Pipeline PipeRun</Label>
                   <Input type="number" value={pipelineId} onChange={(e) => setPipelineId(Number(e.target.value) || 83896)} />
@@ -973,9 +995,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               /* PRESENCIAL ou online sem recorrência: editor manual */
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Turmas e Cronograma</h3>
+                  <h3 className="font-semibold">
+                    {isOnlineAoVivo ? "Sessões (datas e horários)" : "Turmas e Cronograma"}
+                  </h3>
                   <Button type="button" variant="outline" size="sm" onClick={addTurma}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar turma
+                    <Plus className="w-3.5 h-3.5 mr-1" /> {isOnlineAoVivo ? "Adicionar sessão" : "Adicionar turma"}
                   </Button>
                 </div>
 
@@ -1020,10 +1044,14 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold">Cronograma</Label>
+                        <Label className="text-xs font-semibold">
+                          {isOnlineAoVivo ? "Data e horário" : "Cronograma"}
+                        </Label>
                         {turma.days.map((day, dIdx) => (
                           <div key={dIdx} className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
+                            {!isOnlineAoVivo && (
+                              <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
+                            )}
                             <DatePickerInput
                               className="w-[160px]"
                               value={day.date}
@@ -1033,12 +1061,16 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                             <span className="text-xs">às</span>
                             <Input type="time" className="w-[100px]" value={day.end_time} onChange={(e) => updateDay(tIdx, dIdx, "end_time", e.target.value)} />
                             <Input className="flex-1 min-w-[120px]" placeholder="Tópico" value={day.topic} onChange={(e) => updateDay(tIdx, dIdx, "topic", e.target.value)} />
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(tIdx, dIdx)}><X className="w-3 h-3" /></Button>
+                            {!isOnlineAoVivo && (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(tIdx, dIdx)}><X className="w-3 h-3" /></Button>
+                            )}
                           </div>
                         ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
-                          <Plus className="w-3 h-3 mr-1" /> Adicionar dia
-                        </Button>
+                        {!isOnlineAoVivo && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
+                            <Plus className="w-3 h-3 mr-1" /> Adicionar dia
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
