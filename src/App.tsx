@@ -109,6 +109,9 @@ const App = () => (
 
       {/* Public distributor registration (no auth) */}
       <Route path="/cadastro-distribuidor" element={<PublicDistributorRegister />} />
+
+      {/* Public course enrollment (online/online_ao_vivo/workshop/webinar) */}
+      <Route path="/inscricao/:slug" element={<PublicCourseEnrollment />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
