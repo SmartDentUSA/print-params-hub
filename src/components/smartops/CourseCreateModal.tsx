@@ -995,9 +995,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               /* PRESENCIAL ou online sem recorrência: editor manual */
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Turmas e Cronograma</h3>
+                  <h3 className="font-semibold">
+                    {isOnlineAoVivo ? "Sessões (datas e horários)" : "Turmas e Cronograma"}
+                  </h3>
                   <Button type="button" variant="outline" size="sm" onClick={addTurma}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar turma
+                    <Plus className="w-3.5 h-3.5 mr-1" /> {isOnlineAoVivo ? "Adicionar sessão" : "Adicionar turma"}
                   </Button>
                 </div>
 
@@ -1042,10 +1044,14 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold">Cronograma</Label>
+                        <Label className="text-xs font-semibold">
+                          {isOnlineAoVivo ? "Data e horário" : "Cronograma"}
+                        </Label>
                         {turma.days.map((day, dIdx) => (
                           <div key={dIdx} className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
+                            {!isOnlineAoVivo && (
+                              <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
+                            )}
                             <DatePickerInput
                               className="w-[160px]"
                               value={day.date}
@@ -1055,12 +1061,16 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                             <span className="text-xs">às</span>
                             <Input type="time" className="w-[100px]" value={day.end_time} onChange={(e) => updateDay(tIdx, dIdx, "end_time", e.target.value)} />
                             <Input className="flex-1 min-w-[120px]" placeholder="Tópico" value={day.topic} onChange={(e) => updateDay(tIdx, dIdx, "topic", e.target.value)} />
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(tIdx, dIdx)}><X className="w-3 h-3" /></Button>
+                            {!isOnlineAoVivo && (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(tIdx, dIdx)}><X className="w-3 h-3" /></Button>
+                            )}
                           </div>
                         ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
-                          <Plus className="w-3 h-3 mr-1" /> Adicionar dia
-                        </Button>
+                        {!isOnlineAoVivo && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
+                            <Plus className="w-3 h-3 mr-1" /> Adicionar dia
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
