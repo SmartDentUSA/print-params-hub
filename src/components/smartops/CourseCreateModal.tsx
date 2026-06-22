@@ -977,6 +977,43 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 </div>
               </div>
 
+              {['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality) && (
+                <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={publicEnrollmentEnabled}
+                      onCheckedChange={setPublicEnrollmentEnabled}
+                    />
+                    <Label>Abrir inscrições públicas</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Gera um formulário público de inscrição (Nome, E-mail, Celular).
+                    Clientes Smart Dent recebem NPS; não clientes viram leads com conversão
+                    <span className="font-mono"> # - Inscrição [{title || 'curso'}]</span>.
+                  </p>
+                  {isEdit && publicEnrollmentEnabled && (course as any)?.slug && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <code className="px-2 py-1 rounded bg-background border border-border break-all">
+                        {window.location.origin}/inscricao/{(course as any).slug}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/inscricao/${(course as any).slug}`,
+                          );
+                          toast({ title: 'Link copiado' });
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {isOnline && (
                 <div className="space-y-2 pt-2 border-t">
                   <Label className="font-semibold">Produtos do portfólio relacionados</Label>
