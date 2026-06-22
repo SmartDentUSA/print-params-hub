@@ -302,6 +302,23 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [allTurmas, publicCourseIds]);
 
+  // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
+  const onlineCourseGroups = useMemo(() => {
+    if (variant !== "online") return [];
+    const map = new Map<string, TurmaComVagas[]>();
+    for (const t of turmas) {
+      const arr = map.get(t.course_id) || [];
+      arr.push(t);
+      map.set(t.course_id, arr);
+    }
+    return Array.from(map.entries())
+      .map(([course_id, list]) => ({
+        course_id,
+        turmas: list.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || "")),
+      }))
+      .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
+  }, [turmas, variant]);
+
   return (
     <div className="pp-root min-h-screen">
       <style>{publicPageStyles}</style>
@@ -338,6 +355,12 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
           <div className="pp-empty">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{config.emptyLabel}</p>
+          </div>
+        ) : variant === "online" ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {onlineCourseGroups.map((g) => (
+              <PublicOnlineCourseCard key={g.course_id} sessions={g.turmas} />
+            ))}
           </div>
         ) : (
           <div className={cn(
