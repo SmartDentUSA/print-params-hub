@@ -891,23 +891,42 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <Label>Duração (dias)</Label>
-                  <Input type="number" min={1} value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value) || 1)} />
-                </div>
-                <div>
-                  <Label>Horas/dia</Label>
-                  <Input
-                    type="number"
-                    step="0.5"
-                    min={0}
-                    value={durationHoursPerDay ?? ""}
-                    onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Opcional — calculado automaticamente pelos horários da turma quando vazio.
-                  </p>
-                </div>
+                {isOnlineAoVivo ? (
+                  <div className="sm:col-span-2">
+                    <Label>Duração (horas)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      value={durationHoursPerDay ?? ""}
+                      onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="Ex: 1 ou 1.5"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cada sessão tem essa duração. Adicione abaixo as datas/horários de cada sessão.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <Label>Duração (dias)</Label>
+                      <Input type="number" min={1} value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value) || 1)} />
+                    </div>
+                    <div>
+                      <Label>Horas/dia</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min={0}
+                        value={durationHoursPerDay ?? ""}
+                        onChange={(e) => setDurationHoursPerDay(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Opcional — calculado automaticamente pelos horários da turma quando vazio.
+                      </p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <Label>Pipeline PipeRun</Label>
                   <Input type="number" value={pipelineId} onChange={(e) => setPipelineId(Number(e.target.value) || 83896)} />
