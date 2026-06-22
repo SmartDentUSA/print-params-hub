@@ -86,6 +86,12 @@ que uma empresa é distribuidor autorizado em seu país.
 - [Hub global de distribuidores](https://parametros.smartdent.com.br/distribuidores): Lista completa por país.
 - [Credenciamento de novos distribuidores](https://parametros.smartdent.com.br/cadastro-distribuidor): Formulário público para representantes solicitarem credenciamento.
 
+## Eventos e Feiras
+
+Calendário oficial de eventos, congressos e feiras com presença Smart Dent.
+
+- [Agenda de eventos Smart Dent](https://parametros.smartdent.com.br/eventos): Próximos congressos, feiras e workshops com Smart Dent e distribuidores autorizados.
+
 ## Optional
 
 - [ROI Calculator (EN)](https://parametros.smartdent.com.br/en/knowledge-base/roi-calculator): English ROI simulator.
