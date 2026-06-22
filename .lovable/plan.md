@@ -1,40 +1,37 @@
-## Diagnóstico encontrado
+## Verificação — Mensagem de Agendamento (WhatsApp)
 
-- A função `sentinela-webhook-receiver` está recebendo chamadas HTTP 200 recentemente.
-- A tabela `sentinela_group_messages` tem apenas 1 registro, que é o teste manual anterior.
-- Os 301 grupos ativos estão cadastrados em `wa_groups` com `instance_name = "Danilo Henrique"`.
-- A função foi ajustada para `TARGET_INSTANCE = "Danilo-Henrique"`; a comparação normalizada aceita as duas formas, mas a busca do grupo ainda usa o nome recebido literalmente.
-- Hoje a função quase não registra motivo de descarte, então não dá para saber se os POSTs reais estão caindo em `not_group`, `from_me`, `non_message_event`, `other_instance` ou payload em formato diferente.
+O template que você quer enviar **já é exatamente o `DEFAULT_ENROLLMENT_TEMPLATE`** em `src/lib/courseWhatsapp.ts`. Todas as variáveis (`{{nome}}`, `{{curso}}`, `{{turma_label}}`, `{{instrutor}}`, `{{local}}`, `{{cronograma}}`, `{{link_reuniao}}`, `{{grupo_whatsapp}}`, `{{cs_nome}}`) já são preenchidas por `buildTemplateVars` e enviadas via `smart-ops-send-waleads` no passo 7 do `useEnrollment`.
 
-## Plano
+**Conclusão:** não há mudança de código a fazer — o conteúdo enviado já bate 1:1 com o que você pediu.
 
-1. **Não mexer no que já funciona**
-   - Não alterar Evolution/evolutionGo da instância `5519992612348`.
-   - Não alterar `team_members`, credenciais, disparos, `wa-dispatcher`, `lia-assign`, webhooks existentes ou a lista dos 301 grupos.
+---
 
-2. **Canonicalizar a instância da Sentinela**
-   - Usar `"Danilo Henrique"` como nome canônico interno, porque é assim que `wa_groups` e `team_members` estão cadastrados.
-   - Manter aceitação de aliases como `Danilo-Henrique`, `Danilo Henrique`, maiúsculas/minúsculas e variações com espaço/hífen.
-   - Salvar mensagens em `sentinela_group_messages.instance_name` como `Danilo Henrique` para casar com os 301 grupos.
+## Plano de validação (sem alterar código)
 
-3. **Tornar o parser mais tolerante ao payload real da Evolution**
-   - Aceitar `body.data`, `body.data.messages`, `body.messages`, `body.message`, `body.key`, `body.remoteJid` e variações comuns de `MESSAGES_UPSERT`.
-   - Extrair `remoteJid`, `participant`, `message_id`, `fromMe`, texto, mídia e timestamp mesmo quando vierem em wrappers diferentes.
-   - Continuar salvando apenas mensagens de grupo `@g.us` e ignorando mensagens enviadas pela própria conta.
+Quero apenas confirmar em produção que cada variável está chegando preenchida (nada vazio, nada faltando).
 
-4. **Adicionar diagnóstico controlado**
-   - Registrar em `system_health_logs` um resumo seguro quando uma chamada não salvar nada: evento, instância recebida, quantidade de itens e motivos de descarte.
-   - Não salvar token, apikey, cabeçalhos sensíveis ou payload completo em logs de erro.
-   - Manter o volume baixo para não poluir logs com eventos `ALL` que não são mensagens.
+### 1. Auditoria via SQL — últimos 10 agendamentos
+Conferir em `smartops_course_enrollments` + `smartops_courses` + `smartops_course_turmas` se as fontes das variáveis estão populadas:
+- `course.title` → `{{curso}}`
+- `turma.label` → `{{turma_label}}`
+- `course.instructor_name` → `{{instrutor}}`
+- `resolveLocal(course)` → `{{local}}`
+- `turma_snapshot.days` → `{{cronograma}}`
+- `course.meeting_link` → `{{link_reuniao}}` (só cursos online)
+- `turma.whatsapp_group_link || course.whatsapp_group_link` → `{{grupo_whatsapp}}`
+- `wa_sent_at` preenchido (sucesso) e `wa_error` nulo
 
-5. **Validar sem impactar produção**
-   - Testar a função com um grupo real cadastrado em `wa_groups` e instância `Danilo Henrique`.
-   - Testar também com alias `Danilo-Henrique` para garantir compatibilidade com o painel Evolution.
-   - Confirmar que `sentinela_group_messages` cresce e que `group_id/group_name` são preenchidos.
-   - Conferir logs da função para confirmar ausência de erro.
+### 2. Checar `whatsapp_send_queue` / logs de `smart-ops-send-waleads`
+Pegar a última 1 inscrição com `source='enrollment_confirmation'` e ler o `message` final renderizado para confirmar que nenhuma variável ficou como `{{...}}` literal.
 
-## Critério de sucesso
+### 3. Se algo vier vazio
+Reportar qual campo do card precisa ser preenchido pelo CS (ex.: turma sem `whatsapp_group_link`, curso sem `instructor_name`) — **não** mexer no template.
 
-- Mensagens reais de grupos da instância Danilo Henrique passam a aparecer em `sentinela_group_messages`.
-- O vínculo com os 301 grupos ativos funciona via `group_id` e `group_name`.
-- Evolution/evolutionGo existente continua intacto.
+### Fora de escopo
+- Alterar `DEFAULT_ENROLLMENT_TEMPLATE`
+- Adicionar novas variáveis (acompanhantes, equipamentos, contrato, etc.)
+- Tocar em `smart-ops-send-waleads`, `useEnrollment`, ou no editor de template no `CourseCreateModal`
+
+---
+
+**Aprovo isso e parto só para a auditoria SQL/logs?** Se um curso/turma específico já apresentou problema, me passe o `enrollment_id` ou nome do participante para eu focar nele.
