@@ -351,6 +351,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setRecurrenceTimeStart(course.recurrence_time_start?.substring(0, 5) || '09:00');
     setRecurrenceTimeEnd(course.recurrence_time_end?.substring(0, 5) || '11:00');
     setRecurrenceWeekdays(((course as any).recurrence_weekdays ?? []) as number[]);
+    setRecurrenceSlotsPerSession(course.max_capacity || 20);
 
     // Load turmas
     loadTurmas(course.id);
