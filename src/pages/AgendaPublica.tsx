@@ -294,11 +294,17 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   });
 
   const turmas = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const nowMs = Date.now();
     const allowed = new Set(publicCourseIds);
     return allTurmas
       .filter((t) => allowed.has(t.course_id))
-      .filter((t) => !t.end_date || t.end_date >= today)
+      .filter((t) => {
+        const endDate = t.end_date || t.start_date;
+        if (!endDate) return true;
+        const endTime = (t.end_time || "23:59").substring(0, 5);
+        const endMs = new Date(`${endDate}T${endTime}:00`).getTime();
+        return Number.isFinite(endMs) ? endMs > nowMs : true;
+      })
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [allTurmas, publicCourseIds]);
 
