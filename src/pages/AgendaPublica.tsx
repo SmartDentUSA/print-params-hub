@@ -363,12 +363,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             ))}
           </div>
         ) : (
-          <div className={cn(
-            "grid grid-cols-1 gap-4",
-            variant === "online"
-              ? "md:grid-cols-2 xl:grid-cols-3"
-              : "md:grid-cols-2 xl:grid-cols-3"
-          )}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {turmas.map((t) => (
               <PublicTurmaCard
                 key={t.id}
