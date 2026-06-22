@@ -26672,6 +26672,12 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_scheduled_broadcasts: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+        }[]
+      }
       cleanup_orphan_cognitive_locks: { Args: never; Returns: number }
       compute_lead_portfolio_from_mappings: {
         Args: { p_lead_id: string }
