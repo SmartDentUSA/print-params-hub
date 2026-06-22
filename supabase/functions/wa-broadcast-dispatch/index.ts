@@ -25,7 +25,12 @@ serve(async (req) => {
   }
 
   // Cron mode: scheduled broadcasts
-  const { data: scheduled } = await supabase.from('social_broadcasts').select('id').eq('status', 'scheduled').lte('scheduled_at', new Date().toISOString()).limit(5);
+  // Atomic claim via RPC (FOR UPDATE SKIP LOCKED) — prevents duplicate dispatch when multiple cron runs overlap.
+  const { data: scheduled, error: claimErr } = await supabase.rpc('claim_scheduled_broadcasts', { p_limit: 5 });
+  if (claimErr) {
+    console.error('claim_scheduled_broadcasts failed', claimErr);
+    return new Response(JSON.stringify({ error: claimErr.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
   const results: any[] = [];
   for (const b of scheduled ?? []) {
     const r = await dispatch(supabase, b.id);
@@ -38,7 +43,11 @@ async function dispatch(supabase: any, broadcastId: string): Promise<Response> {
   const { data: b } = await supabase.from('social_broadcasts').select('*').eq('id', broadcastId).single();
   if (!b) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  await supabase.from('social_broadcasts').update({ status: 'dispatching' }).eq('id', broadcastId);
+  // Idempotent guard for direct invocations: only flip to dispatching if not already in flight.
+  // Cron path already claimed via claim_scheduled_broadcasts RPC.
+  if (b.status !== 'dispatching') {
+    await supabase.from('social_broadcasts').update({ status: 'dispatching' }).eq('id', broadcastId).neq('status', 'dispatching');
+  }
 
   const seg: any = b.segment ?? {};
   const message: string = seg.message ?? '';
