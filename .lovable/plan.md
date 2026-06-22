@@ -1,40 +1,26 @@
-# Card único por treinamento Online (datas agrupadas)
+Ajustar o card consolidado de cursos online/ao vivo na Agenda Pública para:
+1. Remover a exibição de vagas no card online.
+2. Adicionar um cabeçalho de colunas na lista de sessões.
+3. Incluir contagem regressiva individual por sessão.
 
-## Objetivo
+Mudanças em `src/pages/AgendaPublica.tsx`
+- `PublicOnlineCourseCard`:
+  - Remover o bloco "Vagas/sessão" do rodapé do card.
+  - Substituir a lista atual de sessões por uma estrutura com cabeçalho e linhas:
+    - Colunas: **Turma | Dia | Hora de início | Hora do Fim | Duração | Contagem regressiva**
+  - Em cada linha de sessão, exibir:
+    - Número da turma (ex.: `#002`).
+    - Data formatada (ex.: `29 de jun.`).
+    - Hora de início (`09:00`).
+    - Hora de fim (`10:00`).
+    - Duração calculada (`1h`).
+    - Contagem regressiva ao vivo até o início, usando o mesmo padrão de status/cronômetro já usado no card (ex.: `12d 04:32:10` ou "Acontecendo agora" / "Realizado").
+- `PublicTurmaCard`:
+  - Remover o `Metric label="Vagas"` do ramo `isOnline`, caso algum card online ainda passe por ali.
 
-Para cursos **Online ao Vivo** e **Online**, mostrar **um único card por treinamento** na Agenda Pública, com todas as datas/horários listados dentro do card — em vez de um card separado para cada turma.
+O que NÃO muda
+- Cards presenciais continuam mostrando Vagas / Inscritos / Acompanhantes / Restam.
+- Formulário de inscrição e roteamento permanecem inalterados.
 
-Cursos **Presenciais** continuam como hoje (um card por turma).
-
-## Mudanças
-
-### `src/pages/AgendaPublica.tsx`
-
-1. **Agrupar turmas por curso quando online**
-   - Para `modality ∈ {online, online_ao_vivo}`, agrupar `turmas` por `course_id` e renderizar 1 card.
-   - Para `presencial`, manter 1 card por turma.
-
-2. **Card online consolidado**
-   - Cabeçalho: badge LIVE + título + categoria/instrutor/capa (do curso).
-   - Bloco de **Sessões** (substitui o `OnlineDateRow` único): lista enxuta com cada data:
-     ```
-     📅 29 jun  ·  09:00 – 10:00  ·  1h   [Turma #001]
-     📅 06 jul  ·  09:00 – 10:00  ·  1h   [Turma #002]
-     ```
-   - Próxima sessão destacada com o cronômetro `LiveCountdownInline` no topo (a mais próxima de hoje).
-   - Vagas: somar `slots` de todas as turmas futuras (ou mostrar “Vagas por sessão: 20”).
-   - Botão **INSCREVA-SE** (já implementado) leva a `/inscricao/{course_slug}` — a página de inscrição já lista as turmas para o usuário escolher.
-
-3. **Ordenação e filtro**
-   - Filtrar turmas com `end_date >= hoje` antes de agrupar.
-   - Ordenar cards pela menor `start_date` do grupo.
-
-4. **Compartilhamento / ShareButton**
-   - Botão de compartilhar passa a apontar para o curso (link `/inscricao/{slug}` ou agenda pública), não para uma turma específica.
-
-### O que NÃO muda
-
-- Schema do banco continua igual (`smartops_course_turmas` por sessão).
-- Página `/inscricao/:slug` continua mostrando seletor de turmas (não duplica info).
-- Página Presencial inalterada (1 card por turma).
-- Fluxo de inscrição, WhatsApp, NPS, lembrete 1h antes — tudo intacto.
+Critério de aceite
+- Na visualização de cursos online/ao vivo, cada card exibe a lista de sessões com cabeçalho das colunas e contagem regressiva por linha, sem mostrar vagas/sessão.
