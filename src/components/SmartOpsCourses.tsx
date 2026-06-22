@@ -300,7 +300,9 @@ function CatalogoTab() {
           pipeline_id_kanban, stage_after_enroll,
           recurrence_enabled, recurrence_type, recurrence_interval,
           recurrence_until, recurrence_time_start, recurrence_time_end,
-          whatsapp_group_link,
+          recurrence_weekdays,
+          whatsapp_group_link, signup_form_url, public_enrollment_enabled,
+          related_product_ids, related_product_names,
           turmas:smartops_course_turmas (
             id, label, turma_number, slots, enrolled_count, active,
             recurrence_parent_id, recurrence_index, sort_order,
