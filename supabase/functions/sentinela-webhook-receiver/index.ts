@@ -174,7 +174,8 @@ Deno.serve(async (req) => {
     const results = [] as any[];
     for (const m of messages) {
       if (!m) continue;
-      results.push(await handleMessage(instanceName, m));
+      // Sempre usa nome canônico para casar com wa_groups/team_members.
+      results.push(await handleMessage(TARGET_INSTANCE, m));
     }
 
     const savedCount = results.filter((r) => r?.saved).length;
