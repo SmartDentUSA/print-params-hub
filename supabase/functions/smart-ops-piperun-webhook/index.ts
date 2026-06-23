@@ -839,9 +839,81 @@ Deno.serve(async (req) => {
     // ─── Build update payload ───
     const updateData: Record<string, unknown> = {};
 
-    // Always update piperun_id to current deal + link
-    updateData.piperun_id = dealId;
-    updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+    // ── GOLDEN RULE GUARD (deal canônico protegido) ──
+    // Se o lead já tem um `piperun_id` apontando para um deal ABERTO em
+    // pipeline protegido (VENDAS/CS) e o webhook está chegando para um deal
+    // DIFERENTE (tipicamente uma duplicata criada por automação externa do
+    // PipeRun em "Sem contato"), NÃO sobrescrever o snapshot CRM do lead.
+    // Apenas persistimos o snapshot do deal novo dentro de
+    // `piperun_deals_history` e auditamos o evento.
+    const PROTECTED_PIPELINES = new Set<number>([
+      PIPELINES.VENDAS,
+      PIPELINES.CS_ONBOARDING,
+      PIPELINES.GANHOS_ALEATORIOS_CS,
+    ]);
+    const canonicalPid = String(currentLead?.piperun_id ?? "").trim();
+    let preserveCanonical = false;
+    if (!isNewLead && canonicalPid && canonicalPid !== dealId) {
+      const histArr = Array.isArray(currentDealsHistory) ? currentDealsHistory : [];
+      const canonical = histArr.find(
+        (d: any) => String(d?.deal_id ?? "") === canonicalPid,
+      ) as Record<string, unknown> | undefined;
+      const canonicalOpen = canonical
+        ? String((canonical as any).status ?? "").toLowerCase() === "aberta"
+        : false;
+      const canonicalProtected = canonical
+        ? PROTECTED_PIPELINES.has(Number((canonical as any).pipeline_id))
+        : false;
+      if (canonicalOpen && canonicalProtected) {
+        preserveCanonical = true;
+        console.log(
+          `[piperun-webhook] DUPLICATE_DEAL_QUARANTINE: incoming deal ${dealId} ignored — canonical ${canonicalPid} ainda aberto em pipeline protegido`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-piperun-webhook",
+            severity: "warning",
+            error_type: "duplicate_deal_external_auto",
+            lead_email: personEmail,
+            details: {
+              lead_id: leadId,
+              canonical_deal_id: canonicalPid,
+              incoming_deal_id: dealId,
+              incoming_pipeline_id: ids.pipelineId,
+              incoming_stage_id: ids.stageId,
+              incoming_owner_id: ids.ownerId,
+              event_action: deal.action ?? null,
+            },
+          });
+        } catch {}
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: leadId,
+            event_type: "duplicate_deal_quarantined",
+            entity_type: "deal",
+            entity_id: String(dealId),
+            entity_name: ids.pipelineName || ids.stageName || null,
+            event_data: {
+              canonical_deal_id: canonicalPid,
+              incoming_deal_id: String(dealId),
+              incoming_pipeline_id: ids.pipelineId,
+              incoming_stage_id: ids.stageId,
+              incoming_owner_name: ids.ownerName,
+              reason: "canonical_open_in_protected_pipeline",
+            },
+            source_channel: "crm",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch {}
+      }
+    }
+
+    // Promove o deal recebido para canônico apenas quando NÃO estamos
+    // preservando um deal protegido pré-existente.
+    if (!preserveCanonical) {
+      updateData.piperun_id = dealId;
+      updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+    }
 
     // Update nome from PipeRun (source of truth) — but only if it's a valid name
     if (ids.personName && cleanPersonName(ids.personName)) updateData.nome = cleanPersonName(ids.personName)!;
