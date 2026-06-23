@@ -2997,6 +2997,100 @@ Deno.serve(async (req) => {
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
         flowType = "new_deal";
+        // ── GOLDEN RULE PRIMARY (Guard D extended) ──
+        // Antes de qualquer criação no fluxo primário, se a Pessoa já tem
+        // QUALQUER deal VENDAS (aberto OU Perdido) nos últimos 30 dias,
+        // preservamos esse deal: enriquecemos custom_fields, mantemos owner,
+        // adicionamos nota — e NÃO criamos novo deal. Regra de ouro.
+        if (force_new_deal !== true) {
+          const nowMs = Date.now();
+          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          const recentVendasDeal = allDeals
+            .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
+            .filter((d) => {
+              const ts = d.created_at ? new Date(String(d.created_at)).getTime() : 0;
+              return ts > 0 && (nowMs - ts) <= THIRTY_DAYS_MS;
+            })
+            .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())[0];
+          if (recentVendasDeal) {
+            piperunId = String(recentVendasDeal.id);
+            flowType = "golden_rule_primary_preserved";
+            const dealOwnerId = Number(recentVendasDeal.owner_id) || 0;
+            if (dealOwnerId) {
+              assignedOwnerId = dealOwnerId;
+              const dealOwnerInfo = PIPERUN_USERS[dealOwnerId];
+              if (dealOwnerInfo?.name) assignedOwnerName = dealOwnerInfo.name;
+              try {
+                const { data: dealTm } = await supabase
+                  .from("team_members")
+                  .select("id")
+                  .eq("piperun_owner_id", dealOwnerId)
+                  .eq("ativo", true)
+                  .maybeSingle();
+                if (dealTm) assignedTeamMemberId = dealTm.id;
+              } catch {}
+            }
+            try {
+              await updateExistingDeal(
+                PIPERUN_API_KEY,
+                Number(recentVendasDeal.id),
+                null,
+                customFields,
+                lead as Record<string, unknown>,
+                companyId,
+                supabase,
+                inputFormResponses,
+              );
+            } catch (e) {
+              console.warn("[lia-assign] GOLDEN RULE PRIMARY enrichment failed:", e);
+            }
+            try {
+              const formLabel = String((lead as Record<string, unknown>).form_name || "—");
+              const statusLabel = Number(recentVendasDeal.status) === 0 ? "aberto" : "fechado";
+              await addDealNote(
+                PIPERUN_API_KEY,
+                Number(recentVendasDeal.id),
+                `🔁 [Dra. L.I.A.] Re-entrega registrada (form: ${formLabel}). Deal VENDAS ${statusLabel} dos últimos 30 dias preservado conforme regra de ouro — nenhum deal novo criado, owner não alterado.`,
+              );
+            } catch (e) {
+              console.warn("[lia-assign] GOLDEN RULE PRIMARY note failed:", e);
+            }
+            try {
+              await supabase.from("lead_activity_log").insert({
+                lead_id: lead.id,
+                event_type: "golden_rule_primary_preserved",
+                entity_id: String(recentVendasDeal.id),
+                event_data: {
+                  deal_id: String(recentVendasDeal.id),
+                  deal_status: recentVendasDeal.status,
+                  deal_created_at: recentVendasDeal.created_at,
+                  person_id: personId,
+                  form_name: lead.form_name,
+                  source: lead.source,
+                  flow: "primary",
+                },
+              });
+            } catch {}
+            try {
+              await supabase.from("system_health_logs").insert({
+                function_name: "smart-ops-lia-assign",
+                severity: "info",
+                error_type: "golden_rule_primary_preserved",
+                lead_id: lead.id,
+                lead_email: leadEmail,
+                details: {
+                  preserved_deal_id: String(recentVendasDeal.id),
+                  deal_status: recentVendasDeal.status,
+                  deal_created_at: recentVendasDeal.created_at,
+                  person_id: personId,
+                },
+              });
+            } catch {}
+            console.log(
+              `[lia-assign] GOLDEN RULE PRIMARY: preserved VENDAS deal ${recentVendasDeal.id} (status=${recentVendasDeal.status}, created=${recentVendasDeal.created_at}) — no new deal created`,
+            );
+          }
+        }
         // ── Dedupe guard: if lead already carries a piperun_id, validate it before creating a new deal ──
         const cachedDealId = (lead.piperun_id as string | null) || null;
         if (cachedDealId && force_new_deal !== true) {
