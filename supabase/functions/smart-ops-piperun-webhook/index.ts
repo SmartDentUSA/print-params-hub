@@ -1463,12 +1463,16 @@ Deno.serve(async (req) => {
       // Em qualquer outra etapa/funil, NÃO postar (regra do produto).
       const briefingAllowed =
         ids.pipelineId === PIPELINES.VENDAS && ids.stageId === STAGES_VENDAS.SEM_CONTATO;
-      if (!briefingAllowed) {
+      if (preserveCanonical) {
+        console.log(
+          `[piperun-webhook] Skip seller note — duplicate_deal_quarantined deal=${dealId} canonical=${canonicalPid}`,
+        );
+      } else if (!briefingAllowed) {
         console.log(
           `[piperun-webhook] Skip seller note — pipeline=${ids.pipelineId} stage=${ids.stageId} (only VENDAS/SEM_CONTATO allowed)`
         );
       }
-      if (PIPERUN_API_KEY && dealId && briefingAllowed) {
+      if (PIPERUN_API_KEY && dealId && briefingAllowed && !preserveCanonical) {
         const { data: fullLead } = await supabase
           .from("lia_attendances")
           .select("*")
