@@ -2131,48 +2131,29 @@ async function executarEnrichmentDealRoute(
     // ── CONSOLIDATE DUPLICATE OPEN VENDAS DEALS ──
     const consolidatedDupes: Array<{ id: string }> = [];
     if (duplicateVendasDeals.length > 0) {
+      // PROIBIDO tocar em deals do Funil de Vendas via automação.
+      // Não fechar duplicatas, não postar nota. Apenas registrar log interno
+      // para auditoria manual.
       console.log(
-        `[lia-assign] CASE A consolidating ${duplicateVendasDeals.length} duplicate open VENDAS deals (keeping ${vendaDeal.id})`,
+        `[lia-assign] CASE A: ${duplicateVendasDeals.length} duplicate open VENDAS deals detected — NOT touching (protected pipeline). kept=${vendaDeal.id}`,
       );
-      for (const dup of duplicateVendasDeals) {
-        try {
-          await piperunPut(apiToken, `deals/${dup.id}`, {
-            status: 2,
-            lost_reason: "duplicado_redelivery_meta",
-          });
-          consolidatedDupes.push({ id: String(dup.id) });
-        } catch (e) {
-          console.warn(`[lia-assign] failed to close duplicate deal ${dup.id}:`, e);
-        }
-      }
-      if (consolidatedDupes.length > 0) {
-        try {
-          await addDealNote(
-            apiToken,
-            Number(vendaDeal.id),
-            `⚠️ [Dra. L.I.A.] ${consolidatedDupes.length} deal(s) duplicado(s) em VENDAS fechado(s) como Perdido: ${consolidatedDupes.map((d) => d.id).join(", ")}.`,
-          );
-        } catch (e) {
-          console.warn("[lia-assign] failed to add consolidation note:", e);
-        }
-        try {
-          await supabase.from("lead_activity_log").insert({
-            lead_id: leadId,
-            event_type: "vendas_duplicates_consolidated",
-            entity_type: "deal",
-            entity_id: String(vendaDeal.id),
-            entity_name: "Deals duplicados consolidados",
-            event_data: {
-              kept_deal: String(vendaDeal.id),
-              closed_deals: consolidatedDupes,
-              motivo: "duplicado_redelivery_meta",
-            },
-            source_channel: "form",
-            event_timestamp: new Date().toISOString(),
-          });
-        } catch (e) {
-          console.warn("[lia-assign] failed to log consolidation:", e);
-        }
+      try {
+        await supabase.from("lead_activity_log").insert({
+          lead_id: leadId,
+          event_type: "vendas_duplicates_detected_noop",
+          entity_type: "deal",
+          entity_id: String(vendaDeal.id),
+          entity_name: "Duplicatas VENDAS detectadas (sem ação)",
+          event_data: {
+            kept_deal: String(vendaDeal.id),
+            duplicates: duplicateVendasDeals.map((d) => String(d.id)),
+            reason: "protected_pipeline_no_auto_close",
+          },
+          source_channel: "form",
+          event_timestamp: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn("[lia-assign] failed to log duplicates noop:", e);
       }
     }
     console.log(
