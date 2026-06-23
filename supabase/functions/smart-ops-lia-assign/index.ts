@@ -3093,7 +3093,7 @@ Deno.serve(async (req) => {
         }
         // ── Dedupe guard: if lead already carries a piperun_id, validate it before creating a new deal ──
         const cachedDealId = (lead.piperun_id as string | null) || null;
-        if (cachedDealId && force_new_deal !== true) {
+        if (!piperunId && cachedDealId && force_new_deal !== true) {
           try {
             const check = await piperunGet(PIPERUN_API_KEY, `deals/${cachedDealId}`, {});
             const dealData = (check?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
