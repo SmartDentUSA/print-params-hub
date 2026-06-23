@@ -2353,6 +2353,15 @@ async function executarEnrichmentDealRoute(
     closed_deals: closedDeals,
     new_owner: newOwner.nome_completo,
   };
+  } finally {
+    if (lockAcquired) {
+      try {
+        await supabase.from("cognitive_lead_locks").delete().eq("lead_id", leadId);
+      } catch (e) {
+        console.warn("[lia-assign] enrichment-route: lock release falhou:", e);
+      }
+    }
+  }
 }
 
 Deno.serve(async (req) => {
