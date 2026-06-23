@@ -1,82 +1,40 @@
-## Escopo
+## Estado atual
 
-Sistema B (`okeogjgqijbfkudfjadz`) — apenas edge functions, banco e RAG. Nada de frontend.
+Já executado em build mode (antes da reversão para plan):
 
----
+1. ✅ Criado `supabase/functions/_shared/llms-identity.ts` com IDENTITY v2.3 completa.
+2. ✅ Reescrito `supabase/functions/llms-txt/index.ts` e `supabase/functions/seo-llms-txt/index.ts` para apenas servir `IDENTITY_V23` com headers corretos (`text/plain; charset=utf-8` + `max-age=86400`), sem topSection dinâmico.
+3. ✅ Deploy de `llms-txt` e `seo-llms-txt` concluído.
 
-## TAREFA 1 — Atualizar `llms-txt` para v2.3
+## Pendente (executar nesta rodada de build)
 
-Arquivo: `supabase/functions/llms-txt/index.ts`
+### TAREFA 2A — Inserir em `knowledge_contents`
 
-1. Substituir o conteúdo da constante `IDENTITY` (linhas 17–431) pelo texto v2.3 completo fornecido pelo usuário.
-2. Remover o append dinâmico de `topSection` (a v2.3 já traz seção `## Pages` curada) — `body = IDENTITY` apenas. Mantém o fallback `catch` retornando `IDENTITY`.
-3. Headers já estão corretos: `Content-Type: text/plain; charset=utf-8` + `Cache-Control: public, max-age=86400`.
-4. Replicar a mesma `IDENTITY` em `supabase/functions/seo-llms-txt/index.ts` (esta é a função que o domínio `parametros.smartdent.com.br/llms.txt` consome via Vercel — já configurado em sessões anteriores).
-5. Deploy de `llms-txt` e `seo-llms-txt`.
+Via `supabase--insert`, executar o INSERT do prompt confirmado, com `ON CONFLICT (slug) DO UPDATE` para tornar idempotente (slug já tem UNIQUE; segunda execução não deve falhar).
 
----
-
-## TAREFA 2 — Artigo "Linha ATOS"
-
-Duas inserções (ambas necessárias):
-
-**A) `knowledge_contents`** — necessária para o Check 2 (URL `/base-conhecimento/c/linha-atos-...` precisa responder 200).
-
-Migration insert:
 - `slug`: `linha-atos-resinas-compostas-smart-dent-rony-peterson`
-- `category_id`: `fc493982-ad8c-417f-9579-82786a97925a` (Ciência e tecnologia — letra C)
-- `title`: `Linha ATOS: Resinas Compostas Smart Dent desenvolvidas por Doutor USP`
-- `excerpt`, `meta_description`: resumo curto a partir do "Resumo Técnico para Citação"
-- `content_html`: corpo do artigo convertido de Markdown → HTML (mantendo frontmatter como bloco de metadados no topo)
-- `keywords`: array do frontmatter
-- `created_by`: `Dr. Rony Peterson Alves Rodrigues`
-- `active`: true
+- `category_id`: `fc493982-ad8c-417f-9579-82786a97925a` (Ciência e tecnologia / letra C)
+- `content_html`: texto exato do prompt (mantém quebras de linha como o usuário escreveu)
+- demais campos conforme prompt
 
-**B) `company_kb_texts`** — necessária para o Check 3 (`indexed_at` preenchido) e para o RAG da Dra. LIA / Copilot.
+### TAREFA 2B + 3 — Chamar `ingest-knowledge-text`
 
-Os campos reais da tabela são apenas: `title, category, source_label, content, active, chunks_count, indexed_at`. Os outros campos do frontmatter (slug, autor, idioma, allow_indexing…) não existem nessa tabela — ficam apenas como metadados dentro de `content` e na linha de `knowledge_contents`.
+Via `supabase--curl_edge_functions`:
+- método: `POST`
+- path: `/ingest-knowledge-text`
+- header `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` (a função aceita service role direto e pula o check de usuário)
+- body: `{ "entries": [ <payload-do-prompt> ] }` (a função espera `entries`, não um objeto solto)
 
-Inserção via chamada à edge function `ingest-knowledge-text` (que já faz upsert + embeddings + atualiza `indexed_at` em uma única operação):
-- `title`: `Linha ATOS: Resinas Compostas Smart Dent desenvolvidas por Doutor USP`
-- `category`: `geral` (categorias válidas em company_kb_texts são `sdr|comercial|workflow|suporte|faq|objecoes|onboarding|geral|leads|clientes|campanhas|pos_venda` — `"c"` não é aceita; "geral" é o fit técnico)
-- `source_label`: `linha-atos-resinas-compostas-smart-dent-rony-peterson`
-- `content`: artigo completo em Markdown (frontmatter + corpo)
+Isto faz upsert em `company_kb_texts` + chunks + embeddings em `agent_embeddings` + grava `indexed_at` e `chunks_count`.
 
----
+### TAREFA 4 — Verificação
 
-## TAREFA 3 — Reindexar RAG
+1. `curl -s https://parametros.smartdent.com.br/llms.txt | grep -E "v2.3|2026/SGMD.0084|K260152.pdf|81835969004"`
+2. `curl -o /dev/null -s -w "%{http_code}" https://parametros.smartdent.com.br/base-conhecimento/c/linha-atos-resinas-compostas-smart-dent-rony-peterson`
+3. `SELECT title, indexed_at, chunks_count FROM company_kb_texts WHERE source_label = 'linha-atos-resinas-compostas-smart-dent-rony-peterson';`
 
-A função `reindex-pending-kb` não existe neste projeto. O equivalente é o próprio `ingest-knowledge-text`, que já:
-1. Gera embeddings (Google `embedding-001`) e insere em `agent_embeddings` com `source_type='company_kb'`.
-2. Atualiza `chunks_count` e `indexed_at` em `company_kb_texts`.
+Caso o Check 1 retorne a versão antiga (cache Vercel), reporto e peço purge/redeploy no Vercel (mesmo procedimento da sessão anterior — não posso fazer pelo sandbox).
 
-Logo, a chamada da Tarefa 2-B cumpre Tarefa 3 sem passo extra.
+## Não alterado
 
----
-
-## TAREFA 4 — Verificação
-
-**Check 1** — `curl https://parametros.smartdent.com.br/llms.txt`
-- status 200
-- contém `v2.3`, `2026/SGMD.0084`, `K260152.pdf`, `81835969004`
-- (se o Vercel ainda servir cache antigo, replicar purge como na sessão anterior)
-
-**Check 2** — `curl -I https://parametros.smartdent.com.br/base-conhecimento/c/linha-atos-resinas-compostas-smart-dent-rony-peterson` → 200
-
-**Check 3** — `SELECT title, indexed_at, chunks_count FROM company_kb_texts WHERE source_label = 'linha-atos-resinas-compostas-smart-dent-rony-peterson';` → `indexed_at NOT NULL`.
-
----
-
-## O que NÃO será alterado
-
-Frontend, `LeadDetailPanel`, `lead_activity_log`, contratos PipeRun/SellFlux, `smart-ops-lia-assign`, schema de tabelas existentes (apenas INSERTs), nenhuma outra edge function.
-
----
-
-## Pontos de atenção / desvios do prompt
-
-1. **`reindex-pending-kb` não existe** → uso `ingest-knowledge-text` que faz tudo (upsert + embed + indexed_at).
-2. **`company_kb_texts` não tem coluna `slug/autor/status/idioma/allow_indexing`** → esses metadados ficam no corpo do artigo e na linha de `knowledge_contents`. `categoria='c'` vira `category='geral'` (única forma de passar pela validação da função).
-3. **Artigo precisa de linha em `knowledge_contents`** para o Check 2 (URL) funcionar — o prompt só citou `company_kb_texts`, mas sem isso o Check 2 falha.
-
-Confirmar antes de implementar?
+Frontend, LeadDetailPanel, lead_activity_log, contratos PipeRun/SellFlux, smart-ops-lia-assign, schema de tabelas, demais edge functions.
