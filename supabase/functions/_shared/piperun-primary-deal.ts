@@ -34,6 +34,12 @@ export interface PrimaryDealSnapshot {
   data_fechamento_crm: string | null;
 }
 
+// Pipelines onde o deal canônico NÃO pode ser substituído por um deal
+// novo só por ter sido criado depois (regra de ouro): VENDAS, CS Onboarding
+// e Ganhos Aleatórios (CS). Hardcoded para não criar dependência circular
+// com piperun-field-map.
+const DEFAULT_PROTECTED_PIPELINES = new Set<number>([18784, 83896, 102893]);
+
 function parseTs(v: unknown): number {
   if (!v) return 0;
   const t = Date.parse(String(v).replace(" ", "T"));
@@ -68,8 +74,53 @@ export function pickPrimaryDeal(history: any[] | null | undefined): any | null {
   return sorted[0];
 }
 
+/**
+ * Variante protegida: se o lead já tem um `currentPiperunId` apontando para
+ * um deal ABERTO em pipeline protegido (VENDAS / CS), esse deal permanece
+ * canônico mesmo que outro deal mais novo apareça no histórico (ex.: deal
+ * duplicado criado por automação externa do PipeRun). Só promove um deal
+ * novo quando o canônico atual não está mais aberto ou não está mais em
+ * pipeline protegido.
+ */
+export function pickPrimaryDealProtected(
+  history: any[] | null | undefined,
+  currentPiperunId: string | number | null | undefined,
+  protectedPipelines: Set<number> = DEFAULT_PROTECTED_PIPELINES,
+): any | null {
+  if (Array.isArray(history) && currentPiperunId != null && String(currentPiperunId).trim() !== "") {
+    const want = String(currentPiperunId);
+    const canonical = history.find((d) => String(d?.deal_id ?? "") === want);
+    if (canonical && isOpen(canonical) && protectedPipelines.has(Number(canonical.pipeline_id))) {
+      return canonical;
+    }
+  }
+  return pickPrimaryDeal(history);
+}
+
 export function buildPrimarySnapshot(history: any[] | null | undefined): PrimaryDealSnapshot | null {
   const d = pickPrimaryDeal(history);
+  if (!d) return null;
+  return {
+    piperun_id: d.deal_id != null ? String(d.deal_id) : null,
+    proprietario_lead_crm: d.owner_name ?? null,
+    status_atual_lead_crm: d.stage_name ?? null,
+    funil_entrada_crm: d.pipeline_name ?? null,
+    piperun_pipeline_id: d.pipeline_id ?? null,
+    piperun_pipeline_name: d.pipeline_name ?? null,
+    piperun_stage_id: d.stage_id ?? null,
+    piperun_stage_name: d.stage_name ?? null,
+    piperun_owner_id: d.owner_id ?? null,
+    status_oportunidade: d.status ?? null,
+    valor_oportunidade: d.value != null ? Number(d.value) : null,
+    data_fechamento_crm: d.closed_at ?? null,
+  };
+}
+
+export function buildPrimarySnapshotProtected(
+  history: any[] | null | undefined,
+  currentPiperunId: string | number | null | undefined,
+): PrimaryDealSnapshot | null {
+  const d = pickPrimaryDealProtected(history, currentPiperunId);
   if (!d) return null;
   return {
     piperun_id: d.deal_id != null ? String(d.deal_id) : null,
@@ -96,6 +147,24 @@ export function applyPrimarySnapshot(
   history: any[] | null | undefined,
 ): Record<string, unknown> {
   const snap = buildPrimarySnapshot(history);
+  if (!snap) return updateData;
+  for (const [k, v] of Object.entries(snap)) {
+    if (v === null || v === undefined) continue;
+    updateData[k] = v;
+  }
+  return updateData;
+}
+
+/**
+ * Versão protegida do applyPrimarySnapshot: preserva o deal canônico atual
+ * quando ele ainda está aberto em pipeline protegido (VENDAS / CS).
+ */
+export function applyPrimarySnapshotProtected(
+  updateData: Record<string, unknown>,
+  history: any[] | null | undefined,
+  currentPiperunId: string | number | null | undefined,
+): Record<string, unknown> {
+  const snap = buildPrimarySnapshotProtected(history, currentPiperunId);
   if (!snap) return updateData;
   for (const [k, v] of Object.entries(snap)) {
     if (v === null || v === undefined) continue;
