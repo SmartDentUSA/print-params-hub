@@ -1163,13 +1163,59 @@ Deno.serve(async (req) => {
     // ─── Primary deal snapshot (overrides row-level CRM fields with the
     // currently-relevant deal: open > newest closed > newest created). ───
     try {
-      const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
-      applyPrimarySnapshot(
+      const { applyPrimarySnapshotProtected } = await import("../_shared/piperun-primary-deal.ts");
+      // Preserva o deal canônico atual quando ele ainda está aberto em
+      // pipeline protegido (VENDAS/CS) — bloqueia o "open mais recente vence"
+      // que permitia que duplicatas externas roubassem o snapshot CRM.
+      applyPrimarySnapshotProtected(
         updateData,
         updateData.piperun_deals_history as unknown[] | null,
+        canonicalPid || null,
       );
     } catch (e) {
       console.warn("[piperun-webhook] applyPrimarySnapshot failed:", e);
+    }
+
+    // ── Quarentena: se estamos preservando o canônico protegido, remover
+    // QUALQUER campo do snapshot CRM que tenha sido escrito acima por
+    // outros trechos (TAGs, journey, won/lost). O history continua sendo
+    // atualizado com o snapshot do deal duplicado para auditoria.
+    if (preserveCanonical) {
+      const PRIMARY_SNAPSHOT_KEYS = [
+        "piperun_id",
+        "piperun_link",
+        "proprietario_lead_crm",
+        "status_atual_lead_crm",
+        "funil_entrada_crm",
+        "piperun_pipeline_id",
+        "piperun_pipeline_name",
+        "piperun_stage_id",
+        "piperun_stage_name",
+        "piperun_owner_id",
+        "piperun_status",
+        "status_oportunidade",
+        "valor_oportunidade",
+        "data_fechamento_crm",
+        "piperun_origin_id",
+        "piperun_origin_name",
+        "piperun_origin_sub_name",
+        "piperun_created_at",
+        "piperun_stage_changed_at",
+        "piperun_closed_at",
+        "piperun_probably_closed_at",
+        "piperun_title",
+        "piperun_hash",
+        "data_primeiro_contato",
+        "entrada_sistema",
+        "created_at",
+        "ultima_etapa_comercial",
+        "lead_status",
+        "tags_crm",
+        "motivo_perda",
+        "comentario_perda",
+        "temperatura_lead",
+      ];
+      for (const k of PRIMARY_SNAPSHOT_KEYS) delete (updateData as Record<string, unknown>)[k];
     }
 
     // ─── Journey TAG logic ───
