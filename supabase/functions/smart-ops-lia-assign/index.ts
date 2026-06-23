@@ -1907,6 +1907,103 @@ async function executarEnrichmentDealRoute(
   }
   const companyId = (lead.empresa_piperun_id as number | null) ?? null;
 
+  // ─── GUARD A: Cognitive lock por lead (anti-loop sub-minuto) ───
+  // TTL 60s. Bloqueia execuções concorrentes do enrichment-route para o
+  // mesmo lead independente do caminho de entrada.
+  let lockAcquired = false;
+  try {
+    const { data: existingLock } = await supabase
+      .from("cognitive_lead_locks")
+      .select("locked_at, ttl_seconds")
+      .eq("lead_id", leadId)
+      .maybeSingle();
+    if (existingLock?.locked_at) {
+      const ageSec = (Date.now() - new Date(existingLock.locked_at as string).getTime()) / 1000;
+      const ttl = Number(existingLock.ttl_seconds ?? 60);
+      if (ageSec < ttl) {
+        console.log(
+          `[lia-assign] enrichment-route GUARD A: lock ativo (age=${ageSec.toFixed(1)}s, ttl=${ttl}s) — abort`,
+        );
+        return { flow_type: "lock_held", reason: "concurrent_redelivery", piperun_id: null };
+      }
+    }
+    await supabase
+      .from("cognitive_lead_locks")
+      .upsert(
+        { lead_id: leadId, locked_at: new Date().toISOString(), ttl_seconds: 60 },
+        { onConflict: "lead_id" },
+      );
+    lockAcquired = true;
+  } catch (e) {
+    console.warn("[lia-assign] enrichment-route GUARD A: lock op falhou (continua sem lock):", e);
+  }
+
+  try {
+
+  // ─── GUARD B: Throttle 72h por pessoa_piperun_id ───
+  // Conta deal_reativado_via_redelivery nas últimas 72h em QUALQUER lead
+  // canônico da mesma pessoa. Se >= 1, apenas adiciona nota no último deal
+  // VENDAS (não cria deal novo, não roda Round Robin, não fecha nada).
+  {
+    const cutoff72h = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const { data: siblingLeads } = await supabase
+      .from("lia_attendances")
+      .select("id")
+      .eq("pessoa_piperun_id", personId)
+      .is("merged_into", null);
+    const siblingIds = (siblingLeads ?? []).map((r) => r.id as string);
+    if (siblingIds.length > 0) {
+      const { count: redeliveryCount } = await supabase
+        .from("lead_activity_log")
+        .select("id", { count: "exact", head: true })
+        .in("lead_id", siblingIds)
+        .eq("event_type", "deal_reativado_via_redelivery")
+        .gte("event_timestamp", cutoff72h);
+      if ((redeliveryCount ?? 0) >= 1) {
+        const allDealsForGuard = await findPersonDeals(apiToken, personId);
+        const latestVendas = allDealsForGuard
+          .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
+          .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
+        if (latestVendas?.id) {
+          try {
+            await addDealNote(
+              apiToken,
+              Number(latestVendas.id),
+              `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}") — throttled (72h). Sem novo deal.`,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] GUARD B addDealNote falhou:", e);
+          }
+        }
+        console.log(
+          `[lia-assign] enrichment-route GUARD B: throttled (${redeliveryCount} redeliveries em 72h para person ${personId})`,
+        );
+        await supabase.from("lead_activity_log").insert({
+          lead_id: leadId,
+          event_type: "deal_enriched_via_redelivery",
+          entity_type: "deal",
+          entity_id: latestVendas?.id ? String(latestVendas.id) : null,
+          entity_name: "Throttled (regra de ouro)",
+          event_data: {
+            flow_type: "throttled_redelivery_per_person",
+            person_id: personId,
+            redeliveries_72h: redeliveryCount,
+            form_name: enrichmentFormName,
+          },
+          source_channel: "form",
+          event_timestamp: new Date().toISOString(),
+        });
+        return {
+          flow_type: "throttled_redelivery_per_person",
+          piperun_id: latestVendas?.id ? String(latestVendas.id) : null,
+          created_new: false,
+          closed_deals: [],
+          reason: "redelivery_72h_per_person",
+        };
+      }
+    }
+  }
+
   const allDeals = await findPersonDeals(apiToken, personId);
   const openDeals = allDeals.filter((d) => Number(d.status) === 0);
   // Multiple open VENDAS deals can pile up over time (CSV imports + form
@@ -1945,6 +2042,56 @@ async function executarEnrichmentDealRoute(
 
   const enrichTag = `Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}")` +
     (enrichedFields.length ? ` enriqueceu: ${enrichedFields.join(", ")}.` : ".");
+
+  // ─── GUARD D: Regra de ouro — se já existe QUALQUER deal VENDAS (aberto OU
+  // Perdido nos últimos 30d), não criar novo, não rodar Round Robin, não
+  // fechar outros funis. Apenas adicionar nota no deal VENDAS mais recente.
+  // Aplica somente quando NÃO há deal VENDAS aberto (CASE A já trata isso).
+  if (!vendaDeal) {
+    const cutoff30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentVendasLost = allDeals
+      .filter((d) => Number(d.pipeline_id) === PIPERuneVendas())
+      .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))
+      .find((d) => {
+        const ts = new Date(String(d.updated_at ?? d.created_at ?? "")).getTime();
+        return Number.isFinite(ts) && ts >= cutoff30d;
+      });
+    if (recentVendasLost?.id) {
+      console.log(
+        `[lia-assign] enrichment-route GUARD D: deal VENDAS recente (${recentVendasLost.id}, status=${recentVendasLost.status}) — apenas nota, regra de ouro`,
+      );
+      try {
+        await addDealNote(
+          apiToken,
+          Number(recentVendasLost.id),
+          `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}"). Deal VENDAS anterior preservado (regra de ouro — sem reabrir/mover).`,
+        );
+      } catch (e) {
+        console.warn("[lia-assign] GUARD D addDealNote falhou:", e);
+      }
+      await supabase.from("lead_activity_log").insert({
+        lead_id: leadId,
+        event_type: "deal_enriched_via_redelivery",
+        entity_type: "deal",
+        entity_id: String(recentVendasLost.id),
+        entity_name: "Re-entrega preservada (regra de ouro)",
+        event_data: {
+          flow_type: "golden_rule_preserved",
+          deal_id: String(recentVendasLost.id),
+          deal_status: recentVendasLost.status,
+          form_name: enrichmentFormName,
+        },
+        source_channel: "form",
+        event_timestamp: new Date().toISOString(),
+      });
+      return {
+        flow_type: "golden_rule_preserved",
+        piperun_id: String(recentVendasLost.id),
+        created_new: false,
+        closed_deals: [],
+      };
+    }
+  }
 
   // CASE A — Deal aberto em VENDAS → preserva owner + atualiza
   if (vendaDeal) {
@@ -2075,21 +2222,21 @@ async function executarEnrichmentDealRoute(
   }
 
   // CASE B — outros funis abertos → fecha como Perdido (espelho SDR-CAPTAÇÃO)
-  // DEDUP GUARD: se já existe deal em Vendas criado nas últimas 4h para este lead, é loop de re-entrega —
+  // GUARD C: se já existe deal em Vendas criado nas últimas 24h para este lead, é loop de re-entrega —
   // só adicionar nota e sair (não fechar outros funis nem criar novo deal)
   {
-    const cutoff4h = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: recentVendasDeal } = await supabase
       .from("lead_activity_log")
       .select("entity_id, event_timestamp")
       .eq("lead_id", leadId)
       .in("event_type", ["deal_reativado_via_redelivery", "deal_enriched_via_redelivery"])
-      .gte("event_timestamp", cutoff4h)
+      .gte("event_timestamp", cutoff24h)
       .limit(1)
       .maybeSingle();
     if (recentVendasDeal?.entity_id) {
       const existingId = recentVendasDeal.entity_id;
-      console.log(`[lia-assign] enrichment-route DEDUP: deal ${existingId} já criado em ${recentVendasDeal.event_timestamp} (<4h) — apenas nota, sem novo deal`);
+      console.log(`[lia-assign] enrichment-route DEDUP: deal ${existingId} já criado em ${recentVendasDeal.event_timestamp} (<24h) — apenas nota, sem novo deal`);
       try {
         await addDealNote(
           apiToken,
@@ -2104,7 +2251,7 @@ async function executarEnrichmentDealRoute(
         piperun_id: String(existingId),
         created_new: false,
         closed_deals: [],
-        reason: "redelivery_within_4h",
+        reason: "redelivery_within_24h",
       };
     }
   }
