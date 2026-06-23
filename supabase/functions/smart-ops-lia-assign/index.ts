@@ -2050,7 +2050,7 @@ async function executarEnrichmentDealRoute(
   if (!vendaDeal) {
     const cutoff30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const recentVendasLost = allDeals
-      .filter((d) => Number(d.pipeline_id) === PIPERuneVendas())
+      .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))
       .find((d) => {
         const ts = new Date(String(d.updated_at ?? d.created_at ?? "")).getTime();
