@@ -1990,17 +1990,8 @@ async function executarEnrichmentDealRoute(
             .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
         }
         const latestVendas = targetDeal;
-        if (latestVendas?.id) {
-          try {
-            await addDealNote(
-              apiToken,
-              Number(latestVendas.id),
-              `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}") — throttled (72h). Sem novo deal.`,
-            );
-          } catch (e) {
-            console.warn("[lia-assign] GUARD B addDealNote falhou:", e);
-          }
-        }
+        // NOTA SUPRIMIDA: re-entrega Meta throttled não posta nota no PipeRun.
+        // Apenas auditoria interna em lead_activity_log abaixo.
         console.log(
           `[lia-assign] enrichment-route GUARD B: throttled (${redeliveryCount} redeliveries em 72h para person ${personId})`,
         );
@@ -2086,15 +2077,7 @@ async function executarEnrichmentDealRoute(
       console.log(
         `[lia-assign] enrichment-route GUARD D: deal VENDAS recente (${recentVendasLost.id}, status=${recentVendasLost.status}) — apenas nota, regra de ouro`,
       );
-      try {
-        await addDealNote(
-          apiToken,
-          Number(recentVendasLost.id),
-          `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}"). Deal VENDAS anterior preservado (regra de ouro — sem reabrir/mover).`,
-        );
-      } catch (e) {
-        console.warn("[lia-assign] GUARD D addDealNote falhou:", e);
-      }
+      // NOTA SUPRIMIDA: regra de ouro só registra em lead_activity_log.
       await supabase.from("lead_activity_log").insert({
         lead_id: leadId,
         event_type: "deal_enriched_via_redelivery",
@@ -2263,15 +2246,7 @@ async function executarEnrichmentDealRoute(
     if (recentVendasDeal?.entity_id) {
       const existingId = recentVendasDeal.entity_id;
       console.log(`[lia-assign] enrichment-route DEDUP: deal ${existingId} já criado em ${recentVendasDeal.event_timestamp} (<24h) — apenas nota, sem novo deal`);
-      try {
-        await addDealNote(
-          apiToken,
-          Number(existingId),
-          `🔁 [Dra. L.I.A.] Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}") — deduplicada. Deal preservado.`,
-        );
-      } catch (e) {
-        console.warn("[lia-assign] enrichment-route DEDUP: addDealNote falhou:", e);
-      }
+      // NOTA SUPRIMIDA: dedup de re-entrega só registra log interno.
       return {
         flow_type: "dedup_skipped",
         piperun_id: String(existingId),
