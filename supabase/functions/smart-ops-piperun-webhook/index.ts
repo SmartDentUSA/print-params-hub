@@ -839,9 +839,81 @@ Deno.serve(async (req) => {
     // ─── Build update payload ───
     const updateData: Record<string, unknown> = {};
 
-    // Always update piperun_id to current deal + link
-    updateData.piperun_id = dealId;
-    updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+    // ── GOLDEN RULE GUARD (deal canônico protegido) ──
+    // Se o lead já tem um `piperun_id` apontando para um deal ABERTO em
+    // pipeline protegido (VENDAS/CS) e o webhook está chegando para um deal
+    // DIFERENTE (tipicamente uma duplicata criada por automação externa do
+    // PipeRun em "Sem contato"), NÃO sobrescrever o snapshot CRM do lead.
+    // Apenas persistimos o snapshot do deal novo dentro de
+    // `piperun_deals_history` e auditamos o evento.
+    const PROTECTED_PIPELINES = new Set<number>([
+      PIPELINES.VENDAS,
+      PIPELINES.CS_ONBOARDING,
+      PIPELINES.GANHOS_ALEATORIOS_CS,
+    ]);
+    const canonicalPid = String(currentLead?.piperun_id ?? "").trim();
+    let preserveCanonical = false;
+    if (!isNewLead && canonicalPid && canonicalPid !== dealId) {
+      const histArr = Array.isArray(currentDealsHistory) ? currentDealsHistory : [];
+      const canonical = histArr.find(
+        (d: any) => String(d?.deal_id ?? "") === canonicalPid,
+      ) as Record<string, unknown> | undefined;
+      const canonicalOpen = canonical
+        ? String((canonical as any).status ?? "").toLowerCase() === "aberta"
+        : false;
+      const canonicalProtected = canonical
+        ? PROTECTED_PIPELINES.has(Number((canonical as any).pipeline_id))
+        : false;
+      if (canonicalOpen && canonicalProtected) {
+        preserveCanonical = true;
+        console.log(
+          `[piperun-webhook] DUPLICATE_DEAL_QUARANTINE: incoming deal ${dealId} ignored — canonical ${canonicalPid} ainda aberto em pipeline protegido`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-piperun-webhook",
+            severity: "warning",
+            error_type: "duplicate_deal_external_auto",
+            lead_email: personEmail,
+            details: {
+              lead_id: leadId,
+              canonical_deal_id: canonicalPid,
+              incoming_deal_id: dealId,
+              incoming_pipeline_id: ids.pipelineId,
+              incoming_stage_id: ids.stageId,
+              incoming_owner_id: ids.ownerId,
+              event_action: deal.action ?? null,
+            },
+          });
+        } catch {}
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: leadId,
+            event_type: "duplicate_deal_quarantined",
+            entity_type: "deal",
+            entity_id: String(dealId),
+            entity_name: ids.pipelineName || ids.stageName || null,
+            event_data: {
+              canonical_deal_id: canonicalPid,
+              incoming_deal_id: String(dealId),
+              incoming_pipeline_id: ids.pipelineId,
+              incoming_stage_id: ids.stageId,
+              incoming_owner_name: ids.ownerName,
+              reason: "canonical_open_in_protected_pipeline",
+            },
+            source_channel: "crm",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch {}
+      }
+    }
+
+    // Promove o deal recebido para canônico apenas quando NÃO estamos
+    // preservando um deal protegido pré-existente.
+    if (!preserveCanonical) {
+      updateData.piperun_id = dealId;
+      updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+    }
 
     // Update nome from PipeRun (source of truth) — but only if it's a valid name
     if (ids.personName && cleanPersonName(ids.personName)) updateData.nome = cleanPersonName(ids.personName)!;
@@ -1091,13 +1163,59 @@ Deno.serve(async (req) => {
     // ─── Primary deal snapshot (overrides row-level CRM fields with the
     // currently-relevant deal: open > newest closed > newest created). ───
     try {
-      const { applyPrimarySnapshot } = await import("../_shared/piperun-primary-deal.ts");
-      applyPrimarySnapshot(
+      const { applyPrimarySnapshotProtected } = await import("../_shared/piperun-primary-deal.ts");
+      // Preserva o deal canônico atual quando ele ainda está aberto em
+      // pipeline protegido (VENDAS/CS) — bloqueia o "open mais recente vence"
+      // que permitia que duplicatas externas roubassem o snapshot CRM.
+      applyPrimarySnapshotProtected(
         updateData,
         updateData.piperun_deals_history as unknown[] | null,
+        canonicalPid || null,
       );
     } catch (e) {
       console.warn("[piperun-webhook] applyPrimarySnapshot failed:", e);
+    }
+
+    // ── Quarentena: se estamos preservando o canônico protegido, remover
+    // QUALQUER campo do snapshot CRM que tenha sido escrito acima por
+    // outros trechos (TAGs, journey, won/lost). O history continua sendo
+    // atualizado com o snapshot do deal duplicado para auditoria.
+    if (preserveCanonical) {
+      const PRIMARY_SNAPSHOT_KEYS = [
+        "piperun_id",
+        "piperun_link",
+        "proprietario_lead_crm",
+        "status_atual_lead_crm",
+        "funil_entrada_crm",
+        "piperun_pipeline_id",
+        "piperun_pipeline_name",
+        "piperun_stage_id",
+        "piperun_stage_name",
+        "piperun_owner_id",
+        "piperun_status",
+        "status_oportunidade",
+        "valor_oportunidade",
+        "data_fechamento_crm",
+        "piperun_origin_id",
+        "piperun_origin_name",
+        "piperun_origin_sub_name",
+        "piperun_created_at",
+        "piperun_stage_changed_at",
+        "piperun_closed_at",
+        "piperun_probably_closed_at",
+        "piperun_title",
+        "piperun_hash",
+        "data_primeiro_contato",
+        "entrada_sistema",
+        "created_at",
+        "ultima_etapa_comercial",
+        "lead_status",
+        "tags_crm",
+        "motivo_perda",
+        "comentario_perda",
+        "temperatura_lead",
+      ];
+      for (const k of PRIMARY_SNAPSHOT_KEYS) delete (updateData as Record<string, unknown>)[k];
     }
 
     // ─── Journey TAG logic ───
@@ -1345,12 +1463,16 @@ Deno.serve(async (req) => {
       // Em qualquer outra etapa/funil, NÃO postar (regra do produto).
       const briefingAllowed =
         ids.pipelineId === PIPELINES.VENDAS && ids.stageId === STAGES_VENDAS.SEM_CONTATO;
-      if (!briefingAllowed) {
+      if (preserveCanonical) {
+        console.log(
+          `[piperun-webhook] Skip seller note — duplicate_deal_quarantined deal=${dealId} canonical=${canonicalPid}`,
+        );
+      } else if (!briefingAllowed) {
         console.log(
           `[piperun-webhook] Skip seller note — pipeline=${ids.pipelineId} stage=${ids.stageId} (only VENDAS/SEM_CONTATO allowed)`
         );
       }
-      if (PIPERUN_API_KEY && dealId && briefingAllowed) {
+      if (PIPERUN_API_KEY && dealId && briefingAllowed && !preserveCanonical) {
         const { data: fullLead } = await supabase
           .from("lia_attendances")
           .select("*")

@@ -1961,9 +1961,35 @@ async function executarEnrichmentDealRoute(
         .gte("event_timestamp", cutoff72h);
       if ((redeliveryCount ?? 0) >= 1) {
         const allDealsForGuard = await findPersonDeals(apiToken, personId);
-        const latestVendas = allDealsForGuard
-          .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
-          .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
+        // Alvo da nota: priorizar o deal CANÔNICO do lead se ainda estiver
+        // aberto em VENDAS/CS — assim a nota cai no deal legítimo, e não em
+        // duplicatas mais novas criadas por automação externa do PipeRun.
+        const canonicalPid = String((lead as Record<string, unknown>).piperun_id ?? "").trim();
+        const PROTECTED_FOR_NOTE = new Set<number>([
+          PIPELINES.VENDAS,
+          PIPELINES.CS_ONBOARDING,
+          PIPELINES.GANHOS_ALEATORIOS_CS,
+        ]);
+        let targetDeal: Record<string, unknown> | undefined;
+        if (canonicalPid) {
+          targetDeal = allDealsForGuard.find(
+            (d) =>
+              String(d.id) === canonicalPid &&
+              Number(d.status) === 0 &&
+              PROTECTED_FOR_NOTE.has(Number(d.pipeline_id)),
+          );
+        }
+        if (!targetDeal) {
+          targetDeal = allDealsForGuard
+            .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS && Number(d.status) === 0)
+            .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
+        }
+        if (!targetDeal) {
+          targetDeal = allDealsForGuard
+            .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
+            .sort((a, b) => String(b.updated_at ?? b.created_at ?? "").localeCompare(String(a.updated_at ?? a.created_at ?? "")))[0];
+        }
+        const latestVendas = targetDeal;
         if (latestVendas?.id) {
           try {
             await addDealNote(
