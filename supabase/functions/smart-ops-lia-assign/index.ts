@@ -668,14 +668,19 @@ async function findPersonDealsWithStatus(
     const res = await piperunGet(apiToken, "deals", { person_id: personId, show: 50 });
     if (res.success && res.data) {
       const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
-      if (items) {
+      if (Array.isArray(items)) {
         return {
           deals: items.filter((d) => d.deleted !== 1 && d.deleted !== true),
           fetched_ok: true,
         };
       }
-      // success=true mas sem `data` → tratamos como lista vazia confiável.
-      return { deals: [], fetched_ok: true };
+      // success=true mas sem array `data` → resposta degradada (throttle/cache
+      // silencioso do PipeRun). NÃO confiar como lista vazia: marca fetched_ok=false
+      // para o fail-safe da Regra de Ouro acionar.
+      console.warn(
+        `[lia-assign] findPersonDeals empty/invalid items for person=${personId} — treating as fetch failure`,
+      );
+      return { deals: [], fetched_ok: false };
     }
     console.warn(
       `[lia-assign] findPersonDeals non-success response for person=${personId}`,
