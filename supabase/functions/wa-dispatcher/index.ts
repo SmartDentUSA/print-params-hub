@@ -231,6 +231,13 @@ serve(async (req) => {
         const now = new Date().toISOString()
         await supabase.from('wa_message_queue').update({ status: 'sent', sent_at: now, evo_message_id: evoId, delivery_status: 'sent_to_server', delivery_checked_at: now }).eq('id', item.id)
         await supabase.from('wa_send_log').insert({ queue_id: item.id, campaign_id: item.campaign_id, group_jid: item.group_jid, instance_name: instance ?? 'unknown', node_type: item.node_type, success: true, http_status: 200, evo_message_id: evoId, sent_at: now })
+        // Registra fingerprint para impedir reenvio em campanhas futuras
+        await supabase.rpc('fn_record_group_send', {
+          p_group_jid: item.group_jid,
+          p_content_hash: cHash,
+          p_node_type: item.node_type,
+          p_campaign_id: item.campaign_id,
+        }).catch((e: unknown) => console.error('[v66eg] fn_record_group_send failed', e))
         if (isGroup) await supabase.from('wa_groups').update({ session_health: 'ok', consecutive_send_errors: 0, last_send_error: null, last_send_error_at: null }).eq('group_jid', item.group_jid).gt('consecutive_send_errors', 0)
         await advanceCampaign(supabase, item.campaign_id, item.node_index)
         results.push({ id: item.id, status: 'sent' })
