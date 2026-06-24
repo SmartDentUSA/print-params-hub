@@ -1,7 +1,7 @@
 const IMAGE_MAX = 8 * 1024 * 1024;
 const VIDEO_MAX = 100 * 1024 * 1024;
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
-const VIDEO_MIMES = ['video/mp4', 'video/quicktime'];
+const VIDEO_MIMES = ['video/mp4', 'video/quicktime', 'video/webm'];
 
 export type MediaValidationError = { file: File; reason: string };
 
