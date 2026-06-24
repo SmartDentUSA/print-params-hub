@@ -13,7 +13,11 @@ import {
 import { diagnoseLead, renderDiagnosisWhatsApp } from "../_shared/workflow-diagnosis.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
-import { assertCanCreateNewDeal } from "../_shared/golden-rule-guard.ts";
+import {
+  assertCanCreateNewDeal,
+  claimDealCreateSlot,
+  releaseDealCreateSlot,
+} from "../_shared/golden-rule-guard.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
@@ -645,19 +649,40 @@ async function findPersonDeals(
   apiToken: string,
   personId: number
 ): Promise<Array<Record<string, unknown>>> {
+  const r = await findPersonDealsWithStatus(apiToken, personId);
+  return r.deals;
+}
+
+/**
+ * Same as findPersonDeals but exposes whether the underlying PipeRun call
+ * succeeded. Callers that gate Deal creation on a complete list MUST use
+ * this variant so they can refuse to createNewDeal when the list could be
+ * stale/empty due to an upstream failure (defense-in-depth Regra de Ouro).
+ */
+async function findPersonDealsWithStatus(
+  apiToken: string,
+  personId: number,
+): Promise<{ deals: Array<Record<string, unknown>>; fetched_ok: boolean }> {
   try {
     const res = await piperunGet(apiToken, "deals", { person_id: personId, show: 50 });
     if (res.success && res.data) {
       const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
       if (items) {
-        // Filter out deleted deals
-        return items.filter((d) => d.deleted !== 1 && d.deleted !== true);
+        return {
+          deals: items.filter((d) => d.deleted !== 1 && d.deleted !== true),
+          fetched_ok: true,
+        };
       }
+      // success=true mas sem `data` → tratamos como lista vazia confiável.
+      return { deals: [], fetched_ok: true };
     }
+    console.warn(
+      `[lia-assign] findPersonDeals non-success response for person=${personId}`,
+    );
   } catch (e) {
     console.warn("[lia-assign] Error fetching person deals:", e);
   }
-  return [];
+  return { deals: [], fetched_ok: false };
 }
 
 /**
@@ -1854,19 +1879,60 @@ async function executarReativacaoSdrCaptacao(
     if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
   }
 
-  const newDealId = await createNewDeal(
-    apiToken,
-    personId,
-    companyId,
-    lead,
-    PIPELINES.VENDAS,
-    STAGES_VENDAS.SEM_CONTATO,
-    newOwnerId,
-    customFields,
-    leadEmail,
+  // ── Trava atômica DB-level (defense-in-depth Regra de Ouro) ──
+  const claim = await claimDealCreateSlot(
     supabase,
-    formResponses
+    leadId,
+    personId,
+    `sdr_captacao:${String(lead.form_name ?? "")}`,
   );
+  if (!claim.ok) {
+    console.warn(
+      `[lia-assign] SDR-CAPTAÇÃO: lock_held para lead ${leadId} — abortando criação concorrente`,
+    );
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "deal_create_lock_held",
+        lead_id: leadId,
+        lead_email: leadEmail,
+        details: { stage: "sdr_captacao", person_id: personId },
+      });
+    } catch {}
+    return false;
+  }
+  let newDealId: string | number | null = null;
+  try {
+    // Re-fetch fresh lead.piperun_id (pode ter sido setado por execução concorrente).
+    const { data: freshLead } = await supabase
+      .from("lia_attendances")
+      .select("piperun_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (freshLead?.piperun_id) {
+      console.log(
+        `[lia-assign] SDR-CAPTAÇÃO: lead.piperun_id=${freshLead.piperun_id} já setado (race) → abortando criação`,
+      );
+      await releaseDealCreateSlot(supabase, leadId);
+      return false;
+    }
+    newDealId = await createNewDeal(
+      apiToken,
+      personId,
+      companyId,
+      lead,
+      PIPELINES.VENDAS,
+      STAGES_VENDAS.SEM_CONTATO,
+      newOwnerId,
+      customFields,
+      leadEmail,
+      supabase,
+      formResponses
+    );
+  } finally {
+    await releaseDealCreateSlot(supabase, leadId);
+  }
 
   if (!newDealId) {
     console.error("[lia-assign] SDR-CAPTAÇÃO: falha ao criar novo deal para", leadEmail);
@@ -2820,7 +2886,32 @@ Deno.serve(async (req) => {
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
 
       // Step 5d: Fetch all deals for this person
-      const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
+      const dealsFetch = await findPersonDealsWithStatus(PIPERUN_API_KEY, personId);
+      const allDeals = dealsFetch.deals;
+      const dealsFetchedOk = dealsFetch.fetched_ok;
+      // ── Fail-safe Regra de Ouro: se PipeRun GET /deals falhou e o lead já
+      // tem piperun_id cacheado, NUNCA criar deal novo. Apenas preservar.
+      if (!dealsFetchedOk && lead.piperun_id) {
+        console.warn(
+          `[lia-assign] FAIL-SAFE: findPersonDeals falhou para person=${personId} mas lead.piperun_id=${lead.piperun_id} está setado — preservando cacheado, NÃO criando deal novo`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "preserve_cached_on_piperun_fetch_failure",
+            lead_id: lead.id,
+            lead_email: leadEmail,
+            details: {
+              person_id: personId,
+              cached_piperun_id: lead.piperun_id,
+              form_name: lead.form_name,
+            },
+          });
+        } catch {}
+        piperunId = String(lead.piperun_id);
+        flowType = "preserve_cached_on_piperun_fetch_failure";
+      }
       const openDeals = allDeals.filter((d) => Number(d.status) === 0);
       const wonDeals = allDeals.filter((d) => Number(d.status) === 1);
 
@@ -3064,16 +3155,61 @@ Deno.serve(async (req) => {
             });
           } catch {}
         } else {
-        // empty-person guard removed: Deal must always be created;
-        // GET-based verification produced false positives.
-        piperunId = await createNewDeal(
-          PIPERUN_API_KEY, personId, companyId,
-          lead as Record<string, unknown>,
-          pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail, supabase, inputFormResponses
+        // ── Trava atômica DB-level (defense-in-depth Regra de Ouro) ──
+        // Evita que duas execuções concorrentes do lia-assign para o mesmo
+        // lead criem deals duplicados (race entre form re-delivery + cron).
+        const claim = await claimDealCreateSlot(
+          supabase,
+          lead.id as string,
+          personId,
+          `main:${String(lead.form_name ?? "")}|${String(lead.source ?? "")}`,
         );
-        console.log(`[lia-assign] Created new deal: ${piperunId}`);
-        if (piperunId && personNameLooksLikeCompany) {
+        if (!claim.ok) {
+          console.warn(
+            `[lia-assign] MAIN: lock_held para lead ${lead.id} — abortando criação concorrente`,
+          );
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-lia-assign",
+              severity: "warning",
+              error_type: "deal_create_lock_held",
+              lead_id: lead.id,
+              lead_email: leadEmail,
+              details: { stage: "main", person_id: personId, form_name: lead.form_name },
+            });
+          } catch {}
+          flowType = "concurrent_create_lock_held";
+        } else {
+          try {
+            // Re-fetch fresh lead.piperun_id ANTES do POST: outra execução
+            // pode ter setado nesta janela curta.
+            const { data: freshLead } = await supabase
+              .from("lia_attendances")
+              .select("piperun_id")
+              .eq("id", lead.id)
+              .maybeSingle();
+            if (freshLead?.piperun_id) {
+              console.log(
+                `[lia-assign] MAIN: lead.piperun_id=${freshLead.piperun_id} setado por execução concorrente — abortando createNewDeal`,
+              );
+              piperunId = String(freshLead.piperun_id);
+              flowType = "preserve_cached_fresh_recheck";
+            } else {
+              // empty-person guard removed: Deal must always be created;
+              // GET-based verification produced false positives.
+              piperunId = await createNewDeal(
+                PIPERUN_API_KEY, personId, companyId,
+                lead as Record<string, unknown>,
+                pipeline_id, stage_id, assignedOwnerId,
+                customFields, leadEmail, supabase, inputFormResponses
+              );
+              console.log(`[lia-assign] Created new deal: ${piperunId}`);
+            }
+          } finally {
+            await releaseDealCreateSlot(supabase, lead.id as string);
+          }
+        }
+        if (piperunId && flowType === "new_deal" && personNameLooksLikeCompany) {
           try {
             await addDealNote(
               PIPERUN_API_KEY,
