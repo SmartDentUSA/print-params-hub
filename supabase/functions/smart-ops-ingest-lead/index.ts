@@ -706,14 +706,12 @@ Deno.serve(async (req) => {
       (dedupeId || payload.platform_form_id || payload.meta_form_id)
     ) {
       try {
-        const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const { data: priorForm } = await supabase
           .from("lead_activity_log")
           .select("id, event_timestamp")
           .eq("lead_id", existingLead.id)
           .eq("event_type", "form_submission")
           .eq("entity_name", formName)
-          .gte("event_timestamp", since)
           .order("event_timestamp", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -788,7 +786,7 @@ Deno.serve(async (req) => {
               ...enrichmentHistory,
               {
                 at: new Date().toISOString(),
-                via: "meta_form_history_12h",
+                via: "meta_form_history_lifetime",
                 leadgen_id: dedupeId ? String(dedupeId) : null,
                 form_id: newFormId ? String(newFormId) : null,
                 incoming_email: email,
@@ -839,7 +837,7 @@ Deno.serve(async (req) => {
                 entity_id: `lead:${existingLead.id}|enrich:${dedupeId ?? "n/a"}`,
                 details: {
                   fields_filled: enrichedFields,
-                  via: "meta_form_history_12h",
+                  via: "meta_form_history_lifetime",
                   source,
                 },
               });
@@ -861,7 +859,7 @@ Deno.serve(async (req) => {
               success: true,
               duplicate_skipped: true,
               dedupe_id: dedupeId ? String(dedupeId) : null,
-              dedupe_via: "meta_form_history_12h",
+              dedupe_via: "meta_form_history_lifetime",
               lead_id: existingLead.id,
               incremental_enrichment: enrichedFields,
               deal_route_result: dealRouteResult,
