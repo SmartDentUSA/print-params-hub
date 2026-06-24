@@ -17755,6 +17755,30 @@ export type Database = {
           },
         ]
       }
+      smartops_golden_rule_deal_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          intent_hash: string | null
+          lead_id: string
+          person_id: number | null
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          intent_hash?: string | null
+          lead_id: string
+          person_id?: number | null
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          intent_hash?: string | null
+          lead_id?: string
+          person_id?: number | null
+        }
+        Relationships: []
+      }
       smartops_nps_responses: {
         Row: {
           comment: string | null
@@ -28094,6 +28118,10 @@ export type Database = {
         Args: { target_lead_id: string }
         Returns: boolean
       }
+      release_deal_create_slot: {
+        Args: { _lead_id: string }
+        Returns: undefined
+      }
       release_seller_note_slot: {
         Args: { p_content_hash: string; p_deal_id: number }
         Returns: undefined
@@ -28117,6 +28145,15 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       try_acquire_briefing_lock: {
         Args: { p_lead_id: string }
+        Returns: boolean
+      }
+      try_claim_deal_create_slot: {
+        Args: {
+          _intent_hash: string
+          _lead_id: string
+          _person_id: number
+          _ttl_seconds?: number
+        }
         Returns: boolean
       }
       try_claim_lia_note: {
