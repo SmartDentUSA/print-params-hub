@@ -2886,7 +2886,32 @@ Deno.serve(async (req) => {
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
 
       // Step 5d: Fetch all deals for this person
-      const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
+      const dealsFetch = await findPersonDealsWithStatus(PIPERUN_API_KEY, personId);
+      const allDeals = dealsFetch.deals;
+      const dealsFetchedOk = dealsFetch.fetched_ok;
+      // ── Fail-safe Regra de Ouro: se PipeRun GET /deals falhou e o lead já
+      // tem piperun_id cacheado, NUNCA criar deal novo. Apenas preservar.
+      if (!dealsFetchedOk && lead.piperun_id) {
+        console.warn(
+          `[lia-assign] FAIL-SAFE: findPersonDeals falhou para person=${personId} mas lead.piperun_id=${lead.piperun_id} está setado — preservando cacheado, NÃO criando deal novo`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "preserve_cached_on_piperun_fetch_failure",
+            lead_id: lead.id,
+            lead_email: leadEmail,
+            details: {
+              person_id: personId,
+              cached_piperun_id: lead.piperun_id,
+              form_name: lead.form_name,
+            },
+          });
+        } catch {}
+        piperunId = String(lead.piperun_id);
+        flowType = "preserve_cached_on_piperun_fetch_failure";
+      }
       const openDeals = allDeals.filter((d) => Number(d.status) === 0);
       const wonDeals = allDeals.filter((d) => Number(d.status) === 1);
 
