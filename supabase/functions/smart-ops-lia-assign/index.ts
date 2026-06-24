@@ -649,19 +649,40 @@ async function findPersonDeals(
   apiToken: string,
   personId: number
 ): Promise<Array<Record<string, unknown>>> {
+  const r = await findPersonDealsWithStatus(apiToken, personId);
+  return r.deals;
+}
+
+/**
+ * Same as findPersonDeals but exposes whether the underlying PipeRun call
+ * succeeded. Callers that gate Deal creation on a complete list MUST use
+ * this variant so they can refuse to createNewDeal when the list could be
+ * stale/empty due to an upstream failure (defense-in-depth Regra de Ouro).
+ */
+async function findPersonDealsWithStatus(
+  apiToken: string,
+  personId: number,
+): Promise<{ deals: Array<Record<string, unknown>>; fetched_ok: boolean }> {
   try {
     const res = await piperunGet(apiToken, "deals", { person_id: personId, show: 50 });
     if (res.success && res.data) {
       const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
       if (items) {
-        // Filter out deleted deals
-        return items.filter((d) => d.deleted !== 1 && d.deleted !== true);
+        return {
+          deals: items.filter((d) => d.deleted !== 1 && d.deleted !== true),
+          fetched_ok: true,
+        };
       }
+      // success=true mas sem `data` → tratamos como lista vazia confiável.
+      return { deals: [], fetched_ok: true };
     }
+    console.warn(
+      `[lia-assign] findPersonDeals non-success response for person=${personId}`,
+    );
   } catch (e) {
     console.warn("[lia-assign] Error fetching person deals:", e);
   }
-  return [];
+  return { deals: [], fetched_ok: false };
 }
 
 /**
