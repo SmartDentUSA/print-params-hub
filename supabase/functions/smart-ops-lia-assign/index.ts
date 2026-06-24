@@ -17,6 +17,7 @@ import {
   assertCanCreateNewDeal,
   claimDealCreateSlot,
   releaseDealCreateSlot,
+  validateCachedDealIsActiveVendas,
 } from "../_shared/golden-rule-guard.ts";
 import {
   PIPELINES,
@@ -667,14 +668,19 @@ async function findPersonDealsWithStatus(
     const res = await piperunGet(apiToken, "deals", { person_id: personId, show: 50 });
     if (res.success && res.data) {
       const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
-      if (items) {
+      if (Array.isArray(items)) {
         return {
           deals: items.filter((d) => d.deleted !== 1 && d.deleted !== true),
           fetched_ok: true,
         };
       }
-      // success=true mas sem `data` → tratamos como lista vazia confiável.
-      return { deals: [], fetched_ok: true };
+      // success=true mas sem array `data` → resposta degradada (throttle/cache
+      // silencioso do PipeRun). NÃO confiar como lista vazia: marca fetched_ok=false
+      // para o fail-safe da Regra de Ouro acionar.
+      console.warn(
+        `[lia-assign] findPersonDeals empty/invalid items for person=${personId} — treating as fetch failure`,
+      );
+      return { deals: [], fetched_ok: false };
     }
     console.warn(
       `[lia-assign] findPersonDeals non-success response for person=${personId}`,
@@ -1917,6 +1923,66 @@ async function executarReativacaoSdrCaptacao(
       await releaseDealCreateSlot(supabase, leadId);
       return false;
     }
+    // ── Cached Deal Validator (defesa #3): valida lead.piperun_id direto via
+    // GET /deals/:id antes de criar novo. Cobre o cenário "findPersonDeals
+    // empty silencioso por throttling" (Flavia Flores 2026-06-24).
+    const cachedDealIdSdr = (lead.piperun_id as string | number | null) ?? null;
+    if (cachedDealIdSdr) {
+      const validation = await validateCachedDealIsActiveVendas(
+        cachedDealIdSdr,
+        async (id) => {
+          const check = await piperunGet(apiToken, `deals/${id}`, {});
+          if (!check?.success) return { ok: false };
+          const dealData = (check.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+          return { ok: true, deal: dealData ?? null };
+        },
+      );
+      if (validation.preserve) {
+        const preservedId = String(validation.deal_id ?? cachedDealIdSdr);
+        const flowType = validation.fetch_ok === false
+          ? "preserve_cached_on_validation_failure"
+          : "preserve_cached_deal_validated";
+        console.log(
+          `[lia-assign] CACHED-DEAL VALIDATOR (sdr_captacao): preserved ${preservedId} (${validation.reason}, fetch_ok=${validation.fetch_ok})`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: validation.fetch_ok === false ? "warning" : "info",
+            error_type: flowType,
+            lead_id: leadId,
+            lead_email: leadEmail,
+            details: {
+              cached_piperun_id: String(cachedDealIdSdr),
+              validation_reason: validation.reason,
+              pipeline_id: validation.pipeline_id ?? null,
+              status: validation.status ?? null,
+              person_id: personId,
+              stage: "sdr_captacao",
+            },
+          });
+        } catch {}
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: leadId,
+            event_type: "vendas_duplicates_detected_noop",
+            entity_type: "deal",
+            entity_id: preservedId,
+            entity_name: "Cached deal validator preservou VENDAS (sdr_captacao)",
+            event_data: {
+              kept_deal: preservedId,
+              reason: validation.reason,
+              fetch_ok: validation.fetch_ok ?? null,
+              flow_type: flowType,
+            },
+            source_channel: "form",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch {}
+        await releaseDealCreateSlot(supabase, leadId);
+        return false;
+      }
+    }
     newDealId = await createNewDeal(
       apiToken,
       personId,
@@ -3090,25 +3156,77 @@ Deno.serve(async (req) => {
         // ── Dedupe guard: if lead already carries a piperun_id, validate it before creating a new deal ──
         const cachedDealId = (lead.piperun_id as string | null) || null;
         if (!piperunId && cachedDealId && force_new_deal !== true) {
-          try {
-            const check = await piperunGet(PIPERUN_API_KEY, `deals/${cachedDealId}`, {});
-            const dealData = (check?.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
-            const isAlive = dealData && dealData.deleted !== 1 && dealData.deleted !== true;
-            const isOpen = Number(dealData?.status) === 0;
-            const cachedPipelineId = Number(dealData?.pipeline_id);
-            const isInVendas = cachedPipelineId === PIPELINES.VENDAS;
-            if (isAlive && isOpen && isInVendas) {
-              piperunId = cachedDealId;
-              flowType = "preserve_cached_deal";
-              await updateExistingDeal(PIPERUN_API_KEY, Number(cachedDealId), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
-              console.log(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} aberto em Vendas, updated instead of creating new`);
-            } else if (isAlive && isOpen && !isInVendas) {
-              console.log(`[lia-assign] FUNIL GUARD: cached deal ${cachedDealId} aberto em pipeline ${cachedPipelineId} (não-Vendas) → criando NOVO Deal em Vendas`);
-            } else {
-              console.warn(`[lia-assign] DEDUPE GUARD: cached deal ${cachedDealId} fechado (status=${dealData?.status}) ou morto → criando NOVO Deal em Vendas`);
+          const validation = await validateCachedDealIsActiveVendas(
+            cachedDealId,
+            async (id) => {
+              const check = await piperunGet(PIPERUN_API_KEY, `deals/${id}`, {});
+              if (!check?.success) return { ok: false };
+              const dealData = (check.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+              return { ok: true, deal: dealData ?? null };
+            },
+          );
+          if (validation.preserve) {
+            piperunId = String(validation.deal_id ?? cachedDealId);
+            flowType = validation.fetch_ok === false
+              ? "preserve_cached_on_validation_failure"
+              : "preserve_cached_deal_validated";
+            try {
+              await updateExistingDeal(
+                PIPERUN_API_KEY,
+                Number(piperunId),
+                null,
+                customFields,
+                lead as Record<string, unknown>,
+                companyId,
+                supabase,
+                inputFormResponses,
+              );
+            } catch (e) {
+              console.warn("[lia-assign] CACHED-DEAL VALIDATOR updateExistingDeal failed:", e);
             }
-          } catch (e) {
-            console.warn(`[lia-assign] DEDUPE GUARD: failed to validate cached deal ${cachedDealId}:`, e);
+            try {
+              await supabase.from("system_health_logs").insert({
+                function_name: "smart-ops-lia-assign",
+                severity: validation.fetch_ok === false ? "warning" : "info",
+                error_type: flowType,
+                lead_id: lead.id,
+                lead_email: leadEmail,
+                details: {
+                  cached_piperun_id: cachedDealId,
+                  validation_reason: validation.reason,
+                  pipeline_id: validation.pipeline_id ?? null,
+                  status: validation.status ?? null,
+                  created_at: validation.created_at ?? null,
+                  person_id: personId,
+                  form_name: lead.form_name,
+                  stage: "main",
+                },
+              });
+            } catch {}
+            try {
+              await supabase.from("lead_activity_log").insert({
+                lead_id: lead.id,
+                event_type: "vendas_duplicates_detected_noop",
+                entity_type: "deal",
+                entity_id: String(piperunId),
+                entity_name: "Cached deal validator preservou VENDAS",
+                event_data: {
+                  kept_deal: String(piperunId),
+                  reason: validation.reason,
+                  fetch_ok: validation.fetch_ok ?? null,
+                  flow_type: flowType,
+                },
+                source_channel: "form",
+                event_timestamp: new Date().toISOString(),
+              });
+            } catch {}
+            console.log(
+              `[lia-assign] CACHED-DEAL VALIDATOR (main): preserved ${piperunId} (${validation.reason}, fetch_ok=${validation.fetch_ok})`,
+            );
+          } else {
+            console.log(
+              `[lia-assign] CACHED-DEAL VALIDATOR (main): not preserving cached ${cachedDealId} — ${validation.reason}`,
+            );
           }
         }
         if (!piperunId) {

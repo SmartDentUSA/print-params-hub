@@ -161,3 +161,129 @@ export async function releaseDealCreateSlot(
     );
   }
 }
+
+// ─── Cached Deal Validator (defense-in-depth #3) ─────────────────────────────
+// Antes de qualquer createNewDeal, valida o `lead.piperun_id` cacheado direto
+// via `GET /deals/:id`. Se o deal cacheado ainda está em VENDAS aberto e foi
+// criado nos últimos `GOLDEN_RULE_WINDOW_DAYS` dias → preserva. Em caso de
+// falha da chamada (timeout, 4xx, 5xx, 429) → preserva mesmo assim (fail-safe),
+// porque um createNewDeal nesse cenário é a origem comprovada das duplicatas
+// (Flavia Flores 2026-06-24: 429 em backfill seguido de empty list silencioso
+// em findPersonDeals).
+
+export interface CachedDealValidation {
+  preserve: boolean;
+  reason: string;
+  deal_id?: string | number;
+  pipeline_id?: number;
+  status?: number;
+  created_at?: string;
+  fetch_ok?: boolean;
+}
+
+export async function validateCachedDealIsActiveVendas(
+  cachedPiperunId: string | number | null | undefined,
+  fetchDealById: (id: string | number) => Promise<{
+    ok: boolean;
+    deal?: Record<string, unknown> | null;
+  }>,
+  opts: { windowDays?: number } = {},
+): Promise<CachedDealValidation> {
+  const id = cachedPiperunId == null ? "" : String(cachedPiperunId).trim();
+  if (!id) return { preserve: false, reason: "no_cached_piperun_id" };
+
+  let result: { ok: boolean; deal?: Record<string, unknown> | null };
+  try {
+    result = await fetchDealById(id);
+  } catch (e) {
+    console.warn(
+      `[golden-rule] validateCachedDeal fetch threw for deal=${id}:`,
+      e,
+    );
+    return {
+      preserve: true,
+      reason: "preserve_cached_on_validation_failure",
+      deal_id: id,
+      fetch_ok: false,
+    };
+  }
+
+  if (!result.ok) {
+    return {
+      preserve: true,
+      reason: "preserve_cached_on_validation_failure",
+      deal_id: id,
+      fetch_ok: false,
+    };
+  }
+
+  const deal = result.deal;
+  if (!deal) {
+    // Confirmed not found → safe to create new.
+    return {
+      preserve: false,
+      reason: "cached_deal_not_found",
+      deal_id: id,
+      fetch_ok: true,
+    };
+  }
+
+  const deleted = deal.deleted === 1 || deal.deleted === true;
+  const pipelineId = Number(deal.pipeline_id);
+  const status = Number(deal.status);
+  const createdAt = String(deal.created_at ?? deal.updated_at ?? "");
+  if (deleted) {
+    return {
+      preserve: false,
+      reason: "cached_deal_deleted",
+      deal_id: id,
+      pipeline_id: pipelineId,
+      status,
+      created_at: createdAt,
+      fetch_ok: true,
+    };
+  }
+
+  const windowDays = opts.windowDays ?? GOLDEN_RULE_WINDOW_DAYS;
+  const ts = new Date(createdAt).getTime();
+  const withinWindow = Number.isFinite(ts)
+    ? ts >= Date.now() - windowDays * 24 * 60 * 60 * 1000
+    : false;
+
+  const isOpen = status === 0;
+  const isVendas = pipelineId === PIPELINE_VENDAS;
+
+  if (isVendas && isOpen) {
+    return {
+      preserve: true,
+      reason: "cached_deal_open_in_vendas",
+      deal_id: id,
+      pipeline_id: pipelineId,
+      status,
+      created_at: createdAt,
+      fetch_ok: true,
+    };
+  }
+
+  if (isVendas && withinWindow) {
+    return {
+      preserve: true,
+      reason: `cached_deal_recent_vendas_within_${windowDays}d`,
+      deal_id: id,
+      pipeline_id: pipelineId,
+      status,
+      created_at: createdAt,
+      fetch_ok: true,
+    };
+  }
+
+  return {
+    preserve: false,
+    reason: isVendas ? "cached_deal_closed_outside_window" : "cached_deal_not_in_vendas",
+    deal_id: id,
+    pipeline_id: pipelineId,
+    status,
+    created_at: createdAt,
+    fetch_ok: true,
+  };
+}
