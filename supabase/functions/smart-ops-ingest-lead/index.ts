@@ -585,33 +585,28 @@ Deno.serve(async (req) => {
               },
             });
           } catch {}
-          let dealRouteResult: Record<string, unknown> | null = null;
-          if (canon.pessoa_piperun_id && formName) {
-            try {
-              const { data: routeData, error: routeErr } = await supabase.functions.invoke(
-                "smart-ops-lia-assign",
-                {
-                  body: {
-                    lead_id: canon.id,
-                    enrichment_only_route_deal: true,
-                    enrichment_form_name: formName,
-                    enriched_fields: enrichedFields,
-                    trigger: deferredRedeliveryVia,
-                  },
-                },
-              );
-              if (routeErr) {
-                console.warn("[ingest-lead] universal redelivery invoke error:", routeErr);
-              } else {
-                dealRouteResult = (routeData as Record<string, unknown>) ?? null;
-              }
-            } catch (e) {
-              console.warn("[ingest-lead] universal redelivery invoke threw:", e);
-            }
-          } else {
-            console.log(
-              `[ingest-lead] universal redelivery: skipping deal route (pessoa_piperun_id=${canon.pessoa_piperun_id ?? "n/a"}, formName=${formName ?? "n/a"})`,
-            );
+          // GOLDEN RULE: re-entrega Meta NUNCA invoca lia-assign nem toca PipeRun.
+          // Apenas enriquece CDP internamente. Auditoria fica em system_health_logs +
+          // lead_activity_log abaixo (se houver campos novos).
+          try {
+            await supabase.from("lead_activity_log").insert({
+              lead_id: canon.id,
+              event_type: "deal_enriched_via_redelivery",
+              entity_type: "lead",
+              entity_id: canon.id,
+              entity_name: "Re-entrega Meta (CDP-only, sem PipeRun)",
+              event_data: {
+                flow_type: "ingest_redelivery_cdp_only",
+                form_name: formName,
+                enriched_fields: enrichedFields,
+                dedupe_id: dedupeId ? String(dedupeId) : null,
+                dedupe_via: deferredRedeliveryVia,
+              },
+              source_channel: "form",
+              event_timestamp: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.warn("[ingest-lead] redelivery activity log failed:", e);
           }
           return new Response(
             JSON.stringify({
@@ -621,7 +616,8 @@ Deno.serve(async (req) => {
               dedupe_via: deferredRedeliveryVia,
               lead_id: canon.id,
               incremental_enrichment: enrichedFields,
-              deal_route_result: dealRouteResult,
+              deal_route_result: null,
+              reason: "golden_rule_redelivery_cdp_only",
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
