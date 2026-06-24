@@ -65,11 +65,11 @@ serve(async (req) => {
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
     const campaignIds = Array.from(new Set(claimedRows.map(r => r.campaign_id).filter(Boolean)))
-    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string }>()
+    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string; dedupe_window_days: number }>()
     if (campaignIds.length) {
       const { data: campRows } = await supabase.from('wa_campaigns')
-        .select('id, delay_seconds, daily_limit, status').in('id', campaignIds)
-      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status })
+        .select('id, delay_seconds, daily_limit, status, dedupe_window_days').in('id', campaignIds)
+      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status, dedupe_window_days: (c as any).dedupe_window_days ?? 30 })
     }
 
     const pending: any[] = []
