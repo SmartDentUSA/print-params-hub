@@ -1,20 +1,23 @@
-## Alteração cirúrgica em `supabase/functions/smart-ops-ingest-lead/index.ts`
+## Aba "Post Grupos" no Social Publisher
 
-### Objetivo
-Tornar o guard de dedupe Meta (4ª camada — `form_submission` no `lead_activity_log`) **LIFETIME** ao invés de janela de 12h, evitando criação indevida de Deals quando o Meta reenvia o mesmo `leadgen_id` após 12h.
+Painéis por instância (Danilo, Ana Paula CS, Dra. Lia) com lista salva de grupos para disparo. Toggle ATIVA/INATIVA por instância. Modal de adição + histórico de disparos. Sem edge function (separada).
 
-### Mudanças
+### Arquivos novos
+- `src/components/social/PostGrupos.tsx` — container; lê `post_group_instance_config`, agrega contadores via `post_group_targets` + `wa_groups`. Renderiza um `PostGruposInstanceCard` por instância. Aba inferior com `PostGruposHistory`.
+- `src/components/social/PostGruposInstanceCard.tsx` — header (nome, total membros, total grupos disponíveis, switch ATIVA/INATIVA → atualiza `post_group_instance_config.enabled`). Tabela dos grupos selecionados (`post_group_targets` + join `wa_groups` para nome/membros). Botão lixeira → `DELETE` da row em `post_group_targets`. Footer com totais. Botão "+ Adicionar" abre modal.
+- `src/components/social/PostGruposAddModal.tsx` — busca `wa_groups` da instância (`ativo=true`) excluindo `group_id` já presentes em `post_group_targets` daquela instância. Input de busca client-side, checkboxes múltiplos, botão "Adicionar (N)" faz `INSERT` em batch em `post_group_targets` (`instance_name`, `group_id`, `enabled=true`).
+- `src/components/social/PostGruposHistory.tsx` — últimos disparos de `wa_group_dispatch_log` filtrados por `dispatch_source='post_grupos'` (ou sem filtro inicial), com nome do grupo, instância, status, preview, `sent_at`.
 
-**1. Remover janela de 12h (linhas ~709 e ~716):**
-- Remover declaração `const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();`
-- Remover filtro `.gte("event_timestamp", since)` da query no `lead_activity_log`
+### Arquivos editados
+- `src/App.tsx` — adicionar `const PostGrupos = lazy(...)` e `<Route path="post-grupos" element={<PostGrupos />} />` dentro do `<Route path="/social" element={<SocialLayout />}>`.
+- `src/components/social/SocialSidebar.tsx` — adicionar item `{ title: 'Post Grupos', url: '/social/post-grupos', icon: Send }` logo após "Avaliações".
 
-**2. Renomear identificador `meta_form_history_12h` → `meta_form_history_lifetime` (3 ocorrências no mesmo bloco):**
-- Linha ~791: `via: "meta_form_history_12h"` em `enrichment_history`
-- Linha ~842: `via: "meta_form_history_12h"` em `lead_activity_log` (`form_enrichment`)
-- Linha ~864: `dedupe_via: "meta_form_history_12h"` no response
+### Dados
+- Já existem: `post_group_instance_config` (id, instance_name, enabled, is_primary, evolution_phone), `post_group_targets` (id, instance_name, group_id, enabled), `wa_groups` (id, name, member_count, instance_name, ativo), `wa_group_dispatch_log`.
+- View `v_post_group_targets_detail` disponível — usar para listar selecionados com nome/membros já agregados.
+- Sem migrations novas. Sem edge function.
 
-### Escopo
-- Apenas o arquivo `supabase/functions/smart-ops-ingest-lead/index.ts`
-- Nenhuma outra lógica alterada
-- Nenhum outro arquivo tocado
+### Comportamento
+- Realtime opcional (subscribe em `post_group_targets`) para atualizar contadores; se complicar, refetch após mutação basta.
+- Toggle ATIVA/INATIVA não apaga seleção — apenas alterna `enabled` na config (cards inativos colapsam mostrando só header e aviso "disparo suspenso").
+- Toasts via `sonner` em adicionar/remover/toggle.
