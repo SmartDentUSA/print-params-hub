@@ -14164,6 +14164,85 @@ export type Database = {
           },
         ]
       }
+      post_group_instance_config: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          evolution_phone: string | null
+          id: string
+          instance_name: string
+          is_primary: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          evolution_phone?: string | null
+          id?: string
+          instance_name: string
+          is_primary?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          evolution_phone?: string | null
+          id?: string
+          instance_name?: string
+          is_primary?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      post_group_targets: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          group_id: string
+          id: string
+          instance_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          group_id: string
+          id?: string
+          instance_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          group_id?: string
+          id?: string
+          instance_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_group_targets_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "post_group_targets_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "v_wa_group_summary"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "post_group_targets_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "wa_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_taxonomy: {
         Row: {
           base_value_brl: number | null
@@ -16061,6 +16140,13 @@ export type Database = {
             foreignKeyName: "sentinela_config_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: true
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "sentinela_config_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
             referencedRelation: "v_wa_group_summary"
             referencedColumns: ["group_id"]
           },
@@ -16168,6 +16254,13 @@ export type Database = {
           urgency?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sentinela_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "sentinela_group_messages_group_id_fkey"
             columns: ["group_id"]
@@ -18672,6 +18765,7 @@ export type Database = {
           analytics_synced_at: string | null
           campaign_id: string | null
           caption: string | null
+          caption_fingerprint: string | null
           comments: number | null
           created_at: string | null
           format: string | null
@@ -18705,6 +18799,7 @@ export type Database = {
           analytics_synced_at?: string | null
           campaign_id?: string | null
           caption?: string | null
+          caption_fingerprint?: string | null
           comments?: number | null
           created_at?: string | null
           format?: string | null
@@ -18738,6 +18833,7 @@ export type Database = {
           analytics_synced_at?: string | null
           campaign_id?: string | null
           caption?: string | null
+          caption_fingerprint?: string | null
           comments?: number | null
           created_at?: string | null
           format?: string | null
@@ -21218,6 +21314,13 @@ export type Database = {
             foreignKeyName: "wa_campaign_groups_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
             referencedRelation: "v_wa_group_summary"
             referencedColumns: ["group_id"]
           },
@@ -21289,6 +21392,13 @@ export type Database = {
           wa_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wa_campaigns_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "wa_campaigns_group_id_fkey"
             columns: ["group_id"]
@@ -21526,36 +21636,55 @@ export type Database = {
       }
       wa_group_dispatch_log: {
         Row: {
+          caption_fingerprint: string | null
+          dispatch_source: string | null
           evolution_response: Json | null
           group_id: string
           group_jid: string
           id: string
+          instance_name: string | null
           message_preview: string | null
           schedule_id: string | null
           sent_at: string | null
+          social_post_id: string | null
           status: string | null
         }
         Insert: {
+          caption_fingerprint?: string | null
+          dispatch_source?: string | null
           evolution_response?: Json | null
           group_id: string
           group_jid: string
           id?: string
+          instance_name?: string | null
           message_preview?: string | null
           schedule_id?: string | null
           sent_at?: string | null
+          social_post_id?: string | null
           status?: string | null
         }
         Update: {
+          caption_fingerprint?: string | null
+          dispatch_source?: string | null
           evolution_response?: Json | null
           group_id?: string
           group_jid?: string
           id?: string
+          instance_name?: string | null
           message_preview?: string | null
           schedule_id?: string | null
           sent_at?: string | null
+          social_post_id?: string | null
           status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wa_group_dispatch_log_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "wa_group_dispatch_log_group_id_fkey"
             columns: ["group_id"]
@@ -21575,6 +21704,13 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "wa_group_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_dispatch_log_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -21611,6 +21747,13 @@ export type Database = {
           synced_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wa_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "wa_group_members_group_id_fkey"
             columns: ["group_id"]
@@ -21817,6 +21960,13 @@ export type Database = {
           ultimo_disparo?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wa_group_schedules_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "v_post_group_targets_detail"
+            referencedColumns: ["group_id"]
+          },
           {
             foreignKeyName: "wa_group_schedules_group_id_fkey"
             columns: ["group_id"]
@@ -24492,6 +24642,23 @@ export type Database = {
           unidades_mes_atual: number | null
           variacao_unidades_pct: number | null
           vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_post_group_targets_detail: {
+        Row: {
+          adicionado_em: string | null
+          enabled: boolean | null
+          group_ativo: boolean | null
+          group_id: string | null
+          group_jid: string | null
+          group_name: string | null
+          instance_enabled: boolean | null
+          instance_name: string | null
+          is_primary: boolean | null
+          member_count: number | null
+          target_id: string | null
+          tipo: string | null
         }
         Relationships: []
       }
