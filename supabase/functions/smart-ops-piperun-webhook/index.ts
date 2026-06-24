@@ -3,6 +3,7 @@ import { computeTagsFromStage, mergeTagsCrm, sendCampaignViaSellFlux, ALL_STAGNA
 import {
   PIPELINES,
   STAGES_VENDAS,
+  STAGES_ESTAGNADOS,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
   normalizePipeRunDealStatus,
@@ -18,7 +19,7 @@ import {
   callNormalizeFromLead,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
-import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { addDealNote, piperunPut } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
