@@ -17,6 +17,7 @@ import {
   assertCanCreateNewDeal,
   claimDealCreateSlot,
   releaseDealCreateSlot,
+  validateCachedDealIsActiveVendas,
 } from "../_shared/golden-rule-guard.ts";
 import {
   PIPELINES,
