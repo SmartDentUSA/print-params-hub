@@ -2087,9 +2087,6 @@ async function executarEnrichmentDealRoute(
     if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
   }
 
-  const enrichTag = `Re-entrega Meta (form "${enrichmentFormName ?? "n/a"}")` +
-    (enrichedFields.length ? ` enriqueceu: ${enrichedFields.join(", ")}.` : ".");
-
   // ─── GUARD D: Regra de ouro — se já existe QUALQUER deal VENDAS (aberto OU
   // Perdido nos últimos 30d), não criar novo, não rodar Round Robin, não
   // fechar outros funis. Apenas adicionar nota no deal VENDAS mais recente.
