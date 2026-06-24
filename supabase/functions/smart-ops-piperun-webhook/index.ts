@@ -3,6 +3,7 @@ import { computeTagsFromStage, mergeTagsCrm, sendCampaignViaSellFlux, ALL_STAGNA
 import {
   PIPELINES,
   STAGES_VENDAS,
+  STAGES_ESTAGNADOS,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
   normalizePipeRunDealStatus,
@@ -18,7 +19,7 @@ import {
   callNormalizeFromLead,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
-import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { addDealNote, piperunPut } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
@@ -1286,6 +1287,106 @@ Deno.serve(async (req) => {
       updateData.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
       updateData.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
       if (isWon) updateData.lead_status = "CLIENTE_ativo";
+
+      // ─── AUTO-MOVE: Perdido em VENDAS → Estagnados / Etapa 00 — Novos (reabre) ───
+      // Regra: quando o vendedor marca como Perdido no Funil de Vendas, o mesmo deal
+      // é movido para Estagnados/Etapa 00 e reaberto (status=0). Sem criar deal novo.
+      // Não aplicar em outros funis (CS, Estagnados, Reativação).
+      if (
+        isLost &&
+        dealId &&
+        ids.pipelineId === PIPELINES.VENDAS
+      ) {
+        const PIPERUN_API_KEY_MOVE =
+          Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
+        if (PIPERUN_API_KEY_MOVE) {
+          try {
+            const movePayload: Record<string, unknown> = {
+              pipeline_id: PIPELINES.ESTAGNADOS,
+              stage_id: STAGES_ESTAGNADOS.ETAPA_00_NOVOS,
+              status: 0, // reabre o deal
+              freezed: 0,
+            };
+            const moveRes = await piperunPut(
+              PIPERUN_API_KEY_MOVE,
+              `deals/${dealId}`,
+              movePayload,
+            );
+
+            if (moveRes.success) {
+              // Snapshot do lead reflete o novo funil/etapa/status
+              updateData.piperun_pipeline_id = PIPELINES.ESTAGNADOS;
+              updateData.piperun_pipeline_name = PIPELINE_NAMES[PIPELINES.ESTAGNADOS] || "Estagnados";
+              updateData.piperun_stage_id = STAGES_ESTAGNADOS.ETAPA_00_NOVOS;
+              updateData.piperun_stage_name = "Etapa 00 - Novos";
+              updateData.piperun_status = 0;
+              updateData.status_oportunidade = "aberta";
+              updateData.lead_status = "est_etapa1";
+
+              // Recalcula tags para o novo stage (adiciona tags de estagnação)
+              const { tags: tagsAfterMove } = computeTagsFromStage(
+                "est_etapa1",
+                (updateData.tags_crm as string[]) || currentTagsCrm || [],
+              );
+              updateData.tags_crm = tagsAfterMove;
+
+              // Nota auditiva no deal
+              await addDealNote(
+                PIPERUN_API_KEY_MOVE,
+                Number(dealId),
+                "🔄 [Dra. L.I.A.] Deal marcado como Perdido no Funil de Vendas → movido automaticamente para Estagnados / Etapa 00 - Novos e reaberto para nova régua de reativação.",
+              ).catch((e) => console.warn("[piperun-webhook] note after auto-move error:", e));
+
+              await supabase.from("lead_activity_log").insert({
+                lead_id: leadId,
+                event_type: "vendas_lost_moved_to_estagnados",
+                entity_type: "deal",
+                entity_id: String(dealId),
+                entity_name: "Estagnados / Etapa 00 - Novos",
+                event_data: {
+                  deal_id: dealId,
+                  from_pipeline_id: PIPELINES.VENDAS,
+                  from_stage_id: ids.stageId,
+                  to_pipeline_id: PIPELINES.ESTAGNADOS,
+                  to_stage_id: STAGES_ESTAGNADOS.ETAPA_00_NOVOS,
+                  loss_reason: (deal as Record<string, unknown>).loss_reason || null,
+                },
+                source_channel: "crm",
+              }).then(({ error }) => {
+                if (error) console.warn("[piperun-webhook] vendas_lost_moved log error:", error.message);
+              });
+
+              await supabase.from("system_health_logs").insert({
+                event_type: "vendas_lost_auto_move_to_estagnados",
+                severity: "info",
+                source: "smart-ops-piperun-webhook",
+                message: `Deal ${dealId} movido de Vendas (perdido) → Estagnados/Etapa 00`,
+                metadata: { dealId, leadId, fromStageId: ids.stageId },
+              }).then(() => {}, () => {});
+
+              console.log(`[piperun-webhook] AUTO-MOVE: deal ${dealId} Vendas/lost → Estagnados/Etapa00 (reaberto)`);
+            } else {
+              await supabase.from("system_health_logs").insert({
+                event_type: "vendas_lost_move_failed",
+                severity: "error",
+                source: "smart-ops-piperun-webhook",
+                message: `Falha ao mover deal ${dealId} para Estagnados após perda`,
+                metadata: { dealId, leadId, http_status: moveRes.status, response: moveRes.data },
+              }).then(() => {}, () => {});
+              console.warn(`[piperun-webhook] AUTO-MOVE FAILED deal=${dealId} status=${moveRes.status}`);
+            }
+          } catch (moveErr) {
+            await supabase.from("system_health_logs").insert({
+              event_type: "vendas_lost_move_failed",
+              severity: "error",
+              source: "smart-ops-piperun-webhook",
+              message: `Exceção ao mover deal ${dealId} para Estagnados`,
+              metadata: { dealId, leadId, error: String(moveErr) },
+            }).then(() => {}, () => {});
+            console.warn("[piperun-webhook] AUTO-MOVE exception:", moveErr);
+          }
+        }
+      }
 
       if (isWon) {
         const { data: leadData } = await supabase

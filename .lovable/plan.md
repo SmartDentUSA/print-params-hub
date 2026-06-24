@@ -1,47 +1,66 @@
-## Root cause — duplicação Flavia Flores (#61299540)
+## Objetivo
+Quando o vendedor marcar um deal como **Perdido** no Funil de Vendas (18784), o sistema move automaticamente o MESMO deal para o Funil **Estagnados** (72938), etapa **00 – Novos** (`447250`), e **reabre** o deal (status `0`). Sem criar deal novo, sem fechar nada em Estagnados.
 
-Cronologia (lead `c130e787…`, person 47287317, deal cacheado #61294351):
+## Onde plugar
+`supabase/functions/smart-ops-piperun-webhook/index.ts` — já recebe o evento de mudança de status do deal, já calcula `isLost` (linha 1267) e já conhece `ids.pipelineId` (pipeline atual do deal).
+
+## Regra de disparo
+Disparar a movimentação SOMENTE quando TODAS as condições forem verdadeiras:
+1. `isLost === true` (status normalizado = "lost").
+2. `ids.pipelineId === PIPELINES.VENDAS` (18784). Deals perdidos em qualquer outro funil (CS, Estagnados, Reativação) são ignorados — só Vendas vira Estagnados.
+3. `dealId` presente.
+4. Idempotência: pular se o deal já estiver em Estagnados (proteção contra reentrega do webhook).
+
+## Ação no PipeRun
+Chamada única à API do PipeRun via helper existente em `_shared/piperun-hierarchy.ts` (já tem token/headers padronizados):
 
 ```
-18:45:26  piperun-person-contact-backfill  → status 429 (rate limit PipeRun)
-18:45:46  smart-ops-lia-assign             → person resolution OK (cached)
-18:45:48  smart-ops-lia-assign             → deal_created #61299540  ❌ duplicado
-18:50:06  smart-ops-lia-assign (redelivery)→ preserve_vendas keeping 61299540
-                                            duplicatas detectadas: [61294351, 61211824, 61268120]
+PUT /deals/:id
+{
+  pipeline_id: 72938,           // PIPELINES.ESTAGNADOS
+  stage_id:    447250,          // STAGES_ESTAGNADOS.ETAPA_00_NOVOS
+  status:      0                // reabre (0 = aberto)
+}
 ```
 
-PipeRun começou a throttlar (429) 22s antes da entrada do form. Quando `lia-assign` chamou `findPersonDeals(personId=47287317)` para aplicar a Golden Rule, a chamada retornou **lista vazia** (resposta 200 sem itens ou 429 silenciosamente convertido). O fail-safe atual só dispara quando `fetched_ok=false`; um array vazio "ok" passa direto e o fluxo entra em `createNewDeal`. Resultado: novo deal mesmo com `lead.piperun_id=61294351` em VENDAS aberto há <30 dias.
+Owner, valor, motivo de perda e demais campos permanecem intocados — o histórico de perda fica registrado no deal e nas notas.
 
-## Correção — Cached Deal Validator (defesa adicional)
+Após sucesso, postar uma nota no deal:
+> 🔄 [Dra. L.I.A.] Deal marcado como Perdido no Funil de Vendas → movido para Estagnados / Etapa 00 – Novos e reaberto automaticamente.
 
-Adicionar um **3º guard** que executa logo antes de qualquer `createNewDeal` no fluxo primário e SDR:
+## Sincronização do snapshot no Supabase
+Após o PUT bem-sucedido, atualizar `lia_attendances` do lead:
+- `piperun_pipeline_id = 72938`
+- `piperun_pipeline_name = 'Estagnados'`
+- `piperun_stage_id = 447250`
+- `piperun_stage_name = 'Etapa 00 – Novos'`
+- `piperun_status = 0`
+- `status_oportunidade = 'aberta'` (sobrescreve o `perdida_renutrir` que o bloco atual seta na linha 1287, somente quando a movimentação ocorrer)
+- `lead_status = 'est_etapa1'` (entra no journey de estagnação via `STAGE_TO_ETAPA`)
+- `motivo_perda` e `comentario_perda` permanecem (auditoria).
 
-1. Se `lead.piperun_id` existe → buscar o deal direto via `GET /deals/{id}` (1 chamada, não depende de listagem por person).
-2. Se a resposta indicar pipeline = VENDAS, status = aberto e `created_at` < 30 dias → **preservar** esse deal e abortar a criação. Registrar `flow_type=preserve_cached_deal_validated`.
-3. Se a chamada falhar (4xx/5xx/timeout) → preservar mesmo assim (`flow_type=preserve_cached_on_validation_failure`), pois a lista vazia que motivou o create já é suspeita.
-4. Só liberar `createNewDeal` quando o deal cacheado realmente não existe, está fechado ou já saiu de VENDAS.
+Registrar em `lead_activity_log` (`type: 'vendas_lost_moved_to_estagnados'`) e em `system_health_logs` (`event_type: 'vendas_lost_auto_move_to_estagnados'`) com `dealId`, `leadId`, `previousStageId`, `lossReason`.
 
-Também: marcar `findPersonDeals` para tratar `status === 429` (ou body vazio sem `data`) como `fetched_ok=false`, alimentando o fail-safe existente.
+## Tratamento de erro
+- Se o `PUT` falhar (4xx/5xx/timeout): NÃO sobrescrever `status_oportunidade`; manter o comportamento atual (`perdida_renutrir`) e logar `vendas_lost_move_failed` em `system_health_logs` com `error_message` + `http_status`. Não estourar o webhook (200 OK para o PipeRun continuar).
+- Dedup: usar `wa_message_dedup`-style guard ou checar `piperun_pipeline_id` atual do snapshot antes do PUT para evitar loop com o próprio webhook que o PUT vai disparar.
 
-### Arquivos a editar (build mode)
+## Anti-loop do webhook
+O `PUT` acima vai re-disparar o `smart-ops-piperun-webhook` com `pipelineId=72938` e `status=0`. Como a regra exige `pipelineId === VENDAS` E `isLost`, o reentrada não dispara nova movimentação. Garantido.
 
-- `supabase/functions/_shared/golden-rule-guard.ts`
-  - nova função `validateCachedDealIsActiveVendas(piperunId, env)` que faz `GET /deals/:id`, retorna `{ preserve: boolean, reason: string, deal?: any }`.
-  - exportar constantes `VENDAS_PIPELINE_IDS` reaproveitando o que já existe em lia-assign.
-- `supabase/functions/smart-ops-lia-assign/index.ts`
-  - em `findPersonDeals`: tratar status ≠ 200 (em especial 429) como `fetched_ok=false`; logar `error_type=piperun_find_person_deals_throttled` em `system_health_logs`.
-  - imediatamente antes de cada `createNewDeal` (fluxo principal e SDR-Captação), após o `claimDealCreateSlot` e o re-fetch `piperun_id`, chamar `validateCachedDealIsActiveVendas`. Se `preserve=true`, registrar `vendas_duplicates_detected_noop` + `deal_enriched_via_redelivery` (igual ao caminho de redelivery) e retornar sem criar.
-- `mem://architecture/golden-rule-deal-create-lock`
-  - acrescentar bullet: "Cached Deal Validator: antes de createNewDeal, valida `lead.piperun_id` via GET /deals/:id; só cria se o deal cacheado realmente não está em VENDAS aberto <30d."
+## Interações com regras existentes (verificar e preservar)
+- **Golden Rule / Deal-Create Lock**: não é afetada — não criamos deal novo, só fazemos `PUT` no existente.
+- **SDR-CAPTAÇÃO reativação** (linha 1797): continua não fechando Estagnados automaticamente. Sem conflito.
+- **TAGs de jornada** (`computeTagsFromStage`): o bloco já existente entre linhas 1228-1242 vai recalcular as tags corretamente quando o webhook reentrar com o stage de Estagnados.
 
-### Como verificar
+## Arquivos a alterar
+1. `supabase/functions/smart-ops-piperun-webhook/index.ts` — novo bloco logo após detecção `isLost`, antes do bloco de cross-sell (linha 1270).
+2. `supabase/functions/_shared/piperun-hierarchy.ts` — adicionar helper `moveDealToEstagnadosNovos(dealId, env, { reason })` que faz o PUT + post da nota.
+3. `mem://integration/piperun-sync-spec-v6` — anotar a nova regra "Lost-in-Vendas auto-move to Estagnados/Etapa 00".
 
-1. Após deploy, conferir `system_health_logs` por `flow_type=preserve_cached_deal_validated` em redeliveries seguintes.
-2. Reprocessar manualmente o lead Flavia (`c130e787…`) com um payload de re-delivery e confirmar que nenhum novo deal nasce.
-3. Limpar deals duplicados abertos (`61294351`, `61268120`, `61211824`, `61299540` → manter só o mais recente em VENDAS conforme regra).
-
-### O que NÃO mudar
-
-- Estrutura do lock atômico (`smartops_golden_rule_deal_locks`) — segue como está.
-- Pipelines protegidos (CS Onboarding, Ganhos Aleatórios) — sem alteração.
-- Smart Merge / identidade — sem alteração.
+## Critérios de aceite
+- Deal `61299540` (Vendas) marcado como Perdido → em <5s aparece em Estagnados / Etapa 00 – Novos, status aberto, com nota da Dra. L.I.A.
+- Deal Perdido em CS Onboarding ou em Estagnados → nada acontece.
+- Snapshot do lead em `lia_attendances` reflete o novo pipeline/stage.
+- Webhook não entra em loop (reentrada com pipeline=72938 não dispara nova movimentação).
+- Falha de API PipeRun: log de erro + status_oportunidade=`perdida_renutrir` mantido, sem 500 no webhook.
