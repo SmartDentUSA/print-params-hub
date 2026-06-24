@@ -1,0 +1,1 @@
+GRANT SELECT ON public.google_oauth_tokens TO authenticated; GRANT ALL ON public.google_oauth_tokens TO service_role;
