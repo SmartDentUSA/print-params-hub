@@ -16568,6 +16568,7 @@ export type Database = {
           course_id: string
           created_at: string | null
           created_by: string | null
+          cs_team_member_id: string | null
           deal_id: string | null
           deal_pipeline_name: string | null
           deal_title: string | null
@@ -16604,6 +16605,9 @@ export type Database = {
           updated_at: string | null
           validated_at: string | null
           wa_error: string | null
+          wa_reminder_error: string | null
+          wa_reminder_scheduled_for: string | null
+          wa_reminder_sent_at: string | null
           wa_sent_at: string | null
         }
         Insert: {
@@ -16614,6 +16618,7 @@ export type Database = {
           course_id: string
           created_at?: string | null
           created_by?: string | null
+          cs_team_member_id?: string | null
           deal_id?: string | null
           deal_pipeline_name?: string | null
           deal_title?: string | null
@@ -16650,6 +16655,9 @@ export type Database = {
           updated_at?: string | null
           validated_at?: string | null
           wa_error?: string | null
+          wa_reminder_error?: string | null
+          wa_reminder_scheduled_for?: string | null
+          wa_reminder_sent_at?: string | null
           wa_sent_at?: string | null
         }
         Update: {
@@ -16660,6 +16668,7 @@ export type Database = {
           course_id?: string
           created_at?: string | null
           created_by?: string | null
+          cs_team_member_id?: string | null
           deal_id?: string | null
           deal_pipeline_name?: string | null
           deal_title?: string | null
@@ -16696,6 +16705,9 @@ export type Database = {
           updated_at?: string | null
           validated_at?: string | null
           wa_error?: string | null
+          wa_reminder_error?: string | null
+          wa_reminder_scheduled_for?: string | null
+          wa_reminder_sent_at?: string | null
           wa_sent_at?: string | null
         }
         Relationships: [
