@@ -107,3 +107,57 @@ export function assertCanCreateNewDeal(
 
   return { allowed: true, reason: "no_blocking_deal_found" };
 }
+
+// ─── Trava atômica DB-level — pré-createNewDeal (defense-in-depth) ──────────
+// Impede que duas execuções concorrentes do lia-assign para o mesmo lead
+// criem deals duplicados. Implementação: INSERT ON CONFLICT em
+// `smartops_golden_rule_deal_locks` com TTL via RPC try_claim_deal_create_slot.
+
+// deno-lint-ignore no-explicit-any
+type SupabaseLike = any;
+
+export async function claimDealCreateSlot(
+  supabase: SupabaseLike,
+  leadId: string,
+  personId: number | null,
+  intentHash: string,
+  ttlSeconds = 300,
+): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const { data, error } = await supabase.rpc("try_claim_deal_create_slot", {
+      _lead_id: leadId,
+      _person_id: personId ?? null,
+      _intent_hash: intentHash,
+      _ttl_seconds: ttlSeconds,
+    });
+    if (error) {
+      console.warn(
+        `[golden-rule] claimDealCreateSlot RPC error for lead=${leadId}:`,
+        error,
+      );
+      // Em caso de erro de RPC, NÃO bloqueamos (evita lockout total). Apenas log.
+      return { ok: true, reason: "rpc_error_failsafe_open" };
+    }
+    return { ok: Boolean(data), reason: data ? "claimed" : "lock_held" };
+  } catch (e) {
+    console.warn(
+      `[golden-rule] claimDealCreateSlot threw for lead=${leadId}:`,
+      e,
+    );
+    return { ok: true, reason: "rpc_throw_failsafe_open" };
+  }
+}
+
+export async function releaseDealCreateSlot(
+  supabase: SupabaseLike,
+  leadId: string,
+): Promise<void> {
+  try {
+    await supabase.rpc("release_deal_create_slot", { _lead_id: leadId });
+  } catch (e) {
+    console.warn(
+      `[golden-rule] releaseDealCreateSlot threw for lead=${leadId}:`,
+      e,
+    );
+  }
+}
