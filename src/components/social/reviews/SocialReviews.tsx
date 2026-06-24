@@ -103,6 +103,12 @@ export function SocialReviews() {
     lastSync: places?.last_synced_at ?? null,
   }), [places]);
 
+  const connectionState: "none" | "expired" | "valid" = !connection
+    ? "none"
+    : connection.expires_at && new Date(connection.expires_at).getTime() < Date.now()
+      ? "expired"
+      : "valid";
+
   if (placesLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
