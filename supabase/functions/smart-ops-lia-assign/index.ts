@@ -3155,16 +3155,61 @@ Deno.serve(async (req) => {
             });
           } catch {}
         } else {
-        // empty-person guard removed: Deal must always be created;
-        // GET-based verification produced false positives.
-        piperunId = await createNewDeal(
-          PIPERUN_API_KEY, personId, companyId,
-          lead as Record<string, unknown>,
-          pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail, supabase, inputFormResponses
+        // ── Trava atômica DB-level (defense-in-depth Regra de Ouro) ──
+        // Evita que duas execuções concorrentes do lia-assign para o mesmo
+        // lead criem deals duplicados (race entre form re-delivery + cron).
+        const claim = await claimDealCreateSlot(
+          supabase,
+          lead.id as string,
+          personId,
+          `main:${String(lead.form_name ?? "")}|${String(lead.source ?? "")}`,
         );
-        console.log(`[lia-assign] Created new deal: ${piperunId}`);
-        if (piperunId && personNameLooksLikeCompany) {
+        if (!claim.ok) {
+          console.warn(
+            `[lia-assign] MAIN: lock_held para lead ${lead.id} — abortando criação concorrente`,
+          );
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-lia-assign",
+              severity: "warning",
+              error_type: "deal_create_lock_held",
+              lead_id: lead.id,
+              lead_email: leadEmail,
+              details: { stage: "main", person_id: personId, form_name: lead.form_name },
+            });
+          } catch {}
+          flowType = "concurrent_create_lock_held";
+        } else {
+          try {
+            // Re-fetch fresh lead.piperun_id ANTES do POST: outra execução
+            // pode ter setado nesta janela curta.
+            const { data: freshLead } = await supabase
+              .from("lia_attendances")
+              .select("piperun_id")
+              .eq("id", lead.id)
+              .maybeSingle();
+            if (freshLead?.piperun_id) {
+              console.log(
+                `[lia-assign] MAIN: lead.piperun_id=${freshLead.piperun_id} setado por execução concorrente — abortando createNewDeal`,
+              );
+              piperunId = String(freshLead.piperun_id);
+              flowType = "preserve_cached_fresh_recheck";
+            } else {
+              // empty-person guard removed: Deal must always be created;
+              // GET-based verification produced false positives.
+              piperunId = await createNewDeal(
+                PIPERUN_API_KEY, personId, companyId,
+                lead as Record<string, unknown>,
+                pipeline_id, stage_id, assignedOwnerId,
+                customFields, leadEmail, supabase, inputFormResponses
+              );
+              console.log(`[lia-assign] Created new deal: ${piperunId}`);
+            }
+          } finally {
+            await releaseDealCreateSlot(supabase, lead.id as string);
+          }
+        }
+        if (piperunId && flowType === "new_deal" && personNameLooksLikeCompany) {
           try {
             await addDealNote(
               PIPERUN_API_KEY,
