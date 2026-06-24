@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Star, Loader2, Play } from "lucide-react";
+import { Star, Loader2, Play, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,6 +102,12 @@ export function SocialReviews() {
     avg: places?.google_rating ?? 0,
     lastSync: places?.last_synced_at ?? null,
   }), [places]);
+
+  const connectionState: "none" | "expired" | "valid" = !connection
+    ? "none"
+    : connection.expires_at && new Date(connection.expires_at).getTime() < Date.now()
+      ? "expired"
+      : "valid";
 
   if (placesLoading) {
     return (
@@ -212,17 +218,42 @@ export function SocialReviews() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             Respostas automáticas (Business Profile API)
-            <Badge variant="outline">Em breve</Badge>
+            {connectionState === "valid" ? (
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+                <CheckCircle2 className="w-3 h-3 mr-1" /> Conectado
+              </Badge>
+            ) : connectionState === "expired" ? (
+              <Badge variant="destructive">
+                <AlertTriangle className="w-3 h-3 mr-1" /> Token expirado
+              </Badge>
+            ) : (
+              <Badge variant="outline">Desconectado</Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {!connection ? (
+          {connectionState === "none" ? (
             <div className="px-6 py-8 space-y-3 text-sm text-muted-foreground">
               <p>
-                Aguardando liberação da Google Business Profile API. Quando aprovada, conecte sua conta para que a IA responda automaticamente cada nova avaliação.
+                Conecte sua conta Google Business Profile para que a IA responda automaticamente cada nova avaliação.
               </p>
               <Button asChild variant="outline" size="sm">
                 <a href={buildOAuthUrl()}>Conectar Google Business Profile</a>
+              </Button>
+            </div>
+          ) : connectionState === "expired" ? (
+            <div className="px-6 py-8 space-y-3 text-sm">
+              <div className="flex items-start gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">Token expirado ou revogado</p>
+                  <p className="text-xs opacity-80">
+                    O refresh token do Google não é mais válido. Reconecte para retomar a sincronização e as respostas automáticas.
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm">
+                <a href={buildOAuthUrl()}>Reconectar Google Business Profile</a>
               </Button>
             </div>
           ) : isLoading ? (
@@ -230,8 +261,11 @@ export function SocialReviews() {
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : reviews.length === 0 ? (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              Nenhuma resposta automatizada ainda. A sincronização roda a cada 3 dias após a aprovação.
+            <div className="py-16 text-center text-sm text-muted-foreground space-y-3">
+              <p>Nenhuma resposta automatizada ainda. A sincronização roda a cada 3 dias.</p>
+              <Button asChild variant="ghost" size="sm">
+                <a href={buildOAuthUrl()}>Reconectar (trocar de conta)</a>
+              </Button>
             </div>
           ) : (
             <Table>
