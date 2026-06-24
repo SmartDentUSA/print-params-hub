@@ -21340,6 +21340,7 @@ export type Database = {
           created_by: string | null
           current_node_index: number
           daily_limit: number
+          dedupe_window_days: number
           delay_seconds: number
           finished_at: string | null
           flow_json: Json
@@ -21359,6 +21360,7 @@ export type Database = {
           created_by?: string | null
           current_node_index?: number
           daily_limit?: number
+          dedupe_window_days?: number
           delay_seconds?: number
           finished_at?: string | null
           flow_json?: Json
@@ -21378,6 +21380,7 @@ export type Database = {
           created_by?: string | null
           current_node_index?: number
           daily_limit?: number
+          dedupe_window_days?: number
           delay_seconds?: number
           finished_at?: string | null
           flow_json?: Json
@@ -21982,6 +21985,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wa_group_sent_fingerprints: {
+        Row: {
+          content_hash: string
+          created_at: string
+          group_jid: string
+          id: string
+          last_campaign_id: string | null
+          last_sent_at: string
+          node_type: string
+          send_count: number
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          group_jid: string
+          id?: string
+          last_campaign_id?: string | null
+          last_sent_at?: string
+          node_type: string
+          send_count?: number
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          group_jid?: string
+          id?: string
+          last_campaign_id?: string | null
+          last_sent_at?: string
+          node_type?: string
+          send_count?: number
+        }
+        Relationships: []
       }
       wa_groups: {
         Row: {
@@ -26896,6 +26932,14 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_check_group_global_dedup: {
+        Args: {
+          p_content_hash: string
+          p_group_jid: string
+          p_window_days?: number
+        }
+        Returns: boolean
+      }
       fn_check_group_send_cooldown: {
         Args: {
           p_campaign_id: string
@@ -27218,6 +27262,15 @@ export type Database = {
       }
       fn_rayshape_owners: { Args: never; Returns: Json }
       fn_rayshape_status: { Args: { p_lead_id: string }; Returns: Json }
+      fn_record_group_send: {
+        Args: {
+          p_campaign_id: string
+          p_content_hash: string
+          p_group_jid: string
+          p_node_type: string
+        }
+        Returns: undefined
+      }
       fn_record_lead_event: {
         Args: {
           p_entity_id?: string
