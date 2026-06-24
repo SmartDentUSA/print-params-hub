@@ -3042,6 +3042,49 @@ Deno.serve(async (req) => {
           }
         }
         if (!piperunId) {
+        // ── UNIVERSAL GOLDEN RULE GATE (final, antes de createNewDeal) ──
+        const gate = assertCanCreateNewDeal(
+          allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+          { force_new_deal: force_new_deal === true },
+        );
+        if (!gate.allowed && gate.preservedDeal) {
+          piperunId = String(gate.preservedDeal.id);
+          flowType = "golden_rule_blocked_primary";
+          console.log(
+            `[lia-assign] GOLDEN RULE GATE primary: ${gate.reason} → preservando deal ${piperunId}, NÃO criando novo`,
+          );
+          try {
+            await updateExistingDeal(
+              PIPERUN_API_KEY,
+              Number(piperunId),
+              null,
+              customFields,
+              lead as Record<string, unknown>,
+              companyId,
+              supabase,
+              inputFormResponses,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] GOLDEN RULE GATE updateExistingDeal failed:", e);
+          }
+          try {
+            await supabase.from("lead_activity_log").insert({
+              lead_id: lead.id,
+              event_type: "golden_rule_blocked_primary",
+              entity_type: "deal",
+              entity_id: piperunId,
+              entity_name: "Criação de deal bloqueada (regra de ouro universal)",
+              event_data: {
+                reason: gate.reason,
+                person_id: personId,
+                form_name: lead.form_name,
+                source: lead.source,
+              },
+              source_channel: "form",
+              event_timestamp: new Date().toISOString(),
+            });
+          } catch {}
+        } else {
         // empty-person guard removed: Deal must always be created;
         // GET-based verification produced false positives.
         piperunId = await createNewDeal(
@@ -3061,6 +3104,7 @@ Deno.serve(async (req) => {
           } catch (e) {
             console.warn("[lia-assign] Failed to add company-like-name review note:", e);
           }
+        }
         }
         }
       }
