@@ -2970,17 +2970,7 @@ Deno.serve(async (req) => {
             } catch (e) {
               console.warn("[lia-assign] GOLDEN RULE PRIMARY enrichment failed:", e);
             }
-            try {
-              const formLabel = String((lead as Record<string, unknown>).form_name || "—");
-              const statusLabel = Number(recentVendasDeal.status) === 0 ? "aberto" : "fechado";
-              await addDealNote(
-                PIPERUN_API_KEY,
-                Number(recentVendasDeal.id),
-                `🔁 [Dra. L.I.A.] Re-entrega registrada (form: ${formLabel}). Deal VENDAS ${statusLabel} dos últimos 30 dias preservado conforme regra de ouro — nenhum deal novo criado, owner não alterado.`,
-              );
-            } catch (e) {
-              console.warn("[lia-assign] GOLDEN RULE PRIMARY note failed:", e);
-            }
+            // NOTA SUPRIMIDA: regra de ouro primária só registra log interno.
             try {
               await supabase.from("lead_activity_log").insert({
                 lead_id: lead.id,
