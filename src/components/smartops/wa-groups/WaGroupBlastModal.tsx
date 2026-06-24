@@ -270,6 +270,33 @@ export function WaGroupBlastModal({
           </div>
         </div>
 
+        {blockedDup.length > 0 && (
+          <div className="mx-6 mb-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 space-y-2">
+            <div className="font-semibold">
+              {blockedDup.length} grupo{blockedDup.length === 1 ? "" : "s"} já receberam esta mensagem
+            </div>
+            <ul className="max-h-32 overflow-auto space-y-0.5">
+              {blockedDup.slice(0, 8).map((b) => (
+                <li key={b.group_jid} className="flex justify-between gap-2">
+                  <span className="truncate">{b.name || b.group_jid}</span>
+                  <span className="opacity-70 shrink-0">
+                    {b.last_sent_at ? new Date(b.last_sent_at).toLocaleDateString("pt-BR") : "—"}
+                  </span>
+                </li>
+              ))}
+              {blockedDup.length > 8 && <li className="opacity-70">…e mais {blockedDup.length - 8}</li>}
+            </ul>
+            <Label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowDuplicate}
+                onChange={(e) => setAllowDuplicate(e.target.checked)}
+              />
+              Reenviar mesmo assim (ignora a trava de duplicidade)
+            </Label>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 px-6 py-4 border-t bg-background shrink-0">
           <Button variant="ghost" onClick={onClose} disabled={sending}>Cancelar</Button>
           <div className="flex-1" />
