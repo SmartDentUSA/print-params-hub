@@ -103,6 +103,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [dailyLimit, setDailyLimit] = useState(50);
   const [delaySeconds, setDelaySeconds] = useState(30);
+  const [dedupeWindowDays, setDedupeWindowDays] = useState(30);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleTime, setScheduleTime] = useState("09:00");
@@ -121,7 +122,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
       if (campaignId) {
         const { data, error } = await (supabase as any)
           .from("wa_campaigns")
-          .select("name, flow_json, daily_limit, delay_seconds, started_at, status")
+          .select("name, flow_json, daily_limit, delay_seconds, dedupe_window_days, started_at, status")
           .eq("id", campaignId)
           .single();
         if (error) { toast.error(error.message); setLoading(false); return; }
@@ -129,6 +130,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         setNodes(Array.isArray(data.flow_json) ? data.flow_json : []);
         setDailyLimit(data.daily_limit ?? 50);
         setDelaySeconds(data.delay_seconds ?? 30);
+        setDedupeWindowDays(data.dedupe_window_days ?? 30);
         setCampaignStatus(data.status ?? null);
         setCampaignStartedAt(data.started_at ?? null);
         // Pré-carrega agendamento: só faz sentido enquanto for futuro e ainda não rodou.
@@ -312,6 +314,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         flow_json: nodes,
         daily_limit: dailyLimit,
         delay_seconds: delaySeconds,
+        dedupe_window_days: dedupeWindowDays,
       };
       if (!isIncrementalEdit) {
         payload.started_at = schedIso;
@@ -440,6 +443,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                 <div>
                   <Label className="text-xs">Delay entre msgs (s)</Label>
                   <Input type="number" min={0} value={delaySeconds} onChange={(e) => setDelaySeconds(Number(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Janela de dedupe (dias)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={dedupeWindowDays}
+                    onChange={(e) => setDedupeWindowDays(Number(e.target.value) || 1)}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Impede reenvio do mesmo conteúdo ao mesmo grupo dentro desta janela (mesmo em outras campanhas).
+                  </p>
                 </div>
                 <div className="pt-3 border-t space-y-2">
                   {campaignId && (
