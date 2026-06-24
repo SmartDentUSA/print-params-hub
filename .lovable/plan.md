@@ -1,28 +1,25 @@
 ## Objetivo
-Exibir um resumo global no topo da página **Post Grupos** indicando a quantidade total de grupos selecionados e a soma de participantes impactados, independentemente de cada instância estar ATIVA ou INATIVA.
+Confirmar se as **respostas automáticas Google Business Profile** estão de fato funcionando ou ainda travadas por aprovação da API.
 
-## Alterações
+## Estado atual verificado
+- ✅ Edge function `google-reviews-respond` implementada (cascata Gemini → DeepSeek → Claude + PUT em `mybusiness.googleapis.com/v4`).
+- ✅ Edge function `google-reviews-pull` agendada via cron (`0 9 */3 * *`) e invoca `google-reviews-respond` automaticamente para cada review novo sem reply.
+- ✅ 1 token OAuth em `google_oauth_tokens`.
+- ❌ Tabela `google_reviews` **vazia** — nenhum review importado, logo nenhuma resposta foi publicada ainda.
+- ⚠️ UI (`SocialReviews.tsx`) ainda exibe "Em breve" e "serão liberadas quando aprovação chegar", desalinhada do backend.
 
-### 1. `src/components/social/PostGrupos.tsx`
-- Adicionar fetch de `v_post_group_targets_detail` no carregamento inicial, junto com `post_group_instance_config`.
-- Calcular agregados:
-  - `totalSelectedGroups`: número total de targets.
-  - `totalImpactedMembers`: soma de `member_count` de todos os grupos selecionados.
-- Renderizar um **summary card** no topo da aba "Instâncias" (abaixo do título da página), com destaque visual, mostrando:
-  - Total de grupos selecionados.
-  - Total de membros impactados.
-- Garantir que o summary seja recalculado quando `onChanged` for disparado pelos cards.
+## Diagnóstico
+1. **Invocar `google-reviews-pull` manualmente** via `supabase--curl_edge_functions` (POST `{}`).
+2. **Ler logs** com `supabase--edge_function_logs` (`google-reviews-pull` e `google-reviews-respond`) para confirmar:
+   - Se o token retorna `accounts` (ou 403 PERMISSION_DENIED da Business Profile API).
+   - Se reviews são importados em `google_reviews`.
+   - Se `google-reviews-respond` é disparado e publica com sucesso.
+3. **Reconsultar** `SELECT response_status, COUNT(*) FROM google_reviews` para validar.
 
-### 2. `src/components/social/PostGruposInstanceCard.tsx`
-- No callback `load()` após adicionar um grupo e no `removeTarget()`, garantir que `onChanged()` seja chamado para que o summary global seja atualizado.
-- O total por instância no header e no footer continua funcionando como hoje.
-
-## Regras
-- Soma de **todos os grupos salvos** (`post_group_targets`), independente do switch ATIVA/INATIVA da instância.
-- Formato numérico: `pt-BR` (ex: `1.025`).
-- Reutilizar a view existente `v_post_group_targets_detail` para evitar duplicar joins.
+## Reportar ao usuário
+- Se 403 → aprovação Google ainda pendente; UI permanece como está.
+- Se reviews importados + replies publicadas → ajustar copy da UI (remover "Em breve" / "serão liberadas quando aprovação chegar").
+- Se erro intermediário → expor causa exata.
 
 ## Fora do escopo
-- Sem alterações no banco de dados (tabelas, views, migrations).
-- Sem criação de edge functions.
-- Sem alterações no histórico de disparos.
+- Nenhuma mudança de schema, código de função ou UI nesta etapa — apenas diagnóstico. Ajustes virão num plano seguinte conforme resultado.
