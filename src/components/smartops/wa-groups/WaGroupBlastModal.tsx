@@ -58,6 +58,9 @@ export function WaGroupBlastModal({
   const [pickedIds, setPickedIds] = useState<string[]>([]);
   const [pickedJids, setPickedJids] = useState<string[]>([]);
   const [pickedNames, setPickedNames] = useState<string[]>([]);
+  // Dedupe override + última lista de grupos bloqueados
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const [blockedDup, setBlockedDup] = useState<{ group_jid: string; name: string; last_sent_at: string | null }[]>([]);
 
   // Aplica valores iniciais quando o modal abre
   useEffect(() => {
@@ -79,6 +82,7 @@ export function WaGroupBlastModal({
     setCaption(""); setLinkTitle(""); setLinkUrl(""); setLinkDesc("");
     setWhenMode("now"); setScheduledAt("");
     setPickedIds([]); setPickedJids([]); setPickedNames([]);
+    setAllowDuplicate(false); setBlockedDup([]);
   };
 
   const buildContent = (): Record<string, unknown> | null => {
@@ -122,24 +126,35 @@ export function WaGroupBlastModal({
           content,
           scheduled_at: scheduledIso,
           campaign_name: `Blast ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+          allow_duplicate: allowDuplicate,
         },
       });
       if (error) {
         let serverMsg = error.message;
+        let serverPayload: any = null;
         try {
           const ctx: any = (error as any).context;
           if (ctx && typeof ctx.json === "function") {
             const j = await ctx.json();
+            serverPayload = j;
             if (j?.error) serverMsg = j.error;
           } else if (ctx && typeof ctx.text === "function") {
             const t = await ctx.text();
             if (t) serverMsg = t;
           }
         } catch { /* keep error.message */ }
+        if (serverPayload?.error === "duplicate_blocked" && Array.isArray(serverPayload.skipped_duplicates)) {
+          setBlockedDup(serverPayload.skipped_duplicates);
+          toast.error(`Todos os ${serverPayload.skipped_duplicates.length} grupos já receberam essa mensagem (janela ${serverPayload.dedupe_window_days}d). Marque "Reenviar mesmo assim" para forçar.`);
+          return;
+        }
         throw new Error(serverMsg);
       }
       if (!data?.ok) throw new Error(data?.error ?? "Falha desconhecida");
-      toast.success(`Blast agendado para ${data.groups} grupos — ${data.queued} mensagens na fila`);
+      const skipped = Array.isArray(data.skipped_duplicates) ? data.skipped_duplicates.length : 0;
+      const msg = `Blast agendado para ${data.groups} grupos — ${data.queued} mensagens na fila`
+        + (skipped > 0 ? ` (${skipped} bloqueado${skipped === 1 ? "" : "s"} por dedupe)` : "");
+      toast.success(msg);
       reset();
       onSent?.();
       onClose();
