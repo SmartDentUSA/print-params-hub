@@ -7,12 +7,13 @@
 // Bypass único: opts.force_new_deal === true (Loja Integrada "Sob Consulta",
 // override manual explícito de SDR). Re-entrega Meta NUNCA usa bypass.
 
+import { PIPELINES } from "./piperun-field-map.ts";
+
 export const GOLDEN_RULE_WINDOW_DAYS = 30;
 
-// Pipeline constants duplicated here to avoid circular imports.
-const PIPELINE_VENDAS = 251655;
-const PIPELINE_CS_ONBOARDING = 273328;
-const PIPELINE_GANHOS_ALEATORIOS_CS = 282651;
+const PIPELINE_VENDAS = PIPELINES.VENDAS;
+const PIPELINE_CS_ONBOARDING = PIPELINES.CS_ONBOARDING;
+const PIPELINE_GANHOS_ALEATORIOS_CS = PIPELINES.GANHOS_ALEATORIOS_CS;
 
 const PROTECTED_PIPELINES = new Set<number>([
   PIPELINE_CS_ONBOARDING,
