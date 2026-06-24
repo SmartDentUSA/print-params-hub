@@ -1800,14 +1800,43 @@ async function executarReativacaoSdrCaptacao(
     return false;
   }
 
-  // 3. Fecha cada deal Estagnados como Perdido
-  for (const deal of estagnDeals) {
-    const res = await piperunPut(apiToken, `deals/${deal.id}`, {
-      status: 2,
-      lost_reason: "reativacao_formulario",
-    });
-    console.log(`[lia-assign] SDR-CAPTAÇÃO: deal ${deal.id} fechado como Perdido: ${res.success} (${res.status})`);
+  // ─── GOLDEN RULE: aborta antes de mexer em Estagnados e antes de criar
+  // novo Deal em VENDAS se já existe VENDAS aberto/recente.
+  const verdict = assertCanCreateNewDeal(
+    allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+    { force_new_deal: false },
+  );
+  if (!verdict.allowed) {
+    console.log(
+      `[lia-assign] SDR-CAPTAÇÃO GOLDEN RULE BLOCK: ${verdict.reason} (preserved=${verdict.preservedDeal?.id ?? "n/a"}) — sem criação de deal, sem fechamento de Estagnados`,
+    );
+    try {
+      await supabase.from("lead_activity_log").insert({
+        lead_id: leadId,
+        event_type: "golden_rule_blocked_sdr_captacao",
+        entity_type: "deal",
+        entity_id: verdict.preservedDeal?.id ? String(verdict.preservedDeal.id) : null,
+        entity_name: "SDR-Captação reativação bloqueada (regra de ouro)",
+        event_data: {
+          reason: verdict.reason,
+          preserved_deal_id: verdict.preservedDeal?.id ? String(verdict.preservedDeal.id) : null,
+          person_id: personId,
+          estagnados_open: estagnDeals.map((d) => String(d.id)),
+        },
+        source_channel: "form",
+        event_timestamp: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("[lia-assign] SDR-CAPTAÇÃO golden rule log failed:", e);
+    }
+    return false;
   }
+
+  // Funil Estagnados NÃO é mais fechado automaticamente — usuário pediu
+  // explicitamente "não toque". Apenas log para auditoria.
+  console.log(
+    `[lia-assign] SDR-CAPTAÇÃO: ${estagnDeals.length} deal(s) Estagnados detectados, NÃO fechados (regra: não tocar em Estagnados via automação). ids=${estagnDeals.map((d) => d.id).join(",")}`,
+  );
 
   // 4. Fresh Round Robin — NUNCA herda owner anterior
   const newOwner = await pickRandomActiveVendedor(supabase);
