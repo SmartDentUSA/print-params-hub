@@ -131,6 +131,19 @@ serve(async (req) => {
         const { data: cooldown } = await supabase.rpc('fn_check_group_send_cooldown', { p_group_jid: item.group_jid, p_node_index: item.node_index, p_campaign_id: item.campaign_id })
         if (cooldown === false) { await setStatus(supabase, item.id, 'skipped', 'Cooldown'); results.push({ id: item.id, status: 'skipped' }); continue }
 
+        // Dedupe global cross-campaign: bloqueia reenviar mesmo conteúdo ao mesmo grupo dentro da janela
+        const cHash = await contentHashOf(item.node_type, item.content_json ?? {})
+        const { data: allowSend } = await supabase.rpc('fn_check_group_global_dedup', {
+          p_group_jid: item.group_jid,
+          p_content_hash: cHash,
+          p_window_days: (camp as any).dedupe_window_days ?? 30,
+        })
+        if (allowSend === false) {
+          await setStatus(supabase, item.id, 'skipped', 'dedupe_global')
+          results.push({ id: item.id, status: 'skipped_dedup_global' })
+          continue
+        }
+
         let evoId: string | null = null
         const c = item.content_json ?? {}
 
