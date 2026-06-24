@@ -1,66 +1,76 @@
-## Objetivo
-Quando o vendedor marcar um deal como **Perdido** no Funil de Vendas (18784), o sistema move automaticamente o MESMO deal para o Funil **Estagnados** (72938), etapa **00 – Novos** (`447250`), e **reabre** o deal (status `0`). Sem criar deal novo, sem fechar nada em Estagnados.
+# Mensagens do Blast 24/06/2026 18:25 ficam "pending"
 
-## Onde plugar
-`supabase/functions/smart-ops-piperun-webhook/index.ts` — já recebe o evento de mudança de status do deal, já calcula `isLost` (linha 1267) e já conhece `ids.pipelineId` (pipeline atual do deal).
+## Diagnóstico (confirmado em produção)
 
-## Regra de disparo
-Disparar a movimentação SOMENTE quando TODAS as condições forem verdadeiras:
-1. `isLost === true` (status normalizado = "lost").
-2. `ids.pipelineId === PIPELINES.VENDAS` (18784). Deals perdidos em qualquer outro funil (CS, Estagnados, Reativação) são ignorados — só Vendas vira Estagnados.
-3. `dealId` presente.
-4. Idempotência: pular se o deal já estiver em Estagnados (proteção contra reentrega do webhook).
+- Cron `wa-dispatcher-every-minute` está ativo e rodando 1x/min com `succeeded`.
+- Invocação manual de `/wa-dispatcher` agora retorna `{"ok":true,"processed":0}` — não envia nada.
+- A fila `wa_message_queue` tem **~83 linhas `pending`** pendurada de campanhas antigas com status `finished` / `error` / `paused` (Blast 29/05, Blast 10/06, "Régua única" com 49 rows, etc.). Essas linhas têm `scheduled_at` de 22/05–22/06.
+- `claim_pending_wa_messages(p_limit=5)` ordena por `scheduled_at ASC` e devolve essas 5 linhas antigas primeiro.
+- O dispatcher (linhas 64–73 de `wa-dispatcher/index.ts`) carrega `wa_campaigns.status` para cada uma, e como **nenhuma das 5 é `active`**, faz `UPDATE status='pending'` (devolve para a fila) e termina com `processed=0`.
+- Resultado: as 2 mensagens do Blast 24/06 18:25 (`campaign_id ae0a3683`, `scheduled_at 21:26:30`) **nunca são alcançadas** — ficarão `pending` para sempre enquanto o lixo antigo existir.
 
-## Ação no PipeRun
-Chamada única à API do PipeRun via helper existente em `_shared/piperun-hierarchy.ts` (já tem token/headers padronizados):
+## Correção
 
+### 1. Migration: corrigir `claim_pending_wa_messages` para filtrar por campanha ativa
+
+Substituir a RPC para já ignorar linhas de campanhas não-ativas no SELECT inicial. Isso resolve o head-of-line blocking permanentemente.
+
+```sql
+CREATE OR REPLACE FUNCTION public.claim_pending_wa_messages(p_limit integer DEFAULT 5)
+RETURNS SETOF wa_message_queue
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  RETURN QUERY
+  UPDATE public.wa_message_queue q
+     SET status = 'sending'
+   WHERE q.id IN (
+     SELECT q2.id
+       FROM public.wa_message_queue q2
+       LEFT JOIN public.wa_campaigns c ON c.id = q2.campaign_id
+      WHERE q2.status = 'pending'
+        AND q2.scheduled_at <= now()
+        AND (q2.campaign_id IS NULL OR c.status = 'active')
+      ORDER BY q2.scheduled_at ASC
+      LIMIT p_limit
+      FOR UPDATE SKIP LOCKED
+   )
+  RETURNING q.*;
+END$function$;
 ```
-PUT /deals/:id
-{
-  pipeline_id: 72938,           // PIPELINES.ESTAGNADOS
-  stage_id:    447250,          // STAGES_ESTAGNADOS.ETAPA_00_NOVOS
-  status:      0                // reabre (0 = aberto)
-}
+
+### 2. Migration: limpar lixo histórico
+
+Marcar como `cancelled` todas as linhas `pending` cuja campanha está em `finished` / `error` / `paused` (ou cuja campanha não existe mais). Isso libera a fila e remove o ruído de UI/relatórios.
+
+```sql
+UPDATE public.wa_message_queue q
+   SET status = 'cancelled',
+       error_message = COALESCE(error_message, 'Auto-cancelada: campanha não está ativa')
+  FROM public.wa_campaigns c
+ WHERE q.status = 'pending'
+   AND q.campaign_id = c.id
+   AND c.status IN ('finished', 'error', 'paused');
 ```
 
-Owner, valor, motivo de perda e demais campos permanecem intocados — o histórico de perda fica registrado no deal e nas notas.
+(`cancelled` já é um valor usado no domínio? Se houver `CHECK constraint`, conferir antes — caso necessário usar `failed`.)
 
-Após sucesso, postar uma nota no deal:
-> 🔄 [Dra. L.I.A.] Deal marcado como Perdido no Funil de Vendas → movido para Estagnados / Etapa 00 – Novos e reaberto automaticamente.
+### 3. Validação
 
-## Sincronização do snapshot no Supabase
-Após o PUT bem-sucedido, atualizar `lia_attendances` do lead:
-- `piperun_pipeline_id = 72938`
-- `piperun_pipeline_name = 'Estagnados'`
-- `piperun_stage_id = 447250`
-- `piperun_stage_name = 'Etapa 00 – Novos'`
-- `piperun_status = 0`
-- `status_oportunidade = 'aberta'` (sobrescreve o `perdida_renutrir` que o bloco atual seta na linha 1287, somente quando a movimentação ocorrer)
-- `lead_status = 'est_etapa1'` (entra no journey de estagnação via `STAGE_TO_ETAPA`)
-- `motivo_perda` e `comentario_perda` permanecem (auditoria).
+- Após aplicar, invocar `POST /wa-dispatcher` manualmente.
+- Esperar `processed >= 1` e as 2 linhas do Blast `ae0a3683` saírem de `pending` (para `sending` → `sent` ou erro real).
+- Olhar `wa_send_log` para confirmar entrega.
+- Conferir UI do blast: contadores devem refletir Enviadas=2 / Pendentes=0.
 
-Registrar em `lead_activity_log` (`type: 'vendas_lost_moved_to_estagnados'`) e em `system_health_logs` (`event_type: 'vendas_lost_auto_move_to_estagnados'`) com `dealId`, `leadId`, `previousStageId`, `lossReason`.
+## O que NÃO mexer
 
-## Tratamento de erro
-- Se o `PUT` falhar (4xx/5xx/timeout): NÃO sobrescrever `status_oportunidade`; manter o comportamento atual (`perdida_renutrir`) e logar `vendas_lost_move_failed` em `system_health_logs` com `error_message` + `http_status`. Não estourar o webhook (200 OK para o PipeRun continuar).
-- Dedup: usar `wa_message_dedup`-style guard ou checar `piperun_pipeline_id` atual do snapshot antes do PUT para evitar loop com o próprio webhook que o PUT vai disparar.
+- Lógica de envio (`sendText`, `sendMedia`, EvoGo), cron schedule, `wa-group-blast` (criação está correta).
+- Reconciler (`wa-delivery-reconciler`) — comportamento de marcar como `pending` após `not_found` continua, mas agora só afeta campanhas ativas.
 
-## Anti-loop do webhook
-O `PUT` acima vai re-disparar o `smart-ops-piperun-webhook` com `pipelineId=72938` e `status=0`. Como a regra exige `pipelineId === VENDAS` E `isLost`, o reentrada não dispara nova movimentação. Garantido.
+## Detalhes técnicos (cont.)
 
-## Interações com regras existentes (verificar e preservar)
-- **Golden Rule / Deal-Create Lock**: não é afetada — não criamos deal novo, só fazemos `PUT` no existente.
-- **SDR-CAPTAÇÃO reativação** (linha 1797): continua não fechando Estagnados automaticamente. Sem conflito.
-- **TAGs de jornada** (`computeTagsFromStage`): o bloco já existente entre linhas 1228-1242 vai recalcular as tags corretamente quando o webhook reentrar com o stage de Estagnados.
-
-## Arquivos a alterar
-1. `supabase/functions/smart-ops-piperun-webhook/index.ts` — novo bloco logo após detecção `isLost`, antes do bloco de cross-sell (linha 1270).
-2. `supabase/functions/_shared/piperun-hierarchy.ts` — adicionar helper `moveDealToEstagnadosNovos(dealId, env, { reason })` que faz o PUT + post da nota.
-3. `mem://integration/piperun-sync-spec-v6` — anotar a nova regra "Lost-in-Vendas auto-move to Estagnados/Etapa 00".
-
-## Critérios de aceite
-- Deal `61299540` (Vendas) marcado como Perdido → em <5s aparece em Estagnados / Etapa 00 – Novos, status aberto, com nota da Dra. L.I.A.
-- Deal Perdido em CS Onboarding ou em Estagnados → nada acontece.
-- Snapshot do lead em `lia_attendances` reflete o novo pipeline/stage.
-- Webhook não entra em loop (reentrada com pipeline=72938 não dispara nova movimentação).
-- Falha de API PipeRun: log de erro + status_oportunidade=`perdida_renutrir` mantido, sem 500 no webhook.
+- Arquivo da RPC: pública, `SECURITY DEFINER`, sem alteração de assinatura — chamadas existentes continuam funcionando.
+- Não há mudança em frontend.
+- Sem impacto em RLS (RPC é definer).
