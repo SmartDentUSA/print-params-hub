@@ -2212,129 +2212,43 @@ async function executarEnrichmentDealRoute(
     };
   }
 
-  // CASE B — outros funis abertos → fecha como Perdido (espelho SDR-CAPTAÇÃO)
-  // GUARD C: se já existe deal em Vendas criado nas últimas 24h para este lead, é loop de re-entrega —
-  // só adicionar nota e sair (não fechar outros funis nem criar novo deal)
-  {
-    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentVendasDeal } = await supabase
-      .from("lead_activity_log")
-      .select("entity_id, event_timestamp")
-      .eq("lead_id", leadId)
-      .in("event_type", ["deal_reativado_via_redelivery", "deal_enriched_via_redelivery"])
-      .gte("event_timestamp", cutoff24h)
-      .limit(1)
-      .maybeSingle();
-    if (recentVendasDeal?.entity_id) {
-      const existingId = recentVendasDeal.entity_id;
-      console.log(`[lia-assign] enrichment-route DEDUP: deal ${existingId} já criado em ${recentVendasDeal.event_timestamp} (<24h) — apenas nota, sem novo deal`);
-      // NOTA SUPRIMIDA: dedup de re-entrega só registra log interno.
-      return {
-        flow_type: "dedup_skipped",
-        piperun_id: String(existingId),
-        created_new: false,
-        closed_deals: [],
-        reason: "redelivery_within_24h",
-      };
-    }
-  }
-  const closedDeals: Array<{ id: string; pipeline_id: number }> = [];
-  for (const deal of otherOpenDeals) {
-    try {
-      const res = await piperunPut(apiToken, `deals/${deal.id}`, {
-        status: 2,
-        lost_reason: "reativacao_redelivery_meta",
-      });
-      console.log(
-        `[lia-assign] enrichment-route: deal ${deal.id} (pipeline ${deal.pipeline_id}) fechado como Perdido: ${res.success} (${res.status})`,
-      );
-      closedDeals.push({ id: String(deal.id), pipeline_id: Number(deal.pipeline_id) });
-    } catch (e) {
-      console.warn(`[lia-assign] enrichment-route: falha ao fechar deal ${deal.id}:`, e);
-    }
-  }
-
-  // CASE C — Fresh Round Robin + novo deal em VENDAS
-  const newOwner = await pickRandomActiveVendedor(supabase);
+  // ─── GOLDEN RULE FINAL ──────────────────────────────────────────────
+  // Chegou até aqui sem deal VENDAS aberto e sem deal recente coberto pelo
+  // GUARD D. Re-entrega Meta NUNCA cria deal novo, NUNCA fecha outros funis,
+  // NUNCA posta nota no PipeRun. Só registra auditoria interna.
   console.log(
-    `[lia-assign] enrichment-route: Fresh RR → ${newOwner.nome_completo} (${newOwner.piperun_owner_id})`,
+    `[lia-assign] enrichment-route: GOLDEN RULE BLOCK — re-entrega Meta sem deal VENDAS recente, nada criado. person=${personId} form=${enrichmentFormName ?? "n/a"}`,
   );
-
-  const newDealId = await createNewDeal(
-    apiToken,
-    personId,
-    companyId,
-    lead,
-    PIPELINES.VENDAS,
-    STAGES_VENDAS.SEM_CONTATO,
-    newOwner.piperun_owner_id,
-    customFields,
-    leadEmail,
-    supabase,
-    [],
-  );
-
-  if (!newDealId) {
-    console.error("[lia-assign] enrichment-route: createNewDeal falhou para", leadEmail);
-    return {
-      flow_type: "new_deal_failed",
-      piperun_id: null,
-      created_new: false,
-      closed_deals: closedDeals,
-    };
-  }
-
   try {
-    await addDealNote(
-      apiToken,
-      Number(newDealId),
-      `📩 [Dra. L.I.A.] Deal aberto a partir de re-entrega Meta (form "${enrichmentFormName ?? "n/a"}").\n` +
-        `Deals anteriores fechados como Perdido (reativação): ${closedDeals.length}.\n` +
-        (preservedCsDeals.length
-          ? `Deals CS preservados (não fechados): ${preservedCsDeals.map((d) => d.id).join(", ")}.\n`
-          : "") +
-        (enrichedFields.length ? `Campos enriquecidos: ${enrichedFields.join(", ")}.` : ""),
-    );
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: "golden_rule_blocked_enrichment",
+      entity_type: "lead",
+      entity_id: leadId,
+      entity_name: "Re-entrega Meta sem nova conversão real — bloqueada",
+      event_data: {
+        flow_type: "golden_rule_blocked_enrichment",
+        person_id: personId,
+        form_name: enrichmentFormName,
+        enriched_fields: enrichedFields,
+        other_open_deals: otherOpenDeals.map((d) => ({
+          id: String(d.id),
+          pipeline_id: Number(d.pipeline_id),
+        })),
+        preserved_cs_deals: preservedCsDeals.map((d) => String(d.id)),
+      },
+      source_channel: "form",
+      event_timestamp: new Date().toISOString(),
+    });
   } catch (e) {
-    console.warn("[lia-assign] enrichment-route: addDealNote falhou:", e);
+    console.warn("[lia-assign] enrichment-route golden rule log failed:", e);
   }
-
-  await supabase
-    .from("lia_attendances")
-    .update({
-      proprietario_lead_crm: newOwner.nome_completo,
-      piperun_id: newDealId,
-      piperun_link: `https://app.pipe.run/#/deals/${newDealId}`,
-      funil_entrada_crm: "Funil de vendas",
-      ultima_etapa_comercial: "sem_contato",
-    })
-    .eq("id", leadId);
-
-  await supabase.from("lead_activity_log").insert({
-    lead_id: leadId,
-    event_type: "deal_reativado_via_redelivery",
-    entity_type: "deal",
-    entity_id: String(newDealId),
-    entity_name: "Deal novo via re-entrega Meta",
-    event_data: {
-      flow_type: "new_deal_after_loss",
-      novo_deal_id: String(newDealId),
-      novo_owner: newOwner.nome_completo,
-      deals_fechados: closedDeals,
-      enriched_fields: enrichedFields,
-      form_name: enrichmentFormName,
-      motivo_fechamento: "reativacao_redelivery_meta",
-    },
-    source_channel: "form",
-    event_timestamp: new Date().toISOString(),
-  });
-
   return {
-    flow_type: "new_deal_after_loss",
-    piperun_id: String(newDealId),
-    created_new: true,
-    closed_deals: closedDeals,
-    new_owner: newOwner.nome_completo,
+    flow_type: "golden_rule_blocked_enrichment",
+    piperun_id: null,
+    created_new: false,
+    closed_deals: [],
+    reason: "redelivery_without_real_conversion",
   };
   } finally {
     if (lockAcquired) {
