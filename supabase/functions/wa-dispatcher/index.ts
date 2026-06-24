@@ -10,6 +10,18 @@ const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const MAX_PER_RUN      = 5
 
+function canonicalJson(v: unknown): string {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v)
+  if (Array.isArray(v)) return '[' + v.map(canonicalJson).join(',') + ']'
+  const obj = v as Record<string, unknown>
+  const keys = Object.keys(obj).sort()
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}'
+}
+async function contentHashOf(nodeType: string, content: unknown): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${nodeType}|${canonicalJson(content)}`))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+}
+
 async function evoGoPost(path: string, body: Record<string, unknown>, baseUrl: string, token: string, timeoutMs = 30_000): Promise<Record<string, unknown>> {
   const res = await fetch(`${baseUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: token }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
   if (!res.ok) { const t = await res.text(); if (res.status === 404) throw new Error(`ENDPOINT_NOT_FOUND:${path}`); throw new Error(`${path} ${res.status}: ${t}`) }
