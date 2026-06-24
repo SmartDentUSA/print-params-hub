@@ -10,6 +10,18 @@ const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const MAX_PER_RUN      = 5
 
+function canonicalJson(v: unknown): string {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v)
+  if (Array.isArray(v)) return '[' + v.map(canonicalJson).join(',') + ']'
+  const obj = v as Record<string, unknown>
+  const keys = Object.keys(obj).sort()
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}'
+}
+async function contentHashOf(nodeType: string, content: unknown): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${nodeType}|${canonicalJson(content)}`))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+}
+
 async function evoGoPost(path: string, body: Record<string, unknown>, baseUrl: string, token: string, timeoutMs = 30_000): Promise<Record<string, unknown>> {
   const res = await fetch(`${baseUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: token }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
   if (!res.ok) { const t = await res.text(); if (res.status === 404) throw new Error(`ENDPOINT_NOT_FOUND:${path}`); throw new Error(`${path} ${res.status}: ${t}`) }
@@ -53,11 +65,11 @@ serve(async (req) => {
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
     const campaignIds = Array.from(new Set(claimedRows.map(r => r.campaign_id).filter(Boolean)))
-    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string }>()
+    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string; dedupe_window_days: number }>()
     if (campaignIds.length) {
       const { data: campRows } = await supabase.from('wa_campaigns')
-        .select('id, delay_seconds, daily_limit, status').in('id', campaignIds)
-      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status })
+        .select('id, delay_seconds, daily_limit, status, dedupe_window_days').in('id', campaignIds)
+      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status, dedupe_window_days: (c as any).dedupe_window_days ?? 30 })
     }
 
     const pending: any[] = []
@@ -118,6 +130,19 @@ serve(async (req) => {
         if (!(await checkDailyLimit(supabase, item.campaign_id, camp.daily_limit))) { await setStatus(supabase, item.id, 'skipped', 'Limite diario'); results.push({ id: item.id, status: 'skipped' }); continue }
         const { data: cooldown } = await supabase.rpc('fn_check_group_send_cooldown', { p_group_jid: item.group_jid, p_node_index: item.node_index, p_campaign_id: item.campaign_id })
         if (cooldown === false) { await setStatus(supabase, item.id, 'skipped', 'Cooldown'); results.push({ id: item.id, status: 'skipped' }); continue }
+
+        // Dedupe global cross-campaign: bloqueia reenviar mesmo conteúdo ao mesmo grupo dentro da janela
+        const cHash = await contentHashOf(item.node_type, item.content_json ?? {})
+        const { data: allowSend } = await supabase.rpc('fn_check_group_global_dedup', {
+          p_group_jid: item.group_jid,
+          p_content_hash: cHash,
+          p_window_days: (camp as any).dedupe_window_days ?? 30,
+        })
+        if (allowSend === false) {
+          await setStatus(supabase, item.id, 'skipped', 'dedupe_global')
+          results.push({ id: item.id, status: 'skipped_dedup_global' })
+          continue
+        }
 
         let evoId: string | null = null
         const c = item.content_json ?? {}
@@ -206,6 +231,13 @@ serve(async (req) => {
         const now = new Date().toISOString()
         await supabase.from('wa_message_queue').update({ status: 'sent', sent_at: now, evo_message_id: evoId, delivery_status: 'sent_to_server', delivery_checked_at: now }).eq('id', item.id)
         await supabase.from('wa_send_log').insert({ queue_id: item.id, campaign_id: item.campaign_id, group_jid: item.group_jid, instance_name: instance ?? 'unknown', node_type: item.node_type, success: true, http_status: 200, evo_message_id: evoId, sent_at: now })
+        // Registra fingerprint para impedir reenvio em campanhas futuras
+        await supabase.rpc('fn_record_group_send', {
+          p_group_jid: item.group_jid,
+          p_content_hash: cHash,
+          p_node_type: item.node_type,
+          p_campaign_id: item.campaign_id,
+        }).catch((e: unknown) => console.error('[v66eg] fn_record_group_send failed', e))
         if (isGroup) await supabase.from('wa_groups').update({ session_health: 'ok', consecutive_send_errors: 0, last_send_error: null, last_send_error_at: null }).eq('group_jid', item.group_jid).gt('consecutive_send_errors', 0)
         await advanceCampaign(supabase, item.campaign_id, item.node_index)
         results.push({ id: item.id, status: 'sent' })
