@@ -1923,6 +1923,66 @@ async function executarReativacaoSdrCaptacao(
       await releaseDealCreateSlot(supabase, leadId);
       return false;
     }
+    // ── Cached Deal Validator (defesa #3): valida lead.piperun_id direto via
+    // GET /deals/:id antes de criar novo. Cobre o cenário "findPersonDeals
+    // empty silencioso por throttling" (Flavia Flores 2026-06-24).
+    const cachedDealIdSdr = (lead.piperun_id as string | number | null) ?? null;
+    if (cachedDealIdSdr) {
+      const validation = await validateCachedDealIsActiveVendas(
+        cachedDealIdSdr,
+        async (id) => {
+          const check = await piperunGet(apiToken, `deals/${id}`, {});
+          if (!check?.success) return { ok: false };
+          const dealData = (check.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+          return { ok: true, deal: dealData ?? null };
+        },
+      );
+      if (validation.preserve) {
+        const preservedId = String(validation.deal_id ?? cachedDealIdSdr);
+        const flowType = validation.fetch_ok === false
+          ? "preserve_cached_on_validation_failure"
+          : "preserve_cached_deal_validated";
+        console.log(
+          `[lia-assign] CACHED-DEAL VALIDATOR (sdr_captacao): preserved ${preservedId} (${validation.reason}, fetch_ok=${validation.fetch_ok})`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: validation.fetch_ok === false ? "warning" : "info",
+            error_type: flowType,
+            lead_id: leadId,
+            lead_email: leadEmail,
+            details: {
+              cached_piperun_id: String(cachedDealIdSdr),
+              validation_reason: validation.reason,
+              pipeline_id: validation.pipeline_id ?? null,
+              status: validation.status ?? null,
+              person_id: personId,
+              stage: "sdr_captacao",
+            },
+          });
+        } catch {}
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: leadId,
+            event_type: "vendas_duplicates_detected_noop",
+            entity_type: "deal",
+            entity_id: preservedId,
+            entity_name: "Cached deal validator preservou VENDAS (sdr_captacao)",
+            event_data: {
+              kept_deal: preservedId,
+              reason: validation.reason,
+              fetch_ok: validation.fetch_ok ?? null,
+              flow_type: flowType,
+            },
+            source_channel: "form",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch {}
+        await releaseDealCreateSlot(supabase, leadId);
+        return false;
+      }
+    }
     newDealId = await createNewDeal(
       apiToken,
       personId,
