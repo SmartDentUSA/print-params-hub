@@ -13,6 +13,7 @@ import {
 import { diagnoseLead, renderDiagnosisWhatsApp } from "../_shared/workflow-diagnosis.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
+import { assertCanCreateNewDeal } from "../_shared/golden-rule-guard.ts";
 import {
   PIPELINES,
   PIPELINE_NAMES,
