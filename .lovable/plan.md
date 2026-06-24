@@ -1,23 +1,28 @@
-## Aba "Post Grupos" no Social Publisher
+## Objetivo
+Exibir um resumo global no topo da página **Post Grupos** indicando a quantidade total de grupos selecionados e a soma de participantes impactados, independentemente de cada instância estar ATIVA ou INATIVA.
 
-Painéis por instância (Danilo, Ana Paula CS, Dra. Lia) com lista salva de grupos para disparo. Toggle ATIVA/INATIVA por instância. Modal de adição + histórico de disparos. Sem edge function (separada).
+## Alterações
 
-### Arquivos novos
-- `src/components/social/PostGrupos.tsx` — container; lê `post_group_instance_config`, agrega contadores via `post_group_targets` + `wa_groups`. Renderiza um `PostGruposInstanceCard` por instância. Aba inferior com `PostGruposHistory`.
-- `src/components/social/PostGruposInstanceCard.tsx` — header (nome, total membros, total grupos disponíveis, switch ATIVA/INATIVA → atualiza `post_group_instance_config.enabled`). Tabela dos grupos selecionados (`post_group_targets` + join `wa_groups` para nome/membros). Botão lixeira → `DELETE` da row em `post_group_targets`. Footer com totais. Botão "+ Adicionar" abre modal.
-- `src/components/social/PostGruposAddModal.tsx` — busca `wa_groups` da instância (`ativo=true`) excluindo `group_id` já presentes em `post_group_targets` daquela instância. Input de busca client-side, checkboxes múltiplos, botão "Adicionar (N)" faz `INSERT` em batch em `post_group_targets` (`instance_name`, `group_id`, `enabled=true`).
-- `src/components/social/PostGruposHistory.tsx` — últimos disparos de `wa_group_dispatch_log` filtrados por `dispatch_source='post_grupos'` (ou sem filtro inicial), com nome do grupo, instância, status, preview, `sent_at`.
+### 1. `src/components/social/PostGrupos.tsx`
+- Adicionar fetch de `v_post_group_targets_detail` no carregamento inicial, junto com `post_group_instance_config`.
+- Calcular agregados:
+  - `totalSelectedGroups`: número total de targets.
+  - `totalImpactedMembers`: soma de `member_count` de todos os grupos selecionados.
+- Renderizar um **summary card** no topo da aba "Instâncias" (abaixo do título da página), com destaque visual, mostrando:
+  - Total de grupos selecionados.
+  - Total de membros impactados.
+- Garantir que o summary seja recalculado quando `onChanged` for disparado pelos cards.
 
-### Arquivos editados
-- `src/App.tsx` — adicionar `const PostGrupos = lazy(...)` e `<Route path="post-grupos" element={<PostGrupos />} />` dentro do `<Route path="/social" element={<SocialLayout />}>`.
-- `src/components/social/SocialSidebar.tsx` — adicionar item `{ title: 'Post Grupos', url: '/social/post-grupos', icon: Send }` logo após "Avaliações".
+### 2. `src/components/social/PostGruposInstanceCard.tsx`
+- No callback `load()` após adicionar um grupo e no `removeTarget()`, garantir que `onChanged()` seja chamado para que o summary global seja atualizado.
+- O total por instância no header e no footer continua funcionando como hoje.
 
-### Dados
-- Já existem: `post_group_instance_config` (id, instance_name, enabled, is_primary, evolution_phone), `post_group_targets` (id, instance_name, group_id, enabled), `wa_groups` (id, name, member_count, instance_name, ativo), `wa_group_dispatch_log`.
-- View `v_post_group_targets_detail` disponível — usar para listar selecionados com nome/membros já agregados.
-- Sem migrations novas. Sem edge function.
+## Regras
+- Soma de **todos os grupos salvos** (`post_group_targets`), independente do switch ATIVA/INATIVA da instância.
+- Formato numérico: `pt-BR` (ex: `1.025`).
+- Reutilizar a view existente `v_post_group_targets_detail` para evitar duplicar joins.
 
-### Comportamento
-- Realtime opcional (subscribe em `post_group_targets`) para atualizar contadores; se complicar, refetch após mutação basta.
-- Toggle ATIVA/INATIVA não apaga seleção — apenas alterna `enabled` na config (cards inativos colapsam mostrando só header e aviso "disparo suspenso").
-- Toasts via `sonner` em adicionar/remover/toggle.
+## Fora do escopo
+- Sem alterações no banco de dados (tabelas, views, migrations).
+- Sem criação de edge functions.
+- Sem alterações no histórico de disparos.
