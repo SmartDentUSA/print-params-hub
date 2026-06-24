@@ -2200,16 +2200,8 @@ async function executarEnrichmentDealRoute(
         supabase,
         [],
       );
-      // Only post the visible PipeRun note when there was actual enrichment.
-      // Re-deliveries that change nothing still log the activity event below
-      // for audit, but must not spam the deal timeline.
-      if (enrichedFields.length > 0) {
-        await addDealNote(
-          apiToken,
-          Number(vendaDeal.id),
-          `🔁 [Dra. L.I.A.] ${enrichTag}`,
-        );
-      }
+      // NOTA SUPRIMIDA: re-entrega Meta NUNCA posta nota no PipeRun, mesmo
+      // quando enriquece campos. Auditoria fica em lead_activity_log abaixo.
     } catch (e) {
       console.error("[lia-assign] enrichment-route: updateExistingDeal failed:", e);
     }
