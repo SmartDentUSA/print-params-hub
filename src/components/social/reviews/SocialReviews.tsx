@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Star, Loader2, Play } from "lucide-react";
+import { Star, Loader2, Play, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
