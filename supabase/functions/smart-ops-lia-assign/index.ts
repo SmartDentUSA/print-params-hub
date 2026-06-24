@@ -1879,19 +1879,60 @@ async function executarReativacaoSdrCaptacao(
     if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
   }
 
-  const newDealId = await createNewDeal(
-    apiToken,
-    personId,
-    companyId,
-    lead,
-    PIPELINES.VENDAS,
-    STAGES_VENDAS.SEM_CONTATO,
-    newOwnerId,
-    customFields,
-    leadEmail,
+  // ── Trava atômica DB-level (defense-in-depth Regra de Ouro) ──
+  const claim = await claimDealCreateSlot(
     supabase,
-    formResponses
+    leadId,
+    personId,
+    `sdr_captacao:${String(lead.form_name ?? "")}`,
   );
+  if (!claim.ok) {
+    console.warn(
+      `[lia-assign] SDR-CAPTAÇÃO: lock_held para lead ${leadId} — abortando criação concorrente`,
+    );
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "deal_create_lock_held",
+        lead_id: leadId,
+        lead_email: leadEmail,
+        details: { stage: "sdr_captacao", person_id: personId },
+      });
+    } catch {}
+    return false;
+  }
+  let newDealId: string | number | null = null;
+  try {
+    // Re-fetch fresh lead.piperun_id (pode ter sido setado por execução concorrente).
+    const { data: freshLead } = await supabase
+      .from("lia_attendances")
+      .select("piperun_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (freshLead?.piperun_id) {
+      console.log(
+        `[lia-assign] SDR-CAPTAÇÃO: lead.piperun_id=${freshLead.piperun_id} já setado (race) → abortando criação`,
+      );
+      await releaseDealCreateSlot(supabase, leadId);
+      return false;
+    }
+    newDealId = await createNewDeal(
+      apiToken,
+      personId,
+      companyId,
+      lead,
+      PIPELINES.VENDAS,
+      STAGES_VENDAS.SEM_CONTATO,
+      newOwnerId,
+      customFields,
+      leadEmail,
+      supabase,
+      formResponses
+    );
+  } finally {
+    await releaseDealCreateSlot(supabase, leadId);
+  }
 
   if (!newDealId) {
     console.error("[lia-assign] SDR-CAPTAÇÃO: falha ao criar novo deal para", leadEmail);
