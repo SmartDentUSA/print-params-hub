@@ -19905,6 +19905,7 @@ export type Database = {
           evo_go_instance_id: string | null
           evo_go_instance_token: string | null
           evolution_api_key: string | null
+          evolution_base_url: string | null
           evolution_group_key_broken_at: string | null
           evolution_instance_name: string | null
           evolution_lid: string | null
@@ -19939,6 +19940,7 @@ export type Database = {
           evo_go_instance_id?: string | null
           evo_go_instance_token?: string | null
           evolution_api_key?: string | null
+          evolution_base_url?: string | null
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
           evolution_lid?: string | null
@@ -19973,6 +19975,7 @@ export type Database = {
           evo_go_instance_id?: string | null
           evo_go_instance_token?: string | null
           evolution_api_key?: string | null
+          evolution_base_url?: string | null
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
           evolution_lid?: string | null
