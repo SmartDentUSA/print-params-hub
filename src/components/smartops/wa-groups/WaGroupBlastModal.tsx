@@ -186,7 +186,6 @@ export function WaGroupBlastModal({
               <WaGroupMultiSelect
                 selectedIds={pickedIds}
                 instanceFilter={instanceFilter}
-                includeNonAdmin
                 onChange={(ids, jids, names) => {
                   setPickedIds(ids); setPickedJids(jids); setPickedNames(names);
                 }}

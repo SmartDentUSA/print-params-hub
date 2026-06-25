@@ -20,11 +20,11 @@ interface Props {
   onChange: (selectedIds: string[], jids: string[], names: string[], totalMembers: number) => void;
   instanceFilter?: string;
   className?: string;
-  /** Quando true, inclui também grupos onde a instância não é admin (uso: blast pontual). */
+  /** @deprecated Mantido por compatibilidade; todos os grupos são sempre exibidos. */
   includeNonAdmin?: boolean;
 }
 
-export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, className, includeNonAdmin = false }: Props) {
+export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, className }: Props) {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -38,7 +38,6 @@ export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, clas
         .select("id, group_jid, name, member_count, instance_name, is_admin")
         .eq("enabled", true)
         .order("name", { ascending: true });
-      if (!includeNonAdmin) q = q.eq("is_admin", true);
       if (instanceFilter) q = q.eq("instance_name", instanceFilter);
       const { data } = await q;
       if (!cancelled) {
@@ -47,7 +46,7 @@ export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, clas
       }
     })();
     return () => { cancelled = true; };
-  }, [instanceFilter, includeNonAdmin]);
+  }, [instanceFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,7 +97,7 @@ export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, clas
         <div className="space-y-1.5">{[1, 2, 3].map(i => <Skeleton key={i} className="h-8" />)}</div>
       ) : filtered.length === 0 ? (
         <p className="text-xs text-muted-foreground italic text-center py-6">
-          {includeNonAdmin ? "Nenhum grupo encontrado." : "Nenhum grupo elegível (admin + ativado)."}
+          Nenhum grupo encontrado.
         </p>
       ) : (
         <>
@@ -119,7 +118,7 @@ export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, clas
                 >
                   <Checkbox checked={checked} onCheckedChange={() => toggle(g.id)} />
                   <span className="flex-1 truncate">{g.name ?? "Sem nome"}</span>
-                  {includeNonAdmin && g.is_admin === false && (
+                  {g.is_admin === false && (
                     <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-700 dark:text-amber-400">
                       não admin
                     </Badge>

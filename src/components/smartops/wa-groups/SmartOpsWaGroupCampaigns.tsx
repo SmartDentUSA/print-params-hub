@@ -271,7 +271,6 @@ export function SmartOpsWaGroupCampaigns() {
     // IDs de grupos que já fazem parte de uma régua compartilhada — devem sair da lista principal
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
     const base = rows.filter(r =>
-      r.is_admin &&
       !sharedIds.has(r.group_id) &&
       (view === "enabled" ? r.enabled : !r.enabled)
     );
@@ -285,11 +284,11 @@ export function SmartOpsWaGroupCampaigns() {
 
   const enabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && r.enabled).length;
+    return rows.filter(r => !sharedIds.has(r.group_id) && r.enabled).length;
   }, [rows, sharedCampaigns]);
   const disabledCount = useMemo(() => {
     const sharedIds = new Set(sharedCampaigns.flatMap(c => c.group_ids));
-    return rows.filter(r => r.is_admin && !sharedIds.has(r.group_id) && !r.enabled).length;
+    return rows.filter(r => !sharedIds.has(r.group_id) && !r.enabled).length;
   }, [rows, sharedCampaigns]);
 
   const openEditGroups = (c: { id: string; name: string; status: string; group_ids: string[] }) => {
@@ -559,13 +558,12 @@ export function SmartOpsWaGroupCampaigns() {
       ) : (
         <div className={`space-y-3 ${selectionMode ? "pb-24" : ""}`}>
           {filtered.map(row => {
-            const disabled = !row.is_admin;
             const hasCampaign = !!row.campaign_id;
             const progress = row.total_nodes && row.total_nodes > 0
               ? Math.round(((row.current_node_index ?? 0) / row.total_nodes) * 100)
               : 0;
             const isSelected = selectedIds.includes(row.group_id);
-            const canSelect = row.is_admin && row.enabled;
+            const canSelect = row.enabled;
             const dimmed = !row.enabled;
             return (
               <Card
@@ -685,7 +683,6 @@ export function SmartOpsWaGroupCampaigns() {
                             <Button
                               size="sm"
                               variant={hasCampaign ? "outline" : "default"}
-                              disabled={disabled}
                               onClick={() => {
                                 setBuilderGroupId(row.group_id);
                                 setBuilderCampaignId(row.campaign_id);
@@ -696,7 +693,6 @@ export function SmartOpsWaGroupCampaigns() {
                             </Button>
                           </span>
                         </TooltipTrigger>
-                        {disabled && <TooltipContent>Somente grupos onde somos admin</TooltipContent>}
                       </Tooltip>
                       {hasCampaign && (
                         <>
