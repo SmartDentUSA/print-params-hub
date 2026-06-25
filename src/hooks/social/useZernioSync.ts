@@ -10,30 +10,16 @@ export function useZernioSync() {
   const sync = async () => {
     setSyncing(true);
     try {
-      const [metricsRes, accountsRes] = await Promise.all([
-        supabase.functions.invoke('zernio-metrics-sync', { body: {} }),
-        supabase.functions.invoke('zernio-accounts-sync', { body: {} }),
-      ]);
-      if (metricsRes.error) throw metricsRes.error;
-      if (accountsRes.error) throw accountsRes.error;
-      const postsCount =
-        (metricsRes.data as any)?.updated ??
-        (metricsRes.data as any)?.synced ??
-        (metricsRes.data as any)?.count ?? 0;
-      const accountsCount = (accountsRes.data as any)?.synced ?? 0;
-      toast.success(`${postsCount} posts atualizados • ${accountsCount} contas`);
-      qc.invalidateQueries({ queryKey: ['social-posts-bank'] });
-      qc.invalidateQueries({ queryKey: ['social-metrics'] });
-      qc.invalidateQueries({ queryKey: ['social-calendar-posts'] });
-      qc.invalidateQueries({ queryKey: ['social-analytics'] });
-      qc.invalidateQueries({ queryKey: ['social-zernio-accounts'] });
+      const { data, error } = await supabase.functions.invoke('social-posts-sync', { method: 'POST' });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.message || 'Resposta inesperada da função de sincronização');
+      const upserted = Number(data?.upserted ?? 0);
+      toast.success(`${upserted} post${upserted === 1 ? '' : 's'} sincronizado${upserted === 1 ? '' : 's'}`);
+      await qc.invalidateQueries({ queryKey: ['social-posts-bank'] });
+      await qc.refetchQueries({ queryKey: ['social-posts-bank'] });
     } catch (err: any) {
       const msg = String(err?.message ?? err);
-      if (msg.includes('ZERNIO_API_KEY') || msg.includes('401') || msg.includes('unauthorized')) {
-        toast.error('Configure ZERNIO_API_KEY em Settings → Edge Functions → Secrets');
-      } else {
-        toast.error(`Erro ao sincronizar: ${msg}`);
-      }
+      toast.error(`Erro ao sincronizar: ${msg}`);
     } finally {
       setSyncing(false);
     }
