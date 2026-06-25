@@ -683,7 +683,6 @@ export function SmartOpsWaGroupCampaigns() {
                             <Button
                               size="sm"
                               variant={hasCampaign ? "outline" : "default"}
-                              disabled={disabled}
                               onClick={() => {
                                 setBuilderGroupId(row.group_id);
                                 setBuilderCampaignId(row.campaign_id);
@@ -694,7 +693,6 @@ export function SmartOpsWaGroupCampaigns() {
                             </Button>
                           </span>
                         </TooltipTrigger>
-                        {disabled && <TooltipContent>Somente grupos onde somos admin</TooltipContent>}
                       </Tooltip>
                       {hasCampaign && (
                         <>
