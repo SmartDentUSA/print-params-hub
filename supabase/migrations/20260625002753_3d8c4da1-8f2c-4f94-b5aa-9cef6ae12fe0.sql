@@ -1,0 +1,1 @@
+GRANT SELECT ON public.social_posts TO anon, authenticated; GRANT ALL ON public.social_posts TO service_role;
