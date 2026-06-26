@@ -24,6 +24,23 @@ interface HealthLog {
   resolved_at: string | null;
 }
 
+export function SmartOpsSystemHealth() {
+  return (
+    <Tabs defaultValue="check" className="space-y-3">
+      <TabsList>
+        <TabsTrigger value="check">Check</TabsTrigger>
+        <TabsTrigger value="logs">Logs</TabsTrigger>
+      </TabsList>
+      <TabsContent value="check">
+        <SystemHealthCheck />
+      </TabsContent>
+      <TabsContent value="logs">
+        <SmartOpsSystemHealthLogs />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 function SmartOpsSystemHealthLogs() {
   const [logs, setLogs] = useState<HealthLog[]>([]);
   const [loading, setLoading] = useState(true);
