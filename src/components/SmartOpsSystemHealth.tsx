@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, RefreshCw, Play, AlertTriangle, CheckCircle, Clock, Brain } from "lucide-react";
 import { SystemHealthCheck } from "@/components/smartops/SystemHealthCheck";
+import { EdgeFunctionsCatalog } from "@/components/smartops/EdgeFunctionsCatalog";
+import { IncomingDataPanel } from "@/components/smartops/IncomingDataPanel";
 
 interface HealthLog {
   id: string;
@@ -29,10 +31,18 @@ export function SmartOpsSystemHealth() {
     <Tabs defaultValue="check" className="space-y-3">
       <TabsList>
         <TabsTrigger value="check">Check</TabsTrigger>
+        <TabsTrigger value="incoming">Entradas</TabsTrigger>
+        <TabsTrigger value="functions">Funções</TabsTrigger>
         <TabsTrigger value="logs">Logs</TabsTrigger>
       </TabsList>
       <TabsContent value="check">
         <SystemHealthCheck />
+      </TabsContent>
+      <TabsContent value="incoming">
+        <IncomingDataPanel />
+      </TabsContent>
+      <TabsContent value="functions">
+        <EdgeFunctionsCatalog />
       </TabsContent>
       <TabsContent value="logs">
         <SmartOpsSystemHealthLogs />
