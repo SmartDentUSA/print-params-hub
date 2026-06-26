@@ -1,78 +1,54 @@
 ## Objetivo
 
-Criar uma visão única dentro de **Smart Ops → Saúde do Sistema** que mostre em lista TODAS as integrações do sistema (APIs externas, webhooks de entrada, endpoints/edge functions, arquivos de SEO) com badge de status, volume das últimas 24h e timestamp do último evento. Um cron roda diariamente às 00:00 e atualiza os status.
+Completar `system_integration_registry` com TODAS as conexões externas e implementar ping HTTP real para serviços sem tabela de log local.
 
-## Estrutura visual
+## Novas entradas no registry
 
-Transformar `SmartOpsSystemHealth.tsx` em um container com `Tabs`:
+Inserir via `INSERT` (data, não schema) na `system_integration_registry`:
 
-- **Logs** (conteúdo atual de erros/watchdog) — mantido
-- **Check** (NOVO) — inventário consolidado
+**Webhooks IN (já existem, manter):** Meta, PipeRun, Sellflux, Loja Integrada, Astron, Evolution, tldv.
 
-A aba "Check" terá:
+**APIs OUT — adicionar:**
+| key | label | category | check_type | endpoint |
+|---|---|---|---|---|
+| `api_evolution_agg` | Evolution WA (agregado todas instâncias) | api_out | http_ping | `GET {base}/instance/connectionState/{name}` por instância em `team_members` — agrega worst-status |
+| `api_evolution_go` | EvolutionGo (Danilo-Henrique :8081) | api_out | http_ping | `GET {evo_go_base}/instance/fetchInstances` header `apikey` |
+| `api_zernio` | Zernio (Instagram/Facebook) | api_out | http_ping | endpoint `/me` ou healthcheck Zernio + contagem `social_zernio_accounts` ativas |
+| `api_google_business` | Google Business Profile (reviews) | api_out | http_ping | `GET mybusinessaccountmanagement.googleapis.com/v1/accounts` com refresh token; expõe "token revogado" |
+| `api_google_indexing` | Google Indexing API | api_out | log_count | `google_indexing_log` |
+| `api_meta_capi` | Meta Conversions API | api_out | log_count | `meta_capi_event_log` |
+| `api_pandavideo` | Pandavideo | api_out | http_ping | `GET api-v2.pandavideo.com.br/videos?limit=1` |
+| `api_canva` | Canva Connect | api_out | http_ping | `GET api.canva.com/rest/v1/users/me` |
+| `api_involve_me` | Involve.me forms | api_out | log_count | `involve_me_sync_control` |
+| `api_drive_kb` | Google Drive (KB sync) | api_out | log_count | `drive_kb_sync_log` |
+| `api_tldv_out` | tldv API (fetch meetings) | api_out | log_count | `tldv_meetings` |
+| `api_lovable_ai_deepseek` | Lovable AI Gateway — DeepSeek | api_out | http_ping | `POST /v1/chat/completions` ping mínimo modelo deepseek |
+| `api_lovable_ai_gemini` | Lovable AI Gateway — Gemini | api_out | http_ping | mesmo gateway, modelo gemini-flash-lite |
 
-1. **Header com 4 KPIs**: Total integrações, OK, Degradadas, Down, + botão "Rodar Check Agora".
-2. **Seções (cards agrupados)**:
-   - **Webhooks de entrada** — Meta Leads, PipeRun, Sellflux, Loja Integrada, Astron, Manychat, Evolution WhatsApp, tldv
-   - **APIs externas (saída)** — PipeRun, Omie, Sellflux, Loja Integrada, Evolution (por instância), Google Business Profile, Meta CAPI, OpenAI/Lovable AI Gateway, PandaVideo, Canva
-   - **Edge Functions críticas** — smart-ops-ingest-lead, smart-ops-lia-assign, smart-ops-piperun-webhook, wa-dispatcher, wa-group-blast, smart-ops-cron-watchdog, etc.
-   - **SEO / Bots** — `/robots.txt`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/sitemap-index.xml`, video sitemap, bot middleware
-3. **Cada linha mostra**:
-   - Nome + tipo (webhook/api/edge/seo)
-   - Badge de status: 🟢 OK / 🟡 Degradado (>1h sem evento esperado, latência alta, ou erro pontual) / 🔴 Down (sem resposta no último check) / ⚪ Inativo
-   - Volume últimas 24h (n eventos / n requests)
-   - Último recebimento OU último envio (timestamp relativo: "há 3 min")
-   - Latência média (quando aplicável)
-   - HTTP status do último check
+**SEO assets (já existem ou adicionar):** robots.txt, sitemap.xml, llms.txt, llms-full.txt.
 
-## Backend
+## Mudanças na edge `smart-ops-integration-check`
 
-### Tabela `system_integration_registry`
-Catálogo declarativo de integrações (seed inicial via migration). Colunas: `id`, `key`, `label`, `category` (webhook_in|api_out|edge_function|seo_asset), `check_type` (http_get|edge_invoke|log_count|file_exists), `target_url`, `expected_status`, `volume_source_table`, `volume_source_column`, `enabled`.
+Adicionar handlers por `check_type`:
+- `http_ping` (novo): faz fetch ao `target_url`/endpoint configurado com headers do secret; mede latência; grava `status` (ok < 800ms, degraded < 3s, down) + `latency_ms` + `http_status` em `system_integration_checks`.
+- `evolution_aggregate` (novo): itera `team_members WHERE evolution_instance_name IS NOT NULL`, pinga cada uma, agrega worst-case; salva detail JSONB com lista por instância.
+- `log_count` (existente): mantém.
 
-### Tabela `system_integration_checks`
-Resultado de cada execução do check. Colunas: `id`, `integration_key`, `checked_at`, `status` (ok|degraded|down|inactive), `http_status`, `latency_ms`, `volume_24h`, `last_event_at`, `error_message`.
+Secrets já configurados serão reutilizados (EVO_KEY, EVOLUTION_GO_KEY, GOOGLE_OAUTH_*, PANDAVIDEO_API_KEY, CANVA_*, LOVABLE_API_KEY, etc.). Se faltar algum, função grava `status=inactive` + `error_message=secret_missing` (não quebra o cron).
 
-Indexada por `(integration_key, checked_at desc)` para a UI buscar sempre o mais recente.
+## Mudanças no frontend
 
-### Edge function `smart-ops-integration-check`
-- Itera registry, para cada item executa o check correspondente:
-  - **http_get**: HEAD/GET no `target_url`, mede latência e status
-  - **edge_invoke**: invoca a edge function com payload `{ healthcheck: true }`
-  - **log_count**: conta linhas em `volume_source_table` nas últimas 24h e pega `max(created_at)`
-  - **file_exists**: GET no asset SEO público
-- Insere uma linha em `system_integration_checks`.
-- Calcula status com regras simples:
-  - down: http ≥ 500 ou timeout
-  - degraded: http 4xx, latência > 3s, ou `last_event_at` > threshold da integração
-  - ok: 2xx + dentro do threshold
-  - inactive: `enabled=false`
+`SystemHealthCheck.tsx`:
+- Adicionar coluna "Latência" (ms) quando `check_type=http_ping`.
+- Para Evolution agregado: card expansível listando status por instância (vem do JSONB `detail`).
+- Badge extra "Token revogado" quando `error_message` contém `invalid_grant` (Google).
 
-### Cron diário
-`pg_cron` às 00:00 UTC chamando `smart-ops-integration-check` via `net.http_post`. Botão "Rodar agora" na UI invoca a mesma função on-demand.
+Sem mudança de schema — `system_integration_registry` e `system_integration_checks` já têm `notes`/JSONB suficientes.
 
-## Frontend
+## Verificação
 
-- `SmartOpsSystemHealth.tsx` vira wrapper com `<Tabs>`: "Check" (default) e "Logs" (componente atual extraído para `SmartOpsSystemHealthLogs.tsx`).
-- Novo `src/components/smartops/SystemHealthCheck.tsx`:
-  - Hook que faz join: `system_integration_registry LEFT JOIN LATERAL system_integration_checks` (último por key)
-  - Realtime na tabela `system_integration_checks`
-  - Renderiza por categoria com `Card` + `Table`, badges padrão shadcn, ícones lucide
-  - Botão "Rodar Check Agora" → `supabase.functions.invoke('smart-ops-integration-check')`
-
-## Detalhes técnicos
-
-- **Sem novos secrets**: usa `SUPABASE_SERVICE_ROLE_KEY` interno e URLs públicas para SEO assets.
-- **GRANTs**: `registry` SELECT para `authenticated`; `checks` SELECT para `authenticated`, ALL para `service_role`.
-- **RLS**: habilitar e dar SELECT só a `authenticated` (admin já protege a rota).
-- **Seed inicial**: ~25-30 integrações catalogadas conforme as 4 seções acima.
-- **Sem mexer em `system_health_logs`** nem na aba Logs existente — apenas refatoração de arquivo.
-- **Sem alterar regras de negócio** (Golden Rule, lia-assign, etc.) — esta entrega é puramente observability.
-
-## Entregáveis
-
-1. Migration: 2 tabelas + GRANTs/RLS + seed + cron job
-2. Edge function `smart-ops-integration-check`
-3. `SmartOpsSystemHealthLogs.tsx` (extração do código atual)
-4. `SmartOpsSystemHealth.tsx` reescrito como Tabs wrapper
-5. `SystemHealthCheck.tsx` (novo componente da aba Check)
+Após inserts: clicar "Rodar Check Agora", confirmar:
+- Todas linhas novas aparecem agrupadas por categoria.
+- EvolutionGo retorna ok (porta 8081 com apikey).
+- Google Business retorna "Token expirado" (esperado conforme contexto anterior).
+- Latências razoáveis.
