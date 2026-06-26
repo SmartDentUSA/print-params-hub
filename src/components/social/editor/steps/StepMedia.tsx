@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { MediaItemsEditor } from '../MediaItemsEditor';
+import { MediaCompatibilityPanel } from '../MediaCompatibilityPanel';
 import type { PostInput } from '@/lib/social/postSchema';
 import { presetForPlatform, IMAGE_PRESETS, type ImagePresetId } from '@/lib/social/imagePresets';
 import {
@@ -408,6 +409,11 @@ export function StepMedia({
           hint="Imagens ou vídeos (até 100MB cada)"
           onSplitIntoPosts={onSplitIntoPosts}
         />
+        {value.media_items.length > 0 && value.channels.length > 0 && (
+          <div className="mt-3">
+            <MediaCompatibilityPanel value={value} />
+          </div>
+        )}
       </div>
 
       {selectedPlatforms.length > 1 && (
