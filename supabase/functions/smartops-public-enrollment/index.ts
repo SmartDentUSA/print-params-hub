@@ -14,6 +14,27 @@ const BodySchema = z.object({
   email: z.string().trim().email().max(255),
   telefone: z.string().trim().min(10).max(20),
   is_client_smartdent: z.boolean().optional(),
+  qualification: z
+    .object({
+      form_id: z.string().uuid().optional(),
+      form_name: z.string().optional(),
+      db_columns: z.record(z.any()).optional(),
+      custom_fields: z.record(z.any()).optional(),
+      form_responses: z
+        .array(z.object({ label: z.string(), value: z.string() }))
+        .optional(),
+      workflow_responses: z
+        .array(
+          z.object({
+            field_id: z.string().uuid(),
+            field_label: z.string(),
+            value: z.string(),
+            workflow_cell_target: z.string(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
 function normalizePhone(raw: string): string {
@@ -103,27 +124,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    const formName = `Inscrição — ${course.title}`;
+    // Origin label for the Deal in PipeRun: prefix `#` keeps it filterable
+    // alongside the other form-based origins (e.g. `# - FORMS - ...`).
+    const formName = body.qualification?.form_name ?? `# - ${course.title}`;
     const productNames: string[] = Array.isArray(course.related_product_names)
       ? (course.related_product_names as string[])
       : [];
 
-    // 4. Enrich existing lead OR create new via ingest function
-    if (!leadId) {
-      const ingestPayload = {
+    // 4. Always run through ingest so a Deal is created on the VENDAS pipeline
+    // when the user is not yet a client. The course's related products are the
+    // source of truth for `produto_interesse_auto` and Workflow 7×3 cells.
+    {
+      const q = body.qualification ?? {};
+      const ingestPayload: Record<string, any> = {
         source: "course_enrollment_public",
         form_name: formName,
+        form_purpose: "sdr_captacao",
         nome: body.nome,
         email,
         telefone: phone,
-        origem_primeiro_contato: "Inscrição Curso",
+        origem_primeiro_contato: formName,
+        // Course's first related product overrides any inference
         produto_interesse_auto: productNames[0] ?? null,
+        // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
+        ...(q.db_columns ?? {}),
+        form_responses: q.form_responses ?? [],
       };
+      const customFields = { ...(q.custom_fields ?? {}) };
+      if (Object.keys(customFields).length > 0) {
+        ingestPayload.raw_payload = { custom_fields: customFields };
+      }
       try {
         const { data: ingestRes } = await supabase.functions.invoke("smart-ops-ingest-lead", {
           body: ingestPayload,
         });
-        leadId = (ingestRes as any)?.lead_id ?? (ingestRes as any)?.id ?? null;
+        const ingestedId = (ingestRes as any)?.lead_id ?? (ingestRes as any)?.id ?? null;
+        if (ingestedId) leadId = ingestedId;
       } catch (e) {
         console.warn("[ingest-lead]", e);
       }
@@ -135,7 +171,7 @@ Deno.serve(async (req) => {
             nome: body.nome,
             email,
             telefone: phone,
-            origem_primeiro_contato: "Inscrição Curso",
+            origem_primeiro_contato: formName,
             form_name: formName,
             produto_interesse_auto: productNames[0] ?? null,
           })
@@ -143,19 +179,6 @@ Deno.serve(async (req) => {
           .single();
         leadId = inserted?.id ?? null;
       }
-    } else {
-      // Best-effort enrichment (never overwrites origin)
-      await supabase
-        .from("lia_attendances")
-        .update({
-          nome: body.nome,
-          email,
-          telefone: phone,
-          produto_interesse_auto: productNames[0] ?? null,
-        })
-        .eq("id", leadId)
-        .is("merged_into", null)
-        .then(() => {}, (e) => console.warn("[enrich]", e));
     }
 
     if (!leadId) {
@@ -163,6 +186,40 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 4b. Persist Workflow 7×3 mapping responses (used by SDR mapping panel).
+    // The course's related products are the source of truth — the user-facing
+    // answer (model owned) is appended for context.
+    const wfResponses = body.qualification?.workflow_responses ?? [];
+    if (wfResponses.length > 0 && body.qualification?.form_id) {
+      const productSummary = productNames.length > 0 ? productNames.join(", ") : null;
+      const rows = wfResponses.map((r) => ({
+        form_id: body.qualification!.form_id!,
+        field_id: r.field_id,
+        lead_id: leadId!,
+        value: productSummary ? `${productSummary} · resposta: ${r.value}` : r.value,
+        workflow_cell_target: r.workflow_cell_target,
+        field_label: r.field_label,
+      }));
+      await supabase
+        .from("smartops_form_field_responses")
+        .insert(rows)
+        .then(() => {}, (e) => console.warn("[wf-responses]", e));
+    }
+
+    // 4c. Fire-and-forget: post a "Resumo do Lead" note on the PipeRun deal
+    // mirroring the standard form ingest behaviour.
+    if ((body.qualification?.form_responses?.length ?? 0) > 0) {
+      supabase.functions
+        .invoke("smart-ops-deal-form-note", {
+          body: {
+            lead_id: leadId,
+            form_name: formName,
+            responses: body.qualification!.form_responses,
+          },
+        })
+        .catch((err) => console.warn("[deal-form-note]", err));
     }
 
     // 5. Conversion history
