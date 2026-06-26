@@ -19895,6 +19895,105 @@ export type Database = {
         }
         Relationships: []
       }
+      system_integration_checks: {
+        Row: {
+          checked_at: string
+          details: Json | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          integration_key: string
+          last_event_at: string | null
+          latency_ms: number | null
+          status: string
+          volume_24h: number | null
+        }
+        Insert: {
+          checked_at?: string
+          details?: Json | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          integration_key: string
+          last_event_at?: string | null
+          latency_ms?: number | null
+          status: string
+          volume_24h?: number | null
+        }
+        Update: {
+          checked_at?: string
+          details?: Json | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          integration_key?: string
+          last_event_at?: string | null
+          latency_ms?: number | null
+          status?: string
+          volume_24h?: number | null
+        }
+        Relationships: []
+      }
+      system_integration_registry: {
+        Row: {
+          category: string
+          check_type: string
+          created_at: string
+          display_order: number
+          edge_function_name: string | null
+          enabled: boolean
+          expected_status: number | null
+          id: string
+          key: string
+          label: string
+          notes: string | null
+          stale_after_minutes: number | null
+          target_url: string | null
+          updated_at: string
+          volume_source_column: string | null
+          volume_source_filter: Json | null
+          volume_source_table: string | null
+        }
+        Insert: {
+          category: string
+          check_type: string
+          created_at?: string
+          display_order?: number
+          edge_function_name?: string | null
+          enabled?: boolean
+          expected_status?: number | null
+          id?: string
+          key: string
+          label: string
+          notes?: string | null
+          stale_after_minutes?: number | null
+          target_url?: string | null
+          updated_at?: string
+          volume_source_column?: string | null
+          volume_source_filter?: Json | null
+          volume_source_table?: string | null
+        }
+        Update: {
+          category?: string
+          check_type?: string
+          created_at?: string
+          display_order?: number
+          edge_function_name?: string | null
+          enabled?: boolean
+          expected_status?: number | null
+          id?: string
+          key?: string
+          label?: string
+          notes?: string | null
+          stale_after_minutes?: number | null
+          target_url?: string | null
+          updated_at?: string
+          volume_source_column?: string | null
+          volume_source_filter?: Json | null
+          volume_source_table?: string | null
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           ativo: boolean
@@ -22815,6 +22914,29 @@ export type Database = {
             referencedColumns: ["person_id"]
           },
         ]
+      }
+      system_integration_status: {
+        Row: {
+          category: string | null
+          check_type: string | null
+          display_order: number | null
+          edge_function_name: string | null
+          enabled: boolean | null
+          error_message: string | null
+          http_status: number | null
+          id: string | null
+          key: string | null
+          label: string | null
+          last_checked_at: string | null
+          last_event_at: string | null
+          latency_ms: number | null
+          notes: string | null
+          stale_after_minutes: number | null
+          status: string | null
+          target_url: string | null
+          volume_24h: number | null
+        }
+        Relationships: []
       }
       v_automacoes_lia_metricas: {
         Row: {

@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, RefreshCw, Play, AlertTriangle, CheckCircle, Clock, Brain } from "lucide-react";
+import { SystemHealthCheck } from "@/components/smartops/SystemHealthCheck";
 
 interface HealthLog {
   id: string;
@@ -23,6 +25,23 @@ interface HealthLog {
 }
 
 export function SmartOpsSystemHealth() {
+  return (
+    <Tabs defaultValue="check" className="space-y-3">
+      <TabsList>
+        <TabsTrigger value="check">Check</TabsTrigger>
+        <TabsTrigger value="logs">Logs</TabsTrigger>
+      </TabsList>
+      <TabsContent value="check">
+        <SystemHealthCheck />
+      </TabsContent>
+      <TabsContent value="logs">
+        <SmartOpsSystemHealthLogs />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function SmartOpsSystemHealthLogs() {
   const [logs, setLogs] = useState<HealthLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningWatchdog, setRunningWatchdog] = useState(false);
