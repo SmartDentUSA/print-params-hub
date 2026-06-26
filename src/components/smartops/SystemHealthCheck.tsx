@@ -184,7 +184,16 @@ export function SystemHealthCheck() {
                         <TableCell>
                           <div className="font-medium text-sm">{r.label}</div>
                           {r.notes && <div className="text-xs text-muted-foreground">{r.notes}</div>}
-                          {r.error_message && <div className="text-xs text-red-600 truncate max-w-[280px]" title={r.error_message}>{r.error_message}</div>}
+                          {r.error_message && (
+                            <div
+                              className="text-xs text-red-600 truncate max-w-[280px]"
+                              title={typeof r.error_message === "string" ? r.error_message : JSON.stringify(r.error_message)}
+                            >
+                              {typeof r.error_message === "string"
+                                ? r.error_message
+                                : JSON.stringify(r.error_message).slice(0, 200)}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{statusBadge(r.status)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{r.volume_24h ?? "—"}</TableCell>

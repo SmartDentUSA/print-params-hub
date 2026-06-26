@@ -4786,6 +4786,54 @@ export type Database = {
           },
         ]
       }
+      edge_function_catalog: {
+        Row: {
+          avg_latency_ms: number | null
+          category: string
+          deprecated: boolean
+          docs_url: string | null
+          errors_24h: number | null
+          function_name: string
+          id: string
+          invocations_24h: number | null
+          is_critical: boolean
+          last_invocation_at: string | null
+          summary: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          avg_latency_ms?: number | null
+          category: string
+          deprecated?: boolean
+          docs_url?: string | null
+          errors_24h?: number | null
+          function_name: string
+          id?: string
+          invocations_24h?: number | null
+          is_critical?: boolean
+          last_invocation_at?: string | null
+          summary: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          avg_latency_ms?: number | null
+          category?: string
+          deprecated?: boolean
+          docs_url?: string | null
+          errors_24h?: number | null
+          function_name?: string
+          id?: string
+          invocations_24h?: number | null
+          is_critical?: boolean
+          last_invocation_at?: string | null
+          summary?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       enrichment_safety_queue: {
         Row: {
           attempt_count: number
