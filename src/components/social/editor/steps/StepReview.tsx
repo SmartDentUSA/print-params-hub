@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SOCIAL_CHANNELS } from '@/lib/socialChannels';
 import type { PostInput } from '@/lib/social/postSchema';
+import { MediaCompatibilityPanel } from '../MediaCompatibilityPanel';
 
 export function StepReview({ value }: { value: PostInput }) {
   const images = value.media_items.filter((m) => m.type === 'image').length;
@@ -45,6 +46,9 @@ export function StepReview({ value }: { value: PostInput }) {
           <span className="flex items-center gap-1"><ImageIcon className="w-4 h-4" /> {images} imagem(ns)</span>
           <span className="flex items-center gap-1"><Video className="w-4 h-4" /> {videos} vídeo(s)</span>
         </div>
+        {value.media_items.length > 0 && value.channels.length > 0 && (
+          <MediaCompatibilityPanel value={value} />
+        )}
       </div>
 
       <div className="border rounded-md p-4 space-y-2">
