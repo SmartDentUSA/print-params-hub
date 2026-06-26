@@ -373,7 +373,6 @@ function NpsForm({
   const [satisf, setSatisf] = useState(0);
   const [train, setTrain] = useState(0);
   const [rec, setRec] = useState(0);
-  const [email, setEmail] = useState(defaultEmail);
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -387,7 +386,7 @@ function NpsForm({
       const { error } = await supabase.functions.invoke("smartops-public-nps", {
         body: {
           enrollment_id: enrollmentId,
-          email,
+          email: defaultEmail,
           score_satisfacao: satisf,
           score_treinamentos: train,
           score_recomendacao: rec,
@@ -412,10 +411,6 @@ function NpsForm({
       <NpsQuestion label="Até o momento qual o nível de satisfação com a Smart Dent?" value={satisf} onChange={setSatisf} />
       <NpsQuestion label="Como você classifica a qualidade dos treinamentos recebidos até o momento?" value={train} onChange={setTrain} />
       <NpsQuestion label="Qual a probabilidade de você recomendar a Smart Dent para um colega?" value={rec} onChange={setRec} />
-      <div>
-        <Label>Seu e-mail</Label>
-        <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
-      </div>
       <div>
         <Label>Comentário (opcional)</Label>
         <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
