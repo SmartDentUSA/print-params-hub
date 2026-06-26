@@ -5,12 +5,15 @@ import type { MediaAspect } from '@/lib/social/mediaCompat';
  * Carrega dimensões (width/height) de cada URL de imagem.
  * Vídeos são ignorados (mantém-se sem aspect detectado).
  */
-export function useMediaAspects(items: Array<{ url: string; type?: string }>): MediaAspect[] {
+export function useMediaAspects(items: Array<{ url?: string; type?: string }>): MediaAspect[] {
   const [aspects, setAspects] = useState<MediaAspect[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    const imageItems = items.filter((m) => (m.type ?? 'image').startsWith('image') && !!m.url);
+    const imageItems = items.filter(
+      (m): m is { url: string; type?: string } =>
+        !!m.url && (m.type ?? 'image').startsWith('image'),
+    );
     if (imageItems.length === 0) {
       setAspects([]);
       return;
