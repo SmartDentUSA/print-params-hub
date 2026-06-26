@@ -284,7 +284,7 @@ async function checkSpecial(
     case "api_lovable_ai_gemini": {
       const apiKey = Deno.env.get("LOVABLE_API_KEY");
       if (!apiKey) return { status: "inactive", error_message: "LOVABLE_API_KEY ausente" };
-      const model = key === "api_lovable_ai_gemini" ? "google/gemini-2.5-flash-lite" : "deepseek/deepseek-chat-v3.1";
+      const model = key === "api_lovable_ai_gemini" ? "google/gemini-2.5-flash-lite" : "google/gemini-2.5-flash";
       const r = await pingHttp("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
