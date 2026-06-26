@@ -9,6 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Star, CheckCircle2 } from "lucide-react";
+import {
+  QualificationFormInline,
+  type QualificationSubmitPayload,
+} from "@/components/forms/QualificationFormInline";
+
+const QUALIFICATION_FORM_SLUG = "curso-online-qualificacao";
 
 type Course = {
   id: string;
@@ -79,7 +85,9 @@ export default function PublicCourseEnrollment() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // After submit
-  const [phase, setPhase] = useState<"form" | "ask_client" | "nps" | "done">("form");
+  const [phase, setPhase] = useState<
+    "form" | "ask_client" | "qualify" | "nps" | "done"
+  >("form");
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [showNps, setShowNps] = useState(false);
 
@@ -116,7 +124,10 @@ export default function PublicCourseEnrollment() {
     })();
   }, [slug]);
 
-  async function submitEnrollment(isClient: boolean | null) {
+  async function submitEnrollment(
+    isClient: boolean | null,
+    qualification?: QualificationSubmitPayload,
+  ) {
     const parsed = formSchema.safeParse(form);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
@@ -138,13 +149,16 @@ export default function PublicCourseEnrollment() {
           email: form.email,
           telefone: form.telefone,
           is_client_smartdent: isClient ?? undefined,
+          qualification: qualification ?? undefined,
         },
       });
       if (error) throw error;
       const res = data as { ok: boolean; enrollment_id: string; show_nps: boolean };
       setEnrollmentId(res.enrollment_id);
       setShowNps(res.show_nps);
-      setPhase(res.show_nps ? "nps" : "done");
+      // Non-clients went through the qualification form already, skip NPS.
+      const goNps = isClient === true && res.show_nps;
+      setPhase(goNps ? "nps" : "done");
       toast({ title: "Inscrição confirmada!", description: "Em breve você receberá os detalhes no WhatsApp." });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message ?? "Falha ao inscrever.", variant: "destructive" });
@@ -298,10 +312,27 @@ export default function PublicCourseEnrollment() {
                   >
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sim, sou cliente"}
                   </Button>
-                  <Button disabled={submitting} onClick={() => submitEnrollment(false)}>
+                  <Button disabled={submitting} onClick={() => setPhase("qualify")}>
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ainda não"}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {phase === "qualify" && (
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium">Antes de confirmar sua vaga</p>
+                  <p className="text-sm text-muted-foreground">
+                    Responda algumas perguntas rápidas para personalizarmos seu treinamento.
+                  </p>
+                </div>
+                <QualificationFormInline
+                  slug={QUALIFICATION_FORM_SLUG}
+                  submitLabel="Concluir inscrição"
+                  submitting={submitting}
+                  onSubmit={(payload) => submitEnrollment(false, payload)}
+                />
               </div>
             )}
 
