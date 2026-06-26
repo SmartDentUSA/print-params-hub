@@ -32,6 +32,26 @@ function inferMediaType(url: string): 'image' | 'video' {
   return ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(ext) ? 'video' : 'image';
 }
 
+function extractZernioError(groupErrors: any[]): string {
+  const msgs: string[] = [];
+  for (const ge of groupErrors) {
+    const r = ge?.response;
+    const raw =
+      (typeof r?.error === 'string' && r.error) ||
+      (typeof r?.message === 'string' && r.message) ||
+      (typeof r === 'string' && r) ||
+      JSON.stringify(r ?? ge);
+    let pretty = raw;
+    // Pattern: "Aspect ratio 0.67:1 is outside Instagram's allowed range..."
+    const aspectMatch = /Aspect ratio[^\.]*\./i.exec(raw);
+    if (aspectMatch) {
+      pretty = `${aspectMatch[0]} → A imagem é vertical demais para o Feed. Use Stories/Reels ou recorte para 4:5.`;
+    }
+    msgs.push(`[${ge.group}] ${pretty}`);
+  }
+  return msgs.join(' | ');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -207,7 +227,7 @@ serve(async (req) => {
       }
 
       if (Object.keys(idsMap).length === 0) {
-        throw new Error(`Zernio falhou em todos os grupos: ${JSON.stringify(groupErrors)}`);
+        throw new Error(`Zernio rejeitou a publicação: ${extractZernioError(groupErrors)}`);
       }
 
       await supabase
