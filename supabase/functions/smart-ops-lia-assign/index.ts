@@ -3278,8 +3278,9 @@ Deno.serve(async (req) => {
         }
         if (!piperunId) {
         // ── UNIVERSAL GOLDEN RULE GATE (final, antes de createNewDeal) ──
+        const allDealsForGate = mergeDealsWithLocalHistory(allDeals, lead as Record<string, unknown>);
         const gate = assertCanCreateNewDeal(
-          allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+          allDealsForGate as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
           { force_new_deal: force_new_deal === true },
         );
         if (!gate.allowed && gate.preservedDeal) {
