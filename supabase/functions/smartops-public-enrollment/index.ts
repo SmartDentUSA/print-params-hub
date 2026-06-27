@@ -237,30 +237,63 @@ Deno.serve(async (req) => {
       },
     }).then(() => {}, (e) => console.warn("[conversion]", e));
 
-    // 6. Create enrollment
-    const { data: enrollment, error: eEnroll } = await supabase
-      .from("smartops_course_enrollments")
-      .insert({
-        course_id: course.id,
-        turma_id: turmaId,
-        lead_id: leadId,
-        person_name: body.nome,
-        status: "agendado",
-        enrolled_at: new Date().toISOString(),
-        source: "public",
-        is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
-        public_form_payload: {
-          nome: body.nome,
-          email,
-          telefone: phone,
-          declared_client: body.is_client_smartdent ?? null,
-          ip: req.headers.get("x-forwarded-for"),
-          ua: req.headers.get("user-agent"),
-        },
-      })
-      .select("id")
-      .single();
-    if (eEnroll) throw eEnroll;
+    // 6. Create enrollment (idempotent: reuse active enrollment for same lead+turma)
+    let enrollment: { id: string } | null = null;
+    {
+      const { data: existing } = await supabase
+        .from("smartops_course_enrollments")
+        .select("id")
+        .eq("turma_id", turmaId)
+        .eq("lead_id", leadId)
+        .not("status", "in", "(cancelado,nao_compareceu)")
+        .maybeSingle();
+      if (existing) {
+        enrollment = existing as { id: string };
+      } else {
+        const { data: inserted, error: eEnroll } = await supabase
+          .from("smartops_course_enrollments")
+          .insert({
+            course_id: course.id,
+            turma_id: turmaId,
+            lead_id: leadId,
+            person_name: body.nome,
+            status: "agendado",
+            enrolled_at: new Date().toISOString(),
+            source: "public",
+            is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
+            public_form_payload: {
+              nome: body.nome,
+              email,
+              telefone: phone,
+              declared_client: body.is_client_smartdent ?? null,
+              ip: req.headers.get("x-forwarded-for"),
+              ua: req.headers.get("user-agent"),
+            },
+          })
+          .select("id")
+          .single();
+        if (eEnroll) {
+          // Race condition: another concurrent submit landed first — reuse it
+          if ((eEnroll as any).code === "23505") {
+            const { data: again } = await supabase
+              .from("smartops_course_enrollments")
+              .select("id")
+              .eq("turma_id", turmaId)
+              .eq("lead_id", leadId)
+              .order("enrolled_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            enrollment = (again as { id: string } | null) ?? null;
+            if (!enrollment) throw eEnroll;
+          } else {
+            throw eEnroll;
+          }
+        } else {
+          enrollment = inserted as { id: string };
+        }
+      }
+    }
+    if (!enrollment) throw new Error("enrollment_creation_failed");
 
     // 7. Activity log
     await supabase.from("lead_activity_log").insert({
