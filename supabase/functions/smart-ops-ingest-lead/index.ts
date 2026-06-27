@@ -1045,34 +1045,19 @@ Deno.serve(async (req) => {
     let forcedNewDeal = false;
 
     if (existingLead) {
-      // Regra: novo deal SEMPRE que vier de fonte comercial e lead não está no Funil de Vendas
-      const isInFunilDeVendas = (existingLead?.piperun_pipeline_name || '')
-        .toLowerCase()
-        .includes('funil de vendas');
-
-      const shouldForceNewDeal =
-        NEW_DEAL_SOURCES.has(source) &&
-        formName &&
-        existingLead?.piperun_id &&
-        !isInFunilDeVendas;
-
-      if (shouldForceNewDeal) {
+      // REGRA DE OURO (final): smart-ops-ingest-lead NUNCA zera piperun_id /
+      // piperun_link / proprietario_lead_crm para tentar "forçar" um novo Deal.
+      // Esse caminho era a origem comprovada das reaberturas em "Sem contato"
+      // mesmo com Deals abertos em VENDAS (ex.: Jennifer Samos 26/06, Marlucio
+      // 24/06, Thaís Mendonça 21-23/06). A decisão de criar/preservar Deal é
+      // exclusiva do smart-ops-lia-assign + golden-rule-guard, que vê o estado
+      // REAL do PipeRun. Ingestão só enriquece CDP.
+      if (formName) {
         await supabase.from('lia_attendances').update({
-          piperun_id: null,
-          piperun_link: null,
-          proprietario_lead_crm: null,
           form_name: formName,
           produto_interesse: produtoInteresse || existingLead.produto_interesse,
           source,
         }).eq('id', existingLead.id);
-
-        // Reflete localmente para que merge + deal-form-note enxerguem o estado já zerado
-        existingLead.piperun_id = null;
-        existingLead.piperun_link = null;
-        existingLead.proprietario_lead_crm = null;
-
-        forcedNewDeal = true;
-        console.log(`[ingest-lead] NOVO DEAL: ${existingLead.nome} estava em "${existingLead.piperun_pipeline_name}" → criando deal no Funil de Vendas`);
       }
 
       // --- SMART MERGE using shared lead-enrichment module ---
