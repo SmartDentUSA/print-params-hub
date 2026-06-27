@@ -692,6 +692,52 @@ async function findPersonDealsWithStatus(
 }
 
 /**
+ * Defense-in-depth para a Regra de Ouro: une os deals retornados pelo
+ * PipeRun (que podem vir vazios por throttle/Person duplicada/race) com os
+ * snapshots locais em `lia_attendances.piperun_deals_history`. Garante que
+ * o gate `assertCanCreateNewDeal` SEMPRE veja qualquer VENDAS aberto/recente
+ * conhecido localmente, mesmo quando a API mente.
+ */
+function mergeDealsWithLocalHistory(
+  apiDeals: Array<Record<string, unknown>>,
+  lead: Record<string, unknown> | null | undefined,
+): Array<Record<string, unknown>> {
+  const out = new Map<string, Record<string, unknown>>();
+  for (const d of apiDeals) {
+    const id = String(d.id ?? "").trim();
+    if (id) out.set(id, d);
+  }
+  const history = (lead?.piperun_deals_history as Array<Record<string, unknown>> | undefined) || [];
+  for (const h of history) {
+    const id = String(h.id ?? h.deal_id ?? "").trim();
+    if (!id || out.has(id)) continue;
+    out.set(id, {
+      id,
+      pipeline_id: Number(h.pipeline_id ?? 0),
+      status: Number(h.status ?? 0),
+      freezed: h.freezed === true || h.freezed === 1,
+      created_at: h.created_at,
+      updated_at: h.updated_at ?? h.created_at,
+      _source: "local_history_snapshot",
+    });
+  }
+  // Snapshot do próprio lead.piperun_id se ainda não estiver presente.
+  const cachedId = String((lead?.piperun_id as string | number | undefined) ?? "").trim();
+  if (cachedId && !out.has(cachedId)) {
+    out.set(cachedId, {
+      id: cachedId,
+      pipeline_id: Number(lead?.piperun_pipeline_id ?? PIPELINES.VENDAS),
+      status: 0,
+      freezed: false,
+      updated_at: lead?.updated_at,
+      created_at: lead?.created_at,
+      _source: "local_cached_piperun_id",
+    });
+  }
+  return Array.from(out.values());
+}
+
+/**
  * Build the rich seller PipeRun note (Resumo do Lead + Diagnóstico 7×3 + RAG + Rayshape)
  * with idempotency by hash. Falls back to legacy `buildDealNoteHTML` on failure so
  * we never silently skip posting.
@@ -1833,8 +1879,9 @@ async function executarReativacaoSdrCaptacao(
 
   // ─── GOLDEN RULE: aborta antes de mexer em Estagnados e antes de criar
   // novo Deal em VENDAS se já existe VENDAS aberto/recente.
+  const allDealsForVerdict = mergeDealsWithLocalHistory(allDeals, lead as Record<string, unknown>);
   const verdict = assertCanCreateNewDeal(
-    allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+    allDealsForVerdict as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
     { force_new_deal: false },
   );
   if (!verdict.allowed) {
@@ -3231,8 +3278,9 @@ Deno.serve(async (req) => {
         }
         if (!piperunId) {
         // ── UNIVERSAL GOLDEN RULE GATE (final, antes de createNewDeal) ──
+        const allDealsForGate = mergeDealsWithLocalHistory(allDeals, lead as Record<string, unknown>);
         const gate = assertCanCreateNewDeal(
-          allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+          allDealsForGate as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
           { force_new_deal: force_new_deal === true },
         );
         if (!gate.allowed && gate.preservedDeal) {
