@@ -1879,8 +1879,9 @@ async function executarReativacaoSdrCaptacao(
 
   // ─── GOLDEN RULE: aborta antes de mexer em Estagnados e antes de criar
   // novo Deal em VENDAS se já existe VENDAS aberto/recente.
+  const allDealsForVerdict = mergeDealsWithLocalHistory(allDeals, lead as Record<string, unknown>);
   const verdict = assertCanCreateNewDeal(
-    allDeals as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
+    allDealsForVerdict as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
     { force_new_deal: false },
   );
   if (!verdict.allowed) {
