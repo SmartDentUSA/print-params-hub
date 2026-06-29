@@ -2,6 +2,35 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
+/**
+ * Mirror the manual tech-specs editor output into products_catalog.technical_specifications,
+ * so the public catalog card (KbTabCatalogo) renders the latest edits without waiting
+ * for the Sistema A sync. Matches the products_catalog row by slug (preferred) or name.
+ */
+async function mirrorTechSpecsToProductsCatalog(row: any | null | undefined): Promise<void> {
+  try {
+    if (!row) return;
+    const specs = row?.extra_data?.system_a_live?.technical_specs;
+    if (!Array.isArray(specs)) return;
+    const slug = (row.slug ?? '').trim();
+    const name = (row.name ?? '').trim();
+    if (!slug && !name) return;
+    const base: any = supabase.from('products_catalog').select('id, name, slug');
+    const filtered: any = slug ? base.eq('slug', slug) : base.ilike('name', name);
+    const { data: matches } = await filtered.limit(5);
+    if (!matches?.length) return;
+    const tbl: any = supabase.from('products_catalog');
+    await Promise.all(
+      matches.map((m: any) =>
+        tbl.update({ technical_specifications: specs }).eq('id', m.id)
+      )
+    );
+  } catch (e) {
+    // Não bloquear o save do produto se o mirror falhar.
+    console.warn('[mirrorTechSpecsToProductsCatalog] falhou:', e);
+  }
+}
+
 export interface CatalogProduct {
   id?: string;
   name: string;
@@ -171,6 +200,10 @@ export const useCatalogCRUD = () => {
           body: { table: 'system_a_catalog', id, target: 'es' },
         });
       }
+
+      // Mirror manual tech-specs edits into products_catalog.technical_specifications
+      // so the public card reflects them immediately (sem cron, sem refresh).
+      await mirrorTechSpecsToProductsCatalog(data);
 
       toast({
         title: "Produto atualizado",

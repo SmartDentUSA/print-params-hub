@@ -127,7 +127,8 @@ export function TechnicalSpecsEditor({ value, onChange, externalId, productName 
       )}
       {productName && (
         <p className="text-[10px] text-muted-foreground">
-          As alterações só serão salvas ao clicar em "Salvar" no produto. As specs aparecem no card público (PT) de {productName}.
+          Edições são salvas ao clicar em <strong>Salvar</strong> no produto e aparecem
+          imediatamente no card público (PT) de {productName}. EN/ES traduzem na próxima sync.
         </p>
       )}
     </div>

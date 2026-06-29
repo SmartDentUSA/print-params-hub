@@ -659,9 +659,16 @@ export default function KbTabCatalogo() {
             // (formato { label, value } em PT). Não usar campos snake_case
             // da tabela `resins` local (resin_class, wavelength_nm, etc.).
             const rawSpecs: any = (() => {
+              // Edição manual (admin) tem prioridade absoluta sobre qualquer
+              // fonte sincronizada — o que está no editor deve aparecer no card.
+              const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
+              const manuallyEdited = !!(p as any)?.extra_data?.system_a_live?.manually_edited_at;
+              if (manuallyEdited) {
+                const fromLive = normalizeSpecs(live, specLang);
+                if (fromLive.length) return live;
+              }
               const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
               if (fromDocs.length) return d?.technical_specifications;
-              const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
               // Fallback: technical_specs da resina vinculada — só em match exato
