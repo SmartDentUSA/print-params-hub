@@ -1,42 +1,29 @@
-## Restaurar tabela técnica nos cards do Catálogo
+## Diagnóstico
 
-**Problema**: A "tabela técnica" que aparecia em cada card sumiu. Hoje `KbTabCatalogo.tsx` (linhas 651-659) resolve specs SÓ de:
-1. `catalog_documents.technical_specifications` (Sistema A)
-2. `extra_data.system_a_live.technical_specs`
+A descrição do card já é lida de `system_a_catalog.description` — mesmo campo que **Editar Produto → Descrição** salva (`src/hooks/useCatalogCRUD.ts:139`).
 
-Quando nenhum dos dois existe, o botão "Specs" some — mesmo quando há resina vinculada com `resins.technical_specs` populado (caso L'Aqua e dezenas de outras resinas).
+Em `src/hooks/useCardTranslations.ts`, quando a UI está em **EN/ES**, o card renderiza `description_en` / `description_es` (tradução cacheada). O AdminModal só grava `description` (PT) → a tradução fica desatualizada e o card mostra o texto antigo.
 
-### Mudança (1 arquivo, cirúrgica)
+## Plano (escopo mínimo: apenas Descrição)
 
-**`src/components/knowledge/KbTabCatalogo.tsx`** — adicionar a terceira fonte na cascata `rawSpecs`:
+**Alteração única em `src/hooks/useCatalogCRUD.ts` → `updateProduct`:**
 
-```ts
-const rawSpecs: any = (() => {
-  const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
-  if (fromDocs.length) return d?.technical_specifications;
-  const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
-  const fromLive = normalizeSpecs(live, specLang);
-  if (fromLive.length) return live;
-  // Fallback: usar technical_specs da resina vinculada (PT/EN/ES)
-  if (resin) {
-    const resinSpecs =
-      (specLang === 'en' && (resin as any).technical_specs_en) ||
-      (specLang === 'es' && (resin as any).technical_specs_es) ||
-      (resin as any).technical_specs;
-    const fromResin = normalizeSpecs(resinSpecs, specLang);
-    if (fromResin.length) return resinSpecs;
-  }
-  return null;
-})();
-```
+1. **Detectar mudança de descrição:** antes do `.update(...)`, ler `description` atual do produto. Se `updates.description` veio e é diferente do valor salvo:
+   - Incluir `description_en: null` e `description_es: null` no payload (invalida tradução stale).
+2. **Re-traduzir imediatamente após salvar (pós-save):** se houve mudança, disparar em paralelo, sem bloquear o retorno:
+   ```ts
+   supabase.functions.invoke('translate-card-row', { body: { table: 'system_a_catalog', id, target: 'en' } });
+   supabase.functions.invoke('translate-card-row', { body: { table: 'system_a_catalog', id, target: 'es' } });
+   ```
+   Esse é o mesmo edge function que `useCardTranslations` já usa — ele grava `description_en`/`description_es` no registro.
 
-E ampliar o `select` de `resins` (linha 418) para incluir `technical_specs_en, technical_specs_es`, e o mapeamento em `resins.set(...)` (~linha 526) para preservar esses campos.
+Em PT, o card já reflete a nova descrição assim que recarrega. Em EN/ES, passa a refletir após a tradução assíncrona (~1-2s).
 
-### Resultado
-- Botão **Specs** volta a aparecer em todo card de resina com `technical_specs` preenchido.
-- Catálogo (Sistema A) e `system_a_live` continuam tendo prioridade — nada muda onde já funciona.
-- i18n respeitado (EN/ES caem no PT se vazio).
+## Fora de escopo
 
-### Não tocar
-- Lookup de resina (slug + apóstrofo) — já corrigido.
-- `normalizeSpecs`, modal de specs, ordem dos botões, demais cascatas (FDS/IFU/CTAs).
+- Não alterar `name`, `product_category`, `product_subcategory`, `cta_*_label` (e suas traduções).
+- Não alterar resinas, schema, sync do Sistema A, ou o renderer do card.
+
+## Validação
+
+Editar Descrição → salvar → confirmar em PT (imediato) e em EN/ES (após 1-2s) que o card mostra o texto novo.
