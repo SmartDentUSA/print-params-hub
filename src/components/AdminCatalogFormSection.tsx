@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
+import { TechnicalSpecsEditor, type TechSpec } from '@/components/admin/TechnicalSpecsEditor';
 
 interface AdminCatalogFormSectionProps {
   formData: any;
@@ -312,6 +313,25 @@ export function AdminCatalogFormSection({
           <Label htmlFor="visible_in_ui">Visível na UI</Label>
         </div>
       </div>
+
+      {/* Tabela técnica editável */}
+      <TechnicalSpecsEditor
+        value={(formData.extra_data?.system_a_live?.technical_specs ?? []) as TechSpec[]}
+        externalId={formData.external_id ?? null}
+        productName={formData.name ?? null}
+        onChange={(next) => {
+          const extra = formData.extra_data ?? {};
+          const live = (extra as any).system_a_live ?? {};
+          handleInputChange('extra_data', {
+            ...extra,
+            system_a_live: {
+              ...live,
+              technical_specs: next,
+              manually_edited_at: new Date().toISOString(),
+            },
+          });
+        }}
+      />
     </>
   );
 }

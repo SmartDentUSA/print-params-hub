@@ -1,69 +1,53 @@
-## Diagnóstico
+## Objetivo
 
-A versão **correta** vinha de `products_catalog.technical_specifications` (15 specs em PT). A versão **errada atual** mostra `resins.technical_specs` (4 campos snake_case) porque:
+Adicionar uma tabela técnica **editável** dentro do editor de produto do Admin Catálogo, permitindo inserir, editar e excluir linhas. Salvamento manual (botão "Atualizar"), sem cron automático.
 
-- `products_catalog` tem RLS `deny_anon` → na rota pública `/base-conhecimento?tab=catalogo` o `select` retorna 0 linhas → `docMap` vazio → cai no fallback de resina.
-- A coluna `extra_data.system_a_live.technical_specs` (que o card já lê como segundo fallback) está **vazia** em todos os 14 cards de resina — o snapshot do Sistema A nunca foi populado.
+## Onde
 
-A infra de sync já existe e o Sistema A expõe os dados certos:
+- Tela: **Admin → Catálogo → Editar Produto** (modal renderizado por `src/components/AdminModal.tsx` → seção `src/components/AdminCatalogFormSection.tsx`).
+- Fonte de verdade: `system_a_catalog.extra_data.system_a_live.technical_specs` (array `[{label, value}]`). Já é o campo lido pelos cards públicos em `KbTabCatalogo.tsx:664`.
 
-```text
-GET https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id=<external_id>
-→ data.technical_specifications: [{label, value}, …]   # +Flex retorna 15 rows
-```
+## Mudanças
 
-O Sistema B já tem:
-- `_shared/system-a-live.ts` que mapeia o payload → `LiveProductDossier.technical_specs`
-- `smart-ops-refresh-system-a-cache` que faz upsert em `system_a_catalog.extra_data.system_a_live`
-- `KbTabCatalogo.tsx:664` que lê `extra_data?.system_a_live?.technical_specs` como fallback
+**1. Novo componente `src/components/admin/TechnicalSpecsEditor.tsx`**
+- Props: `value: Array<{label, value}>`, `onChange(next)`.
+- Tabela com 2 colunas (Label, Valor) + coluna de ação (lixeira).
+- Botão "+ Adicionar linha" → push `{label:"", value:""}`.
+- Botão "↑/↓" para reordenar (opcional, simples).
+- Input inline em cada célula; alteração local apenas — não persiste sozinho.
+- Mostra contador "X specs" e badge "Não salvo" quando dirty.
 
-Faltam 3 ajustes pequenos.
+**2. `AdminCatalogFormSection.tsx`**
+- Adicionar nova seção "Tabela técnica" antes de "Status".
+- Ler `formData.extra_data?.system_a_live?.technical_specs ?? []`.
+- `onChange(next)` chama `handleInputChange('extra_data', { ...formData.extra_data, system_a_live: { ...(formData.extra_data?.system_a_live ?? {}), technical_specs: next, manually_edited_at: new Date().toISOString() } })`.
+- Botão "🔄 Buscar do Sistema A" ao lado do título → chama `supabase.functions.invoke('smart-ops-refresh-system-a-cache', { body: { product_id: formData.external_id } })` e atualiza o estado local com o retorno (sobrescreve apenas se usuário confirmar — `window.confirm`).
 
-## Plano
+**3. `useCatalogCRUD.updateCatalogProduct`**
+- Garantir que `extra_data` (JSONB) é enviado no update — já é (`...updates` passa direto). Não precisa mexer.
 
-**1. Subir o cap de specs (`supabase/functions/_shared/system-a-live.ts`)**
+**4. Cron — NÃO criar**
+- A função `smart-ops-refresh-system-a-cache` já existe e fica disponível para uso manual (botão acima e por curl). **Não** vou agendar `pg_cron`. Não há alteração de cron neste plano.
 
-`asSpecArr(v, max = 12)` corta em 12 → +Flex perde 3 specs. Mudar para `max = 60` (cobre o maior payload conhecido com folga).
+**5. Edge function `smart-ops-refresh-system-a-cache`**
+- Adicionar guarda: se `extra_data.system_a_live.manually_edited_at` for mais novo que o snapshot vindo do Sistema A, **preserva** `technical_specs` editadas manualmente (não sobrescreve). Mantém os demais campos sincronizados.
 
-**2. Backfill imediato — popular todos os 14 cards de resina**
+## Resultado
 
-Chamar a função existente em batch:
-
-```text
-GET /functions/v1/smart-ops-refresh-system-a-cache?all=true&limit=200
-```
-
-Isso percorre `system_a_catalog` (active=true, external_id NOT NULL), busca cada produto no Sistema A, e grava `extra_data.system_a_live` com `technical_specs` mais 10+ campos extras (features, benefits, applications, document_extracts, workflow_stages, anti_hallucination, etc.).
-
-Validação: após rodar, conferir que `Bio Bite Splint +Flex` retorna 15 rows em `extra_data.system_a_live.technical_specs`.
-
-**3. Cron diário (sync automático)**
-
-Agendar via `pg_cron` (`supabase--insert`, conforme regra de jobs):
-
-```text
-'sync-system-a-catalog-daily', '0 4 * * *'  -- 04:00 BRT diariamente
-```
-
-Para o sync apanhar novos produtos e atualizações de Indicação Clínica / Certificação ANVISA / etc. sem intervenção manual.
-
-## Resultado esperado
-
-- Anon em `/base-conhecimento?tab=catalogo` vê a tabela rica PT (15 rows) servida via `system_a_catalog.extra_data.system_a_live.technical_specs` (anon-readable).
-- Independente do estado RLS de `products_catalog`.
-- Atualiza diariamente.
+- Admin pode entrar em qualquer card de produto, editar/adicionar/remover specs manualmente e clicar "Salvar Produto" (botão existente do modal) para persistir.
+- Cards públicos passam a refletir imediatamente (`KbTabCatalogo` já lê desse caminho).
+- Sincronização com Sistema A vira opt-in (botão), nunca automática.
 
 ## Fora de escopo
 
-- Não mexer em RLS de `products_catalog` (mantém bloqueado para anon).
-- Não tocar no código de match `resinExact`/`resinFuzzy`.
-- Não alterar `resins`, `resin_documents`, `resin_presentations`.
-- Não mexer em traduções EN/ES (nem invalidar cache).
+- Sem mexer em `resins.technical_specs` (fallback minimalista).
+- Sem mexer em `products_catalog` (RLS bloqueado para anon — outro escopo).
+- Sem alterar tradução EN/ES (specs são exibidas em PT).
+- Sem cron/pg_cron.
 
 ## Detalhes técnicos
 
-- Arquivo editado: `supabase/functions/_shared/system-a-live.ts` (uma linha: `max = 60`).
-- Sem migration de schema (extra_data já é JSONB).
-- Sem novo edge function — reaproveita `smart-ops-refresh-system-a-cache`.
-- Cron: `supabase--insert` com `cron.schedule(...)` chamando `net.http_post` para `…/functions/v1/smart-ops-refresh-system-a-cache?all=true&limit=200`.
-- Frontend: nenhuma mudança em `KbTabCatalogo.tsx` — o fallback `fromLive` já existe (linha 664).
+- Arquivos novos: `src/components/admin/TechnicalSpecsEditor.tsx` (~120 linhas).
+- Arquivos editados: `src/components/AdminCatalogFormSection.tsx` (+ ~40 linhas), `supabase/functions/smart-ops-refresh-system-a-cache/index.ts` (+ guarda manual_edit ~15 linhas).
+- Sem migração de schema (extra_data já é JSONB).
+- Sem novos secrets/connectors.

@@ -50,7 +50,20 @@ async function refreshOne(
   if (readErr || !row) return { ok: false, reason: "catalog_row_not_found" };
 
   const extra = (row.extra_data as Record<string, unknown> | null) ?? {};
-  const nextExtra = { ...extra, system_a_live: snap };
+  // Preserve manually-edited technical_specs: if an admin edited specs after the
+  // last automatic snapshot, keep the manual array instead of overwriting it.
+  const prevLive = (extra.system_a_live as Record<string, unknown> | undefined) ?? {};
+  const manualEditedAt = prevLive.manually_edited_at as string | undefined;
+  const lastFetchedAt = prevLive.fetched_at as string | undefined;
+  const manualWins =
+    manualEditedAt &&
+    (!lastFetchedAt || new Date(manualEditedAt).getTime() > new Date(lastFetchedAt).getTime());
+  const mergedLive: Record<string, unknown> = { ...snap };
+  if (manualWins) {
+    mergedLive.technical_specs = (prevLive.technical_specs as unknown) ?? snap.technical_specs;
+    mergedLive.manually_edited_at = manualEditedAt;
+  }
+  const nextExtra = { ...extra, system_a_live: mergedLive };
 
   const { error: updErr } = await supabase
     .from("system_a_catalog")
@@ -64,9 +77,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const url = new URL(req.url);
-  const productId = url.searchParams.get("product_id");
-  const slug = url.searchParams.get("slug");
-  const all = url.searchParams.get("all") === "true";
+  let productId = url.searchParams.get("product_id");
+  let slug = url.searchParams.get("slug");
+  let all = url.searchParams.get("all") === "true";
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      productId = productId ?? (body?.product_id as string | undefined) ?? null;
+      slug = slug ?? (body?.slug as string | undefined) ?? null;
+      all = all || body?.all === true;
+    } catch { /* no body */ }
+  }
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 200);
   const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10) || 0, 0);
 
