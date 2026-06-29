@@ -333,6 +333,9 @@ const resinKey = (raw: string): string => {
   const cleaned = raw
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
     .toLowerCase()
+    // Collapse apostrophes/quotes against neighbour letters so "L'Aqua" → "laqua"
+    // (matching the catalog's accent-stripped "Láqua" → "laqua").
+    .replace(/['’`]/g, '')
     .replace(/[^a-z0-9+\s]/g, ' ') // keep + (for "+Flex"), drop other punctuation
     .replace(/\s+/g, ' ')
     .trim();
@@ -525,6 +528,7 @@ export default function KbTabCatalogo() {
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
       if (fk) m.set('fk:' + fk, info);
+      if (r.slug) m.set('slug:' + String(r.slug).toLowerCase().trim(), info);
     });
     return m;
   }, [translatedResins]);
@@ -591,6 +595,7 @@ export default function KbTabCatalogo() {
             const resin = isResinCategory
               ? (
                   resins.get(p.name.toLowerCase().trim()) ||
+                  (p.slug ? resins.get('slug:' + String(p.slug).toLowerCase().trim()) : undefined) ||
                   resins.get('fk:' + resinKey(p.name)) ||
                   findResinBySubset(resins, p.name)
                 )
