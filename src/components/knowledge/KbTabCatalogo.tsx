@@ -596,14 +596,20 @@ export default function KbTabCatalogo() {
             // Otherwise unrelated categories (Cimentos, Caracterização, etc.) inherit
             // resin image/CTAs/processing instructions via fuzzy token overlap.
             const isResinCategory = canon === 'RESINAS 3D';
-            const resin = isResinCategory
+            // High-confidence match only (exact name, exact slug, exact resinKey).
+            // Subset fallback is reserved for image/CTAs — never for technical specs,
+            // to avoid bleeding specs from an unrelated resin into a card.
+            const resinExact = isResinCategory
               ? (
                   resins.get(p.name.toLowerCase().trim()) ||
                   (p.slug ? resins.get('slug:' + String(p.slug).toLowerCase().trim()) : undefined) ||
-                  resins.get('fk:' + resinKey(p.name)) ||
-                  findResinBySubset(resins, p.name)
+                  resins.get('fk:' + resinKey(p.name))
                 )
               : undefined;
+            const resinFuzzy = isResinCategory && !resinExact
+              ? findResinBySubset(resins, p.name)
+              : undefined;
+            const resin = resinExact || resinFuzzy;
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
