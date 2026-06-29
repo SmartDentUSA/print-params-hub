@@ -1774,24 +1774,53 @@ Receba o texto bruto abaixo e:
               <div className="space-y-3">
                 {(() => {
                   const q = contentSearch.trim().toLowerCase();
-                  const filtered = !q ? contents : contents.filter((c: any) =>
-                    (c.title || '').toLowerCase().includes(q) ||
-                    (c.slug || '').toLowerCase().includes(q) ||
-                    (c.excerpt || '').toLowerCase().includes(q)
-                  );
-                  if (q && filtered.length === 0) {
+                  // Search active → use global results (all categories). No term → category list.
+                  const baseList: any[] = q
+                    ? (globalSearchResults || [])
+                    : contents;
+                  const filtered = !q
+                    ? baseList
+                    : baseList.filter((c: any) =>
+                        (c.title || '').toLowerCase().includes(q) ||
+                        (c.slug || '').toLowerCase().includes(q) ||
+                        (c.excerpt || '').toLowerCase().includes(q)
+                      );
+                  if (q && globalSearchLoading && filtered.length === 0) {
                     return (
                       <div className="p-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg text-center">
-                        Nenhum conteúdo encontrado para "{contentSearch}" nesta categoria.
+                        Buscando em todas as categorias…
                       </div>
                     );
                   }
-                  return filtered.map((content: any) => (
+                  if (q && filtered.length === 0) {
+                    return (
+                      <div className="p-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg text-center">
+                        Nenhum conteúdo encontrado para "{contentSearch}" em toda a base.
+                      </div>
+                    );
+                  }
+                  const total = filtered.length;
+                  const visible = (!q && !contentShowAll && total > 100)
+                    ? filtered.slice(0, 100)
+                    : filtered;
+                  return (
+                    <>
+                      {q && (
+                        <div className="text-xs text-muted-foreground px-1">
+                          Buscando em todas as categorias — {total} resultado(s)
+                        </div>
+                      )}
+                      {visible.map((content: any) => (
                   <div key={content.id} className="p-4 border border-border rounded-lg bg-card">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground">{content.title}</h4>
                         <p className="text-sm text-muted-foreground mt-1">{content.excerpt}</p>
+                        {q && content.knowledge_categories?.name && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Categoria: {content.knowledge_categories.letter} — {content.knowledge_categories.name}
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button 
@@ -1811,7 +1840,18 @@ Receba o texto bruto abaixo e:
                       </div>
                     </div>
                   </div>
-                  ));
+                      ))}
+                      {!q && !contentShowAll && total > 100 && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => setContentShowAll(true)}
+                        >
+                          Mostrar tudo ({total})
+                        </Button>
+                      )}
+                    </>
+                  );
                 })()}
 
                 {/* Add Button */}
