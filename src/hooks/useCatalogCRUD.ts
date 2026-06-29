@@ -172,6 +172,10 @@ export const useCatalogCRUD = () => {
         });
       }
 
+      // Mirror manual tech-specs edits into products_catalog.technical_specifications
+      // so the public card reflects them immediately (sem cron, sem refresh).
+      await mirrorTechSpecsToProductsCatalog(data);
+
       toast({
         title: "Produto atualizado",
         description: "As alterações foram salvas com sucesso"
