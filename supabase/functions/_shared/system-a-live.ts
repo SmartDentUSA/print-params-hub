@@ -76,7 +76,7 @@ function asStrArr(v: unknown, max = 50): string[] {
     .slice(0, max);
 }
 
-function asSpecArr(v: unknown, max = 12): Array<{ label: string; value: string }> {
+function asSpecArr(v: unknown, max = 60): Array<{ label: string; value: string }> {
   if (!Array.isArray(v)) return [];
   const out: Array<{ label: string; value: string }> = [];
   for (const item of v) {

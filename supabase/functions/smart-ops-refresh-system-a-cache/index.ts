@@ -102,6 +102,9 @@ Deno.serve(async (req) => {
         .from("system_a_catalog")
         .select("external_id, name")
         .eq("active", true)
+        .eq("approved", true)
+        .eq("visible_in_ui", true)
+        .not("product_category", "is", null)
         .not("external_id", "is", null)
         .order("updated_at", { ascending: true })
         .range(offset, offset + limit - 1);
