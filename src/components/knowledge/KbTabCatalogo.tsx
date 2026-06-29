@@ -333,6 +333,9 @@ const resinKey = (raw: string): string => {
   const cleaned = raw
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
     .toLowerCase()
+    // Collapse apostrophes/quotes against neighbour letters so "L'Aqua" → "laqua"
+    // (matching the catalog's accent-stripped "Láqua" → "laqua").
+    .replace(/['’`]/g, '')
     .replace(/[^a-z0-9+\s]/g, ' ') // keep + (for "+Flex"), drop other punctuation
     .replace(/\s+/g, ' ')
     .trim();
