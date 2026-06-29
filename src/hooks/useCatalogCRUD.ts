@@ -15,10 +15,9 @@ async function mirrorTechSpecsToProductsCatalog(row: any | null | undefined): Pr
     const slug = (row.slug ?? '').trim();
     const name = (row.name ?? '').trim();
     if (!slug && !name) return;
-    let query = supabase.from('products_catalog').select('id, name, slug');
-    if (slug) query = query.eq('slug', slug);
-    else query = query.ilike('name', name);
-    const { data: matches } = await query.limit(5);
+    const base: any = supabase.from('products_catalog').select('id, name, slug');
+    const filtered: any = slug ? base.eq('slug', slug) : base.ilike('name', name);
+    const { data: matches } = await filtered.limit(5);
     if (!matches?.length) return;
     await Promise.all(
       matches.map((m: any) =>
