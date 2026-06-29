@@ -1,43 +1,42 @@
-## 1. Busca global em Vídeos / Artigos (público)
+## Restaurar tabela técnica nos cards do Catálogo
 
-Arquivos: `src/components/knowledge/KbTabVideos.tsx`, `src/components/knowledge/KbTabArtigos.tsx`.
+**Problema**: A "tabela técnica" que aparecia em cada card sumiu. Hoje `KbTabCatalogo.tsx` (linhas 651-659) resolve specs SÓ de:
+1. `catalog_documents.technical_specifications` (Sistema A)
+2. `extra_data.system_a_live.technical_specs`
 
-Hoje a busca usa `.or(title/excerpt/content_html ILIKE ...)` mas capa em `.limit(500)` — pode esconder resultados.
+Quando nenhum dos dois existe, o botão "Specs" some — mesmo quando há resina vinculada com `resins.technical_specs` populado (caso L'Aqua e dezenas de outras resinas).
 
-- Quando o usuário digita um termo (≥ 2 chars), remover o `.limit()` (ou subir para 5000) e remover o `.eq('category_id', chip)` durante a busca — busca passa a varrer **toda** a base de conhecimento ativa, ignorando o chip atual.
-- Manter a paginação padrão (50/150) e o filtro por chip quando o campo de busca está vazio.
-- Em `KbTabArtigos`, o pré-filtro de IDs com vídeo continua sendo aplicado pós-query.
-- Mostrar um pequeno aviso "Buscando em toda a base" quando o termo está ativo e o chip foi temporariamente ignorado.
+### Mudança (1 arquivo, cirúrgica)
 
-## 2. "Gerenciar Base de Conhecimento" (admin) — paginação + busca global
+**`src/components/knowledge/KbTabCatalogo.tsx`** — adicionar a terceira fonte na cascata `rawSpecs`:
 
-Arquivo: `src/components/AdminKnowledge.tsx` (bloco da lista de `contents` a partir da linha 1753) + `src/hooks/useKnowledge.ts` (`fetchContentsByCategory`).
+```ts
+const rawSpecs: any = (() => {
+  const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
+  if (fromDocs.length) return d?.technical_specifications;
+  const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
+  const fromLive = normalizeSpecs(live, specLang);
+  if (fromLive.length) return live;
+  // Fallback: usar technical_specs da resina vinculada (PT/EN/ES)
+  if (resin) {
+    const resinSpecs =
+      (specLang === 'en' && (resin as any).technical_specs_en) ||
+      (specLang === 'es' && (resin as any).technical_specs_es) ||
+      (resin as any).technical_specs;
+    const fromResin = normalizeSpecs(resinSpecs, specLang);
+    if (fromResin.length) return resinSpecs;
+  }
+  return null;
+})();
+```
 
-- Quando NÃO há termo de busca: mostrar somente os primeiros **100 conteúdos** da categoria selecionada. Adicionar botão **"Mostrar tudo (N)"** ao final que expande para o array completo.
-- Quando há termo de busca (`contentSearch` não vazio):
-  - Disparar uma busca global no Supabase em `knowledge_contents` (sem filtro por categoria), via novo método `searchAllContents(term)` em `useKnowledge`, usando `.or(title.ilike, slug.ilike, excerpt.ilike, content_html.ilike)` com `.limit(2000)` e `eq('active', true)`.
-  - Renderizar os resultados desta busca em vez da lista da categoria, exibindo um chip "Buscando em todas as categorias — N resultados" e botão "Limpar busca".
-- O filtro local em memória continua como complemento (refina conforme digita), mas a fonte agora é a query global.
+E ampliar o `select` de `resins` (linha 418) para incluir `technical_specs_en, technical_specs_es`, e o mapeamento em `resins.set(...)` (~linha 526) para preservar esses campos.
 
-## 3. Apresentações não aparecem em "Resina Smart Print Modelo Láqua"
+### Resultado
+- Botão **Specs** volta a aparecer em todo card de resina com `technical_specs` preenchido.
+- Catálogo (Sistema A) e `system_a_live` continuam tendo prioridade — nada muda onde já funciona.
+- i18n respeitado (EN/ES caem no PT se vazio).
 
-Causa: o catálogo tem o nome PT "Resina Smart Print Modelo Láqua" enquanto a `resins.name` é "Smart Print Model L'Aqua". O matcher `resinKey` tokeniza `Láqua → laqua` no catálogo e `L'Aqua → l aqua → aqua` na resina (apóstrofo separa, `l` é descartado por tamanho 1). Não há overlap → resin não é casado, e por isso `resin_presentations` (6 linhas existentes no banco) não são exibidas.
-
-Correção em `src/components/knowledge/KbTabCatalogo.tsx`:
-
-- Indexar resinas também por **slug** (`m.set('slug:' + r.slug, info)`).
-- No lookup de cada card (apenas quando `isResinCategory`), tentar nesta ordem:
-  1. `resins.get(name.lowercased)`
-  2. `resins.get('slug:' + p.slug)` *(novo — resolve o caso L'Aqua, slugs idênticos no banco)*
-  3. `resins.get('fk:' + resinKey(p.name))`
-  4. `findResinBySubset(...)`
-- Reforço no `resinKey`: tratar apóstrofos/acentos colando tokens (`l'aqua → laqua`) substituindo `'` por vazio **antes** do split de palavras. Mantém `+` para "+Flex". Isto previne casos análogos futuros sem afetar matches atuais.
-
-Nenhuma mudança em RLS, schema ou edge functions.
-
-### Arquivos tocados
-- `src/components/knowledge/KbTabVideos.tsx`
-- `src/components/knowledge/KbTabArtigos.tsx`
-- `src/components/knowledge/KbTabCatalogo.tsx`
-- `src/components/AdminKnowledge.tsx`
-- `src/hooks/useKnowledge.ts`
+### Não tocar
+- Lookup de resina (slug + apóstrofo) — já corrigido.
+- `normalizeSpecs`, modal de specs, ordem dos botões, demais cascatas (FDS/IFU/CTAs).

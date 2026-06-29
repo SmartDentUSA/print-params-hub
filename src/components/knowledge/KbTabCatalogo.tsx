@@ -311,6 +311,8 @@ interface ResinInfo {
   processing_instructions: string | null;
   image_url: string | null;
   technical_specs: any | null;
+  technical_specs_en?: any | null;
+  technical_specs_es?: any | null;
 }
 
 // Build a stable fuzzy key for matching catalog products to resin records.
@@ -415,7 +417,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs')
+          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es')
           .eq('active', true)
           .limit(500),
         supabase
@@ -524,6 +526,8 @@ export default function KbTabCatalogo() {
         processing_instructions: r.processing_instructions || null,
         image_url: r.image_url || null,
         technical_specs: r.technical_specs ?? null,
+        technical_specs_en: r.technical_specs_en ?? null,
+        technical_specs_es: r.technical_specs_es ?? null,
       };
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
@@ -654,6 +658,15 @@ export default function KbTabCatalogo() {
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
+              // Fallback: technical_specs da resina vinculada (PT/EN/ES)
+              if (resin) {
+                const resinSpecs =
+                  (specLang === 'en' && (resin as any).technical_specs_en) ||
+                  (specLang === 'es' && (resin as any).technical_specs_es) ||
+                  (resin as any).technical_specs;
+                const fromResin = normalizeSpecs(resinSpecs, specLang);
+                if (fromResin.length) return resinSpecs;
+              }
               return null;
             })();
             const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
