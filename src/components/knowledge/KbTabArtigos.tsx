@@ -52,10 +52,11 @@ export default function KbTabArtigos({ onOpen }: Props) {
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name)')
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (chip !== 'all') query = query.eq('category_id', chip);
+      // When the user is searching, ignore the active chip and scan the whole base.
+      if (!term && chip !== 'all') query = query.eq('category_id', chip);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
-        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(500);
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(5000);
       } else {
         query = query.limit(150);
       }
@@ -98,6 +99,13 @@ export default function KbTabArtigos({ onOpen }: Props) {
       <KbSectionHeader title={t('kb.artigos.title')} subtitle={t('kb.artigos.subtitle')} />
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} />
+      {q.trim() && (
+        <div className="kb-count" style={{ opacity: 0.75 }}>
+          {t('kb.search.global_hint') !== 'kb.search.global_hint'
+            ? t('kb.search.global_hint')
+            : 'Buscando em toda a base de conhecimento'}
+        </div>
+      )}
       {!loading && <KbResultCount count={cards.length} noun="article" />}
       <div className="kb-grid">
         {loading ? (
