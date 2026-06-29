@@ -134,16 +134,44 @@ export const useCatalogCRUD = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
+      // Detect description change → invalidate stale EN/ES translations and re-translate.
+      let descriptionChanged = false;
+      const payload: Record<string, unknown> = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(updates, 'description')) {
+        const { data: current } = await supabase
+          .from('system_a_catalog')
+          .select('description')
+          .eq('id', id)
+          .maybeSingle();
+        const prev = (current?.description ?? '') as string;
+        const next = (updates.description ?? '') as string;
+        if ((prev || '').trim() !== (next || '').trim()) {
+          descriptionChanged = true;
+          (payload as any).description_en = null;
+          (payload as any).description_es = null;
+        }
+      }
+
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .update(updates)
+        .update(payload)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      
+
+      // Fire-and-forget re-translation so EN/ES cards reflect the new PT description.
+      if (descriptionChanged) {
+        void supabase.functions.invoke('translate-card-row', {
+          body: { table: 'system_a_catalog', id, target: 'en' },
+        });
+        void supabase.functions.invoke('translate-card-row', {
+          body: { table: 'system_a_catalog', id, target: 'es' },
+        });
+      }
+
       toast({
         title: "Produto atualizado",
         description: "As alterações foram salvas com sucesso"
