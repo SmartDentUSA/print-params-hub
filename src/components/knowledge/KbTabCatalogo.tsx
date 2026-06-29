@@ -596,14 +596,20 @@ export default function KbTabCatalogo() {
             // Otherwise unrelated categories (Cimentos, Caracterização, etc.) inherit
             // resin image/CTAs/processing instructions via fuzzy token overlap.
             const isResinCategory = canon === 'RESINAS 3D';
-            const resin = isResinCategory
+            // High-confidence match only (exact name, exact slug, exact resinKey).
+            // Subset fallback is reserved for image/CTAs — never for technical specs,
+            // to avoid bleeding specs from an unrelated resin into a card.
+            const resinExact = isResinCategory
               ? (
                   resins.get(p.name.toLowerCase().trim()) ||
                   (p.slug ? resins.get('slug:' + String(p.slug).toLowerCase().trim()) : undefined) ||
-                  resins.get('fk:' + resinKey(p.name)) ||
-                  findResinBySubset(resins, p.name)
+                  resins.get('fk:' + resinKey(p.name))
                 )
               : undefined;
+            const resinFuzzy = isResinCategory && !resinExact
+              ? findResinBySubset(resins, p.name)
+              : undefined;
+            const resin = resinExact || resinFuzzy;
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
@@ -658,12 +664,14 @@ export default function KbTabCatalogo() {
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
-              // Fallback: technical_specs da resina vinculada (PT/EN/ES)
-              if (resin) {
+              // Fallback: technical_specs da resina vinculada — só em match exato
+              // (nome/slug/resinKey). Subset/fuzzy não entra aqui para evitar
+              // poluir um card com specs de outra resina.
+              if (resinExact) {
                 const resinSpecs =
-                  (specLang === 'en' && (resin as any).technical_specs_en) ||
-                  (specLang === 'es' && (resin as any).technical_specs_es) ||
-                  (resin as any).technical_specs;
+                  (specLang === 'en' && (resinExact as any).technical_specs_en) ||
+                  (specLang === 'es' && (resinExact as any).technical_specs_es) ||
+                  (resinExact as any).technical_specs;
                 const fromResin = normalizeSpecs(resinSpecs, specLang);
                 if (fromResin.length) return resinSpecs;
               }
