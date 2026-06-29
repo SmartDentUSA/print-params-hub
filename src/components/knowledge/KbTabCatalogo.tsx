@@ -664,12 +664,14 @@ export default function KbTabCatalogo() {
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
-              // Fallback: technical_specs da resina vinculada (PT/EN/ES)
-              if (resin) {
+              // Fallback: technical_specs da resina vinculada — só em match exato
+              // (nome/slug/resinKey). Subset/fuzzy não entra aqui para evitar
+              // poluir um card com specs de outra resina.
+              if (resinExact) {
                 const resinSpecs =
-                  (specLang === 'en' && (resin as any).technical_specs_en) ||
-                  (specLang === 'es' && (resin as any).technical_specs_es) ||
-                  (resin as any).technical_specs;
+                  (specLang === 'en' && (resinExact as any).technical_specs_en) ||
+                  (specLang === 'es' && (resinExact as any).technical_specs_es) ||
+                  (resinExact as any).technical_specs;
                 const fromResin = normalizeSpecs(resinSpecs, specLang);
                 if (fromResin.length) return resinSpecs;
               }
