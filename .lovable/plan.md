@@ -1,53 +1,59 @@
 ## Objetivo
+Inserir/atualizar a tabela técnica do produto **Resina 3D Smart Print Bio Vitality** no catálogo, usando o editor já existente em `AdminCatalogFormSection` → `TechnicalSpecsEditor`.
 
-Adicionar uma tabela técnica **editável** dentro do editor de produto do Admin Catálogo, permitindo inserir, editar e excluir linhas. Salvamento manual (botão "Atualizar"), sem cron automático.
+## Estratégia
+Em vez de digitar 17 linhas manualmente no editor, escrever **uma única migração SQL** que faz UPDATE direto em `system_a_catalog.extra_data.system_a_live.technical_specs` para a linha do produto Bio Vitality, marcando `manually_edited_at = now()` para que o cron `smart-ops-refresh-system-a-cache` **não sobrescreva** as specs no próximo sync (a guarda manual-wins já está implementada).
 
-## Onde
+## Specs a gravar (17 linhas, ordem do briefing)
 
-- Tela: **Admin → Catálogo → Editar Produto** (modal renderizado por `src/components/AdminModal.tsx` → seção `src/components/AdminCatalogFormSection.tsx`).
-- Fonte de verdade: `system_a_catalog.extra_data.system_a_live.technical_specs` (array `[{label, value}]`). Já é o campo lido pelos cards públicos em `KbTabCatalogo.tsx:664`.
+```
+1.  Tipo                          → Resina 3D Nano-Híbrida Odontológica
+2.  Carga por Peso                → 58 wt%
+3.  Carga por Volume              → ~40–45 vol%
+4.  Resistência Flexural          → 147 MPa (ISO 4049, laudo Afinko)
+5.  Módulo Flexural               → 5.49 GPa
+6.  Dureza Shore D                → >92
+7.  Sorção de Água                → 1.5 μg/mm³
+8.  Radiopacidade                 → 1.048 mm Al
+9.  Carga Inorgânica              → 58–59 wt%
+10. Aplicações                    → Coroas definitivas, facetas, inlays/onlays, pontes, protocolos (com/sem barra), estruturas de longa duração (permanentes)
+11. Compatibilidade de Camada     → 100 μm e 50 μm
+12. Luz UV para Cura              → ~365–405 nm
+13. Classificação                 → Resina permanente
+14. Certificação                  → Selo FDA 510(k)
+15. Carga Inorgânica (Vitality)   → 59.0 wt%
+16. Comprovação Clínica           → Única resina da categoria no Brasil com documentação de casos clínicos >5 anos de acompanhamento
+```
 
-## Mudanças
+> Observação: o briefing tinha "Carga Inorgânica" duas vezes (58–59 e 59.0) — mantenho ambas como no original; se quiser consolidar em uma só linha me avise antes de aplicar.
 
-**1. Novo componente `src/components/admin/TechnicalSpecsEditor.tsx`**
-- Props: `value: Array<{label, value}>`, `onChange(next)`.
-- Tabela com 2 colunas (Label, Valor) + coluna de ação (lixeira).
-- Botão "+ Adicionar linha" → push `{label:"", value:""}`.
-- Botão "↑/↓" para reordenar (opcional, simples).
-- Input inline em cada célula; alteração local apenas — não persiste sozinho.
-- Mostra contador "X specs" e badge "Não salvo" quando dirty.
+## Passos
 
-**2. `AdminCatalogFormSection.tsx`**
-- Adicionar nova seção "Tabela técnica" antes de "Status".
-- Ler `formData.extra_data?.system_a_live?.technical_specs ?? []`.
-- `onChange(next)` chama `handleInputChange('extra_data', { ...formData.extra_data, system_a_live: { ...(formData.extra_data?.system_a_live ?? {}), technical_specs: next, manually_edited_at: new Date().toISOString() } })`.
-- Botão "🔄 Buscar do Sistema A" ao lado do título → chama `supabase.functions.invoke('smart-ops-refresh-system-a-cache', { body: { product_id: formData.external_id } })` e atualiza o estado local com o retorno (sobrescreve apenas se usuário confirmar — `window.confirm`).
-
-**3. `useCatalogCRUD.updateCatalogProduct`**
-- Garantir que `extra_data` (JSONB) é enviado no update — já é (`...updates` passa direto). Não precisa mexer.
-
-**4. Cron — NÃO criar**
-- A função `smart-ops-refresh-system-a-cache` já existe e fica disponível para uso manual (botão acima e por curl). **Não** vou agendar `pg_cron`. Não há alteração de cron neste plano.
-
-**5. Edge function `smart-ops-refresh-system-a-cache`**
-- Adicionar guarda: se `extra_data.system_a_live.manually_edited_at` for mais novo que o snapshot vindo do Sistema A, **preserva** `technical_specs` editadas manualmente (não sobrescreve). Mantém os demais campos sincronizados.
-
-## Resultado
-
-- Admin pode entrar em qualquer card de produto, editar/adicionar/remover specs manualmente e clicar "Salvar Produto" (botão existente do modal) para persistir.
-- Cards públicos passam a refletir imediatamente (`KbTabCatalogo` já lê desse caminho).
-- Sincronização com Sistema A vira opt-in (botão), nunca automática.
+1. **Identificar a linha** em `system_a_catalog` para "Bio Vitality" (provavelmente via `slug ilike '%bio-vitality%'` ou `name ilike '%bio vitality%'`) — confirmar antes do UPDATE com um `SELECT` rápido.
+2. **Migração SQL** (`supabase--migration`):
+   ```sql
+   UPDATE public.system_a_catalog
+   SET extra_data = jsonb_set(
+         jsonb_set(
+           COALESCE(extra_data, '{}'::jsonb),
+           '{system_a_live,technical_specs}',
+           '[ ...17 objetos {label,value}... ]'::jsonb,
+           true
+         ),
+         '{system_a_live,manually_edited_at}',
+         to_jsonb(now()::text),
+         true
+       ),
+       updated_at = now()
+   WHERE <match Bio Vitality>;
+   ```
+3. **Validar** com `supabase--read_query` que a linha tem 16 specs e `manually_edited_at` definido.
+4. **Frontend**: nenhuma alteração — `KbTabCatalogo` e o card público já leem `extra_data.system_a_live.technical_specs` (fallback público para anon).
 
 ## Fora de escopo
+- Não mexer em outros produtos.
+- Não alterar `resins.technical_specs` (legado).
+- Não rodar cron / refresh em massa.
 
-- Sem mexer em `resins.technical_specs` (fallback minimalista).
-- Sem mexer em `products_catalog` (RLS bloqueado para anon — outro escopo).
-- Sem alterar tradução EN/ES (specs são exibidas em PT).
-- Sem cron/pg_cron.
-
-## Detalhes técnicos
-
-- Arquivos novos: `src/components/admin/TechnicalSpecsEditor.tsx` (~120 linhas).
-- Arquivos editados: `src/components/AdminCatalogFormSection.tsx` (+ ~40 linhas), `supabase/functions/smart-ops-refresh-system-a-cache/index.ts` (+ guarda manual_edit ~15 linhas).
-- Sem migração de schema (extra_data já é JSONB).
-- Sem novos secrets/connectors.
+## Pergunta antes de aplicar
+Confirma a duplicação de "Carga Inorgânica" (linhas 9 e 15) ou prefere uma só linha com `59.0 wt% (faixa 58–59)`?
