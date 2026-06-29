@@ -36,6 +36,9 @@ export function AdminKnowledge() {
   const [selectedCategory, setSelectedCategory] = useState('A');
   const [contents, setContents] = useState<any[]>([]);
   const [contentSearch, setContentSearch] = useState('');
+  const [contentShowAll, setContentShowAll] = useState(false);
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[] | null>(null);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
@@ -193,6 +196,7 @@ Receba o texto bruto abaixo e:
   const { 
     fetchCategories, 
     fetchContentsByCategory,
+    searchAllContents,
     fetchVideosByContent,
     updateCategory,
     insertContent,
