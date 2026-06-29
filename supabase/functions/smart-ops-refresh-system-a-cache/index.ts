@@ -77,9 +77,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const url = new URL(req.url);
-  const productId = url.searchParams.get("product_id");
-  const slug = url.searchParams.get("slug");
-  const all = url.searchParams.get("all") === "true";
+  let productId = url.searchParams.get("product_id");
+  let slug = url.searchParams.get("slug");
+  let all = url.searchParams.get("all") === "true";
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      productId = productId ?? (body?.product_id as string | undefined) ?? null;
+      slug = slug ?? (body?.slug as string | undefined) ?? null;
+      all = all || body?.all === true;
+    } catch { /* no body */ }
+  }
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 200);
   const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10) || 0, 0);
 
