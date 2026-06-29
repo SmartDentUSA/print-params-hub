@@ -859,6 +859,22 @@ Receba o texto bruto abaixo e:
     }
   }, [selectedCategory]);
 
+  // Reset "show all" toggle when switching categories or search state
+  useEffect(() => { setContentShowAll(false); }, [selectedCategory, contentSearch]);
+
+  // Debounced global search across ALL categories when there is a term
+  useEffect(() => {
+    const term = contentSearch.trim();
+    if (!term) { setGlobalSearchResults(null); return; }
+    setGlobalSearchLoading(true);
+    const t = setTimeout(async () => {
+      const rows = await searchAllContents(term);
+      setGlobalSearchResults(rows);
+      setGlobalSearchLoading(false);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [contentSearch, searchAllContents]);
+
   const loadCategories = async () => {
     const data = await fetchCategories();
     setCategories(data);
