@@ -19,12 +19,10 @@ async function mirrorTechSpecsToProductsCatalog(row: any | null | undefined): Pr
     const filtered: any = slug ? base.eq('slug', slug) : base.ilike('name', name);
     const { data: matches } = await filtered.limit(5);
     if (!matches?.length) return;
+    const tbl: any = supabase.from('products_catalog');
     await Promise.all(
       matches.map((m: any) =>
-        supabase
-          .from('products_catalog')
-          .update({ technical_specifications: specs })
-          .eq('id', m.id)
+        tbl.update({ technical_specifications: specs }).eq('id', m.id)
       )
     );
   } catch (e) {
