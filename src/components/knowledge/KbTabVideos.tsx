@@ -46,10 +46,10 @@ export default function KbTabVideos({ onOpen }: Props) {
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (chip !== 'all') query = query.eq('category_id', chip);
+      if (!term && chip !== 'all') query = query.eq('category_id', chip);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
-        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(500);
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(5000);
       } else {
         query = query.limit(50);
       }
@@ -92,6 +92,13 @@ export default function KbTabVideos({ onOpen }: Props) {
       <KbSectionHeader title={t('kb.videos.title')} subtitle={t('kb.videos.subtitle')} />
       <KbSearchBar placeholder={t('kb.videos.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} />
+      {q.trim() && (
+        <div className="kb-count" style={{ opacity: 0.75 }}>
+          {t('kb.search.global_hint') !== 'kb.search.global_hint'
+            ? t('kb.search.global_hint')
+            : 'Buscando em toda a base de conhecimento'}
+        </div>
+      )}
       <div className="kb-grid">
         {loading ? (
           <KbSkeletonGrid />
