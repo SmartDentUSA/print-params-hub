@@ -526,6 +526,8 @@ export default function KbTabCatalogo() {
         processing_instructions: r.processing_instructions || null,
         image_url: r.image_url || null,
         technical_specs: r.technical_specs ?? null,
+        technical_specs_en: r.technical_specs_en ?? null,
+        technical_specs_es: r.technical_specs_es ?? null,
       };
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
