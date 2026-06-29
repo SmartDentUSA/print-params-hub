@@ -174,6 +174,28 @@ export function useKnowledge() {
     }
   }, [toast]);
 
+  const searchAllContents = useCallback(async (term: string) => {
+    const safe = (term || '').trim().replace(/[%,()]/g, ' ');
+    if (!safe) return [] as any[];
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('knowledge_contents')
+        .select('*, knowledge_categories!inner(*), authors(*)')
+        .eq('active', true)
+        .or(`title.ilike.%${safe}%,slug.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (data as any[]) || [];
+    } catch (error) {
+      toast({ title: 'Erro ao buscar conteúdos', variant: 'destructive' });
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   const fetchVideosByContent = useCallback(async (contentId: string) => {
     try {
       const { data, error } = await supabase
@@ -349,6 +371,7 @@ export function useKnowledge() {
     loading,
     fetchCategories,
     fetchContentsByCategory,
+    searchAllContents,
     fetchContentBySlug,
     fetchVideosByContent,
     fetchRelatedContents,
