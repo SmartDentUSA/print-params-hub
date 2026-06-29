@@ -658,6 +658,15 @@ export default function KbTabCatalogo() {
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
+              // Fallback: technical_specs da resina vinculada (PT/EN/ES)
+              if (resin) {
+                const resinSpecs =
+                  (specLang === 'en' && (resin as any).technical_specs_en) ||
+                  (specLang === 'es' && (resin as any).technical_specs_es) ||
+                  (resin as any).technical_specs;
+                const fromResin = normalizeSpecs(resinSpecs, specLang);
+                if (fromResin.length) return resinSpecs;
+              }
               return null;
             })();
             const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
