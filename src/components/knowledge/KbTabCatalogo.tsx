@@ -417,7 +417,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs')
+          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es')
           .eq('active', true)
           .limit(500),
         supabase
