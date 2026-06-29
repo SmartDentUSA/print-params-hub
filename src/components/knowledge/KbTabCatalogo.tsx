@@ -528,6 +528,7 @@ export default function KbTabCatalogo() {
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
       if (fk) m.set('fk:' + fk, info);
+      if (r.slug) m.set('slug:' + String(r.slug).toLowerCase().trim(), info);
     });
     return m;
   }, [translatedResins]);
@@ -594,6 +595,7 @@ export default function KbTabCatalogo() {
             const resin = isResinCategory
               ? (
                   resins.get(p.name.toLowerCase().trim()) ||
+                  (p.slug ? resins.get('slug:' + String(p.slug).toLowerCase().trim()) : undefined) ||
                   resins.get('fk:' + resinKey(p.name)) ||
                   findResinBySubset(resins, p.name)
                 )
