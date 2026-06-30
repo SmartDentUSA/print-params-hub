@@ -6062,6 +6062,7 @@ export type Database = {
           content_html: string | null
           content_html_en: string | null
           content_html_es: string | null
+          content_html_reformatted_at: string | null
           content_image_alt: string | null
           content_image_url: string | null
           created_at: string | null
@@ -6124,6 +6125,7 @@ export type Database = {
           content_html?: string | null
           content_html_en?: string | null
           content_html_es?: string | null
+          content_html_reformatted_at?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
@@ -6186,6 +6188,7 @@ export type Database = {
           content_html?: string | null
           content_html_en?: string | null
           content_html_es?: string | null
+          content_html_reformatted_at?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
