@@ -1,56 +1,38 @@
 ## Objetivo
-Popular a **Tabela técnica** dos cards do catálogo com as 301 variações da planilha (33 grupos reais), expondo para cada variação: **GTIN/EAN**, **Peso (kg)** e **Dimensões (cm)**. Exibição é automática — o card já renderiza qualquer linha presente em `technical_specs` via `normalizeSpecs`.
+No card do catálogo (`/es/base-conocimiento?tab=catalogo` e EN), os valores PT que vazam para o usuário ES/EN devem aparecer no idioma da UI:
 
-## Escopo
+1. **Tabela Apresentações** → coluna `Tipo de impresión` mostra valores PT (`Placas miorrelaxantes`, `Modelos Mockup`, `Base prótese total`, …) mesmo em ES/EN. Cabeçalhos já estão traduzidos; só os dados.
+2. **Ficha técnica (📊 Tabela técnica)** → reforçar para que rows com edição manual recente e rows vindas de `resins.technical_specs` sempre tenham fallback traduzido (label + value) em EN/ES.
 
-### 1. Match planilha ↔ catálogo
-- Ler `/mnt/user-uploads/SmartDent_Variacoes_Final_2026.xlsx_-_🔀_Variações_Completas.csv`.
-- Para cada um dos 33 grupos reais, casar o "Grupo" com `system_a_catalog.name` por:
-  1. Match exato (case-insensitive, trim).
-  2. Slug normalizado (sem acentos, `'` → vazio, espaços → `-`).
-  3. Match de subset/aliases conhecidos (ex.: `L'Aqua` ↔ `Laqua`, `Modelo Universal (Salmão)`).
-- Gerar relatório de "não casados" — apresentar ao usuário antes de aplicar (sem inventar produtos).
+## Mudanças
 
-### 2. Construção das specs por produto
-Para cada variação válida, gerar até 3 linhas em `technical_specs`:
-```
-{ label: "GTIN/EAN — <Valor da Variação>",       value: "<EAN>" }
-{ label: "Peso (kg) — <Valor da Variação>",      value: "<peso>" }
-{ label: "Dimensões (cm) — <Valor da Variação>", value: "<dims>" }
-```
-- Pular linhas com campo vazio (não criar `"GTIN/EAN — X": ""`).
-- Manter o **formato canônico** que o `TechnicalSpecsEditor` já entende (regex `^(GTIN\/EAN|Peso \(kg\)|Dimensões \(cm\))\s*[—–-]\s*(.+)$`) — assim a sub-seção "Variações" do editor admin já abre povoada e editável.
+### 1. Dicionário canônico para `print_type` (resin_presentations)
+Hoje há ~20 valores distintos em `resin_presentations.print_type` (Placas miorrelaxantes, Coroas sobre dente, Facetas, Protocolo, Modelos Alinhadores, Modelos Clareamento, Modelos Mockup, Modelos Protéticos (Arco), Par Zocalados, Base dentadura, Base prótese total, Biomodelos- Tc (Quadrante), Elemento unitário, Guia parcial, Simulação gengiva, …). Conjunto fechado e estável.
 
-### 3. Merge idempotente (não destrutivo)
-Para cada produto casado, aplicar via `supabase--insert` (UPDATE):
-- **`system_a_catalog`**: ler `extra_data.system_a_live.technical_specs`, **remover** apenas as linhas existentes cujo `label` casa o regex de variação (GTIN/Peso/Dim — *), **append** as novas, gravar de volta + setar `system_a_live.manually_edited_at = now()` (protege contra sobrescrita pelo `smart-ops-refresh-system-a-cache`, conforme já implementado).
-- Também espelhar para colunas top-level `technical_specs` (PT) e **NULL em `technical_specs_en/_es`** para o `translate-card-row` re-traduzir.
-- **`products_catalog`** (mesma chave por nome/slug): mesma operação em `technical_specifications` (KbTabCatalogo prioriza esta tabela quando presente).
+- Adicionar em `src/lib/dentalTaxonomy.ts` um mapa `PRINT_TYPE_I18N` (chave = label PT normalizado em lowercase/trim, valor = chave i18n) com helper `translatePrintType(value, t)` que:
+  - normaliza (`trim`, colapsa espaços duplos, lowercase),
+  - retorna `t(key)` se houver entrada,
+  - faz fallback para o PT original (não quebra valores novos).
+- Adicionar a árvore `kb.catalogo.print_types.*` em `src/locales/pt.json`, `en.json`, `es.json` com cada termo traduzido (PT mantém o original; EN/ES usam termo odontológico correto, ex.: `placas_miorrelaxantes` → `Occlusal splints` / `Férulas miorrelajantes`).
 
-### 4. Exibição no card
-- Nenhuma mudança de UI necessária: `KbTabCatalogo.tsx` → `rawSpecs` → `normalizeSpecs` já renderiza qualquer `{label, value}`.
-- Linhas saem como:
-  - `GTIN/EAN — Base Clear: 756014745092`
-  - `Peso (kg) — Base Clear: 0,011`
-  - `Dimensões (cm) — Base Clear: 16.0×3.0×3.0 cm`
+### 2. Aplicar no card
+Em `src/components/knowledge/KbTabCatalogo.tsx`:
+- Substituir `pr.print_type || '—'` (linha ~864) e a versão de `formatPresChip` (linha ~702-708) por `translatePrintType(pr.print_type, t) || '—'`.
+- Manter `pr.label` como está (numérico + `g`).
 
-### 5. Tradução EN/ES
-- Após o UPDATE, disparar `translate-card-row` para cada produto afetado (`source='system_a_catalog'` e `source='products_catalog'`) — preserva os números e traduz só os labels ("GTIN/EAN — Base Clear" → "GTIN/EAN — Base Clear" / valores intactos).
+### 3. Reforço da ficha técnica EN/ES
+A `useCardTranslations`/`translate-card-row` já cobre `system_a_catalog.technical_specs`, `products_catalog.technical_specifications` e `resins.technical_specs`. Hoje, quando o card cai no fallback "resin exato" (linhas 752-758), a leitura usa `(resinExact as any).technical_specs_en/_es`, mas o hook não dispara tradução para `resins` se o card não estiver na lista do hook.
 
-### 6. Entregáveis
-- 1 migração de dados (via `supabase--insert`, idempotente — pode ser re-rodada).
-- Relatório no chat: produtos casados (com counts) e produtos não casados (para o usuário confirmar/criar alias antes de re-rodar).
-- Print da Tabela técnica de 1 produto após aplicação para validação.
+- Garantir que o hook `useCardTranslations` chamado em `KbTabCatalogo` também enfileire IDs de `resins` (tabela `resins`) cuja `technical_specs` é usada como fallback do card e cujo `technical_specs_<lang>` esteja vazio, para que a próxima renderização já traga traduzido (idempotente, sem custo se já traduzido). Sem mudar a UI; apenas adiciona uma segunda invocação do hook com `table: 'resins'` para os ids relevantes.
 
-## O que NÃO faço
-- Não crio produtos novos no catálogo.
-- Não toco em produtos sem match exato/seguro.
-- Não removo specs antigas não relacionadas (Indicação clínica, certificação ANVISA, etc.) — só substituo as 3 famílias de variação.
-- Não rodo cron — atualização é manual / one-shot.
+### 4. Sem migração / sem mudanças de schema
+Tudo via i18n e hook existente. Nenhuma alteração em `resin_presentations` (o conjunto é pequeno e o dicionário é mais barato e determinístico que um campo `_en/_es` por linha).
 
-## Pergunta antes de aplicar
-Categoria de produtos como **"Base para pigmentação de Zircônia 100ml"** (24 variações) e **"Fresas Smart-DLC para Zircônia"** (17 variações) podem não existir no `system_a_catalog` ainda. Posso:
-- (A) aplicar só nos que casarem e te devolver a lista de "não casados"; ou
-- (B) parar antes do UPDATE e listar todo o mapeamento (matched + unmatched) para você revisar primeiro.
+## Arquivos tocados
+- `src/lib/dentalTaxonomy.ts` (adiciona mapa + helper)
+- `src/locales/pt.json`, `src/locales/en.json`, `src/locales/es.json` (chaves `kb.catalogo.print_types.*`)
+- `src/components/knowledge/KbTabCatalogo.tsx` (usa helper; segunda chamada de `useCardTranslations` para `resins` fallback)
 
-Padrão recomendado: **(A)** — aplica nos 100% certos e reporta o resto.
+## Fora de escopo
+- `resin_presentations.label` (valores numéricos como "250g"/"500g") — não precisa traduzir.
+- Edição em massa de specs no banco — só translate-on-read via edge function já existente.

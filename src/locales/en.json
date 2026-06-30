@@ -295,6 +295,23 @@
       "presentations": "Presentations",
       "print_type": "Print type",
       "prints_per_bottle": "Prints/Bottle",
+      "print_types": {
+        "base_dentadura": "Denture base",
+        "base_protese_total": "Full denture base",
+        "biomodelos_tc_quadrante": "Biomodels – CT (Quadrant)",
+        "coroas_sobre_dente": "Crowns over tooth",
+        "elemento_unitario": "Single unit",
+        "facetas": "Veneers",
+        "guia_parcial": "Partial surgical guide",
+        "modelos_alinhadores": "Aligner models",
+        "modelos_clareamento": "Whitening tray models",
+        "modelos_mockup": "Mockup models",
+        "modelos_proteticos_arco": "Prosthetic models (full arch)",
+        "par_zocalados": "Articulated pair (with base)",
+        "placas_miorrelaxantes": "Occlusal splints",
+        "protocolo": "Implant-supported protocol",
+        "simulacao_gengiva": "Gingiva simulation"
+      },
       "actions": {
         "loja": "🛒 Shop",
         "loja_title": "Shop",

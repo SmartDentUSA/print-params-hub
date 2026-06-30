@@ -295,6 +295,23 @@
       "presentations": "Apresentações",
       "print_type": "Tipo de impressão",
       "prints_per_bottle": "Imp/Frasco",
+      "print_types": {
+        "base_dentadura": "Base dentadura",
+        "base_protese_total": "Base prótese total",
+        "biomodelos_tc_quadrante": "Biomodelos – TC (Quadrante)",
+        "coroas_sobre_dente": "Coroas sobre dente",
+        "elemento_unitario": "Elemento unitário",
+        "facetas": "Facetas",
+        "guia_parcial": "Guia parcial",
+        "modelos_alinhadores": "Modelos para alinhadores",
+        "modelos_clareamento": "Modelos para clareamento",
+        "modelos_mockup": "Modelos mockup",
+        "modelos_proteticos_arco": "Modelos protéticos (arco)",
+        "par_zocalados": "Par zocalados",
+        "placas_miorrelaxantes": "Placas miorrelaxantes",
+        "protocolo": "Protocolo",
+        "simulacao_gengiva": "Simulação de gengiva"
+      },
       "actions": {
         "loja": "🛒 Loja",
         "loja_title": "Loja",
