@@ -646,15 +646,134 @@ serve(async (req) => {
         
         for (const product of products) {
           sections.push(createSectionHeading(product.name, HeadingLevel.HEADING_3));
-          
-          if (product.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(product.description), 300), size: 22 })],
-              spacing: { after: 150 },
-            }));
+
+          // Find paired products_catalog row (richer technical fields)
+          const pc = productsCatalogByName.get(normKey(product.name));
+
+          // Metadata bullets
+          const metaBullets: Array<[string, any]> = [
+            ['Categoria', product.product_category || product.category],
+            ['Subcategoria', product.product_subcategory],
+            ['Categoria (EN)', product.product_category_en],
+            ['Categoria (ES)', product.product_category_es],
+            ['Slug', product.slug],
+            ['ID externo', product.external_id],
+            ['Origem', product.source],
+            ['Preço', product.price],
+            ['Promo', product.promo_price],
+            ['ANVISA / Certificações', Array.isArray(product.certifications) ? product.certifications.join(', ') : product.certifications],
+            ['Wikidata', product.wikidata_qid],
+            ['Rating', product.rating ? `${product.rating} (${product.review_count || 0})` : null],
+          ];
+          if (pc) {
+            metaBullets.push(
+              ['Tipo (products_catalog)', pc.product_type],
+              ['Datasheet URL', pc.datasheet_url],
+              ['Spec sheet URL', pc.spec_sheet_url],
+              ['Manual URL', pc.manual_url],
+            );
           }
-          
-          
+          for (const [label, val] of metaBullets) {
+            if (val != null && String(val).trim() !== '') sections.push(createBullet(`${label}: ${val}`));
+          }
+
+          // Descriptions PT/EN/ES — full, no truncate
+          if (product.description) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descrição (PT)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description)));
+          }
+          if (product.description_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Description (EN)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description_en)));
+          }
+          if (product.description_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descripción (ES)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description_es)));
+          }
+
+          // Long-form fields from products_catalog (clinical brain)
+          if (pc?.sales_pitch) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '💬 Sales pitch', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(pc.sales_pitch))));
+          }
+          if (pc?.benefits) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '✨ Benefícios', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.benefits) ? pc.benefits.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.benefits === 'object' ? JSON.stringify(pc.benefits, null, 2) : String(pc.benefits));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.features) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🔧 Features', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.features) ? pc.features.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.features === 'object' ? JSON.stringify(pc.features, null, 2) : String(pc.features));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.applications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🩺 Aplicações clínicas', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.applications) ? pc.applications.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.applications === 'object' ? JSON.stringify(pc.applications, null, 2) : String(pc.applications));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.target_audience) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🎯 Público-alvo', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.target_audience) ? pc.target_audience.join(', ') : String(pc.target_audience);
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.datasheet_summary) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📑 Resumo do datasheet', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(pc.datasheet_summary)), { size: 20, color: '4B5563' }));
+          }
+
+          // TECHNICAL SPECS TABLE — priority products_catalog → system_a_catalog.technical_specs → extra_data.system_a_live.technical_specs
+          const liveSpecs = product?.extra_data?.system_a_live?.technical_specs;
+          const specsPT = pickSpecs(pc?.technical_specifications, product.technical_specs, liveSpecs);
+          if (specsPT) sections.push(...(renderSpecsTable(specsPT, '📊 Tabela técnica (PT)') as any));
+          const specsEN = pickSpecs(pc?.technical_specifications_en, product.technical_specs_en);
+          if (specsEN) sections.push(...(renderSpecsTable(specsEN, '📊 Technical specs (EN)') as any));
+          const specsES = pickSpecs(pc?.technical_specifications_es, product.technical_specs_es);
+          if (specsES) sections.push(...(renderSpecsTable(specsES, '📊 Especificaciones (ES)') as any));
+
+          // FAQ from products_catalog
+          if (pc?.faq && Array.isArray(pc.faq) && pc.faq.length > 0) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '❓ FAQ', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            for (const f of pc.faq) {
+              if (!f) continue;
+              const q = f.question || f.q;
+              const a = f.answer || f.a;
+              if (q) sections.push(new Paragraph({ children: [new TextRun({ text: `P: ${q}`, bold: true, size: 20 })], spacing: { after: 40 } }));
+              if (a) sections.push(...renderLongText(String(a), { size: 20, color: '4B5563' }));
+            }
+          }
+
+          // Consolidated: linked resin + parameter sets
+          const linkedResin = resinByName.get(normKey(product.name));
+          if (linkedResin) {
+            const linkedParams = paramsByResinKey.get(normKey(linkedResin.name)) || [];
+            sections.push(new Paragraph({
+              children: [new TextRun({ text: `🧪 Resina vinculada: ${linkedResin.name} — ${linkedParams.length} parâmetro(s)`, bold: true, size: 22 })],
+              spacing: { before: 150, after: 80 },
+            }));
+            if (linkedParams.length > 0) {
+              const headerCells = ['Marca', 'Modelo', 'Layer', 'Cure', 'Bottom', 'Intensidade', 'Lift'].map(t =>
+                new TableCell({
+                  shading: { fill: 'F3F4F6', type: ShadingType.CLEAR, color: 'auto' },
+                  children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 18 })] })],
+                })
+              );
+              const trows: TableRow[] = [new TableRow({ tableHeader: true, children: headerCells })];
+              for (const p of linkedParams) {
+                trows.push(new TableRow({ children: [
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: brandMap.get(p.brand_slug) || p.brand_slug || '-', size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: modelMap.get(p.model_slug) || p.model_slug || '-', size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.layer_height ?? '-'}mm`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.cure_time ?? '-'}s`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.bottom_cure_time ?? '-'}s`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.light_intensity ?? '-'}%`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.lift_distance ?? '-'}mm`, size: 18 })] })] }),
+                ]}));
+              }
+              sections.push(new Table({ rows: trows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+              sections.push(new Paragraph({ spacing: { after: 150 } }));
+            }
+          }
+
           // CTAs
           const ctas = [
             { label: product.cta_1_label, url: product.cta_1_url },
