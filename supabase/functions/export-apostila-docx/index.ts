@@ -376,29 +376,118 @@ serve(async (req) => {
         
         for (const resin of mfrResins) {
           sections.push(createSectionHeading(`${resin.name}`, HeadingLevel.HEADING_3));
-          
+
+          // Identity / metadata bullets
+          const metaBullets: Array<[string, any]> = [
+            ['Fabricante', resin.manufacturer],
+            ['Tipo', resin.type],
+            ['Cor', resin.color],
+            ['Slug', resin.slug],
+            ['ANVISA', resin.anvisa_registration],
+            ['FDA 510(k)', resin.fda_510k],
+            ['Certificações', Array.isArray(resin.certifications) ? resin.certifications.join(', ') : resin.certifications],
+            ['Wikidata', resin.wikidata_qid],
+            ['Rating', resin.rating ? `${resin.rating} (${resin.review_count || 0} avaliações)` : null],
+            ['URL System A', resin.system_a_product_url],
+          ];
+          for (const [label, val] of metaBullets) {
+            if (val != null && String(val).trim() !== '') sections.push(createBullet(`${label}: ${val}`));
+          }
+
+          // Descriptions PT / EN / ES — full, no truncate
           if (resin.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: stripHtml(resin.description), size: 22 })],
-              spacing: { after: 150 },
-            }));
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descrição (PT)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description)));
           }
-          
-          if (resin.type) {
-            sections.push(createBullet(`Tipo: ${resin.type}`));
+          if (resin.description_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Description (EN)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description_en)));
           }
-          
+          if (resin.description_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descripción (ES)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description_es)));
+          }
+
+          // Processing instructions PT/EN/ES — full
           if (resin.processing_instructions) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: '📋 Instruções de Processamento:', bold: true, size: 22 })],
-              spacing: { before: 150, after: 80 },
-            }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(resin.processing_instructions), 500), size: 20, color: '374151' })],
-              spacing: { after: 150 },
-            }));
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Instruções de Processamento (PT)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions), { color: '374151' }));
           }
-          
+          if (resin.processing_instructions_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Processing Instructions (EN)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions_en), { color: '374151' }));
+          }
+          if (resin.processing_instructions_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Instrucciones de Procesamiento (ES)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions_es), { color: '374151' }));
+          }
+
+          // Clinical indications / contraindications / compatibility
+          if (resin.clinical_indications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🩺 Indicações clínicas', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.clinical_indications) ? resin.clinical_indications.join('\n') : (typeof resin.clinical_indications === 'object' ? JSON.stringify(resin.clinical_indications) : String(resin.clinical_indications));
+            sections.push(...renderLongText(v));
+          }
+          if (resin.contraindications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '⚠️ Contraindicações', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.contraindications) ? resin.contraindications.join('\n') : String(resin.contraindications);
+            sections.push(...renderLongText(v));
+          }
+          if (resin.compatibility_list) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🖨️ Compatibilidade', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.compatibility_list) ? resin.compatibility_list.join(', ') : (typeof resin.compatibility_list === 'object' ? JSON.stringify(resin.compatibility_list) : String(resin.compatibility_list));
+            sections.push(...renderLongText(v));
+          }
+
+          // Technical specs table (PT, then EN, then ES if present)
+          const specsPT = pickSpecs(resin.technical_specs);
+          if (specsPT) sections.push(...(renderSpecsTable(specsPT, '📊 Tabela técnica (PT)') as any));
+          const specsEN = pickSpecs(resin.technical_specs_en);
+          if (specsEN) sections.push(...(renderSpecsTable(specsEN, '📊 Technical specs (EN)') as any));
+          const specsES = pickSpecs(resin.technical_specs_es);
+          if (specsES) sections.push(...(renderSpecsTable(specsES, '📊 Especificaciones (ES)') as any));
+
+          // AI context (full)
+          if (resin.ai_context) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🤖 Contexto IA', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(resin.ai_context)), { size: 18, color: '4B5563' }));
+          }
+
+          // Consolidated: parameter sets for this resin
+          const linkedParams = paramsByResinKey.get(normKey(resin.name)) || [];
+          if (linkedParams.length > 0) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: `⚙️ Parâmetros desta resina (${linkedParams.length})`, bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            const headerCells = ['Marca', 'Modelo', 'Layer', 'Cure', 'Bottom', 'Intensidade', 'Lift'].map(t =>
+              new TableCell({
+                shading: { fill: 'F3F4F6', type: ShadingType.CLEAR, color: 'auto' },
+                children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 18 })] })],
+              })
+            );
+            const trows: TableRow[] = [new TableRow({ tableHeader: true, children: headerCells })];
+            for (const p of linkedParams) {
+              trows.push(new TableRow({ children: [
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: brandMap.get(p.brand_slug) || p.brand_slug || '-', size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: modelMap.get(p.model_slug) || p.model_slug || '-', size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.layer_height ?? '-'}mm`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.cure_time ?? '-'}s`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.bottom_cure_time ?? '-'}s`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.light_intensity ?? '-'}%`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.lift_distance ?? '-'}mm`, size: 18 })] })] }),
+              ]}));
+            }
+            sections.push(new Table({ rows: trows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+            sections.push(new Paragraph({ spacing: { after: 150 } }));
+          }
+
+          // Linked catalog product (if any)
+          const linkedCatalog = catalogByName.get(normKey(resin.name));
+          if (linkedCatalog) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🛍️ Produto no catálogo vinculado', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(createBullet(`Nome: ${linkedCatalog.name}`));
+            if (linkedCatalog.product_category) sections.push(createBullet(`Categoria: ${linkedCatalog.product_category}`));
+            if (linkedCatalog.slug) sections.push(createBullet(`Slug: ${linkedCatalog.slug}`));
+          }
+
           // CTAs (purchase links)
           const ctas = [
             { label: resin.cta_1_label, url: resin.cta_1_url },
