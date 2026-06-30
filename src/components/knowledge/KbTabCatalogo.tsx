@@ -513,7 +513,7 @@ export default function KbTabCatalogo() {
     rowsRaw,
     // NÃO traduzir product_category/product_subcategory: o filtro depende do valor PT canônico
     // (normCat). Chips já traduzem via t() em CHIP_KEYS.
-    ['name', 'description', 'cta_1_label', 'cta_2_label']
+    ['name', 'description', 'cta_1_label', 'cta_2_label', 'technical_specs']
   );
   const translatedResins = useCardTranslations(
     'resins',
