@@ -671,12 +671,34 @@ export default function KbTabCatalogo() {
               // fonte sincronizada — o que está no editor deve aparecer no card.
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const manuallyEdited = !!(p as any)?.extra_data?.system_a_live?.manually_edited_at;
+              // Translated copies (top-level columns populated on-demand pelo
+              // edge function `translate-card-row`, que sabe ler do live).
+              const liveTr =
+                (specLang === 'en' && (p as any).technical_specs_en) ||
+                (specLang === 'es' && (p as any).technical_specs_es) ||
+                null;
+              const docTr =
+                (specLang === 'en' && (d as any)?.technical_specifications_en) ||
+                (specLang === 'es' && (d as any)?.technical_specifications_es) ||
+                null;
               if (manuallyEdited) {
+                if (liveTr) {
+                  const fromTr = normalizeSpecs(liveTr, specLang);
+                  if (fromTr.length) return liveTr;
+                }
                 const fromLive = normalizeSpecs(live, specLang);
                 if (fromLive.length) return live;
               }
+              if (docTr) {
+                const fromDocTr = normalizeSpecs(docTr, specLang);
+                if (fromDocTr.length) return docTr;
+              }
               const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
               if (fromDocs.length) return d?.technical_specifications;
+              if (liveTr) {
+                const fromTr = normalizeSpecs(liveTr, specLang);
+                if (fromTr.length) return liveTr;
+              }
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
               // Fallback: technical_specs da resina vinculada — só em match exato
