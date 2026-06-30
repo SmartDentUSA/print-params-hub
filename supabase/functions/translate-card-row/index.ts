@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
     const fields = TABLES[table];
     const ptCols = fields.map((f) => f.name);
     const trCols = fields.map((f) => `${f.name}_${target}`);
-    const selectCols = ["id", ...ptCols, ...trCols].join(",");
+    const extraCols = table === "system_a_catalog" ? ["extra_data"] : [];
+    const selectCols = ["id", ...ptCols, ...trCols, ...extraCols].join(",");
 
     const { data: row, error: selErr } = await sb.from(table).select(selectCols).eq("id", id).maybeSingle();
     if (selErr || !row) {
