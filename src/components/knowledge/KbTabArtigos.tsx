@@ -10,6 +10,7 @@ import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
+import { resolveCategoryTk } from './kbCategoryTaxonomy';
 
 const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'all', tk: 'kb.chips.all' },
@@ -23,7 +24,7 @@ interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
   og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
-  knowledge_categories: { letter: string; name: string } | null;
+  knowledge_categories: { id?: string; letter: string; name: string } | null;
 }
 
 interface Props { onOpen: (slug: string) => void }
@@ -49,7 +50,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(letter,name)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       // When the user is searching, ignore the active chip and scan the whole base.
@@ -89,6 +90,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
+    categoryTk: resolveCategoryTk(r.knowledge_categories?.id || r.category_id),
     viewCount: r.view_count ?? 0,
     shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
