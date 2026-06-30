@@ -128,9 +128,20 @@ Deno.serve(async (req) => {
     const payload: Record<string, unknown> = {};
     const meta: Record<string, FieldKind> = {};
     for (const f of fields) {
-      const ptVal = (row as any)[f.name];
+      let ptVal = (row as any)[f.name];
       const trVal = (row as any)[`${f.name}_${target}`];
       if (trVal != null && trVal !== "") continue;
+      // Special-case: system_a_catalog.technical_specs canonical data lives in
+      // extra_data.system_a_live.technical_specs (array). Fall back to it when
+      // the top-level column is empty or not an array.
+      if (
+        table === "system_a_catalog" &&
+        f.name === "technical_specs" &&
+        (!Array.isArray(ptVal) || ptVal.length === 0)
+      ) {
+        const live = (row as any)?.extra_data?.system_a_live?.technical_specs;
+        if (Array.isArray(live) && live.length > 0) ptVal = live;
+      }
       if (ptVal == null) continue;
       if (f.kind === "text") {
         const s = String(ptVal).trim();
