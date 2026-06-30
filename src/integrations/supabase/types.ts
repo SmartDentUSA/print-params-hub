@@ -27147,6 +27147,10 @@ export type Database = {
       }
     }
     Functions: {
+      apply_variation_specs: {
+        Args: { _new_specs: Json; _sac_id: string }
+        Returns: undefined
+      }
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
