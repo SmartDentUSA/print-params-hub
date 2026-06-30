@@ -207,21 +207,23 @@ serve(async (req) => {
       { data: catalogDocs },
       { data: resinDocs },
       { data: catalog },
+      { data: productsCatalog },
       { data: authors },
       { data: externalLinks },
     ] = await Promise.all([
-      supabase.from('brands').select('*').eq('active', true).order('name'),
-      supabase.from('models').select('*').eq('active', true).order('name'),
-      supabase.from('resins').select('*').eq('active', true).order('manufacturer, name'),
-      supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name'),
-      supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index'),
-      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index'),
-      supabase.from('knowledge_videos').select('*').order('order_index'),
-      supabase.from('catalog_documents').select('*').eq('active', true),
-      supabase.from('resin_documents').select('*').eq('active', true),
-      supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name'),
-      supabase.from('authors').select('*').eq('active', true).order('order_index'),
-      supabase.from('external_links').select('*').eq('approved', true).order('category, name'),
+      supabase.from('brands').select('*').eq('active', true).order('name').limit(10000),
+      supabase.from('models').select('*').eq('active', true).order('name').limit(10000),
+      supabase.from('resins').select('*').eq('active', true).order('manufacturer, name').limit(10000),
+      supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name').limit(10000),
+      supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index').limit(10000),
+      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000),
+      supabase.from('knowledge_videos').select('*').order('order_index').limit(10000),
+      supabase.from('catalog_documents').select('*').eq('active', true).limit(10000),
+      supabase.from('resin_documents').select('*').eq('active', true).limit(10000),
+      supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name').limit(10000),
+      supabase.from('authors').select('*').eq('active', true).order('order_index').limit(10000),
+      supabase.from('external_links').select('*').eq('approved', true).order('category, name').limit(10000),
+      supabase.from('products_catalog').select('*').limit(10000),
     ]);
 
     console.log(`📈 Data fetched: ${brands?.length || 0} brands, ${models?.length || 0} models, ${resins?.length || 0} resins, ${parameterSets?.length || 0} parameters`);
@@ -238,8 +240,32 @@ serve(async (req) => {
       year: 'numeric'
     });
 
-    // Build document sections
-    const sections: Paragraph[] = [];
+    // Build document sections (can hold both Paragraphs and Tables)
+    const sections: (Paragraph | Table)[] = [];
+
+    // Build lookup maps for cross-linking (products_catalog ⇄ system_a_catalog ⇄ resins ⇄ parameter_sets)
+    const productsCatalogByName = new Map<string, any>();
+    for (const p of (productsCatalog || [])) {
+      const k = normKey(p.name);
+      if (k && !productsCatalogByName.has(k)) productsCatalogByName.set(k, p);
+    }
+    const paramsByResinKey = new Map<string, any[]>();
+    for (const ps of (parameterSets || [])) {
+      const k = normKey(ps.resin_name);
+      if (!k) continue;
+      if (!paramsByResinKey.has(k)) paramsByResinKey.set(k, []);
+      paramsByResinKey.get(k)!.push(ps);
+    }
+    const resinByName = new Map<string, any>();
+    for (const r of (resins || [])) {
+      const k = normKey(r.name);
+      if (k && !resinByName.has(k)) resinByName.set(k, r);
+    }
+    const catalogByName = new Map<string, any>();
+    for (const c of (catalog || [])) {
+      const k = normKey(c.name);
+      if (k && !catalogByName.has(k)) catalogByName.set(k, c);
+    }
 
     // =====================
     // 1. COVER PAGE
