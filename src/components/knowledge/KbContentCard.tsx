@@ -51,6 +51,12 @@ function formatViews(n: number | null | undefined): string {
 
 export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
+  const { t } = useLanguage();
+  const translatedCat = (() => {
+    if (!data.categoryTk) return data.categoryName;
+    const tr = t(data.categoryTk);
+    return tr && tr !== data.categoryTk ? tr : data.categoryName;
+  })();
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
@@ -114,7 +120,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
           <span className="kb-cat-badge" style={{ background: cat.bgBadge, color: cat.color }}>
             {(data.categoryLetter || '?').toUpperCase()}
           </span>
-          <span className="kb-cat-label" style={{ color: cat.color }}>{data.categoryName}</span>
+          <span className="kb-cat-label" style={{ color: cat.color }}>{translatedCat}</span>
         </div>
         <h3 className="kb-title">{data.title}</h3>
         {data.excerpt && <p className="kb-excerpt">{data.excerpt}</p>}
