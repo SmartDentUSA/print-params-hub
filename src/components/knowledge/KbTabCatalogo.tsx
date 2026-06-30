@@ -520,6 +520,34 @@ export default function KbTabCatalogo() {
     resinsRaw,
     ['name', 'processing_instructions', 'cta_1_label', 'cta_2_label', 'cta_3_label', 'cta_4_label']
   );
+  // products_catalog technical_specifications: dispara tradução on-demand e
+  // espelha as colunas _en/_es de volta no Map `docs` para a leitura no card.
+  const pcRowsForTr = useMemo(() => {
+    const out: any[] = [];
+    docs.forEach((v) => {
+      if (!v?.id) return;
+      if (!v.technical_specifications) return;
+      out.push({
+        id: v.id,
+        technical_specifications: v.technical_specifications,
+        technical_specifications_en: v.technical_specifications_en ?? null,
+        technical_specifications_es: v.technical_specifications_es ?? null,
+      });
+    });
+    return out;
+  }, [docs]);
+  const translatedPc = useCardTranslations(
+    'products_catalog',
+    pcRowsForTr,
+    ['technical_specifications']
+  );
+  const pcTrById = useMemo(() => {
+    const m = new Map<string, any>();
+    (translatedPc || []).forEach((r: any) => {
+      if (r?.id) m.set(r.id, r);
+    });
+    return m;
+  }, [translatedPc]);
   const rows = translatedRows as CatalogRow[];
   const resins = useMemo(() => {
     const m = new Map<string, ResinInfo>();
