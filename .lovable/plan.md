@@ -1,30 +1,37 @@
+## Diagnóstico
 
-## Objetivo
-Adicionar nas fichas técnicas dos 15 grupos já matchados (42 produtos em `system_a_catalog` / 43 em `products_catalog`) as 3 informações ausentes da planilha `SmartDent_Variacoes_Final_2026.xlsx`:
+Em `/en/knowledge-base?tab=catalogo` (e `/es/...`) os produtos somem porque o hook de tradução está sobrescrevendo o campo usado para filtrar.
 
-- **GTIN / EAN** (por variação)
-- **Peso (kg)** (por variação)
-- **Dimensões (cm)** (por variação)
+Fluxo em `src/components/knowledge/KbTabCatalogo.tsx`:
 
-## Como
-1. Reprocessar a planilha (abas `🔀 Variações Completas`, `🧪 Resinas`, `🦷 Atos Resinas`, `🎨 SmartMake + SmartGum`, `⚙️ Zircônia + Fresas`) agrupando por **Grupo**.
-2. Para cada grupo, montar 3 linhas formatadas no padrão "Variação → Valor":
-   - `GTIN / EAN por variação` — ex.: `DA1: 7898... | DA2: 7898... | DA3: 7898...`
-   - `Peso por variação (kg)` — ex.: `DA1: 0,025 | DA2: 0,025 | ...`
-   - `Dimensões por variação (cm)` — ex.: `DA1: 5x3x2 | DA2: 5x3x2 | ...`
-   - Quando todas as variações tiverem o mesmo valor, colapsar em linha única (`Peso (kg)`, `Dimensões (cm)`, `GTIN / EAN`) com o valor comum.
-3. SQL idempotente:
-   - **`system_a_catalog`**: fazer `jsonb_set` em `extra_data->system_a_live->technical_specs` adicionando/atualizando as 3 chaves (`GTIN / EAN`, `Peso (kg)`, `Dimensões (cm)` — ou as variantes "por variação"). Preservar as chaves já inseridas (Variações, SKUs, NCM, Categoria, Fonte).
-   - Atualizar `manually_edited_at = now()` para blindar contra o cron de sync.
-   - **`products_catalog`**: espelhar as mesmas 3 chaves em `technical_specifications` (jsonb) dos 43 produtos correspondentes.
-4. Rodar via `supabase--insert` (UPDATE em dados existentes, sem migração de schema).
+1. `useCardTranslations('system_a_catalog', rowsRaw, ['name','description','product_category','product_subcategory','cta_1_label','cta_2_label'])` substitui `r.product_category` pela versão `_en`/`_es` (ex.: "3D RESINS", "POST-PROCESSING").
+2. Em seguida o filtro chama `normCat(r.product_category)`, que só conhece os rótulos canônicos em PT (`'RESINAS 3D'`, `'PÓS-IMPRESSÃO'`, etc.). Para qualquer valor traduzido, retorna `null`.
+3. `filtered` descarta todas as linhas (`if (!canon) return false`) → grid vazio (`KbEmptyState`).
 
-## Escopo (15 grupos / 42+43 produtos já matchados)
-Mesmos grupos da rodada anterior (Atos, SmartGum, SmartMake variações ativas, Blocos Smart Zr Amann ativos, etc.). Os 21 grupos sem match no catálogo continuam fora — não serão criados aqui (já avisei na rodada anterior).
+Em PT funciona porque o hook é no-op (`lang === null`), então `product_category` permanece em PT canônico.
 
-## Sem mexer
-- Nenhuma alteração de UI (`KbTabCatalogo.tsx`, `TechnicalSpecsEditor.tsx`, `AdminCatalogFormSection.tsx`).
-- Nenhuma migração de schema.
-- Specs manuais já inseridas (ex.: Bio Vitality) não são tocadas — só adiciona-se chave nova se ainda não existir.
+Os chips já usam i18n próprio (`CATEGORY_I18N_KEY` + `t()`), portanto não há necessidade de traduzir `product_category`/`product_subcategory` no nível da linha — a categoria precisa permanecer canônica em PT para o matching funcionar.
 
-Aprove para eu executar os UPDATEs.
+## Correção (cirúrgica, 1 arquivo)
+
+`src/components/knowledge/KbTabCatalogo.tsx` — remover `product_category` e `product_subcategory` da lista de campos passados ao `useCardTranslations`:
+
+```ts
+const translatedRows = useCardTranslations(
+  'system_a_catalog',
+  rowsRaw,
+  ['name', 'description', 'cta_1_label', 'cta_2_label']  // ← sem product_category / product_subcategory
+);
+```
+
+Efeitos:
+- `normCat()` volta a casar e o grid renderiza em EN/ES.
+- Chips de categoria continuam exibindo o rótulo traduzido (já vêm de `t(c.tk)` no `CHIP_KEYS`).
+- Subcategorias (`subChips`) continuam mostrando o valor PT — se quiser traduzi-las depois, fazemos via `t()` separado sem afetar o filtro.
+
+Nada mais é alterado (sem migração, sem mexer no hook, sem mexer em outras telas).
+
+## Validação
+- Abrir `/en/knowledge-base?tab=catalogo` e `/es/base-conocimiento?tab=catalogo` → cards aparecem.
+- PT continua igual.
+- Filtro por chip (Resinas, Impressão, etc.) continua funcionando.
