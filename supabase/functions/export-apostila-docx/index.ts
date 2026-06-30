@@ -39,10 +39,99 @@ function stripHtml(html: string | null): string {
     .trim();
 }
 
-// Helper to truncate text
+// Helper to truncate text (kept for sanity caps only; DOCX handles big strings fine)
 function truncate(text: string, maxLength: number): string {
+  if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength - 3) + '...';
+}
+
+// Hard sanity cap per text block to keep DOCX < ~50MB even with huge transcripts
+const TEXT_CAP = 50000;
+
+function normKey(s: string | null | undefined): string {
+  return (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Render a long text as one or more Paragraphs, splitting on blank lines
+function renderLongText(text: string, opts: { size?: number; color?: string } = {}): Paragraph[] {
+  const safe = (text || '').slice(0, TEXT_CAP);
+  const blocks = safe.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length === 0) return [];
+  return blocks.map(b => new Paragraph({
+    children: [new TextRun({ text: b, size: opts.size ?? 22, color: opts.color })],
+    spacing: { after: 120 },
+  }));
+}
+
+// Render a JSON specs object/array as a 2-col DOCX table (label | value). Returns [] if empty.
+function renderSpecsTable(specs: any, title = '📊 Tabela técnica'): Paragraph[] | (Paragraph | Table)[] {
+  if (!specs) return [];
+  let rows: Array<{ label: string; value: string }> = [];
+
+  if (Array.isArray(specs)) {
+    for (const row of specs) {
+      if (!row) continue;
+      if (typeof row === 'string') { rows.push({ label: '', value: row }); continue; }
+      const label = row.label ?? row.name ?? row.key ?? row.title ?? '';
+      const value = row.value ?? row.val ?? row.content ?? '';
+      if (String(label).trim() || String(value).trim()) {
+        rows.push({ label: String(label), value: String(value) });
+      }
+    }
+  } else if (typeof specs === 'object') {
+    for (const [k, v] of Object.entries(specs)) {
+      if (v == null || v === '') continue;
+      const value = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      rows.push({ label: String(k), value });
+    }
+  }
+
+  if (rows.length === 0) return [];
+
+  const tableRows: TableRow[] = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        new TableCell({
+          width: { size: 35, type: WidthType.PERCENTAGE },
+          shading: { fill: 'E5E7EB', type: ShadingType.CLEAR, color: 'auto' },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Especificação', bold: true, size: 20 })] })],
+        }),
+        new TableCell({
+          width: { size: 65, type: WidthType.PERCENTAGE },
+          shading: { fill: 'E5E7EB', type: ShadingType.CLEAR, color: 'auto' },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Valor', bold: true, size: 20 })] })],
+        }),
+      ],
+    }),
+  ];
+  for (const r of rows) {
+    tableRows.push(new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 20, bold: true })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.value.slice(0, 4000), size: 20 })] })] }),
+      ],
+    }));
+  }
+
+  return [
+    new Paragraph({
+      children: [new TextRun({ text: `${title} (${rows.length} itens)`, bold: true, size: 22 })],
+      spacing: { before: 150, after: 80 },
+    }),
+    new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }),
+    new Paragraph({ spacing: { after: 200 } }),
+  ];
+}
+
+function pickSpecs(...candidates: any[]): any {
+  for (const c of candidates) {
+    if (!c) continue;
+    if (Array.isArray(c) && c.length > 0) return c;
+    if (typeof c === 'object' && Object.keys(c).length > 0) return c;
+  }
+  return null;
 }
 
 // Helper to format date
@@ -118,21 +207,23 @@ serve(async (req) => {
       { data: catalogDocs },
       { data: resinDocs },
       { data: catalog },
+      { data: productsCatalog },
       { data: authors },
       { data: externalLinks },
     ] = await Promise.all([
-      supabase.from('brands').select('*').eq('active', true).order('name'),
-      supabase.from('models').select('*').eq('active', true).order('name'),
-      supabase.from('resins').select('*').eq('active', true).order('manufacturer, name'),
-      supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name'),
-      supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index'),
-      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index'),
-      supabase.from('knowledge_videos').select('*').order('order_index'),
-      supabase.from('catalog_documents').select('*').eq('active', true),
-      supabase.from('resin_documents').select('*').eq('active', true),
-      supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name'),
-      supabase.from('authors').select('*').eq('active', true).order('order_index'),
-      supabase.from('external_links').select('*').eq('approved', true).order('category, name'),
+      supabase.from('brands').select('*').eq('active', true).order('name').limit(10000),
+      supabase.from('models').select('*').eq('active', true).order('name').limit(10000),
+      supabase.from('resins').select('*').eq('active', true).order('manufacturer, name').limit(10000),
+      supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name').limit(10000),
+      supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index').limit(10000),
+      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000),
+      supabase.from('knowledge_videos').select('*').order('order_index').limit(10000),
+      supabase.from('catalog_documents').select('*').eq('active', true).limit(10000),
+      supabase.from('resin_documents').select('*').eq('active', true).limit(10000),
+      supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name').limit(10000),
+      supabase.from('authors').select('*').eq('active', true).order('order_index').limit(10000),
+      supabase.from('external_links').select('*').eq('approved', true).order('category, name').limit(10000),
+      supabase.from('products_catalog').select('*').limit(10000),
     ]);
 
     console.log(`📈 Data fetched: ${brands?.length || 0} brands, ${models?.length || 0} models, ${resins?.length || 0} resins, ${parameterSets?.length || 0} parameters`);
@@ -149,8 +240,32 @@ serve(async (req) => {
       year: 'numeric'
     });
 
-    // Build document sections
-    const sections: Paragraph[] = [];
+    // Build document sections (can hold both Paragraphs and Tables)
+    const sections: (Paragraph | Table)[] = [];
+
+    // Build lookup maps for cross-linking (products_catalog ⇄ system_a_catalog ⇄ resins ⇄ parameter_sets)
+    const productsCatalogByName = new Map<string, any>();
+    for (const p of (productsCatalog || [])) {
+      const k = normKey(p.name);
+      if (k && !productsCatalogByName.has(k)) productsCatalogByName.set(k, p);
+    }
+    const paramsByResinKey = new Map<string, any[]>();
+    for (const ps of (parameterSets || [])) {
+      const k = normKey(ps.resin_name);
+      if (!k) continue;
+      if (!paramsByResinKey.has(k)) paramsByResinKey.set(k, []);
+      paramsByResinKey.get(k)!.push(ps);
+    }
+    const resinByName = new Map<string, any>();
+    for (const r of (resins || [])) {
+      const k = normKey(r.name);
+      if (k && !resinByName.has(k)) resinByName.set(k, r);
+    }
+    const catalogByName = new Map<string, any>();
+    for (const c of (catalog || [])) {
+      const k = normKey(c.name);
+      if (k && !catalogByName.has(k)) catalogByName.set(k, c);
+    }
 
     // =====================
     // 1. COVER PAGE
@@ -261,29 +376,118 @@ serve(async (req) => {
         
         for (const resin of mfrResins) {
           sections.push(createSectionHeading(`${resin.name}`, HeadingLevel.HEADING_3));
-          
+
+          // Identity / metadata bullets
+          const metaBullets: Array<[string, any]> = [
+            ['Fabricante', resin.manufacturer],
+            ['Tipo', resin.type],
+            ['Cor', resin.color],
+            ['Slug', resin.slug],
+            ['ANVISA', resin.anvisa_registration],
+            ['FDA 510(k)', resin.fda_510k],
+            ['Certificações', Array.isArray(resin.certifications) ? resin.certifications.join(', ') : resin.certifications],
+            ['Wikidata', resin.wikidata_qid],
+            ['Rating', resin.rating ? `${resin.rating} (${resin.review_count || 0} avaliações)` : null],
+            ['URL System A', resin.system_a_product_url],
+          ];
+          for (const [label, val] of metaBullets) {
+            if (val != null && String(val).trim() !== '') sections.push(createBullet(`${label}: ${val}`));
+          }
+
+          // Descriptions PT / EN / ES — full, no truncate
           if (resin.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: stripHtml(resin.description), size: 22 })],
-              spacing: { after: 150 },
-            }));
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descrição (PT)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description)));
           }
-          
-          if (resin.type) {
-            sections.push(createBullet(`Tipo: ${resin.type}`));
+          if (resin.description_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Description (EN)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description_en)));
           }
-          
+          if (resin.description_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descripción (ES)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(resin.description_es)));
+          }
+
+          // Processing instructions PT/EN/ES — full
           if (resin.processing_instructions) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: '📋 Instruções de Processamento:', bold: true, size: 22 })],
-              spacing: { before: 150, after: 80 },
-            }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(resin.processing_instructions), 500), size: 20, color: '374151' })],
-              spacing: { after: 150 },
-            }));
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Instruções de Processamento (PT)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions), { color: '374151' }));
           }
-          
+          if (resin.processing_instructions_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Processing Instructions (EN)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions_en), { color: '374151' }));
+          }
+          if (resin.processing_instructions_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📋 Instrucciones de Procesamiento (ES)', bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            sections.push(...renderLongText(stripHtml(resin.processing_instructions_es), { color: '374151' }));
+          }
+
+          // Clinical indications / contraindications / compatibility
+          if (resin.clinical_indications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🩺 Indicações clínicas', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.clinical_indications) ? resin.clinical_indications.join('\n') : (typeof resin.clinical_indications === 'object' ? JSON.stringify(resin.clinical_indications) : String(resin.clinical_indications));
+            sections.push(...renderLongText(v));
+          }
+          if (resin.contraindications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '⚠️ Contraindicações', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.contraindications) ? resin.contraindications.join('\n') : String(resin.contraindications);
+            sections.push(...renderLongText(v));
+          }
+          if (resin.compatibility_list) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🖨️ Compatibilidade', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(resin.compatibility_list) ? resin.compatibility_list.join(', ') : (typeof resin.compatibility_list === 'object' ? JSON.stringify(resin.compatibility_list) : String(resin.compatibility_list));
+            sections.push(...renderLongText(v));
+          }
+
+          // Technical specs table (PT, then EN, then ES if present)
+          const specsPT = pickSpecs(resin.technical_specs);
+          if (specsPT) sections.push(...(renderSpecsTable(specsPT, '📊 Tabela técnica (PT)') as any));
+          const specsEN = pickSpecs(resin.technical_specs_en);
+          if (specsEN) sections.push(...(renderSpecsTable(specsEN, '📊 Technical specs (EN)') as any));
+          const specsES = pickSpecs(resin.technical_specs_es);
+          if (specsES) sections.push(...(renderSpecsTable(specsES, '📊 Especificaciones (ES)') as any));
+
+          // AI context (full)
+          if (resin.ai_context) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🤖 Contexto IA', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(resin.ai_context)), { size: 18, color: '4B5563' }));
+          }
+
+          // Consolidated: parameter sets for this resin
+          const linkedParams = paramsByResinKey.get(normKey(resin.name)) || [];
+          if (linkedParams.length > 0) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: `⚙️ Parâmetros desta resina (${linkedParams.length})`, bold: true, size: 22 })], spacing: { before: 150, after: 80 } }));
+            const headerCells = ['Marca', 'Modelo', 'Layer', 'Cure', 'Bottom', 'Intensidade', 'Lift'].map(t =>
+              new TableCell({
+                shading: { fill: 'F3F4F6', type: ShadingType.CLEAR, color: 'auto' },
+                children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 18 })] })],
+              })
+            );
+            const trows: TableRow[] = [new TableRow({ tableHeader: true, children: headerCells })];
+            for (const p of linkedParams) {
+              trows.push(new TableRow({ children: [
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: brandMap.get(p.brand_slug) || p.brand_slug || '-', size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: modelMap.get(p.model_slug) || p.model_slug || '-', size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.layer_height ?? '-'}mm`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.cure_time ?? '-'}s`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.bottom_cure_time ?? '-'}s`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.light_intensity ?? '-'}%`, size: 18 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.lift_distance ?? '-'}mm`, size: 18 })] })] }),
+              ]}));
+            }
+            sections.push(new Table({ rows: trows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+            sections.push(new Paragraph({ spacing: { after: 150 } }));
+          }
+
+          // Linked catalog product (if any)
+          const linkedCatalog = catalogByName.get(normKey(resin.name));
+          if (linkedCatalog) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🛍️ Produto no catálogo vinculado', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(createBullet(`Nome: ${linkedCatalog.name}`));
+            if (linkedCatalog.product_category) sections.push(createBullet(`Categoria: ${linkedCatalog.product_category}`));
+            if (linkedCatalog.slug) sections.push(createBullet(`Slug: ${linkedCatalog.slug}`));
+          }
+
           // CTAs (purchase links)
           const ctas = [
             { label: resin.cta_1_label, url: resin.cta_1_url },
@@ -442,15 +646,134 @@ serve(async (req) => {
         
         for (const product of products) {
           sections.push(createSectionHeading(product.name, HeadingLevel.HEADING_3));
-          
-          if (product.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(product.description), 300), size: 22 })],
-              spacing: { after: 150 },
-            }));
+
+          // Find paired products_catalog row (richer technical fields)
+          const pc = productsCatalogByName.get(normKey(product.name));
+
+          // Metadata bullets
+          const metaBullets: Array<[string, any]> = [
+            ['Categoria', product.product_category || product.category],
+            ['Subcategoria', product.product_subcategory],
+            ['Categoria (EN)', product.product_category_en],
+            ['Categoria (ES)', product.product_category_es],
+            ['Slug', product.slug],
+            ['ID externo', product.external_id],
+            ['Origem', product.source],
+            ['Preço', product.price],
+            ['Promo', product.promo_price],
+            ['ANVISA / Certificações', Array.isArray(product.certifications) ? product.certifications.join(', ') : product.certifications],
+            ['Wikidata', product.wikidata_qid],
+            ['Rating', product.rating ? `${product.rating} (${product.review_count || 0})` : null],
+          ];
+          if (pc) {
+            metaBullets.push(
+              ['Tipo (products_catalog)', pc.product_type],
+              ['Datasheet URL', pc.datasheet_url],
+              ['Spec sheet URL', pc.spec_sheet_url],
+              ['Manual URL', pc.manual_url],
+            );
           }
-          
-          
+          for (const [label, val] of metaBullets) {
+            if (val != null && String(val).trim() !== '') sections.push(createBullet(`${label}: ${val}`));
+          }
+
+          // Descriptions PT/EN/ES — full, no truncate
+          if (product.description) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descrição (PT)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description)));
+          }
+          if (product.description_en) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Description (EN)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description_en)));
+          }
+          if (product.description_es) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📝 Descripción (ES)', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(product.description_es)));
+          }
+
+          // Long-form fields from products_catalog (clinical brain)
+          if (pc?.sales_pitch) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '💬 Sales pitch', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(pc.sales_pitch))));
+          }
+          if (pc?.benefits) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '✨ Benefícios', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.benefits) ? pc.benefits.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.benefits === 'object' ? JSON.stringify(pc.benefits, null, 2) : String(pc.benefits));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.features) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🔧 Features', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.features) ? pc.features.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.features === 'object' ? JSON.stringify(pc.features, null, 2) : String(pc.features));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.applications) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🩺 Aplicações clínicas', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.applications) ? pc.applications.map((b: any) => `• ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('\n') : (typeof pc.applications === 'object' ? JSON.stringify(pc.applications, null, 2) : String(pc.applications));
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.target_audience) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '🎯 Público-alvo', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            const v = Array.isArray(pc.target_audience) ? pc.target_audience.join(', ') : String(pc.target_audience);
+            sections.push(...renderLongText(v));
+          }
+          if (pc?.datasheet_summary) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '📑 Resumo do datasheet', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            sections.push(...renderLongText(stripHtml(String(pc.datasheet_summary)), { size: 20, color: '4B5563' }));
+          }
+
+          // TECHNICAL SPECS TABLE — priority products_catalog → system_a_catalog.technical_specs → extra_data.system_a_live.technical_specs
+          const liveSpecs = product?.extra_data?.system_a_live?.technical_specs;
+          const specsPT = pickSpecs(pc?.technical_specifications, product.technical_specs, liveSpecs);
+          if (specsPT) sections.push(...(renderSpecsTable(specsPT, '📊 Tabela técnica (PT)') as any));
+          const specsEN = pickSpecs(pc?.technical_specifications_en, product.technical_specs_en);
+          if (specsEN) sections.push(...(renderSpecsTable(specsEN, '📊 Technical specs (EN)') as any));
+          const specsES = pickSpecs(pc?.technical_specifications_es, product.technical_specs_es);
+          if (specsES) sections.push(...(renderSpecsTable(specsES, '📊 Especificaciones (ES)') as any));
+
+          // FAQ from products_catalog
+          if (pc?.faq && Array.isArray(pc.faq) && pc.faq.length > 0) {
+            sections.push(new Paragraph({ children: [new TextRun({ text: '❓ FAQ', bold: true, size: 22 })], spacing: { before: 120, after: 60 } }));
+            for (const f of pc.faq) {
+              if (!f) continue;
+              const q = f.question || f.q;
+              const a = f.answer || f.a;
+              if (q) sections.push(new Paragraph({ children: [new TextRun({ text: `P: ${q}`, bold: true, size: 20 })], spacing: { after: 40 } }));
+              if (a) sections.push(...renderLongText(String(a), { size: 20, color: '4B5563' }));
+            }
+          }
+
+          // Consolidated: linked resin + parameter sets
+          const linkedResin = resinByName.get(normKey(product.name));
+          if (linkedResin) {
+            const linkedParams = paramsByResinKey.get(normKey(linkedResin.name)) || [];
+            sections.push(new Paragraph({
+              children: [new TextRun({ text: `🧪 Resina vinculada: ${linkedResin.name} — ${linkedParams.length} parâmetro(s)`, bold: true, size: 22 })],
+              spacing: { before: 150, after: 80 },
+            }));
+            if (linkedParams.length > 0) {
+              const headerCells = ['Marca', 'Modelo', 'Layer', 'Cure', 'Bottom', 'Intensidade', 'Lift'].map(t =>
+                new TableCell({
+                  shading: { fill: 'F3F4F6', type: ShadingType.CLEAR, color: 'auto' },
+                  children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 18 })] })],
+                })
+              );
+              const trows: TableRow[] = [new TableRow({ tableHeader: true, children: headerCells })];
+              for (const p of linkedParams) {
+                trows.push(new TableRow({ children: [
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: brandMap.get(p.brand_slug) || p.brand_slug || '-', size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: modelMap.get(p.model_slug) || p.model_slug || '-', size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.layer_height ?? '-'}mm`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.cure_time ?? '-'}s`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.bottom_cure_time ?? '-'}s`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.light_intensity ?? '-'}%`, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${p.lift_distance ?? '-'}mm`, size: 18 })] })] }),
+                ]}));
+              }
+              sections.push(new Table({ rows: trows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+              sections.push(new Paragraph({ spacing: { after: 150 } }));
+            }
+          }
+
           // CTAs
           const ctas = [
             { label: product.cta_1_label, url: product.cta_1_url },
@@ -506,10 +829,7 @@ serve(async (req) => {
           
           if (article.content_html) {
             const cleanContent = stripHtml(article.content_html);
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(cleanContent, 1000), size: 22 })],
-              spacing: { after: 150 },
-            }));
+            sections.push(...renderLongText(cleanContent));
           }
           
           // FAQs
@@ -519,16 +839,13 @@ serve(async (req) => {
               spacing: { before: 150, after: 100 },
             }));
             
-            for (const faq of article.faqs.slice(0, 5)) {
+            for (const faq of article.faqs) {
               if (faq.question && faq.answer) {
                 sections.push(new Paragraph({
                   children: [new TextRun({ text: `P: ${faq.question}`, bold: true, size: 20 })],
                   spacing: { after: 50 },
                 }));
-                sections.push(new Paragraph({
-                  children: [new TextRun({ text: `R: ${truncate(stripHtml(faq.answer), 200)}`, size: 20, color: '4B5563' })],
-                  spacing: { after: 100 },
-                }));
+                sections.push(...renderLongText(`R: ${stripHtml(faq.answer)}`, { size: 20, color: '4B5563' }));
               }
             }
           }
@@ -598,13 +915,10 @@ serve(async (req) => {
           // Transcription
           if (doc.extracted_text) {
             sections.push(new Paragraph({
-              children: [new TextRun({ text: '📋 Transcrição (resumo):', bold: true, size: 22 })],
+              children: [new TextRun({ text: '📋 Transcrição completa:', bold: true, size: 22 })],
               spacing: { before: 150, after: 80 },
             }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(doc.extracted_text, 500), size: 18, color: '4B5563' })],
-              spacing: { after: 150 },
-            }));
+            sections.push(...renderLongText(doc.extracted_text, { size: 18, color: '4B5563' }));
           }
           
           sections.push(new Paragraph({ spacing: { after: 200 } }));
@@ -644,10 +958,7 @@ serve(async (req) => {
           }));
           
           if (video.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(video.description), 300), size: 22 })],
-              spacing: { after: 100 },
-            }));
+            sections.push(...renderLongText(stripHtml(video.description)));
           }
           
           // Video link
@@ -671,13 +982,10 @@ serve(async (req) => {
           // Transcript
           if (video.video_transcript) {
             sections.push(new Paragraph({
-              children: [new TextRun({ text: '📝 Transcrição (resumo):', bold: true, size: 22 })],
+              children: [new TextRun({ text: '📝 Transcrição completa:', bold: true, size: 22 })],
               spacing: { before: 100, after: 80 },
             }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(video.video_transcript, 400), size: 18, color: '4B5563' })],
-              spacing: { after: 100 },
-            }));
+            sections.push(...renderLongText(video.video_transcript, { size: 18, color: '4B5563' }));
           }
           
           sections.push(new Paragraph({ spacing: { after: 200 } }));
@@ -712,10 +1020,7 @@ serve(async (req) => {
         }
         
         if (author.full_bio) {
-          sections.push(new Paragraph({
-            children: [new TextRun({ text: truncate(stripHtml(author.full_bio), 400), size: 22 })],
-            spacing: { after: 100 },
-          }));
+          sections.push(...renderLongText(stripHtml(author.full_bio)));
         }
         
         // Social links
@@ -879,6 +1184,7 @@ serve(async (req) => {
     const buffer = await Packer.toBuffer(doc);
 
     console.log(`✅ DOCX generated successfully! Size: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
+    console.log(`📊 Section counts: resins=${resins?.length || 0}, params=${parameterSets?.length || 0}, brands=${brands?.length || 0}, models=${models?.length || 0}, catalog=${catalog?.length || 0}, products_catalog=${productsCatalog?.length || 0}, articles=${contents?.length || 0}, videos=${videos?.length || 0}, docs=${(catalogDocs?.length || 0) + (resinDocs?.length || 0)}, authors=${authors?.length || 0}, links=${externalLinks?.length || 0}`);
 
     // Return as downloadable file
     const filename = `smartdent-apostila-completa-${new Date().toISOString().split('T')[0]}.docx`;
