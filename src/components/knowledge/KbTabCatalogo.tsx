@@ -56,10 +56,13 @@ interface CatalogRow {
 }
 
 interface DocLinks {
+  id?: string | null;
   datasheet_url: string | null;
   manual_url: string | null;
   spec_sheet_url: string | null;
   technical_specifications: any | null;
+  technical_specifications_en?: any | null;
+  technical_specifications_es?: any | null;
 }
 
 interface CatalogDoc {
@@ -402,7 +405,7 @@ export default function KbTabCatalogo() {
       const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
-          .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, extra_data')
+          .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, technical_specs_en, technical_specs_es, extra_data')
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
@@ -413,7 +416,7 @@ export default function KbTabCatalogo() {
           .limit(500),
         supabase
           .from('products_catalog')
-          .select('name, datasheet_url, manual_url, spec_sheet_url, technical_specifications')
+          .select('id, name, datasheet_url, manual_url, spec_sheet_url, technical_specifications, technical_specifications_en, technical_specifications_es')
           .limit(1000),
         supabase
           .from('resins')
@@ -449,10 +452,13 @@ export default function KbTabCatalogo() {
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
         docMap.set(p.name.toLowerCase().trim(), {
+          id: p.id || null,
           datasheet_url: p.datasheet_url,
           manual_url: p.manual_url,
           spec_sheet_url: p.spec_sheet_url,
           technical_specifications: p.technical_specifications ?? null,
+          technical_specifications_en: p.technical_specifications_en ?? null,
+          technical_specifications_es: p.technical_specifications_es ?? null,
         });
       });
       const extraMap = new Map<string, CatalogDoc[]>();
@@ -507,13 +513,41 @@ export default function KbTabCatalogo() {
     rowsRaw,
     // NÃO traduzir product_category/product_subcategory: o filtro depende do valor PT canônico
     // (normCat). Chips já traduzem via t() em CHIP_KEYS.
-    ['name', 'description', 'cta_1_label', 'cta_2_label']
+    ['name', 'description', 'cta_1_label', 'cta_2_label', 'technical_specs']
   );
   const translatedResins = useCardTranslations(
     'resins',
     resinsRaw,
     ['name', 'processing_instructions', 'cta_1_label', 'cta_2_label', 'cta_3_label', 'cta_4_label']
   );
+  // products_catalog technical_specifications: dispara tradução on-demand e
+  // espelha as colunas _en/_es de volta no Map `docs` para a leitura no card.
+  const pcRowsForTr = useMemo(() => {
+    const out: any[] = [];
+    docs.forEach((v) => {
+      if (!v?.id) return;
+      if (!v.technical_specifications) return;
+      out.push({
+        id: v.id,
+        technical_specifications: v.technical_specifications,
+        technical_specifications_en: v.technical_specifications_en ?? null,
+        technical_specifications_es: v.technical_specifications_es ?? null,
+      });
+    });
+    return out;
+  }, [docs]);
+  const translatedPc = useCardTranslations(
+    'products_catalog',
+    pcRowsForTr,
+    ['technical_specifications']
+  );
+  const pcTrById = useMemo(() => {
+    const m = new Map<string, any>();
+    (translatedPc || []).forEach((r: any) => {
+      if (r?.id) m.set(r.id, r);
+    });
+    return m;
+  }, [translatedPc]);
   const rows = translatedRows as CatalogRow[];
   const resins = useMemo(() => {
     const m = new Map<string, ResinInfo>();
@@ -665,12 +699,35 @@ export default function KbTabCatalogo() {
               // fonte sincronizada — o que está no editor deve aparecer no card.
               const live = (p as any)?.extra_data?.system_a_live?.technical_specs;
               const manuallyEdited = !!(p as any)?.extra_data?.system_a_live?.manually_edited_at;
+              // Translated copies (top-level columns populated on-demand pelo
+              // edge function `translate-card-row`, que sabe ler do live).
+              const liveTr =
+                (specLang === 'en' && (p as any).technical_specs_en) ||
+                (specLang === 'es' && (p as any).technical_specs_es) ||
+                null;
+              const pcTr = d && (d as any).id ? pcTrById.get((d as any).id) : null;
+              const docTr =
+                (specLang === 'en' && (pcTr?.technical_specifications_en ?? pcTr?.technical_specifications)) ||
+                (specLang === 'es' && (pcTr?.technical_specifications_es ?? pcTr?.technical_specifications)) ||
+                null;
               if (manuallyEdited) {
+                if (liveTr) {
+                  const fromTr = normalizeSpecs(liveTr, specLang);
+                  if (fromTr.length) return liveTr;
+                }
                 const fromLive = normalizeSpecs(live, specLang);
                 if (fromLive.length) return live;
               }
+              if (docTr) {
+                const fromDocTr = normalizeSpecs(docTr, specLang);
+                if (fromDocTr.length) return docTr;
+              }
               const fromDocs = normalizeSpecs(d?.technical_specifications, specLang);
               if (fromDocs.length) return d?.technical_specifications;
+              if (liveTr) {
+                const fromTr = normalizeSpecs(liveTr, specLang);
+                if (fromTr.length) return liveTr;
+              }
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
               // Fallback: technical_specs da resina vinculada — só em match exato
