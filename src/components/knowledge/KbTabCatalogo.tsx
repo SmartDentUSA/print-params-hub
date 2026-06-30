@@ -13,6 +13,7 @@ import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
+import { translatePrintType } from '@/lib/dentalTaxonomy';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -534,7 +535,7 @@ export default function KbTabCatalogo() {
   const translatedResins = useCardTranslations(
     'resins',
     resinsRaw,
-    ['name', 'processing_instructions', 'cta_1_label', 'cta_2_label', 'cta_3_label', 'cta_4_label']
+    ['name', 'processing_instructions', 'cta_1_label', 'cta_2_label', 'cta_3_label', 'cta_4_label', 'technical_specs']
   );
   // products_catalog technical_specifications: dispara tradução on-demand e
   // espelha as colunas _en/_es de volta no Map `docs` para a leitura no card.
@@ -702,7 +703,7 @@ export default function KbTabCatalogo() {
             const formatPresChip = (pr: ResinPresentation): string => {
               const parts: string[] = [];
               if (pr.label) parts.push(/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label);
-              if (pr.print_type) parts.push(pr.print_type);
+              if (pr.print_type) parts.push(translatePrintType(pr.print_type, t));
               if (pr.prints_per_bottle && pr.prints_per_bottle > 0) parts.push(`${pr.prints_per_bottle} imp/frasco`);
               return parts.join(' · ');
             };
