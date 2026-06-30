@@ -190,6 +190,22 @@ serve(async (req) => {
   try {
     console.log('🚀 Starting DOCX apostila generation...');
 
+    // Scope flag: keep heavy free-text sections opt-in to stay under edge memory cap.
+    // Default = "catalog_resins" (catálogo + resinas 100% completos, sem transcrições/HTML longos).
+    // scope = "full" inclui artigos (HTML completo), transcrições de vídeos e PDFs.
+    let scope: 'catalog_resins' | 'full' = 'catalog_resins';
+    try {
+      if (req.method === 'POST') {
+        const body = await req.json().catch(() => ({}));
+        if (body?.scope === 'full') scope = 'full';
+      } else {
+        const url = new URL(req.url);
+        if (url.searchParams.get('scope') === 'full') scope = 'full';
+      }
+    } catch (_) { /* ignore */ }
+    const includeHeavyText = scope === 'full';
+    console.log(`🎯 Export scope=${scope} (includeHeavyText=${includeHeavyText})`);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -216,10 +232,18 @@ serve(async (req) => {
       supabase.from('resins').select('*').eq('active', true).order('manufacturer, name').limit(10000),
       supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name').limit(10000),
       supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index').limit(10000),
-      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000),
-      supabase.from('knowledge_videos').select('*').order('order_index').limit(10000),
-      supabase.from('catalog_documents').select('*').eq('active', true).limit(10000),
-      supabase.from('resin_documents').select('*').eq('active', true).limit(10000),
+      includeHeavyText
+        ? supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
+      includeHeavyText
+        ? supabase.from('knowledge_videos').select('*').order('order_index').limit(10000)
+        : supabase.from('knowledge_videos').select('id,title,slug,category_letter,external_url,description,order_index').order('order_index').limit(10000),
+      includeHeavyText
+        ? supabase.from('catalog_documents').select('*').eq('active', true).limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
+      includeHeavyText
+        ? supabase.from('resin_documents').select('*').eq('active', true).limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
       supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name').limit(10000),
       supabase.from('authors').select('*').eq('active', true).order('order_index').limit(10000),
       supabase.from('external_links').select('*').eq('approved', true).order('category, name').limit(10000),
