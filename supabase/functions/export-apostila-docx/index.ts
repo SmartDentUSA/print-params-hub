@@ -190,6 +190,22 @@ serve(async (req) => {
   try {
     console.log('🚀 Starting DOCX apostila generation...');
 
+    // Scope flag: keep heavy free-text sections opt-in to stay under edge memory cap.
+    // Default = "catalog_resins" (catálogo + resinas 100% completos, sem transcrições/HTML longos).
+    // scope = "full" inclui artigos (HTML completo), transcrições de vídeos e PDFs.
+    let scope: 'catalog_resins' | 'full' = 'catalog_resins';
+    try {
+      if (req.method === 'POST') {
+        const body = await req.json().catch(() => ({}));
+        if (body?.scope === 'full') scope = 'full';
+      } else {
+        const url = new URL(req.url);
+        if (url.searchParams.get('scope') === 'full') scope = 'full';
+      }
+    } catch (_) { /* ignore */ }
+    const includeHeavyText = scope === 'full';
+    console.log(`🎯 Export scope=${scope} (includeHeavyText=${includeHeavyText})`);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
