@@ -1184,6 +1184,7 @@ serve(async (req) => {
     const buffer = await Packer.toBuffer(doc);
 
     console.log(`✅ DOCX generated successfully! Size: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
+    console.log(`📊 Section counts: resins=${resins?.length || 0}, params=${parameterSets?.length || 0}, brands=${brands?.length || 0}, models=${models?.length || 0}, catalog=${catalog?.length || 0}, products_catalog=${productsCatalog?.length || 0}, articles=${contents?.length || 0}, videos=${videos?.length || 0}, docs=${(catalogDocs?.length || 0) + (resinDocs?.length || 0)}, authors=${authors?.length || 0}, links=${externalLinks?.length || 0}`);
 
     // Return as downloadable file
     const filename = `smartdent-apostila-completa-${new Date().toISOString().split('T')[0]}.docx`;
