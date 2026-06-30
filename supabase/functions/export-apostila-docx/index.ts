@@ -39,10 +39,99 @@ function stripHtml(html: string | null): string {
     .trim();
 }
 
-// Helper to truncate text
+// Helper to truncate text (kept for sanity caps only; DOCX handles big strings fine)
 function truncate(text: string, maxLength: number): string {
+  if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength - 3) + '...';
+}
+
+// Hard sanity cap per text block to keep DOCX < ~50MB even with huge transcripts
+const TEXT_CAP = 50000;
+
+function normKey(s: string | null | undefined): string {
+  return (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Render a long text as one or more Paragraphs, splitting on blank lines
+function renderLongText(text: string, opts: { size?: number; color?: string } = {}): Paragraph[] {
+  const safe = (text || '').slice(0, TEXT_CAP);
+  const blocks = safe.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length === 0) return [];
+  return blocks.map(b => new Paragraph({
+    children: [new TextRun({ text: b, size: opts.size ?? 22, color: opts.color })],
+    spacing: { after: 120 },
+  }));
+}
+
+// Render a JSON specs object/array as a 2-col DOCX table (label | value). Returns [] if empty.
+function renderSpecsTable(specs: any, title = '📊 Tabela técnica'): Paragraph[] | (Paragraph | Table)[] {
+  if (!specs) return [];
+  let rows: Array<{ label: string; value: string }> = [];
+
+  if (Array.isArray(specs)) {
+    for (const row of specs) {
+      if (!row) continue;
+      if (typeof row === 'string') { rows.push({ label: '', value: row }); continue; }
+      const label = row.label ?? row.name ?? row.key ?? row.title ?? '';
+      const value = row.value ?? row.val ?? row.content ?? '';
+      if (String(label).trim() || String(value).trim()) {
+        rows.push({ label: String(label), value: String(value) });
+      }
+    }
+  } else if (typeof specs === 'object') {
+    for (const [k, v] of Object.entries(specs)) {
+      if (v == null || v === '') continue;
+      const value = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      rows.push({ label: String(k), value });
+    }
+  }
+
+  if (rows.length === 0) return [];
+
+  const tableRows: TableRow[] = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        new TableCell({
+          width: { size: 35, type: WidthType.PERCENTAGE },
+          shading: { fill: 'E5E7EB', type: ShadingType.CLEAR, color: 'auto' },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Especificação', bold: true, size: 20 })] })],
+        }),
+        new TableCell({
+          width: { size: 65, type: WidthType.PERCENTAGE },
+          shading: { fill: 'E5E7EB', type: ShadingType.CLEAR, color: 'auto' },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Valor', bold: true, size: 20 })] })],
+        }),
+      ],
+    }),
+  ];
+  for (const r of rows) {
+    tableRows.push(new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 20, bold: true })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.value.slice(0, 4000), size: 20 })] })] }),
+      ],
+    }));
+  }
+
+  return [
+    new Paragraph({
+      children: [new TextRun({ text: `${title} (${rows.length} itens)`, bold: true, size: 22 })],
+      spacing: { before: 150, after: 80 },
+    }),
+    new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }),
+    new Paragraph({ spacing: { after: 200 } }),
+  ];
+}
+
+function pickSpecs(...candidates: any[]): any {
+  for (const c of candidates) {
+    if (!c) continue;
+    if (Array.isArray(c) && c.length > 0) return c;
+    if (typeof c === 'object' && Object.keys(c).length > 0) return c;
+  }
+  return null;
 }
 
 // Helper to format date
