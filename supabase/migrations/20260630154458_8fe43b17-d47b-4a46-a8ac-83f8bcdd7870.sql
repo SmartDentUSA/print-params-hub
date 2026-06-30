@@ -1,0 +1,1 @@
+ALTER TABLE public.knowledge_contents ADD COLUMN IF NOT EXISTS content_html_reformatted_at TIMESTAMPTZ;

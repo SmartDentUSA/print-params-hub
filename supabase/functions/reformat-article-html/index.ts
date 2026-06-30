@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contentId, previewOnly = false } = await req.json();
+    const { contentId, previewOnly = false, force = false } = await req.json();
 
     if (!contentId) {
       throw new Error('contentId é obrigatório');
@@ -28,7 +28,7 @@ serve(async (req) => {
     console.log(`[reformat-article-html] Buscando artigo ${contentId}...`);
     const { data: article, error: fetchError } = await supabase
       .from('knowledge_contents')
-      .select('id, title, content_html, content_html_en, content_html_es, title_en, title_es')
+      .select('id, title, content_html, content_html_en, content_html_es, title_en, title_es, content_html_reformatted_at')
       .eq('id', contentId)
       .single();
 
@@ -38,6 +38,16 @@ serve(async (req) => {
 
     if (!article.content_html) {
       throw new Error('Artigo não possui content_html');
+    }
+
+    // Idempotência: se já reformatado e não for force, retorna skipped.
+    if (!previewOnly && !force && (article as any).content_html_reformatted_at) {
+      console.log(`[reformat-article-html] Artigo ${contentId} já reformatado em ${(article as any).content_html_reformatted_at} — skip`);
+      return new Response(JSON.stringify({
+        success: true,
+        skipped: true,
+        reformatted_at: (article as any).content_html_reformatted_at,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     console.log(`[reformat-article-html] Artigo encontrado: "${article.title}"`);
@@ -179,6 +189,7 @@ Retorne o HTML reformatado seguindo todas as regras. Mantenha o idioma original 
 
     // Salvar no banco
     console.log(`[reformat-article-html] Salvando HTML reformatado (${tasks.length} idiomas)...`);
+    updatePayload.content_html_reformatted_at = new Date().toISOString();
     const { error: updateError } = await supabase
       .from('knowledge_contents')
       .update(updatePayload)

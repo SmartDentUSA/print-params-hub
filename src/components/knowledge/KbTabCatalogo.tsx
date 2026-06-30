@@ -508,9 +508,25 @@ export default function KbTabCatalogo() {
   }, []);
 
   // On-demand translation for products + resins (PT → EN/ES).
+  // Pre-fill `technical_specs` a partir de `extra_data.system_a_live.technical_specs`
+  // quando o top-level está vazio (caso de produtos enriquecidos via planilha /
+  // editor manual). Sem isso, useCardTranslations não detecta PT presente e
+  // nunca dispara translate-card-row, deixando a Tabela técnica em PT em /en e /es.
+  const rowsForTr = useMemo(() => {
+    return (rowsRaw || []).map((r: any) => {
+      const top = r?.technical_specs;
+      const hasTop = Array.isArray(top) ? top.length > 0 : (top != null);
+      if (hasTop) return r;
+      const live = r?.extra_data?.system_a_live?.technical_specs;
+      if (Array.isArray(live) && live.length > 0) {
+        return { ...r, technical_specs: live };
+      }
+      return r;
+    });
+  }, [rowsRaw]);
   const translatedRows = useCardTranslations(
     'system_a_catalog',
-    rowsRaw,
+    rowsForTr,
     // NÃO traduzir product_category/product_subcategory: o filtro depende do valor PT canônico
     // (normCat). Chips já traduzem via t() em CHIP_KEYS.
     ['name', 'description', 'cta_1_label', 'cta_2_label', 'technical_specs']
