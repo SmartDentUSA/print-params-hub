@@ -705,9 +705,10 @@ export default function KbTabCatalogo() {
                 (specLang === 'en' && (p as any).technical_specs_en) ||
                 (specLang === 'es' && (p as any).technical_specs_es) ||
                 null;
+              const pcTr = d && (d as any).id ? pcTrById.get((d as any).id) : null;
               const docTr =
-                (specLang === 'en' && (d as any)?.technical_specifications_en) ||
-                (specLang === 'es' && (d as any)?.technical_specifications_es) ||
+                (specLang === 'en' && (pcTr?.technical_specifications_en ?? pcTr?.technical_specifications)) ||
+                (specLang === 'es' && (pcTr?.technical_specifications_es ?? pcTr?.technical_specifications)) ||
                 null;
               if (manuallyEdited) {
                 if (liveTr) {
