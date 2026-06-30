@@ -50,3 +50,46 @@ export function canonicalize(options: TaxonomyOption[], raw?: string | null): st
   if (!raw) return "";
   return findOption(options, raw)?.value ?? raw;
 }
+
+/**
+ * Mapa canônico de "tipo de impressão" (resin_presentations.print_type) → chave i18n.
+ * Conjunto fechado e estável (~19 termos). Fallback: devolve o valor PT original.
+ */
+const PRINT_TYPE_I18N_KEYS: Record<string, string> = {
+  "base dentadura": "kb.catalogo.print_types.base_dentadura",
+  "base protese total": "kb.catalogo.print_types.base_protese_total",
+  "biomodelos tc quadrante": "kb.catalogo.print_types.biomodelos_tc_quadrante",
+  "biomodelos- tc (quadrante)": "kb.catalogo.print_types.biomodelos_tc_quadrante",
+  "coroas sobre dente": "kb.catalogo.print_types.coroas_sobre_dente",
+  "elemento unitario": "kb.catalogo.print_types.elemento_unitario",
+  "facetas": "kb.catalogo.print_types.facetas",
+  "guia parcial": "kb.catalogo.print_types.guia_parcial",
+  "modelos alinhadores": "kb.catalogo.print_types.modelos_alinhadores",
+  "modelos clareamento": "kb.catalogo.print_types.modelos_clareamento",
+  "modelos mockup": "kb.catalogo.print_types.modelos_mockup",
+  "modelos proteticos arco": "kb.catalogo.print_types.modelos_proteticos_arco",
+  "modelos proteticos (arco)": "kb.catalogo.print_types.modelos_proteticos_arco",
+  "par zocalados": "kb.catalogo.print_types.par_zocalados",
+  "placas miorrelaxantes": "kb.catalogo.print_types.placas_miorrelaxantes",
+  "protocolo": "kb.catalogo.print_types.protocolo",
+  "protocolos": "kb.catalogo.print_types.protocolo",
+  "simulacao gengiva": "kb.catalogo.print_types.simulacao_gengiva",
+};
+
+function normalizePrintType(s: string): string {
+  return normalize(s).replace(/[().,-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function translatePrintType(
+  value: string | null | undefined,
+  t: (key: string, opts?: any) => string,
+): string {
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const key = PRINT_TYPE_I18N_KEYS[normalizePrintType(raw)];
+  if (!key) return raw;
+  const tr = t(key);
+  // i18next devolve a chave quando não encontra; nesse caso, mantém PT original.
+  return tr && tr !== key ? tr : raw;
+}
