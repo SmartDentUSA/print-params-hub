@@ -63,6 +63,23 @@ serve(async (req) => {
       .eq("id", draft_id);
     if (upErr) throw new Error(upErr.message);
 
+    // Pós-processamento fire-and-forget: reformatar HTML com IA (idempotente
+    // via content_html_reformatted_at). Não bloqueia o publish: se falhar, o
+    // artigo já está publicado e pode ser re-reformatado manualmente no Admin.
+    try {
+      fetch(`${SUPABASE_URL}/functions/v1/reformat-article-html`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        },
+        body: JSON.stringify({ contentId: draft_id }),
+      }).catch((e) => console.warn("[copilot-publish] reformat trigger failed:", (e as Error).message));
+    } catch (e) {
+      console.warn("[copilot-publish] reformat dispatch error:", (e as Error).message);
+    }
+
     const letter = String(art.knowledge_categories?.letter || "C").toLowerCase();
     return new Response(JSON.stringify({
       success: true, status: "published", id: draft_id, title: art.title,
