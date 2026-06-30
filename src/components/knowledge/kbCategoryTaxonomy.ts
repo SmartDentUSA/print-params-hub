@@ -29,6 +29,23 @@ export const CHIP_KEYS: { key: string; tk: string }[] = [
 // Categorias que NÃO devem exibir filtro de subcategoria (mostra tudo agregado).
 export const CATEGORIES_WITHOUT_SUBFILTER = new Set<string>(['SOFTWARES']);
 
+// Mapa canônico: UUID de knowledge_categories → chave i18n para o badge dos cards.
+// Cobre as categorias usadas em Vídeos e Artigos da Base de Conhecimento.
+export const CATEGORY_ID_TO_TK: Record<string, string> = {
+  '45243aad-7143-4bc8-a649-05f741992e07': 'kb.chips.videos_tutoriais',
+  '67b81704-64f8-4739-b79f-24f46f70752c': 'kb.chips.casos_clinicos',
+  'fc493982-ad8c-417f-9579-82786a97925a': 'kb.chips.ciencia',
+  'ff524477-c553-4518-868e-8435e16a5c57': 'kb.chips.depoimentos',
+  '6b724172-f7c8-4a4c-bfb1-8c2ee4fc608e': 'kb.chips.catalogo_produtos',
+  '83d0b6ea-59d7-4d98-80a1-ac7df83b697a': 'kb.chips.falhas',
+  '67f92f1b-ea9e-42b9-94d1-7d685e25629c': 'kb.chips.parametros',
+};
+
+export function resolveCategoryTk(id: string | null | undefined): string | null {
+  if (!id) return null;
+  return CATEGORY_ID_TO_TK[id] ?? null;
+}
+
 export function normCat(v: string | null | undefined): string | null {
   if (!v) return null;
   const up = String(v).trim().toUpperCase();
