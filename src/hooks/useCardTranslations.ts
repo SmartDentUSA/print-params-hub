@@ -90,7 +90,13 @@ export function useCardTranslations<T extends TranslatedRow>(
         const trCol = (r as any)[`${f}_${lang}`];
         const cached = cache.current.get(`${r.id}|${lang}`)?.[f];
         const v = trCol != null && trCol !== '' ? trCol : cached;
-        if (v != null && v !== '') out[f] = v;
+        if (v != null && v !== '') {
+          out[f] = v;
+          // Mirror to `<f>_<lang>` so consumers that read the translated column
+          // directly (e.g. KbTabCatalogo rawSpecs → technical_specs_en) pick up
+          // the just-fetched translation without needing a parent refetch.
+          out[`${f}_${lang}`] = v;
+        }
       }
       return out as T;
     });
