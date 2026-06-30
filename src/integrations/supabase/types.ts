@@ -1120,17 +1120,23 @@ export type Database = {
       authors: {
         Row: {
           academic_title: string | null
+          academic_title_en: string | null
+          academic_title_es: string | null
           active: boolean
           created_at: string
           facebook_url: string | null
           fapesp_url: string | null
           full_bio: string | null
+          full_bio_en: string | null
+          full_bio_es: string | null
           google_scholar_url: string | null
           id: string
           instagram_url: string | null
           lattes_url: string | null
           linkedin_url: string | null
           mini_bio: string | null
+          mini_bio_en: string | null
+          mini_bio_es: string | null
           name: string
           orcid_url: string | null
           order_index: number
@@ -1138,6 +1144,8 @@ export type Database = {
           photo_url: string | null
           scopus_url: string | null
           specialty: string | null
+          specialty_en: string | null
+          specialty_es: string | null
           tiktok_url: string | null
           twitter_url: string | null
           updated_at: string
@@ -1146,17 +1154,23 @@ export type Database = {
         }
         Insert: {
           academic_title?: string | null
+          academic_title_en?: string | null
+          academic_title_es?: string | null
           active?: boolean
           created_at?: string
           facebook_url?: string | null
           fapesp_url?: string | null
           full_bio?: string | null
+          full_bio_en?: string | null
+          full_bio_es?: string | null
           google_scholar_url?: string | null
           id?: string
           instagram_url?: string | null
           lattes_url?: string | null
           linkedin_url?: string | null
           mini_bio?: string | null
+          mini_bio_en?: string | null
+          mini_bio_es?: string | null
           name: string
           orcid_url?: string | null
           order_index?: number
@@ -1164,6 +1178,8 @@ export type Database = {
           photo_url?: string | null
           scopus_url?: string | null
           specialty?: string | null
+          specialty_en?: string | null
+          specialty_es?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -1172,17 +1188,23 @@ export type Database = {
         }
         Update: {
           academic_title?: string | null
+          academic_title_en?: string | null
+          academic_title_es?: string | null
           active?: boolean
           created_at?: string
           facebook_url?: string | null
           fapesp_url?: string | null
           full_bio?: string | null
+          full_bio_en?: string | null
+          full_bio_es?: string | null
           google_scholar_url?: string | null
           id?: string
           instagram_url?: string | null
           lattes_url?: string | null
           linkedin_url?: string | null
           mini_bio?: string | null
+          mini_bio_en?: string | null
+          mini_bio_es?: string | null
           name?: string
           orcid_url?: string | null
           order_index?: number
@@ -1190,6 +1212,8 @@ export type Database = {
           photo_url?: string | null
           scopus_url?: string | null
           specialty?: string | null
+          specialty_en?: string | null
+          specialty_es?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -14340,7 +14364,11 @@ export type Database = {
         Row: {
           anti_hallucination_rules: Json | null
           applications: string | null
+          applications_en: string | null
+          applications_es: string | null
           benefits: Json | null
+          benefits_en: Json | null
+          benefits_es: Json | null
           category: string | null
           clinical_brain_status: string | null
           clinical_brain_validated_at: string | null
@@ -14350,21 +14378,31 @@ export type Database = {
           datasheet_summary: string | null
           datasheet_url: string | null
           description: string | null
+          description_en: string | null
+          description_es: string | null
           faq: Json | null
+          faq_en: Json | null
+          faq_es: Json | null
           features: Json | null
           forbidden_products: Json | null
           manual_url: string | null
           name: string | null
+          name_en: string | null
+          name_es: string | null
           product_id: string
           product_type: string | null
           required_products: Json | null
           sales_pitch: string | null
+          sales_pitch_en: string | null
+          sales_pitch_es: string | null
           spec_sheet_url: string | null
           subcategory: string | null
           synced_at: string | null
           system_a_product_id: string | null
           system_a_updated_at: string | null
           target_audience: Json | null
+          target_audience_en: Json | null
+          target_audience_es: Json | null
           technical_specifications: Json | null
           technical_specifications_en: Json | null
           technical_specifications_es: Json | null
@@ -14377,7 +14415,11 @@ export type Database = {
         Insert: {
           anti_hallucination_rules?: Json | null
           applications?: string | null
+          applications_en?: string | null
+          applications_es?: string | null
           benefits?: Json | null
+          benefits_en?: Json | null
+          benefits_es?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
           clinical_brain_validated_at?: string | null
@@ -14387,21 +14429,31 @@ export type Database = {
           datasheet_summary?: string | null
           datasheet_url?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           faq?: Json | null
+          faq_en?: Json | null
+          faq_es?: Json | null
           features?: Json | null
           forbidden_products?: Json | null
           manual_url?: string | null
           name?: string | null
+          name_en?: string | null
+          name_es?: string | null
           product_id: string
           product_type?: string | null
           required_products?: Json | null
           sales_pitch?: string | null
+          sales_pitch_en?: string | null
+          sales_pitch_es?: string | null
           spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
           system_a_product_id?: string | null
           system_a_updated_at?: string | null
           target_audience?: Json | null
+          target_audience_en?: Json | null
+          target_audience_es?: Json | null
           technical_specifications?: Json | null
           technical_specifications_en?: Json | null
           technical_specifications_es?: Json | null
@@ -14414,7 +14466,11 @@ export type Database = {
         Update: {
           anti_hallucination_rules?: Json | null
           applications?: string | null
+          applications_en?: string | null
+          applications_es?: string | null
           benefits?: Json | null
+          benefits_en?: Json | null
+          benefits_es?: Json | null
           category?: string | null
           clinical_brain_status?: string | null
           clinical_brain_validated_at?: string | null
@@ -14424,21 +14480,31 @@ export type Database = {
           datasheet_summary?: string | null
           datasheet_url?: string | null
           description?: string | null
+          description_en?: string | null
+          description_es?: string | null
           faq?: Json | null
+          faq_en?: Json | null
+          faq_es?: Json | null
           features?: Json | null
           forbidden_products?: Json | null
           manual_url?: string | null
           name?: string | null
+          name_en?: string | null
+          name_es?: string | null
           product_id?: string
           product_type?: string | null
           required_products?: Json | null
           sales_pitch?: string | null
+          sales_pitch_en?: string | null
+          sales_pitch_es?: string | null
           spec_sheet_url?: string | null
           subcategory?: string | null
           synced_at?: string | null
           system_a_product_id?: string | null
           system_a_updated_at?: string | null
           target_audience?: Json | null
+          target_audience_en?: Json | null
+          target_audience_es?: Json | null
           technical_specifications?: Json | null
           technical_specifications_en?: Json | null
           technical_specifications_es?: Json | null
@@ -19615,6 +19681,8 @@ export type Database = {
           category: string
           certifications: string[] | null
           clinical_indications: string[] | null
+          clinical_indications_en: string[] | null
+          clinical_indications_es: string[] | null
           compatibility_list: string[] | null
           contraindications: string[] | null
           created_at: string | null
@@ -19626,12 +19694,18 @@ export type Database = {
           cta_1_label_es: string | null
           cta_1_url: string | null
           cta_2_description: string | null
+          cta_2_description_en: string | null
+          cta_2_description_es: string | null
           cta_2_label: string | null
           cta_2_label_en: string | null
           cta_2_label_es: string | null
           cta_2_url: string | null
           cta_3_description: string | null
+          cta_3_description_en: string | null
+          cta_3_description_es: string | null
           cta_3_label: string | null
+          cta_3_label_en: string | null
+          cta_3_label_es: string | null
           cta_3_url: string | null
           currency: string | null
           description: string | null
@@ -19646,6 +19720,8 @@ export type Database = {
           keywords: string[] | null
           last_sync_at: string | null
           meta_description: string | null
+          meta_description_en: string | null
+          meta_description_es: string | null
           name: string
           name_en: string | null
           name_es: string | null
@@ -19661,6 +19737,8 @@ export type Database = {
           rating: number | null
           review_count: number | null
           seo_title_override: string | null
+          seo_title_override_en: string | null
+          seo_title_override_es: string | null
           slug: string | null
           source: string
           technical_specs: Json | null
@@ -19679,6 +19757,8 @@ export type Database = {
           category: string
           certifications?: string[] | null
           clinical_indications?: string[] | null
+          clinical_indications_en?: string[] | null
+          clinical_indications_es?: string[] | null
           compatibility_list?: string[] | null
           contraindications?: string[] | null
           created_at?: string | null
@@ -19690,12 +19770,18 @@ export type Database = {
           cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
+          cta_2_description_en?: string | null
+          cta_2_description_es?: string | null
           cta_2_label?: string | null
           cta_2_label_en?: string | null
           cta_2_label_es?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
+          cta_3_description_en?: string | null
+          cta_3_description_es?: string | null
           cta_3_label?: string | null
+          cta_3_label_en?: string | null
+          cta_3_label_es?: string | null
           cta_3_url?: string | null
           currency?: string | null
           description?: string | null
@@ -19710,6 +19796,8 @@ export type Database = {
           keywords?: string[] | null
           last_sync_at?: string | null
           meta_description?: string | null
+          meta_description_en?: string | null
+          meta_description_es?: string | null
           name: string
           name_en?: string | null
           name_es?: string | null
@@ -19725,6 +19813,8 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           seo_title_override?: string | null
+          seo_title_override_en?: string | null
+          seo_title_override_es?: string | null
           slug?: string | null
           source?: string
           technical_specs?: Json | null
@@ -19743,6 +19833,8 @@ export type Database = {
           category?: string
           certifications?: string[] | null
           clinical_indications?: string[] | null
+          clinical_indications_en?: string[] | null
+          clinical_indications_es?: string[] | null
           compatibility_list?: string[] | null
           contraindications?: string[] | null
           created_at?: string | null
@@ -19754,12 +19846,18 @@ export type Database = {
           cta_1_label_es?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
+          cta_2_description_en?: string | null
+          cta_2_description_es?: string | null
           cta_2_label?: string | null
           cta_2_label_en?: string | null
           cta_2_label_es?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
+          cta_3_description_en?: string | null
+          cta_3_description_es?: string | null
           cta_3_label?: string | null
+          cta_3_label_en?: string | null
+          cta_3_label_es?: string | null
           cta_3_url?: string | null
           currency?: string | null
           description?: string | null
@@ -19774,6 +19872,8 @@ export type Database = {
           keywords?: string[] | null
           last_sync_at?: string | null
           meta_description?: string | null
+          meta_description_en?: string | null
+          meta_description_es?: string | null
           name?: string
           name_en?: string | null
           name_es?: string | null
@@ -19789,6 +19889,8 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           seo_title_override?: string | null
+          seo_title_override_en?: string | null
+          seo_title_override_es?: string | null
           slug?: string | null
           source?: string
           technical_specs?: Json | null
