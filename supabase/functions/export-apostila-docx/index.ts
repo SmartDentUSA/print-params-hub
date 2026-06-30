@@ -829,10 +829,7 @@ serve(async (req) => {
           
           if (article.content_html) {
             const cleanContent = stripHtml(article.content_html);
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(cleanContent, 1000), size: 22 })],
-              spacing: { after: 150 },
-            }));
+            sections.push(...renderLongText(cleanContent));
           }
           
           // FAQs
@@ -842,16 +839,13 @@ serve(async (req) => {
               spacing: { before: 150, after: 100 },
             }));
             
-            for (const faq of article.faqs.slice(0, 5)) {
+            for (const faq of article.faqs) {
               if (faq.question && faq.answer) {
                 sections.push(new Paragraph({
                   children: [new TextRun({ text: `P: ${faq.question}`, bold: true, size: 20 })],
                   spacing: { after: 50 },
                 }));
-                sections.push(new Paragraph({
-                  children: [new TextRun({ text: `R: ${truncate(stripHtml(faq.answer), 200)}`, size: 20, color: '4B5563' })],
-                  spacing: { after: 100 },
-                }));
+                sections.push(...renderLongText(`R: ${stripHtml(faq.answer)}`, { size: 20, color: '4B5563' }));
               }
             }
           }
@@ -921,13 +915,10 @@ serve(async (req) => {
           // Transcription
           if (doc.extracted_text) {
             sections.push(new Paragraph({
-              children: [new TextRun({ text: '📋 Transcrição (resumo):', bold: true, size: 22 })],
+              children: [new TextRun({ text: '📋 Transcrição completa:', bold: true, size: 22 })],
               spacing: { before: 150, after: 80 },
             }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(doc.extracted_text, 500), size: 18, color: '4B5563' })],
-              spacing: { after: 150 },
-            }));
+            sections.push(...renderLongText(doc.extracted_text, { size: 18, color: '4B5563' }));
           }
           
           sections.push(new Paragraph({ spacing: { after: 200 } }));
@@ -967,10 +958,7 @@ serve(async (req) => {
           }));
           
           if (video.description) {
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(stripHtml(video.description), 300), size: 22 })],
-              spacing: { after: 100 },
-            }));
+            sections.push(...renderLongText(stripHtml(video.description)));
           }
           
           // Video link
@@ -994,13 +982,10 @@ serve(async (req) => {
           // Transcript
           if (video.video_transcript) {
             sections.push(new Paragraph({
-              children: [new TextRun({ text: '📝 Transcrição (resumo):', bold: true, size: 22 })],
+              children: [new TextRun({ text: '📝 Transcrição completa:', bold: true, size: 22 })],
               spacing: { before: 100, after: 80 },
             }));
-            sections.push(new Paragraph({
-              children: [new TextRun({ text: truncate(video.video_transcript, 400), size: 18, color: '4B5563' })],
-              spacing: { after: 100 },
-            }));
+            sections.push(...renderLongText(video.video_transcript, { size: 18, color: '4B5563' }));
           }
           
           sections.push(new Paragraph({ spacing: { after: 200 } }));
@@ -1035,10 +1020,7 @@ serve(async (req) => {
         }
         
         if (author.full_bio) {
-          sections.push(new Paragraph({
-            children: [new TextRun({ text: truncate(stripHtml(author.full_bio), 400), size: 22 })],
-            spacing: { after: 100 },
-          }));
+          sections.push(...renderLongText(stripHtml(author.full_bio)));
         }
         
         // Social links
