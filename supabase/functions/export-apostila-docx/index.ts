@@ -232,10 +232,18 @@ serve(async (req) => {
       supabase.from('resins').select('*').eq('active', true).order('manufacturer, name').limit(10000),
       supabase.from('parameter_sets').select('*').eq('active', true).order('brand_slug, model_slug, resin_name').limit(10000),
       supabase.from('knowledge_categories').select('*').eq('enabled', true).order('order_index').limit(10000),
-      supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000),
-      supabase.from('knowledge_videos').select('*').order('order_index').limit(10000),
-      supabase.from('catalog_documents').select('*').eq('active', true).limit(10000),
-      supabase.from('resin_documents').select('*').eq('active', true).limit(10000),
+      includeHeavyText
+        ? supabase.from('knowledge_contents').select('*').eq('active', true).order('order_index').limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
+      includeHeavyText
+        ? supabase.from('knowledge_videos').select('*').order('order_index').limit(10000)
+        : supabase.from('knowledge_videos').select('id,title,slug,category_letter,external_url,description,order_index').order('order_index').limit(10000),
+      includeHeavyText
+        ? supabase.from('catalog_documents').select('*').eq('active', true).limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
+      includeHeavyText
+        ? supabase.from('resin_documents').select('*').eq('active', true).limit(10000)
+        : Promise.resolve({ data: [] as any[] }),
       supabase.from('system_a_catalog').select('*').eq('active', true).eq('approved', true).order('category, name').limit(10000),
       supabase.from('authors').select('*').eq('active', true).order('order_index').limit(10000),
       supabase.from('external_links').select('*').eq('approved', true).order('category, name').limit(10000),
