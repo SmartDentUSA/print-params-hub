@@ -155,7 +155,7 @@ export function AdminArticleReformatter() {
 
     try {
       const { data, error } = await supabase.functions.invoke('reformat-article-html', {
-        body: { contentId: articleId, previewOnly: true },
+        body: { contentId: articleId, previewOnly: true, force: true },
       });
 
       if (error) throw error;
@@ -192,7 +192,7 @@ export function AdminArticleReformatter() {
 
     try {
       const { data, error } = await supabase.functions.invoke('reformat-article-html', {
-        body: { contentId: articleId, previewOnly: false },
+        body: { contentId: articleId, previewOnly: false, force: true },
       });
 
       if (error) throw error;
