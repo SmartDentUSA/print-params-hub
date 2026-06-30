@@ -862,7 +862,7 @@ export default function KbTabCatalogo() {
                           {presDeduped.map((pr, idx) => (
                             <tr key={idx} style={{ borderBottom: '1px solid #F0F2F5' }}>
                               <td style={{ padding: '4px 6px' }}>{pr.label ? (/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label) : '—'}</td>
-                              <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pr.print_type || ''}>{pr.print_type || '—'}</td>
+                              <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={translatePrintType(pr.print_type, t) || ''}>{translatePrintType(pr.print_type, t) || '—'}</td>
                               <td style={{ padding: '4px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{pr.prints_per_bottle && pr.prints_per_bottle > 0 ? pr.prints_per_bottle : '—'}</td>
                             </tr>
                           ))}
