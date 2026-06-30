@@ -452,10 +452,13 @@ export default function KbTabCatalogo() {
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
         docMap.set(p.name.toLowerCase().trim(), {
+          id: p.id || null,
           datasheet_url: p.datasheet_url,
           manual_url: p.manual_url,
           spec_sheet_url: p.spec_sheet_url,
           technical_specifications: p.technical_specifications ?? null,
+          technical_specifications_en: p.technical_specifications_en ?? null,
+          technical_specifications_es: p.technical_specifications_es ?? null,
         });
       });
       const extraMap = new Map<string, CatalogDoc[]>();
