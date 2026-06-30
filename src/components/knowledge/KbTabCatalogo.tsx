@@ -56,10 +56,13 @@ interface CatalogRow {
 }
 
 interface DocLinks {
+  id?: string | null;
   datasheet_url: string | null;
   manual_url: string | null;
   spec_sheet_url: string | null;
   technical_specifications: any | null;
+  technical_specifications_en?: any | null;
+  technical_specifications_es?: any | null;
 }
 
 interface CatalogDoc {
