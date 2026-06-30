@@ -2,6 +2,7 @@ import { getCategoryColor } from './kbCategoryColors';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface KbContentCardData {
   id: string;
@@ -11,6 +12,7 @@ export interface KbContentCardData {
   createdAt: string;
   categoryLetter: string | null;
   categoryName: string | null;
+  categoryTk?: string | null;
   durationSeconds?: number | null;
   viewCount?: number | null;
   shareUrl?: string;
