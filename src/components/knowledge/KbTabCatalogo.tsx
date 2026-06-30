@@ -405,7 +405,7 @@ export default function KbTabCatalogo() {
       const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
         supabase
           .from('system_a_catalog')
-          .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, extra_data')
+          .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, technical_specs_en, technical_specs_es, extra_data')
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
@@ -416,7 +416,7 @@ export default function KbTabCatalogo() {
           .limit(500),
         supabase
           .from('products_catalog')
-          .select('name, datasheet_url, manual_url, spec_sheet_url, technical_specifications')
+          .select('id, name, datasheet_url, manual_url, spec_sheet_url, technical_specifications, technical_specifications_en, technical_specifications_es')
           .limit(1000),
         supabase
           .from('resins')
