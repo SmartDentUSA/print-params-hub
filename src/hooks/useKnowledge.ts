@@ -185,7 +185,7 @@ export function useKnowledge() {
         .eq('active', true)
         .or(`title.ilike.%${safe}%,slug.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`)
         .order('created_at', { ascending: false })
-        .limit(2000);
+        .limit(10000);
       if (error) throw error;
       return (data as any[]) || [];
     } catch (error) {

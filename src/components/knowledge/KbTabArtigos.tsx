@@ -56,9 +56,9 @@ export default function KbTabArtigos({ onOpen }: Props) {
       if (!term && chip !== 'all') query = query.eq('category_id', chip);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
-        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(5000);
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
       } else {
-        query = query.limit(5000);
+        query = query.limit(10000);
       }
       const { data, error } = await query;
       if (!cancel) {
