@@ -51,7 +51,7 @@ export default function KbTabVideos({ onOpen }: Props) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(5000);
       } else {
-        query = query.limit(50);
+        query = query.limit(5000);
       }
       const { data, error } = await query;
       if (!cancel) {

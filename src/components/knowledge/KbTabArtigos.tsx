@@ -43,7 +43,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
       const { data: vids } = await supabase
         .from('knowledge_videos')
         .select('content_id')
-        .limit(2000);
+        .limit(10000);
       const videoIds = new Set((vids || []).map((v: any) => v.content_id).filter(Boolean));
 
       const term = q.trim();
@@ -58,7 +58,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(5000);
       } else {
-        query = query.limit(150);
+        query = query.limit(5000);
       }
       const { data, error } = await query;
       if (!cancel) {
