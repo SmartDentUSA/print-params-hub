@@ -6521,6 +6521,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "knowledge_videos_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "v_testimonials_geo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "knowledge_videos_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -17519,6 +17526,13 @@ export type Database = {
             referencedRelation: "knowledge_contents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "smartops_events_knowledge_content_id_fkey"
+            columns: ["knowledge_content_id"]
+            isOneToOne: false
+            referencedRelation: "v_testimonials_geo"
+            referencedColumns: ["id"]
+          },
         ]
       }
       smartops_form_field_responses: {
@@ -25315,6 +25329,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_testimonials_geo: {
+        Row: {
+          client_name: string | null
+          client_specialty: string | null
+          created_at: string | null
+          excerpt: string | null
+          excerpt_en: string | null
+          excerpt_es: string | null
+          file_url: string | null
+          geo_city: string | null
+          geo_precision: string | null
+          geo_state: string | null
+          geo_state_code: string | null
+          geo_uf: string | null
+          id: string | null
+          keywords: string[] | null
+          og_image_url: string | null
+          slug: string | null
+          title: string | null
+          title_en: string | null
+          title_es: string | null
+          view_count: number | null
+        }
+        Relationships: []
+      }
       v_timing_alerts: {
         Row: {
           email: string | null
@@ -28651,6 +28690,29 @@ export type Database = {
           excerpt: string
           matched_field: string
           relevance: number
+          slug: string
+          title: string
+        }[]
+      }
+      search_testimonials_by_location: {
+        Args: {
+          lang?: string
+          page_limit?: number
+          page_offset?: number
+          term?: string
+        }
+        Returns: {
+          client_name: string
+          excerpt: string
+          file_url: string
+          geo_city: string
+          geo_precision: string
+          geo_state: string
+          geo_state_code: string
+          geo_uf: string
+          id: string
+          keywords: string[]
+          og_image_url: string
           slug: string
           title: string
         }[]
