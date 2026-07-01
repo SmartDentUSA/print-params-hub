@@ -41,9 +41,10 @@ export function LanguageSelector() {
         // Extract the suffix (category/slug) after the base path
         const suffix = location.pathname.substring(currentPrefix.length);
         
-        // Build new route with selected language
-        const newPath = knowledgeBasePaths[value] + suffix;
-        
+        // Build new route with selected language, preserving query string and hash
+        // (ex.: ?tab=catalogo) para não perder a aba/estado atual.
+        const newPath = knowledgeBasePaths[value] + suffix + location.search + location.hash;
+
         // Navigate to new route
         navigate(newPath, { replace: true });
       }
