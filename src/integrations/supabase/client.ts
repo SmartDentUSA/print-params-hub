@@ -15,3 +15,21 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+const REALTIME_DISABLED_EMERGENCY = true;
+
+if (REALTIME_DISABLED_EMERGENCY) {
+  const noopChannel = {
+    on: () => noopChannel,
+    subscribe: (callback?: (status: string) => void) => {
+      callback?.('CLOSED');
+      return noopChannel;
+    },
+    unsubscribe: async () => 'ok',
+  };
+
+  (supabase as any).channel = () => noopChannel;
+  (supabase as any).removeChannel = async () => 'ok';
+  (supabase as any).removeAllChannels = async () => ['ok'];
+  (supabase as any).getChannels = () => [];
+}
