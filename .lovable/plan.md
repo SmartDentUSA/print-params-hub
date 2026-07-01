@@ -1,6 +1,38 @@
-## Recuperação do pool — fix `try_acquire_briefing_lock` + redeploy das 4 EFs
+## Plano emergencial — cortar Realtime + corrigir `briefing_locks`
 
-### Passo 1 — Migration (bloqueia o loop de duplicate key)
+### 1. Desabilitar Realtime no frontend imediatamente
+
+Alterar apenas `src/integrations/supabase/client.ts` para instalar um kill-switch global temporário no client Supabase:
+
+- `supabase.channel()` passa a retornar um canal no-op.
+- `.on(...).subscribe(...)` não abre websocket nem faz reconexão.
+- `removeChannel`, `removeAllChannels` e `getChannels` viram no-op seguro.
+- Não será necessário editar dezenas de componentes individualmente.
+- Quando o banco estabilizar, basta remover/desligar o flag `REALTIME_DISABLED_EMERGENCY`.
+
+Patch esperado:
+
+```ts
+const REALTIME_DISABLED_EMERGENCY = true;
+
+if (REALTIME_DISABLED_EMERGENCY) {
+  const noopChannel = {
+    on: () => noopChannel,
+    subscribe: (callback?: (status: string) => void) => {
+      callback?.('CLOSED');
+      return noopChannel;
+    },
+    unsubscribe: async () => 'ok',
+  };
+
+  (supabase as any).channel = () => noopChannel;
+  (supabase as any).removeChannel = async () => 'ok';
+  (supabase as any).removeAllChannels = async () => ['ok'];
+  (supabase as any).getChannels = () => [];
+}
+```
+
+### 2. Aplicar migration SQL solicitada
 
 Aplicar via `supabase--migration`:
 
@@ -27,28 +59,12 @@ END;
 $$;
 ```
 
-Isso elimina o `duplicate key` que estava reciclando conexões em loop. Como o pool está saturado, a migration pode falhar no primeiro tento — se ocorrer `SUPABASE_INTERNAL_ERROR / connection timeout`, aguardar 30–60s e reenviar até aplicar. Confirmar sucesso antes de qualquer redeploy.
+### 3. Verificação mínima
 
-### Passo 2 — Verificação do pool
+- Confirmar que a migration aplicou sem erro.
+- Fazer um ping REST curto ao Supabase para verificar se o pool voltou a responder.
+- Não reimplantar Edge Functions neste pedido, porque você pediu apenas desabilitar Realtime + aplicar migration.
 
-Após a migration aplicada, testar responsividade REST com `curl` (< 3s). Se ainda travar, aguardar antes de seguir para o passo 3 (redeploys reabrem conexões).
+### 4. Importante
 
-### Passo 3 — Redeploy das 4 Edge Functions (nesta ordem)
-
-Usar `supabase--deploy_edge_functions` com `["smart-ops-piperun-webhook","smart-ops-copilot","enrichment-safety-net-cron","smart-ops-lia-assign"]`.
-
-Ordem escolhida deliberadamente: `smart-ops-lia-assign` por último (é a maior consumidora de conexões — o pool precisa estar estável antes dela subir).
-
-Código-fonte das 4 já verificado íntegro no repositório em turnos anteriores; nenhum arquivo será editado neste plano — apenas redeploy do que já existe.
-
-### Passo 4 — Validação pós-redeploy
-
-- `supabase--edge_function_logs` em `smart-ops-lia-assign` filtrando `duplicate key` / `briefing_locks` para confirmar zero ocorrências.
-- `supabase--read_query`: `SELECT count(*) FROM public.enrichment_safety_queue WHERE processed_at IS NULL` — deve começar a decrescer nos minutos seguintes com o safety-net-cron ativo.
-- `supabase--edge_function_logs` em `enrichment-safety-net-cron` para confirmar reprocessamento.
-
-### Observações
-
-- **Não** re-agendo os crons `refresh_copilot_brain` / `briefing` — permanecem `unschedule`d conforme decisão anterior. Reativar só após inspeção manual da lógica que os disparava.
-- Nenhum arquivo do repositório será modificado — este plano é 100% infraestrutura (SQL + redeploy).
-- Se o pool não responder após 5 minutos mesmo com a migration aplicada, escalar para reboot do projeto no Dashboard Supabase (Settings → General → Restart project) — última opção.
+Se a migration falhar por timeout (`SUPABASE_INTERNAL_ERROR` / `connection timeout`), o próximo passo é repetir assim que o Realtime do frontend estiver publicado e parar de reconectar.
