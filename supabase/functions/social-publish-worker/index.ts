@@ -27,6 +27,29 @@ function toZernioPlatform(channel: string): string | null {
   return c;
 }
 
+// Normaliza o formato escolhido pelo usuário para o `postType` que o Zernio
+// entende. Dois canais com o MESMO platform + accountId mas postTypes
+// diferentes (ex.: instagram feed + instagram reels) DEVEM gerar duas
+// publicações separadas — nunca colapsar em bulk.
+function toZernioPostType(format?: string | null): string {
+  if (!format) return 'feed';
+  const k = String(format).toLowerCase();
+  if (k.includes('carro') || k.includes('carousel') || k.includes('álbum') || k.includes('album')) return 'carousel';
+  if (k.includes('reel')) return 'reels';
+  if (k.includes('stor')) return 'story';
+  if (k.includes('short')) return 'short';
+  if (k.includes('idea pin')) return 'idea_pin';
+  if (k.includes('video pin')) return 'video_pin';
+  if (k.includes('image pin') || k === 'pin') return 'pin';
+  if (k.includes('vídeo') || k.includes('video')) return 'video';
+  if (k.includes('text')) return 'text';
+  if (k.includes('link')) return 'link';
+  if (k.includes('image') || k.includes('imagem')) return 'image';
+  if (k.includes('update')) return 'update';
+  if (k.includes('post') || k.includes('feed')) return 'feed';
+  return 'feed';
+}
+
 function inferMediaType(url: string): 'image' | 'video' {
   const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
   return ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(ext) ? 'video' : 'image';
@@ -128,8 +151,10 @@ serve(async (req) => {
           ? post.per_channel_media
           : {};
 
-      const platforms: any[] = [];
+      const platforms: Array<{ platform: string; accountId: string; postType: string }> = [];
       const skipped: any[] = [];
+      const seenKeys = new Set<string>();
+      const dedupedOut: any[] = [];
       for (const ch of channels) {
         const platform = toZernioPlatform(ch.platform ?? ch.channel ?? ch.type ?? ch);
         if (!platform) continue;
@@ -138,7 +163,18 @@ serve(async (req) => {
           skipped.push({ channel: ch, reason: 'no_zernio_account' });
           continue;
         }
-        platforms.push({ platform, accountId });
+        const postType = toZernioPostType(ch.format);
+        const key = `${platform}::${accountId}::${postType}`;
+        if (seenKeys.has(key)) {
+          dedupedOut.push({ channel: ch, reason: 'duplicate_platform_format_account' });
+          continue;
+        }
+        seenKeys.add(key);
+        platforms.push({ platform, accountId, postType });
+      }
+      if (dedupedOut.length > 0) {
+        console.log(JSON.stringify({ event: 'channel_dedup', post_id: post.id, deduped: dedupedOut }));
+        skipped.push(...dedupedOut);
       }
 
       if (platforms.length === 0) {
@@ -180,19 +216,24 @@ serve(async (req) => {
           .filter(Boolean);
       const defaultMedia = mapMedia(mediaItems);
 
-      // Agrupa: plataformas SEM override entram em 1 chamada bulk; cada override = chamada própria
+      // Agrupa por (mídia, postType). Plataformas com override viram grupo próprio.
+      // Plataformas SEM override e com mesmo postType podem ir em bulk; postTypes
+      // diferentes NUNCA compartilham grupo — Zernio precisa saber o formato de
+      // cada perfil (ex.: Instagram Feed vs Instagram Reels vs Instagram Stories).
       const groups: Array<{ platforms: any[]; media: any[]; label: string }> = [];
-      const bulkPlatforms: any[] = [];
+      const bulkBuckets = new Map<string, any[]>();
       for (const p of platforms) {
         const override = perChannelMedia[p.platform];
         if (Array.isArray(override) && override.length > 0) {
-          groups.push({ platforms: [p], media: mapMedia(override), label: p.platform });
+          groups.push({ platforms: [p], media: mapMedia(override), label: `${p.platform}:${p.postType}` });
         } else {
-          bulkPlatforms.push(p);
+          const bucket = bulkBuckets.get(p.postType) ?? [];
+          bucket.push(p);
+          bulkBuckets.set(p.postType, bucket);
         }
       }
-      if (bulkPlatforms.length > 0) {
-        groups.unshift({ platforms: bulkPlatforms, media: defaultMedia, label: 'default' });
+      for (const [postType, bucket] of bulkBuckets) {
+        groups.unshift({ platforms: bucket, media: defaultMedia, label: `bulk:${postType}` });
       }
 
       const idsMap: Record<string, string> = {};

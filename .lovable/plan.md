@@ -1,83 +1,49 @@
-## Diagnóstico confirmado
+## Problema encontrado
 
-O caso do lead **Robespierre Gomes Souza** mostra a falha:
+Ao inspecionar o fluxo `StepChannels` → `social_scheduled_posts.channels` → `social-publish-worker` → Zernio, encontrei **dois bugs reais** que causam publicações duplicadas / incorretas:
 
-- Lead canônico: `1ab45609-a8f2-4cec-ba81-83b1e35b223f`
-- Re-entrega Meta/ formulário em `02/07/2026 11:06 UTC`
-- Deal antigo aberto em **Funil Estagnados / Etapa 01 - Reativação**: `#60055732`
-- Sistema criou indevidamente novo deal em **Funil de vendas / Sem contato**: `#61508533`
-- Evento gravado: `deal_reativado_via_formulario`
-- Origem técnica: `smart-ops-ingest-lead` chamou `smart-ops-lia-assign` com `trigger = sdr_captacao_reativacao`; dentro de `executarReativacaoSdrCaptacao`, ao encontrar deal aberto em Estagnados e nenhum VENDAS recente, criou novo deal em VENDAS.
+### 1. Duplicação por multi-formato da mesma plataforma
+`toZernioPlatform()` normaliza `instagram-feed`, `instagram-stories`, `instagram-reels` todos para `"instagram"` (idem `facebook-*` e `youtube-video`/`youtube-shorts`). O loop empurra cada um no array `platforms` **sem dedupe**:
 
-Isso viola a regra: **não reabrir / não criar deal novo sem nova interação real ou novo formulário comprovado**.
+```ts
+for (const ch of channels) {
+  const platform = toZernioPlatform(ch.platform ...); // "instagram" 3x
+  platforms.push({ platform, accountId }); // repetido
+}
+```
 
-## Correção cirúrgica
+Se o usuário marca Instagram Feed + Reels + Stories, `bulkPlatforms` fica `[ig, ig, ig]` e a chamada `POST /posts` do Zernio recebe 3 entradas idênticas → 3 publicações no mesmo perfil.
 
-### 1. Bloquear reativação automática por `sdr_captacao_reativacao`
-Em `supabase/functions/smart-ops-lia-assign/index.ts`:
+### 2. Formato ignorado (Feed vs Reels vs Stories vs Shorts)
+O worker **nunca** envia o `format` ao Zernio. Todo canal cai como post genérico (default Feed). Selecionar "Instagram Reels" não posta Reels — publica no Feed. Idem YouTube Shorts, Facebook Stories, etc.
 
-- Alterar o bloco `if (trigger === "sdr_captacao_reativacao")` para **não executar criação/movimentação de deal por padrão**.
-- Só permitir esse fluxo se o caller enviar uma prova explícita e segura de conversão nova, por exemplo:
-  - `new_conversion_confirmed === true`
-  - e `conversion_key` não processada antes
-  - e origem não for re-entrega Meta conhecida
-- Sem essa prova: retornar `skipped: true`, motivo `sdr_captacao_blocked_no_new_conversion`.
-- Registrar apenas log interno em `system_health_logs`, sem nota no PipeRun e sem update no CRM.
+### 3. Canais faltando/inconsistentes na UI
+`CHANNEL_FORMAT_OPTIONS` não expõe: Reddit, Instagram Carrossel, Facebook Álbum, TikTok Carrossel, Pinterest Video/Idea Pin — mas todos estão declarados em `SOCIAL_CHANNELS.formats` e em `channelSchema`. Reddit ainda tem UI de campos extras em `StepChannels` que nunca aparece porque o ícone não existe.
 
-### 2. Remover gatilho automático de reativação no ingest
-Em `supabase/functions/smart-ops-ingest-lead/index.ts`:
+## Correções propostas
 
-- Parar de transformar automaticamente qualquer `form_purpose = sdr_captacao` + `existingLead` em `trigger = sdr_captacao_reativacao`.
-- Para lead existente, o padrão passa a ser:
-  - enriquecer CDP;
-  - atualizar `form_data` / campos internos;
-  - não criar deal;
-  - não mover funil;
-  - não postar nota.
-- Só enviar `trigger = sdr_captacao_reativacao` quando houver conversão nova comprovada por chave idempotente inédita.
+### A. `supabase/functions/social-publish-worker/index.ts`
+1. Dedupar `platforms` por `platform+accountId+format` antes de montar `groups`.
+2. Preservar o `format` de cada canal e mapear para o campo Zernio correspondente (`postType`: `feed` | `reels` | `stories` | `shorts` | `video` | `pin`). Enviar por plataforma (usar formato Zernio: `platforms: [{ platform, accountId, postType }]`).
+3. Quando o mesmo `platform` aparece com formatos diferentes (ex.: Feed + Reels), gerar **grupos separados** (uma chamada Zernio por formato) — nunca colapsar em bulk.
+4. Adicionar log `channel_dedup` quando um par platform+format+account é descartado.
 
-### 3. Criar chave idempotente de conversão real
-Ainda no ingest:
+### B. `src/components/social/editor/steps/StepChannels.tsx`
+1. Bloquear no cliente a seleção redundante do mesmo `platform+format` (já é o comportamento — verificar) e adicionar aviso quando o usuário marca Feed + Reels + Stories do mesmo perfil (não é duplicata, é intencional, mas destacar visualmente que serão 3 posts distintos).
+2. Deixar claro no rodapé que "Cada formato marcado gera 1 publicação separada".
 
-- Calcular uma `conversion_key` estável:
-  - Meta: `meta:${platform_form_id}:${platform_lead_id}` quando ambos existirem.
-  - Fallback: `meta:${platform_form_id}:${email_or_phone_hash}`.
-  - Form site: `form:${form_slug_or_name}:${submission_id}` quando existir.
-- Antes de chamar qualquer ação comercial, verificar se essa chave já existe em:
-  - `platform_lead_id`
-  - `raw_payload.previous_platform_lead_ids`
-  - `lead_activity_log.entity_id`
-  - histórico em `form_data`
-- Se já existir: **CDP-only**.
+### C. `src/components/social/editor/ChannelFormatIcon.tsx`
+1. Adicionar ícones faltantes que já estão suportados no schema: Reddit (Texto/Link/Imagem), Instagram Carrossel, Facebook Álbum, Pinterest Video Pin. Sem novas plataformas — só expor o que já existe.
 
-### 4. Desativar rota legada de enrichment para CRM
-Em `enrichment-safety-net-cron`:
+### D. Validação Zod em `postSchema`
+1. Superrefine: rejeitar canais com `(platform, format)` duplicado.
 
-- Não chamar mais `smart-ops-lia-assign` para `enrichment_only_route_deal` em re-entrega Meta.
-- Para itens de Meta/redelivery: marcar como processado com resultado `cdp_only_redelivery_no_crm_touch`.
-- Isso impede que fila antiga volte a tentar reativar lead.
+## Fora de escopo
+- Não mexer em backend de agendamento / cron.
+- Não trocar provedor (mantém Zernio).
+- Sem migração de banco — `channels` já é JSONB flexível.
 
-### 5. Fail-safe dentro de `executarReativacaoSdrCaptacao`
-Mesmo se algum caller antigo ainda chamar a função:
-
-- Antes de criar qualquer novo deal, exigir `new_conversion_confirmed === true`.
-- Se não houver prova, abortar antes de Round Robin e antes de `createNewDeal`.
-- Manter regra: **não fechar, não mover, não reabrir Estagnados/VENDAS/CS automaticamente**.
-
-### 6. Verificação pós-correção
-Depois das alterações:
-
-- Deploy das funções alteradas:
-  1. `smart-ops-ingest-lead`
-  2. `smart-ops-lia-assign`
-  3. `enrichment-safety-net-cron`
-- Consultar eventos do lead `drpierregomess@gmail.com` para confirmar que novos reprocessamentos viram `skipped/CDP-only`.
-- Confirmar que não existem novos eventos `deal_reativado_via_formulario` após a correção.
-
-## O que não farei sem aprovação explícita
-
-- Não vou fechar automaticamente o deal `#61508533`.
-- Não vou mover o deal `#60055732`.
-- Não vou apagar notas ou histórico no PipeRun.
-
-A correção é para **parar a automação daqui para frente**; a limpeza do incidente atual deve ser uma decisão manual sua.
+## Como validar
+1. Criar um post marcando Instagram Feed + Reels + Stories → 3 chamadas Zernio distintas com `postType` correto, 3 posts no IG.
+2. Marcar apenas Instagram Feed + Facebook Post → 1 chamada bulk com 2 plataformas, 1 post em cada.
+3. Tentar salvar com Feed marcado duas vezes → schema rejeita.

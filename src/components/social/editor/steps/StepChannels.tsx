@@ -62,6 +62,8 @@ export function StepChannels({ value, onChange }: Props) {
         </div>
         <p className="text-[11px] text-muted-foreground mt-1.5">
           Clique nos ícones para ativar/desativar canais e formatos. Cinza = inativo · Cor = ativo.
+          <br />
+          Cada formato marcado gera <strong>1 publicação separada</strong> — Feed, Reels e Stories do mesmo perfil viram 3 posts distintos.
         </p>
       </div>
 
