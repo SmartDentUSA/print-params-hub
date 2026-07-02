@@ -60,6 +60,51 @@ function detectProductFromFormName(formName: string | null): string | null {
   return null;
 }
 
+function normalizeIdentityForKey(email: string | null | undefined, phone: string | null | undefined): string {
+  const cleanEmail = String(email || "").toLowerCase().trim();
+  if (cleanEmail) return cleanEmail;
+  const cleanPhone = String(phone || "").replace(/\D/g, "");
+  return cleanPhone || "unknown";
+}
+
+function buildConversionKey(params: {
+  source: string;
+  formName: string | null;
+  formId?: unknown;
+  leadgenId?: unknown;
+  email?: string | null;
+  phone?: string | null;
+  submissionId?: unknown;
+}): string | null {
+  const source = String(params.source || "").toLowerCase();
+  const formName = String(params.formName || "").trim();
+  const formId = params.formId ? String(params.formId).trim() : "";
+  const leadgenId = params.leadgenId ? String(params.leadgenId).trim() : "";
+  const submissionId = params.submissionId ? String(params.submissionId).trim() : "";
+  if (source === "meta_lead_ads") {
+    if (formId && leadgenId) return `meta:${formId}:${leadgenId}`;
+    if (formId) return `meta:${formId}:${normalizeIdentityForKey(params.email, params.phone)}`;
+    if (leadgenId) return `meta:lead:${leadgenId}`;
+  }
+  if (submissionId && formName) return `form:${formName}:${submissionId}`;
+  return null;
+}
+
+function conversionKeyExistsInFormData(formData: unknown, key: string): boolean {
+  if (!formData || typeof formData !== "object") return false;
+  try {
+    return JSON.stringify(formData).includes(key);
+  } catch {
+    return false;
+  }
+}
+
+function conversionKeyExistsInLeadHistory(lead: Record<string, any>, key: string): boolean {
+  return conversionKeyExistsInFormData(lead.form_data, key) ||
+    conversionKeyExistsInFormData(lead.raw_payload?.form_submissions, key) ||
+    conversionKeyExistsInFormData(lead.raw_payload?.latest_payload, key);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -466,14 +511,22 @@ Deno.serve(async (req) => {
     }
 
     const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
+    const conversionKey = buildConversionKey({
+      source,
+      formName,
+      formId: payload.platform_form_id || payload.meta_form_id,
+      leadgenId: dedupeId,
+      email,
+      phone: telefoneNormalized || telefoneRaw,
+      submissionId: payload.submission_id || payload.form_submission_id || payload.response_id,
+    });
 
     // ─── UNIVERSAL META RE-DELIVERY ROUTE ───
     // Se o dedupe early acima detectou re-entrega Meta com form_name e nos
     // pediu para diferir, agora temos todos os campos do payload extraídos.
-    // Aplicamos enrichment incremental no lead canônico (preservando origin
-    // e dados não-vazios) e disparamos a régua de deal universal em
-    // smart-ops-lia-assign (enrichment_only_route_deal): preserva VENDAS se
-    // já existir, ou abre fresh deal em VENDAS após fechar funis não-CS.
+    // Aplicamos somente enrichment incremental no lead canônico (preservando
+    // origin e dados não-vazios). Golden Rule: re-entrega Meta é CDP-only e
+    // nunca dispara smart-ops-lia-assign/PipeRun.
     if (deferredRedeliveryCanonicalId) {
       try {
         const { data: canon } = await supabase
@@ -1043,6 +1096,7 @@ Deno.serve(async (req) => {
     let leadId: string;
     let fieldsUpdated: string[] = [];
     let forcedNewDeal = false;
+    let allowCommercialReactivation = false;
 
     if (existingLead) {
       // REGRA DE OURO (final): smart-ops-ingest-lead NUNCA zera piperun_id /
@@ -1058,6 +1112,27 @@ Deno.serve(async (req) => {
           produto_interesse: produtoInteresse || existingLead.produto_interesse,
           source,
         }).eq('id', existingLead.id);
+      }
+
+      if (conversionKey) {
+        try {
+          const knownIds = new Set<string>([
+            String(existingLead.platform_lead_id || ""),
+            ...(((existingLead.raw_payload?.previous_platform_lead_ids as string[] | undefined) || []).map(String)),
+          ].filter(Boolean));
+          const knownInHistory = conversionKeyExistsInLeadHistory(existingLead, conversionKey);
+          const { data: priorConversion } = await supabase
+            .from("lead_activity_log")
+            .select("id")
+            .eq("lead_id", existingLead.id)
+            .eq("entity_id", conversionKey)
+            .limit(1)
+            .maybeSingle();
+          allowCommercialReactivation = !knownIds.has(String(dedupeId || "")) && !knownInHistory && !priorConversion?.id;
+        } catch (e) {
+          console.warn("[ingest-lead] conversion-key check failed — fail-closed:", e);
+          allowCommercialReactivation = false;
+        }
       }
 
       // --- SMART MERGE using shared lead-enrichment module ---
@@ -1146,6 +1221,7 @@ Deno.serve(async (req) => {
         source,
         submitted_at: new Date().toISOString(),
         fields_updated: fieldsUpdated,
+        conversion_key: conversionKey,
       };
 
       // Append to raw_payload as submission history
@@ -1240,10 +1316,10 @@ Deno.serve(async (req) => {
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
 
-      // If canonical already has a PipeRun deal, post a note documenting this new submission.
-      // The atomic claim inside smart-ops-deal-form-note (and lia-assign) prevents duplicates
-      // when both paths fire in parallel for Meta lead ads redeliveries.
-      if (existingLead.piperun_id && (formName || source === "form")) {
+      // Existing leads are CDP-only by default. Do NOT post PipeRun notes for
+      // Meta/form re-delivery; notes are only allowed for a confirmed new
+      // commercial conversion key.
+      if (allowCommercialReactivation && existingLead.piperun_id && (formName || source === "form")) {
         const responses: Array<{ label: string; value: string }> = Array.isArray(payload.form_responses)
           ? payload.form_responses.map((r: any) => ({
               label: String(r.label ?? r.name ?? r.field ?? ""),
@@ -1405,34 +1481,46 @@ Deno.serve(async (req) => {
       }
     };
 
-    const liaAssignPromise = dispatchAsync("smart-ops-lia-assign", {
-      lead_id: leadId,
-      source,
-      trigger: (formPurpose === "sdr_captacao" && !!existingLead)
-        ? "sdr_captacao_reativacao"
-        : "ingest-lead",
-      form_responses: payload.form_responses || [],
-      // Force a brand-new Deal whenever the submission is an explicit
-      // commercial inquiry on a product page (Loja Integrada "Sob Consulta"),
-      // even if the Person already has an open Vendas deal. Each consult is
-      // a distinct revenue opportunity for that product.
-      force_new_deal:
-        payload.force_new_deal === true ||
-        // Anteriormente: "toda submissão de formulário ativo abria Deal
-        // novo". Removido — provocava loop infinito de deal_created/
-        // seller_assigned para leads já vinculados em Funil de Vendas
-        // (Meta re-entrega o mesmo lead a cada ~2 min). A lógica
-        // shouldForceNewDeal em ingest-lead (~L583) + GOLDEN RULE em
-        // lia-assign já cuidam de abrir Deal novo quando faz sentido.
-        (source === "loja_integrada" && (
-          formName === ECOM_QUOTE_LABEL ||
-          formName === "produto_sob_consulta"
-        )),
-    });
-    const cognitivePromise = dispatchAsync("cognitive-lead-analysis", {
-      lead_id: leadId,
-      trigger: "ingest-lead",
-    });
+    const explicitEcomQuote = source === "loja_integrada" && (
+      formName === ECOM_QUOTE_LABEL ||
+      formName === "produto_sob_consulta"
+    );
+    const existingLeadHasCrmLink = Boolean(
+      existingLead?.piperun_id ||
+      existingLead?.pessoa_piperun_id ||
+      existingLead?.piperun_pipeline_id,
+    );
+    const shouldDispatchLiaAssign =
+      !existingLead || !existingLeadHasCrmLink || allowCommercialReactivation || explicitEcomQuote;
+    const liaAssignPromise = shouldDispatchLiaAssign
+      ? dispatchAsync("smart-ops-lia-assign", {
+          lead_id: leadId,
+          source,
+          trigger: (formPurpose === "sdr_captacao" && !!existingLead && allowCommercialReactivation)
+            ? "sdr_captacao_reativacao"
+            : "ingest-lead",
+          form_responses: payload.form_responses || [],
+          new_conversion_confirmed: !!existingLead && allowCommercialReactivation,
+          conversion_key: allowCommercialReactivation ? conversionKey : null,
+          // Apenas orçamento explícito de e-commerce pode forçar novo Deal.
+          // Re-entrega Meta/form de lead existente fica CDP-only e não chama lia-assign.
+          force_new_deal: explicitEcomQuote,
+        })
+      : Promise.resolve(
+          console.log(
+            `[ingest-lead] CDP_ONLY_EXISTING_LEAD: lead=${leadId} source=${source} form="${formName ?? "n/a"}" sem nova conversion_key confirmada — sem lia-assign/PipeRun`,
+          ),
+        );
+    const cognitivePromise = shouldDispatchLiaAssign
+      ? dispatchAsync("cognitive-lead-analysis", {
+          lead_id: leadId,
+          trigger: "ingest-lead",
+        })
+      : Promise.resolve(
+          console.log(
+            `[ingest-lead] CDP_ONLY_EXISTING_LEAD: lead=${leadId} sem cognitive PipeRun note`,
+          ),
+        );
     // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
     if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
       // @ts-ignore

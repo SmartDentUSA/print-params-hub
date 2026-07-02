@@ -73,21 +73,16 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: routeData, error: routeErr } = await supabase.functions.invoke(
-          "smart-ops-lia-assign",
-          {
-            body: {
-              lead_id: item.lead_id,
-              enrichment_only_route_deal: true,
-              enrichment_form_name: lead.form_name || item.new_form_name,
-              trigger: "enrichment_safety_net",
-              safety_queue_id: item.id,
-            },
-          },
-        );
-
-        if (routeErr) throw routeErr;
-
+        // Emergency hardening: safety-net no longer touches PipeRun/CRM for
+        // Meta redeliveries. It only marks the item processed as CDP-only so
+        // stale queue items cannot re-open leads or create VENDAS deals.
+        const routeData = {
+          success: true,
+          flow_type: "cdp_only_redelivery_no_crm_touch",
+          lead_id: item.lead_id,
+          reason: "enrichment_safety_net_crm_route_disabled",
+          form_name: lead.form_name || item.new_form_name,
+        };
         await supabase
           .from("enrichment_safety_queue")
           .update({
