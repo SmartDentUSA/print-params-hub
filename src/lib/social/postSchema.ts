@@ -90,6 +90,22 @@ export const postSchema = z
       }
     });
 
+    // Bloqueia seleção redundante do mesmo (platform, format). Formatos
+    // diferentes na mesma plataforma são permitidos (Feed + Reels + Stories)
+    // — cada um gera uma publicação separada.
+    const seenPairs = new Set<string>();
+    data.channels.forEach((c, i) => {
+      const key = `${c.platform}::${(c.format ?? '').toLowerCase()}`;
+      if (seenPairs.has(key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['channels', i, 'format'],
+          message: 'Canal + formato já selecionado',
+        });
+      }
+      seenPairs.add(key);
+    });
+
     if (!data.caption && data.media_items.length === 0) {
       ctx.addIssue({ code: 'custom', path: ['caption'], message: 'Adicione legenda ou mídia' });
     }
