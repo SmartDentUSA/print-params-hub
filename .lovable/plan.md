@@ -1,41 +1,31 @@
-## Plano emergencial — cortar Realtime + corrigir `briefing_locks`
+Entendido. Fico em standby. Assim que você disser "restaurado", executo a sequência abaixo sem parar entre etapas.
 
-### 1. Desabilitar Realtime no frontend imediatamente
+## Sequência automática pós-restore
 
-Alterar apenas `src/integrations/supabase/client.ts` para instalar um kill-switch global temporário no client Supabase:
+### Etapa 1 — Verificar pool respondendo
+```sql
+SELECT 1;
+```
+Se timeout, aviso e espero. Se OK, sigo.
 
-- `supabase.channel()` passa a retornar um canal no-op.
-- `.on(...).subscribe(...)` não abre websocket nem faz reconexão.
-- `removeChannel`, `removeAllChannels` e `getChannels` viram no-op seguro.
-- Não será necessário editar dezenas de componentes individualmente.
-- Quando o banco estabilizar, basta remover/desligar o flag `REALTIME_DISABLED_EMERGENCY`.
-
-Patch esperado:
-
-```ts
-const REALTIME_DISABLED_EMERGENCY = true;
-
-if (REALTIME_DISABLED_EMERGENCY) {
-  const noopChannel = {
-    on: () => noopChannel,
-    subscribe: (callback?: (status: string) => void) => {
-      callback?.('CLOSED');
-      return noopChannel;
-    },
-    unsubscribe: async () => 'ok',
-  };
-
-  (supabase as any).channel = () => noopChannel;
-  (supabase as any).removeChannel = async () => 'ok';
-  (supabase as any).removeAllChannels = async () => ['ok'];
-  (supabase as any).getChannels = () => [];
-}
+### Etapa 2 — Desagendar crons perigosos (via supabase--read_query como SELECT que executa `cron.unschedule`)
+```sql
+SELECT jobid, jobname, cron.unschedule(jobid) AS unscheduled
+FROM cron.job
+WHERE command ILIKE '%refresh_copilot_brain%'
+   OR command ILIKE '%briefing%';
 ```
 
-### 2. Aplicar migration SQL solicitada
+### Etapa 3 — Confirmar zero jobs restantes
+```sql
+SELECT jobid, jobname, schedule, command
+FROM cron.job
+WHERE command ILIKE '%refresh_copilot_brain%'
+   OR command ILIKE '%briefing%';
+```
+Esperado: 0 linhas. Se sobrar algum, repito unschedule direcionado.
 
-Aplicar via `supabase--migration`:
-
+### Etapa 4 — Migration do lock idempotente (supabase--migration)
 ```sql
 CREATE UNIQUE INDEX IF NOT EXISTS briefing_locks_lead_id_key
   ON public.briefing_locks(lead_id);
@@ -59,12 +49,30 @@ END;
 $$;
 ```
 
-### 3. Verificação mínima
+### Etapa 5 — Verificar função aplicada
+```sql
+SELECT pg_get_functiondef('public.try_acquire_briefing_lock(uuid)'::regprocedure);
+```
+Confirmar que contém `ON CONFLICT (lead_id) DO NOTHING`.
 
-- Confirmar que a migration aplicou sem erro.
-- Fazer um ping REST curto ao Supabase para verificar se o pool voltou a responder.
-- Não reimplantar Edge Functions neste pedido, porque você pediu apenas desabilitar Realtime + aplicar migration.
+### Etapa 6 — Redeploy das 4 EFs, uma por vez, na ordem
+1. `smart-ops-lia-assign`
+2. `enrichment-safety-net-cron`
+3. `smart-ops-piperun-webhook`
+4. `smart-ops-copilot`
 
-### 4. Importante
+Entre cada deploy, faço um `SELECT 1` para garantir que o pool continua saudável. Se latência subir, paro imediatamente.
 
-Se a migration falhar por timeout (`SUPABASE_INTERNAL_ERROR` / `connection timeout`), o próximo passo é repetir assim que o Realtime do frontend estiver publicado e parar de reconectar.
+### Etapa 7 — Relatório final
+- Crons removidos: lista
+- Função corrigida: OK/FAIL
+- EFs redeployadas: lista
+- Latência do pool: ms
+
+---
+
+## O que NÃO vou fazer
+- Não vou reagendar `refresh_copilot_brain` nem `briefing`. Se você quiser esses crons de volta, é decisão separada com plano próprio (frequência maior, com kill-switch).
+- Não vou reativar Realtime no frontend ainda — deixamos o `REALTIME_DISABLED_EMERGENCY = true` por 24h de observação.
+
+Confirma o plano? Depois me diga "restaurado" que eu disparo tudo em sequência.
