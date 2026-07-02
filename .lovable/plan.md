@@ -1,78 +1,43 @@
-Entendido. Fico em standby. Assim que você disser "restaurado", executo a sequência abaixo sem parar entre etapas.
+## Reimplantação sequencial das 4 EFs pós-restore
 
-## Sequência automática pós-restore
+Executo tudo em uma sequência única, com verificação de saúde do pool entre cada deploy. Se qualquer `SELECT 1` demorar mais que ~500ms ou falhar, paro imediatamente e reporto.
 
-### Etapa 1 — Verificar pool respondendo
-```sql
-SELECT 1;
-```
-Se timeout, aviso e espero. Se OK, sigo.
+### Pré-check
+- `SELECT 1` — confirmar pool saudável antes de começar.
+- `SELECT count(*) FROM cron.job WHERE command ILIKE '%refresh_copilot_brain%' OR command ILIKE '%briefing%'` — confirmar 0 (crons desagendados).
+- `pg_get_functiondef('public.try_acquire_briefing_lock(uuid)'::regprocedure)` — confirmar que contém `ON CONFLICT (lead_id) DO NOTHING`.
 
-### Etapa 2 — Desagendar crons perigosos (via supabase--read_query como SELECT que executa `cron.unschedule`)
-```sql
-SELECT jobid, jobname, cron.unschedule(jobid) AS unscheduled
-FROM cron.job
-WHERE command ILIKE '%refresh_copilot_brain%'
-   OR command ILIKE '%briefing%';
-```
+Se qualquer pré-check falhar, aborto e reporto — não reimplanto EF nenhuma sobre banco doente ou lock não corrigido.
 
-### Etapa 3 — Confirmar zero jobs restantes
-```sql
-SELECT jobid, jobname, schedule, command
-FROM cron.job
-WHERE command ILIKE '%refresh_copilot_brain%'
-   OR command ILIKE '%briefing%';
-```
-Esperado: 0 linhas. Se sobrar algum, repito unschedule direcionado.
+### Sequência de deploy
 
-### Etapa 4 — Migration do lock idempotente (supabase--migration)
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS briefing_locks_lead_id_key
-  ON public.briefing_locks(lead_id);
+1. **Deploy `smart-ops-lia-assign`** (via `supabase--deploy_edge_functions`)
+   - `SELECT 1` — latência esperada < 500ms.
+   - Checar `system_health_logs` últimos 2min por `briefing_lock_error` / `cog_lock_skipped` acima do normal.
 
-CREATE OR REPLACE FUNCTION public.try_acquire_briefing_lock(p_lead_id uuid)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_inserted boolean := false;
-BEGIN
-  INSERT INTO public.briefing_locks(lead_id, acquired_at)
-  VALUES (p_lead_id, now())
-  ON CONFLICT (lead_id) DO NOTHING
-  RETURNING true INTO v_inserted;
+2. **Deploy `enrichment-safety-net-cron`**
+   - `SELECT 1`.
+   - `SELECT count(*) FROM enrichment_safety_queue WHERE processed_at IS NULL` — baseline antes de drenar.
 
-  RETURN COALESCE(v_inserted, false);
-END;
-$$;
-```
+3. **Deploy `smart-ops-piperun-webhook`**
+   - `SELECT 1`.
 
-### Etapa 5 — Verificar função aplicada
-```sql
-SELECT pg_get_functiondef('public.try_acquire_briefing_lock(uuid)'::regprocedure);
-```
-Confirmar que contém `ON CONFLICT (lead_id) DO NOTHING`.
+4. **Deploy `smart-ops-copilot`**
+   - `SELECT 1`.
 
-### Etapa 6 — Redeploy das 4 EFs, uma por vez, na ordem
-1. `smart-ops-lia-assign`
-2. `enrichment-safety-net-cron`
-3. `smart-ops-piperun-webhook`
-4. `smart-ops-copilot`
+### Pós-deploy — confirmar drenagem
 
-Entre cada deploy, faço um `SELECT 1` para garantir que o pool continua saudável. Se latência subir, paro imediatamente.
+- `SELECT count(*) FILTER (WHERE processed_at IS NULL) AS pending, count(*) FILTER (WHERE processed_at IS NOT NULL AND processed_at > now() - interval '5 min') AS drained_recent FROM enrichment_safety_queue` — repito 2x com 60s de intervalo.
+- Esperado: `pending` caindo, `drained_recent` > 0.
+- Se `pending` não cair em 3min, inspeciono `last_error` / `attempt_count` dos itens presos e reporto.
 
-### Etapa 7 — Relatório final
-- Crons removidos: lista
-- Função corrigida: OK/FAIL
-- EFs redeployadas: lista
-- Latência do pool: ms
+### Relatório final
+- 4 EFs reimplantadas: OK/FAIL por função
+- Latência do pool após cada deploy (ms)
+- `enrichment_safety_queue`: pending inicial → pending após 2min
+- Erros relevantes em `system_health_logs` (se houver)
 
----
-
-## O que NÃO vou fazer
-- Não vou reagendar `refresh_copilot_brain` nem `briefing`. Se você quiser esses crons de volta, é decisão separada com plano próprio (frequência maior, com kill-switch).
-- Não vou reativar Realtime no frontend ainda — deixamos o `REALTIME_DISABLED_EMERGENCY = true` por 24h de observação.
-
-Confirma o plano? Depois me diga "restaurado" que eu disparo tudo em sequência.
+### O que NÃO vou fazer
+- Não reagendo `refresh_copilot_brain` nem `briefing` cron.
+- Não reativo Realtime (kill-switch fica ativo pelas próximas 24h).
+- Não faço deploys em paralelo — estritamente sequencial com gate de `SELECT 1`.
