@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Send, Loader2 } from "lucide-react";
+import { Plus, Send, Loader2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
@@ -258,6 +259,30 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from("team_members").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      const isFk = /foreign key|violates|referenced/i.test(error.message);
+      toast({
+        title: isFk ? "Não é possível excluir" : "Erro ao excluir",
+        description: isFk
+          ? "Este membro tem registros vinculados (deals, leads, etc). Desative-o em vez de excluir."
+          : error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: "Membro excluído" });
+    setDeleteTarget(null);
+    fetchMembers();
+  };
+
   const openTestWaLeads = (m: TeamMember) => {
     setTestMember(m);
     setTestPhone(m.whatsapp_number);
@@ -395,6 +420,9 @@ export function SmartOpsTeam() {
                       <Send className="w-3 h-3 mr-1" /> Testar WL
                     </Button>
                   )}
+                  <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
