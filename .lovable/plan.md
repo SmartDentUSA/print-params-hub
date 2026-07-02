@@ -1,43 +1,83 @@
-## Reimplantação sequencial das 4 EFs pós-restore
+## Diagnóstico confirmado
 
-Executo tudo em uma sequência única, com verificação de saúde do pool entre cada deploy. Se qualquer `SELECT 1` demorar mais que ~500ms ou falhar, paro imediatamente e reporto.
+O caso do lead **Robespierre Gomes Souza** mostra a falha:
 
-### Pré-check
-- `SELECT 1` — confirmar pool saudável antes de começar.
-- `SELECT count(*) FROM cron.job WHERE command ILIKE '%refresh_copilot_brain%' OR command ILIKE '%briefing%'` — confirmar 0 (crons desagendados).
-- `pg_get_functiondef('public.try_acquire_briefing_lock(uuid)'::regprocedure)` — confirmar que contém `ON CONFLICT (lead_id) DO NOTHING`.
+- Lead canônico: `1ab45609-a8f2-4cec-ba81-83b1e35b223f`
+- Re-entrega Meta/ formulário em `02/07/2026 11:06 UTC`
+- Deal antigo aberto em **Funil Estagnados / Etapa 01 - Reativação**: `#60055732`
+- Sistema criou indevidamente novo deal em **Funil de vendas / Sem contato**: `#61508533`
+- Evento gravado: `deal_reativado_via_formulario`
+- Origem técnica: `smart-ops-ingest-lead` chamou `smart-ops-lia-assign` com `trigger = sdr_captacao_reativacao`; dentro de `executarReativacaoSdrCaptacao`, ao encontrar deal aberto em Estagnados e nenhum VENDAS recente, criou novo deal em VENDAS.
 
-Se qualquer pré-check falhar, aborto e reporto — não reimplanto EF nenhuma sobre banco doente ou lock não corrigido.
+Isso viola a regra: **não reabrir / não criar deal novo sem nova interação real ou novo formulário comprovado**.
 
-### Sequência de deploy
+## Correção cirúrgica
 
-1. **Deploy `smart-ops-lia-assign`** (via `supabase--deploy_edge_functions`)
-   - `SELECT 1` — latência esperada < 500ms.
-   - Checar `system_health_logs` últimos 2min por `briefing_lock_error` / `cog_lock_skipped` acima do normal.
+### 1. Bloquear reativação automática por `sdr_captacao_reativacao`
+Em `supabase/functions/smart-ops-lia-assign/index.ts`:
 
-2. **Deploy `enrichment-safety-net-cron`**
-   - `SELECT 1`.
-   - `SELECT count(*) FROM enrichment_safety_queue WHERE processed_at IS NULL` — baseline antes de drenar.
+- Alterar o bloco `if (trigger === "sdr_captacao_reativacao")` para **não executar criação/movimentação de deal por padrão**.
+- Só permitir esse fluxo se o caller enviar uma prova explícita e segura de conversão nova, por exemplo:
+  - `new_conversion_confirmed === true`
+  - e `conversion_key` não processada antes
+  - e origem não for re-entrega Meta conhecida
+- Sem essa prova: retornar `skipped: true`, motivo `sdr_captacao_blocked_no_new_conversion`.
+- Registrar apenas log interno em `system_health_logs`, sem nota no PipeRun e sem update no CRM.
 
-3. **Deploy `smart-ops-piperun-webhook`**
-   - `SELECT 1`.
+### 2. Remover gatilho automático de reativação no ingest
+Em `supabase/functions/smart-ops-ingest-lead/index.ts`:
 
-4. **Deploy `smart-ops-copilot`**
-   - `SELECT 1`.
+- Parar de transformar automaticamente qualquer `form_purpose = sdr_captacao` + `existingLead` em `trigger = sdr_captacao_reativacao`.
+- Para lead existente, o padrão passa a ser:
+  - enriquecer CDP;
+  - atualizar `form_data` / campos internos;
+  - não criar deal;
+  - não mover funil;
+  - não postar nota.
+- Só enviar `trigger = sdr_captacao_reativacao` quando houver conversão nova comprovada por chave idempotente inédita.
 
-### Pós-deploy — confirmar drenagem
+### 3. Criar chave idempotente de conversão real
+Ainda no ingest:
 
-- `SELECT count(*) FILTER (WHERE processed_at IS NULL) AS pending, count(*) FILTER (WHERE processed_at IS NOT NULL AND processed_at > now() - interval '5 min') AS drained_recent FROM enrichment_safety_queue` — repito 2x com 60s de intervalo.
-- Esperado: `pending` caindo, `drained_recent` > 0.
-- Se `pending` não cair em 3min, inspeciono `last_error` / `attempt_count` dos itens presos e reporto.
+- Calcular uma `conversion_key` estável:
+  - Meta: `meta:${platform_form_id}:${platform_lead_id}` quando ambos existirem.
+  - Fallback: `meta:${platform_form_id}:${email_or_phone_hash}`.
+  - Form site: `form:${form_slug_or_name}:${submission_id}` quando existir.
+- Antes de chamar qualquer ação comercial, verificar se essa chave já existe em:
+  - `platform_lead_id`
+  - `raw_payload.previous_platform_lead_ids`
+  - `lead_activity_log.entity_id`
+  - histórico em `form_data`
+- Se já existir: **CDP-only**.
 
-### Relatório final
-- 4 EFs reimplantadas: OK/FAIL por função
-- Latência do pool após cada deploy (ms)
-- `enrichment_safety_queue`: pending inicial → pending após 2min
-- Erros relevantes em `system_health_logs` (se houver)
+### 4. Desativar rota legada de enrichment para CRM
+Em `enrichment-safety-net-cron`:
 
-### O que NÃO vou fazer
-- Não reagendo `refresh_copilot_brain` nem `briefing` cron.
-- Não reativo Realtime (kill-switch fica ativo pelas próximas 24h).
-- Não faço deploys em paralelo — estritamente sequencial com gate de `SELECT 1`.
+- Não chamar mais `smart-ops-lia-assign` para `enrichment_only_route_deal` em re-entrega Meta.
+- Para itens de Meta/redelivery: marcar como processado com resultado `cdp_only_redelivery_no_crm_touch`.
+- Isso impede que fila antiga volte a tentar reativar lead.
+
+### 5. Fail-safe dentro de `executarReativacaoSdrCaptacao`
+Mesmo se algum caller antigo ainda chamar a função:
+
+- Antes de criar qualquer novo deal, exigir `new_conversion_confirmed === true`.
+- Se não houver prova, abortar antes de Round Robin e antes de `createNewDeal`.
+- Manter regra: **não fechar, não mover, não reabrir Estagnados/VENDAS/CS automaticamente**.
+
+### 6. Verificação pós-correção
+Depois das alterações:
+
+- Deploy das funções alteradas:
+  1. `smart-ops-ingest-lead`
+  2. `smart-ops-lia-assign`
+  3. `enrichment-safety-net-cron`
+- Consultar eventos do lead `drpierregomess@gmail.com` para confirmar que novos reprocessamentos viram `skipped/CDP-only`.
+- Confirmar que não existem novos eventos `deal_reativado_via_formulario` após a correção.
+
+## O que não farei sem aprovação explícita
+
+- Não vou fechar automaticamente o deal `#61508533`.
+- Não vou mover o deal `#60055732`.
+- Não vou apagar notas ou histórico no PipeRun.
+
+A correção é para **parar a automação daqui para frente**; a limpeza do incidente atual deve ser uma decisão manual sua.

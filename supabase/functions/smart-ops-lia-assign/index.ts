@@ -1848,10 +1848,68 @@ async function executarReativacaoSdrCaptacao(
   apiToken: string,
   supabase: ReturnType<typeof createClient>,
   lead: Record<string, unknown>,
-  formResponses?: Array<{ label?: string; value?: unknown }>
+  formResponses?: Array<{ label?: string; value?: unknown }>,
+  opts: { newConversionConfirmed?: boolean; conversionKey?: string | null } = {},
 ): Promise<boolean> {
   const leadId = lead.id as string;
   const leadEmail = (lead.email as string).trim().toLowerCase();
+
+  // Fail-safe definitivo: nenhum caller legado pode reativar Estagnados ou criar
+  // Deal em VENDAS sem prova explícita de nova conversão real. Re-entrega Meta,
+  // reprocessamento de fila e form antigo são sempre CDP-only.
+  if (opts.newConversionConfirmed !== true || !opts.conversionKey) {
+    console.warn(
+      `[lia-assign] SDR-CAPTAÇÃO BLOQUEADA: sem prova de nova conversão para lead ${leadId} (${leadEmail})`,
+    );
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "sdr_captacao_blocked_no_new_conversion",
+        lead_id: leadId,
+        lead_email: leadEmail,
+        details: {
+          source: lead.source,
+          form_name: lead.form_name,
+          piperun_id: lead.piperun_id ?? null,
+          reason: "missing_new_conversion_confirmation",
+        },
+      });
+    } catch {}
+    return false;
+  }
+
+  try {
+    const { data: priorConversion } = await supabase
+      .from("lead_activity_log")
+      .select("id, event_timestamp")
+      .eq("lead_id", leadId)
+      .eq("entity_id", opts.conversionKey)
+      .in("event_type", ["deal_reativado_via_formulario", "commercial_conversion_consumed"])
+      .order("event_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (priorConversion?.id) {
+      console.warn(
+        `[lia-assign] SDR-CAPTAÇÃO BLOQUEADA: conversion_key já consumida (${opts.conversionKey})`,
+      );
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "sdr_captacao_blocked_conversion_key_reused",
+        lead_id: leadId,
+        lead_email: leadEmail,
+        details: {
+          conversion_key: opts.conversionKey,
+          prior_event_at: priorConversion.event_timestamp,
+        },
+      });
+      return false;
+    }
+  } catch (e) {
+    console.warn("[lia-assign] SDR-CAPTAÇÃO conversion_key lookup failed — fail-closed:", e);
+    return false;
+  }
 
   // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
   let personId = lead.pessoa_piperun_id as number | null;
@@ -2078,6 +2136,21 @@ async function executarReativacaoSdrCaptacao(
       novo_deal_id: newDealId,
       novo_owner: newOwnerName,
       motivo_fechamento: "reativacao_formulario",
+    },
+    source_channel: "form",
+    event_timestamp: new Date().toISOString(),
+  });
+
+  await supabase.from("lead_activity_log").insert({
+    lead_id: leadId,
+    event_type: "commercial_conversion_consumed",
+    entity_type: "conversion_key",
+    entity_id: String(opts.conversionKey),
+    entity_name: "Nova conversão comercial consumida",
+    event_data: {
+      conversion_key: String(opts.conversionKey),
+      novo_deal_id: newDealId,
+      flow: "sdr_captacao_reativacao",
     },
     source_channel: "form",
     event_timestamp: new Date().toISOString(),
@@ -2484,9 +2557,12 @@ Deno.serve(async (req) => {
       lead_id,
       force,
       trigger,
+      source,
       form_responses: inputFormResponses,
       commercial_override,
       force_new_deal,
+      new_conversion_confirmed,
+      conversion_key,
       enrichment_only_route_deal,
       enrichment_form_name,
       enriched_fields,
@@ -2581,44 +2657,86 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── ENRICHMENT-ONLY DEAL ROUTE (re-entrega Meta < 12h) ───
-    // Disparado por smart-ops-ingest-lead após merge incremental. Bypassa
-    // idempotency, meta-redelivery-kill, Round Robin geral, cognitive,
-    // briefings, Sellflux e qualquer Person/Company side-effect. Apenas
-    // roteia o Deal (preserva VENDAS / fecha outros como Perdido + cria novo).
+    // ─── ENRICHMENT-ONLY DEAL ROUTE (LEGADO DESATIVADO) ───
+    // Re-entrega/enrichment nunca toca PipeRun: CDP-only.
     if (enrichment_only_route_deal === true) {
       console.log(
         `[lia-assign] ENRICHMENT_ROUTE: lead=${lead.id} form="${enrichment_form_name ?? "n/a"}" fields=[${(enriched_fields ?? []).join(",")}]`,
       );
+      // Legacy route disabled: enrichment/redelivery is CDP-only. This path
+      // used to move Estagnados back to VENDAS/Sem contato without a new real
+      // conversion, which violates the Golden Rule.
       try {
-        const routeResult = await executarEnrichmentDealRoute(
-          PIPERUN_API_KEY,
-          supabase,
-          lead,
-          (enrichment_form_name as string | null) ?? null,
-          Array.isArray(enriched_fields) ? (enriched_fields as string[]) : [],
-        );
-        try {
-          await supabase.from("system_health_logs").insert({
-            function_name: "smart-ops-lia-assign",
-            severity: "info",
-            error_type: "enrichment_only_route_deal",
-            lead_id: lead.id,
-            lead_email: (lead.email as string) ?? null,
-            details: { route_result: routeResult, trigger, form_name: enrichment_form_name },
-          });
-        } catch {}
-        return new Response(
-          JSON.stringify({ success: true, mode: "enrichment_only_route_deal", ...routeResult }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      } catch (e) {
-        console.error("[lia-assign] enrichment-route failed:", e);
-        return new Response(
-          JSON.stringify({ success: false, mode: "enrichment_only_route_deal", error: String(e) }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "enrichment_only_route_deal_disabled_cdp_only",
+          lead_id: lead.id,
+          lead_email: (lead.email as string) ?? null,
+          details: { trigger, form_name: enrichment_form_name, enriched_fields },
+        });
+      } catch {}
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          mode: "cdp_only_redelivery_no_crm_touch",
+          reason: "enrichment_only_route_deal_disabled",
+          lead_id: lead.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ── GOLDEN RULE FAIL-CLOSED ──
+    // Qualquer lead já vinculado a um Deal (VENDAS/ESTAGNADOS/CS/etc.) só pode
+    // sofrer ação automática no CRM se o caller trouxer prova explícita de nova
+    // conversão real. Sem isso, enriquecimento é somente CDP e não reabre/move
+    // para "Sem contato".
+    const hasExplicitNewConversion =
+      new_conversion_confirmed === true &&
+      typeof conversion_key === "string" &&
+      conversion_key.trim().length > 0;
+    const autoFormSource = ["meta_lead_ads", "form", "formulario"].includes(
+      String((lead as Record<string, unknown>).source || source || "").toLowerCase(),
+    );
+    const hasAnyCrmLink = Boolean(
+      lead.piperun_id ||
+      (lead as Record<string, unknown>).pessoa_piperun_id ||
+      (lead as Record<string, unknown>).piperun_pipeline_id,
+    );
+    if (force_new_deal !== true && hasAnyCrmLink && autoFormSource && !hasExplicitNewConversion) {
+      console.warn(
+        `[lia-assign] CRM_TOUCH_BLOCKED: lead ${lead.id} (${lead.email}) já tem vínculo CRM e não há nova conversão confirmada`,
+      );
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "warning",
+          error_type: "existing_lead_no_new_conversion_cdp_only",
+          lead_id: lead.id,
+          lead_email: lead.email,
+          details: {
+            trigger,
+            source: (lead as Record<string, unknown>).source || source,
+            form_name: lead.form_name,
+            piperun_id: lead.piperun_id,
+            pessoa_piperun_id: (lead as Record<string, unknown>).pessoa_piperun_id ?? null,
+            piperun_pipeline_id: (lead as Record<string, unknown>).piperun_pipeline_id ?? null,
+            reason: "automatic_crm_touch_requires_new_conversion_key",
+          },
+        });
+      } catch {}
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "existing_lead_no_new_conversion_cdp_only",
+          lead_id: lead.id,
+          piperun_id: lead.piperun_id ?? null,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // ── Idempotency: skip if processed in last 3 min (unless force=true) ──
@@ -2692,9 +2810,41 @@ Deno.serve(async (req) => {
 
     // ── §4.5 SDR-CAPTAÇÃO Reativação ──
     if (trigger === "sdr_captacao_reativacao") {
+      if (new_conversion_confirmed !== true || !conversion_key) {
+        console.warn(
+          `[lia-assign] BLOCKED trigger=sdr_captacao_reativacao without explicit new conversion proof for lead ${lead.id}`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "warning",
+            error_type: "sdr_captacao_blocked_no_new_conversion",
+            lead_id: lead.id,
+            lead_email: lead.email,
+            details: {
+              trigger,
+              source,
+              form_name: lead.form_name,
+              piperun_id: lead.piperun_id ?? null,
+              piperun_pipeline_id: lead.piperun_pipeline_id ?? null,
+            },
+          });
+        } catch {}
+        return new Response(
+          JSON.stringify({
+            skipped: true,
+            reason: "sdr_captacao_blocked_no_new_conversion",
+            lead_id: lead.id,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       let reativacaoOk = false;
       try {
-        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead, inputFormResponses);
+        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead, inputFormResponses, {
+          newConversionConfirmed: new_conversion_confirmed === true,
+          conversionKey: String(conversion_key),
+        });
       } catch (reativErr) {
         console.error("[lia-assign] SDR-CAPTAÇÃO reativação error:", reativErr);
         try {
