@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 const BUCKET = "knowledge-images";
 const PREFIX = "lp-audio";
-const MAX_BYTES = 15 * 1024 * 1024;
+const MAX_BYTES = 30 * 1024 * 1024;
 const ACCEPT = ["audio/mpeg", "audio/mp3"];
 
 interface Props {
@@ -25,7 +25,7 @@ export default function HeroAudioUpload({ value, onChange }: Props) {
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error("Áudio muito grande (máx. 15 MB).");
+      toast.error("Áudio muito grande (máx. 30 MB).");
       return;
     }
     setUploading(true);
@@ -85,7 +85,7 @@ export default function HeroAudioUpload({ value, onChange }: Props) {
           <audio src={value} controls className="w-full h-8" />
         </div>
       )}
-      <p className="text-[11px] text-muted-foreground">Arquivo .mp3 até 15 MB. Aparece como player animado no card do hero.</p>
+      <p className="text-[11px] text-muted-foreground">Arquivo .mp3 até 30 MB. Aparece como player animado no card do hero.</p>
     </div>
   );
 }
