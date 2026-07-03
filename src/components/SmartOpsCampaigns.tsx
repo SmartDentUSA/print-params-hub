@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
+import { EmailComposer } from "@/components/smartops/EmailComposer";
 
 // ── Types ──
 interface ContentItem {
@@ -1120,6 +1121,7 @@ function CreateCampaign({
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
                     <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
+                    <SelectItem value="email">📧 Email (Gmail)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>

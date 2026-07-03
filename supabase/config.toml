@@ -410,3 +410,9 @@ verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.email-track-open]
+verify_jwt = false
+
+[functions.short-link-redirect]
+verify_jwt = false

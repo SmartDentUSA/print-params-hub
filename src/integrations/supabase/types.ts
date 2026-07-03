@@ -2075,15 +2075,20 @@ export type Database = {
         Row: {
           anchor_product: string | null
           campaign_id: string
+          click_count: number
+          clicked_at: string | null
           content_sent: string | null
           created_at: string | null
           delivered_at: string | null
+          email: string | null
           error_message: string | null
+          html_snapshot: string | null
           id: string
           lead_id: string
           media_url_sent: string | null
           mensagem_rendered: string | null
           nome: string | null
+          opened_at: string | null
           parceiro_id: string | null
           piperun_stage: string | null
           provider: string | null
@@ -2095,6 +2100,7 @@ export type Database = {
           sellflux_broadcast_id: string | null
           sent_at: string | null
           status: string | null
+          subject_snapshot: string | null
           telefone: string | null
           temperatura: string | null
           waleads_message_id: string | null
@@ -2102,15 +2108,20 @@ export type Database = {
         Insert: {
           anchor_product?: string | null
           campaign_id: string
+          click_count?: number
+          clicked_at?: string | null
           content_sent?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          email?: string | null
           error_message?: string | null
+          html_snapshot?: string | null
           id?: string
           lead_id: string
           media_url_sent?: string | null
           mensagem_rendered?: string | null
           nome?: string | null
+          opened_at?: string | null
           parceiro_id?: string | null
           piperun_stage?: string | null
           provider?: string | null
@@ -2122,6 +2133,7 @@ export type Database = {
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
           status?: string | null
+          subject_snapshot?: string | null
           telefone?: string | null
           temperatura?: string | null
           waleads_message_id?: string | null
@@ -2129,15 +2141,20 @@ export type Database = {
         Update: {
           anchor_product?: string | null
           campaign_id?: string
+          click_count?: number
+          clicked_at?: string | null
           content_sent?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          email?: string | null
           error_message?: string | null
+          html_snapshot?: string | null
           id?: string
           lead_id?: string
           media_url_sent?: string | null
           mensagem_rendered?: string | null
           nome?: string | null
+          opened_at?: string | null
           parceiro_id?: string | null
           piperun_stage?: string | null
           provider?: string | null
@@ -2149,6 +2166,7 @@ export type Database = {
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
           status?: string | null
+          subject_snapshot?: string | null
           telefone?: string | null
           temperatura?: string | null
           waleads_message_id?: string | null
@@ -2430,7 +2448,11 @@ export type Database = {
           content_bridge_id: string | null
           created_at: string | null
           created_by: string | null
+          cta_config: Json | null
           descricao: string | null
+          email_html: string | null
+          email_preheader: string | null
+          email_subject: string | null
           first_comment: string | null
           hashtags: string[] | null
           id: string
@@ -2465,7 +2487,11 @@ export type Database = {
           content_bridge_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          cta_config?: Json | null
           descricao?: string | null
+          email_html?: string | null
+          email_preheader?: string | null
+          email_subject?: string | null
           first_comment?: string | null
           hashtags?: string[] | null
           id?: string
@@ -2500,7 +2526,11 @@ export type Database = {
           content_bridge_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          cta_config?: Json | null
           descricao?: string | null
+          email_html?: string | null
+          email_preheader?: string | null
+          email_subject?: string | null
           first_comment?: string | null
           hashtags?: string[] | null
           id?: string
@@ -16469,6 +16499,7 @@ export type Database = {
       }
       short_links: {
         Row: {
+          campaign_id: string | null
           click_count: number | null
           code: string
           created_at: string | null
@@ -16481,8 +16512,10 @@ export type Database = {
           seller_name: string | null
           seller_phone: string | null
           seller_photo_url: string | null
+          send_log_id: string | null
         }
         Insert: {
+          campaign_id?: string | null
           click_count?: number | null
           code: string
           created_at?: string | null
@@ -16495,8 +16528,10 @@ export type Database = {
           seller_name?: string | null
           seller_phone?: string | null
           seller_photo_url?: string | null
+          send_log_id?: string | null
         }
         Update: {
+          campaign_id?: string | null
           click_count?: number | null
           code?: string
           created_at?: string | null
@@ -16509,6 +16544,7 @@ export type Database = {
           seller_name?: string | null
           seller_phone?: string | null
           seller_photo_url?: string | null
+          send_log_id?: string | null
         }
         Relationships: [
           {
