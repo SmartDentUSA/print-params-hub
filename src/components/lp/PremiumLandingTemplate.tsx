@@ -754,12 +754,35 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   </div>
                   <div className="p-7 md:p-8">
                     <h3 className="text-2xl font-black leading-tight text-[var(--lp-text)]">{card.title}</h3>
-                    {card.priceLabel && (
-                      <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
-                        {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
-                      </div>
-                    )}
+                    {card.priceLabel && (() => {
+                      const discount = computeDiscount(card.originalPrice, card.priceLabel);
+                      return (
+                        <div className="mt-5 space-y-1.5">
+                          {card.originalPrice && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text-soft)]">De</span>
+                              <span className="text-lg font-semibold text-[var(--lp-text-soft)] line-through decoration-[var(--lp-orange)]/70 decoration-2">
+                                {card.originalPrice}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            {card.originalPrice && (
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-brand)]">Por</span>
+                            )}
+                            <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
+                            {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
+                          </div>
+                          {discount && (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--lp-orange)]/10 px-3 py-1 text-xs font-bold text-[var(--lp-orange)]">
+                              <span>Economize {discount.savings}</span>
+                              <span className="opacity-70">·</span>
+                              <span>{discount.percent}% OFF</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <ul className="mt-7 space-y-3.5">
                       {card.includes.map((item, itemIndex) => (
                         <li key={itemIndex} className="flex items-start gap-3">
