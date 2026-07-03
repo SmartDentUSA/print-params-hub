@@ -23,6 +23,7 @@ import {
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
+import HeroAudioUpload from "@/components/smartops/HeroAudioUpload";
 
 interface Props {
   open: boolean;
