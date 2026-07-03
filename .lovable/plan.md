@@ -1,68 +1,95 @@
+
 ## Objetivo
+Receber webhooks do Stripe, validar assinatura, achar o lead pelo telefone/email no CRM (`lia_attendances`) e gravar cada evento financeiro na timeline (`lead_activity_log`).
 
-Substituir/complementar o badge "Revenda Oficial exocad" (canto do card do hero) por um **player de áudio explicativo** do produto, com upload de arquivo `.mp3` no builder da LP.
+Secrets já disponíveis: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 
-## Design da identificação visual
+## 1. Migração DB
+Nova tabela `stripe_webhook_events` para idempotência:
 
-Um botão-pill compacto, no mesmo lugar do badge atual (canto inferior-esquerdo do card do hero), com:
+- `event_id text primary key` (id do evento Stripe)
+- `event_type text not null`
+- `lead_id uuid null` (fk lógica → `lia_attendances.id`)
+- `payload jsonb not null`
+- `processed_at timestamptz default now()`
+- `error text null`
 
-- Ícone de **auto-falante animado** (pulsando suavemente enquanto não está tocando) para sinalizar "tem áudio aqui".
-- Label curta: **"Ouvir explicação"** (2s → muda para tempo decorrido / total quando toca).
-- Ao clicar: expande em um mini-player horizontal (play/pause + barra de progresso + tempo), mantendo o mesmo pill.
-- Badge "Revenda Oficial exocad" se mantém, mas movido para o topo do card (junto ao "RMS · Regional Monthly Subscription"), preservando a credencial.
+RLS ligado, GRANTs padrão (`service_role` all; `authenticated` select para debug). Sem policy pública.
 
-Racional: o usuário reconhece imediatamente que há conteúdo em áudio (ícone + microcopy + pulso), diferente de um simples badge estático, e o toque de "play" é o affordance universal.
+## 2. Edge Function `supabase/functions/stripe-webhook/index.ts`
+- `verify_jwt = false` (adicionar em `supabase/config.toml`)
+- Body cru + `stripe.webhooks.constructEventAsync(body, sig, STRIPE_WEBHOOK_SECRET)`
+- SDK: `import Stripe from "npm:stripe@17"`
+- Dedupe: insert em `stripe_webhook_events` (on conflict do nothing → se já existe, responde 200)
+- CORS mínimo (webhook não precisa, mas headers em erros)
 
-## Mudanças
+### Resolução de lead
+1. Extrai `phone` do evento (customer_details.phone, charge.billing_details.phone, subscription.customer expandido) → normaliza para dígitos BR (55 + DDD + número, mesma regra usada em outras funções).
+2. Busca em `lia_attendances` onde `merged_into IS NULL`:
+   - Primeiro por `telefone` (match exato dos últimos 10-11 dígitos)
+   - Fallback por `email` (lowercase)
+3. Se não achar → grava evento em `stripe_webhook_events` com `lead_id = null` e `error = 'lead_not_found'`. Não cria lead novo (fora do escopo).
 
-### 1. Tipo `LPContent` — `src/components/lp/PremiumLandingTemplate.tsx`
+### Eventos tratados (mapa → `event_type` no `lead_activity_log`)
+| Stripe | activity_log.event_type |
+|---|---|
+| `checkout.session.completed` | `stripe_checkout_completed` |
+| `checkout.session.async_payment_succeeded` | `stripe_checkout_paid` |
+| `checkout.session.async_payment_failed` | `stripe_checkout_failed` |
+| `payment_intent.succeeded` | `stripe_payment_succeeded` |
+| `payment_intent.payment_failed` | `stripe_payment_failed` |
+| `charge.refunded` | `stripe_refund` |
+| `invoice.paid` | `stripe_invoice_paid` |
+| `invoice.payment_failed` | `stripe_invoice_failed` |
+| `invoice.payment_action_required` | `stripe_invoice_action_required` |
+| `customer.subscription.created` | `stripe_subscription_created` |
+| `customer.subscription.updated` | `stripe_subscription_updated` |
+| `customer.subscription.deleted` | `stripe_subscription_canceled` |
 
-Adicionar campo opcional em `hero`:
-```ts
-audio?: { url: string; label?: string };
+Eventos fora da lista → 200 OK, apenas dedupe (sem timeline).
+
+### Insert em `lead_activity_log`
+- `lead_id` = uuid do lead
+- `activity_type` = 'payment' (ou 'subscription' para eventos de sub)
+- `event_type` = mapa acima
+- `channel` = 'stripe'
+- `source` = 'stripe_webhook'
+- `title` = descrição amigável ex: `"Pagamento Stripe: R$ 297,00 — Assinatura Mensal"`
+- `description` = produto(s) / plano / motivo de falha
+- `metadata jsonb` com:
+  - `amount` (centavos → decimal), `currency`
+  - `stripe_event_id`, `stripe_object_id` (session/pi/invoice/sub id)
+  - `mode` (payment/subscription), `status`
+  - `products` (linha itens quando disponível: name, price_id, product_id, qty)
+  - `customer` (id, email, phone, name)
+  - `raw` (payload resumido)
+- `occurred_at` = timestamp do evento Stripe (`event.created`)
+
+### Response
+- 200 sempre que assinatura válida (mesmo para "lead_not_found" ou evento ignorado) para o Stripe não reentregar
+- 400 apenas em falha de assinatura
+
+## 3. Config
+Atualizar `supabase/config.toml` adicionando bloco:
+```
+[functions.stripe-webhook]
+verify_jwt = false
 ```
 
-### 2. Player no card do hero — `PremiumLandingTemplate.tsx` (linhas 449-454)
+## 4. Deploy + teste
+1. Deploy da função
+2. Usuário clica "Enviar evento de teste" no Stripe (checkout.session.completed test mode)
+3. Verifica logs da função + row em `stripe_webhook_events` e (se telefone/email do teste bater com algum lead) em `lead_activity_log`
 
-- Mover o badge "Official Reseller" para o topo (linha ~440, ao lado de "Smart Dent").
-- No lugar dele (bottom-left), renderizar `<HeroAudioPlayer url={c.hero.audio.url} label={c.hero.audio.label} />` quando `hero.audio?.url` existir.
-- Componente novo `HeroAudioPlayer`: pill branco com ícone `Volume2` (pulsando via CSS `animate-pulse` até primeiro play), botão play/pause, barra de progresso fina laranja, tempo `0:12 / 1:45`. Usa `<audio>` nativo controlado por `useRef` + `useState`.
-
-### 3. Upload de MP3 no builder — `LandingPageBuilderModal.tsx`
-
-- Criar `src/components/smartops/HeroAudioUpload.tsx` (baseado em `CoverImageUpload.tsx`):
-  - Bucket: `knowledge-images` (já público), prefixo `lp-audio/`.
-  - Aceita `audio/mpeg` (`.mp3`), limite 15 MB.
-  - Preview: `<audio controls>` com a URL enviada.
-  - Botão "Remover" limpa o campo.
-- Na aba "Editar" do modal (junto ao `CoverImageUpload` do hero, ~linha 520), adicionar:
-  - `HeroAudioUpload` ligado a `content.hero.audio.url`.
-  - `TextField` "Rótulo do player" (default: "Ouvir explicação").
-
-### 4. Persistência
-
-Nenhuma migration necessária: `content` já é `jsonb`. O campo `hero.audio` é serializado junto.
-
-### 5. Regeneração com IA
-
-`enforceCanonicalContent` em `landing-page-generator/index.ts` **preserva** `content.hero.audio` do LP existente ao regenerar (mesmo padrão do `hero_image_url`). Adicionar mesclagem explícita.
+## Fora de escopo (próxima iteração)
+- Criar lead novo quando phone/email do Stripe não existe no CRM
+- Atualizar `deals` / status comercial / RFM
+- Mapear `stripe.product.id` ⇢ SKU Smart Dent
 
 ## Detalhes técnicos
+- Normalização telefone: reutilizar mesma lógica de `_shared` que outras funções WA usam (11 dígitos com DDD; se vier +55, remove; guarda ambos formatos na query com `or(telefone.eq.X,telefone.eq.Y)`).
+- Idempotência: `insert ... on conflict (event_id) do nothing returning event_id` → se retorno vazio, já processado, responde 200 imediato.
+- SDK Stripe com `apiVersion: "2026-03-25.dahlia"`.
+- Assinatura Deno: `constructEventAsync` (não a versão sync, exige subtle crypto).
 
-- Storage bucket `knowledge-images` já é público (usado por capas). Sem novas policies.
-- Player usa apenas HTML5 `<audio>` — sem libs externas.
-- Acessibilidade: `aria-label="Reproduzir explicação do produto"` no botão play.
-- Mobile: pill vira full-width abaixo do card em `< sm`.
-
-## Validação
-
-1. Build TypeScript sem erros (`bunx tsgo --noEmit`).
-2. No admin: abrir LP exocad → aba Editar → upload `.mp3` → salvar.
-3. Abrir `/lp/{slug}` público → ver pill "Ouvir explicação" pulsando → clicar → tocar áudio.
-4. "Regenerar com IA" mantém o áudio.
-
-## Fora de escopo
-
-- Waveform visual (barras animadas) — mantido simples com barra de progresso linear.
-- Transcrição automática do MP3.
-- Múltiplos áudios por seção.
+Após aprovar, executo migração + criação da função + deploy.
