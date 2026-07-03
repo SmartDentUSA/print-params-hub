@@ -408,7 +408,7 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-modulos", label: "Módulos" },
   { id: "sec-regional", label: "Uso da licença" },
   { id: "sec-implantacao", label: "Implantação" },
-  { id: "sec-beneficios", label: "Benefícios" },
+  { id: "sec-beneficios", label: "O que a Smart Dent entrega" },
   { id: "sec-faq", label: "FAQ" },
   { id: "sec-cta-final", label: "CTA final" },
   { id: "sec-rodape", label: "Rodapé" },
@@ -597,7 +597,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="Benefícios" anchorId="sec-beneficios">
+      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios">
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
           items={content.benefits?.items ?? []}
