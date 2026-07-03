@@ -118,6 +118,8 @@ ${CONTENT_SCHEMA_DOC}
 
 ${CANONICAL_MODULES}
 
+${CANONICAL_FAQS}
+
 FORMULÁRIO ALVO: "${form.name}" — finalidade ${form.form_purpose} — slug ${form.slug}.`;
 }
 
