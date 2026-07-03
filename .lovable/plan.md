@@ -1,24 +1,21 @@
-## Tornar todas as seções do editor de LP acessíveis
+## Plano
 
-### Diagnóstico
+1. **Corrigir a altura real do modal**
+   - Ajustar o `DialogContent` da landing page para ter altura fixa controlada (`h-[95vh]`) além do `max-h`, garantindo que os filhos com `overflow-y-auto` tenham uma área rolável real.
 
-A sidebar do editor já rola tecnicamente (fix anterior com `grid-rows-[1fr]`), mas a lista é comprida (Aparência, Hero, Como funciona, Card de preço, Condições, Benefícios, FAQ, CTA final, Rodapé) e o usuário não percebe que precisa rolar — a barra de rolagem quase não aparece.
+2. **Liberar rolagem do preview**
+   - Trocar o container do preview para um layout com altura mínima estável e rolagem explícita.
+   - Garantir que a prévia da landing page role dentro do painel direito, sem depender da rolagem da página por trás do modal.
 
-### Correção em `src/components/smartops/LandingPageBuilderModal.tsx`
+3. **Liberar rolagem das ferramentas de edição**
+   - Ajustar o painel esquerdo (`EditorSidebar`) para ficar com `overflow-hidden` no container externo e `overflow-y-auto` somente na área dos campos.
+   - Manter os botões rápidos no topo, mas sem bloquear a rolagem até seções como **Condições**, **Benefícios**, **FAQ**, **CTA final** e **Rodapé**.
 
-1. **Sub-navegação no topo da sidebar do editor**: adicionar uma barra sticky com botões que fazem `scrollIntoView` para cada seção. Botões: Aparência · Hero · Como funciona · Preço · Condições · Benefícios · FAQ · CTA final · Rodapé.
+4. **Fallback para telas menores**
+   - Em larguras menores, permitir que editor e preview empilhem com rolagem funcional em vez de travar o grid.
 
-2. **Ancoragem das sections**: dar `id` a cada `<Section>` (novo prop opcional `anchorId`) para que a sub-navegação role até elas.
-
-3. **Scrollbar visível**: adicionar classe utilitária (`scrollbar-thin` via style inline `scrollbarWidth: thin` + `scrollbar-gutter: stable`) na sidebar para deixar claro que há mais conteúdo abaixo.
-
-4. **Redundância**: manter o comportamento `<details open>` como está; a sub-navegação apenas ajuda a saltar entre elas.
-
-### Validação
-
-- Abrir modal → aba "Editar & publicar" → clicar em "Condições" na sub-nav → sidebar rola até a seção com os 3 cards.
-- Rodar `bunx tsgo` para checar tipos.
-
-### Fora do escopo
-
-- Sem mudanças em template, geração via IA, publicação ou preview.
+5. **Validação**
+   - Testar no preview abrindo o modal em `/admin`, entrando em **Editar & publicar**, e confirmar que:
+     - o painel esquerdo rola até os cards de condições;
+     - o preview direito rola a landing page inteira;
+     - os botões de atalho continuam levando às seções corretas.
