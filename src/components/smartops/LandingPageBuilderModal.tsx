@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -14,8 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Wand2, Save } from "lucide-react";
-import { LandingPageVisualEditor, triggerLandingPageEditorSave } from "./LandingPageVisualEditor";
+import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil } from "lucide-react";
+import {
+  PremiumLandingTemplate,
+  DEFAULT_LP_CONTENT,
+  type LPContent,
+} from "@/components/lp/PremiumLandingTemplate";
 
 interface Props {
   open: boolean;
@@ -28,17 +32,25 @@ type LP = {
   form_id: string;
   mode: "ai" | "briefing";
   input_prompt: string | null;
+  content: LPContent | null;
   generated_html: string | null;
+  hero_image_url: string | null;
   status: "draft" | "published";
   published_at: string | null;
-  editor_state?: Record<string, unknown> | null;
 };
 
+function ensureContent(raw: unknown): LPContent {
+  if (raw && typeof raw === "object" && "hero" in raw) return raw as LPContent;
+  return DEFAULT_LP_CONTENT;
+}
+
 export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
-  const [tab, setTab] = useState<"ai" | "briefing" | "visual">("ai");
+  const [tab, setTab] = useState<"ai" | "briefing" | "edit">("ai");
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
   const [lp, setLp] = useState<LP | null>(null);
+  const [content, setContent] = useState<LPContent | null>(null);
+  const [heroImage, setHeroImage] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +58,8 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
   useEffect(() => {
     if (!open || !form) return;
     setLp(null);
+    setContent(null);
+    setHeroImage("");
     setAiIdea("");
     setBriefing("");
     setLoading(true);
@@ -58,21 +72,39 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         if (data) {
           const row = data as unknown as LP;
           setLp(row);
-          setTab(row.mode as "ai" | "briefing");
-          if (row.mode === "ai") setAiIdea(row.input_prompt || "");
-          else setBriefing(row.input_prompt || "");
+          setContent(row.content && (row.content as any).hero ? (row.content as LPContent) : null);
+          setHeroImage(row.hero_image_url || "");
+          setTab(row.mode === "briefing" ? "briefing" : "ai");
+          if (row.mode === "briefing") setBriefing(row.input_prompt || "");
+          else setAiIdea(row.input_prompt || "");
         }
         setLoading(false);
       });
   }, [open, form]);
 
   if (!form) return null;
-
   const publicUrl = `${window.location.origin}/lp/${form.slug}`;
 
+  async function persist(patch: Partial<LP> & { content?: LPContent }) {
+    if (!form) return null;
+    const payload: Record<string, unknown> = {
+      form_id: form.id,
+      ...patch,
+    };
+    const { data, error } = await supabase
+      .from("smartops_form_landing_pages" as any)
+      .upsert(payload, { onConflict: "form_id" })
+      .select()
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return null;
+    }
+    return data as unknown as LP;
+  }
+
   async function handleGenerate() {
-    if (!form) return;
-    if (tab === "visual") return;
+    if (tab === "edit") return;
     const input = tab === "ai" ? aiIdea.trim() : briefing.trim();
     if (!input) {
       toast.error(tab === "ai" ? "Descreva a ideia da landing page" : "Cole o briefing");
@@ -85,81 +117,66 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      const html = (data as any).html as string;
+      const nextContent = ensureContent((data as any).content);
 
-      const payload = {
-        form_id: form.id,
+      const saved = await persist({
         mode: tab,
         input_prompt: input,
-        generated_html: html,
+        content: nextContent,
         status: lp?.status ?? "draft",
-      };
-      const { data: saved, error: upErr } = await supabase
-        .from("smartops_form_landing_pages" as any)
-        .upsert(payload, { onConflict: "form_id" })
-        .select()
-        .single();
-      if (upErr) throw upErr;
-      setLp(saved as unknown as LP);
-      toast.success("Landing page gerada");
+      } as any);
+      if (saved) {
+        setLp(saved);
+        setContent(nextContent);
+        setTab("edit");
+        toast.success("Landing page gerada");
+      }
     } catch (e: any) {
       const msg = e?.message || "Falha ao gerar";
       if (msg.includes("rate_limited")) toast.error("Muitas requisições — aguarde alguns segundos");
-      else if (msg.includes("credits_exhausted")) toast.error("Créditos de IA esgotados — recarregue em Settings");
+      else if (msg.includes("credits_exhausted"))
+        toast.error("Créditos de IA esgotados — recarregue em Settings");
       else toast.error(msg);
     } finally {
       setGenerating(false);
     }
   }
 
-  async function handleVisualSave(html: string, css: string, state: Record<string, unknown>) {
-    if (!lp) return;
-    // combina CSS custom no início do HTML (Tailwind já cobre a maior parte)
-    const combined = css ? `<style>${css}</style>${html}` : html;
-    const { data, error } = await supabase
-      .from("smartops_form_landing_pages" as any)
-      .update({ generated_html: combined, editor_state: state })
-      .eq("id", lp.id)
-      .select()
-      .single();
-    if (error) {
-      toast.error(error.message);
-      return;
+  async function handleSaveEdits() {
+    if (!content) return;
+    setSaving(true);
+    const saved = await persist({ content, hero_image_url: heroImage || null } as any);
+    setSaving(false);
+    if (saved) {
+      setLp(saved);
+      toast.success("Alterações salvas");
     }
-    setLp(data as unknown as LP);
-    toast.success("Edição visual salva");
   }
 
   async function togglePublish() {
     if (!lp) return;
+    // save latest edits alongside publish toggle
     setSaving(true);
     const nextStatus = lp.status === "published" ? "draft" : "published";
-    const { data, error } = await supabase
-      .from("smartops_form_landing_pages" as any)
-      .update({
-        status: nextStatus,
-        published_at: nextStatus === "published" ? new Date().toISOString() : null,
-      })
-      .eq("id", lp.id)
-      .select()
-      .single();
+    const saved = await persist({
+      status: nextStatus,
+      published_at: nextStatus === "published" ? new Date().toISOString() : null,
+      ...(content ? { content } : {}),
+      hero_image_url: heroImage || null,
+    } as any);
     setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    if (saved) {
+      setLp(saved);
+      toast.success(nextStatus === "published" ? "Landing page publicada" : "Voltou para rascunho");
     }
-    setLp(data as unknown as LP);
-    toast.success(nextStatus === "published" ? "Landing page publicada" : "Landing page voltou para rascunho");
   }
 
-  const previewSrcDoc = lp?.generated_html
-    ? `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><script src="https://cdn.tailwindcss.com"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800;900&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:'Inter',system-ui,-apple-system,sans-serif;color:#202331;background:#ffffff;-webkit-font-smoothing:antialiased}h1,h2,h3{font-family:'Manrope','Inter',sans-serif;letter-spacing:-0.02em}[data-form-cta]{cursor:pointer}</style></head><body>${lp.generated_html}</body></html>`
-    : null;
+  const previewContent = content ?? DEFAULT_LP_CONTENT;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-[96vw] w-[96vw] max-h-[95vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2">
             Landing Page — {form.name}
             {lp?.status === "published" ? (
@@ -169,176 +186,395 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             )}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">URL final:</span>
+            <span className="text-muted-foreground">URL:</span>
             <code className="px-1.5 py-0.5 bg-muted rounded">/lp/{form.slug}</code>
             {lp?.status === "published" && (
-              <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
                 Abrir <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid grid-cols-3 w-fit">
-            <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
-            <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing</TabsTrigger>
-            <TabsTrigger value="visual" className="gap-1" disabled={!lp?.generated_html}>
-              <Wand2 className="w-3.5 h-3.5" /> Editor Visual
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="ai" className="flex-1 overflow-hidden mt-3">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
-          <div className="flex flex-col overflow-hidden">
-                <div>
-                  <Label className="text-xs">Ideia central</Label>
-                  <Textarea
-                    value={aiIdea}
-                    onChange={(e) => setAiIdea(e.target.value)}
-                    rows={14}
-                    placeholder="Ex.: Landing page do curso Ativação exocad DentalCad I.A. para dentistas e protéticos, foco em fluxo digital, tom premium..."
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  IA premium (Gemini 3.1 Pro). Aplica paleta Smart Dent (#1D173E/#2C245B/#F47C42), Inter+Manrope,
-                  selo "ATIVAÇÃO INICIAL", CTA fixo no mobile, FAQ acordeão e acessibilidade AA.
-                </p>
-            <div className="flex gap-2 pt-3 mt-auto border-t">
-              <Button onClick={handleGenerate} disabled={generating || loading} className="gap-2">
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {lp?.generated_html ? "Regenerar" : "Gerar landing"}
-              </Button>
-              {lp?.generated_html && (
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as typeof tab)}
+          className="flex-1 overflow-hidden flex flex-col"
+        >
+          <div className="px-6 pt-3 flex items-center justify-between gap-3 border-b pb-3">
+            <TabsList>
+              <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
+              <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing</TabsTrigger>
+              <TabsTrigger value="edit" className="gap-1" disabled={!content}>
+                <Pencil className="w-3.5 h-3.5" /> Editar & publicar
+              </TabsTrigger>
+            </TabsList>
+            {content && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleSaveEdits} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+                </Button>
                 <Button
-                  variant={lp.status === "published" ? "outline" : "default"}
+                  size="sm"
+                  variant={lp?.status === "published" ? "outline" : "default"}
                   onClick={togglePublish}
                   disabled={saving}
                   className="gap-2"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                  {lp.status === "published" ? "Despublicar" : "Publicar"}
+                  {lp?.status === "published" ? "Despublicar" : "Publicar"}
                 </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col overflow-hidden border rounded-lg bg-muted/30">
-            <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground border-b bg-background">
-              Prévia
-            </div>
-            {previewSrcDoc ? (
-              <iframe
-                title="Preview da landing page"
-                srcDoc={previewSrcDoc}
-                className="flex-1 w-full bg-white"
-                sandbox="allow-same-origin"
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
-                {loading ? "Carregando…" : "Nenhuma landing page gerada ainda. Descreva a ideia ou cole o briefing e clique em Gerar."}
               </div>
             )}
           </div>
-            </div>
+
+          <TabsContent value="ai" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+            <GenerateLayout
+              inputLabel="Ideia central"
+              placeholder="Ex.: Landing page do curso Ativação exocad DentalCad I.A. para dentistas e protéticos, foco em fluxo digital, tom premium…"
+              value={aiIdea}
+              onChange={setAiIdea}
+              onGenerate={handleGenerate}
+              generating={generating}
+              loading={loading}
+              hasContent={!!content}
+              preview={<LivePreview content={previewContent} heroImage={heroImage} />}
+              hint="A IA escreve o conteúdo (headline, benefícios, FAQ). O design premium é fixo — sem invenção de preços."
+            />
           </TabsContent>
 
-          <TabsContent value="briefing" className="flex-1 overflow-hidden mt-3">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
-              <div className="flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-auto">
-                  <Label className="text-xs">Cole o briefing completo</Label>
-                  <Textarea
-                    value={briefing}
-                    onChange={(e) => setBriefing(e.target.value)}
-                    rows={20}
-                    placeholder="Cole o texto do LOVABLE.docx ou similar. A IA será fiel ao conteúdo (preços, ofertas, módulos, tom)."
-                    className="font-mono text-xs"
-                  />
-                  <p className="text-[11px] text-muted-foreground pt-2">
-                    Modo fiel: a IA usa apenas o conteúdo colado. Sem invenção de preço ou promessa.
-                    Mantém o padrão estético Smart Dent com selo "ATIVAÇÃO INICIAL" e CTA fixo no mobile.
-                  </p>
-                </div>
-                <div className="flex gap-2 pt-3 border-t">
-                  <Button onClick={handleGenerate} disabled={generating || loading} className="gap-2">
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {lp?.generated_html ? "Regenerar" : "Gerar landing"}
-                  </Button>
-                  {lp?.generated_html && (
-                    <Button
-                      variant={lp.status === "published" ? "outline" : "default"}
-                      onClick={togglePublish}
-                      disabled={saving}
-                      className="gap-2"
-                    >
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                      {lp.status === "published" ? "Despublicar" : "Publicar"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col overflow-hidden border rounded-lg bg-muted/30">
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground border-b bg-background">
-                  Prévia
-                </div>
-                {previewSrcDoc ? (
-                  <iframe
-                    title="Preview da landing page"
-                    srcDoc={previewSrcDoc}
-                    className="flex-1 w-full bg-white"
-                    sandbox="allow-same-origin"
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
-                    {loading ? "Carregando…" : "Nenhuma landing page gerada ainda."}
-                  </div>
-                )}
-              </div>
-            </div>
+          <TabsContent value="briefing" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+            <GenerateLayout
+              inputLabel="Cole o briefing completo"
+              placeholder="Cole o texto do LOVABLE.docx ou similar. A IA será fiel ao conteúdo (preços, ofertas, módulos, tom)."
+              value={briefing}
+              onChange={setBriefing}
+              onGenerate={handleGenerate}
+              generating={generating}
+              loading={loading}
+              hasContent={!!content}
+              mono
+              preview={<LivePreview content={previewContent} heroImage={heroImage} />}
+              hint="Modo fiel: a IA usa APENAS o conteúdo colado. Sem invenção de preço ou promessa."
+            />
           </TabsContent>
 
-          <TabsContent value="visual" className="flex-1 overflow-hidden mt-3 flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <p className="text-[11px] text-muted-foreground">
-                Arraste blocos, edite textos e cores. Paleta oficial: #2C245B · #1D173E · #F47C42 · #F4F5F8 · #202331.
-                Preserve botões com <code>data-form-cta</code>.
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={triggerLandingPageEditorSave} className="gap-2">
-                  <Save className="w-4 h-4" /> Salvar edição
-                </Button>
-                {lp && (
-                  <Button
-                    size="sm"
-                    variant={lp.status === "published" ? "outline" : "default"}
-                    onClick={togglePublish}
-                    disabled={saving}
-                    className="gap-2"
-                  >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                    {lp.status === "published" ? "Despublicar" : "Publicar"}
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden mt-2">
-              {lp?.generated_html ? (
-                <LandingPageVisualEditor
-                  key={lp.id}
-                  html={lp.generated_html}
-                  editorState={(lp.editor_state as Record<string, unknown>) ?? null}
-                  onSave={handleVisualSave}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                  Gere a landing page primeiro na aba "Gerar por IA" ou "Briefing".
+          <TabsContent value="edit" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+            {content ? (
+              <div className="h-full grid grid-cols-1 xl:grid-cols-[420px_1fr]">
+                <div className="border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
+                  <ContentEditor content={content} onChange={setContent} heroImage={heroImage} onHeroImageChange={setHeroImage} />
                 </div>
-              )}
-            </div>
+                <LivePreview content={content} heroImage={heroImage} />
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                Gere primeiro na aba "Gerar por IA" ou "Briefing".
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function GenerateLayout(props: {
+  inputLabel: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  onGenerate: () => void;
+  generating: boolean;
+  loading: boolean;
+  hasContent: boolean;
+  mono?: boolean;
+  preview: JSX.Element;
+  hint: string;
+}) {
+  return (
+    <div className="h-full grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr]">
+      <div className="border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
+        <div>
+          <Label className="text-xs">{props.inputLabel}</Label>
+          <Textarea
+            value={props.value}
+            onChange={(e) => props.onChange(e.target.value)}
+            rows={props.mono ? 20 : 14}
+            placeholder={props.placeholder}
+            className={props.mono ? "font-mono text-xs" : ""}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">{props.hint}</p>
+        <div className="mt-auto pt-3 border-t">
+          <Button onClick={props.onGenerate} disabled={props.generating || props.loading} className="gap-2 w-full">
+            {props.generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {props.hasContent ? "Regenerar conteúdo" : "Gerar landing"}
+          </Button>
+        </div>
+      </div>
+      {props.preview}
+    </div>
+  );
+}
+
+function LivePreview({ content, heroImage }: { content: LPContent; heroImage: string }) {
+  return (
+    <div className="relative overflow-hidden bg-slate-100">
+      <div className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground bg-white/90 backdrop-blur px-2 py-1 rounded">
+        Prévia ao vivo
+      </div>
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto" style={{ maxWidth: 1200 }}>
+          <PremiumLandingTemplate content={content} heroImageUrl={heroImage || null} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Content editor ----------
+function ContentEditor({
+  content,
+  onChange,
+  heroImage,
+  onHeroImageChange,
+}: {
+  content: LPContent;
+  onChange: (c: LPContent) => void;
+  heroImage: string;
+  onHeroImageChange: (v: string) => void;
+}) {
+  const patch = (p: Partial<LPContent>) => onChange({ ...content, ...p });
+
+  return (
+    <>
+      <Section title="Hero">
+        <TextField label="Selo (badge laranja)" value={content.hero.badge ?? ""} onChange={(v) => patch({ hero: { ...content.hero, badge: v } })} />
+        <TextField label="Eyebrow" value={content.hero.eyebrow ?? ""} onChange={(v) => patch({ hero: { ...content.hero, eyebrow: v } })} />
+        <TextField label="Headline" value={content.hero.headline} onChange={(v) => patch({ hero: { ...content.hero, headline: v } })} multiline />
+        <TextField label="Subheadline" value={content.hero.sub ?? ""} onChange={(v) => patch({ hero: { ...content.hero, sub: v } })} multiline />
+        <TextField label="CTA primário" value={content.hero.primaryCta} onChange={(v) => patch({ hero: { ...content.hero, primaryCta: v } })} />
+        <TextField label="CTA secundário" value={content.hero.secondaryCta ?? ""} onChange={(v) => patch({ hero: { ...content.hero, secondaryCta: v } })} />
+        <ListEditor label="Bullets do hero" items={content.hero.bullets ?? []} onChange={(items) => patch({ hero: { ...content.hero, bullets: items } })} />
+        <TextField label="URL da imagem do hero (opcional)" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
+      </Section>
+
+      <Section title="Como funciona">
+        <TextField label="Título" value={content.howItWorks?.title ?? ""} onChange={(v) => patch({ howItWorks: { ...(content.howItWorks ?? { items: [] }), title: v } })} />
+        <StepListEditor
+          items={content.howItWorks?.items ?? []}
+          onChange={(items) => patch({ howItWorks: { ...(content.howItWorks ?? {}), items } })}
+        />
+      </Section>
+
+      <Section title="Card de preço">
+        <TextField label="Faixa (ribbon)" value={content.price?.ribbon ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), ribbon: v } })} />
+        <TextField label="Título" value={content.price?.title ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { includes: [], cta: "" }), title: v } })} />
+        <TextField label="Preço (opcional)" value={content.price?.priceLabel ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceLabel: v } })} />
+        <TextField label="Nota do preço" value={content.price?.priceNote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceNote: v } })} />
+        <TextField label="CTA" value={content.price?.cta ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [] }), cta: v } })} />
+        <ListEditor label="Itens inclusos" items={content.price?.includes ?? []} onChange={(items) => patch({ price: { ...(content.price ?? { title: "", cta: "" }), includes: items } })} />
+        <TextField label="Rodapé do card" value={content.price?.footnote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), footnote: v } })} />
+      </Section>
+
+      <Section title="Benefícios">
+        <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
+        <BenefitsEditor
+          items={content.benefits?.items ?? []}
+          onChange={(items) => patch({ benefits: { ...(content.benefits ?? {}), items } })}
+        />
+      </Section>
+
+      <Section title="FAQ">
+        <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
+        <FaqEditor
+          items={content.faq?.items ?? []}
+          onChange={(items) => patch({ faq: { ...(content.faq ?? {}), items } })}
+        />
+      </Section>
+
+      <Section title="CTA final">
+        <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
+        <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
+        <TextField label="CTA" value={content.finalCta?.cta ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "" }), cta: v } })} />
+      </Section>
+
+      <Section title="Rodapé">
+        <TextField label="Nome da marca" value={content.brandName ?? ""} onChange={(v) => patch({ brandName: v })} />
+        <TextField label="Legal / copyright" value={content.legal ?? ""} onChange={(v) => patch({ legal: v })} multiline />
+      </Section>
+    </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details open className="group border rounded-lg bg-white">
+      <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-sm flex items-center justify-between">
+        {title}
+        <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
+      </summary>
+      <div className="px-3 pb-3 space-y-2">{children}</div>
+    </details>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  multiline,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  multiline?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      {multiline ? (
+        <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} placeholder={placeholder} className="text-sm" />
+      ) : (
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="text-sm h-9" />
+      )}
+    </div>
+  );
+}
+
+function ListEditor({
+  label,
+  items,
+  onChange,
+}: {
+  label: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  return (
+    <div>
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <div className="space-y-1.5">
+        {items.map((item, i) => (
+          <div key={i} className="flex gap-1">
+            <Input
+              value={item}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = e.target.value;
+                onChange(next);
+              }}
+              className="text-sm h-8"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+              className="h-8 px-2 text-xs"
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, ""])} className="h-7 text-xs">
+          + Adicionar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function StepListEditor({
+  items,
+  onChange,
+}: {
+  items: { title: string; desc: string }[];
+  onChange: (items: { title: string; desc: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((s, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Passo {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <Input value={s.title} onChange={(e) => { const n = [...items]; n[i] = { ...s, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
+          <Textarea value={s.desc} onChange={(e) => { const n = [...items]; n[i] = { ...s, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { title: "", desc: "" }])} className="h-7 text-xs">
+        + Adicionar passo
+      </Button>
+    </div>
+  );
+}
+
+function BenefitsEditor({
+  items,
+  onChange,
+}: {
+  items: { icon: any; title: string; desc: string }[];
+  onChange: (items: any[]) => void;
+}) {
+  const icons = ["licenca", "computador", "treinamento", "cartao", "suporte", "brasil", "modulos", "shield", "sparkles", "rocket", "clock"];
+  return (
+    <div className="space-y-2">
+      {items.map((b, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Benefício {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <select
+            value={b.icon}
+            onChange={(e) => { const n = [...items]; n[i] = { ...b, icon: e.target.value }; onChange(n); }}
+            className="h-8 text-sm w-full rounded border bg-background px-2"
+          >
+            {icons.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
+          </select>
+          <Input value={b.title} onChange={(e) => { const n = [...items]; n[i] = { ...b, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
+          <Textarea value={b.desc} onChange={(e) => { const n = [...items]; n[i] = { ...b, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { icon: "sparkles", title: "", desc: "" }])} className="h-7 text-xs">
+        + Adicionar benefício
+      </Button>
+    </div>
+  );
+}
+
+function FaqEditor({
+  items,
+  onChange,
+}: {
+  items: { q: string; a: string }[];
+  onChange: (items: { q: string; a: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((f, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Pergunta {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <Input value={f.q} onChange={(e) => { const n = [...items]; n[i] = { ...f, q: e.target.value }; onChange(n); }} placeholder="Pergunta" className="h-8 text-sm" />
+          <Textarea value={f.a} onChange={(e) => { const n = [...items]; n[i] = { ...f, a: e.target.value }; onChange(n); }} rows={2} placeholder="Resposta" className="text-sm" />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { q: "", a: "" }])} className="h-7 text-xs">
+        + Adicionar pergunta
+      </Button>
+    </div>
   );
 }

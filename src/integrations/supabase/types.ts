@@ -17804,10 +17804,13 @@ export type Database = {
       }
       smartops_form_landing_pages: {
         Row: {
+          content: Json
+          content_version: number
           created_at: string
           editor_state: Json
           form_id: string
           generated_html: string | null
+          hero_image_url: string | null
           id: string
           input_prompt: string | null
           mode: string
@@ -17817,10 +17820,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content?: Json
+          content_version?: number
           created_at?: string
           editor_state?: Json
           form_id: string
           generated_html?: string | null
+          hero_image_url?: string | null
           id?: string
           input_prompt?: string | null
           mode: string
@@ -17830,10 +17836,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content?: Json
+          content_version?: number
           created_at?: string
           editor_state?: Json
           form_id?: string
           generated_html?: string | null
+          hero_image_url?: string | null
           id?: string
           input_prompt?: string | null
           mode?: string
