@@ -1,26 +1,37 @@
-Reformatar a seção **Módulos** para o layout de referência:
+Substituir o array `DEFAULT_LP_CONTENT.faq.items` em `src/components/lp/PremiumLandingTemplate.tsx` pelas 28 perguntas fornecidas (mantendo `title: "Perguntas frequentes"`).
 
-- **Header alinhado à esquerda** (não centralizado):
-  - Eyebrow em uppercase espaçada — `O QUE ESTÁ INCLUÍDO` (novo campo `eyebrow` opcional no `modules`).
-  - Headline grande à esquerda: default `15 módulos do DentalCAD, todos num único bundle.`
-  - Subtitle default: `O Ultimate Lab Bundle é o pacote mais amplo do DentalCAD para laboratórios. Cobre do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.`
-- **Grid de 3 colunas** (`md:grid-cols-2 lg:grid-cols-3`) com cards mais compactos:
-  - Ícone de **check** (não mais `modulos`) em círculo suave.
-  - Nome do módulo em bold, descrição curta abaixo.
-- **Rodapé estilo aviso**: barra clara com borda, texto pequeno.
-  - Default footnote: `Observação: a disponibilidade final acompanha a versão, a região e as condições vigentes do fabricante. O bundle não inclui xSNAP, In-CAD Nesting/Nesting, exocam, exoplan, ChairsideCAD ou outros produtos independentes — esses são adquiridos separadamente.`
-  - Renderizar com destaque em bold para "não inclui" via detecção simples (dividir string em torno da palavra) — ou aceitar `footnoteHtml` opcional. Mais simples: renderizar como `<p>` normal (o usuário edita no editor); default vem com a palavra destacada só visualmente pelo styling? Melhor: manter texto puro no default, sem HTML rich.
-- **Editor**: adicionar campo `Eyebrow` (novo `TextField`) na seção Módulos do `LandingPageBuilderModal`; título/subtítulo/itens/rodapé já editáveis.
+Parsing: cada `?` encerra a pergunta; o texto restante até o próximo cabeçalho é a resposta. As FAQs também precisam ser preservadas na landing atual (o `ensureContent` usa `parsed.faq` se já existir — para a LP já salva, o usuário pode clicar em "Restaurar defaults" via edição manual do bloco, ou reaproveitamos: como a LP atual foi criada com o default antigo de 3 itens, atualizamos o default e os novos itens aparecem em novas LPs; se o usuário quiser aplicar retroativamente à LP atual, ele edita manualmente. Não sobrescrevemos dados salvos automaticamente).
 
-## Alterações
+### Lista final (28 itens)
 
-- `src/components/lp/PremiumLandingTemplate.tsx`
-  - Estender tipo `modules` com `eyebrow?: string`.
-  - Reescrever o JSX da seção `#modulos` para header à esquerda + grid 3 colunas + card compacto com ícone de check + rodapé com fundo `var(--lp-bg-soft)` e borda.
-  - Atualizar defaults: `eyebrow`, `title`, `subtitle`, `footnote` (mantém os 15 itens).
-- `src/components/smartops/LandingPageBuilderModal.tsx`
-  - Adicionar `TextField` "Eyebrow" na seção Módulos.
-- `supabase/functions/landing-page-generator/index.ts`
-  - Adicionar `eyebrow` opcional ao schema `modules`.
+1. O que é o exocad RMS?
+2. A licença é oficial?
+3. A licença será minha para sempre?
+4. Preciso ter uma conta my.exocad?
+5. Como funciona o pagamento da Ativação Inicial?
+6. Qual será o valor da minha mensalidade a partir do segundo mês?
+7. O pagamento é seguro?
+8. Quem fornece a licença e quem cobra?
+9. Quem aparece no extrato do cartão?
+10. O que acontece se o cartão falhar na mensalidade?
+11. Posso cancelar a assinatura?
+12. O Ultimate Bundle inclui todos os produtos da exocad?
+13. Existe cobrança por caso ou taxa de exportação (click fees)?
+14. Funciona com meu scanner, impressora ou fresadora?
+15. Terei direito a atualizações do exocad?
+16. A inteligência artificial da exocad está incluída?
+17. Ser um assinante Smart Dent traz outros benefícios?
+18. Posso usar em mais de um computador?
+19. Posso acessar a licença de fora do Brasil?
+20. Meu computador é compatível?
+21. Preciso estar conectado à internet?
+22. Há uso de dongle físico (pen drive)?
+23. Acabei de realizar o pagamento da Ativação. E agora?
+24. O treinamento está incluído?
+25. O suporte técnico está incluído?
 
-Sem mudança em outras seções, sem alteração de dados salvos (campos opcionais).
+## Arquivo afetado
+- `src/components/lp/PremiumLandingTemplate.tsx` — atualiza `DEFAULT_LP_CONTENT.faq.items`.
+
+## Observação
+LPs já salvas mantêm o FAQ antigo (3 itens). Se você quiser aplicar as 25 perguntas na LP atual do Ultimate Lab Bundle, me avise que faço uma migração pontual atualizando `content.faq.items` do registro correspondente.
