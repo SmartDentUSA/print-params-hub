@@ -22,6 +22,7 @@ import {
   type LPThemeKey,
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
+import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 
 interface Props {
   open: boolean;
@@ -51,6 +52,7 @@ function ensureContent(raw: unknown): LPContent {
     );
     return {
       ...parsed,
+      price: undefined,
       conditions: parsed.conditions
         ? {
             ...parsed.conditions,
