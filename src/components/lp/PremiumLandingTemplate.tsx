@@ -481,8 +481,21 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/75 backdrop-blur-sm border-b border-[var(--lp-border)]/60">
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 sm:px-8">
-          <a href="#top" className="flex min-w-0 items-center gap-3">
-            <span className="text-lg font-black tracking-tight text-[var(--lp-text)]">{c.brandName ?? "SMART DENT"}</span>
+          <a
+            href="#top"
+            onClick={(e) => { e.preventDefault(); smoothScrollTo("#top"); }}
+            className="flex min-w-0 items-center gap-3"
+          >
+            {c.logoUrl ? (
+              <img
+                src={c.logoUrl}
+                alt={c.brandName ?? "Logo"}
+                className="h-8 w-auto max-w-[160px] object-contain"
+                loading="eager"
+              />
+            ) : (
+              <span className="text-lg font-black tracking-tight text-[var(--lp-text)]">{c.brandName ?? "SMART DENT"}</span>
+            )}
             {c.resellerBadge && (
               <span className="hidden shrink-0 rounded-full border border-[var(--lp-orange)]/30 bg-[var(--lp-orange)]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--lp-orange)] sm:inline-flex">
                 {c.resellerBadge}
@@ -490,11 +503,19 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             )}
           </a>
           <div className="hidden items-center gap-6 md:flex">
-            {(c.nav?.items ?? []).map((n, i) => (
-              <a key={i} href={n.anchor ?? "#"} className="text-sm font-medium text-[var(--lp-text)] hover:text-[var(--lp-brand)] transition">
-                {n.label}
-              </a>
-            ))}
+            {(c.nav?.items ?? []).map((n, i) => {
+              const target = resolveAnchor(n.label, n.anchor);
+              return (
+                <a
+                  key={i}
+                  href={target}
+                  onClick={(e) => { e.preventDefault(); smoothScrollTo(target); }}
+                  className="text-sm font-medium text-[var(--lp-text)] hover:text-[var(--lp-brand)] transition cursor-pointer"
+                >
+                  {n.label}
+                </a>
+              );
+            })}
             <button
               type="button"
               onClick={cta("header")}
