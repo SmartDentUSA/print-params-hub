@@ -90,6 +90,73 @@ interface Props {
 const GRADIENT_BRAND = `linear-gradient(135deg, var(--lp-brand) 0%, var(--lp-brand-2) 100%)`;
 const GRADIENT_SOFT = `linear-gradient(180deg, var(--lp-bg-soft) 0%, var(--lp-soft) 100%)`;
 
+// -------- Nav helpers --------
+const KNOWN_SECTION_IDS = ["top", "como-funciona", "preco", "condicoes", "modulos", "beneficios", "faq", "contato"];
+
+function normalizeLabel(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function resolveAnchor(label: string, anchor?: string): string {
+  if (anchor) {
+    const id = anchor.replace(/^#/, "");
+    if (KNOWN_SECTION_IDS.includes(id)) return `#${id}`;
+  }
+  const key = normalizeLabel(label);
+  if (/beneficio/.test(key)) return "#beneficios";
+  if (/modulo|recurso|feature/.test(key)) return "#modulos";
+  if (/como.*funciona|passo|etapa/.test(key)) return "#como-funciona";
+  if (/investimento|preco|preço|plano|condic|valor/.test(key)) return "#condicoes";
+  if (/duvida|faq|pergunta/.test(key)) return "#faq";
+  if (/contato|fale|conosco/.test(key)) return "#contato";
+  if (/produto|inicio|home|top/.test(key)) return "#top";
+  return "#top";
+}
+
+function smoothScrollTo(hash: string) {
+  if (typeof window === "undefined") return;
+  const id = hash.replace(/^#/, "");
+  const el = document.getElementById(id);
+  if (!el) return;
+  const headerOffset = 72;
+  const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+  window.scrollTo({ top, behavior: "smooth" });
+}
+
+// -------- Price / discount helpers --------
+function parsePriceNumber(raw?: string): number | null {
+  if (!raw) return null;
+  // strip currency and spaces, handle "R$ 3.500,00" or "R$ 2.399"
+  const cleaned = raw.replace(/[^\d,.\-]/g, "");
+  if (!cleaned) return null;
+  // If both '.' and ',' — assume '.' thousands and ',' decimal (pt-BR)
+  let normalized = cleaned;
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (cleaned.includes(",")) {
+    normalized = cleaned.replace(",", ".");
+  }
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatBRL(n: number): string {
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+}
+
+function computeDiscount(original?: string, current?: string): { savings: string; percent: number } | null {
+  const o = parsePriceNumber(original);
+  const c = parsePriceNumber(current);
+  if (!o || !c || o <= c) return null;
+  const savings = o - c;
+  const percent = Math.round((savings / o) * 100);
+  return { savings: formatBRL(savings), percent };
+}
+
 // -------- Paletas selecionáveis no editor --------
 export type LPThemeKey =
   | "exocad-purple"
