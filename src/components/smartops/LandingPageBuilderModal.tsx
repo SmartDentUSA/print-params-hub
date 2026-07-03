@@ -18,6 +18,8 @@ import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil } from "lucid
 import {
   PremiumLandingTemplate,
   DEFAULT_LP_CONTENT,
+  LP_THEMES,
+  type LPThemeKey,
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
 
@@ -384,6 +386,37 @@ function ContentEditor({
 
   return (
     <>
+      <Section title="Aparência (paleta de cores)">
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.keys(LP_THEMES) as LPThemeKey[]).map((key) => {
+            const theme = LP_THEMES[key];
+            const active = (content.theme ?? "exocad-purple") === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => patch({ theme: key })}
+                className={`flex items-center gap-2 rounded-lg border p-2 text-left transition hover:border-primary/60 ${
+                  active ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border bg-white"
+                }`}
+              >
+                <div className="flex -space-x-1">
+                  {theme.swatch.map((c, i) => (
+                    <span
+                      key={i}
+                      className="h-5 w-5 rounded-full border border-white shadow-sm"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs font-semibold">{theme.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1">A paleta selecionada é aplicada em tempo real na prévia e ao publicar.</p>
+      </Section>
+
       <Section title="Hero">
         <TextField label="Selo (badge laranja)" value={content.hero.badge ?? ""} onChange={(v) => patch({ hero: { ...content.hero, badge: v } })} />
         <TextField label="Eyebrow" value={content.hero.eyebrow ?? ""} onChange={(v) => patch({ hero: { ...content.hero, eyebrow: v } })} />
