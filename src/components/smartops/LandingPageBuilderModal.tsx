@@ -538,16 +538,6 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Card de preço" anchorId="sec-preco">
-        <TextField label="Faixa (ribbon)" value={content.price?.ribbon ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), ribbon: v } })} />
-        <TextField label="Título" value={content.price?.title ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { includes: [], cta: "" }), title: v } })} />
-        <TextField label="Preço (opcional)" value={content.price?.priceLabel ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceLabel: v } })} />
-        <TextField label="Nota do preço" value={content.price?.priceNote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceNote: v } })} />
-        <TextField label="CTA" value={content.price?.cta ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [] }), cta: v } })} />
-        <ListEditor label="Itens inclusos" items={content.price?.includes ?? []} onChange={(items) => patch({ price: { ...(content.price ?? { title: "", cta: "" }), includes: items } })} />
-        <TextField label="Rodapé do card" value={content.price?.footnote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), footnote: v } })} />
-      </Section>
-
       <Section title="Condições" anchorId="sec-condicoes">
         <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
         <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
