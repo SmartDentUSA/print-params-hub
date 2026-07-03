@@ -153,7 +153,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
   }
 
   const previewSrcDoc = lp?.generated_html
-    ? `<!doctype html><html><head><meta charset="utf-8"/><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Inter,system-ui,sans-serif;margin:0}[data-form-cta]{cursor:pointer}</style></head><body>${lp.generated_html}</body></html>`
+    ? `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><script src="https://cdn.tailwindcss.com"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800;900&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:'Inter',system-ui,-apple-system,sans-serif;color:#202331;background:#ffffff;-webkit-font-smoothing:antialiased}h1,h2,h3{font-family:'Manrope','Inter',sans-serif;letter-spacing:-0.02em}[data-form-cta]{cursor:pointer}</style></head><body>${lp.generated_html}</body></html>`
     : null;
 
   return (
