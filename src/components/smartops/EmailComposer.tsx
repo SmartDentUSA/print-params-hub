@@ -146,7 +146,7 @@ export function EmailComposer({ campaignName, description, filters, audienceCoun
           cta_principal: ctaPrincipal,
           ctas_secundarios: ctasSecundarios,
           segmento_resumo: JSON.stringify(filters).slice(0, 500),
-          tom,
+          tom: tom === "custom" ? (tomCustom || "consultivo, profissional") : tom,
           regenerate: mode,
           base_html: mode === "subject" ? html : undefined,
         },
