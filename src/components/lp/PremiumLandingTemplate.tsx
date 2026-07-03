@@ -24,6 +24,7 @@ export type TrustIcon = "shield" | "headphones" | "infinity" | "check" | "clock"
 
 export type LPContent = {
   brandName?: string;
+  logoUrl?: string;
   theme?: LPThemeKey;
   resellerBadge?: string;
   nav?: { items: { label: string; anchor?: string }[]; cta?: string };
@@ -66,6 +67,7 @@ export type LPContent = {
       title: string;
       priceLabel?: string;
       priceNote?: string;
+      originalPrice?: string;
       includes: string[];
       cta: string;
       footnote?: string;
