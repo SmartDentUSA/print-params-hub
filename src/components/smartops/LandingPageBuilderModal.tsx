@@ -110,17 +110,33 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       toast.error(tab === "ai" ? "Descreva a ideia da landing page" : "Cole o briefing");
       return;
     }
+    await runGenerate(tab, input);
+  }
+
+  async function handleRegenerate() {
+    if (!lp) return;
+    const mode = (lp.mode ?? "ai") as "ai" | "briefing";
+    const input = (lp.input_prompt ?? (mode === "ai" ? aiIdea : briefing)).trim();
+    if (!input) {
+      toast.error("Preencha a ideia ou o briefing primeiro");
+      setTab(mode === "briefing" ? "briefing" : "ai");
+      return;
+    }
+    await runGenerate(mode, input);
+  }
+
+  async function runGenerate(mode: "ai" | "briefing", input: string) {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("landing-page-generator", {
-        body: { form_id: form.id, mode: tab, input },
+        body: { form_id: form!.id, mode, input },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       const nextContent = ensureContent((data as any).content);
 
       const saved = await persist({
-        mode: tab,
+        mode,
         input_prompt: input,
         content: nextContent,
         status: lp?.status ?? "draft",
@@ -216,6 +232,10 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             </TabsList>
             {content && (
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleRegenerate} disabled={generating || saving} className="gap-2">
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Regenerar
+                </Button>
                 <Button size="sm" variant="outline" onClick={handleSaveEdits} disabled={saving}>
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
                 </Button>
