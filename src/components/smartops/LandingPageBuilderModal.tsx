@@ -537,6 +537,15 @@ function ContentEditor({
         />
       </Section>
 
+      <Section title="Oferta / Posicionamento" anchorId="sec-posicionamento">
+        <p className="text-[11px] text-muted-foreground">Bloco laranja abaixo do hero. Use <code>{"{strike}"}</code> na headline onde entra o preço-âncora riscado. Deixe todos os campos vazios para ocultar a seção.</p>
+        <TextField label="Eyebrow (ex: OFERTA DE PRÉ-LANÇAMENTO)" value={content.positioning?.eyebrow ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), eyebrow: v } })} />
+        <TextField label="Headline (use {strike} para o preço riscado)" value={content.positioning?.headline ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), headline: v } })} multiline />
+        <TextField label="Preço riscado (opcional)" value={content.positioning?.strikePrice ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), strikePrice: v } })} placeholder="R$ 3.700" />
+        <TextField label="Preço destacado (opcional)" value={content.positioning?.highlightPrice ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), highlightPrice: v } })} placeholder="R$ 2.390" />
+        <TextField label="Texto de apoio (opcional)" value={content.positioning?.body ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), body: v } })} multiline />
+      </Section>
+
       <Section title="Condições" anchorId="sec-condicoes">
         <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
         <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
