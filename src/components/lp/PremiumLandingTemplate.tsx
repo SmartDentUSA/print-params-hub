@@ -789,6 +789,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {/* BENEFITS */}
       {c.benefits && c.benefits.items.length > 0 && (
         <section id="modulos" className="py-20 md:py-24 bg-white">
+          <span id="beneficios" className="block relative -top-20" aria-hidden="true" />
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
