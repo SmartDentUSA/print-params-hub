@@ -728,93 +728,6 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* CONDITIONS */}
-      {c.conditions && (c.conditions.cards ?? []).length > 0 && (
-        <section id="condicoes" className="py-20 md:py-24 bg-white">
-          <div className="max-w-7xl mx-auto px-6">
-            {(c.conditions.title || c.conditions.subtitle) && (
-              <div className="max-w-3xl mx-auto text-center">
-                {c.conditions.title && (
-                  <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
-                    {c.conditions.title}
-                  </h2>
-                )}
-                {c.conditions.subtitle && (
-                  <p className="mt-4 text-base md:text-lg leading-relaxed text-[var(--lp-text-soft)]">
-                    {c.conditions.subtitle}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="mt-12 grid gap-6 lg:grid-cols-3">
-              {(c.conditions.cards ?? []).slice(0, 3).map((card, i) => (
-                <div
-                  key={i}
-                  className="overflow-hidden rounded-[28px] border border-[var(--lp-border)] bg-white"
-                  style={{ boxShadow: "0 24px 70px -34px color-mix(in oklab, var(--lp-brand) 45%, transparent)" }}
-                >
-                  <div className="px-6 py-3.5 text-center" style={{ background: GRADIENT_BRAND }}>
-                    <span className="text-xs font-black uppercase tracking-[0.22em] text-white">
-                      {card.ribbon || `Condição ${i + 1}`}
-                    </span>
-                  </div>
-                  <div className="p-7 md:p-8">
-                    <h3 className="text-2xl font-black leading-tight text-[var(--lp-text)]">{card.title}</h3>
-                    {card.priceLabel && (() => {
-                      const discount = computeDiscount(card.originalPrice, card.priceLabel);
-                      return (
-                        <div className="mt-5 space-y-1.5">
-                          {card.originalPrice && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text-soft)]">De</span>
-                              <span className="text-lg font-semibold text-[var(--lp-text-soft)] line-through decoration-[var(--lp-orange)]/70 decoration-2">
-                                {card.originalPrice}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                            {card.originalPrice && (
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-brand)]">Por</span>
-                            )}
-                            <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
-                            {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
-                          </div>
-                          {discount && (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--lp-orange)]/10 px-3 py-1 text-xs font-bold text-[var(--lp-orange)]">
-                              <span>Economize {discount.savings}</span>
-                              <span className="opacity-70">·</span>
-                              <span>{discount.percent}% OFF</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    <ul className="mt-7 space-y-3.5">
-                      {card.includes.map((item, itemIndex) => (
-                        <li key={itemIndex} className="flex items-start gap-3">
-                          <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
-                            <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-orange)]" />
-                          </span>
-                          <span className="text-sm leading-relaxed text-[var(--lp-text)]">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-8">
-                      <PrimaryButton onClick={cta(`condition-${i + 1}`)} className="w-full">
-                        {card.cta}
-                      </PrimaryButton>
-                    </div>
-                    {card.footnote && (
-                      <p className="mt-5 text-center text-xs leading-relaxed text-[var(--lp-text-soft)]">{card.footnote}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* BENEFITS */}
       {c.benefits && c.benefits.items.length > 0 && (
         <section id="beneficios" className="py-20 md:py-24 bg-white">
@@ -1014,6 +927,93 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* FAQ */}
+      {c.conditions && (c.conditions.cards ?? []).length > 0 && (
+        <section id="condicoes" className="py-20 md:py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-6">
+            {(c.conditions.title || c.conditions.subtitle) && (
+              <div className="max-w-3xl mx-auto text-center">
+                {c.conditions.title && (
+                  <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                    {c.conditions.title}
+                  </h2>
+                )}
+                {c.conditions.subtitle && (
+                  <p className="mt-4 text-base md:text-lg leading-relaxed text-[var(--lp-text-soft)]">
+                    {c.conditions.subtitle}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {(c.conditions.cards ?? []).slice(0, 3).map((card, i) => (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-[28px] border border-[var(--lp-border)] bg-white"
+                  style={{ boxShadow: "0 24px 70px -34px color-mix(in oklab, var(--lp-brand) 45%, transparent)" }}
+                >
+                  <div className="px-6 py-3.5 text-center" style={{ background: GRADIENT_BRAND }}>
+                    <span className="text-xs font-black uppercase tracking-[0.22em] text-white">
+                      {card.ribbon || `Condição ${i + 1}`}
+                    </span>
+                  </div>
+                  <div className="p-7 md:p-8">
+                    <h3 className="text-2xl font-black leading-tight text-[var(--lp-text)]">{card.title}</h3>
+                    {card.priceLabel && (() => {
+                      const discount = computeDiscount(card.originalPrice, card.priceLabel);
+                      return (
+                        <div className="mt-5 space-y-1.5">
+                          {card.originalPrice && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text-soft)]">De</span>
+                              <span className="text-lg font-semibold text-[var(--lp-text-soft)] line-through decoration-[var(--lp-orange)]/70 decoration-2">
+                                {card.originalPrice}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            {card.originalPrice && (
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-brand)]">Por</span>
+                            )}
+                            <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
+                            {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
+                          </div>
+                          {discount && (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--lp-orange)]/10 px-3 py-1 text-xs font-bold text-[var(--lp-orange)]">
+                              <span>Economize {discount.savings}</span>
+                              <span className="opacity-70">·</span>
+                              <span>{discount.percent}% OFF</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <ul className="mt-7 space-y-3.5">
+                      {card.includes.map((item, itemIndex) => (
+                        <li key={itemIndex} className="flex items-start gap-3">
+                          <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
+                            <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-orange)]" />
+                          </span>
+                          <span className="text-sm leading-relaxed text-[var(--lp-text)]">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-8">
+                      <PrimaryButton onClick={cta(`condition-${i + 1}`)} className="w-full">
+                        {card.cta}
+                      </PrimaryButton>
+                    </div>
+                    {card.footnote && (
+                      <p className="mt-5 text-center text-xs leading-relaxed text-[var(--lp-text-soft)]">{card.footnote}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {c.faq && c.faq.items.length > 0 && (
         <section id="faq" className="py-20 md:py-24 bg-white">
           <div className="max-w-3xl mx-auto px-6">
