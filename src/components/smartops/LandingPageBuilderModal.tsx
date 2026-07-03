@@ -23,6 +23,7 @@ import {
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
+import HeroAudioUpload from "@/components/smartops/HeroAudioUpload";
 
 interface Props {
   open: boolean;
@@ -159,6 +160,11 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       const nextContent = ensureContent((data as any).content);
+      // Preserve hero audio across AI regenerations (LLM never emits it).
+      const prevAudio = content?.hero?.audio;
+      if (prevAudio?.url && nextContent.hero) {
+        nextContent.hero = { ...nextContent.hero, audio: prevAudio };
+      }
 
       const saved = await persist({
         mode,
@@ -527,6 +533,36 @@ function ContentEditor({
           <Label className="text-xs font-medium">Imagem do hero (opcional)</Label>
           <CoverImageUpload value={heroImage} onChange={onHeroImageChange} />
           <TextField label="ou cole uma URL" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
+        </div>
+        <div className="space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-3">
+          <Label className="text-xs font-semibold">Player de áudio explicativo (opcional)</Label>
+          <p className="text-[11px] text-muted-foreground">Substitui o selo &quot;Revenda Oficial exocad&quot; por um player animado no canto do card do hero.</p>
+          <HeroAudioUpload
+            value={content.hero.audio?.url ?? ""}
+            onChange={(url) =>
+              patch({
+                hero: {
+                  ...content.hero,
+                  audio: url ? { url, label: content.hero.audio?.label } : undefined,
+                },
+              })
+            }
+          />
+          {content.hero.audio?.url && (
+            <TextField
+              label="Rótulo do player"
+              value={content.hero.audio?.label ?? ""}
+              onChange={(v) =>
+                patch({
+                  hero: {
+                    ...content.hero,
+                    audio: { url: content.hero.audio!.url, label: v || undefined },
+                  },
+                })
+              }
+              placeholder="Ouvir explicação"
+            />
+          )}
         </div>
       </Section>
 
