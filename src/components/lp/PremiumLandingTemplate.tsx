@@ -181,7 +181,7 @@ function PrimaryButton({ children, onClick, className }: { children: ReactNode; 
       onClick={onClick}
       data-form-cta="primary"
       className={`inline-flex items-center justify-center gap-2 min-h-12 px-7 py-3.5 rounded-full text-white font-semibold text-base bg-[var(--lp-brand)] transition hover:bg-[var(--lp-brand-dark)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lp-brand)] focus-visible:ring-offset-2 ${className ?? ""}`}
-      style={{ boxShadow: "0 10px 30px -10px rgba(96,88,130,0.6)" }}
+      style={{ boxShadow: "0 10px 30px -10px color-mix(in oklab, var(--lp-brand) 60%, transparent)" }}
     >
       {children}
       <ArrowRight />
@@ -211,12 +211,12 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
           src={src}
           alt=""
           className="relative w-full rounded-[28px] border border-white/60"
-          style={{ boxShadow: "0 30px 60px -20px rgba(96,88,130,0.35)" }}
+          style={{ boxShadow: "0 30px 60px -20px color-mix(in oklab, var(--lp-brand) 35%, transparent)" }}
         />
       ) : (
         <div
           className="relative w-full aspect-[4/5] rounded-[28px] border border-white/60 overflow-hidden"
-          style={{ background: "linear-gradient(160deg, var(--lp-brand) 0%, var(--lp-brand-2) 50%, var(--lp-brand) 100%)", boxShadow: "0 30px 60px -20px rgba(96,88,130,0.45)" }}
+          style={{ background: "linear-gradient(160deg, var(--lp-brand) 0%, var(--lp-brand-2) 50%, var(--lp-brand) 100%)", boxShadow: "0 30px 60px -20px color-mix(in oklab, var(--lp-brand) 45%, transparent)" }}
         >
           <svg viewBox="0 0 400 500" className="absolute inset-0 w-full h-full opacity-90" aria-hidden>
             <defs>
@@ -262,7 +262,7 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
       {caption && (
         <div
           className="absolute -bottom-5 -left-5 hidden rounded-2xl border border-white/60 bg-white/95 px-4 py-3 backdrop-blur-xl sm:flex items-center gap-2"
-          style={{ boxShadow: "0 20px 40px -20px rgba(96,88,130,0.25)" }}
+          style={{ boxShadow: "0 20px 40px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
         >
           <TrustSvg name="check" className="h-5 w-5 text-[var(--lp-orange)]" />
           <div className="text-xs font-bold text-[var(--lp-text)]">{caption}</div>
@@ -321,7 +321,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
               type="button"
               onClick={cta("header")}
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-              style={{ background: GRADIENT_BRAND, boxShadow: "0 10px 25px -10px rgba(96,88,130,0.7)" }}
+              style={{ background: GRADIENT_BRAND, boxShadow: "0 10px 25px -10px color-mix(in oklab, var(--lp-brand) 70%, transparent)" }}
             >
               {c.nav?.cta ?? c.hero.primaryCta}
               <ArrowRight />
@@ -340,7 +340,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             {c.hero.badge && (
               <span
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--lp-orange)]/30 bg-white/85 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--lp-orange)] backdrop-blur"
-                style={{ boxShadow: "0 4px 16px -8px rgba(223,115,68,0.4)" }}
+                style={{ boxShadow: "0 4px 16px -8px color-mix(in oklab, var(--lp-orange) 40%, transparent)" }}
               >
                 <TrustSvg name="check" className="h-3.5 w-3.5" />
                 {c.hero.badge}
@@ -403,11 +403,11 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <div
               className="grid gap-8 rounded-3xl border border-[var(--lp-orange)]/20 p-8 sm:p-10 lg:grid-cols-[auto_1fr] lg:items-center"
-              style={{ background: "linear-gradient(135deg, #FFFFFF 0%, var(--lp-orange-soft) 100%)", boxShadow: "0 20px 40px -20px rgba(96,88,130,0.25)" }}
+              style={{ background: "linear-gradient(135deg, #FFFFFF 0%, var(--lp-orange-soft) 100%)", boxShadow: "0 20px 40px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
             >
               <div
                 className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--lp-orange)] text-white"
-                style={{ boxShadow: "0 15px 30px -10px rgba(223,115,68,0.6)" }}
+                style={{ boxShadow: "0 15px 30px -10px color-mix(in oklab, var(--lp-orange) 60%, transparent)" }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8" aria-hidden>
                   <path d="M16 17h6v-6" />
@@ -481,7 +481,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
           <div className="max-w-3xl mx-auto px-6">
             <div
               className="rounded-3xl bg-white overflow-hidden border border-[var(--lp-border)]"
-              style={{ boxShadow: "0 30px 80px -30px rgba(96,88,130,0.35)" }}
+              style={{ boxShadow: "0 30px 80px -30px color-mix(in oklab, var(--lp-brand) 35%, transparent)" }}
             >
               {c.price.ribbon && (
                 <div className="text-white text-center py-3.5" style={{ background: GRADIENT_BRAND }}>
@@ -536,7 +536,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                 <div
                   key={i}
                   className="group rounded-2xl bg-white border border-[var(--lp-border)] p-7 hover:border-[var(--lp-orange)]/40 hover:-translate-y-1 transition-all duration-300"
-                  style={{ boxShadow: "0 10px 25px -20px rgba(96,88,130,0.25)" }}
+                  style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
                 >
                   <div className="w-12 h-12 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-5 group-hover:bg-[var(--lp-orange)] group-hover:text-white transition-colors">
                     <BenefitSvg name={b.icon} className="w-6 h-6" />
@@ -561,7 +561,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             )}
             <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {c.testimonials.items.map((t, i) => (
-                <figure key={i} className="rounded-2xl bg-white border border-[var(--lp-border)] p-7" style={{ boxShadow: "0 10px 25px -20px rgba(96,88,130,0.15)" }}>
+                <figure key={i} className="rounded-2xl bg-white border border-[var(--lp-border)] p-7" style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 15%, transparent)" }}>
                   <svg viewBox="0 0 24 24" fill="var(--lp-orange)" className="w-8 h-8 mb-3" aria-hidden>
                     <path d="M7 7h4v10H3V11c0-2.2 1.8-4 4-4zm10 0h4v10h-8V11c0-2.2 1.8-4 4-4z" />
                   </svg>
@@ -637,14 +637,14 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {/* MOBILE STICKY CTA */}
       <div
         className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur-xl border-t border-[var(--lp-border)] p-3"
-        style={{ boxShadow: "0 -12px 32px -8px rgba(96,88,130,0.2)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
+        style={{ boxShadow: "0 -12px 32px -8px color-mix(in oklab, var(--lp-brand) 20%, transparent)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
       >
         <button
           type="button"
           onClick={cta("mobile-sticky")}
           data-form-cta="primary"
           className="w-full min-h-12 rounded-full text-white font-bold transition hover:brightness-110"
-          style={{ background: GRADIENT_BRAND, boxShadow: "0 10px 25px -8px rgba(96,88,130,0.6)" }}
+          style={{ background: GRADIENT_BRAND, boxShadow: "0 10px 25px -8px color-mix(in oklab, var(--lp-brand) 60%, transparent)" }}
         >
           {c.hero.primaryCta}
         </button>
