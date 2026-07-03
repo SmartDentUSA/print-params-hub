@@ -19566,15 +19566,64 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_license_actions: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          notes: string | null
+          product: string | null
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          product?: string | null
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          product?: string | null
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Relationships: []
+      }
       stripe_subscriptions: {
         Row: {
+          cancel_at_period_end: boolean | null
+          canceled_at: string | null
           created_at: string
+          current_period_end: string | null
           id: string
           lead_id: string | null
           metadata: Json | null
           payment_flow: string | null
           platform: string | null
           product: string | null
+          status: string | null
           stripe_checkout_session_id: string | null
           stripe_customer_id: string | null
           stripe_payment_link_id: string | null
@@ -19582,13 +19631,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
           created_at?: string
+          current_period_end?: string | null
           id?: string
           lead_id?: string | null
           metadata?: Json | null
           payment_flow?: string | null
           platform?: string | null
           product?: string | null
+          status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
           stripe_payment_link_id?: string | null
@@ -19596,13 +19649,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
           created_at?: string
+          current_period_end?: string | null
           id?: string
           lead_id?: string | null
           metadata?: Json | null
           payment_flow?: string | null
           platform?: string | null
           product?: string | null
+          status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
           stripe_payment_link_id?: string | null
@@ -25464,6 +25521,21 @@ export type Database = {
           published_at?: string | null
           scheduled_at?: string | null
           status?: string | null
+        }
+        Relationships: []
+      }
+      v_stripe_license_actions_pending: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          id: string | null
+          lead_email: string | null
+          lead_id: string | null
+          lead_phone: string | null
+          product: string | null
+          reason: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
         }
         Relationships: []
       }
