@@ -70,8 +70,14 @@ interface Props {
   onCta?: (source: string) => void;
 }
 
-const GRADIENT_BRAND = "linear-gradient(135deg, #605882 0%, #7A6FA3 45%, #DF7344 100%)";
-const GRADIENT_SOFT = "linear-gradient(180deg, #FBF9FC 0%, #F5F1F8 60%, #FFF6F1 100%)";
+// Design system tokens (spec: single strong purple + orange accent + navy text).
+const BRAND = "#605882";
+const BRAND_2 = "#8B82A8";
+const BRAND_SOFT = "#F3F0F8";
+const NAVY = "#42495C";
+const ORANGE = "#DF7344";
+const GRADIENT_BRAND = `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_2} 100%)`;
+const GRADIENT_SOFT = `linear-gradient(180deg, #FBFAFD 0%, ${BRAND_SOFT} 100%)`;
 
 function TrustSvg({ name, className }: { name: TrustIcon; className?: string }) {
   const common = {
@@ -174,11 +180,8 @@ function PrimaryButton({ children, onClick, className }: { children: ReactNode; 
       type="button"
       onClick={onClick}
       data-form-cta="primary"
-      className={`inline-flex items-center justify-center gap-2 min-h-12 px-7 py-3.5 rounded-full text-white font-semibold text-base transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#605882] focus-visible:ring-offset-2 ${className ?? ""}`}
-      style={{
-        background: GRADIENT_BRAND,
-        boxShadow: "0 20px 40px -15px rgba(96,88,130,0.7)",
-      }}
+      className={`inline-flex items-center justify-center gap-2 min-h-12 px-7 py-3.5 rounded-full text-white font-semibold text-base bg-[#605882] transition hover:bg-[#4d466b] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#605882] focus-visible:ring-offset-2 ${className ?? ""}`}
+      style={{ boxShadow: "0 10px 30px -10px rgba(96,88,130,0.6)" }}
     >
       {children}
       <ArrowRight />
@@ -192,7 +195,7 @@ function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?:
       type="button"
       onClick={onClick}
       data-form-cta="secondary"
-      className="inline-flex items-center justify-center min-h-12 px-7 py-[13px] rounded-full border-2 border-[#605882] text-[#605882] font-semibold text-base hover:bg-[#605882] hover:text-white focus-visible:ring-2 focus-visible:ring-[#605882] transition"
+      className="inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-full border border-[#605882]/30 bg-white text-[#605882] font-semibold text-sm hover:bg-[#F3F0F8] focus-visible:ring-2 focus-visible:ring-[#605882] transition"
     >
       {children}
     </button>
@@ -272,11 +275,11 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
 function Headline({ hero }: { hero: LPContent["hero"] }) {
   const parts = hero.headlineParts && hero.headlineParts.length > 0 ? hero.headlineParts : null;
   return (
-    <h1 className="mt-6 text-4xl sm:text-5xl lg:text-[3.5rem] font-black leading-[1.05] tracking-tight text-[#42495C]">
+    <h1 className="mt-6 text-5xl md:text-7xl font-extrabold leading-[1.05] tracking-tight text-[#42495C]">
       {parts
         ? parts.map((p, i) =>
             p.highlight ? (
-              <span key={i} className="bg-clip-text text-transparent" style={{ backgroundImage: GRADIENT_BRAND }}>
+              <span key={i} className="text-[#605882]">
                 {p.text}
               </span>
             ) : (
