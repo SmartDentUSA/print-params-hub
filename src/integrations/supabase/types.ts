@@ -17805,6 +17805,7 @@ export type Database = {
       smartops_form_landing_pages: {
         Row: {
           created_at: string
+          editor_state: Json
           form_id: string
           generated_html: string | null
           id: string
@@ -17817,6 +17818,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          editor_state?: Json
           form_id: string
           generated_html?: string | null
           id?: string
@@ -17829,6 +17831,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          editor_state?: Json
           form_id?: string
           generated_html?: string | null
           id?: string
