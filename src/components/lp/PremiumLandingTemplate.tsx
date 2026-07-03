@@ -1185,7 +1185,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
   },
   modules: {
     title: "O que está incluído no Ultimate Lab Bundle",
-    subtitle: "O pacote é apresentado por aplicações comerciais reais, não apenas por nomes técnicos. Conteúdo conforme o portfólio oficial da exocad.",
+    subtitle: "Um pacote para o laboratório inteiro. Apresentado por aplicações comerciais reais, não apenas por nomes técnicos — conforme o portfólio oficial da exocad.",
     items: [
       { name: "DentalCAD Core Version", application: "Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais." },
       { name: "Virtual Articulator", application: "Simulação de movimentos mandibulares e análise de oclusão dinâmica." },
