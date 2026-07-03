@@ -551,6 +551,47 @@ function ContentEditor({
         />
       </Section>
 
+      <Section title="Módulos (Ultimate Lab Bundle)" anchorId="sec-modulos">
+        <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
+        <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
+        <ModulesEditor
+          items={content.modules?.items ?? []}
+          onChange={(items) => patch({ modules: { ...(content.modules ?? {}), items } })}
+        />
+        <TextField label="Nota final" value={content.modules?.footnote ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), footnote: v } })} multiline />
+      </Section>
+
+      <Section title="Uso seguro e regular da licença" anchorId="sec-regional">
+        <TextField label="Título" value={content.regionalRules?.title ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), title: v } })} />
+        <TextField label="Introdução" value={content.regionalRules?.intro ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), intro: v } })} multiline />
+        <ListEditor
+          label="Regras"
+          items={content.regionalRules?.items ?? []}
+          onChange={(items) => patch({ regionalRules: { ...(content.regionalRules ?? {}), items } })}
+        />
+        <TextField label="Nota final" value={content.regionalRules?.footnote ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), footnote: v } })} multiline />
+      </Section>
+
+      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao">
+        <TextField label="Título" value={content.implementation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), title: v } })} />
+        <TextField label="Subtítulo" value={content.implementation?.subtitle ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), subtitle: v } })} multiline />
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Ativação inicial</div>
+          <TextField label="Título" value={content.implementation?.activation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), activation: { title: v, items: content.implementation?.activation?.items ?? [] } } })} />
+          <ListEditor label="Itens" items={content.implementation?.activation?.items ?? []} onChange={(items) => patch({ implementation: { ...(content.implementation ?? {}), activation: { title: content.implementation?.activation?.title ?? "Ativação inicial", items } } })} />
+        </div>
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Treinamento inicial</div>
+          <TextField label="Título" value={content.implementation?.training?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), training: { title: v, body: content.implementation?.training?.body ?? "" } } })} />
+          <TextField label="Descrição" value={content.implementation?.training?.body ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), training: { title: content.implementation?.training?.title ?? "Treinamento inicial", body: v } } })} multiline />
+        </div>
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Suporte Smart Dent</div>
+          <TextField label="Título" value={content.implementation?.support?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), support: { title: v, items: content.implementation?.support?.items ?? [] } } })} />
+          <ListEditor label="Itens" items={content.implementation?.support?.items ?? []} onChange={(items) => patch({ implementation: { ...(content.implementation ?? {}), support: { title: content.implementation?.support?.title ?? "Suporte Smart Dent", items } } })} />
+        </div>
+      </Section>
+
       <Section title="Benefícios" anchorId="sec-beneficios">
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
