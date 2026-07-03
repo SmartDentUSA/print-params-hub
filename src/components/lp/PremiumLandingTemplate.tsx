@@ -952,7 +952,6 @@ export const DEFAULT_LP_CONTENT: LPContent = {
       { text: " agora cabe no fluxo de caixa do seu laboratório." },
     ],
     sub: "Tenha o DentalCAD Ultimate Lab Bundle por assinatura mensal, com ativação, implantação, treinamento e suporte especializado da Smart Dent.",
-    pricePill: { label: "Ativação + 1º mês", value: "R$ 2.390", note: "depois", noteStrong: "R$ 1.199/mês" },
     primaryCta: "Quero ativar meu exocad",
     secondaryCta: "Falar com Especialista",
     trustInline: [
