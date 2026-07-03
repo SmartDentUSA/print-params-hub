@@ -560,6 +560,18 @@ function ContentEditor({
         <TextField label="Eyebrow (ex: O QUE ESTÁ INCLUÍDO)" value={content.modules?.eyebrow ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), eyebrow: v } })} />
         <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
         <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Módulos ({content.modules?.items.length ?? 0})</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => patch({ modules: { ...(content.modules ?? {}), items: DEFAULT_LP_CONTENT.modules!.items } })}
+            className="h-7 text-xs"
+          >
+            Restaurar 15 módulos padrão
+          </Button>
+        </div>
         <ModulesEditor
           items={content.modules?.items ?? []}
           onChange={(items) => patch({ modules: { ...(content.modules ?? {}), items } })}
