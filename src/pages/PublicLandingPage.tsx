@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import { PremiumLandingTemplate, type LPContent } from "@/components/lp/PremiumLandingTemplate";
 
 type LandingPage = {
   id: string;
-  generated_html: string;
+  content: LPContent | null;
+  hero_image_url: string | null;
   status: string;
   smartops_forms: {
     id: string;
@@ -24,7 +26,6 @@ export default function PublicLandingPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -32,22 +33,27 @@ export default function PublicLandingPage() {
       setLoading(true);
       const { data } = await (supabase as any)
         .from("smartops_form_landing_pages")
-        .select("id, generated_html, status, smartops_forms:form_id(id,name,slug,title,subtitle,description)")
-        .eq("status", "published")
-        .eq("smartops_forms.slug", slug);
+        .select("id, content, hero_image_url, status, smartops_forms:form_id(id,name,slug,title,subtitle,description)")
+        .eq("status", "published");
 
-      const row = Array.isArray(data)
-        ? data.find((r: any) => r.smartops_forms?.slug === slug)
-        : null;
-
-      if (row) setLp(row as LandingPage);
+      const row = Array.isArray(data) ? data.find((r: any) => r.smartops_forms?.slug === slug) : null;
+      if (row && row.content && row.content.hero) setLp(row as LandingPage);
       else setNotFound(true);
       setLoading(false);
     })();
   }, [slug]);
 
+  // Load Inter + Manrope
   useEffect(() => {
     if (!lp) return;
+    const id = "smartdent-lp-fonts";
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@600;700;800;900&display=swap";
+      document.head.appendChild(link);
+    }
     const title = lp.smartops_forms.title || lp.smartops_forms.name;
     document.title = `${title} — Smart Dent`;
     const desc = lp.smartops_forms.description || lp.smartops_forms.subtitle || "";
@@ -60,34 +66,6 @@ export default function PublicLandingPage() {
       }
       m.content = desc.slice(0, 158);
     }
-  }, [lp]);
-
-  // Load Inter + Manrope for the public LP so the AI-generated markup matches design system
-  useEffect(() => {
-    if (!lp) return;
-    const id = "smartdent-lp-fonts";
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800;900&display=swap";
-    document.head.appendChild(link);
-  }, [lp]);
-
-  // Bind [data-form-cta] buttons to open the form modal
-  useEffect(() => {
-    const root = contentRef.current;
-    if (!root || !lp) return;
-    const handler = (ev: Event) => {
-      const target = ev.target as HTMLElement | null;
-      const btn = target?.closest("[data-form-cta]") as HTMLElement | null;
-      if (!btn) return;
-      ev.preventDefault();
-      setModalOpen(true);
-    };
-    root.addEventListener("click", handler);
-    return () => root.removeEventListener("click", handler);
   }, [lp]);
 
   const iframeUrl = useMemo(
@@ -103,7 +81,7 @@ export default function PublicLandingPage() {
     );
   }
 
-  if (notFound || !lp) {
+  if (notFound || !lp || !lp.content) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white text-[#202331]">
         <div className="text-center space-y-2">
@@ -115,15 +93,12 @@ export default function PublicLandingPage() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-white text-[#202331] [&_h1]:font-[Manrope,Inter,sans-serif] [&_h2]:font-[Manrope,Inter,sans-serif] [&_h3]:font-[Manrope,Inter,sans-serif]"
-      style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
-    >
-      <div
-        ref={contentRef}
-        dangerouslySetInnerHTML={{ __html: lp.generated_html }}
+    <>
+      <PremiumLandingTemplate
+        content={lp.content}
+        heroImageUrl={lp.hero_image_url}
+        onCta={() => setModalOpen(true)}
       />
-
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden">
           <DialogTitle className="sr-only">Formulário — {lp.smartops_forms.name}</DialogTitle>
@@ -137,6 +112,6 @@ export default function PublicLandingPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
