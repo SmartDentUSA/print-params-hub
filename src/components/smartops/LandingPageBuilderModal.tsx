@@ -44,7 +44,13 @@ type LP = {
 type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
 
 function ensureContent(raw: unknown): LPContent {
-  if (raw && typeof raw === "object" && "hero" in raw) return raw as LPContent;
+  if (raw && typeof raw === "object" && "hero" in raw) {
+    const parsed = raw as LPContent;
+    return {
+      ...parsed,
+      conditions: parsed.conditions ?? DEFAULT_LP_CONTENT.conditions,
+    };
+  }
   return DEFAULT_LP_CONTENT;
 }
 
@@ -75,8 +81,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       .then(({ data }) => {
         if (data) {
           const row = data as unknown as LP;
+          const rowContent = ensureContent(row.content);
           setLp(row);
-          setContent(row.content && (row.content as any).hero ? (row.content as LPContent) : null);
+          setContent(row.content && (row.content as any).hero ? rowContent : null);
           setHeroImage(row.hero_image_url || "");
           setTab(row.mode === "briefing" ? "briefing" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
