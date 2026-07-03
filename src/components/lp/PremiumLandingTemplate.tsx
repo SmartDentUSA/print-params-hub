@@ -71,13 +71,105 @@ interface Props {
 }
 
 // Design system tokens (spec: single strong purple + orange accent + navy text).
-const BRAND = "var(--lp-brand)";
-const BRAND_2 = "var(--lp-brand-2)";
-const BRAND_SOFT = "var(--lp-soft)";
-const NAVY = "var(--lp-text)";
-const ORANGE = "var(--lp-orange)";
-const GRADIENT_BRAND = `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_2} 100%)`;
-const GRADIENT_SOFT = `linear-gradient(180deg, var(--lp-bg-soft) 0%, ${BRAND_SOFT} 100%)`;
+const GRADIENT_BRAND = `linear-gradient(135deg, var(--lp-brand) 0%, var(--lp-brand-2) 100%)`;
+const GRADIENT_SOFT = `linear-gradient(180deg, var(--lp-bg-soft) 0%, var(--lp-soft) 100%)`;
+
+// -------- Paletas selecionáveis no editor --------
+export type LPThemeKey =
+  | "exocad-purple"
+  | "navy-gold"
+  | "emerald-cream"
+  | "coral-slate"
+  | "charcoal-ember"
+  | "ocean-deep";
+
+export const LP_THEMES: Record<LPThemeKey, {
+  label: string;
+  swatch: string[];
+  vars: {
+    brand: string;
+    brandDark: string;
+    brand2: string;
+    text: string;
+    textSoft: string;
+    border: string;
+    soft: string;
+    bgSoft: string;
+    orange: string;
+    orangeSoft: string;
+  };
+}> = {
+  "exocad-purple": {
+    label: "Roxo exocad",
+    swatch: ["#605882", "#DF7344", "#42495C", "#F3F0F8"],
+    vars: {
+      brand: "#605882", brandDark: "#4d466b", brand2: "#8B82A8",
+      text: "#42495C", textSoft: "#5A5670", border: "#EFEBF4",
+      soft: "#F3F0F8", bgSoft: "#FBFAFD", orange: "#DF7344", orangeSoft: "#FFF6F1",
+    },
+  },
+  "navy-gold": {
+    label: "Navy & Ouro",
+    swatch: ["#1E3A5F", "#C9A84C", "#0F1B3D", "#E8EDF3"],
+    vars: {
+      brand: "#1E3A5F", brandDark: "#0F1B3D", brand2: "#3B6FA0",
+      text: "#0F1B3D", textSoft: "#4A5A72", border: "#DCE3EE",
+      soft: "#E8EDF3", bgSoft: "#F5F7FB", orange: "#C9A84C", orangeSoft: "#FBF6E4",
+    },
+  },
+  "emerald-cream": {
+    label: "Esmeralda & Creme",
+    swatch: ["#0D7A5F", "#C9A84C", "#064E3B", "#E6F5EF"],
+    vars: {
+      brand: "#0D7A5F", brandDark: "#064E3B", brand2: "#10B981",
+      text: "#064E3B", textSoft: "#3F6B5C", border: "#D4EBE0",
+      soft: "#E6F5EF", bgSoft: "#F5FDF9", orange: "#C9A84C", orangeSoft: "#FBF6E4",
+    },
+  },
+  "coral-slate": {
+    label: "Coral & Ardósia",
+    swatch: ["#574B90", "#FF6B6B", "#2D2D5F", "#F3EEF6"],
+    vars: {
+      brand: "#574B90", brandDark: "#3E356A", brand2: "#8A7EC4",
+      text: "#2D2D5F", textSoft: "#605D80", border: "#E5DEEB",
+      soft: "#F3EEF6", bgSoft: "#FBFAFF", orange: "#FF6B6B", orangeSoft: "#FFF0F0",
+    },
+  },
+  "charcoal-ember": {
+    label: "Grafite & Brasa",
+    swatch: ["#2D2D2D", "#E85D3A", "#1A1A1A", "#EDECEB"],
+    vars: {
+      brand: "#2D2D2D", brandDark: "#1A1A1A", brand2: "#4A4A4A",
+      text: "#1A1A1A", textSoft: "#525252", border: "#E5E4E3",
+      soft: "#EDECEB", bgSoft: "#FAFAFA", orange: "#E85D3A", orangeSoft: "#FFF1EC",
+    },
+  },
+  "ocean-deep": {
+    label: "Oceano Profundo",
+    swatch: ["#1A4A6E", "#5CBDB9", "#0C2340", "#DEEEF4"],
+    vars: {
+      brand: "#1A4A6E", brandDark: "#0C2340", brand2: "#2D8A9E",
+      text: "#0C2340", textSoft: "#3F5A76", border: "#D0E1EC",
+      soft: "#DEEEF4", bgSoft: "#F4F9FB", orange: "#5CBDB9", orangeSoft: "#E6F6F5",
+    },
+  },
+};
+
+function themeStyle(key?: LPThemeKey): Record<string, string> {
+  const t = LP_THEMES[key ?? "exocad-purple"] ?? LP_THEMES["exocad-purple"];
+  return {
+    "--lp-brand": t.vars.brand,
+    "--lp-brand-dark": t.vars.brandDark,
+    "--lp-brand-2": t.vars.brand2,
+    "--lp-text": t.vars.text,
+    "--lp-text-soft": t.vars.textSoft,
+    "--lp-border": t.vars.border,
+    "--lp-soft": t.vars.soft,
+    "--lp-bg-soft": t.vars.bgSoft,
+    "--lp-orange": t.vars.orange,
+    "--lp-orange-soft": t.vars.orangeSoft,
+  } as Record<string, string>;
+}
 
 function TrustSvg({ name, className }: { name: TrustIcon; className?: string }) {
   const common = {
