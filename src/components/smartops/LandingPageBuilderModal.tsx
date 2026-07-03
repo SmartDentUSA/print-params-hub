@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileText, ExternalLink, Rocket } from "lucide-react";
+import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Wand2, Save } from "lucide-react";
+import { LandingPageVisualEditor, triggerLandingPageEditorSave } from "./LandingPageVisualEditor";
 
 interface Props {
   open: boolean;
@@ -30,10 +31,11 @@ type LP = {
   generated_html: string | null;
   status: "draft" | "published";
   published_at: string | null;
+  editor_state?: Record<string, unknown> | null;
 };
 
 export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
-  const [tab, setTab] = useState<"ai" | "briefing">("ai");
+  const [tab, setTab] = useState<"ai" | "briefing" | "visual">("ai");
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
   const [lp, setLp] = useState<LP | null>(null);
@@ -56,7 +58,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         if (data) {
           const row = data as unknown as LP;
           setLp(row);
-          setTab(row.mode);
+          setTab(row.mode as "ai" | "briefing");
           if (row.mode === "ai") setAiIdea(row.input_prompt || "");
           else setBriefing(row.input_prompt || "");
         }
@@ -70,6 +72,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   async function handleGenerate() {
     if (!form) return;
+    if (tab === "visual") return;
     const input = tab === "ai" ? aiIdea.trim() : briefing.trim();
     if (!input) {
       toast.error(tab === "ai" ? "Descreva a ideia da landing page" : "Cole o briefing");
@@ -109,6 +112,24 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     }
   }
 
+  async function handleVisualSave(html: string, css: string, state: Record<string, unknown>) {
+    if (!lp) return;
+    // combina CSS custom no início do HTML (Tailwind já cobre a maior parte)
+    const combined = css ? `<style>${css}</style>${html}` : html;
+    const { data, error } = await supabase
+      .from("smartops_form_landing_pages" as any)
+      .update({ generated_html: combined, editor_state: state })
+      .eq("id", lp.id)
+      .select()
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLp(data as unknown as LP);
+    toast.success("Edição visual salva");
+  }
+
   async function togglePublish() {
     if (!lp) return;
     setSaving(true);
@@ -137,7 +158,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Landing Page — {form.name}
@@ -158,46 +179,31 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-hidden">
-          <div className="flex flex-col overflow-hidden">
-            <Tabs value={tab} onValueChange={(v) => setTab(v as "ai" | "briefing")}>
-              <TabsList className="grid grid-cols-2">
-                <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
-                <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing (prompt)</TabsTrigger>
-              </TabsList>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid grid-cols-3 w-fit">
+            <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
+            <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing</TabsTrigger>
+            <TabsTrigger value="visual" className="gap-1" disabled={!lp?.generated_html}>
+              <Wand2 className="w-3.5 h-3.5" /> Editor Visual
+            </TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="ai" className="space-y-3 pt-3">
+          <TabsContent value="ai" className="flex-1 overflow-hidden mt-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
+          <div className="flex flex-col overflow-hidden">
                 <div>
                   <Label className="text-xs">Ideia central</Label>
                   <Textarea
                     value={aiIdea}
                     onChange={(e) => setAiIdea(e.target.value)}
-                    rows={10}
+                    rows={14}
                     placeholder="Ex.: Landing page do curso Ativação exocad DentalCad I.A. para dentistas e protéticos, foco em fluxo digital, tom premium..."
                   />
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  A IA aplica o padrão estético Smart Dent (roxo/branco/laranja, Inter) e ordena hero → prova social → benefícios → FAQ → CTA.
+                  IA premium (Gemini 3.1 Pro). Aplica paleta Smart Dent (#1D173E/#2C245B/#F47C42), Inter+Manrope,
+                  selo "ATIVAÇÃO INICIAL", CTA fixo no mobile, FAQ acordeão e acessibilidade AA.
                 </p>
-              </TabsContent>
-
-              <TabsContent value="briefing" className="space-y-3 pt-3">
-                <div>
-                  <Label className="text-xs">Cole o briefing completo</Label>
-                  <Textarea
-                    value={briefing}
-                    onChange={(e) => setBriefing(e.target.value)}
-                    rows={16}
-                    placeholder="Cole o texto do LOVABLE.docx ou similar. A IA será fiel ao conteúdo (preços, ofertas, módulos)."
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Modo fiel: a IA usa apenas o conteúdo colado. Sem invenção de preço ou promessa.
-                </p>
-              </TabsContent>
-            </Tabs>
-
             <div className="flex gap-2 pt-3 mt-auto border-t">
               <Button onClick={handleGenerate} disabled={generating || loading} className="gap-2">
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -234,7 +240,104 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
               </div>
             )}
           </div>
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="briefing" className="flex-1 overflow-hidden mt-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
+              <div className="flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-auto">
+                  <Label className="text-xs">Cole o briefing completo</Label>
+                  <Textarea
+                    value={briefing}
+                    onChange={(e) => setBriefing(e.target.value)}
+                    rows={20}
+                    placeholder="Cole o texto do LOVABLE.docx ou similar. A IA será fiel ao conteúdo (preços, ofertas, módulos, tom)."
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground pt-2">
+                    Modo fiel: a IA usa apenas o conteúdo colado. Sem invenção de preço ou promessa.
+                    Mantém o padrão estético Smart Dent com selo "ATIVAÇÃO INICIAL" e CTA fixo no mobile.
+                  </p>
+                </div>
+                <div className="flex gap-2 pt-3 border-t">
+                  <Button onClick={handleGenerate} disabled={generating || loading} className="gap-2">
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {lp?.generated_html ? "Regenerar" : "Gerar landing"}
+                  </Button>
+                  {lp?.generated_html && (
+                    <Button
+                      variant={lp.status === "published" ? "outline" : "default"}
+                      onClick={togglePublish}
+                      disabled={saving}
+                      className="gap-2"
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                      {lp.status === "published" ? "Despublicar" : "Publicar"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col overflow-hidden border rounded-lg bg-muted/30">
+                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground border-b bg-background">
+                  Prévia
+                </div>
+                {previewSrcDoc ? (
+                  <iframe
+                    title="Preview da landing page"
+                    srcDoc={previewSrcDoc}
+                    className="flex-1 w-full bg-white"
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
+                    {loading ? "Carregando…" : "Nenhuma landing page gerada ainda."}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="visual" className="flex-1 overflow-hidden mt-3 flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <p className="text-[11px] text-muted-foreground">
+                Arraste blocos, edite textos e cores. Paleta oficial: #2C245B · #1D173E · #F47C42 · #F4F5F8 · #202331.
+                Preserve botões com <code>data-form-cta</code>.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={triggerLandingPageEditorSave} className="gap-2">
+                  <Save className="w-4 h-4" /> Salvar edição
+                </Button>
+                {lp && (
+                  <Button
+                    size="sm"
+                    variant={lp.status === "published" ? "outline" : "default"}
+                    onClick={togglePublish}
+                    disabled={saving}
+                    className="gap-2"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                    {lp.status === "published" ? "Despublicar" : "Publicar"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden mt-2">
+              {lp?.generated_html ? (
+                <LandingPageVisualEditor
+                  key={lp.id}
+                  html={lp.generated_html}
+                  editorState={(lp.editor_state as Record<string, unknown>) ?? null}
+                  onSave={handleVisualSave}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  Gere a landing page primeiro na aba "Gerar por IA" ou "Briefing".
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
