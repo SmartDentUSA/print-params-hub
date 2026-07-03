@@ -382,6 +382,72 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
   );
 }
 
+const EDITOR_SECTIONS: { id: string; label: string }[] = [
+  { id: "sec-aparencia", label: "Aparência" },
+  { id: "sec-hero", label: "Hero" },
+  { id: "sec-como-funciona", label: "Como funciona" },
+  { id: "sec-preco", label: "Preço" },
+  { id: "sec-condicoes", label: "Condições" },
+  { id: "sec-beneficios", label: "Benefícios" },
+  { id: "sec-faq", label: "FAQ" },
+  { id: "sec-cta-final", label: "CTA final" },
+  { id: "sec-rodape", label: "Rodapé" },
+];
+
+function EditorSidebar({
+  content,
+  onChange,
+  heroImage,
+  onHeroImageChange,
+}: {
+  content: LPContent;
+  onChange: (c: LPContent) => void;
+  heroImage: string;
+  onHeroImageChange: (v: string) => void;
+}) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const jumpTo = (id: string) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const target = container.querySelector<HTMLElement>(`#${id}`);
+    if (!target) return;
+    const top = target.offsetTop - 8;
+    container.scrollTo({ top, behavior: "smooth" });
+    // Ensure <details> is open
+    if (target.tagName.toLowerCase() === "details" && !(target as HTMLDetailsElement).open) {
+      (target as HTMLDetailsElement).open = true;
+    }
+  };
+  return (
+    <div className="h-full min-h-0 border-r bg-muted/20 flex flex-col">
+      <nav className="sticky top-0 z-10 border-b bg-muted/40 backdrop-blur px-3 py-2 flex flex-wrap gap-1.5">
+        {EDITOR_SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => jumpTo(s.id)}
+            className="text-[11px] font-semibold px-2 py-1 rounded-full border bg-white hover:border-primary hover:text-primary transition"
+          >
+            {s.label}
+          </button>
+        ))}
+      </nav>
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto p-5 space-y-6"
+        style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+      >
+        <ContentEditor
+          content={content}
+          onChange={onChange}
+          heroImage={heroImage}
+          onHeroImageChange={onHeroImageChange}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ---------- Content editor ----------
 function ContentEditor({
   content,
