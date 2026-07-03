@@ -192,7 +192,13 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
   async function handleSaveEdits() {
     if (!content) return;
     setSaving(true);
-    const saved = await persist({ content, hero_image_url: heroImage || null } as any);
+    const saved = await persist({
+      content,
+      hero_image_url: heroImage || null,
+      mode: lp?.mode ?? (tab === "briefing" ? "briefing" : "ai"),
+      input_prompt: lp?.input_prompt ?? "",
+      status: lp?.status ?? "draft",
+    } as any);
     setSaving(false);
     if (saved) {
       setLp(saved);
