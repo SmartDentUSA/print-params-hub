@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
+import { EmailComposer } from "@/components/smartops/EmailComposer";
 
 // ── Types ──
 interface ContentItem {
@@ -1120,6 +1121,7 @@ function CreateCampaign({
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
                     <SelectItem value="sellflux">SellFlux</SelectItem>
                     <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
+                    <SelectItem value="email">📧 Email (Gmail)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1791,6 +1793,25 @@ function CreateCampaign({
 
       {/* Step 3 */}
       {step === 3 && (
+        sendChannel === "email" ? (
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(2)}>
+                <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+              </Button>
+              <div className="text-sm text-muted-foreground self-center">
+                Campanha: <b>{campaignName}</b> • Público: <b>{leadCount ?? 0}</b>
+              </div>
+            </div>
+            <EmailComposer
+              campaignName={campaignName}
+              description={campaignDesc}
+              filters={buildFiltersObject()}
+              audienceCount={leadCount ?? 0}
+              onSent={() => setStep(1)}
+            />
+          </div>
+        ) : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">3. Revisar e Criar</CardTitle>
@@ -1949,6 +1970,7 @@ function CreateCampaign({
             )}
           </CardContent>
         </Card>
+        )
       )}
     </div>
   );

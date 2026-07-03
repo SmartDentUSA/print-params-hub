@@ -1,46 +1,124 @@
+## Objetivo
+Adicionar canal **📧 Email (Gmail)** na Central de Campanhas com **gerador de email por IA** (mesmo padrão do gerador de mensagens de grupos WhatsApp) e **tracking de abertura + clique**.
 
-## Como testar o webhook do Stripe
+---
 
-Você tem 3 formas — da mais simples pra mais realista:
+## 1. UI — novo canal Email em `SmartOpsCampaigns.tsx`
 
-### 1. Botão "Enviar evento de teste" no próprio Stripe (mais rápido)
-No painel do Stripe, na página do endpoint que você acabou de criar:
+Novo item no Select de canal: `email` → "📧 Email (Gmail)".
 
-1. Clique no endpoint `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/stripe-webhook`
-2. Botão **"Enviar evento de teste"** (canto superior direito)
-3. Escolhe o evento (ex.: `checkout.session.completed`)
-4. Clica em **"Enviar evento de teste"**
+Quando `sendChannel === "email"`, o passo 2 mostra o **Email Composer**:
 
-O Stripe monta um payload fake e dispara. Vai aparecer status 200 na aba "Tentativas" do endpoint.
+### 1a. Bloco "Conteúdo base" (reuso do padrão do CampaignLinkPicker)
+- **Produto** (Select): lista `products_catalog` / `system_a_catalog` (mesma fonte usada em `useProductKnowledgeCopies`).
+- **Call-to-Action principal** (Select dinâmico por produto): 
+  - Landing Page (de `smartops_form_landing_pages` + páginas de conhecimento)
+  - Formulário (`smartops_forms`)
+  - Publicação de conhecimento (`knowledge_contents`)
+  - Post Instagram / rede social (`social_scheduled_posts` publicados + `social_posts`)
+  - Link da loja (system_a_catalog.product_url)
+  - Link direto do WhatsApp do vendedor responsável (por lead)
+- **CTAs secundários** (multi-select): mesma lista acima, permite adicionar até 3 blocos extras (botões/links no rodapé do email).
+- **Assinatura** (Select): vendedor fixo, dono do lead (dinâmico por destinatário), ou remetente único.
 
-⚠️ Limitação: o payload de teste NÃO tem telefone/email de nenhum lead real seu, então o webhook vai gravar em `stripe_webhook_events` com `error='lead_not_found'`. Isso é esperado — confirma que assinatura + código funcionam.
+### 1b. Botão **"Gerar com IA"**
+Payload → edge function `smart-ops-generate-email-ai`:
+```
+{ produto, cta_principal: {tipo, id, url}, ctas_secundarios, segmento_resumo, tom }
+```
+IA (Lovable AI, `google/gemini-3-flash-preview`) retorna:
+```
+{ subject, preheader, html_body, plain_text, cta_button_label }
+```
+Prompt system: monta email profissional dental, mencionando os benefícios do produto extraídos do catálogo (system_a_catalog), com o CTA como botão principal + CTAs secundários como links no rodapé. Substitui `{{nome}}`, `{{vendedor_nome}}`, `{{link_wa_vendedor}}` como placeholders.
 
-### 2. Checkout real em modo teste (recomendado pra validar o match do lead)
-Fluxo completo com dados de um lead real:
+### 1c. Editor
+- Assunto (input) + Preheader (input)
+- Corpo HTML (Textarea grande com preview lado-a-lado)
+- Botão "Regerar", "Regerar só assunto", "Adicionar imagem" (upload → storage `email-assets`, mesmo bucket já usado em auth emails)
+- Preview real usando um lead de exemplo do segmento.
 
-1. Certifique-se que a chave configurada é `sk_test_...` (modo sandbox)
-2. Crie um Payment Link ou Checkout Session no Stripe modo teste
-3. Abre o link no navegador anônimo e preenche:
-   - Email: um email que existe em `lia_attendances` (ex.: um lead seu)
-   - Telefone: idem
-   - Cartão de teste: `4242 4242 4242 4242`, validade futura, CVV qualquer
-4. Finaliza a compra
+---
 
-Aí o webhook recebe `checkout.session.completed` com telefone/email reais → resolve o `lead_id` → grava na timeline.
+## 2. Backend — edge functions novas
 
-### 3. Ver o resultado
-Depois de qualquer teste, eu te ajudo consultando:
+### 2a. `smart-ops-generate-email-ai`
+- Recebe produto + CTAs + segmento, busca dados do produto no `system_a_catalog` (título, benefícios, imagem, url).
+- Chama Lovable AI Gateway com system prompt de copy dental (mesmo padrão do gerador de WhatsApp).
+- Retorna `{ subject, preheader, html_body, plain_text, cta_button_label }`.
+- **Nunca inclui preços** (regra Core: Content Generation).
 
-- **Aba "Tentativas"** do endpoint no Stripe (mostra status HTTP e response)
-- **Logs da Edge Function** — link no painel Supabase
-- **Tabela `stripe_webhook_events`** — SELECT dos últimos eventos (event_id, event_type, lead_id, error)
-- **Tabela `lead_activity_log`** — se `lead_id` foi resolvido, entra uma linha nova
+### 2b. `smart-ops-send-gmail`
+- Auth JWT admin. Reusa segmentação existente (`lia_attendances`, `merged_into IS NULL`, força `email IS NOT NULL`).
+- Cria registro em `campaigns` com `channel='email'` e uma linha por destinatário em `campaign_send_log`.
+- Para cada destinatário:
+  1. Substitui placeholders (`{{nome}}`, `{{vendedor_nome}}`, `{{link_wa_vendedor}}` do responsável do lead).
+  2. **Reescreve todos os links** para `https://smartdent.com.br/r/{short_id}` (via `short_links` já existente) → habilita tracking de clique.
+  3. Injeta **pixel de abertura** `<img src="https://.../functions/v1/email-track-open?m={message_id}" width="1" height="1"/>` no fim do HTML.
+  4. Envia via **connector gateway Gmail**: `POST /google_mail/gmail/v1/users/me/messages/send` com RFC 2822 (Content-Type text/html) base64url.
+  5. Grava `provider_message_id`, `status`, `sent_at`.
+- Rate limit: 1 req / 300ms (respeita quota Gmail).
 
-### O que fazer agora
+### 2c. `email-track-open` (GET público)
+- Recebe `m={message_id}`, marca `campaign_send_log.opened_at = now()` (se null), retorna GIF 1×1.
+- Ignora cache (headers `Cache-Control: no-store`).
 
-Me confirme qual caminho quer seguir:
+### 2d. `short-link-redirect` (já existe? senão criar)
+- Marca `campaign_send_log.clicked_at` + incrementa contador `short_links.clicks` + `campaign_send_log.click_count`, e redireciona 302 para URL destino.
 
-- **A)** Só valida com "Enviar evento de teste" do Stripe (rápido, ignora match de lead)
-- **B)** Faz um checkout real em modo teste com um lead seu (valida ponta a ponta)
+---
 
-Depois que você disparar o teste, me avisa que eu consulto os logs + as duas tabelas e te confirmo se chegou tudo certo.
+## 3. Schema — migração
+
+Adicionar em `campaign_send_log`:
+- `opened_at TIMESTAMPTZ NULL`
+- `clicked_at TIMESTAMPTZ NULL`
+- `click_count INT DEFAULT 0`
+- `email_subject TEXT NULL`
+- `provider_message_id TEXT NULL`
+
+Adicionar em `campaigns` (ou `smart_ops_campaigns` conforme a tabela realmente usada — vou confirmar antes):
+- `email_html TEXT NULL`, `email_subject TEXT NULL`, `email_preheader TEXT NULL`
+- `cta_config JSONB NULL` (guarda produto + CTAs escolhidos, para reproduzir)
+- Índices em `campaign_id`, `opened_at`, `clicked_at`.
+
+Grants padrão + RLS: `authenticated` só lê registros de suas campanhas; `service_role` full. `email-track-open` e `short-link-redirect` usam service role internamente.
+
+---
+
+## 4. Analytics — nova aba "Métricas Email" na campanha
+Após envio, mostra:
+- Enviados / Entregues / Falhas
+- **Taxa de abertura** = opened / delivered
+- **CTR** = clicked / opened
+- Top CTAs clicados (ranking por `short_link.destination_type`)
+- Timeline de aberturas (últimas 24h)
+
+Fontes: agrega `campaign_send_log` por `campaign_id`. Reusa componentes de `SmartOpsSmartFlowAnalytics`.
+
+---
+
+## 5. Regras preservadas
+- CDP Integrity (`merged_into IS NULL`).
+- Content Generation policy: sem preços no HTML gerado.
+- Commercial Intent Guard: envio de email **não** cria Deal PipeRun.
+- Person Origin Frozen: nenhum overwrite.
+- Nada de secret Gmail no browser — tudo via connector gateway.
+
+---
+
+## Detalhes técnicos
+- Conector Gmail já conectado → `GOOGLE_MAIL_API_KEY` + `LOVABLE_API_KEY` disponíveis nas edges.
+- Scope Gmail necessário: `gmail.send`. Se 403 "insufficient scopes", UI mostra toast pedindo reconectar.
+- Limite Gmail: ~500 envios/dia conta free / 2000 Workspace. UI alerta se público > limite e sugere fatiar em dias.
+- Bucket `email-assets` (público, read-only) para imagens do corpo.
+- Pixel + short-link são a única forma prática de tracking no Gmail (não expõe read receipts). Aberturas ficam sub-reportadas em clientes que bloqueiam imagens (esperado; documentado no tooltip da métrica).
+
+---
+
+## Fora deste plano
+- A/B testing de assunto.
+- Rotação entre múltiplas contas Gmail.
+- Templates HTML salvos reutilizáveis (fica p/ iteração seguinte, mas o `cta_config JSONB` já permite "duplicar campanha").
+
+Confirma que sigo por aqui?
