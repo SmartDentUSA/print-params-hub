@@ -1165,6 +1165,12 @@ export function SmartOpsFormBuilder() {
           })}
         </div>
       )}
+
+      <LandingPageBuilderModal
+        open={!!landingPageForm}
+        onOpenChange={(v) => { if (!v) setLandingPageForm(null); }}
+        form={landingPageForm}
+      />
     </div>
   );
 }
