@@ -1,36 +1,26 @@
-## Ajustes na seção Módulos
+Reformatar a seção **Módulos** para o layout de referência:
 
-**1. Editor genérico (reutilizável)**
-- Renomear no `LandingPageBuilderModal.tsx`:
-  - Título da seção: `"Módulos (Ultimate Lab Bundle)"` → `"Módulos"`
-  - Sidebar já é `"Módulos"` (nenhuma mudança).
+- **Header alinhado à esquerda** (não centralizado):
+  - Eyebrow em uppercase espaçada — `O QUE ESTÁ INCLUÍDO` (novo campo `eyebrow` opcional no `modules`).
+  - Headline grande à esquerda: default `15 módulos do DentalCAD, todos num único bundle.`
+  - Subtitle default: `O Ultimate Lab Bundle é o pacote mais amplo do DentalCAD para laboratórios. Cobre do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.`
+- **Grid de 3 colunas** (`md:grid-cols-2 lg:grid-cols-3`) com cards mais compactos:
+  - Ícone de **check** (não mais `modulos`) em círculo suave.
+  - Nome do módulo em bold, descrição curta abaixo.
+- **Rodapé estilo aviso**: barra clara com borda, texto pequeno.
+  - Default footnote: `Observação: a disponibilidade final acompanha a versão, a região e as condições vigentes do fabricante. O bundle não inclui xSNAP, In-CAD Nesting/Nesting, exocam, exoplan, ChairsideCAD ou outros produtos independentes — esses são adquiridos separadamente.`
+  - Renderizar com destaque em bold para "não inclui" via detecção simples (dividir string em torno da palavra) — ou aceitar `footnoteHtml` opcional. Mais simples: renderizar como `<p>` normal (o usuário edita no editor); default vem com a palavra destacada só visualmente pelo styling? Melhor: manter texto puro no default, sem HTML rich.
+- **Editor**: adicionar campo `Eyebrow` (novo `TextField`) na seção Módulos do `LandingPageBuilderModal`; título/subtítulo/itens/rodapé já editáveis.
 
-**2. Defaults do bloco Módulos (para novas LPs do Ultimate Lab Bundle)**
+## Alterações
 
-Em `PremiumLandingTemplate.tsx`, ajustar `DEFAULT_LP_CONTENT.modules`:
-- `title`: `"O que está incluído no Ultimate Lab Bundle"` (mantém)
-- `subtitle`: `"Um pacote para o laboratório inteiro. Apresentado por aplicações comerciais reais, não apenas por nomes técnicos — conforme o portfólio oficial da exocad."`
-- `items`: 15 módulos (já estão completos hoje — confirmado):
-  1. DentalCAD Core Version
-  2. Virtual Articulator
-  3. Provisional Module
-  4. TruSmile™ Module
-  5. ZRS Tooth Library
-  6. Implant Module
-  7. Bar Module
-  8. DICOM Viewer Module
-  9. Model Creator Module
-  10. Smile Creator Module
-  11. Full Denture Module
-  12. Inspira™ Denture Tooth Library
-  13. PartialCAD Module
-  14. Bite Splint Module
-  15. Jaw Motion Import Module
-- `footnote`: mantém.
+- `src/components/lp/PremiumLandingTemplate.tsx`
+  - Estender tipo `modules` com `eyebrow?: string`.
+  - Reescrever o JSX da seção `#modulos` para header à esquerda + grid 3 colunas + card compacto com ícone de check + rodapé com fundo `var(--lp-bg-soft)` e borda.
+  - Atualizar defaults: `eyebrow`, `title`, `subtitle`, `footnote` (mantém os 15 itens).
+- `src/components/smartops/LandingPageBuilderModal.tsx`
+  - Adicionar `TextField` "Eyebrow" na seção Módulos.
+- `supabase/functions/landing-page-generator/index.ts`
+  - Adicionar `eyebrow` opcional ao schema `modules`.
 
-**3. LPs já salvas**
-- `ensureContent` continua fazendo `parsed.modules ?? DEFAULT` — se a LP atual já tem `modules` salvo com lista incompleta, o editor permite adicionar os que faltarem manualmente. Não sobrescrevemos edições do usuário automaticamente.
-
-## Arquivos
-- `src/components/smartops/LandingPageBuilderModal.tsx` — rename da `Section title`.
-- `src/components/lp/PremiumLandingTemplate.tsx` — subtitle do default.
+Sem mudança em outras seções, sem alteração de dados salvos (campos opcionais).
