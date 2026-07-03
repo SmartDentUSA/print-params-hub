@@ -22,6 +22,7 @@ import {
   type LPThemeKey,
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
+import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 
 interface Props {
   open: boolean;
@@ -51,6 +52,7 @@ function ensureContent(raw: unknown): LPContent {
     );
     return {
       ...parsed,
+      price: undefined,
       conditions: parsed.conditions
         ? {
             ...parsed.conditions,
@@ -401,7 +403,6 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-aparencia", label: "Aparência" },
   { id: "sec-hero", label: "Hero" },
   { id: "sec-como-funciona", label: "Como funciona" },
-  { id: "sec-preco", label: "Preço" },
   { id: "sec-condicoes", label: "Condições" },
   { id: "sec-modulos", label: "Módulos" },
   { id: "sec-regional", label: "Uso da licença" },
@@ -521,7 +522,11 @@ function ContentEditor({
         <TextField label="CTA primário" value={content.hero.primaryCta} onChange={(v) => patch({ hero: { ...content.hero, primaryCta: v } })} />
         <TextField label="CTA secundário" value={content.hero.secondaryCta ?? ""} onChange={(v) => patch({ hero: { ...content.hero, secondaryCta: v } })} />
         <ListEditor label="Bullets do hero" items={content.hero.bullets ?? []} onChange={(items) => patch({ hero: { ...content.hero, bullets: items } })} />
-        <TextField label="URL da imagem do hero (opcional)" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Imagem do hero (opcional)</Label>
+          <CoverImageUpload value={heroImage} onChange={onHeroImageChange} />
+          <TextField label="ou cole uma URL" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
+        </div>
       </Section>
 
       <Section title="Como funciona" anchorId="sec-como-funciona">
@@ -530,16 +535,6 @@ function ContentEditor({
           items={content.howItWorks?.items ?? []}
           onChange={(items) => patch({ howItWorks: { ...(content.howItWorks ?? {}), items } })}
         />
-      </Section>
-
-      <Section title="Card de preço" anchorId="sec-preco">
-        <TextField label="Faixa (ribbon)" value={content.price?.ribbon ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), ribbon: v } })} />
-        <TextField label="Título" value={content.price?.title ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { includes: [], cta: "" }), title: v } })} />
-        <TextField label="Preço (opcional)" value={content.price?.priceLabel ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceLabel: v } })} />
-        <TextField label="Nota do preço" value={content.price?.priceNote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceNote: v } })} />
-        <TextField label="CTA" value={content.price?.cta ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [] }), cta: v } })} />
-        <ListEditor label="Itens inclusos" items={content.price?.includes ?? []} onChange={(items) => patch({ price: { ...(content.price ?? { title: "", cta: "" }), includes: items } })} />
-        <TextField label="Rodapé do card" value={content.price?.footnote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), footnote: v } })} />
       </Section>
 
       <Section title="Condições" anchorId="sec-condicoes">
