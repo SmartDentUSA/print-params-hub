@@ -41,6 +41,8 @@ type LP = {
   published_at: string | null;
 };
 
+type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
+
 function ensureContent(raw: unknown): LPContent {
   if (raw && typeof raw === "object" && "hero" in raw) return raw as LPContent;
   return DEFAULT_LP_CONTENT;
@@ -509,7 +511,7 @@ function defaultConditionCards() {
   }));
 }
 
-function normalizeConditionCards(cards?: LPContent["conditions"]["cards"]) {
+function normalizeConditionCards(cards?: ConditionCards) {
   const defaults = defaultConditionCards();
   return defaults.map((fallback, i) => ({ ...fallback, ...(cards?.[i] ?? {}) }));
 }
@@ -586,8 +588,8 @@ function ConditionCardsEditor({
   cards,
   onChange,
 }: {
-  cards: NonNullable<LPContent["conditions"]>["cards"];
-  onChange: (cards: NonNullable<LPContent["conditions"]>["cards"]) => void;
+  cards: ConditionCards;
+  onChange: (cards: ConditionCards) => void;
 }) {
   return (
     <div className="space-y-3">
