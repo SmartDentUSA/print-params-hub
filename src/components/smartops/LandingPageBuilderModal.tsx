@@ -307,8 +307,8 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
-              <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr]">
-                <div className="min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
+              <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr] grid-rows-[1fr] overflow-hidden">
+                <div className="h-full min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
                   <ContentEditor content={content} onChange={setContent} heroImage={heroImage} onHeroImageChange={setHeroImage} />
                 </div>
                 <LivePreview content={content} heroImage={heroImage} />
@@ -339,8 +339,8 @@ function GenerateLayout(props: {
   hint: string;
 }) {
   return (
-    <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr]">
-      <div className="min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
+    <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] grid-rows-[1fr] overflow-hidden">
+      <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
           <Label className="text-xs">{props.inputLabel}</Label>
           <Textarea
@@ -370,7 +370,7 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
       <div className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground bg-white/90 backdrop-blur px-2 py-1 rounded">
         Prévia ao vivo
       </div>
-      <div className="h-full min-h-0 flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto" style={{ maxWidth: 1200 }}>
           <PremiumLandingTemplate content={content} heroImageUrl={heroImage || null} />
         </div>
