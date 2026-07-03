@@ -1194,8 +1194,8 @@ export const DEFAULT_LP_CONTENT: LPContent = {
   },
   modules: {
     eyebrow: "O que está incluído",
-    title: "15 módulos do DentalCAD, todos num único bundle.",
-    subtitle: "O Ultimate Lab Bundle é o pacote mais amplo do DentalCAD para laboratórios. Cobre do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.",
+    title: "Um pacote para o laboratório inteiro",
+    subtitle: "O Ultimate Lab Bundle reúne 15 módulos do DentalCAD — do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.",
     items: [
       { name: "DentalCAD Core Version", application: "Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais." },
       { name: "Virtual Articulator", application: "Simulação de movimentos mandibulares e análise de oclusão dinâmica." },
