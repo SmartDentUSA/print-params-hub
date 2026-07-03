@@ -1098,7 +1098,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
       { label: "Produto", anchor: "#top" },
       { label: "Módulos", anchor: "#modulos" },
       { label: "Como funciona", anchor: "#como-funciona" },
-      { label: "Preço", anchor: "#preco" },
+      { label: "Condições", anchor: "#condicoes" },
       { label: "FAQ", anchor: "#faq" },
     ],
     cta: "Assinar Agora",
