@@ -1,75 +1,107 @@
-# LP Builder v3 — Qualidade "Awwwards" real
+# LP Builder v4 — Pivô para template React premium + IA como preencher de slots
 
-## Diagnóstico do resultado atual
-Na prévia mostrada:
-- Fundo branco em toda a página (deveria ter hero roxo `#1D173E`).
-- Botões `QUERO COMEÇAR AGORA` e `TIRAR UMA DÚVIDA NO WHATSAPP` renderizam como `<button>` nativos do navegador — o modelo **não incluiu a lista de classes Tailwind** que o system prompt exige.
-- Sem selo "ATIVAÇÃO INICIAL", sem card de preço, sem SVGs de ícones, sem CTA fixo mobile.
-- Tipografia default do browser (não Inter/Manrope).
+## Por que o que temos hoje não chega lá
+A referência `smart-exocad-booster.lovable.app` é:
+- App React/Vite com CSS bundlado (`/assets/styles-CWDn-gD9.css`)
+- Imagens reais do produto (`exocad-rms-hero.png`, `smart-dent-logo.png`) pré-carregadas
+- Google Fonts Inter 100-900
+- Layout artesanal desenhado por humano com espaçamentos, sombras e composições específicas
 
-**Causa raiz**: mesmo com o system prompt detalhado, `google/gemini-3.1-pro-preview` está sendo conservador e produzindo HTML minimalista. Precisamos de um modelo com melhor aderência a instruções longas de UI + reforçar com exemplo.
+O que fazemos hoje:
+- LLM gera HTML puro + classes Tailwind → renderiza num iframe com Tailwind CDN → sem imagens curadas, sem CSS custom, sem tipografia consistente.
 
-## Correções
+**Diagnóstico**: mesmo com GPT-5.5 e few-shot, HTML avulso gerado em uma call jamais vai igualar uma LP React feita à mão. O caminho é inverter a arquitetura.
 
-### 1. Trocar de modelo para o melhor em instruction-following visual
-Segundo o catálogo `ai-models-chat`:
-- **`openai/gpt-5.5`** — "Most capable GPT-5.5 model for demanding reasoning, **coding**, and instruction-following tasks." Fast mode ✓.
-- Alternativa: `openai/gpt-5.4` (também Fast ✓, mais econômico).
+## Nova arquitetura: Template + Content Model
 
-Vou usar **`openai/gpt-5.5`** como primário, com `service_tier: "priority"` (Fast mode) para reduzir latência. Fallback: `openai/gpt-5.4` → `google/gemini-3.1-pro-preview` → `google/gemini-3-flash-preview`.
+### 1. Um template React premium hand-crafted (uma vez)
+Novo componente `src/components/lp/PremiumLandingTemplate.tsx` que porta 1:1 o layout da referência:
+- Barra pré-header com selos ("Revenda Oficial", "Suporte BR", "Licença legítima")
+- Hero split (headline + subhead + CTA duplo à esquerda / imagem hero à direita) fundo `#1D173E`
+- Faixa de trust com logos
+- Seção "Como funciona" em 3 cards numerados
+- Card de preço central com **ribbon "ATIVAÇÃO INICIAL"** e lista de inclusos
+- Grid de benefícios (6 cards com ícones lineares)
+- FAQ acordeão `<details>` estilizado
+- CTA final full-width roxo
+- Footer legal minimalista
 
-### 2. Reforçar o system prompt com exemplo few-shot
-Adicionar ao system prompt um trecho de exemplo mostrando exatamente o padrão de output esperado — hero completo com selo, card de preço com faixa "ATIVAÇÃO INICIAL", botão com todas as classes, seção FAQ em `<details>`. Modelos de instrução seguem muito melhor quando têm um golden example.
+Feito à mão em React + Tailwind, com o mesmo cuidado da referência. Isso é **UMA** vez de trabalho e resolve o problema pra sempre.
 
-Também mudar de instrução aberta ("gere uma LP") para checklist obrigatória validada:
-- [ ] `<section>` hero com `bg-[#1D173E]`
-- [ ] Badge `ATIVAÇÃO INICIAL` visível no hero
-- [ ] `<h1>` com Manrope-like (classe `font-[Manrope]` ou `font-black tracking-tight`)
-- [ ] Card de preço com faixa laranja
-- [ ] Botão principal com **exatamente** essas classes: `inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition`
-- [ ] Grid de benefícios com SVGs inline
-- [ ] `<details>` FAQ
-- [ ] CTA fixo mobile `<div class="fixed inset-x-0 bottom-0 z-40 md:hidden ...">`
-- [ ] Footer legal minimalista
+### 2. Content model estruturado (não HTML)
+Muda a tabela: `generated_html` deixa de ser fonte da verdade. Novo campo `content jsonb` com schema fixo:
+```json
+{
+  "hero": { "eyebrow": "...", "headline": "...", "sub": "...", "primaryCta": "...", "secondaryCta": "..." },
+  "heroImage": { "asset_id": "..." | null, "svgFallback": true },
+  "trustBar": [ "logo1", "logo2", ... ],
+  "howItWorks": [ { "title": "...", "desc": "..." }, ... ],
+  "price": { "ribbon": "ATIVAÇÃO INICIAL", "title": "...", "includes": ["..."], "note": "..." },
+  "benefits": [ { "icon": "licenca|computador|treinamento|cartao|suporte|brasil|modulos", "title": "...", "desc": "..." } ],
+  "testimonials": [ { "quote": "...", "author": "..." } ],
+  "faq": [ { "q": "...", "a": "..." } ],
+  "finalCta": { "headline": "...", "cta": "..." },
+  "legal": "..."
+}
+```
+`generated_html` fica como fallback/legado; `content` passa a ser o padrão para novas gerações.
 
-O prompt instrui o modelo a produzir o HTML **verificando cada item da checklist**.
+### 3. IA gera CONTENT, não HTML
+O edge function `landing-page-generator` muda:
+- Ainda usa `openai/gpt-5.5` com structured output (`response_format: json_schema` strict).
+- System prompt encolhe: "receba a ideia/briefing, produza JSON no schema abaixo, respeitando o tom Smart Dent, sem inventar preços".
+- Retorna o JSON parseado.
 
-### 3. Aumentar orçamento de tokens
-`max_tokens: 8000` está apertado. Subir para **`max_tokens: 16000`** para GPT-5.5 e permitir a LP inteira sem truncar.
+Ganho: LLM só escreve copy — algo que ele faz muito bem. Design, CSS, animações, responsividade, acessibilidade são do template.
 
-### 4. Post-processing de segurança (network)
-Depois de receber o HTML, o edge function faz uma passada rápida:
-- Se algum `<button data-form-cta="primary">` **não tem** `bg-[#F47C42]` na classe → injeta a lista canônica.
-- Se não existe `Ativação Inicial` no HTML → injeta o badge no primeiro `<section>`.
-- Se não existe o CTA fixo mobile → append de um bloco padrão antes de `</main>`.
+### 4. Renderização
+`PublicLandingPage` e o preview do modal agora renderizam `<PremiumLandingTemplate content={content} />` diretamente (não via `dangerouslySetInnerHTML`+iframe). Preview no admin fica dentro de um wrapper com `transform: scale()` pra caber no dialog.
 
-Isso garante que mesmo se o modelo pular algo, o output sai apresentável.
+### 5. Editor visual → editor de slots
+GrapesJS sai (não funciona bem com componentes React). Entra editor de slots inline:
+- Painel lateral no modal com campos de texto para cada slot do content.
+- Cliques nos textos da prévia focam o campo correspondente (contentEditable opcional).
+- Botão "Regenerar com IA" por seção (regenera só o `hero`, só o `faq`, etc.).
 
-### 5. Preview do modal: forçar tipografia oficial
-Adicionar `<link rel="preconnect">` para Google Fonts + import de Inter/Manrope no `srcDoc` da prévia, e definir `<style>body{font-family:'Inter',...} h1,h2,h3{font-family:'Manrope',...}</style>`.
+Isso é o WYSIWYG que o usuário realmente quer: **edita e vê**, sem quebrar o design.
 
-### 6. Rota pública `/lp/:slug`
-Aplicar o mesmo bootstrap de fontes + Tailwind CDN + safe-area no `<PublicLandingPage>` para render fiel.
+### 6. Firecrawl para bootstrapping (opcional, nice-to-have)
+Se o usuário colar uma URL de referência no briefing:
+- Chamamos Firecrawl `scrape` com `formats: ['branding', 'markdown']`.
+- Alimentamos o LLM com: (a) a copy da referência em markdown, (b) branding extraído (cores, fontes, logo) — se quiser sobrepor a paleta padrão.
+- Firecrawl está disponível como connector; precisa ser linkado uma vez.
+
+### 7. Imagens do hero
+Três opções por LP, escolhidas no modal:
+- Upload direto (persistido em Storage `landing-page-assets`).
+- Composição SVG geométrica (fallback default do template — nada de externo).
+- URL absoluta.
 
 ## Alterações
-- `supabase/functions/landing-page-generator/index.ts`:
-  - Modelo primário → `openai/gpt-5.5` com `service_tier: "priority"`.
-  - Cascade de fallback (5.5 → 5.4 → gemini-3.1-pro → gemini-3-flash).
-  - System prompt com **exemplo few-shot** e **checklist**.
-  - `max_tokens: 16000`.
-  - Nova função `sanitizeAndReinforce(html)` que injeta classes canônicas em `data-form-cta`, badge de ativação e CTA mobile fixo se ausentes.
-- `src/components/smartops/LandingPageBuilderModal.tsx`:
-  - `previewSrcDoc` inclui Google Fonts (Inter + Manrope) e reset mínimo.
-- `src/pages/PublicLandingPage.tsx`:
-  - Mesmo bootstrap de fontes.
+- **Novo componente**: `src/components/lp/PremiumLandingTemplate.tsx` (~600 linhas, hand-crafted, matching a referência).
+- **Migration**: add `content jsonb DEFAULT '{}'`, `hero_image_url text`, `content_version int DEFAULT 1` em `smartops_form_landing_pages`. Bucket público `landing-page-assets`.
+- **Edge function** `landing-page-generator`: retorna JSON conforme schema (usa `response_format: json_schema` strict em GPT-5.5).
+- **Modal**: abas viram
+  1. **Gerar** — briefing/ideia + botão gerar (chama a IA, popula content).
+  2. **Editar** — grid de campos por seção + prévia ao vivo (React render).
+  3. **Imagem hero** — upload/URL/SVG.
+  4. **Publicar** — toggle status.
+- **PublicLandingPage**: render `<PremiumLandingTemplate content={lp.content} />`, sem iframe.
+- **Remover** dependência `grapesjs*` (não usaremos mais).
+
+## Escopo desta iteração
+1. Migration + bucket.
+2. Novo template React (o core do trabalho).
+3. Edge function reescrita para content JSON.
+4. Modal com aba **Gerar** + **Editar** (form-based) + **Publicar** funcionando.
+5. PublicLandingPage renderizando o template.
+6. Firecrawl e upload de imagem ficam para v4.1 (deixamos os campos prontos, ligamos depois).
+
+## Fora de escopo
+- Editor drag-and-drop tipo Framer (mantém edição via campos + regenerar por seção).
+- Múltiplos templates (só o Premium por enquanto — depois adicionamos "Curso", "Evento", "Simples").
 
 ## Validação
-Regenerar a LP do card exocad → esperar output com:
-1. Hero roxo escuro com selo laranja "ATIVAÇÃO INICIAL" grande.
-2. Botões laranja preenchidos.
-3. Card de preço com faixa destacada.
-4. Grid de ícones lineares SVG.
-5. FAQ em acordeão.
-6. CTA fixo aparece só em mobile (testar viewport 375).
-
-Se ainda ficar aquém depois disso, próximo passo é gerar a LP em duas etapas (esqueleto + refinamento por seção), mas começamos com single-shot + GPT-5.5 que deve resolver.
+- Regenerar a LP do card exocad → JSON preenchido → PublicLandingPage renderiza igual à referência (com nossa copy).
+- Editar headline no admin → preview atualiza instantaneamente.
+- Publicar → `/lp/ativacao-exocad-dentalcad-ia` mostra o template premium com o content salvo.
