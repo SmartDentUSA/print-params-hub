@@ -1,124 +1,69 @@
 ## Objetivo
-Adicionar canal **📧 Email (Gmail)** na Central de Campanhas com **gerador de email por IA** (mesmo padrão do gerador de mensagens de grupos WhatsApp) e **tracking de abertura + clique**.
+1. Trocar o campo **Tom da mensagem** por uma lista pronta de tons.
+2. Corrigir o email quebrado (acentos sumindo — "Alta Precis o" — e tags soltas tipo `</td` no corpo).
 
 ---
 
-## 1. UI — novo canal Email em `SmartOpsCampaigns.tsx`
+## 1) Lista de Tons (dropdown)
 
-Novo item no Select de canal: `email` → "📧 Email (Gmail)".
+No `EmailComposer.tsx`, substituir o `<Input>` livre por um `<Select>` com estas opções curadas para o público odontológico Smart Dent:
 
-Quando `sendChannel === "email"`, o passo 2 mostra o **Email Composer**:
+| Valor | Rótulo | Uso ideal |
+|---|---|---|
+| `consultivo` | 🎓 Consultivo | Fluxo padrão B2B — orienta sem pressionar |
+| `tecnico` | 🔬 Técnico especialista | Laboratórios / dentistas avançados |
+| `educativo` | 📚 Educativo | Base de conhecimento, artigos, casos clínicos |
+| `direto_comercial` | 🎯 Direto & Comercial | Leads quentes prontos para conversão |
+| `storytelling` | 📖 Storytelling clínico | Casos reais, jornada de transformação digital |
+| `urgencia_soft` | ⏰ Urgência suave | Reativação, últimas vagas de curso |
+| `celebrativo` | 🎉 Celebrativo | Lançamentos, novidades, marcos |
+| `reativacao_amigavel` | 🤝 Reativação amigável | Leads frios — reconecta sem cobrar |
+| `pos_venda_cs` | ✅ Pós-venda / CS | Onboarding, suporte, satisfação |
+| `evento_convite` | 🎫 Convite p/ evento | Cursos, webinars, feiras |
+| `custom` | ✏️ Personalizado… | Libera campo de texto livre |
 
-### 1a. Bloco "Conteúdo base" (reuso do padrão do CampaignLinkPicker)
-- **Produto** (Select): lista `products_catalog` / `system_a_catalog` (mesma fonte usada em `useProductKnowledgeCopies`).
-- **Call-to-Action principal** (Select dinâmico por produto): 
-  - Landing Page (de `smartops_form_landing_pages` + páginas de conhecimento)
-  - Formulário (`smartops_forms`)
-  - Publicação de conhecimento (`knowledge_contents`)
-  - Post Instagram / rede social (`social_scheduled_posts` publicados + `social_posts`)
-  - Link da loja (system_a_catalog.product_url)
-  - Link direto do WhatsApp do vendedor responsável (por lead)
-- **CTAs secundários** (multi-select): mesma lista acima, permite adicionar até 3 blocos extras (botões/links no rodapé do email).
-- **Assinatura** (Select): vendedor fixo, dono do lead (dinâmico por destinatário), ou remetente único.
-
-### 1b. Botão **"Gerar com IA"**
-Payload → edge function `smart-ops-generate-email-ai`:
-```
-{ produto, cta_principal: {tipo, id, url}, ctas_secundarios, segmento_resumo, tom }
-```
-IA (Lovable AI, `google/gemini-3-flash-preview`) retorna:
-```
-{ subject, preheader, html_body, plain_text, cta_button_label }
-```
-Prompt system: monta email profissional dental, mencionando os benefícios do produto extraídos do catálogo (system_a_catalog), com o CTA como botão principal + CTAs secundários como links no rodapé. Substitui `{{nome}}`, `{{vendedor_nome}}`, `{{link_wa_vendedor}}` como placeholders.
-
-### 1c. Editor
-- Assunto (input) + Preheader (input)
-- Corpo HTML (Textarea grande com preview lado-a-lado)
-- Botão "Regerar", "Regerar só assunto", "Adicionar imagem" (upload → storage `email-assets`, mesmo bucket já usado em auth emails)
-- Preview real usando um lead de exemplo do segmento.
+Só aparece o input livre quando `tom === "custom"`. O valor selecionado vai para o edge `smart-ops-generate-email-ai` no campo `tom` (já existente). No prompt do sistema, expandir cada preset em uma diretriz curta (ex.: `tecnico` → "Vocabulário técnico odontológico, foco em precisão, ISO/fluxo digital, sem hype").
 
 ---
 
-## 2. Backend — edge functions novas
+## 2) Corrigir o email quebrado
 
-### 2a. `smart-ops-generate-email-ai`
-- Recebe produto + CTAs + segmento, busca dados do produto no `system_a_catalog` (título, benefícios, imagem, url).
-- Chama Lovable AI Gateway com system prompt de copy dental (mesmo padrão do gerador de WhatsApp).
-- Retorna `{ subject, preheader, html_body, plain_text, cta_button_label }`.
-- **Nunca inclui preços** (regra Core: Content Generation).
+Diagnóstico do print do usuário:
+- **"Alta Precis o:"** → o "ã" foi corrompido no transporte.
+- **`</td`** vazando no final → HTML gerado pela IA está fragmentado / sem `<html><body>` wrapper.
 
-### 2b. `smart-ops-send-gmail`
-- Auth JWT admin. Reusa segmentação existente (`lia_attendances`, `merged_into IS NULL`, força `email IS NOT NULL`).
-- Cria registro em `campaigns` com `channel='email'` e uma linha por destinatário em `campaign_send_log`.
-- Para cada destinatário:
-  1. Substitui placeholders (`{{nome}}`, `{{vendedor_nome}}`, `{{link_wa_vendedor}}` do responsável do lead).
-  2. **Reescreve todos os links** para `https://smartdent.com.br/r/{short_id}` (via `short_links` já existente) → habilita tracking de clique.
-  3. Injeta **pixel de abertura** `<img src="https://.../functions/v1/email-track-open?m={message_id}" width="1" height="1"/>` no fim do HTML.
-  4. Envia via **connector gateway Gmail**: `POST /google_mail/gmail/v1/users/me/messages/send` com RFC 2822 (Content-Type text/html) base64url.
-  5. Grava `provider_message_id`, `status`, `sent_at`.
-- Rate limit: 1 req / 300ms (respeita quota Gmail).
+### Causa raiz A — codificação base64
+Em `supabase/functions/smart-ops-send-gmail/index.ts`, o corpo RFC 2822 usa `Content-Transfer-Encoding: base64` mas é codificado com `b64url()` (URL-safe, troca `+`→`-`, `/`→`_`). Gmail decodifica **base64 padrão**, então bytes UTF-8 que caem em `+` ou `/` são destruídos → acentos somem.
 
-### 2c. `email-track-open` (GET público)
-- Recebe `m={message_id}`, marca `campaign_send_log.opened_at = now()` (se null), retorna GIF 1×1.
-- Ignora cache (headers `Cache-Control: no-store`).
+**Correção:** usar duas funções separadas:
+- `b64std(s)` = base64 padrão (com `+/=`) — para o **corpo** do RFC 2822 e para o **subject** encoded-word (`=?UTF-8?B?...?=`).
+- `b64url(s)` = URL-safe — usada **só** no envelope final do parâmetro `raw` do endpoint `messages/send` (é o que a API do Gmail exige).
 
-### 2d. `short-link-redirect` (já existe? senão criar)
-- Marca `campaign_send_log.clicked_at` + incrementa contador `short_links.clicks` + `campaign_send_log.click_count`, e redireciona 302 para URL destino.
+### Causa raiz B — HTML fragmentado da IA
+A IA às vezes devolve trechos como `<td>...</td>` sem tabela mãe, ou fecha tags fora de ordem, e o wrapper do preheader é concatenado em cima disso → clientes de email renderizam texto solto e mostram `</td` como literal.
 
----
+**Correção em 3 camadas:**
+1. **No prompt** (`smart-ops-generate-email-ai`): reforçar "retorne HTML **completo** começando em `<!doctype html><html><body>` e terminando em `</body></html>`. NUNCA use `<table>` / `<td>` avulsos sem envolver em `<table>...</table>`."
+2. **Sanitizador leve** em `smart-ops-send-gmail` antes de enviar:
+   - Se não houver `<body`, envolver todo o HTML em `<!doctype html><html><body style="…">…</body></html>`.
+   - Regex para remover tags de tabela órfãs no fim do documento (`</td>`, `</tr>`, `</table>` sem par).
+   - Garantir cabeçalho `<meta charset="UTF-8">` dentro de `<head>` para acentos.
+3. **Preview no composer**: mostrar aviso amarelo se o HTML gerado não contiver `<body>` ou tiver contagem desbalanceada de tags principais, com botão "Regerar".
 
-## 3. Schema — migração
-
-Adicionar em `campaign_send_log`:
-- `opened_at TIMESTAMPTZ NULL`
-- `clicked_at TIMESTAMPTZ NULL`
-- `click_count INT DEFAULT 0`
-- `email_subject TEXT NULL`
-- `provider_message_id TEXT NULL`
-
-Adicionar em `campaigns` (ou `smart_ops_campaigns` conforme a tabela realmente usada — vou confirmar antes):
-- `email_html TEXT NULL`, `email_subject TEXT NULL`, `email_preheader TEXT NULL`
-- `cta_config JSONB NULL` (guarda produto + CTAs escolhidos, para reproduzir)
-- Índices em `campaign_id`, `opened_at`, `clicked_at`.
-
-Grants padrão + RLS: `authenticated` só lê registros de suas campanhas; `service_role` full. `email-track-open` e `short-link-redirect` usam service role internamente.
+### Ajustes menores no envio
+- Adicionar `Content-Language: pt-BR` no cabeçalho RFC 2822.
+- Confirmar `Content-Type: text/html; charset="UTF-8"` (já está).
+- Line-wrap do base64 do corpo em 76 chars usando `\r\n` (não `\n`) — alguns servidores intermediários quebram com LF puro.
 
 ---
 
-## 4. Analytics — nova aba "Métricas Email" na campanha
-Após envio, mostra:
-- Enviados / Entregues / Falhas
-- **Taxa de abertura** = opened / delivered
-- **CTR** = clicked / opened
-- Top CTAs clicados (ranking por `short_link.destination_type`)
-- Timeline de aberturas (últimas 24h)
+## Arquivos alterados
 
-Fontes: agrega `campaign_send_log` por `campaign_id`. Reusa componentes de `SmartOpsSmartFlowAnalytics`.
+- `src/components/smartops/EmailComposer.tsx` — dropdown de tom + campo livre condicional.
+- `supabase/functions/smart-ops-generate-email-ai/index.ts` — mapa de presets de tom + prompt reforçado exigindo HTML completo.
+- `supabase/functions/smart-ops-send-gmail/index.ts` — split `b64std` / `b64url`, sanitizador de HTML, `\r\n` no wrap.
 
----
-
-## 5. Regras preservadas
-- CDP Integrity (`merged_into IS NULL`).
-- Content Generation policy: sem preços no HTML gerado.
-- Commercial Intent Guard: envio de email **não** cria Deal PipeRun.
-- Person Origin Frozen: nenhum overwrite.
-- Nada de secret Gmail no browser — tudo via connector gateway.
-
----
-
-## Detalhes técnicos
-- Conector Gmail já conectado → `GOOGLE_MAIL_API_KEY` + `LOVABLE_API_KEY` disponíveis nas edges.
-- Scope Gmail necessário: `gmail.send`. Se 403 "insufficient scopes", UI mostra toast pedindo reconectar.
-- Limite Gmail: ~500 envios/dia conta free / 2000 Workspace. UI alerta se público > limite e sugere fatiar em dias.
-- Bucket `email-assets` (público, read-only) para imagens do corpo.
-- Pixel + short-link são a única forma prática de tracking no Gmail (não expõe read receipts). Aberturas ficam sub-reportadas em clientes que bloqueiam imagens (esperado; documentado no tooltip da métrica).
-
----
-
-## Fora deste plano
-- A/B testing de assunto.
-- Rotação entre múltiplas contas Gmail.
-- Templates HTML salvos reutilizáveis (fica p/ iteração seguinte, mas o `cta_config JSONB` já permite "duplicar campanha").
-
-Confirma que sigo por aqui?
+## Fora do escopo
+- Editor visual WYSIWYG (fica para iteração seguinte).
+- Anexos / imagens inline via CID.
+- Templates salvos por tom (mem: só a lista agora).

@@ -34,7 +34,8 @@ export function EmailComposer({ campaignName, description, filters, audienceCoun
   // CTA state
   const [ctaPrincipal, setCtaPrincipal] = useState<Cta | null>(null);
   const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
-  const [tom, setTom] = useState<string>("consultivo, profissional, direto");
+  const [tom, setTom] = useState<string>("consultivo");
+  const [tomCustom, setTomCustom] = useState<string>("");
 
   // Generated content
   const [subject, setSubject] = useState("");
@@ -145,7 +146,7 @@ export function EmailComposer({ campaignName, description, filters, audienceCoun
           cta_principal: ctaPrincipal,
           ctas_secundarios: ctasSecundarios,
           segmento_resumo: JSON.stringify(filters).slice(0, 500),
-          tom,
+          tom: tom === "custom" ? (tomCustom || "consultivo, profissional") : tom,
           regenerate: mode,
           base_html: mode === "subject" ? html : undefined,
         },
@@ -311,7 +312,30 @@ export function EmailComposer({ campaignName, description, filters, audienceCoun
 
           <div>
             <Label className="text-xs">Tom da mensagem</Label>
-            <Input value={tom} onChange={e => setTom(e.target.value)} placeholder="Ex: consultivo, técnico, direto" />
+            <Select value={tom} onValueChange={setTom}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="consultivo">🎓 Consultivo — orienta sem pressionar</SelectItem>
+                <SelectItem value="tecnico">🔬 Técnico especialista — labs & dentistas avançados</SelectItem>
+                <SelectItem value="educativo">📚 Educativo — artigos e casos clínicos</SelectItem>
+                <SelectItem value="direto_comercial">🎯 Direto & Comercial — leads quentes</SelectItem>
+                <SelectItem value="storytelling">📖 Storytelling clínico — jornada digital</SelectItem>
+                <SelectItem value="urgencia_soft">⏰ Urgência suave — reativação / vagas</SelectItem>
+                <SelectItem value="celebrativo">🎉 Celebrativo — lançamentos e marcos</SelectItem>
+                <SelectItem value="reativacao_amigavel">🤝 Reativação amigável — leads frios</SelectItem>
+                <SelectItem value="pos_venda_cs">✅ Pós-venda / CS — onboarding e suporte</SelectItem>
+                <SelectItem value="evento_convite">🎫 Convite p/ evento — cursos e webinars</SelectItem>
+                <SelectItem value="custom">✏️ Personalizado…</SelectItem>
+              </SelectContent>
+            </Select>
+            {tom === "custom" && (
+              <Input
+                className="mt-2"
+                value={tomCustom}
+                onChange={e => setTomCustom(e.target.value)}
+                placeholder="Ex: irreverente, provocativo mas técnico"
+              />
+            )}
           </div>
 
           <Button onClick={() => handleGenerate("all")} disabled={generating || !produtoId || !ctaPrincipal} className="w-full">

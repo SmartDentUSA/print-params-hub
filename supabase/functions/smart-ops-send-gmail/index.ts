@@ -7,12 +7,38 @@ const corsHeaders = {
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 
-const b64url = (s: string) => {
+// Standard base64 (with +/=) — required inside RFC 2822 body & encoded-word subject.
+const b64std = (s: string) => {
   // deno-lint-ignore no-explicit-any
   const g: any = globalThis;
-  const raw = g.btoa ? g.btoa(unescape(encodeURIComponent(s))) : Buffer.from(s, "utf-8").toString("base64");
-  return raw.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return g.btoa
+    ? g.btoa(unescape(encodeURIComponent(s)))
+    : Buffer.from(s, "utf-8").toString("base64");
 };
+// URL-safe base64 — required ONLY for the Gmail `messages/send` `raw` envelope.
+const b64url = (s: string) =>
+  b64std(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+// Ensure the AI output is a complete, well-formed HTML document.
+function sanitizeEmailHtml(input: string): string {
+  let html = String(input || "").trim();
+  // Strip stray/unopened table fragments that some models leak at the tail.
+  html = html.replace(/(<\/(?:td|tr|table|tbody|thead|tfoot)>\s*)+$/gi, "");
+  // Also drop broken half-tags like `</td` without closing bracket.
+  html = html.replace(/<\/(?:td|tr|table|tbody)\s*$/i, "");
+  const hasBody = /<body[\s>]/i.test(html);
+  const hasHtml = /<html[\s>]/i.test(html);
+  const hasCharset = /<meta[^>]+charset/i.test(html);
+  if (!hasBody) {
+    html = `<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#222;background:#f6f7f9">${html}</body>`;
+  }
+  if (!hasHtml) {
+    html = `<html>${hasCharset ? "" : `<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>`}${html}</html>`;
+  } else if (!hasCharset) {
+    html = html.replace(/<head[^>]*>/i, m => `${m}<meta charset="UTF-8">`);
+  }
+  return `<!doctype html>${html}`;
+}
 
 function firstName(n?: string | null) {
   if (!n) return "";
@@ -212,22 +238,27 @@ Deno.serve(async (req) => {
           if (!/\<\/body\>/i.test(personalHtml)) personalHtml += pixel;
         }
 
-        // 5) build RFC 2822 with preheader hack
+        // 5) build RFC 2822 with preheader hack + sanitized document
         const preheaderBlock = preheader
           ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${preheader}</div>`
           : "";
-        const wrappedHtml = preheaderBlock + personalHtml;
+        const sanitized = sanitizeEmailHtml(personalHtml);
+        // Insert preheader right after <body ...>
+        const wrappedHtml = preheaderBlock
+          ? sanitized.replace(/<body([^>]*)>/i, `<body$1>${preheaderBlock}`)
+          : sanitized;
 
         const senderHeader = `${from_name} <me@gmail>`; // Gmail replaces with authenticated addr
         const raw = [
           `To: ${email}`,
-          `Subject: =?UTF-8?B?${b64url(subject)}?=`,
+          `Subject: =?UTF-8?B?${b64std(subject)}?=`,
           `From: ${senderHeader}`,
           `MIME-Version: 1.0`,
+          `Content-Language: pt-BR`,
           `Content-Type: text/html; charset="UTF-8"`,
           `Content-Transfer-Encoding: base64`,
           ``,
-          b64url(wrappedHtml).replace(/(.{76})/g, "$1\n"),
+          b64std(wrappedHtml).replace(/(.{76})/g, "$1\r\n"),
         ].join("\r\n");
 
         const gres = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
