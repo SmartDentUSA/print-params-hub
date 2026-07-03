@@ -1251,7 +1251,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
     },
   },
   benefits: {
-    title: "Por que a Smart Dent",
+    title: "O que a Smart Dent entrega",
     items: [
       { icon: "licenca", title: "Licença original", desc: "Emitida diretamente pela exocad GmbH." },
       { icon: "brasil", title: "Suporte no Brasil", desc: "Time Smart Dent em português." },
