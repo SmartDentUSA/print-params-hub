@@ -307,7 +307,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
-              <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden">
+              <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] overflow-hidden">
                 <EditorSidebar
                   content={content}
                   onChange={setContent}
@@ -342,7 +342,7 @@ function GenerateLayout(props: {
   hint: string;
 }) {
   return (
-    <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden">
+    <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
       <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
           <Label className="text-xs">{props.inputLabel}</Label>
