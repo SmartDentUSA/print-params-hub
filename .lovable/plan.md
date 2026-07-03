@@ -1,70 +1,79 @@
-# Plan: Reativação Estagnados → Vendas (Meta + Formulários, com guard de intervenção do vendedor)
+# Landing Page Builder por Formulário
 
 ## Objetivo
-Quando um lead parado no **Funil Estagnados** reage a um **novo anúncio Meta OU a qualquer formulário** (toda a lista `COMMERCIAL_SOURCES`), o sistema deve — **exceto quando o deal Estagnados já teve intervenção manual do vendedor** — fazer o seguinte fluxo:
+No card de cada formulário (ex.: `# - FORMS - Ativação exocad DentalCad I.A`), adicionar um botão **LandingPage** ao lado de "Configurações". Ele abre um construtor onde a landing page é gerada em dois modos e sempre usa o formulário do próprio card como CTA.
 
-1. **Fechar** o deal antigo do Estagnados como **"Perdido"**, motivo **"Novo interesse"** (criado dinamicamente no PipeRun se não existir).
-2. **Reaproveitar** a mesma Pessoa/Empresa (sem recriar).
-3. **Sortear novo vendedor** entre `team_members` ativos (`ativo=true`, `role='vendedor'`) — nunca herda o antigo.
-4. **Criar deal novo** em `PIPELINES.VENDAS` / `STAGES_VENDAS.SEM_CONTATO`, com produto/origem/equipamentos via `mapAttendanceToDealCustomFields` + `resolveOriginId`.
-5. Registrar `estagnado_fechado_novo_deal_vendas` em `lead_activity_log`.
+## Padrão estético (fixo em toda LP gerada)
+Alinhado ao briefing `LOVABLE.docx` e à referência https://smart-exocad-booster.lovable.app/#contato:
+- **Paleta**: roxo profundo `#2A0F4C` / `#3A1566` como fundo dominante, branco `#FFFFFF` como base clara, laranja luminoso `#FF6A1A` (CTA principal), texto `#202331`, superfícies suaves `#F4F5F8`, sucesso `#168B5B`.
+- **Tipografia**: `Inter` (ou `Manrope` como alternativa), pesos 400/500/700, títulos grandes e diretos.
+- **Visual**: premium de odontologia digital — hero escuro roxo com detalhes laranja, cards claros, badges de "Licença oficial", numerais grandes de preço, seções full-width alternando roxo/branco, cantos suavemente arredondados (`rounded-2xl`), sombras discretas.
+- **Botões**: primário laranja preenchido, secundário outline branco/roxo; hover com leve elevação.
+- **Composição**: hero → faixa de confiança → dor/transformação → oferta e preços em destaque → módulos/benefícios → depoimentos → FAQ → CTA final → footer legal (mesma ordem descrita no briefing e na referência).
 
-## Guard: intervenção do vendedor (NOVO)
+Este padrão vai como *design system tokens* fixos no system prompt do gerador; os dois modos de criação só variam o conteúdo, nunca o estilo base — garantindo consistência visual entre todas as LPs.
 
-Se o deal Estagnados **já foi tocado manualmente pelo vendedor** — sinalizando que ele conscientemente qualificou/desqualificou o lead — o patch **NÃO** deve fechá-lo como "Novo interesse". Nesse caso, cai no comportamento legado (`moveDealToVendas`) ou apenas registra e ignora, preservando a decisão humana.
+## Modos de criação
+1. **100% por IA** — usuário informa uma ideia curta (produto, público, oferta, tom) e a IA gera todo o HTML/copy usando o padrão estético acima.
+2. **Upload de prompt/instruções** — usuário cola um briefing completo (como o `LOVABLE.docx` do exocad RMS Ultimate) e a IA converte o briefing em landing page fiel ao conteúdo, também dentro do padrão estético.
 
-**Sinais de intervenção considerados (OR — qualquer um dispara o guard):**
-- `estagnDeal.status === 2` (já Perdido) **E** `lost_reason_id` diferente de "Novo interesse" → vendedor já fechou com motivo próprio; não sobrescrever.
-- `estagnDeal.status === 3` (Ganho) ou `4` (cancelado) — não deveria cair nesse branch, mas guarda extra.
-- Existência de **anotação/nota manual** no deal feita por um `user_id` que corresponde a um `team_members.piperun_user_id` com `role='vendedor'` (via `GET deals/{id}/notes` ou campo já cacheado em `piperun_staging` se disponível — verificar em exploração).
-- `estagnDeal.owner_id` já corresponde a um vendedor ativo **E** `updated_at` do deal é posterior à última atividade automatizada registrada em `lead_activity_log` para esse lead (`event_data.deal_id = estagnDeal.id` com `source_channel != 'form'`).
+Nos dois modos o output é o mesmo HTML semântico com Tailwind, contendo os placeholders `{{FORM_CTA_PRIMARY}}` e `{{FORM_CTA_SECONDARY}}` que a rota pública substitui pelo formulário do card em modal (via `QualificationFormInline`).
 
-**Ordem de checagem (barata → cara):** primeiro os campos que já vêm no `estagnDeal` (status, lost_reason_id); só chama `piperunGet notes` se os anteriores não decidirem. Cachear resultado por invocação para evitar múltiplas chamadas.
+## Fluxo UX (dentro do card do formulário)
+1. Novo botão `Layout` (ícone `Layout` do lucide) em `FormMetricsCard`, entre `Settings` e `Pencil`.
+2. Clique abre `LandingPageBuilderModal`:
+   - Aba **Gerar por IA**: campo curto de ideia + inputs opcionais (título/subtítulo/oferta) + botão `Gerar landing`.
+   - Aba **Briefing (prompt)**: `Textarea` grande para colar o documento; botão `Gerar landing`.
+   - Após gerar: preview iframe + editor HTML (só leitura de código, com botão "Regenerar" e "Salvar rascunho").
+   - Botão `Publicar` grava `published_at` e disponibiliza em `/lp/{form.slug}`.
+3. Cabeçalho do modal mostra badge com URL final (`/lp/{slug}`) e status (rascunho/publicado).
 
-**Comportamento quando o guard dispara:**
-- `flowType = "reactivate_estagnado_seller_intervention_preserved"`.
-- **Não** fecha o deal antigo, **não** cria deal novo.
-- Registra `lead_activity_log` com `event_type = "estagnado_seller_intervention_skip"` e detalhes do sinal detectado, para auditoria.
-- Retorna o `piperunId` antigo (mesmo padrão do branch atual `moveDealToVendas` quanto ao `piperunId` retornado ao lead), sem reatribuir vendedor.
+## Modelo de dados
+Nova tabela `public.smartops_form_landing_pages`:
+- `id uuid pk default gen_random_uuid()`
+- `form_id uuid not null unique references smartops_forms(id) on delete cascade`
+- `mode text not null check (mode in ('ai','briefing'))`
+- `input_prompt text` (ideia ou briefing bruto)
+- `generated_html text`
+- `theme jsonb default '{}'::jsonb` (overrides opcionais dos tokens)
+- `status text not null default 'draft'` (`draft` / `published`)
+- `published_at timestamptz`
+- `updated_at timestamptz default now()`
+- `created_at timestamptz default now()`
 
-Deals abertos em **Vendas / CS / Onboarding** continuam intocados pelos branches anteriores (`vendaDeal` / golden rule).
+Com `GRANT` para `authenticated`/`service_role`, RLS habilitada, policies restritas a admins, e `GRANT SELECT ... TO anon` + policy pública apenas quando `status='published'` (para a rota `/lp/:slug`).
 
-## Arquivo alterado
-Apenas `supabase/functions/smart-ops-lia-assign/index.ts`.
+## Edge Function `landing-page-generator`
+- Recebe `{ form_id, mode, input }`.
+- Busca `smartops_forms` para injetar nome/slug/objetivo no prompt.
+- Usa AI SDK + Lovable AI Gateway com `google/gemini-3-flash-preview`.
+- **System prompt fixo** com o padrão estético acima (paleta, tipografia, ordem de seções, componentes, tom Smart Dent) + regras:
+  - Sempre HTML puro com Tailwind classes disponíveis;
+  - CTAs devem usar exatamente `{{FORM_CTA_PRIMARY}}` e `{{FORM_CTA_SECONDARY}}`;
+  - Modo `briefing`: fidelidade total ao conteúdo colado; modo `ai`: expandir a ideia dentro do mesmo padrão;
+  - Nunca inventar preços, prazos ou dados técnicos ausentes do input.
+- Retorna `{ html }`; frontend grava em `smartops_form_landing_pages`.
 
-## Alterações
+## Rota pública `/lp/:slug`
+- Novo `PublicLandingPage.tsx` (lazy) + rota em `src/App.tsx`.
+- Lê `smartops_form_landing_pages` join `smartops_forms` por `slug` + `status='published'`.
+- Renderiza HTML gerado; substitui placeholders por botões que abrem modal com `QualificationFormInline` do formulário. Preserva tracking existente (page view + form submit).
+- Head com `<title>`/`description` derivados do formulário e `og:*` self-referentes via `react-helmet-async`.
 
-### 1. Três helpers novas antes de `// ─── Team Member Selection ───`
-- `resolveLostReasonId(apiToken)` — busca/cria `"Novo interesse"` em `lostReasons` (`status: false` = ativo). Cache em memória.
-- `closeDealAsLost(apiToken, dealId, lostReasonId, reasonComment)` — `PUT deals/{id}` com `status: 2`, `lost_reason_id`, `reason_close`, `closed_at`.
-- `hasSellerIntervention(apiToken, supabase, estagnDeal, novoInteresseReasonId)` — retorna `{ intervened: boolean, signal: string }` aplicando a cascata acima (status/lost_reason → notes por vendedor → owner+updated_at vs. activity_log).
+## Alterações de código
+- `src/components/smartops/FormMetricsCard.tsx`: novo prop `onEditLandingPage` + botão `Layout`.
+- `src/components/SmartOpsFormBuilder.tsx`: estado do modal + hook para carregar/salvar landing + wiring do prop.
+- `src/components/smartops/LandingPageBuilderModal.tsx` (novo): abas IA/Briefing, preview iframe, publish/rascunho.
+- `src/pages/PublicLandingPage.tsx` (novo) + rota `/lp/:slug` em `src/App.tsx`.
+- `supabase/functions/landing-page-generator/index.ts` (novo) usando AI SDK + Lovable Gateway.
+- Migration SQL criando `smartops_form_landing_pages`, GRANTs, RLS e policies.
 
-### 2. Substituir o branch `else if (estagnDeal && force_new_deal !== true)`
+## Fora de escopo
+- Editor visual WYSIWYG (v2 — por ora só regenerar/editar HTML bruto).
+- Checkout Stripe embutido (o briefing exocad menciona, mas a LP apenas exibe conteúdo e usa o formulário como CTA).
+- Templates prontos além dos dois modos.
 
-Fluxo:
-1. `resolveLostReasonId` (usado tanto pelo guard quanto pelo fechamento).
-2. `hasSellerIntervention(...)`. Se `intervened = true`:
-   - `flowType = "reactivate_estagnado_seller_intervention_preserved"`.
-   - `piperunId = String(estagnDeal.id)`.
-   - Log em `lead_activity_log` (`estagnado_seller_intervention_skip`, `event_data.signal`).
-   - **Fim do branch**.
-3. Caso contrário (fluxo completo):
-   - `flowType = "reactivate_estagnado_new_deal"`.
-   - `closeDealAsLost(estagnDeal.id, lostReasonId, ...)`.
-   - `pickRandomActiveVendedor(supabase)` → sobrescreve `assignedOwnerId/Name/TeamMemberId`.
-   - `claimDealCreateSlot(..., 'estagnados_reativacao:{form_name || source}')`; se `lock_held`, aborta com `reactivate_estagnado_new_deal_lock_held`.
-   - `createNewDeal(...)` em `PIPELINES.VENDAS` / `SEM_CONTATO`; `releaseDealCreateSlot` no `finally`.
-   - Insert em `lead_activity_log` (`estagnado_fechado_novo_deal_vendas`) com IDs antigo/novo, motivo, novo owner, `form_name`, `source`.
-
-## Notas técnicas
-- **`status: 2` = Perdido**: validado empiricamente nesta conta (`DEAL_STATUS_MAP`); doc PipeRun cita `3`. **Testar 1 deal manualmente** antes de rodar em produção.
-- **Detecção de nota do vendedor**: durante implementação, checar se `piperun_staging` ou algum campo do webhook já traz `notes[].user_id` — evita chamada HTTP extra. Se não trouxer, `piperunGet(deals/{id}/notes)` é aceitável (1 chamada por reativação).
-- Sem migração de banco (`lead_activity_log` já aceita os novos `event_type`s).
-
-## Fora de escopo (pendência separada)
-Gate `allowCommercialReactivation` / `buildConversionKey` dentro de `smart-ops-ingest-lead` está bloqueando o disparo do `lia-assign` para os 6 leads antigos investigados. Este patch corrige o comportamento **depois** que o lia-assign é chamado; o gate fica para investigação separada.
-
-## Testes pós-deploy
-1. Fechar 1 deal Estagnados manualmente via API → confirmar `status: 2` = "Perdido" no PipeRun UI.
-2. Simular reengajamento de 1 lead Estagnados via **anúncio Meta** e outro via **formulário do site**: ambos devem fechar o antigo como Perdido/"Novo interesse", criar deal novo em Vendas/Sem contato, com vendedor sorteado ≠ antigo, e gerar row em `lead_activity_log`.
-3. Simular reengajamento de 1 lead Estagnados **cujo deal foi manualmente marcado Perdido por outro motivo pelo vendedor** → deve cair no guard, **não** fechar/criar nada, e gerar log `estagnado_seller_intervention_skip`.
+## Validação
+- Publicar uma LP no modo IA para um form existente → abrir `/lp/{slug}` → conferir paleta roxo/branco/laranja, tipografia Inter, seções na ordem correta.
+- Colar o briefing do exocad no modo Briefing → conferir hero com "R$ 2.390 / R$ 1.199", CTAs abrindo o modal com o formulário do card, e visual equivalente ao de https://smart-exocad-booster.lovable.app/#contato.
+- Submeter o formulário pela LP → verificar lead criado no CRM idêntico a `/f/{slug}`.
