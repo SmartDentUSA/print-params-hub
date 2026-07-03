@@ -73,6 +73,25 @@ export type LPContent = {
       footnote?: string;
     }[];
   };
+  modules?: {
+    title?: string;
+    subtitle?: string;
+    items: { name: string; application: string }[];
+    footnote?: string;
+  };
+  regionalRules?: {
+    title?: string;
+    intro?: string;
+    items: string[];
+    footnote?: string;
+  };
+  implementation?: {
+    title?: string;
+    subtitle?: string;
+    activation?: { title: string; items: string[] };
+    training?: { title: string; body: string };
+    support?: { title: string; items: string[] };
+  };
   benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string }[] };
   testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
   faq?: { title?: string; items: { q: string; a: string }[] };
@@ -798,8 +817,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
       {/* BENEFITS */}
       {c.benefits && c.benefits.items.length > 0 && (
-        <section id="modulos" className="py-20 md:py-24 bg-white">
-          <span id="beneficios" className="block relative -top-20" aria-hidden="true" />
+        <section id="beneficios" className="py-20 md:py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
@@ -820,6 +838,149 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   <p className="text-sm text-[var(--lp-text-soft)] leading-relaxed">{b.desc}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* MODULES — Ultimate Lab Bundle */}
+      {c.modules && c.modules.items.length > 0 && (
+        <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+          <div className="max-w-6xl mx-auto px-6">
+            {c.modules.title && (
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-3xl mx-auto text-[var(--lp-text)]">
+                {c.modules.title}
+              </h2>
+            )}
+            {c.modules.subtitle && (
+              <p className="mt-4 max-w-3xl mx-auto text-center text-[var(--lp-text-soft)] leading-relaxed">
+                {c.modules.subtitle}
+              </p>
+            )}
+            <div className="mt-12 grid gap-4 md:grid-cols-2">
+              {c.modules.items.map((m, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl bg-white border border-[var(--lp-border)] p-5 md:p-6 hover:border-[var(--lp-orange)]/40 transition"
+                  style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 shrink-0 w-8 h-8 rounded-lg bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center">
+                      <BenefitSvg name="modulos" className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h3 className="text-base md:text-lg font-bold text-[var(--lp-text)] leading-tight">{m.name}</h3>
+                      <p className="mt-1 text-sm text-[var(--lp-text-soft)] leading-relaxed">{m.application}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {c.modules.footnote && (
+              <p className="mt-8 text-center text-xs text-[var(--lp-text-soft)] max-w-2xl mx-auto leading-relaxed">
+                {c.modules.footnote}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* REGIONAL RULES — Uso seguro e regular da licença */}
+      {c.regionalRules && c.regionalRules.items.length > 0 && (
+        <section id="uso-regular" className="py-20 md:py-24 bg-white">
+          <div className="max-w-4xl mx-auto px-6">
+            <div
+              className="rounded-3xl border border-[var(--lp-border)] bg-white p-8 md:p-10"
+              style={{ boxShadow: "0 20px 60px -30px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+            >
+              <div className="flex items-start gap-4">
+                <span
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white"
+                  style={{ background: GRADIENT_BRAND }}
+                >
+                  <BenefitSvg name="shield" className="w-6 h-6" />
+                </span>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-[var(--lp-text)]">
+                    {c.regionalRules.title ?? "Uso seguro e regular da licença"}
+                  </h2>
+                  {c.regionalRules.intro && (
+                    <p className="mt-3 text-[var(--lp-text-soft)] leading-relaxed">{c.regionalRules.intro}</p>
+                  )}
+                </div>
+              </div>
+              <ul className="mt-7 grid gap-3 md:grid-cols-2">
+                {c.regionalRules.items.map((r, i) => (
+                  <li key={i} className="flex items-start gap-3 rounded-xl bg-[var(--lp-bg-soft)] p-4">
+                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-brand)]/10 flex items-center justify-center">
+                      <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-brand)]" />
+                    </span>
+                    <span className="text-sm leading-relaxed text-[var(--lp-text)]">{r}</span>
+                  </li>
+                ))}
+              </ul>
+              {c.regionalRules.footnote && (
+                <p className="mt-6 text-xs text-[var(--lp-text-soft)] leading-relaxed">{c.regionalRules.footnote}</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* IMPLEMENTATION — Implantação, ativação, treinamento e suporte */}
+      {c.implementation && (
+        <section id="implantacao" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                {c.implementation.title ?? "Implantação, ativação, treinamento e suporte"}
+              </h2>
+              {c.implementation.subtitle && (
+                <p className="mt-4 text-[var(--lp-text-soft)] leading-relaxed">{c.implementation.subtitle}</p>
+              )}
+            </div>
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
+              {c.implementation.activation && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="rocket" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.activation.title}</h3>
+                  <ul className="mt-4 space-y-2.5">
+                    {c.implementation.activation.items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-[var(--lp-text)] leading-relaxed">
+                        <TrustSvg name="check" className="w-4 h-4 mt-0.5 shrink-0 text-[var(--lp-orange)]" />
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {c.implementation.training && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-brand)]/10 text-[var(--lp-brand)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="treinamento" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.training.title}</h3>
+                  <p className="mt-3 text-sm text-[var(--lp-text-soft)] leading-relaxed">{c.implementation.training.body}</p>
+                </div>
+              )}
+              {c.implementation.support && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="suporte" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.support.title}</h3>
+                  <ul className="mt-4 space-y-2.5">
+                    {c.implementation.support.items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-[var(--lp-text)] leading-relaxed">
+                        <TrustSvg name="check" className="w-4 h-4 mt-0.5 shrink-0 text-[var(--lp-brand)]" />
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -937,7 +1098,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
       { label: "Produto", anchor: "#top" },
       { label: "Módulos", anchor: "#modulos" },
       { label: "Como funciona", anchor: "#como-funciona" },
-      { label: "Preço", anchor: "#preco" },
+      { label: "Condições", anchor: "#condicoes" },
       { label: "FAQ", anchor: "#faq" },
     ],
     cta: "Assinar Agora",
@@ -994,20 +1155,6 @@ export const DEFAULT_LP_CONTENT: LPContent = {
     cards: [
       {
         ribbon: "Condição 1",
-        title: "Pré-venda exclusiva",
-        priceLabel: "R$ 2.390",
-        priceNote: "ativação e implantação inicial",
-        includes: [
-          "Primeiro mês da licença oficial incluso",
-          "Cadastramento, validação e ativação",
-          "Treinamento e acompanhamento da implantação",
-          "Mensalidade reduzida após a ativação",
-        ],
-        cta: "Ativar agora",
-        footnote: "Licença oficial, atualizações previstas no plano e suporte Smart Dent.",
-      },
-      {
-        ribbon: "Condição 2",
         title: "Implantação assistida",
         priceLabel: "Sob consulta",
         priceNote: "para times em expansão",
@@ -1021,7 +1168,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
         footnote: "Ideal para laboratórios que precisam organizar o fluxo antes da ativação.",
       },
       {
-        ribbon: "Condição 3",
+        ribbon: "Condição 2",
         title: "Plano consultivo",
         priceLabel: "Personalizado",
         priceNote: "para operação completa",
@@ -1035,6 +1182,73 @@ export const DEFAULT_LP_CONTENT: LPContent = {
         footnote: "A Smart Dent orienta a melhor composição antes da contratação.",
       },
     ],
+  },
+  modules: {
+    title: "O que está incluído no Ultimate Lab Bundle",
+    subtitle: "O pacote é apresentado por aplicações comerciais reais, não apenas por nomes técnicos. Conteúdo conforme o portfólio oficial da exocad.",
+    items: [
+      { name: "DentalCAD Core Version", application: "Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais." },
+      { name: "Virtual Articulator", application: "Simulação de movimentos mandibulares e análise de oclusão dinâmica." },
+      { name: "Provisional Module", application: "Desenho de provisórios, incluindo estruturas do tipo eggshell com base em escaneamentos pré-operatórios." },
+      { name: "TruSmile™ Module", application: "Visualização e renderização realista das restaurações." },
+      { name: "ZRS Tooth Library", application: "Biblioteca adicional de formas dentais naturais." },
+      { name: "Implant Module", application: "Pilares personalizados, coroas sobre implante e restaurações parafusadas." },
+      { name: "Bar Module", application: "Desenho de barras simples e complexas para soluções implantossuportadas." },
+      { name: "DICOM Viewer Module", application: "Visualização de dados volumétricos durante o processo de desenho. Não substitui o exoplan nem constitui ferramenta autônoma de diagnóstico." },
+      { name: "Model Creator Module", application: "Criação de modelos físicos a partir de escaneamentos digitais, para impressão 3D." },
+      { name: "Smile Creator Module", application: "Planejamento estético com integração de dados 2D e 3D." },
+      { name: "Full Denture Module", application: "Desenho digital de próteses totais, incluindo fluxos compatíveis previstos no pacote." },
+      { name: "Inspira™ Denture Tooth Library", application: "Biblioteca de dentes para fluxos digitais de prótese total, conforme disponibilidade da versão." },
+      { name: "PartialCAD Module", application: "Desenho de estruturas metálicas ou digitais para próteses parciais removíveis." },
+      { name: "Bite Splint Module", application: "Placas oclusais, night guards, splints e estruturas tabletop." },
+      { name: "Jaw Motion Import Module", application: "Importação de movimentos reais de sistemas de registro mandibular e arco facial digital." },
+    ],
+    footnote: "A disponibilidade final acompanha a versão, a região e as condições vigentes do fabricante.",
+  },
+  regionalRules: {
+    title: "Uso seguro e regular da licença",
+    intro: "Regras regionais e condições de uso que fazem parte do funcionamento correto da licença RMS no Brasil.",
+    items: [
+      "A licença RMS é destinada ao Brasil e deve ser instalada, ativada, acessada e utilizada no Brasil.",
+      "A conta my.exocad deve conter dados consistentes e país de registro compatível com o Brasil.",
+      "Não utilizar VPN, proxy, túnel, hospedagem remota, desktop remoto ou outros mecanismos com a finalidade de mascarar ou contornar a localização geográfica.",
+      "A licença é por seat: um usuário final e um computador por vez; não é licença concorrente nem flutuante.",
+      "A ativação e a validação contínua dependem de conexão com os mecanismos de licença da exocad.",
+      "Inconsistências de região, conta, IP, geolocalização, dispositivo ou pagamento podem impedir ou suspender a ativação.",
+      "Mudança de computador, sistema ou hardware pode exigir nova validação e deve ser comunicada previamente.",
+      "O cliente é responsável pela guarda de eventual dongle ou mecanismo físico disponibilizado; não há transferência de propriedade ao cliente.",
+    ],
+    footnote: "Estas condições estão detalhadas nos Termos e no FAQ.",
+  },
+  implementation: {
+    title: "Implantação, ativação, treinamento e suporte",
+    subtitle: "Escopo do que a Smart Dent conduz na entrada em operação do seu exocad.",
+    activation: {
+      title: "Ativação inicial",
+      items: [
+        "Conferência do pagamento e dos dados de contratação.",
+        "Validação do cliente, do país, da conta my.exocad e do usuário final.",
+        "Análise básica dos requisitos técnicos informados.",
+        "Solicitação e associação da licença ao cliente.",
+        "Instalação e/ou orientação de instalação conforme procedimento vigente.",
+        "Configuração inicial do ambiente e dos parâmetros aplicáveis.",
+        "Teste de abertura, validação e funcionamento da licença.",
+        "Entrega das orientações para treinamento e suporte.",
+      ],
+    },
+    training: {
+      title: "Treinamento inicial",
+      body: "Treinamento inicial remoto, conforme agenda e formato definidos pela Smart Dent, voltado à introdução ao ambiente, fluxo de trabalho e recursos essenciais do plano.",
+    },
+    support: {
+      title: "Suporte Smart Dent",
+      items: [
+        "Atendimento em português pelos canais oficiais, em horário comercial.",
+        "Orientação de licença, ativação, configuração inicial e incidentes de uso do software.",
+        "Suporte não inclui execução dos projetos do laboratório, desenho de casos por terceiros, responsabilidade clínica ou manutenção de hardware.",
+        "Atendimentos remotos dependem de autorização, disponibilidade do cliente e observância das regras regionais.",
+      ],
+    },
   },
   benefits: {
     title: "Por que a Smart Dent",

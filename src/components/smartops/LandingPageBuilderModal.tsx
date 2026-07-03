@@ -46,9 +46,21 @@ type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
 function ensureContent(raw: unknown): LPContent {
   if (raw && typeof raw === "object" && "hero" in raw) {
     const parsed = raw as LPContent;
+    const filteredCards = (parsed.conditions?.cards ?? []).filter(
+      (card) => !/pr[ée]-?venda/i.test(`${card?.ribbon ?? ""} ${card?.title ?? ""}`),
+    );
     return {
       ...parsed,
-      conditions: parsed.conditions ?? DEFAULT_LP_CONTENT.conditions,
+      conditions: parsed.conditions
+        ? {
+            ...parsed.conditions,
+            title: parsed.conditions.title || "Escolha a melhor condição para ativar seu exocad",
+            cards: filteredCards.length > 0 ? filteredCards : DEFAULT_LP_CONTENT.conditions!.cards,
+          }
+        : DEFAULT_LP_CONTENT.conditions,
+      modules: parsed.modules ?? DEFAULT_LP_CONTENT.modules,
+      regionalRules: parsed.regionalRules ?? DEFAULT_LP_CONTENT.regionalRules,
+      implementation: parsed.implementation ?? DEFAULT_LP_CONTENT.implementation,
     };
   }
   return DEFAULT_LP_CONTENT;
@@ -391,6 +403,9 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-como-funciona", label: "Como funciona" },
   { id: "sec-preco", label: "Preço" },
   { id: "sec-condicoes", label: "Condições" },
+  { id: "sec-modulos", label: "Módulos" },
+  { id: "sec-regional", label: "Uso da licença" },
+  { id: "sec-implantacao", label: "Implantação" },
   { id: "sec-beneficios", label: "Benefícios" },
   { id: "sec-faq", label: "FAQ" },
   { id: "sec-cta-final", label: "CTA final" },
@@ -534,6 +549,47 @@ function ContentEditor({
           cards={normalizeConditionCards(content.conditions?.cards)}
           onChange={(cards) => patch({ conditions: { ...(content.conditions ?? {}), cards } })}
         />
+      </Section>
+
+      <Section title="Módulos (Ultimate Lab Bundle)" anchorId="sec-modulos">
+        <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
+        <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
+        <ModulesEditor
+          items={content.modules?.items ?? []}
+          onChange={(items) => patch({ modules: { ...(content.modules ?? {}), items } })}
+        />
+        <TextField label="Nota final" value={content.modules?.footnote ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), footnote: v } })} multiline />
+      </Section>
+
+      <Section title="Uso seguro e regular da licença" anchorId="sec-regional">
+        <TextField label="Título" value={content.regionalRules?.title ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), title: v } })} />
+        <TextField label="Introdução" value={content.regionalRules?.intro ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), intro: v } })} multiline />
+        <ListEditor
+          label="Regras"
+          items={content.regionalRules?.items ?? []}
+          onChange={(items) => patch({ regionalRules: { ...(content.regionalRules ?? {}), items } })}
+        />
+        <TextField label="Nota final" value={content.regionalRules?.footnote ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), footnote: v } })} multiline />
+      </Section>
+
+      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao">
+        <TextField label="Título" value={content.implementation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), title: v } })} />
+        <TextField label="Subtítulo" value={content.implementation?.subtitle ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), subtitle: v } })} multiline />
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Ativação inicial</div>
+          <TextField label="Título" value={content.implementation?.activation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), activation: { title: v, items: content.implementation?.activation?.items ?? [] } } })} />
+          <ListEditor label="Itens" items={content.implementation?.activation?.items ?? []} onChange={(items) => patch({ implementation: { ...(content.implementation ?? {}), activation: { title: content.implementation?.activation?.title ?? "Ativação inicial", items } } })} />
+        </div>
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Treinamento inicial</div>
+          <TextField label="Título" value={content.implementation?.training?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), training: { title: v, body: content.implementation?.training?.body ?? "" } } })} />
+          <TextField label="Descrição" value={content.implementation?.training?.body ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), training: { title: content.implementation?.training?.title ?? "Treinamento inicial", body: v } } })} multiline />
+        </div>
+        <div className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Suporte Smart Dent</div>
+          <TextField label="Título" value={content.implementation?.support?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), support: { title: v, items: content.implementation?.support?.items ?? [] } } })} />
+          <ListEditor label="Itens" items={content.implementation?.support?.items ?? []} onChange={(items) => patch({ implementation: { ...(content.implementation ?? {}), support: { title: content.implementation?.support?.title ?? "Suporte Smart Dent", items } } })} />
+        </div>
       </Section>
 
       <Section title="Benefícios" anchorId="sec-beneficios">
@@ -812,6 +868,32 @@ function FaqEditor({
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { q: "", a: "" }])} className="h-7 text-xs">
         + Adicionar pergunta
+      </Button>
+    </div>
+  );
+}
+
+function ModulesEditor({
+  items,
+  onChange,
+}: {
+  items: { name: string; application: string }[];
+  onChange: (items: { name: string; application: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((m, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Módulo {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <Input value={m.name} onChange={(e) => { const n = [...items]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="Nome do módulo" className="h-8 text-sm" />
+          <Textarea value={m.application} onChange={(e) => { const n = [...items]; n[i] = { ...m, application: e.target.value }; onChange(n); }} rows={2} placeholder="Aplicação comercial" className="text-sm" />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { name: "", application: "" }])} className="h-7 text-xs">
+        + Adicionar módulo
       </Button>
     </div>
   );
