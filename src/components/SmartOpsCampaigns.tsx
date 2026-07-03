@@ -1805,8 +1805,8 @@ function CreateCampaign({
             </div>
             <EmailComposer
               campaignName={campaignName}
-              description={campaignDescription}
-              filters={filters}
+              description={campaignDesc}
+              filters={buildFiltersObject()}
               audienceCount={leadCount ?? 0}
               onSent={() => setStep(1)}
             />
