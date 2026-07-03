@@ -551,19 +551,6 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             <Headline hero={c.hero} />
             {c.hero.sub && <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--lp-text-soft)]">{c.hero.sub}</p>}
 
-            {c.hero.pricePill && (
-              <div className="mt-7 inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl border border-[var(--lp-brand)]/15 bg-white/70 px-5 py-4 backdrop-blur">
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--lp-brand-2)]">{c.hero.pricePill.label}</span>
-                <span className="text-3xl font-black text-[var(--lp-text)]">{c.hero.pricePill.value}</span>
-                {c.hero.pricePill.note && (
-                  <span className="text-sm text-[var(--lp-text-soft)]">
-                    · {c.hero.pricePill.note}
-                    {c.hero.pricePill.noteStrong && <strong className="ml-1 text-[var(--lp-brand)]">{c.hero.pricePill.noteStrong}</strong>}
-                  </span>
-                )}
-              </div>
-            )}
-
             <div className="mt-7 flex flex-wrap gap-3">
               <PrimaryButton onClick={cta("hero-primary")}>{c.hero.primaryCta}</PrimaryButton>
               {c.hero.secondaryCta && <SecondaryButton onClick={cta("hero-secondary")}>{c.hero.secondaryCta}</SecondaryButton>}
