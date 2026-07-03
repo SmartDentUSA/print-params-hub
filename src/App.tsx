@@ -19,6 +19,7 @@ const ResinRedirect = lazy(() => import("./pages/ResinRedirect"));
 const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
+const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicCourseEnrollment = lazy(() => import("./pages/PublicCourseEnrollment"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
@@ -151,6 +152,9 @@ const App = () => (
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
+
+      {/* Public landing pages (per-form) */}
+      <Route path="/lp/:slug" element={<PublicLandingPage />} />
       
       {/* Support Resources / Product Catalog (Category G) */}
       <Route path="/support-resources" element={<SupportResources />} />

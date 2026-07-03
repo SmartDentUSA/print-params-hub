@@ -17802,6 +17802,60 @@ export type Database = {
           },
         ]
       }
+      smartops_form_landing_pages: {
+        Row: {
+          created_at: string
+          form_id: string
+          generated_html: string | null
+          id: string
+          input_prompt: string | null
+          mode: string
+          published_at: string | null
+          status: string
+          theme: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          generated_html?: string | null
+          id?: string
+          input_prompt?: string | null
+          mode: string
+          published_at?: string | null
+          status?: string
+          theme?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          generated_html?: string | null
+          id?: string
+          input_prompt?: string | null
+          mode?: string
+          published_at?: string | null
+          status?: string
+          theme?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_form_landing_pages_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: true
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_landing_pages_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: true
+            referencedRelation: "v_form_health"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartops_forms: {
         Row: {
           active: boolean

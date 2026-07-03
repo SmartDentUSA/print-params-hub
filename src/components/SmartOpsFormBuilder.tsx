@@ -12,6 +12,7 @@ import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText,
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
+import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import {
   Select,
   SelectContent,
@@ -176,6 +177,7 @@ export function SmartOpsFormBuilder() {
   const [periodDays, setPeriodDays] = useState<number>(30);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
+  const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
@@ -1150,6 +1152,7 @@ export function SmartOpsFormBuilder() {
                       onToggleActive={() => toggleActive(form)}
                       onEditMeta={() => openEditMeta(form)}
                       onEditFields={() => setEditingForm(form)}
+                      onEditLandingPage={() => setLandingPageForm(form)}
                       onDuplicate={() => handleDuplicate(form)}
                       onCopyLink={() => copyLink(form.slug)}
                       onCopyEmbed={() => copyEmbed(form.slug, form.name)}
@@ -1162,6 +1165,12 @@ export function SmartOpsFormBuilder() {
           })}
         </div>
       )}
+
+      <LandingPageBuilderModal
+        open={!!landingPageForm}
+        onOpenChange={(v) => { if (!v) setLandingPageForm(null); }}
+        form={landingPageForm}
+      />
     </div>
   );
 }
