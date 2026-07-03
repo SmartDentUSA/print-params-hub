@@ -405,7 +405,7 @@ function EditorSidebar({
   heroImage: string;
   onHeroImageChange: (v: string) => void;
 }) {
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const jumpTo = (id: string) => {
     const container = scrollRef.current;
     if (!container) return;
