@@ -503,9 +503,9 @@ function ContentEditor({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, anchorId }: { title: string; children: React.ReactNode; anchorId?: string }) {
   return (
-    <details open className="group border rounded-lg bg-white">
+    <details open id={anchorId} className="group border rounded-lg bg-white scroll-mt-16">
       <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-sm flex items-center justify-between">
         {title}
         <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
