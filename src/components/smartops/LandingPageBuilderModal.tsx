@@ -18,6 +18,8 @@ import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil } from "lucid
 import {
   PremiumLandingTemplate,
   DEFAULT_LP_CONTENT,
+  LP_THEMES,
+  type LPThemeKey,
   type LPContent,
 } from "@/components/lp/PremiumLandingTemplate";
 
