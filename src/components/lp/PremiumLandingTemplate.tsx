@@ -761,39 +761,47 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {c.modules && c.modules.items.length > 0 && (
         <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
           <div className="max-w-6xl mx-auto px-6">
-            {c.modules.title && (
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-3xl mx-auto text-[var(--lp-text)]">
-                {c.modules.title}
-              </h2>
-            )}
-            {c.modules.subtitle && (
-              <p className="mt-4 max-w-3xl mx-auto text-center text-[var(--lp-text-soft)] leading-relaxed">
-                {c.modules.subtitle}
-              </p>
-            )}
-            <div className="mt-12 grid gap-4 md:grid-cols-2">
+            <div className="max-w-3xl">
+              {c.modules.eyebrow && (
+                <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[var(--lp-text-soft)]">
+                  {c.modules.eyebrow}
+                </div>
+              )}
+              {c.modules.title && (
+                <h2 className="mt-3 text-3xl md:text-5xl font-black tracking-tight text-[var(--lp-text)] leading-[1.05]">
+                  {c.modules.title}
+                </h2>
+              )}
+              {c.modules.subtitle && (
+                <p className="mt-4 text-[var(--lp-text-soft)] leading-relaxed">
+                  {c.modules.subtitle}
+                </p>
+              )}
+            </div>
+            <div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {c.modules.items.map((m, i) => (
                 <div
                   key={i}
-                  className="rounded-2xl bg-white border border-[var(--lp-border)] p-5 md:p-6 hover:border-[var(--lp-orange)]/40 transition"
-                  style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+                  className="rounded-2xl bg-white border border-[var(--lp-border)] p-5 hover:border-[var(--lp-orange)]/40 transition"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="mt-1 shrink-0 w-8 h-8 rounded-lg bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center">
-                      <BenefitSvg name="modulos" className="w-4 h-4" />
+                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
+                      <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-orange)]" />
                     </span>
                     <div>
-                      <h3 className="text-base md:text-lg font-bold text-[var(--lp-text)] leading-tight">{m.name}</h3>
-                      <p className="mt-1 text-sm text-[var(--lp-text-soft)] leading-relaxed">{m.application}</p>
+                      <h3 className="text-sm md:text-base font-bold text-[var(--lp-text)] leading-tight">{m.name}</h3>
+                      <p className="mt-1 text-xs md:text-sm text-[var(--lp-text-soft)] leading-relaxed">{m.application}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
             {c.modules.footnote && (
-              <p className="mt-8 text-center text-xs text-[var(--lp-text-soft)] max-w-2xl mx-auto leading-relaxed">
-                {c.modules.footnote}
-              </p>
+              <div className="mt-8 rounded-2xl border border-[var(--lp-border)] bg-white/60 px-5 py-4">
+                <p className="text-xs text-[var(--lp-text-soft)] leading-relaxed">
+                  {c.modules.footnote}
+                </p>
+              </div>
             )}
           </div>
         </section>
