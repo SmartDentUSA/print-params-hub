@@ -1,80 +1,75 @@
-# LP Builder v2 — LLM premium + Editor Visual WYSIWYG + paleta ajustada
+# LP Builder v3 — Qualidade "Awwwards" real
 
-## Escopo
-1. Trocar o modelo da geração para o mais forte disponível no gateway (qualidade "Lovable-level" em HTML/CSS/Tailwind).
-2. Consolidar a paleta oficial fornecida no system prompt e nos tokens de referência.
-3. Adicionar editor visual **WYSIWYG** no modal, permitindo editar a LP gerada em blocos, textos, imagens e cores sem sair do admin.
-4. Manter os dois modos de entrada (IA / Briefing) e a rota pública `/lp/:slug`.
+## Diagnóstico do resultado atual
+Na prévia mostrada:
+- Fundo branco em toda a página (deveria ter hero roxo `#1D173E`).
+- Botões `QUERO COMEÇAR AGORA` e `TIRAR UMA DÚVIDA NO WHATSAPP` renderizam como `<button>` nativos do navegador — o modelo **não incluiu a lista de classes Tailwind** que o system prompt exige.
+- Sem selo "ATIVAÇÃO INICIAL", sem card de preço, sem SVGs de ícones, sem CTA fixo mobile.
+- Tipografia default do browser (não Inter/Manrope).
 
-## Modelo de LLM
-- Atual: `google/gemini-3-flash-preview` (rápido, mas HTML fica genérico).
-- Novo padrão para LP: **`google/gemini-3-pro-preview`** — melhor qualidade em raciocínio de layout/copy longa, ainda dentro do catálogo do Lovable Gateway.
-- Se o catálogo confirmar disponibilidade de `anthropic/claude-sonnet-4.5` (ou id equivalente que o catálogo aceite hoje), uso ele — Claude Sonnet é o melhor da categoria em HTML/CSS estruturado. Verifico o id exato antes de implementar; se não estiver no catálogo, fico com `gemini-3-pro-preview`.
-- Fallback automático para `gemini-3-flash-preview` em 429/402 (para não travar o admin quando a cota do pro estiver estressada).
-- Temperature 0.55, `max_tokens` alto para a LP completa não ser truncada.
+**Causa raiz**: mesmo com o system prompt detalhado, `google/gemini-3.1-pro-preview` está sendo conservador e produzindo HTML minimalista. Precisamos de um modelo com melhor aderência a instruções longas de UI + reforçar com exemplo.
 
-## System prompt — padrão estético oficial (atualizado)
-Paleta consolidada (substitui a v1):
-- Roxo principal `#2C245B` — superfícies dominantes e chrome
-- Roxo hero `#1D173E` — fundo do hero e seções escuras
-- Laranja CTA `#F47C42` — botão principal e destaques
-- Fundo suave `#F4F5F8` — seções alternadas claras
-- Texto `#202331` — corpo
-- Sucesso `#168B5B` — status/checkmarks
-- Branco `#FFFFFF` — cards e superfícies claras
+## Correções
 
-Regras fixas embutidas no system prompt:
-- Tipografia: `Inter` (corpo) + display limpa para títulos (`Manrope` como headline alternativa). Pesos 400/500/700/800.
-- **Selo "ATIVAÇÃO INICIAL"** obrigatório: aparece como badge grande no hero e como faixa dourada/laranja no card de preço quando o briefing/ideia mencionar ativação.
-- Hero: composição visual com "sorriso digital" ou fluxo CAD via SVG inline geométrico (sem imagens externas para evitar direitos autorais). Sem watermarks.
-- Ícones lineares inline (SVG): licença, computador, treinamento, cartão, suporte, Brasil, módulos — biblioteca interna de paths hardcoded no prompt para o modelo reutilizar.
-- CTA: botão principal `bg-[#F47C42] text-white` sobre roxo `#1D173E`; **CTA fixo no mobile** (`fixed bottom-0 inset-x-0 md:static` com sombra e safe-area).
-- Cards: `rounded-2xl`, muito whitespace, textos curtos, `<details>` nativo para "ver mais detalhes".
-- FAQ: acordeão com `<details><summary>` (nativo, acessível, sem JS). Preço e condições essenciais sempre visíveis fora do acordeão.
-- Responsividade mobile-first estrita: hero empilha, tipografia fluida (`clamp()` via classes), grid 1→2→3.
-- Acessibilidade AA: contraste checado nos pares (`#F47C42` sobre `#1D173E` = AA large; `#202331` sobre `#F4F5F8` = AAA). Focus ring visível `focus-visible:ring-2 ring-[#F47C42]`. Todos os botões com `aria-label`; imagens SVG decorativas com `aria-hidden`; tap-targets `min-h-11 min-w-11`.
-- CTAs continuam marcados com `data-form-cta="primary|secondary"` — a rota pública converte em modal do formulário.
+### 1. Trocar de modelo para o melhor em instruction-following visual
+Segundo o catálogo `ai-models-chat`:
+- **`openai/gpt-5.5`** — "Most capable GPT-5.5 model for demanding reasoning, **coding**, and instruction-following tasks." Fast mode ✓.
+- Alternativa: `openai/gpt-5.4` (também Fast ✓, mais econômico).
 
-## Editor Visual WYSIWYG
-Adiciono uma **terceira aba** no `LandingPageBuilderModal`: **"Editor Visual"**, ativa depois que a LP foi gerada.
+Vou usar **`openai/gpt-5.5`** como primário, com `service_tier: "priority"` (Fast mode) para reduzir latência. Fallback: `openai/gpt-5.4` → `google/gemini-3.1-pro-preview` → `google/gemini-3-flash-preview`.
 
-**Tecnologia**: **GrapesJS** com preset de landing page (`grapesjs`, `grapesjs-preset-webpage`, `grapesjs-plugin-forms`, `grapesjs-tailwind`).
-- Motivo: GrapesJS importa HTML arbitrário direto (o output da IA), permite edição visual em blocos, texto inline, arrastar componentes, editar estilos por painel — sem precisar re-estruturar a saída da IA em um schema próprio (como Puck exigiria).
-- Alternativa considerada e descartada: Puck (exige converter HTML em JSON estruturado — inviável para HTML gerado por LLM); TipTap (é editor de texto, não de layout).
+### 2. Reforçar o system prompt com exemplo few-shot
+Adicionar ao system prompt um trecho de exemplo mostrando exatamente o padrão de output esperado — hero completo com selo, card de preço com faixa "ATIVAÇÃO INICIAL", botão com todas as classes, seção FAQ em `<details>`. Modelos de instrução seguem muito melhor quando têm um golden example.
 
-**Comportamento**:
-- Ao abrir a aba, GrapesJS carrega o `generated_html` atual.
-- Painéis à direita: blocos (hero, seção, card, FAQ, CTA), estilos (cor/tipografia/spacing), camadas.
-- Barra superior: desfazer/refazer, alternar preview desktop/tablet/mobile, salvar.
-- Injeta a paleta oficial como *color swatches* pré-definidos no picker.
-- Preserva marcadores `data-form-cta` (bloco especial "CTA do formulário" que sempre renderiza um botão com o attribute correto).
-- Ao salvar: grava HTML + CSS combinados de volta em `generated_html`. Opcionalmente guarda o *dump* JSON do GrapesJS num campo novo `editor_state jsonb` para carregar o estado com fidelidade na próxima abertura.
+Também mudar de instrução aberta ("gere uma LP") para checklist obrigatória validada:
+- [ ] `<section>` hero com `bg-[#1D173E]`
+- [ ] Badge `ATIVAÇÃO INICIAL` visível no hero
+- [ ] `<h1>` com Manrope-like (classe `font-[Manrope]` ou `font-black tracking-tight`)
+- [ ] Card de preço com faixa laranja
+- [ ] Botão principal com **exatamente** essas classes: `inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition`
+- [ ] Grid de benefícios com SVGs inline
+- [ ] `<details>` FAQ
+- [ ] CTA fixo mobile `<div class="fixed inset-x-0 bottom-0 z-40 md:hidden ...">`
+- [ ] Footer legal minimalista
 
-**Fluxo completo do modal**:
-1. Aba **Gerar por IA** — cria/regenera do zero (LLM premium).
-2. Aba **Briefing (prompt)** — cria/regenera a partir de texto colado.
-3. Aba **Editor Visual** — refina a última versão gerada (habilitada quando existe HTML).
-4. Botões globais: **Salvar rascunho** / **Publicar**.
+O prompt instrui o modelo a produzir o HTML **verificando cada item da checklist**.
 
-## Alterações de código
+### 3. Aumentar orçamento de tokens
+`max_tokens: 8000` está apertado. Subir para **`max_tokens: 16000`** para GPT-5.5 e permitir a LP inteira sem truncar.
+
+### 4. Post-processing de segurança (network)
+Depois de receber o HTML, o edge function faz uma passada rápida:
+- Se algum `<button data-form-cta="primary">` **não tem** `bg-[#F47C42]` na classe → injeta a lista canônica.
+- Se não existe `Ativação Inicial` no HTML → injeta o badge no primeiro `<section>`.
+- Se não existe o CTA fixo mobile → append de um bloco padrão antes de `</main>`.
+
+Isso garante que mesmo se o modelo pular algo, o output sai apresentável.
+
+### 5. Preview do modal: forçar tipografia oficial
+Adicionar `<link rel="preconnect">` para Google Fonts + import de Inter/Manrope no `srcDoc` da prévia, e definir `<style>body{font-family:'Inter',...} h1,h2,h3{font-family:'Manrope',...}</style>`.
+
+### 6. Rota pública `/lp/:slug`
+Aplicar o mesmo bootstrap de fontes + Tailwind CDN + safe-area no `<PublicLandingPage>` para render fiel.
+
+## Alterações
 - `supabase/functions/landing-page-generator/index.ts`:
-  - Trocar modelo padrão para `google/gemini-3-pro-preview` (com fallback para flash em 429/402).
-  - Atualizar `DESIGN_SYSTEM` com a nova paleta e regras (selo, CTA fixo, ícones, acessibilidade).
-  - Enriquecer o prompt com a biblioteca de SVG paths para ícones lineares.
+  - Modelo primário → `openai/gpt-5.5` com `service_tier: "priority"`.
+  - Cascade de fallback (5.5 → 5.4 → gemini-3.1-pro → gemini-3-flash).
+  - System prompt com **exemplo few-shot** e **checklist**.
+  - `max_tokens: 16000`.
+  - Nova função `sanitizeAndReinforce(html)` que injeta classes canônicas em `data-form-cta`, badge de ativação e CTA mobile fixo se ausentes.
 - `src/components/smartops/LandingPageBuilderModal.tsx`:
-  - Adicionar terceira aba "Editor Visual".
-  - Novo componente `LandingPageVisualEditor.tsx` encapsulando GrapesJS.
-  - `onSave` da aba visual grava HTML+CSS de volta na tabela.
-- `src/pages/PublicLandingPage.tsx`: nenhuma mudança de contrato (`data-form-cta` continua o gancho).
-- Migration: adiciona coluna `editor_state jsonb` em `smartops_form_landing_pages` para persistir o dump do editor.
-- Deps novas: `grapesjs`, `grapesjs-preset-webpage`, `grapesjs-plugin-forms`, `grapesjs-tailwind`.
-
-## Fora de escopo
-- Editor real-time colaborativo.
-- Templates prontos além dos gerados pela IA (o editor visual permite montar do zero se o usuário quiser).
-- Integração com checkout Stripe embutido — CTA continua abrindo o formulário do card.
+  - `previewSrcDoc` inclui Google Fonts (Inter + Manrope) e reset mínimo.
+- `src/pages/PublicLandingPage.tsx`:
+  - Mesmo bootstrap de fontes.
 
 ## Validação
-- Gerar LP no modo IA para `# - FORMS - Ativação exocad DentalCad I.A` → conferir presença do badge "ATIVAÇÃO INICIAL" no hero, CTA fixo no mobile (viewport ≤768), FAQ em `<details>`, cores exatas.
-- Abrir aba Editor Visual → arrastar um bloco novo, trocar cor do CTA para `#F47C42`, salvar → recarregar modal → confirmar persistência.
-- Publicar → abrir `/lp/ativacao-exocad-dentalcad-ia` no mobile → conferir CTA fixo, acessibilidade (tab-through, focus ring, contrast), abrir modal do formulário via CTA.
+Regenerar a LP do card exocad → esperar output com:
+1. Hero roxo escuro com selo laranja "ATIVAÇÃO INICIAL" grande.
+2. Botões laranja preenchidos.
+3. Card de preço com faixa destacada.
+4. Grid de ícones lineares SVG.
+5. FAQ em acordeão.
+6. CTA fixo aparece só em mobile (testar viewport 375).
+
+Se ainda ficar aquém depois disso, próximo passo é gerar a LP em duas etapas (esqueleto + refinamento por seção), mas começamos com single-shot + GPT-5.5 que deve resolver.

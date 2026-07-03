@@ -62,6 +62,19 @@ export default function PublicLandingPage() {
     }
   }, [lp]);
 
+  // Load Inter + Manrope for the public LP so the AI-generated markup matches design system
+  useEffect(() => {
+    if (!lp) return;
+    const id = "smartdent-lp-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800;900&display=swap";
+    document.head.appendChild(link);
+  }, [lp]);
+
   // Bind [data-form-cta] buttons to open the form modal
   useEffect(() => {
     const root = contentRef.current;
@@ -102,7 +115,10 @@ export default function PublicLandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#202331]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div
+      className="min-h-screen bg-white text-[#202331] [&_h1]:font-[Manrope,Inter,sans-serif] [&_h2]:font-[Manrope,Inter,sans-serif] [&_h3]:font-[Manrope,Inter,sans-serif]"
+      style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
+    >
       <div
         ref={contentRef}
         dangerouslySetInnerHTML={{ __html: lp.generated_html }}
