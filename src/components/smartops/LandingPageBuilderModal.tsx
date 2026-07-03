@@ -518,6 +518,7 @@ function defaultConditionCards() {
     title: "",
     priceLabel: "",
     priceNote: "",
+    originalPrice: "",
     includes: [""],
     cta: "",
     footnote: "",
