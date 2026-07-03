@@ -41,6 +41,7 @@ export type LPContent = {
     primaryCta: string;
     secondaryCta?: string;
     productCardCaption?: string;
+    audio?: { url: string; label?: string };
   };
   positioning?: {
     eyebrow?: string;
