@@ -73,6 +73,25 @@ export type LPContent = {
       footnote?: string;
     }[];
   };
+  modules?: {
+    title?: string;
+    subtitle?: string;
+    items: { name: string; application: string }[];
+    footnote?: string;
+  };
+  regionalRules?: {
+    title?: string;
+    intro?: string;
+    items: string[];
+    footnote?: string;
+  };
+  implementation?: {
+    title?: string;
+    subtitle?: string;
+    activation?: { title: string; items: string[] };
+    training?: { title: string; body: string };
+    support?: { title: string; items: string[] };
+  };
   benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string }[] };
   testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
   faq?: { title?: string; items: { q: string; a: string }[] };
