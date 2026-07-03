@@ -41,7 +41,7 @@ const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada d
     "footnote": string OPCIONAL
   },
   "benefits": { "title": string, "items": [ { "icon": "licenca"|"computador"|"treinamento"|"cartao"|"suporte"|"brasil"|"modulos"|"shield"|"sparkles"|"rocket"|"clock", "title": string, "desc": string } ] (6 itens) },
-  "modules": { "title": string, "subtitle": string, "items": [ { "name": string, "application": string } ], "footnote": string OPCIONAL } (OPCIONAL — só inclua se o input listar módulos/features explicitamente; NUNCA invente módulos além dos oficialmente listados),
+  "modules": { "eyebrow": string OPCIONAL (uppercase curto, ex: "O QUE ESTÁ INCLUÍDO"), "title": string, "subtitle": string, "items": [ { "name": string, "application": string } ], "footnote": string OPCIONAL } (OPCIONAL — só inclua se o input listar módulos/features explicitamente; NUNCA invente módulos além dos oficialmente listados),
   "regionalRules": { "title": string, "intro": string OPCIONAL, "items": string[], "footnote": string OPCIONAL } (OPCIONAL — regras de uso da licença; tom institucional e informativo, NUNCA ameaçador),
   "implementation": { "title": string, "subtitle": string OPCIONAL, "activation": { "title": string, "items": string[] }, "training": { "title": string, "body": string }, "support": { "title": string, "items": string[] } } (OPCIONAL — para treinamento, use exatamente: "Treinamento inicial remoto, conforme agenda e formato definidos pela Smart Dent, voltado à introdução ao ambiente, fluxo de trabalho e recursos essenciais do plano."),
   "testimonials": { "title": string, "items": [ { "quote": string, "author": string, "role": string } ] (2-3; OMITA se sem depoimentos reais) },
