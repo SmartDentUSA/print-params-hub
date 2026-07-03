@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -308,9 +308,12 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
               <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr] grid-rows-[1fr] overflow-hidden">
-                <div className="h-full min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
-                  <ContentEditor content={content} onChange={setContent} heroImage={heroImage} onHeroImageChange={setHeroImage} />
-                </div>
+                <EditorSidebar
+                  content={content}
+                  onChange={setContent}
+                  heroImage={heroImage}
+                  onHeroImageChange={setHeroImage}
+                />
                 <LivePreview content={content} heroImage={heroImage} />
               </div>
             ) : (
@@ -379,6 +382,72 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
   );
 }
 
+const EDITOR_SECTIONS: { id: string; label: string }[] = [
+  { id: "sec-aparencia", label: "Aparência" },
+  { id: "sec-hero", label: "Hero" },
+  { id: "sec-como-funciona", label: "Como funciona" },
+  { id: "sec-preco", label: "Preço" },
+  { id: "sec-condicoes", label: "Condições" },
+  { id: "sec-beneficios", label: "Benefícios" },
+  { id: "sec-faq", label: "FAQ" },
+  { id: "sec-cta-final", label: "CTA final" },
+  { id: "sec-rodape", label: "Rodapé" },
+];
+
+function EditorSidebar({
+  content,
+  onChange,
+  heroImage,
+  onHeroImageChange,
+}: {
+  content: LPContent;
+  onChange: (c: LPContent) => void;
+  heroImage: string;
+  onHeroImageChange: (v: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const jumpTo = (id: string) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const target = container.querySelector<HTMLElement>(`#${id}`);
+    if (!target) return;
+    const top = target.offsetTop - 8;
+    container.scrollTo({ top, behavior: "smooth" });
+    // Ensure <details> is open
+    if (target.tagName.toLowerCase() === "details" && !(target as HTMLDetailsElement).open) {
+      (target as HTMLDetailsElement).open = true;
+    }
+  };
+  return (
+    <div className="h-full min-h-0 border-r bg-muted/20 flex flex-col">
+      <nav className="sticky top-0 z-10 border-b bg-muted/40 backdrop-blur px-3 py-2 flex flex-wrap gap-1.5">
+        {EDITOR_SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => jumpTo(s.id)}
+            className="text-[11px] font-semibold px-2 py-1 rounded-full border bg-white hover:border-primary hover:text-primary transition"
+          >
+            {s.label}
+          </button>
+        ))}
+      </nav>
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto p-5 space-y-6"
+        style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+      >
+        <ContentEditor
+          content={content}
+          onChange={onChange}
+          heroImage={heroImage}
+          onHeroImageChange={onHeroImageChange}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ---------- Content editor ----------
 function ContentEditor({
   content,
@@ -395,7 +464,7 @@ function ContentEditor({
 
   return (
     <>
-      <Section title="Aparência (paleta de cores)">
+      <Section title="Aparência (paleta de cores)" anchorId="sec-aparencia">
         <div className="grid grid-cols-2 gap-2">
           {(Object.keys(LP_THEMES) as LPThemeKey[]).map((key) => {
             const theme = LP_THEMES[key];
@@ -426,7 +495,7 @@ function ContentEditor({
         <p className="text-[11px] text-muted-foreground mt-1">A paleta selecionada é aplicada em tempo real na prévia e ao publicar.</p>
       </Section>
 
-      <Section title="Hero">
+      <Section title="Hero" anchorId="sec-hero">
         <TextField label="Selo (badge laranja)" value={content.hero.badge ?? ""} onChange={(v) => patch({ hero: { ...content.hero, badge: v } })} />
         <TextField label="Eyebrow" value={content.hero.eyebrow ?? ""} onChange={(v) => patch({ hero: { ...content.hero, eyebrow: v } })} />
         <TextField label="Headline" value={content.hero.headline} onChange={(v) => patch({ hero: { ...content.hero, headline: v } })} multiline />
@@ -437,7 +506,7 @@ function ContentEditor({
         <TextField label="URL da imagem do hero (opcional)" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
       </Section>
 
-      <Section title="Como funciona">
+      <Section title="Como funciona" anchorId="sec-como-funciona">
         <TextField label="Título" value={content.howItWorks?.title ?? ""} onChange={(v) => patch({ howItWorks: { ...(content.howItWorks ?? { items: [] }), title: v } })} />
         <StepListEditor
           items={content.howItWorks?.items ?? []}
@@ -445,7 +514,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Card de preço">
+      <Section title="Card de preço" anchorId="sec-preco">
         <TextField label="Faixa (ribbon)" value={content.price?.ribbon ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), ribbon: v } })} />
         <TextField label="Título" value={content.price?.title ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { includes: [], cta: "" }), title: v } })} />
         <TextField label="Preço (opcional)" value={content.price?.priceLabel ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), priceLabel: v } })} />
@@ -455,7 +524,7 @@ function ContentEditor({
         <TextField label="Rodapé do card" value={content.price?.footnote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), footnote: v } })} />
       </Section>
 
-      <Section title="Condições">
+      <Section title="Condições" anchorId="sec-condicoes">
         <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
         <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
         <ConditionCardsEditor
@@ -464,7 +533,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Benefícios">
+      <Section title="Benefícios" anchorId="sec-beneficios">
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
           items={content.benefits?.items ?? []}
@@ -472,7 +541,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="FAQ">
+      <Section title="FAQ" anchorId="sec-faq">
         <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
         <FaqEditor
           items={content.faq?.items ?? []}
@@ -480,13 +549,13 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="CTA final">
+      <Section title="CTA final" anchorId="sec-cta-final">
         <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
         <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
         <TextField label="CTA" value={content.finalCta?.cta ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "" }), cta: v } })} />
       </Section>
 
-      <Section title="Rodapé">
+      <Section title="Rodapé" anchorId="sec-rodape">
         <TextField label="Nome da marca" value={content.brandName ?? ""} onChange={(v) => patch({ brandName: v })} />
         <TextField
           label="URL do logo (imagem no header)"
@@ -500,9 +569,9 @@ function ContentEditor({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, anchorId }: { title: string; children: React.ReactNode; anchorId?: string }) {
   return (
-    <details open className="group border rounded-lg bg-white">
+    <details open id={anchorId} className="group border rounded-lg bg-white scroll-mt-16">
       <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-sm flex items-center justify-between">
         {title}
         <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
