@@ -699,7 +699,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             )}
           </div>
 
-          <HeroProductCard src={heroImageUrl} caption={c.hero.productCardCaption ?? c.resellerBadge} />
+          <HeroProductCard src={heroImageUrl} caption={c.hero.productCardCaption ?? c.resellerBadge} audio={c.hero.audio} />
         </div>
       </section>
 
