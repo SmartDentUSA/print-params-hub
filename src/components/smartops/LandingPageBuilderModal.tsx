@@ -872,3 +872,29 @@ function FaqEditor({
     </div>
   );
 }
+
+function ModulesEditor({
+  items,
+  onChange,
+}: {
+  items: { name: string; application: string }[];
+  onChange: (items: { name: string; application: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((m, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Módulo {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <Input value={m.name} onChange={(e) => { const n = [...items]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="Nome do módulo" className="h-8 text-sm" />
+          <Textarea value={m.application} onChange={(e) => { const n = [...items]; n[i] = { ...m, application: e.target.value }; onChange(n); }} rows={2} placeholder="Aplicação comercial" className="text-sm" />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { name: "", application: "" }])} className="h-7 text-xs">
+        + Adicionar módulo
+      </Button>
+    </div>
+  );
+}
