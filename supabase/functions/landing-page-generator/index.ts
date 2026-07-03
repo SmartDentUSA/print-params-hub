@@ -89,7 +89,7 @@ const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada d
   "regionalRules": { "title": string, "intro": string OPCIONAL, "items": string[], "footnote": string OPCIONAL } (OPCIONAL — regras de uso da licença; tom institucional e informativo, NUNCA ameaçador),
   "implementation": { "title": string, "subtitle": string OPCIONAL, "activation": { "title": string, "items": string[] }, "training": { "title": string, "body": string }, "support": { "title": string, "items": string[] } } (OPCIONAL — para treinamento, use exatamente: "Treinamento inicial remoto, conforme agenda e formato definidos pela Smart Dent, voltado à introdução ao ambiente, fluxo de trabalho e recursos essenciais do plano."),
   "testimonials": { "title": string, "items": [ { "quote": string, "author": string, "role": string } ] (2-3; OMITA se sem depoimentos reais) },
-  "faq": { "title": string, "items": [ { "q": string, "a": string } ] (5-8) },
+  "faq": { "title": string, "items": [ { "q": string, "a": string } ] (5-8 itens genéricos; 25 itens obrigatórios quando o input for sobre exocad/RMS/Ultimate Lab Bundle/DentalCAD, usando a lista canônica abaixo) },
   "finalCta": { "headline": string, "sub": string, "cta": string },
   "legal": string
 }
