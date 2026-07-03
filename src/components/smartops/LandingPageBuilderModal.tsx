@@ -230,13 +230,22 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
                 <Pencil className="w-3.5 h-3.5" /> Editar & publicar
               </TabsTrigger>
             </TabsList>
-            {content && (
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={handleRegenerate} disabled={generating || saving} className="gap-2">
+            <div className="flex gap-2">
+              {(content || lp?.input_prompt) && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={handleRegenerate}
+                  disabled={generating || saving}
+                  className="gap-2 bg-gradient-to-r from-[#605882] to-[#DF7344] text-white hover:opacity-90"
+                >
                   {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Regenerar
+                  Regenerar com IA
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleSaveEdits} disabled={saving}>
+              )}
+              {content && (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleSaveEdits} disabled={saving}>
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
                 </Button>
                 <Button
@@ -249,8 +258,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                   {lp?.status === "published" ? "Despublicar" : "Publicar"}
                 </Button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           <TabsContent value="ai" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
