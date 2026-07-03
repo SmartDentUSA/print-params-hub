@@ -46,9 +46,21 @@ type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
 function ensureContent(raw: unknown): LPContent {
   if (raw && typeof raw === "object" && "hero" in raw) {
     const parsed = raw as LPContent;
+    const filteredCards = (parsed.conditions?.cards ?? []).filter(
+      (card) => !/pr[ée]-?venda/i.test(`${card?.ribbon ?? ""} ${card?.title ?? ""}`),
+    );
     return {
       ...parsed,
-      conditions: parsed.conditions ?? DEFAULT_LP_CONTENT.conditions,
+      conditions: parsed.conditions
+        ? {
+            ...parsed.conditions,
+            title: parsed.conditions.title || "Escolha a melhor condição para ativar seu exocad",
+            cards: filteredCards.length > 0 ? filteredCards : DEFAULT_LP_CONTENT.conditions!.cards,
+          }
+        : DEFAULT_LP_CONTENT.conditions,
+      modules: parsed.modules ?? DEFAULT_LP_CONTENT.modules,
+      regionalRules: parsed.regionalRules ?? DEFAULT_LP_CONTENT.regionalRules,
+      implementation: parsed.implementation ?? DEFAULT_LP_CONTENT.implementation,
     };
   }
   return DEFAULT_LP_CONTENT;
