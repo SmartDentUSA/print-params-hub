@@ -488,6 +488,12 @@ function ContentEditor({
 
       <Section title="Rodapé">
         <TextField label="Nome da marca" value={content.brandName ?? ""} onChange={(v) => patch({ brandName: v })} />
+        <TextField
+          label="URL do logo (imagem no header)"
+          value={content.logoUrl ?? ""}
+          onChange={(v) => patch({ logoUrl: v })}
+          placeholder="https://... (deixe vazio para usar o nome da marca em texto)"
+        />
         <TextField label="Legal / copyright" value={content.legal ?? ""} onChange={(v) => patch({ legal: v })} multiline />
       </Section>
     </>
