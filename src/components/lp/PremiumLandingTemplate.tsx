@@ -843,6 +843,149 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         </section>
       )}
 
+      {/* MODULES — Ultimate Lab Bundle */}
+      {c.modules && c.modules.items.length > 0 && (
+        <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+          <div className="max-w-6xl mx-auto px-6">
+            {c.modules.title && (
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-3xl mx-auto text-[var(--lp-text)]">
+                {c.modules.title}
+              </h2>
+            )}
+            {c.modules.subtitle && (
+              <p className="mt-4 max-w-3xl mx-auto text-center text-[var(--lp-text-soft)] leading-relaxed">
+                {c.modules.subtitle}
+              </p>
+            )}
+            <div className="mt-12 grid gap-4 md:grid-cols-2">
+              {c.modules.items.map((m, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl bg-white border border-[var(--lp-border)] p-5 md:p-6 hover:border-[var(--lp-orange)]/40 transition"
+                  style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 shrink-0 w-8 h-8 rounded-lg bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center">
+                      <BenefitSvg name="modulos" className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h3 className="text-base md:text-lg font-bold text-[var(--lp-text)] leading-tight">{m.name}</h3>
+                      <p className="mt-1 text-sm text-[var(--lp-text-soft)] leading-relaxed">{m.application}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {c.modules.footnote && (
+              <p className="mt-8 text-center text-xs text-[var(--lp-text-soft)] max-w-2xl mx-auto leading-relaxed">
+                {c.modules.footnote}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* REGIONAL RULES — Uso seguro e regular da licença */}
+      {c.regionalRules && c.regionalRules.items.length > 0 && (
+        <section id="uso-regular" className="py-20 md:py-24 bg-white">
+          <div className="max-w-4xl mx-auto px-6">
+            <div
+              className="rounded-3xl border border-[var(--lp-border)] bg-white p-8 md:p-10"
+              style={{ boxShadow: "0 20px 60px -30px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+            >
+              <div className="flex items-start gap-4">
+                <span
+                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white"
+                  style={{ background: GRADIENT_BRAND }}
+                >
+                  <BenefitSvg name="shield" className="w-6 h-6" />
+                </span>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-[var(--lp-text)]">
+                    {c.regionalRules.title ?? "Uso seguro e regular da licença"}
+                  </h2>
+                  {c.regionalRules.intro && (
+                    <p className="mt-3 text-[var(--lp-text-soft)] leading-relaxed">{c.regionalRules.intro}</p>
+                  )}
+                </div>
+              </div>
+              <ul className="mt-7 grid gap-3 md:grid-cols-2">
+                {c.regionalRules.items.map((r, i) => (
+                  <li key={i} className="flex items-start gap-3 rounded-xl bg-[var(--lp-bg-soft)] p-4">
+                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-brand)]/10 flex items-center justify-center">
+                      <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-brand)]" />
+                    </span>
+                    <span className="text-sm leading-relaxed text-[var(--lp-text)]">{r}</span>
+                  </li>
+                ))}
+              </ul>
+              {c.regionalRules.footnote && (
+                <p className="mt-6 text-xs text-[var(--lp-text-soft)] leading-relaxed">{c.regionalRules.footnote}</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* IMPLEMENTATION — Implantação, ativação, treinamento e suporte */}
+      {c.implementation && (
+        <section id="implantacao" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                {c.implementation.title ?? "Implantação, ativação, treinamento e suporte"}
+              </h2>
+              {c.implementation.subtitle && (
+                <p className="mt-4 text-[var(--lp-text-soft)] leading-relaxed">{c.implementation.subtitle}</p>
+              )}
+            </div>
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
+              {c.implementation.activation && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="rocket" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.activation.title}</h3>
+                  <ul className="mt-4 space-y-2.5">
+                    {c.implementation.activation.items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-[var(--lp-text)] leading-relaxed">
+                        <TrustSvg name="check" className="w-4 h-4 mt-0.5 shrink-0 text-[var(--lp-orange)]" />
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {c.implementation.training && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-brand)]/10 text-[var(--lp-brand)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="treinamento" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.training.title}</h3>
+                  <p className="mt-3 text-sm text-[var(--lp-text-soft)] leading-relaxed">{c.implementation.training.body}</p>
+                </div>
+              )}
+              {c.implementation.support && (
+                <div className="rounded-2xl bg-white border border-[var(--lp-border)] p-6">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-4">
+                    <BenefitSvg name="suporte" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)]">{c.implementation.support.title}</h3>
+                  <ul className="mt-4 space-y-2.5">
+                    {c.implementation.support.items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-[var(--lp-text)] leading-relaxed">
+                        <TrustSvg name="check" className="w-4 h-4 mt-0.5 shrink-0 text-[var(--lp-brand)]" />
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* TESTIMONIALS */}
       {c.testimonials && c.testimonials.items.length > 0 && (
         <section className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
