@@ -202,7 +202,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[96vw] w-[96vw] max-h-[95vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="max-w-[96vw] w-[96vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2">
             Landing Page — {form.name}
@@ -307,7 +307,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
-              <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr] grid-rows-[1fr] overflow-hidden">
+              <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] overflow-hidden">
                 <EditorSidebar
                   content={content}
                   onChange={setContent}
@@ -342,7 +342,7 @@ function GenerateLayout(props: {
   hint: string;
 }) {
   return (
-    <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr] grid-rows-[1fr] overflow-hidden">
+    <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
       <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
           <Label className="text-xs">{props.inputLabel}</Label>
@@ -373,8 +373,11 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
       <div className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground bg-white/90 backdrop-blur px-2 py-1 rounded">
         Prévia ao vivo
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto" style={{ maxWidth: 1200 }}>
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+      >
+        <div className="mx-auto min-h-full" style={{ maxWidth: 1200 }}>
           <PremiumLandingTemplate content={content} heroImageUrl={heroImage || null} />
         </div>
       </div>
@@ -419,8 +422,8 @@ function EditorSidebar({
     }
   };
   return (
-    <div className="h-full min-h-0 border-r bg-muted/20 flex flex-col">
-      <nav className="sticky top-0 z-10 border-b bg-muted/40 backdrop-blur px-3 py-2 flex flex-wrap gap-1.5">
+    <div className="h-full min-h-0 overflow-hidden border-r bg-muted/20 flex flex-col">
+      <nav className="shrink-0 z-10 border-b bg-muted/40 backdrop-blur px-3 py-2 flex flex-wrap gap-1.5">
         {EDITOR_SECTIONS.map((s) => (
           <button
             key={s.id}
@@ -434,7 +437,7 @@ function EditorSidebar({
       </nav>
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto p-5 space-y-6"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-6"
         style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
       >
         <ContentEditor
