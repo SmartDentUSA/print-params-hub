@@ -74,6 +74,7 @@ export type LPContent = {
     }[];
   };
   modules?: {
+    eyebrow?: string;
     title?: string;
     subtitle?: string;
     items: { name: string; application: string }[];
