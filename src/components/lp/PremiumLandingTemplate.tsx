@@ -1193,8 +1193,9 @@ export const DEFAULT_LP_CONTENT: LPContent = {
     ],
   },
   modules: {
-    title: "O que está incluído no Ultimate Lab Bundle",
-    subtitle: "Um pacote para o laboratório inteiro. Apresentado por aplicações comerciais reais, não apenas por nomes técnicos — conforme o portfólio oficial da exocad.",
+    eyebrow: "O que está incluído",
+    title: "15 módulos do DentalCAD, todos num único bundle.",
+    subtitle: "O Ultimate Lab Bundle é o pacote mais amplo do DentalCAD para laboratórios. Cobre do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.",
     items: [
       { name: "DentalCAD Core Version", application: "Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais." },
       { name: "Virtual Articulator", application: "Simulação de movimentos mandibulares e análise de oclusão dinâmica." },
@@ -1212,7 +1213,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
       { name: "Bite Splint Module", application: "Placas oclusais, night guards, splints e estruturas tabletop." },
       { name: "Jaw Motion Import Module", application: "Importação de movimentos reais de sistemas de registro mandibular e arco facial digital." },
     ],
-    footnote: "A disponibilidade final acompanha a versão, a região e as condições vigentes do fabricante.",
+    footnote: "Observação: a disponibilidade final acompanha a versão, a região e as condições vigentes do fabricante. O bundle não inclui xSNAP, In-CAD Nesting/Nesting, exocam, exoplan, ChairsideCAD ou outros produtos independentes — esses são adquiridos separadamente.",
   },
   regionalRules: {
     title: "Uso seguro e regular da licença",
