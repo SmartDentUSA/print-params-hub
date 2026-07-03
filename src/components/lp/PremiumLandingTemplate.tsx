@@ -58,6 +58,19 @@ export type LPContent = {
     cta: string;
     footnote?: string;
   };
+  conditions?: {
+    title?: string;
+    subtitle?: string;
+    cards: {
+      ribbon?: string;
+      title: string;
+      priceLabel?: string;
+      priceNote?: string;
+      includes: string[];
+      cta: string;
+      footnote?: string;
+    }[];
+  };
   benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string }[] };
   testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
   faq?: { title?: string; items: { q: string; a: string }[] };
@@ -618,6 +631,71 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         </section>
       )}
 
+      {/* CONDITIONS */}
+      {c.conditions && (c.conditions.cards ?? []).length > 0 && (
+        <section id="condicoes" className="py-20 md:py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-6">
+            {(c.conditions.title || c.conditions.subtitle) && (
+              <div className="max-w-3xl mx-auto text-center">
+                {c.conditions.title && (
+                  <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                    {c.conditions.title}
+                  </h2>
+                )}
+                {c.conditions.subtitle && (
+                  <p className="mt-4 text-base md:text-lg leading-relaxed text-[var(--lp-text-soft)]">
+                    {c.conditions.subtitle}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {(c.conditions.cards ?? []).slice(0, 3).map((card, i) => (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-[28px] border border-[var(--lp-border)] bg-white"
+                  style={{ boxShadow: "0 24px 70px -34px color-mix(in oklab, var(--lp-brand) 45%, transparent)" }}
+                >
+                  <div className="px-6 py-3.5 text-center" style={{ background: GRADIENT_BRAND }}>
+                    <span className="text-xs font-black uppercase tracking-[0.22em] text-white">
+                      {card.ribbon || `Condição ${i + 1}`}
+                    </span>
+                  </div>
+                  <div className="p-7 md:p-8">
+                    <h3 className="text-2xl font-black leading-tight text-[var(--lp-text)]">{card.title}</h3>
+                    {card.priceLabel && (
+                      <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
+                        {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
+                      </div>
+                    )}
+                    <ul className="mt-7 space-y-3.5">
+                      {card.includes.map((item, itemIndex) => (
+                        <li key={itemIndex} className="flex items-start gap-3">
+                          <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
+                            <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-orange)]" />
+                          </span>
+                          <span className="text-sm leading-relaxed text-[var(--lp-text)]">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-8">
+                      <PrimaryButton onClick={cta(`condition-${i + 1}`)} className="w-full">
+                        {card.cta}
+                      </PrimaryButton>
+                    </div>
+                    {card.footnote && (
+                      <p className="mt-5 text-center text-xs leading-relaxed text-[var(--lp-text-soft)]">{card.footnote}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* BENEFITS */}
       {c.benefits && c.benefits.items.length > 0 && (
         <section id="modulos" className="py-20 md:py-24 bg-white">
@@ -809,6 +887,54 @@ export const DEFAULT_LP_CONTENT: LPContent = {
       "Casos ilimitados",
     ],
     cta: "Quero ativar agora",
+  },
+  conditions: {
+    title: "Escolha a melhor condição para ativar seu exocad",
+    subtitle: "Três opções comerciais para encaixar a licença oficial no momento do seu laboratório.",
+    cards: [
+      {
+        ribbon: "Condição 1",
+        title: "Pré-venda exclusiva",
+        priceLabel: "R$ 2.390",
+        priceNote: "ativação e implantação inicial",
+        includes: [
+          "Primeiro mês da licença oficial incluso",
+          "Cadastramento, validação e ativação",
+          "Treinamento e acompanhamento da implantação",
+          "Mensalidade reduzida após a ativação",
+        ],
+        cta: "Ativar agora",
+        footnote: "Licença oficial, atualizações previstas no plano e suporte Smart Dent.",
+      },
+      {
+        ribbon: "Condição 2",
+        title: "Implantação assistida",
+        priceLabel: "Sob consulta",
+        priceNote: "para times em expansão",
+        includes: [
+          "Diagnóstico inicial do fluxo digital",
+          "Planejamento técnico com especialista",
+          "Treinamento remoto para equipe",
+          "Acompanhamento na entrada em produção",
+        ],
+        cta: "Solicitar condição",
+        footnote: "Ideal para laboratórios que precisam organizar o fluxo antes da ativação.",
+      },
+      {
+        ribbon: "Condição 3",
+        title: "Plano consultivo",
+        priceLabel: "Personalizado",
+        priceNote: "para operação completa",
+        includes: [
+          "Condição ajustada ao cenário do laboratório",
+          "Mapeamento de módulos e necessidades",
+          "Suporte comercial Smart Dent",
+          "Próximo passo guiado com consultor",
+        ],
+        cta: "Falar com consultor",
+        footnote: "A Smart Dent orienta a melhor composição antes da contratação.",
+      },
+    ],
   },
   benefits: {
     title: "Por que a Smart Dent",

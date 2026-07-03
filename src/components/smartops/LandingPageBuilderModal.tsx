@@ -41,8 +41,16 @@ type LP = {
   published_at: string | null;
 };
 
+type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
+
 function ensureContent(raw: unknown): LPContent {
-  if (raw && typeof raw === "object" && "hero" in raw) return raw as LPContent;
+  if (raw && typeof raw === "object" && "hero" in raw) {
+    const parsed = raw as LPContent;
+    return {
+      ...parsed,
+      conditions: parsed.conditions ?? DEFAULT_LP_CONTENT.conditions,
+    };
+  }
   return DEFAULT_LP_CONTENT;
 }
 
@@ -73,8 +81,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       .then(({ data }) => {
         if (data) {
           const row = data as unknown as LP;
+          const rowContent = ensureContent(row.content);
           setLp(row);
-          setContent(row.content && (row.content as any).hero ? (row.content as LPContent) : null);
+          setContent(row.content && (row.content as any).hero ? rowContent : null);
           setHeroImage(row.hero_image_url || "");
           setTab(row.mode === "briefing" ? "briefing" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
@@ -222,7 +231,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v as typeof tab)}
-          className="flex-1 overflow-hidden flex flex-col"
+          className="flex-1 min-h-0 overflow-hidden flex flex-col"
         >
           <div className="px-6 pt-3 flex items-center justify-between gap-3 border-b pb-3">
             <TabsList>
@@ -265,7 +274,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             </div>
           </div>
 
-          <TabsContent value="ai" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="ai" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             <GenerateLayout
               inputLabel="Ideia central"
               placeholder="Ex.: Landing page do curso Ativação exocad DentalCad I.A. para dentistas e protéticos, foco em fluxo digital, tom premium…"
@@ -280,7 +289,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             />
           </TabsContent>
 
-          <TabsContent value="briefing" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="briefing" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             <GenerateLayout
               inputLabel="Cole o briefing completo"
               placeholder="Cole o texto do LOVABLE.docx ou similar. A IA será fiel ao conteúdo (preços, ofertas, módulos, tom)."
@@ -296,10 +305,10 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             />
           </TabsContent>
 
-          <TabsContent value="edit" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
-              <div className="h-full grid grid-cols-1 xl:grid-cols-[420px_1fr]">
-                <div className="border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
+              <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr]">
+                <div className="min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
                   <ContentEditor content={content} onChange={setContent} heroImage={heroImage} onHeroImageChange={setHeroImage} />
                 </div>
                 <LivePreview content={content} heroImage={heroImage} />
@@ -330,8 +339,8 @@ function GenerateLayout(props: {
   hint: string;
 }) {
   return (
-    <div className="h-full grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr]">
-      <div className="border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
+    <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,420px)_1fr]">
+      <div className="min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
           <Label className="text-xs">{props.inputLabel}</Label>
           <Textarea
@@ -357,11 +366,11 @@ function GenerateLayout(props: {
 
 function LivePreview({ content, heroImage }: { content: LPContent; heroImage: string }) {
   return (
-    <div className="relative overflow-hidden bg-slate-100">
+    <div className="relative h-full min-h-0 overflow-hidden bg-slate-100 flex flex-col">
       <div className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground bg-white/90 backdrop-blur px-2 py-1 rounded">
         Prévia ao vivo
       </div>
-      <div className="h-full overflow-y-auto">
+      <div className="h-full min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto" style={{ maxWidth: 1200 }}>
           <PremiumLandingTemplate content={content} heroImageUrl={heroImage || null} />
         </div>
@@ -446,6 +455,15 @@ function ContentEditor({
         <TextField label="Rodapé do card" value={content.price?.footnote ?? ""} onChange={(v) => patch({ price: { ...(content.price ?? { title: "", includes: [], cta: "" }), footnote: v } })} />
       </Section>
 
+      <Section title="Condições">
+        <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
+        <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
+        <ConditionCardsEditor
+          cards={normalizeConditionCards(content.conditions?.cards)}
+          onChange={(cards) => patch({ conditions: { ...(content.conditions ?? {}), cards } })}
+        />
+      </Section>
+
       <Section title="Benefícios">
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
@@ -486,6 +504,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="px-3 pb-3 space-y-2">{children}</div>
     </details>
   );
+}
+
+function defaultConditionCards() {
+  return [1, 2, 3].map((n) => ({
+    ribbon: `Condição ${n}`,
+    title: "",
+    priceLabel: "",
+    priceNote: "",
+    includes: [""],
+    cta: "",
+    footnote: "",
+  }));
+}
+
+function normalizeConditionCards(cards?: ConditionCards) {
+  const defaults = defaultConditionCards();
+  return defaults.map((fallback, i) => ({ ...fallback, ...(cards?.[i] ?? {}) }));
 }
 
 function TextField({
@@ -552,6 +587,31 @@ function ListEditor({
           + Adicionar
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ConditionCardsEditor({
+  cards,
+  onChange,
+}: {
+  cards: ConditionCards;
+  onChange: (cards: ConditionCards) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {cards.slice(0, 3).map((card, i) => (
+        <div key={i} className="border rounded p-2 space-y-2 bg-muted/30">
+          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Condição {i + 1}</div>
+          <TextField label="Faixa superior" value={card.ribbon ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, ribbon: v }; onChange(n); }} />
+          <TextField label="Título" value={card.title} onChange={(v) => { const n = [...cards]; n[i] = { ...card, title: v }; onChange(n); }} />
+          <TextField label="Preço / Valor" value={card.priceLabel ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, priceLabel: v }; onChange(n); }} />
+          <TextField label="Observação do preço" value={card.priceNote ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, priceNote: v }; onChange(n); }} />
+          <ListEditor label="Itens" items={card.includes ?? []} onChange={(items) => { const n = [...cards]; n[i] = { ...card, includes: items }; onChange(n); }} />
+          <TextField label="CTA" value={card.cta} onChange={(v) => { const n = [...cards]; n[i] = { ...card, cta: v }; onChange(n); }} />
+          <TextField label="Rodapé" value={card.footnote ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, footnote: v }; onChange(n); }} multiline />
+        </div>
+      ))}
     </div>
   );
 }
