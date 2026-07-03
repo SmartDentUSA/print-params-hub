@@ -177,6 +177,7 @@ export function SmartOpsFormBuilder() {
   const [periodDays, setPeriodDays] = useState<number>(30);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
+  const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
