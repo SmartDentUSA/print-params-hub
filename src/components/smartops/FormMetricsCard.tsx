@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy, Layout } from "lucide-react";
 
 export interface FormMetrics {
   visitors: number;
@@ -20,6 +20,7 @@ interface Props {
   onToggleActive: () => void;
   onEditMeta: () => void;
   onEditFields: () => void;
+  onEditLandingPage: () => void;
   onDuplicate: () => void;
   onCopyLink: () => void;
   onCopyEmbed: () => void;
@@ -60,6 +61,7 @@ export function FormMetricsCard({
   onToggleActive,
   onEditMeta,
   onEditFields,
+  onEditLandingPage,
   onDuplicate,
   onCopyLink,
   onCopyEmbed,
@@ -115,6 +117,9 @@ export function FormMetricsCard({
         <div className="flex gap-1 justify-end pt-2 border-t mt-auto">
           <Button variant="ghost" size="icon" onClick={onEditMeta} title="Editar nome/config" className="h-7 w-7">
             <Settings className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onEditLandingPage} title="Landing page" className="h-7 w-7">
+            <Layout className="w-3.5 h-3.5" />
           </Button>
           <Button variant="ghost" size="icon" onClick={onEditFields} title="Editar campos" className="h-7 w-7">
             <Pencil className="w-3.5 h-3.5" />
