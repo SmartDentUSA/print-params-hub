@@ -597,7 +597,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="Benefícios" anchorId="sec-beneficios">
+      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios">
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
           items={content.benefits?.items ?? []}
