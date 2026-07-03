@@ -556,7 +556,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Módulos (Ultimate Lab Bundle)" anchorId="sec-modulos">
+      <Section title="Módulos" anchorId="sec-modulos">
         <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
         <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
         <ModulesEditor
