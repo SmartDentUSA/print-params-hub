@@ -391,7 +391,10 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
   return (
     <div
       className="min-h-screen bg-white text-[var(--lp-text)] antialiased"
-      style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
+      style={{
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        ...themeStyle(c.theme),
+      }}
     >
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/75 backdrop-blur-sm border-b border-[var(--lp-border)]/60">
