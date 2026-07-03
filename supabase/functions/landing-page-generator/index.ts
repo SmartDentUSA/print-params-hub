@@ -103,8 +103,11 @@ REGRAS CRÍTICAS:
 - Tom Smart Dent: profissional, direto, PT-BR. Copy curta e potente.
 - Icons apenas da lista permitida.
 - Para landing pages de exocad / Ultimate Lab Bundle / DentalCAD, a seção "modules" DEVE conter obrigatoriamente os 15 módulos canônicos na ordem e com as descrições fornecidas abaixo. Não omita nenhum, não altere os nomes e não adicione módulos extras.
+- Para landing pages de exocad / RMS / Ultimate Lab Bundle / DentalCAD, a seção "faq" DEVE conter obrigatoriamente as 25 perguntas e respostas canônicas fornecidas abaixo. Não omita nenhuma, não altere as respostas e não adicione FAQs extras.
 
-${CANONICAL_MODULES}`;
+${CANONICAL_MODULES}
+
+${CANONICAL_FAQS}`;
 
 function buildSystemPrompt(form: { name: string; slug: string; form_purpose: string }) {
   return `Você é copywriter sênior da Smart Dent (odontologia digital premium). Sua tarefa é preencher o conteúdo estruturado de uma landing page.
