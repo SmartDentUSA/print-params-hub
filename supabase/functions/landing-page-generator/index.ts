@@ -14,58 +14,47 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada de HTML, CSS, markdown, comentários, texto fora do JSON.
 
 {
-  "brandName": string (opcional, ex: "Smart Dent | Fluxo Digital"),
-  "trustBar": string[] (3-5 selos curtos: "Revenda oficial", "Suporte em português", "Licença legítima"...),
+  "brandName": string (opcional, ex: "SMART DENT"),
+  "resellerBadge": string OPCIONAL (ex: "Official Reseller exocad"),
+  "nav": { "items": [ { "label": string, "anchor": string } ] (4-6 itens curtos, ex: Produto, Módulos, Como funciona, Preço, FAQ), "cta": string (ex: "Assinar Agora") },
   "hero": {
-    "badge": string (obrigatório, ex: "Ativação inicial" — vira selo laranja),
-    "eyebrow": string (opcional, curto, uppercase),
+    "badge": string (obrigatório, ex: "Licença Oficial · RMS para o Brasil"),
+    "eyebrow": string OPCIONAL (curto, uppercase),
     "headline": string (uma frase impactante, 6-14 palavras),
+    "headlineParts": [ { "text": string, "highlight": boolean } ] (3-5 chunks que somados reconstroem a headline letra por letra; marque 1 chunk semanticamente central como highlight:true — será renderizado em gradiente roxo→laranja),
     "sub": string (uma frase de apoio, 12-24 palavras),
-    "primaryCta": string (ex: "Quero ativar agora"),
-    "secondaryCta": string (opcional, ex: "Falar com especialista"),
-    "bullets": string[] (3 bullets curtos, sem repetir subheadline)
+    "trustInline": [ { "icon": "shield"|"headphones"|"infinity"|"check"|"clock", "label": string } ] (2-4 selos inline curtos),
+    "pricePill": { "label": string (ex: "Ativação + 1º mês"), "value": string (ex: "R$ 2.390"), "note": string OPCIONAL (ex: "depois"), "noteStrong": string OPCIONAL (ex: "R$ 1.199/mês") } (OPCIONAL — SÓ inclua se houver preço EXPLÍCITO no input; caso contrário OMITA),
+    "primaryCta": string,
+    "secondaryCta": string OPCIONAL,
+    "productCardCaption": string OPCIONAL (ex: "Revenda Oficial exocad")
   },
-  "howItWorks": {
-    "title": string (ex: "Como funciona a ativação"),
-    "items": [ { "title": string, "desc": string } ]  (exatamente 3 passos)
-  },
+  "positioning": { "eyebrow": string, "headline": string (use o placeholder literal "{strike}" onde entra o preço-âncora), "strikePrice": string OPCIONAL, "highlightPrice": string OPCIONAL, "body": string OPCIONAL } (OPCIONAL — SÓ quando o input compara preço anterior vs. atual),
+  "howItWorks": { "title": string, "items": [ { "title": string, "desc": string } ] (exatamente 3 passos) },
   "price": {
     "ribbon": string (ex: "Ativação inicial"),
-    "title": string (ex: "Pacote completo, sem surpresas"),
-    "priceLabel": string OPCIONAL (SÓ inclua se o briefing trouxer preço EXPLÍCITO; caso contrário OMITA),
-    "priceNote": string OPCIONAL (ex: "à vista" ou "em até 12x"),
-    "includes": string[] (4-7 itens do pacote),
-    "cta": string (ex: "Quero ativar agora"),
+    "title": string,
+    "priceLabel": string OPCIONAL (SÓ inclua se o briefing trouxer preço EXPLÍCITO),
+    "priceNote": string OPCIONAL,
+    "includes": string[] (4-7 itens),
+    "cta": string,
     "footnote": string OPCIONAL
   },
-  "benefits": {
-    "title": string,
-    "items": [ { "icon": "licenca"|"computador"|"treinamento"|"cartao"|"suporte"|"brasil"|"modulos"|"shield"|"sparkles"|"rocket"|"clock", "title": string, "desc": string } ]  (6 itens)
-  },
-  "testimonials": {
-    "title": string,
-    "items": [ { "quote": string, "author": string, "role": string } ]  (2-3 itens; OMITA seção inteira se briefing não trouxer depoimentos)
-  },
-  "faq": {
-    "title": string,
-    "items": [ { "q": string, "a": string } ]  (5-8 perguntas)
-  },
-  "finalCta": {
-    "headline": string (frase de fechamento),
-    "sub": string,
-    "cta": string
-  },
-  "legal": string (rodapé curto)
+  "benefits": { "title": string, "items": [ { "icon": "licenca"|"computador"|"treinamento"|"cartao"|"suporte"|"brasil"|"modulos"|"shield"|"sparkles"|"rocket"|"clock", "title": string, "desc": string } ] (6 itens) },
+  "testimonials": { "title": string, "items": [ { "quote": string, "author": string, "role": string } ] (2-3; OMITA se sem depoimentos reais) },
+  "faq": { "title": string, "items": [ { "q": string, "a": string } ] (5-8) },
+  "finalCta": { "headline": string, "sub": string, "cta": string },
+  "legal": string
 }
 
 REGRAS CRÍTICAS:
-- NUNCA invente preços, prazos, números de vendas, depoimentos ou dados que não estejam no input.
-- Se não houver preço explícito no briefing, OMITA os campos priceLabel/priceNote (o card ainda vai mostrar bem sem preço).
-- Se não houver depoimentos reais no briefing, OMITA "testimonials" inteiramente.
-- Tom: Smart Dent — profissional, direto, orientado a resultado, português brasileiro.
-- Copy curta e potente. Nada de blocos com 3+ frases.
-- O selo "Ativação inicial" no hero.badge e price.ribbon é obrigatório quando o contexto for ativação/licença/pacote.
-- Icons: escolha o mais fiel entre a lista permitida. NÃO invente ícones fora dela.`;
+- NUNCA invente preços, prazos, números, depoimentos ou dados fora do input.
+- Sem preço explícito → OMITA priceLabel/priceNote e hero.pricePill.
+- headline + headlineParts DEVEM ser consistentes: concatenar todos os "text" na ordem deve reproduzir "headline" letra por letra.
+- positioning só quando o input compara preços; use exatamente "{strike}" como placeholder.
+- Sem depoimentos reais → OMITA "testimonials".
+- Tom Smart Dent: profissional, direto, PT-BR. Copy curta e potente.
+- Icons apenas da lista permitida.`;
 
 function buildSystemPrompt(form: { name: string; slug: string; form_purpose: string }) {
   return `Você é copywriter sênior da Smart Dent (odontologia digital premium). Sua tarefa é preencher o conteúdo estruturado de uma landing page.
