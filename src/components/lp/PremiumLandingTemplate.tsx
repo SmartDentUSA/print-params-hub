@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 /**
  * PremiumLandingTemplate — light, editorial Smart Dent landing.
