@@ -71,13 +71,13 @@ interface Props {
 }
 
 // Design system tokens (spec: single strong purple + orange accent + navy text).
-const BRAND = "#605882";
-const BRAND_2 = "#8B82A8";
-const BRAND_SOFT = "#F3F0F8";
-const NAVY = "#42495C";
-const ORANGE = "#DF7344";
+const BRAND = "var(--lp-brand)";
+const BRAND_2 = "var(--lp-brand-2)";
+const BRAND_SOFT = "var(--lp-soft)";
+const NAVY = "var(--lp-text)";
+const ORANGE = "var(--lp-orange)";
 const GRADIENT_BRAND = `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_2} 100%)`;
-const GRADIENT_SOFT = `linear-gradient(180deg, #FBFAFD 0%, ${BRAND_SOFT} 100%)`;
+const GRADIENT_SOFT = `linear-gradient(180deg, var(--lp-bg-soft) 0%, ${BRAND_SOFT} 100%)`;
 
 function TrustSvg({ name, className }: { name: TrustIcon; className?: string }) {
   const common = {
@@ -180,7 +180,7 @@ function PrimaryButton({ children, onClick, className }: { children: ReactNode; 
       type="button"
       onClick={onClick}
       data-form-cta="primary"
-      className={`inline-flex items-center justify-center gap-2 min-h-12 px-7 py-3.5 rounded-full text-white font-semibold text-base bg-[#605882] transition hover:bg-[#4d466b] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#605882] focus-visible:ring-offset-2 ${className ?? ""}`}
+      className={`inline-flex items-center justify-center gap-2 min-h-12 px-7 py-3.5 rounded-full text-white font-semibold text-base bg-[var(--lp-brand)] transition hover:bg-[var(--lp-brand-dark)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lp-brand)] focus-visible:ring-offset-2 ${className ?? ""}`}
       style={{ boxShadow: "0 10px 30px -10px rgba(96,88,130,0.6)" }}
     >
       {children}
@@ -195,7 +195,7 @@ function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?:
       type="button"
       onClick={onClick}
       data-form-cta="secondary"
-      className="inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-full border border-[#605882]/30 bg-white text-[#605882] font-semibold text-sm hover:bg-[#F3F0F8] focus-visible:ring-2 focus-visible:ring-[#605882] transition"
+      className="inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-full border border-[var(--lp-brand)]/30 bg-white text-[var(--lp-brand)] font-semibold text-sm hover:bg-[var(--lp-soft)] focus-visible:ring-2 focus-visible:ring-[var(--lp-brand)] transition"
     >
       {children}
     </button>
@@ -216,14 +216,14 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
       ) : (
         <div
           className="relative w-full aspect-[4/5] rounded-[28px] border border-white/60 overflow-hidden"
-          style={{ background: "linear-gradient(160deg, #2B2350 0%, #3B2F63 50%, #605882 100%)", boxShadow: "0 30px 60px -20px rgba(96,88,130,0.45)" }}
+          style={{ background: "linear-gradient(160deg, var(--lp-brand) 0%, var(--lp-brand-2) 50%, var(--lp-brand) 100%)", boxShadow: "0 30px 60px -20px rgba(96,88,130,0.45)" }}
         >
           <svg viewBox="0 0 400 500" className="absolute inset-0 w-full h-full opacity-90" aria-hidden>
             <defs>
               <radialGradient id="lpglow" cx="50%" cy="45%" r="55%">
-                <stop offset="0%" stopColor="#DF7344" stopOpacity="0.5" />
-                <stop offset="70%" stopColor="#DF7344" stopOpacity="0.05" />
-                <stop offset="100%" stopColor="#DF7344" stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--lp-orange)" stopOpacity="0.5" />
+                <stop offset="70%" stopColor="var(--lp-orange)" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="var(--lp-orange)" stopOpacity="0" />
               </radialGradient>
             </defs>
             <circle cx="200" cy="220" r="180" fill="url(#lpglow)" />
@@ -239,7 +239,7 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
               const angle = (i / 14) * Math.PI;
               const x = 200 + Math.cos(angle) * 150;
               const y = 260 - Math.sin(angle) * 150;
-              return <circle key={i} cx={x} cy={y} r="3" fill="#DF7344" />;
+              return <circle key={i} cx={x} cy={y} r="3" fill="var(--lp-orange)" />;
             })}
           </svg>
           <div className="absolute top-6 left-6 right-6 flex items-start justify-between text-white">
@@ -252,7 +252,7 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
             </div>
           </div>
           <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between text-white">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#DF7344] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-lg">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--lp-orange)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-lg">
               Official Reseller
             </div>
             <div className="text-right text-sm font-black tracking-wider">ULTIMATE<br />LAB BUNDLE</div>
@@ -264,8 +264,8 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
           className="absolute -bottom-5 -left-5 hidden rounded-2xl border border-white/60 bg-white/95 px-4 py-3 backdrop-blur-xl sm:flex items-center gap-2"
           style={{ boxShadow: "0 20px 40px -20px rgba(96,88,130,0.25)" }}
         >
-          <TrustSvg name="check" className="h-5 w-5 text-[#DF7344]" />
-          <div className="text-xs font-bold text-[#42495C]">{caption}</div>
+          <TrustSvg name="check" className="h-5 w-5 text-[var(--lp-orange)]" />
+          <div className="text-xs font-bold text-[var(--lp-text)]">{caption}</div>
         </div>
       )}
     </div>
@@ -275,11 +275,11 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
 function Headline({ hero }: { hero: LPContent["hero"] }) {
   const parts = hero.headlineParts && hero.headlineParts.length > 0 ? hero.headlineParts : null;
   return (
-    <h1 className="mt-6 text-5xl md:text-7xl font-extrabold leading-[1.05] tracking-tight text-[#42495C]">
+    <h1 className="mt-6 text-5xl md:text-7xl font-extrabold leading-[1.05] tracking-tight text-[var(--lp-text)]">
       {parts
         ? parts.map((p, i) =>
             p.highlight ? (
-              <span key={i} className="text-[#605882]">
+              <span key={i} className="text-[var(--lp-brand)]">
                 {p.text}
               </span>
             ) : (
@@ -297,23 +297,23 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
   return (
     <div
-      className="min-h-screen bg-white text-[#42495C] antialiased"
+      className="min-h-screen bg-white text-[var(--lp-text)] antialiased"
       style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
     >
       {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/75 backdrop-blur-sm border-b border-[#EFEBF4]/60">
+      <header className="sticky top-0 z-50 bg-white/75 backdrop-blur-sm border-b border-[var(--lp-border)]/60">
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 sm:px-8">
           <a href="#top" className="flex min-w-0 items-center gap-3">
-            <span className="text-lg font-black tracking-tight text-[#42495C]">{c.brandName ?? "SMART DENT"}</span>
+            <span className="text-lg font-black tracking-tight text-[var(--lp-text)]">{c.brandName ?? "SMART DENT"}</span>
             {c.resellerBadge && (
-              <span className="hidden shrink-0 rounded-full border border-[#DF7344]/30 bg-[#DF7344]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#DF7344] sm:inline-flex">
+              <span className="hidden shrink-0 rounded-full border border-[var(--lp-orange)]/30 bg-[var(--lp-orange)]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--lp-orange)] sm:inline-flex">
                 {c.resellerBadge}
               </span>
             )}
           </a>
           <div className="hidden items-center gap-6 md:flex">
             {(c.nav?.items ?? []).map((n, i) => (
-              <a key={i} href={n.anchor ?? "#"} className="text-sm font-medium text-[#42495C] hover:text-[#605882] transition">
+              <a key={i} href={n.anchor ?? "#"} className="text-sm font-medium text-[var(--lp-text)] hover:text-[var(--lp-brand)] transition">
                 {n.label}
               </a>
             ))}
@@ -339,7 +339,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
           <div>
             {c.hero.badge && (
               <span
-                className="inline-flex items-center gap-2 rounded-full border border-[#DF7344]/30 bg-white/85 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#DF7344] backdrop-blur"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--lp-orange)]/30 bg-white/85 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--lp-orange)] backdrop-blur"
                 style={{ boxShadow: "0 4px 16px -8px rgba(223,115,68,0.4)" }}
               >
                 <TrustSvg name="check" className="h-3.5 w-3.5" />
@@ -347,19 +347,19 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
               </span>
             )}
             {c.hero.eyebrow && (
-              <p className="mt-4 text-[#DF7344] uppercase tracking-widest text-xs font-bold">{c.hero.eyebrow}</p>
+              <p className="mt-4 text-[var(--lp-orange)] uppercase tracking-widest text-xs font-bold">{c.hero.eyebrow}</p>
             )}
             <Headline hero={c.hero} />
-            {c.hero.sub && <p className="mt-6 max-w-xl text-lg leading-relaxed text-[#5A5670]">{c.hero.sub}</p>}
+            {c.hero.sub && <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--lp-text-soft)]">{c.hero.sub}</p>}
 
             {c.hero.pricePill && (
-              <div className="mt-7 inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl border border-[#605882]/15 bg-white/70 px-5 py-4 backdrop-blur">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#8B82A8]">{c.hero.pricePill.label}</span>
-                <span className="text-3xl font-black text-[#42495C]">{c.hero.pricePill.value}</span>
+              <div className="mt-7 inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl border border-[var(--lp-brand)]/15 bg-white/70 px-5 py-4 backdrop-blur">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--lp-brand-2)]">{c.hero.pricePill.label}</span>
+                <span className="text-3xl font-black text-[var(--lp-text)]">{c.hero.pricePill.value}</span>
                 {c.hero.pricePill.note && (
-                  <span className="text-sm text-[#5A5670]">
+                  <span className="text-sm text-[var(--lp-text-soft)]">
                     · {c.hero.pricePill.note}
-                    {c.hero.pricePill.noteStrong && <strong className="ml-1 text-[#605882]">{c.hero.pricePill.noteStrong}</strong>}
+                    {c.hero.pricePill.noteStrong && <strong className="ml-1 text-[var(--lp-brand)]">{c.hero.pricePill.noteStrong}</strong>}
                   </span>
                 )}
               </div>
@@ -371,10 +371,10 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             </div>
 
             {c.hero.trustInline && c.hero.trustInline.length > 0 && (
-              <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-[#5A5670]">
+              <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-[var(--lp-text-soft)]">
                 {c.hero.trustInline.map((t, i) => (
                   <span key={i} className="inline-flex items-center gap-1.5">
-                    <TrustSvg name={t.icon} className="h-4 w-4 text-[#605882]" />
+                    <TrustSvg name={t.icon} className="h-4 w-4 text-[var(--lp-brand)]" />
                     {t.label}
                   </span>
                 ))}
@@ -384,8 +384,8 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             {(!c.hero.trustInline || c.hero.trustInline.length === 0) && c.hero.bullets && c.hero.bullets.length > 0 && (
               <ul className="mt-6 space-y-2">
                 {c.hero.bullets.map((b, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-[#5A5670] text-sm md:text-base">
-                    <TrustSvg name="check" className="w-5 h-5 mt-0.5 shrink-0 text-[#DF7344]" />
+                  <li key={i} className="flex items-start gap-2.5 text-[var(--lp-text-soft)] text-sm md:text-base">
+                    <TrustSvg name="check" className="w-5 h-5 mt-0.5 shrink-0 text-[var(--lp-orange)]" />
                     {b}
                   </li>
                 ))}
@@ -399,14 +399,14 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
       {/* POSITIONING BANNER */}
       {c.positioning && (
-        <section className="border-y border-[#EFEBF4] bg-white py-16">
+        <section className="border-y border-[var(--lp-border)] bg-white py-16">
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <div
-              className="grid gap-8 rounded-3xl border border-[#DF7344]/20 p-8 sm:p-10 lg:grid-cols-[auto_1fr] lg:items-center"
-              style={{ background: "linear-gradient(135deg, #FFFFFF 0%, #FFF6F1 100%)", boxShadow: "0 20px 40px -20px rgba(96,88,130,0.25)" }}
+              className="grid gap-8 rounded-3xl border border-[var(--lp-orange)]/20 p-8 sm:p-10 lg:grid-cols-[auto_1fr] lg:items-center"
+              style={{ background: "linear-gradient(135deg, #FFFFFF 0%, var(--lp-orange-soft) 100%)", boxShadow: "0 20px 40px -20px rgba(96,88,130,0.25)" }}
             >
               <div
-                className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#DF7344] text-white"
+                className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--lp-orange)] text-white"
                 style={{ boxShadow: "0 15px 30px -10px rgba(223,115,68,0.6)" }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8" aria-hidden>
@@ -416,16 +416,16 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
               </div>
               <div>
                 {c.positioning.eyebrow && (
-                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#DF7344]">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--lp-orange)]">
                     {c.positioning.eyebrow}
                   </div>
                 )}
-                <h3 className="mt-2 text-2xl sm:text-3xl font-black leading-tight text-[#42495C]">
+                <h3 className="mt-2 text-2xl sm:text-3xl font-black leading-tight text-[var(--lp-text)]">
                   {c.positioning.headline.split("{strike}").flatMap((chunk, i, arr) => {
                     const nodes: ReactNode[] = [<span key={`c-${i}`}>{chunk}</span>];
                     if (i < arr.length - 1 && c.positioning?.strikePrice) {
                       nodes.push(
-                        <span key={`s-${i}`} className="text-[#DF7344] line-through decoration-2">
+                        <span key={`s-${i}`} className="text-[var(--lp-orange)] line-through decoration-2">
                           {c.positioning.strikePrice}
                         </span>,
                       );
@@ -441,7 +441,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                     </>
                   )}
                 </h3>
-                {c.positioning.body && <p className="mt-3 text-[#5A5670] leading-relaxed">{c.positioning.body}</p>}
+                {c.positioning.body && <p className="mt-3 text-[var(--lp-text-soft)] leading-relaxed">{c.positioning.body}</p>}
               </div>
             </div>
           </div>
@@ -453,21 +453,21 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         <section id="como-funciona" className="py-20 md:py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             {c.howItWorks.title && (
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[#42495C]">
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
                 {c.howItWorks.title}
               </h2>
             )}
             <div className="mt-12 grid md:grid-cols-3 gap-6">
               {c.howItWorks.items.map((step, i) => (
-                <div key={i} className="relative rounded-2xl bg-[#FAF8FB] p-8 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-[#EFEBF4]">
+                <div key={i} className="relative rounded-2xl bg-[var(--lp-bg-soft)] p-8 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-[var(--lp-border)]">
                   <div
                     className="w-11 h-11 rounded-xl text-white font-black flex items-center justify-center text-lg mb-5"
                     style={{ background: GRADIENT_BRAND }}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </div>
-                  <h3 className="text-xl font-bold text-[#42495C] mb-2">{step.title}</h3>
-                  <p className="text-[#5A5670] leading-relaxed text-sm">{step.desc}</p>
+                  <h3 className="text-xl font-bold text-[var(--lp-text)] mb-2">{step.title}</h3>
+                  <p className="text-[var(--lp-text-soft)] leading-relaxed text-sm">{step.desc}</p>
                 </div>
               ))}
             </div>
@@ -480,7 +480,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         <section id="preco" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
           <div className="max-w-3xl mx-auto px-6">
             <div
-              className="rounded-3xl bg-white overflow-hidden border border-[#EFEBF4]"
+              className="rounded-3xl bg-white overflow-hidden border border-[var(--lp-border)]"
               style={{ boxShadow: "0 30px 80px -30px rgba(96,88,130,0.35)" }}
             >
               {c.price.ribbon && (
@@ -489,22 +489,22 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                 </div>
               )}
               <div className="p-8 md:p-12">
-                <h2 className="text-3xl md:text-4xl font-black text-[#42495C] tracking-tight">{c.price.title}</h2>
+                <h2 className="text-3xl md:text-4xl font-black text-[var(--lp-text)] tracking-tight">{c.price.title}</h2>
                 {c.price.priceLabel && (
                   <div className="mt-4 flex items-baseline gap-2">
                     <span className="text-4xl md:text-5xl font-black bg-clip-text text-transparent" style={{ backgroundImage: GRADIENT_BRAND }}>
                       {c.price.priceLabel}
                     </span>
-                    {c.price.priceNote && <span className="text-sm text-[#5A5670]">{c.price.priceNote}</span>}
+                    {c.price.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{c.price.priceNote}</span>}
                   </div>
                 )}
                 <ul className="mt-7 space-y-3.5">
                   {c.price.includes.map((item, i) => (
                     <li key={i} className="flex items-start gap-3">
-                      <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[#DF7344]/10 flex items-center justify-center">
-                        <TrustSvg name="check" className="w-3.5 h-3.5 text-[#DF7344]" />
+                      <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
+                        <TrustSvg name="check" className="w-3.5 h-3.5 text-[var(--lp-orange)]" />
                       </span>
-                      <span className="text-[#42495C] leading-relaxed">{item}</span>
+                      <span className="text-[var(--lp-text)] leading-relaxed">{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -514,7 +514,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   </PrimaryButton>
                 </div>
                 {c.price.footnote && (
-                  <p className="mt-5 text-xs text-[#5A5670] text-center">{c.price.footnote}</p>
+                  <p className="mt-5 text-xs text-[var(--lp-text-soft)] text-center">{c.price.footnote}</p>
                 )}
               </div>
             </div>
@@ -527,7 +527,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         <section id="modulos" className="py-20 md:py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[#42495C]">
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
                 {c.benefits.title}
               </h2>
             )}
@@ -535,14 +535,14 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
               {c.benefits.items.map((b, i) => (
                 <div
                   key={i}
-                  className="group rounded-2xl bg-white border border-[#EFEBF4] p-7 hover:border-[#DF7344]/40 hover:-translate-y-1 transition-all duration-300"
+                  className="group rounded-2xl bg-white border border-[var(--lp-border)] p-7 hover:border-[var(--lp-orange)]/40 hover:-translate-y-1 transition-all duration-300"
                   style={{ boxShadow: "0 10px 25px -20px rgba(96,88,130,0.25)" }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-[#DF7344]/10 text-[#DF7344] flex items-center justify-center mb-5 group-hover:bg-[#DF7344] group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-5 group-hover:bg-[var(--lp-orange)] group-hover:text-white transition-colors">
                     <BenefitSvg name={b.icon} className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-bold text-[#42495C] mb-2">{b.title}</h3>
-                  <p className="text-sm text-[#5A5670] leading-relaxed">{b.desc}</p>
+                  <h3 className="text-lg font-bold text-[var(--lp-text)] mb-2">{b.title}</h3>
+                  <p className="text-sm text-[var(--lp-text-soft)] leading-relaxed">{b.desc}</p>
                 </div>
               ))}
             </div>
@@ -552,23 +552,23 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
       {/* TESTIMONIALS */}
       {c.testimonials && c.testimonials.items.length > 0 && (
-        <section className="py-20 md:py-24 bg-[#FAF8FB]">
+        <section className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
           <div className="max-w-6xl mx-auto px-6">
             {c.testimonials.title && (
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[#42495C]">
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
                 {c.testimonials.title}
               </h2>
             )}
             <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {c.testimonials.items.map((t, i) => (
-                <figure key={i} className="rounded-2xl bg-white border border-[#EFEBF4] p-7" style={{ boxShadow: "0 10px 25px -20px rgba(96,88,130,0.15)" }}>
-                  <svg viewBox="0 0 24 24" fill="#DF7344" className="w-8 h-8 mb-3" aria-hidden>
+                <figure key={i} className="rounded-2xl bg-white border border-[var(--lp-border)] p-7" style={{ boxShadow: "0 10px 25px -20px rgba(96,88,130,0.15)" }}>
+                  <svg viewBox="0 0 24 24" fill="var(--lp-orange)" className="w-8 h-8 mb-3" aria-hidden>
                     <path d="M7 7h4v10H3V11c0-2.2 1.8-4 4-4zm10 0h4v10h-8V11c0-2.2 1.8-4 4-4z" />
                   </svg>
-                  <blockquote className="text-[#42495C] leading-relaxed">"{t.quote}"</blockquote>
-                  <figcaption className="mt-5 pt-4 border-t border-[#EFEBF4]">
-                    <div className="font-bold text-[#42495C]">{t.author}</div>
-                    {t.role && <div className="text-xs text-[#8B82A8]">{t.role}</div>}
+                  <blockquote className="text-[var(--lp-text)] leading-relaxed">"{t.quote}"</blockquote>
+                  <figcaption className="mt-5 pt-4 border-t border-[var(--lp-border)]">
+                    <div className="font-bold text-[var(--lp-text)]">{t.author}</div>
+                    {t.role && <div className="text-xs text-[var(--lp-brand-2)]">{t.role}</div>}
                   </figcaption>
                 </figure>
               ))}
@@ -581,19 +581,19 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {c.faq && c.faq.items.length > 0 && (
         <section id="faq" className="py-20 md:py-24 bg-white">
           <div className="max-w-3xl mx-auto px-6">
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center text-[#42495C]">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center text-[var(--lp-text)]">
               {c.faq.title ?? "Perguntas frequentes"}
             </h2>
             <div className="mt-10 space-y-3">
               {c.faq.items.map((item, i) => (
-                <details key={i} className="group rounded-2xl bg-[#FAF8FB] hover:bg-white transition-colors overflow-hidden border border-[#EFEBF4]">
-                  <summary className="cursor-pointer list-none flex items-center justify-between gap-4 p-5 md:p-6 font-semibold text-[#42495C]">
+                <details key={i} className="group rounded-2xl bg-[var(--lp-bg-soft)] hover:bg-white transition-colors overflow-hidden border border-[var(--lp-border)]">
+                  <summary className="cursor-pointer list-none flex items-center justify-between gap-4 p-5 md:p-6 font-semibold text-[var(--lp-text)]">
                     <span>{item.q}</span>
-                    <span className="shrink-0 w-8 h-8 rounded-full bg-white text-[#DF7344] flex items-center justify-center text-xl font-black group-open:rotate-45 transition-transform" aria-hidden>
+                    <span className="shrink-0 w-8 h-8 rounded-full bg-white text-[var(--lp-orange)] flex items-center justify-center text-xl font-black group-open:rotate-45 transition-transform" aria-hidden>
                       +
                     </span>
                   </summary>
-                  <div className="px-5 md:px-6 pb-5 md:pb-6 text-[#5A5670] leading-relaxed">{item.a}</div>
+                  <div className="px-5 md:px-6 pb-5 md:pb-6 text-[var(--lp-text-soft)] leading-relaxed">{item.a}</div>
                 </details>
               ))}
             </div>
@@ -613,7 +613,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                 type="button"
                 onClick={cta("final")}
                 data-form-cta="primary"
-                className="inline-flex items-center gap-2 rounded-full bg-white text-[#605882] px-8 py-4 font-bold text-base hover:brightness-105 hover:-translate-y-0.5 transition"
+                className="inline-flex items-center gap-2 rounded-full bg-white text-[var(--lp-brand)] px-8 py-4 font-bold text-base hover:brightness-105 hover:-translate-y-0.5 transition"
                 style={{ boxShadow: "0 20px 40px -15px rgba(0,0,0,0.25)" }}
               >
                 {c.finalCta.cta}
@@ -625,9 +625,9 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* FOOTER */}
-      <footer className="bg-white text-[#8B82A8] text-xs border-t border-[#EFEBF4]">
+      <footer className="bg-white text-[var(--lp-brand-2)] text-xs border-t border-[var(--lp-border)]">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="font-semibold text-[#42495C]">{c.brandName ?? "Smart Dent | Fluxo Digital"}</div>
+          <div className="font-semibold text-[var(--lp-text)]">{c.brandName ?? "Smart Dent | Fluxo Digital"}</div>
           <div className="text-center md:text-right leading-relaxed">
             {c.legal ?? "© Smart Dent. Todos os direitos reservados. exocad® é marca registrada de exocad GmbH."}
           </div>
@@ -636,7 +636,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
       {/* MOBILE STICKY CTA */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur-xl border-t border-[#EFEBF4] p-3"
+        className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur-xl border-t border-[var(--lp-border)] p-3"
         style={{ boxShadow: "0 -12px 32px -8px rgba(96,88,130,0.2)", paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
       >
         <button
