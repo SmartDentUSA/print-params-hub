@@ -1155,20 +1155,6 @@ export const DEFAULT_LP_CONTENT: LPContent = {
     cards: [
       {
         ribbon: "Condição 1",
-        title: "Pré-venda exclusiva",
-        priceLabel: "R$ 2.390",
-        priceNote: "ativação e implantação inicial",
-        includes: [
-          "Primeiro mês da licença oficial incluso",
-          "Cadastramento, validação e ativação",
-          "Treinamento e acompanhamento da implantação",
-          "Mensalidade reduzida após a ativação",
-        ],
-        cta: "Ativar agora",
-        footnote: "Licença oficial, atualizações previstas no plano e suporte Smart Dent.",
-      },
-      {
-        ribbon: "Condição 2",
         title: "Implantação assistida",
         priceLabel: "Sob consulta",
         priceNote: "para times em expansão",
@@ -1182,7 +1168,7 @@ export const DEFAULT_LP_CONTENT: LPContent = {
         footnote: "Ideal para laboratórios que precisam organizar o fluxo antes da ativação.",
       },
       {
-        ribbon: "Condição 3",
+        ribbon: "Condição 2",
         title: "Plano consultivo",
         priceLabel: "Personalizado",
         priceNote: "para operação completa",
