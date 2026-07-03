@@ -160,6 +160,11 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       const nextContent = ensureContent((data as any).content);
+      // Preserve hero audio across AI regenerations (LLM never emits it).
+      const prevAudio = content?.hero?.audio;
+      if (prevAudio?.url && nextContent.hero) {
+        nextContent.hero = { ...nextContent.hero, audio: prevAudio };
+      }
 
       const saved = await persist({
         mode,
