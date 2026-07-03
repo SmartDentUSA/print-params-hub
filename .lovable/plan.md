@@ -1,60 +1,41 @@
-## Ajustes na Landing Page
+## Corrigir scroll do editor de Landing Page
 
-### 1. Condições — opção "De: / Por:" com desconto
+### Diagnóstico
 
-Adicionar ao tipo de cada card em `conditions.cards` um campo opcional:
+O modal usa CSS Grid para dividir sidebar/preview:
 
-- `originalPrice?: string` — preço "De" (ex.: `R$ 3.500`)
-- Quando preenchido:
-  - Renderiza o `originalPrice` **riscado** acima do `priceLabel`
-  - Calcula automaticamente o desconto em **%** e em **R$** (parseando os números do texto, ignorando "R$"/pontos/vírgulas)
-  - Exibe uma badge tipo `Economize R$ 1.101 (31%)` ao lado do preço atual
-- Quando vazio: comportamento atual, sem alterações
+```tsx
+<div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr]">
+```
 
-No editor (`LandingPageBuilderModal.tsx`), adicionar em cada card:
-- Campo `Preço original (De)` — opcional
-- Preview do desconto calculado em tempo real, apenas informativo
+Sem `grid-template-rows` explícito, a linha implícita vira `auto` e cresce até o tamanho do conteúdo (o template tem `min-h-screen`). Resultado:
 
-### 2. Menu não funciona
+- Filhos com `h-full` não recebem uma altura contida (a linha do grid é maior que o `TabsContent`), então nem a sidebar nem o preview conseguem paginar via `overflow-y-auto` — o clip acontece no `TabsContent` (`overflow-hidden`) e cortamos o conteúdo abaixo.
+- Isso também esconde as sections do editor abaixo da dobra (incluindo o bloco "Condições" com os campos dos 3 cards). Por isso o usuário não vê os campos de edição das ofertas.
 
-Causa: a IA gera labels como "Benefícios", "Investimento", "Dúvidas" mas envia anchors que não batem com as seções reais do template (`#beneficios`, `#investimento`, `#duvidas` não existem — as seções são `#condicoes`, `#preco`, `#faq`, etc.).
+O mesmo padrão está no `GenerateLayout` (abas "Gerar por IA" e "Briefing"), afetando o scroll do preview nessas abas.
 
-Correção em `PremiumLandingTemplate.tsx`:
+### Correção
 
-- Criar função `resolveAnchor(label, anchor)` que:
-  1. Se `anchor` aponta para uma seção existente na página, usa ele
-  2. Caso contrário, mapeia por label normalizado:
-     - `benefícios/beneficios` → `#beneficios` (id da seção BENEFITS, adicionar)
-     - `módulos/modulos/recursos` → `#modulos`
-     - `como funciona` → `#como-funciona`
-     - `investimento/preço/preco/planos/condições/condicoes` → `#condicoes` (se existir) ou `#preco`
-     - `dúvidas/duvidas/faq/perguntas` → `#faq`
-     - `contato/fale conosco` → `#contato`
-- Adicionar `id="beneficios"` na seção BENEFITS (hoje sem id)
-- Substituir o click do link por scroll suave com offset do header sticky (~72px) para evitar o header cobrir o título da seção
+Em `src/components/smartops/LandingPageBuilderModal.tsx`, forçar altura contida na linha do grid dos dois layouts:
 
-### 3. Logo da empresa
+1. Split da aba `edit` (linha 310):
+   - Trocar `grid grid-cols-1 xl:grid-cols-[420px_1fr]` por `grid grid-cols-1 xl:grid-cols-[420px_1fr] grid-rows-[1fr] h-full min-h-0`
+   - Adicionar `overflow-hidden` no wrapper para garantir que o filho scrollável (`overflow-y-auto`) delimite dentro dele.
 
-Atualmente o header exibe apenas `brandName` como texto (default `SMART DENT`). Duas possíveis interpretações do "logo errado":
+2. `GenerateLayout` (linha 342): mesma alteração, com `grid-rows-[1fr]` e reforço de `min-h-0 overflow-hidden` na sidebar.
 
-**Opção A (recomendada):** permitir upload/URL de logo da empresa.
-- Adicionar `logoUrl?: string` em `LPContent`
-- No header: se `logoUrl` presente, mostra `<img>` (altura 32px) + `brandName` opcional; senão, cai no texto atual
-- No editor: campo `URL do logo` na aba Marca/Header, ao lado de `Nome da marca`
+3. `LivePreview` (linha 369): garantir que a raiz seja `h-full min-h-0 flex flex-col overflow-hidden` (já está) e que o div interno de scroll (`overflow-y-auto`) tenha `flex-1 min-h-0` sem `h-full` (o `h-full` combinado com `flex-1` em contêiner flexível causa cálculo redundante em alguns navegadores).
 
-**Opção B:** apenas garantir que `brandName` gerado pela IA respeite o valor definido pelo usuário e não sobrescreva com "SMART DENT" quando a LP é de outra marca.
+4. Sidebar do editor (linha 311): trocar `min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20` por `h-full min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20` (garante que ocupe a linha do grid corrigida).
 
-Preciso confirmar qual das duas antes de executar (ver pergunta abaixo).
+### Validação
 
-### Arquivos afetados
-
-- `src/components/lp/PremiumLandingTemplate.tsx` — tipo `LPContent`, render dos cards de condição, resolveAnchor + scroll suave, id da seção benefits, render do logo
-- `src/components/smartops/LandingPageBuilderModal.tsx` — campo `originalPrice` no editor de cards + preview do desconto, campo `logoUrl` (se Opção A)
+- Abrir modal em `/admin`, gerar/regenerar uma LP, ir na aba "Editar & publicar". A sidebar precisa rolar até chegar na Section "Condições" com os 3 cards (Condição 1/2/3) e o preview precisa rolar independentemente.
+- Nas abas "Gerar por IA" e "Briefing", o preview precisa rolar até o rodapé da LP.
+- Rodar `bunx tsgo` para checar tipos.
 
 ### Fora do escopo
 
-- Não altero lógica de publicação, formulário público, geração via IA, nem outras seções.
-
-### Pergunta ao usuário
-
-Sobre o logo: você quer **(A)** um campo para colar/upload da URL do logo (imagem no header), ou **(B)** apenas corrigir o nome da marca que está saindo errado? Se for B, me diga qual é o nome correto.
+- Não altero conteúdo, geração por IA, publicação ou o template da LP.
+- Não mudo os campos da seção Condições — eles já existem no editor; a correção só é necessária para que fiquem visíveis via scroll.
