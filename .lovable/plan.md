@@ -1,18 +1,24 @@
-## Remover pill de preço do hero
+## Tornar todas as seções do editor de LP acessíveis
 
-O bloco `ATIVAÇÃO + 1º MÊS · R$ 2.390 · depois R$ 1.199/mês` voltou a aparecer no hero.
+### Diagnóstico
 
-### Correção
+A sidebar do editor já rola tecnicamente (fix anterior com `grid-rows-[1fr]`), mas a lista é comprida (Aparência, Hero, Como funciona, Card de preço, Condições, Benefícios, FAQ, CTA final, Rodapé) e o usuário não percebe que precisa rolar — a barra de rolagem quase não aparece.
 
-Em `src/components/lp/PremiumLandingTemplate.tsx`:
+### Correção em `src/components/smartops/LandingPageBuilderModal.tsx`
 
-1. Remover o bloco `{c.hero.pricePill && (…)}` do hero (~linha 464-475) — a seção de Condições abaixo já cumpre esse papel.
-2. Remover `pricePill` de `DEFAULT_LP_CONTENT.hero` para não reaparecer em LPs novas.
-3. Manter o campo `pricePill` no tipo `LPContent.hero` como opcional para não quebrar dados existentes; ele só deixa de ser renderizado.
+1. **Sub-navegação no topo da sidebar do editor**: adicionar uma barra sticky com botões que fazem `scrollIntoView` para cada seção. Botões: Aparência · Hero · Como funciona · Preço · Condições · Benefícios · FAQ · CTA final · Rodapé.
 
-Em `src/components/smartops/LandingPageBuilderModal.tsx`: se houver campos do editor para `pricePill`, removê-los para não gerar dado inútil (verificar durante a implementação).
+2. **Ancoragem das sections**: dar `id` a cada `<Section>` (novo prop opcional `anchorId`) para que a sub-navegação role até elas.
+
+3. **Scrollbar visível**: adicionar classe utilitária (`scrollbar-thin` via style inline `scrollbarWidth: thin` + `scrollbar-gutter: stable`) na sidebar para deixar claro que há mais conteúdo abaixo.
+
+4. **Redundância**: manter o comportamento `<details open>` como está; a sub-navegação apenas ajuda a saltar entre elas.
+
+### Validação
+
+- Abrir modal → aba "Editar & publicar" → clicar em "Condições" na sub-nav → sidebar rola até a seção com os 3 cards.
+- Rodar `bunx tsgo` para checar tipos.
 
 ### Fora do escopo
 
-- Não altero a seção de Condições nem outras partes da LP.
-- Não altero a lógica de publicação nem a geração via IA (o campo permanece no tipo, então prompts antigos não quebram).
+- Sem mudanças em template, geração via IA, publicação ou preview.

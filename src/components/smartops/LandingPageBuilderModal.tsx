@@ -308,9 +308,12 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
               <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[420px_1fr] grid-rows-[1fr] overflow-hidden">
-                <div className="h-full min-h-0 border-r overflow-y-auto p-5 space-y-6 bg-muted/20">
-                  <ContentEditor content={content} onChange={setContent} heroImage={heroImage} onHeroImageChange={setHeroImage} />
-                </div>
+                <EditorSidebar
+                  content={content}
+                  onChange={setContent}
+                  heroImage={heroImage}
+                  onHeroImageChange={setHeroImage}
+                />
                 <LivePreview content={content} heroImage={heroImage} />
               </div>
             ) : (
