@@ -632,7 +632,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* CONDITIONS */}
-      {c.conditions && c.conditions.cards.length > 0 && (
+      {c.conditions && (c.conditions.cards ?? []).length > 0 && (
         <section id="condicoes" className="py-20 md:py-24 bg-white">
           <div className="max-w-7xl mx-auto px-6">
             {(c.conditions.title || c.conditions.subtitle) && (
@@ -651,7 +651,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             )}
 
             <div className="mt-12 grid gap-6 lg:grid-cols-3">
-              {c.conditions.cards.slice(0, 3).map((card, i) => (
+              {(c.conditions.cards ?? []).slice(0, 3).map((card, i) => (
                 <div
                   key={i}
                   className="overflow-hidden rounded-[28px] border border-[var(--lp-border)] bg-white"
