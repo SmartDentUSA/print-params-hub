@@ -36,9 +36,24 @@ Deno.serve(async (req) => {
     const body: Body = await req.json();
     const {
       produto, produto_id, cta_principal, ctas_secundarios = [],
-      segmento_resumo, tom = "consultivo, profissional, direto",
+      segmento_resumo, tom = "consultivo",
       regenerate = "all", base_html,
     } = body;
+
+    // Preset tone expansions → concrete writing guidance for the LLM
+    const TOM_PRESETS: Record<string, string> = {
+      consultivo: "Consultivo, profissional, direto ao ponto. Orienta o dentista/laboratório sem pressionar. Foco em ajudar a decidir.",
+      tecnico: "Técnico especialista. Vocabulário odontológico preciso (fluxo digital, CAD/CAM, ISO, precisão em µm). Zero hype, dados objetivos.",
+      educativo: "Educativo e didático. Ensina antes de vender. Referencia casos clínicos, artigos e boas práticas.",
+      direto_comercial: "Direto e comercial, para leads quentes. Foco em benefício concreto e próximo passo claro. Frases curtas.",
+      storytelling: "Storytelling clínico. Conta a jornada de um profissional que adotou o produto e o resultado obtido. Emoção controlada.",
+      urgencia_soft: "Urgência suave, sem gatilhos agressivos. Comunica escassez real (vagas, prazo) com respeito.",
+      celebrativo: "Celebrativo e otimista. Lançamento, marco, novidade. Tom de compartilhamento de conquista.",
+      reativacao_amigavel: "Reativação amigável e leve. Reconecta com o lead frio sem cobrar. Reconhece o tempo sem contato.",
+      pos_venda_cs: "Pós-venda / customer success. Acolhedor, orientador, foco em fazer o cliente usar bem o produto que já tem.",
+      evento_convite: "Convite para evento (curso, webinar, feira). Datas, benefícios da participação, call-to-action de inscrição.",
+    };
+    const tomInstruction = TOM_PRESETS[tom] || tom;
 
     // Fetch product context from system_a_catalog if provided
     let produtoCtx: Record<string, unknown> | null = null;
@@ -72,9 +87,10 @@ Deno.serve(async (req) => {
 
 REGRAS ABSOLUTAS:
 - NUNCA cite preços, valores em R$, descontos numéricos ou promoções com valor.
-- Tom: ${tom}.
+- Tom: ${tomInstruction}
 - Português do Brasil, sem gírias, sem exagero, sem emojis em excesso (no máx. 1-2 no assunto).
-- HTML responsivo, inline styles (compatível Gmail/Outlook), largura máx 600px, fontes web-safe.
+- HTML DEVE ser um documento COMPLETO começando em \`<!doctype html><html><head><meta charset="UTF-8"></head><body ...>\` e terminando em \`</body></html>\`. Inline styles (Gmail/Outlook), largura máx 600px, fontes web-safe.
+- NUNCA gere tags <table>, <tr> ou <td> soltas sem envolver em uma tabela completa e fechada corretamente. Se usar tabela para layout, feche todas as tags.
 - Personalizar com placeholders: {{nome}} (primeiro nome do lead), {{vendedor_nome}}, {{link_wa_vendedor}}.
 - CTA principal como botão destacado. CTAs secundários como links no rodapé.
 - Estrutura: preheader (invisível) → saudação → hook → 2-3 benefícios do produto → CTA botão → PS/rodapé com CTAs secundários + assinatura.
