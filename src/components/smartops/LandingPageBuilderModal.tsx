@@ -403,7 +403,6 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-aparencia", label: "Aparência" },
   { id: "sec-hero", label: "Hero" },
   { id: "sec-como-funciona", label: "Como funciona" },
-  { id: "sec-preco", label: "Preço" },
   { id: "sec-condicoes", label: "Condições" },
   { id: "sec-modulos", label: "Módulos" },
   { id: "sec-regional", label: "Uso da licença" },
