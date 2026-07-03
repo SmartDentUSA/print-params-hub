@@ -488,6 +488,12 @@ function ContentEditor({
 
       <Section title="Rodapé">
         <TextField label="Nome da marca" value={content.brandName ?? ""} onChange={(v) => patch({ brandName: v })} />
+        <TextField
+          label="URL do logo (imagem no header)"
+          value={content.logoUrl ?? ""}
+          onChange={(v) => patch({ logoUrl: v })}
+          placeholder="https://... (deixe vazio para usar o nome da marca em texto)"
+        />
         <TextField label="Legal / copyright" value={content.legal ?? ""} onChange={(v) => patch({ legal: v })} multiline />
       </Section>
     </>
@@ -512,6 +518,7 @@ function defaultConditionCards() {
     title: "",
     priceLabel: "",
     priceNote: "",
+    originalPrice: "",
     includes: [""],
     cta: "",
     footnote: "",
@@ -605,13 +612,49 @@ function ConditionCardsEditor({
           <div className="text-[10px] uppercase font-semibold text-muted-foreground">Condição {i + 1}</div>
           <TextField label="Faixa superior" value={card.ribbon ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, ribbon: v }; onChange(n); }} />
           <TextField label="Título" value={card.title} onChange={(v) => { const n = [...cards]; n[i] = { ...card, title: v }; onChange(n); }} />
-          <TextField label="Preço / Valor" value={card.priceLabel ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, priceLabel: v }; onChange(n); }} />
+          <TextField
+            label="Preço original (De) — opcional"
+            value={card.originalPrice ?? ""}
+            onChange={(v) => { const n = [...cards]; n[i] = { ...card, originalPrice: v }; onChange(n); }}
+            placeholder="Ex.: R$ 3.500"
+          />
+          <TextField
+            label="Preço / Valor (Por)"
+            value={card.priceLabel ?? ""}
+            onChange={(v) => { const n = [...cards]; n[i] = { ...card, priceLabel: v }; onChange(n); }}
+            placeholder="Ex.: R$ 2.399"
+          />
+          <DiscountPreview original={card.originalPrice} current={card.priceLabel} />
           <TextField label="Observação do preço" value={card.priceNote ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, priceNote: v }; onChange(n); }} />
           <ListEditor label="Itens" items={card.includes ?? []} onChange={(items) => { const n = [...cards]; n[i] = { ...card, includes: items }; onChange(n); }} />
           <TextField label="CTA" value={card.cta} onChange={(v) => { const n = [...cards]; n[i] = { ...card, cta: v }; onChange(n); }} />
           <TextField label="Rodapé" value={card.footnote ?? ""} onChange={(v) => { const n = [...cards]; n[i] = { ...card, footnote: v }; onChange(n); }} multiline />
         </div>
       ))}
+    </div>
+  );
+}
+
+function DiscountPreview({ original, current }: { original?: string; current?: string }) {
+  const parse = (raw?: string): number | null => {
+    if (!raw) return null;
+    const cleaned = raw.replace(/[^\d,.\-]/g, "");
+    if (!cleaned) return null;
+    let norm = cleaned;
+    if (cleaned.includes(",") && cleaned.includes(".")) norm = cleaned.replace(/\./g, "").replace(",", ".");
+    else if (cleaned.includes(",")) norm = cleaned.replace(",", ".");
+    const n = Number(norm);
+    return Number.isFinite(n) ? n : null;
+  };
+  const o = parse(original);
+  const c = parse(current);
+  if (!o || !c || o <= c) return null;
+  const savings = o - c;
+  const percent = Math.round((savings / o) * 100);
+  const fmt = savings.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: savings % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+  return (
+    <div className="text-[11px] font-semibold text-[#F47C42] bg-[#F47C42]/10 rounded px-2 py-1">
+      Desconto calculado: {fmt} ({percent}% OFF)
     </div>
   );
 }

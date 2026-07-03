@@ -24,6 +24,7 @@ export type TrustIcon = "shield" | "headphones" | "infinity" | "check" | "clock"
 
 export type LPContent = {
   brandName?: string;
+  logoUrl?: string;
   theme?: LPThemeKey;
   resellerBadge?: string;
   nav?: { items: { label: string; anchor?: string }[]; cta?: string };
@@ -66,6 +67,7 @@ export type LPContent = {
       title: string;
       priceLabel?: string;
       priceNote?: string;
+      originalPrice?: string;
       includes: string[];
       cta: string;
       footnote?: string;
@@ -87,6 +89,73 @@ interface Props {
 // Design system tokens (spec: single strong purple + orange accent + navy text).
 const GRADIENT_BRAND = `linear-gradient(135deg, var(--lp-brand) 0%, var(--lp-brand-2) 100%)`;
 const GRADIENT_SOFT = `linear-gradient(180deg, var(--lp-bg-soft) 0%, var(--lp-soft) 100%)`;
+
+// -------- Nav helpers --------
+const KNOWN_SECTION_IDS = ["top", "como-funciona", "preco", "condicoes", "modulos", "beneficios", "faq", "contato"];
+
+function normalizeLabel(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function resolveAnchor(label: string, anchor?: string): string {
+  if (anchor) {
+    const id = anchor.replace(/^#/, "");
+    if (KNOWN_SECTION_IDS.includes(id)) return `#${id}`;
+  }
+  const key = normalizeLabel(label);
+  if (/beneficio/.test(key)) return "#beneficios";
+  if (/modulo|recurso|feature/.test(key)) return "#modulos";
+  if (/como.*funciona|passo|etapa/.test(key)) return "#como-funciona";
+  if (/investimento|preco|preço|plano|condic|valor/.test(key)) return "#condicoes";
+  if (/duvida|faq|pergunta/.test(key)) return "#faq";
+  if (/contato|fale|conosco/.test(key)) return "#contato";
+  if (/produto|inicio|home|top/.test(key)) return "#top";
+  return "#top";
+}
+
+function smoothScrollTo(hash: string) {
+  if (typeof window === "undefined") return;
+  const id = hash.replace(/^#/, "");
+  const el = document.getElementById(id);
+  if (!el) return;
+  const headerOffset = 72;
+  const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+  window.scrollTo({ top, behavior: "smooth" });
+}
+
+// -------- Price / discount helpers --------
+function parsePriceNumber(raw?: string): number | null {
+  if (!raw) return null;
+  // strip currency and spaces, handle "R$ 3.500,00" or "R$ 2.399"
+  const cleaned = raw.replace(/[^\d,.\-]/g, "");
+  if (!cleaned) return null;
+  // If both '.' and ',' — assume '.' thousands and ',' decimal (pt-BR)
+  let normalized = cleaned;
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (cleaned.includes(",")) {
+    normalized = cleaned.replace(",", ".");
+  }
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatBRL(n: number): string {
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+}
+
+function computeDiscount(original?: string, current?: string): { savings: string; percent: number } | null {
+  const o = parsePriceNumber(original);
+  const c = parsePriceNumber(current);
+  if (!o || !c || o <= c) return null;
+  const savings = o - c;
+  const percent = Math.round((savings / o) * 100);
+  return { savings: formatBRL(savings), percent };
+}
 
 // -------- Paletas selecionáveis no editor --------
 export type LPThemeKey =
@@ -412,8 +481,21 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/75 backdrop-blur-sm border-b border-[var(--lp-border)]/60">
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 sm:px-8">
-          <a href="#top" className="flex min-w-0 items-center gap-3">
-            <span className="text-lg font-black tracking-tight text-[var(--lp-text)]">{c.brandName ?? "SMART DENT"}</span>
+          <a
+            href="#top"
+            onClick={(e) => { e.preventDefault(); smoothScrollTo("#top"); }}
+            className="flex min-w-0 items-center gap-3"
+          >
+            {c.logoUrl ? (
+              <img
+                src={c.logoUrl}
+                alt={c.brandName ?? "Logo"}
+                className="h-8 w-auto max-w-[160px] object-contain"
+                loading="eager"
+              />
+            ) : (
+              <span className="text-lg font-black tracking-tight text-[var(--lp-text)]">{c.brandName ?? "SMART DENT"}</span>
+            )}
             {c.resellerBadge && (
               <span className="hidden shrink-0 rounded-full border border-[var(--lp-orange)]/30 bg-[var(--lp-orange)]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--lp-orange)] sm:inline-flex">
                 {c.resellerBadge}
@@ -421,11 +503,19 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             )}
           </a>
           <div className="hidden items-center gap-6 md:flex">
-            {(c.nav?.items ?? []).map((n, i) => (
-              <a key={i} href={n.anchor ?? "#"} className="text-sm font-medium text-[var(--lp-text)] hover:text-[var(--lp-brand)] transition">
-                {n.label}
-              </a>
-            ))}
+            {(c.nav?.items ?? []).map((n, i) => {
+              const target = resolveAnchor(n.label, n.anchor);
+              return (
+                <a
+                  key={i}
+                  href={target}
+                  onClick={(e) => { e.preventDefault(); smoothScrollTo(target); }}
+                  className="text-sm font-medium text-[var(--lp-text)] hover:text-[var(--lp-brand)] transition cursor-pointer"
+                >
+                  {n.label}
+                </a>
+              );
+            })}
             <button
               type="button"
               onClick={cta("header")}
@@ -664,12 +754,35 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   </div>
                   <div className="p-7 md:p-8">
                     <h3 className="text-2xl font-black leading-tight text-[var(--lp-text)]">{card.title}</h3>
-                    {card.priceLabel && (
-                      <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
-                        {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
-                      </div>
-                    )}
+                    {card.priceLabel && (() => {
+                      const discount = computeDiscount(card.originalPrice, card.priceLabel);
+                      return (
+                        <div className="mt-5 space-y-1.5">
+                          {card.originalPrice && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text-soft)]">De</span>
+                              <span className="text-lg font-semibold text-[var(--lp-text-soft)] line-through decoration-[var(--lp-orange)]/70 decoration-2">
+                                {card.originalPrice}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            {card.originalPrice && (
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--lp-brand)]">Por</span>
+                            )}
+                            <span className="text-4xl md:text-5xl font-black text-[var(--lp-brand)]">{card.priceLabel}</span>
+                            {card.priceNote && <span className="text-sm text-[var(--lp-text-soft)]">{card.priceNote}</span>}
+                          </div>
+                          {discount && (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--lp-orange)]/10 px-3 py-1 text-xs font-bold text-[var(--lp-orange)]">
+                              <span>Economize {discount.savings}</span>
+                              <span className="opacity-70">·</span>
+                              <span>{discount.percent}% OFF</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <ul className="mt-7 space-y-3.5">
                       {card.includes.map((item, itemIndex) => (
                         <li key={itemIndex} className="flex items-start gap-3">
@@ -699,6 +812,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       {/* BENEFITS */}
       {c.benefits && c.benefits.items.length > 0 && (
         <section id="modulos" className="py-20 md:py-24 bg-white">
+          <span id="beneficios" className="block relative -top-20" aria-hidden="true" />
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
