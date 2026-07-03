@@ -1014,6 +1014,130 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
   return ORIGINS.DRA_LIA.id;
 }
 
+// ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
+
+const LOST_REASON_NOVO_INTERESSE = "Novo interesse";
+const lostReasonCache = new Map<string, number>();
+
+/**
+ * Resolve (ou cria) o ID do motivo de perda "Novo interesse", usado para
+ * fechar deals do Funil Estagnados quando um lead reage a um novo anúncio
+ * ou formulário. Cache em memória por invocação — mesmo padrão de
+ * resolveOriginId.
+ */
+async function resolveLostReasonId(apiToken: string): Promise<number | null> {
+  if (lostReasonCache.has(LOST_REASON_NOVO_INTERESSE)) {
+    return lostReasonCache.get(LOST_REASON_NOVO_INTERESSE)!;
+  }
+  try {
+    const searchRes = await piperunGet(apiToken, "lostReasons", { name: LOST_REASON_NOVO_INTERESSE, show: 5 });
+    if (searchRes.success && searchRes.data) {
+      const items = (searchRes.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
+      const exact = items?.find(
+        (r) => String(r.name).trim().toLowerCase() === LOST_REASON_NOVO_INTERESSE.toLowerCase(),
+      );
+      if (exact?.id) {
+        const id = Number(exact.id);
+        lostReasonCache.set(LOST_REASON_NOVO_INTERESSE, id);
+        console.log(`[lia-assign] Lost reason found: "${LOST_REASON_NOVO_INTERESSE}" → ${id}`);
+        return id;
+      }
+    }
+    console.log(`[lia-assign] Creating lost reason: "${LOST_REASON_NOVO_INTERESSE}" (no exact match)`);
+    const createRes = await piperunPost(apiToken, "lostReasons", {
+      name: LOST_REASON_NOVO_INTERESSE,
+      status: false, // false = ativo (conforme doc PipeRun)
+    });
+    if (createRes.success && createRes.data) {
+      const created = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (created?.id) {
+        const id = Number(created.id);
+        lostReasonCache.set(LOST_REASON_NOVO_INTERESSE, id);
+        console.log(`[lia-assign] Lost reason created: "${LOST_REASON_NOVO_INTERESSE}" → ${id}`);
+        return id;
+      }
+    }
+    console.warn(
+      `[lia-assign] Could not resolve/create lost reason "${LOST_REASON_NOVO_INTERESSE}" — deal será fechado sem lost_reason_id`,
+    );
+  } catch (e) {
+    console.warn("[lia-assign] Lost reason resolution error:", e);
+  }
+  return null;
+}
+
+/**
+ * Fecha um deal como "Perdido" (status=2) com motivo informado.
+ * `status: 2` = perdida — validado empiricamente contra DEAL_STATUS_MAP
+ * desta conta (a doc pública cita 3, mas 2 é o valor que persiste no UI).
+ */
+async function closeDealAsLost(
+  apiToken: string,
+  dealId: number,
+  lostReasonId: number | null,
+  reasonComment: string,
+): Promise<boolean> {
+  const payload: Record<string, unknown> = {
+    status: 2,
+    reason_close: reasonComment,
+    closed_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+  };
+  if (lostReasonId != null) payload.lost_reason_id = lostReasonId;
+  console.log(`[lia-assign] Closing deal ${dealId} as Perdido (motivo="${LOST_REASON_NOVO_INTERESSE}")`);
+  const res = await piperunPut(apiToken, `deals/${dealId}`, payload);
+  console.log(
+    `[lia-assign] Close-as-lost deal ${dealId}: ${res.success} (${res.status})${!res.success ? " body=" + JSON.stringify(res.data).slice(0, 400) : ""}`,
+  );
+  return res.success;
+}
+
+/**
+ * Detecta intervenção manual do vendedor no deal Estagnados. Retorna
+ * `intervened=true` se qualquer sinal indicar que um humano (vendedor)
+ * já mexeu no deal — nesse caso o patch NÃO fecha como "Novo interesse".
+ *
+ * Sinais (cascata barata → cara):
+ *  1. Alguma nota no deal com `user_id` mapeando a um team_member
+ *     `role='vendedor'` ativo (via GET deals/{id}/notes).
+ */
+async function hasSellerIntervention(
+  apiToken: string,
+  supabase: ReturnType<typeof createClient>,
+  estagnDeal: Record<string, unknown>,
+): Promise<{ intervened: boolean; signal: string }> {
+  const dealId = Number(estagnDeal.id);
+  try {
+    const notesRes = await piperunGet(apiToken, `deals/${dealId}/notes`, { show: 50 });
+    if (notesRes.success && notesRes.data) {
+      const notes = (notesRes.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
+      const userIds = Array.from(
+        new Set(
+          (notes ?? [])
+            .map((n) => Number(n.user_id))
+            .filter((v) => Number.isFinite(v) && v > 0),
+        ),
+      );
+      if (userIds.length > 0) {
+        const { data: sellers } = await supabase
+          .from("team_members")
+          .select("piperun_owner_id")
+          .in("piperun_owner_id", userIds)
+          .eq("ativo", true)
+          .eq("role", "vendedor");
+        if (sellers && sellers.length > 0) {
+          const matched = sellers[0].piperun_owner_id;
+          return { intervened: true, signal: `note_by_vendedor:${matched}` };
+        }
+      }
+    } else {
+      console.warn(`[lia-assign] hasSellerIntervention: notes fetch failed for deal ${dealId} (${notesRes.status}) — assuming no intervention`);
+    }
+  } catch (e) {
+    console.warn(`[lia-assign] hasSellerIntervention error for deal ${dealId}:`, e);
+  }
+  return { intervened: false, signal: "no_signal" };
+}
+
 // ─── Team Member Selection ───
 
 interface TeamMember {
