@@ -76,6 +76,68 @@ REGRAS TÉCNICAS:
 9. Cada seção envolvida em <section aria-labelledby="..."> com heading próprio; hierarquia h1/h2/h3 correta.
 10. Adicione o CTA fixo no mobile no fim do <main>.
 
+CHECKLIST OBRIGATÓRIA — antes de retornar, verifique que TODOS estes itens existem no HTML:
+  [ ] <main class="bg-white text-[#202331]">
+  [ ] <section> hero com fundo bg-[#1D173E] text-white
+  [ ] Badge visível "ATIVAÇÃO INICIAL" no hero (uppercase, bg-[#F47C42])
+  [ ] <h1> grande com classes font-black tracking-tight text-4xl md:text-6xl leading-tight
+  [ ] Botão primário com classes EXATAS: "inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition"
+  [ ] Seção de card de preço com faixa laranja "ATIVAÇÃO INICIAL" no topo
+  [ ] Grid de 3+ benefícios com SVG inline (viewBox 24 24, stroke-width 1.5)
+  [ ] FAQ em <details><summary> (mínimo 4 perguntas)
+  [ ] CTA fixo mobile: <div class="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur border-t border-black/5 p-3 shadow-lg"><button data-form-cta="primary" class="w-full min-h-12 rounded-xl bg-[#F47C42] text-white font-semibold shadow-lg">Quero ativar agora</button></div>
+  [ ] Footer legal com texto pequeno
+
+EXEMPLO GOLDEN (padrão de qualidade esperado — replicar essa densidade e riqueza):
+
+<main class="bg-white text-[#202331]" style="font-family:'Inter',system-ui,sans-serif">
+  <section aria-labelledby="hero-title" class="relative overflow-hidden bg-[#1D173E] text-white">
+    <div class="absolute inset-0 opacity-30" aria-hidden="true">
+      <svg viewBox="0 0 800 600" class="w-full h-full"><defs><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#F47C42" opacity="0.4"/></pattern></defs><rect width="800" height="600" fill="url(#dots)"/></svg>
+    </div>
+    <div class="relative max-w-6xl mx-auto px-6 py-20 md:py-28">
+      <span class="inline-block bg-[#F47C42] text-white uppercase tracking-widest text-xs md:text-sm font-bold px-4 py-1.5 rounded-full shadow-lg mb-6">Ativação Inicial</span>
+      <h1 id="hero-title" class="font-black tracking-tight text-4xl md:text-6xl leading-tight max-w-3xl" style="font-family:'Manrope',sans-serif">Seu laboratório pronto para trabalhar com exocad completo e oficial.</h1>
+      <p class="mt-6 text-lg md:text-xl text-white/80 max-w-2xl">Licença original, ativação assistida e treinamento com quem entende de fluxo digital odontológico.</p>
+      <div class="mt-10 flex flex-col sm:flex-row gap-4">
+        <button data-form-cta="primary" class="inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition">Quero começar agora</button>
+        <button data-form-cta="secondary" class="inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl border border-white/40 text-white font-semibold hover:bg-white/10 transition">Tirar uma dúvida</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="oferta" class="bg-[#F4F5F8] py-20">
+    <div class="max-w-3xl mx-auto px-6">
+      <div class="rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div class="bg-[#F47C42] text-white uppercase tracking-widest text-center text-sm font-bold py-3">Ativação Inicial</div>
+        <div class="p-8 md:p-10">
+          <h2 id="oferta" class="text-3xl font-black" style="font-family:'Manrope',sans-serif">O que está incluso</h2>
+          <ul class="mt-6 space-y-3 text-[#202331]">
+            <li class="flex gap-3"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#168B5B" stroke-width="2" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span>Licença oficial exocad DentalCAD</span></li>
+            <li class="flex gap-3"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#168B5B" stroke-width="2" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span>Treinamento remoto conduzido</span></li>
+            <li class="flex gap-3"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#168B5B" stroke-width="2" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span>Suporte técnico Smart Dent Brasil</span></li>
+          </ul>
+          <button data-form-cta="primary" class="mt-8 w-full inline-flex items-center justify-center min-h-12 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition">Ativar agora</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="faq" class="py-20 max-w-3xl mx-auto px-6">
+    <h2 id="faq" class="text-3xl md:text-4xl font-black mb-8" style="font-family:'Manrope',sans-serif">Perguntas frequentes</h2>
+    <div class="space-y-3">
+      <details class="group rounded-xl bg-[#F4F5F8] p-5"><summary class="cursor-pointer font-semibold flex justify-between items-center">Como funciona a ativação? <span class="text-[#F47C42] group-open:rotate-45 transition">+</span></summary><p class="mt-3 text-[#202331]/80">Após a confirmação, a Smart Dent inicia a instalação e o treinamento.</p></details>
+      <details class="group rounded-xl bg-[#F4F5F8] p-5"><summary class="cursor-pointer font-semibold flex justify-between items-center">Quem emite a licença? <span class="text-[#F47C42] group-open:rotate-45 transition">+</span></summary><p class="mt-3 text-[#202331]/80">A licença é emitida oficialmente pela exocad GmbH.</p></details>
+    </div>
+  </section>
+
+  <div class="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur border-t border-black/5 p-3 shadow-lg">
+    <button data-form-cta="primary" class="w-full min-h-12 rounded-xl bg-[#F47C42] text-white font-semibold shadow-lg">Quero ativar agora</button>
+  </div>
+</main>
+
+Fim do exemplo. AGORA, gere a landing page real com a MESMA densidade e o MESMO padrão de classes, expandindo com mais seções (prova social, transformação, módulos, depoimentos) conforme o input do usuário.
+
 FORMULÁRIO ALVO: "${form.name}" — finalidade ${form.form_purpose} — slug ${form.slug}.`;
 }
 
@@ -120,28 +182,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Modelo premium (Gemini 3.1 Pro Preview) com fallback para Flash em caso de 429/402.
+    // Cascade de modelos: GPT-5.5 (priority) → GPT-5.4 → Gemini 3.1 Pro → Gemini 3 Flash.
     const messages = [
       { role: "system", content: buildSystemPrompt(form) },
       { role: "user", content: buildUserPrompt(mode, input) },
     ];
-    const callModel = async (model: string) =>
-      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const callModel = async (model: string, opts: { priority?: boolean } = {}) => {
+      const body: Record<string, unknown> = { model, messages, max_tokens: 16000 };
+      // GPT-5.x são modelos de reasoning — não aceitam temperature custom.
+      if (!model.startsWith("openai/")) body.temperature = 0.55;
+      if (opts.priority) body.service_tier = "priority";
+      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Lovable-API-Key": LOVABLE_API_KEY,
         },
-        body: JSON.stringify({ model, messages, temperature: 0.55, max_tokens: 8000 }),
+        body: JSON.stringify(body),
       });
+    };
 
-    let aiRes = await callModel("google/gemini-3.1-pro-preview");
-    if (!aiRes.ok && (aiRes.status === 429 || aiRes.status === 402 || aiRes.status === 400)) {
-      // fallback silencioso para o modelo padrão
-      aiRes = await callModel("google/gemini-3-flash-preview");
+    const cascade: Array<{ model: string; priority?: boolean }> = [
+      { model: "openai/gpt-5.5", priority: true },
+      { model: "openai/gpt-5.4", priority: true },
+      { model: "google/gemini-3.1-pro-preview" },
+      { model: "google/gemini-3-flash-preview" },
+    ];
+
+    let aiRes: Response | null = null;
+    for (const step of cascade) {
+      aiRes = await callModel(step.model, { priority: step.priority });
+      if (aiRes.ok) break;
+      // Só faz fallback em erros transitórios/de modelo (429/402/400/404/5xx).
+      if (![400, 402, 404, 429, 500, 502, 503].includes(aiRes.status)) break;
     }
 
-    if (!aiRes.ok) {
+    if (!aiRes || !aiRes.ok) {
       const errText = await aiRes.text();
       const status = aiRes.status;
       return new Response(
@@ -157,6 +233,7 @@ Deno.serve(async (req) => {
     let html: string = json?.choices?.[0]?.message?.content ?? "";
     // Strip markdown code fences if the model wrapped output
     html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    html = sanitizeAndReinforce(html);
 
     return new Response(JSON.stringify({ html }), {
       status: 200,
@@ -169,3 +246,59 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ------------------------------------------------------------------
+// Sanitizer: garante estética premium mesmo se o modelo pular itens.
+// ------------------------------------------------------------------
+const CANONICAL_PRIMARY_CLASSES =
+  "inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl bg-[#F47C42] text-white font-semibold text-base shadow-lg hover:brightness-110 transition";
+const CANONICAL_SECONDARY_CLASSES =
+  "inline-flex items-center justify-center min-h-11 px-6 py-3 rounded-xl border border-current font-semibold hover:bg-current/10 transition";
+const MOBILE_STICKY_CTA = `\n<div class="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white/95 backdrop-blur border-t border-black/5 p-3 shadow-lg" style="padding-bottom:calc(env(safe-area-inset-bottom) + 0.75rem)"><button data-form-cta="primary" class="w-full min-h-12 rounded-xl bg-[#F47C42] text-white font-semibold shadow-lg">Quero ativar agora</button></div>\n`;
+const HERO_BADGE = `<span class="inline-block bg-[#F47C42] text-white uppercase tracking-widest text-xs md:text-sm font-bold px-4 py-1.5 rounded-full shadow-lg mb-6">Ativação Inicial</span>`;
+
+function sanitizeAndReinforce(input: string): string {
+  let html = input.trim();
+  if (!html) return html;
+
+  // 1) Botões data-form-cta="primary" sem cor de fundo → aplica classes canônicas.
+  html = html.replace(
+    /<button([^>]*?)data-form-cta="primary"([^>]*)>/gi,
+    (match, before, after) => {
+      const combined = `${before} ${after}`;
+      if (/bg-\[#F47C42\]|bg-\[#f47c42\]/.test(combined)) return match;
+      // reescreve preservando outros atributos, forçando class canônica
+      const cleaned = `${before} ${after}`
+        .replace(/\sclass="[^"]*"/i, "")
+        .replace(/\sclass='[^']*'/i, "");
+      return `<button${cleaned} data-form-cta="primary" class="${CANONICAL_PRIMARY_CLASSES}">`;
+    },
+  );
+  html = html.replace(
+    /<button([^>]*?)data-form-cta="secondary"([^>]*)>/gi,
+    (match, before, after) => {
+      const combined = `${before} ${after}`;
+      if (/border|bg-/.test(combined)) return match;
+      const cleaned = `${before} ${after}`
+        .replace(/\sclass="[^"]*"/i, "")
+        .replace(/\sclass='[^']*'/i, "");
+      return `<button${cleaned} data-form-cta="secondary" class="${CANONICAL_SECONDARY_CLASSES}">`;
+    },
+  );
+
+  // 2) Se não existe badge "Ativação Inicial" (case-insensitive) → injeta no início da primeira <section>.
+  if (!/Ativa[cç][aã]o\s+Inicial/i.test(html)) {
+    html = html.replace(/<section([^>]*)>/i, `<section$1><div class="max-w-6xl mx-auto px-6 pt-6">${HERO_BADGE}</div>`);
+  }
+
+  // 3) Se não existe CTA fixo mobile → append antes de </main> (ou no fim se não houver <main>).
+  if (!/fixed[^"']*bottom-0[^"']*md:hidden/i.test(html)) {
+    if (/<\/main>/i.test(html)) {
+      html = html.replace(/<\/main>/i, `${MOBILE_STICKY_CTA}</main>`);
+    } else {
+      html += MOBILE_STICKY_CTA;
+    }
+  }
+
+  return html;
+}
