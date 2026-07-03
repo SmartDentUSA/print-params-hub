@@ -620,6 +620,18 @@ function ContentEditor({
 
       <Section title="FAQ" anchorId="sec-faq">
         <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">FAQs ({content.faq?.items.length ?? 0})</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => patch({ faq: { ...(content.faq ?? {}), items: DEFAULT_LP_CONTENT.faq!.items } })}
+            className="h-7 text-xs"
+          >
+            Restaurar 25 FAQs padrão
+          </Button>
+        </div>
         <FaqEditor
           items={content.faq?.items ?? []}
           onChange={(items) => patch({ faq: { ...(content.faq ?? {}), items } })}
