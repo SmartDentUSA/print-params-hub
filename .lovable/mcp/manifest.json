@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "smartdent-revenue-os-mcp",
+      "version": "0.1.0",
+      "title": "SmartDent Revenue OS"
+    },
+    "tools": [
+      {
+        "name": "query_leads",
+        "title": "Consultar leads",
+        "description": "Busca leads canônicos no CDP (lia_attendances, merged_into IS NULL). Filtros por nome, email, telefone, UF e etapa.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "nome": {
+              "type": "string",
+              "description": "Filtro parcial por nome"
+            },
+            "email": {
+              "type": "string",
+              "description": "Filtro parcial por email"
+            },
+            "telefone": {
+              "type": "string",
+              "description": "Filtro parcial por telefone"
+            },
+            "uf": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2,
+              "description": "UF de 2 letras"
+            },
+            "etapa_funil": {
+              "type": "string",
+              "description": "Etapa do funil CRM"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max resultados (padrão 20)"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_knowledge",
+        "title": "Buscar conteúdo",
+        "description": "Pesquisa artigos publicados na base de conhecimento (knowledge_base) por título, categoria e idioma.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Termo de busca no título"
+            },
+            "category": {
+              "type": "string",
+              "description": "Categoria (A-G)"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "pt",
+                "en",
+                "es"
+              ],
+              "description": "Idioma"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
