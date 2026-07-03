@@ -19566,6 +19566,33 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_webhook_events: {
+        Row: {
+          error: string | null
+          event_id: string
+          event_type: string
+          lead_id: string | null
+          payload: Json
+          processed_at: string
+        }
+        Insert: {
+          error?: string | null
+          event_id: string
+          event_type: string
+          lead_id?: string | null
+          payload: Json
+          processed_at?: string
+        }
+        Update: {
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          lead_id?: string | null
+          payload?: Json
+          processed_at?: string
+        }
+        Relationships: []
+      }
       success_stories: {
         Row: {
           challenge: string | null
