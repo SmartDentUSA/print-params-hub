@@ -55,6 +55,76 @@ const CANONICAL_FAQS = `LISTA CANÔNICA DE 25 FAQS (sempre que o input for sobre
 24. O treinamento está incluído? — Sim. A ativação inicial inclui um treinamento remoto voltado à introdução do ambiente, fluxo de trabalho e recursos essenciais, realizado conforme o formato e a agenda definidos pela equipe Smart Dent.
 25. O suporte técnico está incluído? — Sim, você terá suporte em português pelos canais oficiais da Smart Dent em horário comercial. O atendimento cobre o escopo técnico da licença (orientação, ativação, configuração e incidentes do software). Nota: O suporte não inclui a execução/desenho de casos para o laboratório, responsabilidade clínica ou manutenção de equipamentos não contratados.`;
 
+const CANONICAL_MODULE_ITEMS: Array<{ name: string; application: string }> = [
+  { name: "DentalCAD Core Version", application: "Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais." },
+  { name: "Virtual Articulator", application: "Simulação de movimentos mandibulares e análise de oclusão dinâmica." },
+  { name: "Provisional Module", application: "Desenho de provisórios, incluindo estruturas do tipo eggshell com base em escaneamentos pré-operatórios." },
+  { name: "TruSmile™ Module", application: "Visualização e renderização realista das restaurações." },
+  { name: "ZRS Tooth Library", application: "Biblioteca adicional de formas dentais naturais." },
+  { name: "Implant Module", application: "Pilares personalizados, coroas sobre implante e restaurações parafusadas." },
+  { name: "Bar Module", application: "Desenho de barras simples e complexas para soluções implantossuportadas." },
+  { name: "DICOM Viewer Module", application: "Visualização de dados volumétricos durante o processo de desenho. Não substitui o exoplan nem constitui ferramenta autônoma de diagnóstico." },
+  { name: "Model Creator Module", application: "Criação de modelos físicos a partir de escaneamentos digitais, para impressão 3D." },
+  { name: "Smile Creator Module", application: "Planejamento estético com integração de dados 2D e 3D." },
+  { name: "Full Denture Module", application: "Desenho digital de próteses totais, incluindo fluxos compatíveis previstos no pacote." },
+  { name: "Inspira™ Denture Tooth Library", application: "Biblioteca de dentes para fluxos digitais de prótese total, conforme disponibilidade da versão." },
+  { name: "PartialCAD Module", application: "Desenho de estruturas metálicas ou digitais para próteses parciais removíveis." },
+  { name: "Bite Splint Module", application: "Placas oclusais, night guards, splints e estruturas tabletop." },
+  { name: "Jaw Motion Import Module", application: "Importação de movimentos reais de sistemas de registro mandibular e arco facial digital." },
+];
+
+const CANONICAL_FAQ_ITEMS: Array<{ q: string; a: string }> = [
+  { q: "O que é o exocad RMS?", a: "RMS significa Regional Monthly Subscription (Assinatura Mensal Regional). É o modelo que permite ao seu laboratório utilizar a licença oficial e completa do exocad no Brasil através de uma assinatura mensal. Isso elimina a barreira do alto investimento inicial de uma licença perpétua, adequando-se perfeitamente ao seu fluxo de caixa." },
+  { q: "A licença é oficial?", a: "Sim. A licença é fornecida dentro da parceria e dos procedimentos oficiais da exocad, com ativação e validação exclusiva para o território brasileiro." },
+  { q: "A licença será minha para sempre?", a: "Não se trata de uma compra vitalícia ou perpétua. O cliente adquire o direito temporário de usar a licença oficial enquanto a assinatura estiver ativa. Ao interromper a mensalidade, o acesso ao software é pausado." },
+  { q: "Preciso ter uma conta my.exocad?", a: "Sim. A conta deve ser obrigatoriamente vinculada ao cliente e estar cadastrada com dados e país compatíveis com o Brasil." },
+  { q: "Como funciona o pagamento da Ativação Inicial?", a: "Para começar, você paga apenas o valor de Ativação e Implantação Inicial (de R$ 3.700 por R$ 2.390 na pré-venda). Este pagamento único no início já inclui o seu primeiro mês de uso da licença, além de todo o serviço de cadastramento, validação da conta, configuração, treinamento e acompanhamento de implantação pela Smart Dent." },
+  { q: "Qual será o valor da minha mensalidade a partir do segundo mês?", a: "Após o período coberto pela Ativação Inicial, a sua assinatura entra no ciclo de recorrência mensal. Na condição promocional de lançamento, a mensalidade cai de R$ 2.390,00 para R$ 1.199/mês, debitada automaticamente no cartão." },
+  { q: "O pagamento é seguro?", a: "Sim. O checkout e a cobrança são processados de forma 100% segura pela Stripe. A Smart Dent não recebe nem armazena os dados completos do seu cartão de crédito." },
+  { q: "Quem fornece a licença e quem cobra?", a: "A licença, a ativação e o suporte local são realizados pela MMTech Brasil / Smart Dent. O pagamento é processado pela MMTech North America LLC por meio da Stripe, conforme os documentos de contratação." },
+  { q: "Quem aparece no extrato do cartão?", a: "A descrição na sua fatura pode conter termos como MMTECH, SMART DENT, STRIPE ou LINK, dependendo do meio de pagamento e do banco emissor do seu cartão." },
+  { q: "O que acontece se o cartão falhar na mensalidade?", a: "A Stripe e a Smart Dent poderão enviar avisos e realizar novas tentativas de cobrança. A continuidade ou renovação da licença depende da regularização do pagamento antes do próximo ciclo de faturamento da exocad." },
+  { q: "Posso cancelar a assinatura?", a: "Sim, você pode cancelar seguindo os prazos e condições do contrato. O modelo RMS foi criado para oferecer previsibilidade sem amarras desnecessárias. Contudo, não há reembolso proporcional do período já iniciado, e uma contratação futura após o encerramento poderá exigir o pagamento de uma nova taxa de ativação." },
+  { q: "O Ultimate Bundle inclui todos os produtos da exocad?", a: "O pacote reúne a maior amplitude de módulos do DentalCAD voltada para laboratórios e clínicos (como Implant Module, Model Creator, Smile Creator, PartialCAD, Bite Splint, Provisional, Full Denture, Bar, DICOM Viewer, entre outros). No entanto, não inclui produtos independentes (como exoplan, ChairsideCAD ou exocam), nem add-ons que não façam parte do pacote vigente." },
+  { q: "Existe cobrança por caso ou taxa de exportação (click fees)?", a: "Não. O DentalCAD RMS Ultimate Lab Bundle permite um número ilimitado de casos e não possui click fees (taxas ocultas) para exportação." },
+  { q: "Funciona com meu scanner, impressora ou fresadora?", a: "Sim. O DentalCAD possui arquitetura aberta e ampla compatibilidade com o mercado. A integração específica depende do equipamento, do formato de arquivo, das bibliotecas e do fluxo utilizados. Nossa equipe orientará essa análise durante a implantação." },
+  { q: "Terei direito a atualizações do exocad?", a: "Sim. Enquanto a sua assinatura estiver ativa e regular, você terá acesso a todas as atualizações previstas no plano e disponibilizadas oficialmente pela exocad." },
+  { q: "A inteligência artificial da exocad está incluída?", a: "Na atual promoção de lançamento, os assinantes ganham 30 Créditos de I.A. por mês. No entanto, é importante ressaltar que os serviços de IA e seus créditos dependem da versão do software, do tipo de licença e da disponibilidade regional definida pela exocad, não sendo garantidos permanentemente fora destas condições específicas." },
+  { q: "Ser um assinante Smart Dent traz outros benefícios?", a: "Sim! Além do software completo, os assinantes ativos têm acesso a um pacote de cursos online completos e descontos exclusivos em toda a linha de resinas e insumos para odontologia digital do portfólio Smart Dent." },
+  { q: "Posso usar em mais de um computador?", a: "Não. Cada licença RMS não é flutuante; ela é por seat e fica limitada a um usuário final e a um computador por vez. Mudanças de equipamento precisam ser avaliadas, comunicadas e autorizadas previamente." },
+  { q: "Posso acessar a licença de fora do Brasil?", a: "Não. A modalidade RMS é estritamente regional e deve ser utilizada no Brasil. É proibido utilizar VPN, proxy, hospedagem remota (hosting) ou mecanismos semelhantes com a finalidade de mascarar ou contornar a localização geográfica, sob pena de suspensão." },
+  { q: "Meu computador é compatível?", a: "A compatibilidade técnica será analisada durante o nosso onboarding. De qualquer forma, o cliente é responsável por manter o computador, o sistema operacional, a conexão de internet e demais requisitos de hardware em condições adequadas para rodar o software." },
+  { q: "Preciso estar conectado à internet?", a: "Sim. A ativação inicial e a validação contínua da sua licença dependem de conexão com a internet para comunicação com os servidores da exocad." },
+  { q: "Há uso de dongle físico (pen drive)?", a: "A licença pode utilizar um dongle USB ou outro mecanismo de licenciamento digital, conforme a solução disponibilizada pela exocad. Caso haja um dispositivo físico, ele é entregue para uso temporário, não transfere propriedade ao cliente, e deve ser guardado com segurança e devolvido quando solicitado." },
+  { q: "Acabei de realizar o pagamento da Ativação. E agora?", a: "Bem-vindo ao ecossistema Smart Dent! Nossa equipe fará a conferência do pagamento e iniciará a implantação. Validaremos sua conta my.exocad, associaremos sua licença, auxiliaremos na configuração inicial e agendaremos seu treinamento." },
+  { q: "O treinamento está incluído?", a: "Sim. A ativação inicial inclui um treinamento remoto voltado à introdução do ambiente, fluxo de trabalho e recursos essenciais, realizado conforme o formato e a agenda definidos pela equipe Smart Dent." },
+  { q: "O suporte técnico está incluído?", a: "Sim, você terá suporte em português pelos canais oficiais da Smart Dent em horário comercial. O atendimento cobre o escopo técnico da licença (orientação, ativação, configuração e incidentes do software). Nota: O suporte não inclui a execução/desenho de casos para o laboratório, responsabilidade clínica ou manutenção de equipamentos não contratados." },
+];
+
+function isExocadContext(...parts: Array<string | null | undefined>): boolean {
+  const hay = parts.filter(Boolean).join(" ").toLowerCase();
+  return /exocad|dentalcad|\brms\b|ultimate\s*lab\s*bundle/.test(hay);
+}
+
+function enforceCanonicalContent(content: any): any {
+  if (!content || typeof content !== "object") return content;
+  const modules = (content.modules && typeof content.modules === "object") ? content.modules : {};
+  const faq = (content.faq && typeof content.faq === "object") ? content.faq : {};
+  content.modules = {
+    ...modules,
+    eyebrow: modules.eyebrow ?? "O que está incluído",
+    title: modules.title ?? "Um pacote para o laboratório inteiro",
+    subtitle: modules.subtitle ?? "O Ultimate Lab Bundle reúne 15 módulos do DentalCAD — do fluxo restaurador básico até prótese total, implantes, barras, splints e planejamento estético.",
+    items: CANONICAL_MODULE_ITEMS,
+  };
+  content.faq = {
+    ...faq,
+    title: faq.title ?? "Perguntas frequentes",
+    items: CANONICAL_FAQ_ITEMS,
+  };
+  return content;
+}
+
 const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada de HTML, CSS, markdown, comentários, texto fora do JSON.
 
 {
