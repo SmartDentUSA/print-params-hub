@@ -12,6 +12,7 @@ import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText,
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
+import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import {
   Select,
   SelectContent,
@@ -1150,6 +1151,7 @@ export function SmartOpsFormBuilder() {
                       onToggleActive={() => toggleActive(form)}
                       onEditMeta={() => openEditMeta(form)}
                       onEditFields={() => setEditingForm(form)}
+                      onEditLandingPage={() => setLandingPageForm(form)}
                       onDuplicate={() => handleDuplicate(form)}
                       onCopyLink={() => copyLink(form.slug)}
                       onCopyEmbed={() => copyEmbed(form.slug, form.name)}
