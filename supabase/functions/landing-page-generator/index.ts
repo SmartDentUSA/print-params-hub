@@ -11,6 +11,23 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const CANONICAL_MODULES = `LISTA CANÔNICA DOS 15 MÓDULOS ULTIMATE LAB BUNDLE (sempre que o input for sobre exocad/DentalCAD/Ultimate Lab Bundle):
+1. DentalCAD Core Version — Coroas, pontes, copings, inlays, onlays, overlays, facetas, enceramentos, telescópicas e fluxos restauradores essenciais.
+2. Virtual Articulator — Simulação de movimentos mandibulares e análise de oclusão dinâmica.
+3. Provisional Module — Desenho de provisórios, incluindo estruturas do tipo eggshell com base em escaneamentos pré-operatórios.
+4. TruSmile™ Module — Visualização e renderização realista das restaurações.
+5. ZRS Tooth Library — Biblioteca adicional de formas dentais naturais.
+6. Implant Module — Pilares personalizados, coroas sobre implante e restaurações parafusadas.
+7. Bar Module — Desenho de barras simples e complexas para soluções implantossuportadas.
+8. DICOM Viewer Module — Visualização de dados volumétricos durante o processo de desenho. Não substitui o exoplan nem constitui ferramenta autônoma de diagnóstico.
+9. Model Creator Module — Criação de modelos físicos a partir de escaneamentos digitais, para impressão 3D.
+10. Smile Creator Module — Planejamento estético com integração de dados 2D e 3D.
+11. Full Denture Module — Desenho digital de próteses totais, incluindo fluxos compatíveis previstos no pacote.
+12. Inspira™ Denture Tooth Library — Biblioteca de dentes para fluxos digitais de prótese total, conforme disponibilidade da versão.
+13. PartialCAD Module — Desenho de estruturas metálicas ou digitais para próteses parciais removíveis.
+14. Bite Splint Module — Placas oclusais, night guards, splints e estruturas tabletop.
+15. Jaw Motion Import Module — Importação de movimentos reais de sistemas de registro mandibular e arco facial digital.`;
+
 const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada de HTML, CSS, markdown, comentários, texto fora do JSON.
 
 {
@@ -57,7 +74,10 @@ REGRAS CRÍTICAS:
 - positioning só quando o input compara preços; use exatamente "{strike}" como placeholder.
 - Sem depoimentos reais → OMITA "testimonials".
 - Tom Smart Dent: profissional, direto, PT-BR. Copy curta e potente.
-- Icons apenas da lista permitida.`;
+- Icons apenas da lista permitida.
+- Para landing pages de exocad / Ultimate Lab Bundle / DentalCAD, a seção "modules" DEVE conter obrigatoriamente os 15 módulos canônicos na ordem e com as descrições fornecidas abaixo. Não omita nenhum, não altere os nomes e não adicione módulos extras.
+
+${CANONICAL_MODULES}`;
 
 function buildSystemPrompt(form: { name: string; slug: string; form_purpose: string }) {
   return `Você é copywriter sênior da Smart Dent (odontologia digital premium). Sua tarefa é preencher o conteúdo estruturado de uma landing page.
@@ -65,6 +85,8 @@ function buildSystemPrompt(form: { name: string; slug: string; form_purpose: str
 O design é fixo (template React premium já feito). Você SÓ escreve o conteúdo em JSON.
 
 ${CONTENT_SCHEMA_DOC}
+
+${CANONICAL_MODULES}
 
 FORMULÁRIO ALVO: "${form.name}" — finalidade ${form.form_purpose} — slug ${form.slug}.`;
 }

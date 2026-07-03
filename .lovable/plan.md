@@ -1,37 +1,24 @@
-Substituir o array `DEFAULT_LP_CONTENT.faq.items` em `src/components/lp/PremiumLandingTemplate.tsx` pelas 28 perguntas fornecidas (mantendo `title: "Perguntas frequentes"`).
+Objetivo: deixar a seção de módulos da landing page exatamente como solicitado — eyebrow "O que está incluído", título "Um pacote para o laboratório inteiro" e os 15 módulos listados, editáveis no builder e respeitados pela IA.
 
-Parsing: cada `?` encerra a pergunta; o texto restante até o próximo cabeçalho é a resposta. As FAQs também precisam ser preservadas na landing atual (o `ensureContent` usa `parsed.faq` se já existir — para a LP já salva, o usuário pode clicar em "Restaurar defaults" via edição manual do bloco, ou reaproveitamos: como a LP atual foi criada com o default antigo de 3 itens, atualizamos o default e os novos itens aparecem em novas LPs; se o usuário quiser aplicar retroativamente à LP atual, ele edita manualmente. Não sobrescrevemos dados salvos automaticamente).
+O que já existe: `DEFAULT_LP_CONTENT` em `PremiumLandingTemplate.tsx` já contém os 15 módulos corretos. O que falta é (1) ajustar o título da seção, (2) garantir que a IA não substitua essa lista e (3) dar ao editor um botão para restaurar a lista canônica.
 
-### Lista final (28 itens)
+Alterações previstas
 
-1. O que é o exocad RMS?
-2. A licença é oficial?
-3. A licença será minha para sempre?
-4. Preciso ter uma conta my.exocad?
-5. Como funciona o pagamento da Ativação Inicial?
-6. Qual será o valor da minha mensalidade a partir do segundo mês?
-7. O pagamento é seguro?
-8. Quem fornece a licença e quem cobra?
-9. Quem aparece no extrato do cartão?
-10. O que acontece se o cartão falhar na mensalidade?
-11. Posso cancelar a assinatura?
-12. O Ultimate Bundle inclui todos os produtos da exocad?
-13. Existe cobrança por caso ou taxa de exportação (click fees)?
-14. Funciona com meu scanner, impressora ou fresadora?
-15. Terei direito a atualizações do exocad?
-16. A inteligência artificial da exocad está incluída?
-17. Ser um assinante Smart Dent traz outros benefícios?
-18. Posso usar em mais de um computador?
-19. Posso acessar a licença de fora do Brasil?
-20. Meu computador é compatível?
-21. Preciso estar conectado à internet?
-22. Há uso de dongle físico (pen drive)?
-23. Acabei de realizar o pagamento da Ativação. E agora?
-24. O treinamento está incluído?
-25. O suporte técnico está incluído?
+1. `src/components/lp/PremiumLandingTemplate.tsx`
+   - Atualizar `DEFAULT_LP_CONTENT.modules.title` para `"Um pacote para o laboratório inteiro"`.
+   - Manter `eyebrow: "O que está incluído"` (o CSS já o renderiza em uppercase/tracking).
+   - Manter os 15 itens e as descrições exatamente como enviados (já estão corretos).
+   - Ajustar, se necessário, o `subtitle` para reforçar que são 15 módulos do Ultimate Lab Bundle.
 
-## Arquivo afetado
-- `src/components/lp/PremiumLandingTemplate.tsx` — atualiza `DEFAULT_LP_CONTENT.faq.items`.
+2. `supabase/functions/landing-page-generator/index.ts`
+   - Incluir na instrução de sistema a lista canônica dos 15 módulos exocad (DentalCAD Core Version, Virtual Articulator, Provisional Module, TruSmile™ Module, ZRS Tooth Library, Implant Module, Bar Module, DICOM Viewer Module, Model Creator Module, Smile Creator Module, Full Denture Module, Inspira™ Denture Tooth Library, PartialCAD Module, Bite Splint Module, Jaw Motion Import Module).
+   - Determinar que, quando o assunto for exocad/Ultimate Lab Bundle, a IA deve usar obrigatoriamente esses 15 módulos com as descrições fornecidas, e não inventar módulos extras.
 
-## Observação
-LPs já salvas mantêm o FAQ antigo (3 itens). Se você quiser aplicar as 25 perguntas na LP atual do Ultimate Lab Bundle, me avise que faço uma migração pontual atualizando `content.faq.items` do registro correspondente.
+3. `src/components/smartops/LandingPageBuilderModal.tsx`
+   - Na seção "Módulos" do editor, adicionar um botão "Restaurar 15 módulos padrão" que reseta `content.modules.items` para a lista canônica de `DEFAULT_LP_CONTENT`.
+   - Isso permite corrigir rapidamente uma LP já salva que ainda tenha módulos antigos ou gerados incorretamente pela IA.
+
+4. Validação
+   - Executar `bunx tsgo --noEmit` para garantir que não haja erros de TypeScript.
+
+Nota: LPs já publicadas/salvas no banco continuam com o conteúdo antigo até que sejam regeneradas ou editadas. Para aplicar a lista nova em uma LP existente, basta abrir o builder e clicar em "Restaurar 15 módulos padrão" (ou regenerar com a IA após a atualização do prompt).
