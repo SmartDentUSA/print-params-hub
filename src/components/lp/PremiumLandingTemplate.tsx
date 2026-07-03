@@ -398,7 +398,104 @@ function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?:
   );
 }
 
-function HeroProductCard({ src, caption }: { src?: string | null; caption?: string }) {
+function formatAudioTime(sec: number): string {
+  if (!isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function HeroAudioPlayer({ url, label }: { url: string; label?: string }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onTime = () => setCurrent(a.currentTime);
+    const onMeta = () => setDuration(a.duration || 0);
+    const onEnd = () => setPlaying(false);
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("loadedmetadata", onMeta);
+    a.addEventListener("ended", onEnd);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("loadedmetadata", onMeta);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, [url]);
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+    } else {
+      a.play().then(() => {
+        setPlaying(true);
+        setStarted(true);
+      }).catch(() => setPlaying(false));
+    }
+  }
+
+  const progress = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
+  const displayLabel = label || "Ouvir explicação";
+
+  return (
+    <div
+      className="absolute -bottom-5 left-4 right-4 sm:right-auto sm:left-[-1.25rem] flex items-center gap-3 rounded-full border border-white/70 bg-white/95 pl-2 pr-4 py-2 backdrop-blur-xl shadow-[0_20px_40px_-20px_color-mix(in_oklab,var(--lp-brand)_35%,transparent)]"
+      style={{ maxWidth: "min(340px, calc(100% - 1rem))" }}
+    >
+      <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={playing ? "Pausar explicação em áudio" : "Reproduzir explicação em áudio"}
+        className={`relative flex-shrink-0 grid place-items-center h-9 w-9 rounded-full text-white transition-transform hover:scale-105 active:scale-95 ${!started ? "animate-pulse" : ""}`}
+        style={{ background: "var(--lp-orange)" }}
+      >
+        {playing ? (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="h-4 w-4 ml-0.5" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+        {!started && (
+          <span
+            className="pointer-events-none absolute inset-0 rounded-full animate-ping opacity-60"
+            style={{ background: "var(--lp-orange)" }}
+          />
+        )}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wider text-[var(--lp-text)]">
+          <span className="truncate flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[var(--lp-orange)]" fill="currentColor" aria-hidden>
+              <path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+            </svg>
+            <span className="truncate">{started ? `${formatAudioTime(current)} / ${formatAudioTime(duration)}` : displayLabel}</span>
+          </span>
+        </div>
+        <div className="mt-1 h-1 w-full rounded-full bg-[color-mix(in_oklab,var(--lp-brand)_15%,transparent)] overflow-hidden">
+          <div
+            className="h-full transition-[width] duration-100"
+            style={{ width: `${progress}%`, background: "var(--lp-orange)" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroProductCard({ src, caption, audio }: { src?: string | null; caption?: string; audio?: { url: string; label?: string } }) {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div className="absolute inset-0 -z-10 rounded-[36px] blur-2xl opacity-40" style={{ background: GRADIENT_BRAND }} />
@@ -455,7 +552,9 @@ function HeroProductCard({ src, caption }: { src?: string | null; caption?: stri
           </div>
         </div>
       )}
-      {caption && (
+      {audio?.url ? (
+        <HeroAudioPlayer url={audio.url} label={audio.label} />
+      ) : caption && (
         <div
           className="absolute -bottom-5 -left-5 hidden rounded-2xl border border-white/60 bg-white/95 px-4 py-3 backdrop-blur-xl sm:flex items-center gap-2"
           style={{ boxShadow: "0 20px 40px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
