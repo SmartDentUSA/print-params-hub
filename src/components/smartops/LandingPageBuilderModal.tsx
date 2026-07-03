@@ -408,7 +408,7 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-modulos", label: "Módulos" },
   { id: "sec-regional", label: "Uso da licença" },
   { id: "sec-implantacao", label: "Implantação" },
-  { id: "sec-beneficios", label: "Benefícios" },
+  { id: "sec-beneficios", label: "O que a Smart Dent entrega" },
   { id: "sec-faq", label: "FAQ" },
   { id: "sec-cta-final", label: "CTA final" },
   { id: "sec-rodape", label: "Rodapé" },
