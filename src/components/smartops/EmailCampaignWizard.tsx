@@ -1,0 +1,608 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus } from "lucide-react";
+import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
+
+type CtaType = "landing" | "form" | "knowledge" | "social_post" | "store" | "seller_wa" | "custom";
+interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
+interface Cta { tipo: CtaType; id?: string; url: string; label: string }
+
+interface Props {
+  campaignName: string;
+  description?: string;
+  filters: Record<string, unknown>;
+  audienceCount?: number;
+  onSent?: (result: { campaign_id: string | null; sent: number; failed: number }) => void;
+}
+
+const STEPS = [
+  { id: 1, label: "Produto & CTA", icon: Mail },
+  { id: 2, label: "Revisar & Ajustar", icon: Eye },
+  { id: 3, label: "Testar envio", icon: Send },
+  { id: 4, label: "Agendar ou enviar", icon: Clock },
+  { id: 5, label: "Criar régua", icon: ListPlus },
+] as const;
+
+export function EmailCampaignWizard({ campaignName, description, filters, audienceCount, onSent }: Props) {
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+
+  // ── Products & CTAs ──
+  const [products, setProducts] = useState<Array<{ id: string; title: string; category?: string }>>([]);
+  const [produtoId, setProdutoId] = useState<string>("");
+  const [productSearch, setProductSearch] = useState("");
+  const [ctaOptions, setCtaOptions] = useState<Record<CtaType, CtaOption[]>>({
+    landing: [], form: [], knowledge: [], social_post: [], store: [], seller_wa: [], custom: [],
+  });
+  const [ctaPrincipal, setCtaPrincipal] = useState<Cta | null>(null);
+  const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
+  const [tom, setTom] = useState<string>("consultivo");
+  const [tomCustom, setTomCustom] = useState<string>("");
+
+  // ── Generated content ──
+  const [subject, setSubject] = useState("");
+  const [preheader, setPreheader] = useState("");
+  const [html, setHtml] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  // ── Sending / meta ──
+  const [sending, setSending] = useState(false);
+  const [fromName, setFromName] = useState("Smart Dent | Fluxo Digital");
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testHistory, setTestHistory] = useState<Array<{ to: string; status: "ok" | "fail"; at: string; error?: string }>>([]);
+  const [showPreview, setShowPreview] = useState(true);
+  const [dispatchMode, setDispatchMode] = useState<"now" | "scheduled">("now");
+  const [scheduledAt, setScheduledAt] = useState<string>("");
+
+  // ── Load who am I ──
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.functions.invoke("smart-ops-send-gmail", { body: { action: "whoami" } });
+      if (!error && (data as any)?.emailAddress) setConnectedEmail((data as any).emailAddress);
+    })();
+  }, []);
+
+  // ── Load products (all active/visible, up to 1000) ──
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("system_a_catalog")
+        .select("id, name, product_category, active, visible_in_ui, display_order")
+        .or("active.eq.true,visible_in_ui.eq.true")
+        .order("display_order", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true })
+        .limit(1000);
+      const rows = (data || [])
+        .map((p: any) => ({ id: p.id, title: p.name, category: p.product_category }))
+        .filter((p: any) => p.title);
+      setProducts(rows);
+    })();
+  }, []);
+
+  // ── Load CTA option lists (product-aware) ──
+  useEffect(() => {
+    (async () => {
+      const sb = supabase as any;
+      const [lp, forms, know, posts, store] = await Promise.all([
+        sb.from("smartops_form_landing_pages").select("id, slug, title").limit(200),
+        sb.from("smartops_forms").select("id, name, slug").limit(200),
+        // knowledge_contents has no `status` column — filter by `active` instead
+        sb.from("knowledge_contents").select("id, title, slug, category_id")
+          .eq("active", true).order("updated_at", { ascending: false }).limit(80),
+        sb.from("social_scheduled_posts")
+          .select("id, caption, permalink_url, media_url").eq("status", "published")
+          .order("scheduled_at", { ascending: false }).limit(40),
+        produtoId
+          ? sb.from("system_a_catalog").select("id, name, cta_1_url, cta_2_url, cta_3_url").eq("id", produtoId).limit(1)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const origin = "https://smartdent.com.br";
+      const storeItems: CtaOption[] = [];
+      const prod = (store.data || [])[0];
+      if (prod) {
+        for (const [k, urlKey] of [["cta_1_url", "cta_1_url"], ["cta_2_url", "cta_2_url"], ["cta_3_url", "cta_3_url"]] as const) {
+          const u = prod[urlKey];
+          if (u) storeItems.push({ id: `${prod.id}-${k}`, tipo: "store", label: `Loja: ${prod.name}`, url: u });
+        }
+      }
+
+      setCtaOptions({
+        landing: (lp.data || []).map((p: any) => ({
+          id: p.id, tipo: "landing", label: p.title || p.slug,
+          url: `${origin}/lp/${p.slug}`,
+        })),
+        form: (forms.data || []).map((f: any) => ({
+          id: f.id, tipo: "form", label: f.name || f.slug,
+          url: `${origin}/formulario/${f.slug}`,
+        })),
+        knowledge: (know.data || []).map((k: any) => ({
+          id: k.id, tipo: "knowledge", label: k.title,
+          url: `${origin}/base-conhecimento/a/${k.slug}`,
+        })),
+        social_post: (posts.data || []).filter((p: any) => p.permalink_url).map((p: any) => ({
+          id: p.id, tipo: "social_post",
+          label: (p.caption || "post").slice(0, 60),
+          url: p.permalink_url,
+        })),
+        store: storeItems,
+        seller_wa: [{
+          id: "dynamic", tipo: "seller_wa",
+          label: "WhatsApp do vendedor responsável (dinâmico)",
+          url: "{{link_wa_vendedor}}",
+        }],
+        custom: [],
+      });
+    })();
+  }, [produtoId]);
+
+  const allCtas = useMemo(() =>
+    [...ctaOptions.landing, ...ctaOptions.form, ...ctaOptions.knowledge,
+     ...ctaOptions.social_post, ...ctaOptions.store, ...ctaOptions.seller_wa],
+  [ctaOptions]);
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    const s = productSearch.toLowerCase();
+    return products.filter(p =>
+      p.title.toLowerCase().includes(s) || (p.category || "").toLowerCase().includes(s));
+  }, [products, productSearch]);
+
+  const pickCta = (key: string): CtaOption | null => {
+    const [tipo, id] = key.split("::");
+    const list = (ctaOptions as any)[tipo] as CtaOption[] | undefined;
+    return list?.find(o => o.id === id) || null;
+  };
+
+  async function handleGenerate(mode: "all" | "subject" = "all") {
+    if (!produtoId) return toast.error("Escolha um produto primeiro");
+    if (!ctaPrincipal) return toast.error("Escolha um CTA principal");
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
+        body: {
+          produto_id: produtoId,
+          cta_principal: ctaPrincipal,
+          ctas_secundarios: ctasSecundarios,
+          segmento_resumo: JSON.stringify(filters).slice(0, 500),
+          tom: tom === "custom" ? (tomCustom || "consultivo, profissional") : tom,
+          regenerate: mode,
+          base_html: mode === "subject" ? html : undefined,
+        },
+      });
+      if (error) throw error;
+      if (!(data as any)?.success) throw new Error((data as any)?.error || "Falha ao gerar");
+      const d = data as any;
+      setSubject(d.subject);
+      setPreheader(d.preheader);
+      setCtaLabel(d.cta_button_label);
+      if (mode === "all") {
+        setHtml(d.html_body);
+        setStep(2);
+      }
+      toast.success(mode === "subject" ? "Assunto regenerado" : "Email gerado pela IA");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro na geração");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleTest() {
+    if (!subject.trim() || !html.trim()) return toast.error("Assunto e corpo são obrigatórios");
+    if (!testEmail.trim()) return toast.error("Informe o email de teste");
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-send-gmail", {
+        body: {
+          campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
+          description, from_name: fromName,
+          subject, preheader, html,
+          filters,
+          cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
+          test_email: testEmail,
+        },
+      });
+      if (error) throw error;
+      setTestHistory(h => [{ to: testEmail, status: "ok" as const, at: new Date().toISOString() }, ...h].slice(0, 5));
+      toast.success(`Teste enviado para ${testEmail}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao enviar";
+      setTestHistory(h => [{ to: testEmail, status: "fail" as const, at: new Date().toISOString(), error: msg }, ...h].slice(0, 5));
+      toast.error(msg);
+    } finally { setSending(false); }
+  }
+
+  async function handleDispatch() {
+    if (!subject.trim() || !html.trim()) return toast.error("Assunto e corpo são obrigatórios");
+    if (dispatchMode === "scheduled" && !scheduledAt) return toast.error("Escolha data/hora do agendamento");
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-send-gmail", {
+        body: {
+          campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
+          description, from_name: fromName,
+          subject, preheader, html, filters,
+          cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
+          scheduled_at: dispatchMode === "scheduled" ? new Date(scheduledAt).toISOString() : undefined,
+        },
+      });
+      if (error) throw error;
+      const d = data as any;
+      toast.success(`Enviados ${d.sent}/${d.audience} • Falhas: ${d.failed}`);
+      onSent?.(d);
+      setStep(5); // suggest creating a sequence next
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar");
+    } finally { setSending(false); }
+  }
+
+  const previewHtml = html
+    .split("{{nome}}").join("Dr. João")
+    .split("{{primeiro_nome}}").join("Dr. João")
+    .split("{{vendedor_nome}}").join(fromName)
+    .split("{{link_wa_vendedor}}").join("https://wa.me/5516993061659");
+
+  const htmlWarning = useMemo(() => {
+    if (!html) return null;
+    if (!/<body[\s>]/i.test(html)) return "HTML sem <body> — sanitizador vai envolver, mas prefira regenerar.";
+    if (/<\/td>\s*(?!<)/i.test(html) && !/<table[\s>]/i.test(html)) return "HTML tem </td> solto sem <table>. Regere.";
+    return null;
+  }, [html]);
+
+  // ─────────────────────────────── UI ───────────────────────────────
+  return (
+    <div className="space-y-4">
+      {/* Stepper */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              const done = step > s.id;
+              const active = step === s.id;
+              return (
+                <div key={s.id} className="flex items-center gap-2 min-w-fit">
+                  <button
+                    onClick={() => setStep(s.id as any)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      active ? "bg-primary text-primary-foreground"
+                      : done ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                    }`}
+                  >
+                    {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+                    <span className="hidden sm:inline">{s.id}. {s.label}</span>
+                    <span className="sm:hidden">{s.id}</span>
+                  </button>
+                  {i < STEPS.length - 1 && <div className={`w-6 h-px ${done ? "bg-primary" : "bg-muted"}`} />}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>📧 <b>{connectedEmail || "…"}</b></span>
+            <span>📊 Público: <b>{audienceCount ?? "?"}</b></span>
+            <span className="ml-auto">Campanha: <b>{campaignName || "sem nome"}</b></span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ────── Step 1: Produto & CTA ────── */}
+      {step === 1 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">1. Produto & Call-to-Action</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Remetente (nome exibido)</Label>
+                <Input value={fromName} onChange={e => setFromName(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Conta Gmail conectada</Label>
+                <Input value={connectedEmail || "…verificando…"} readOnly className="bg-muted" />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Produto ({products.length} disponíveis)</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  className="pl-7 mb-1"
+                  placeholder="Buscar produto por nome ou categoria…"
+                  value={productSearch}
+                  onChange={e => setProductSearch(e.target.value)}
+                />
+              </div>
+              <Select value={produtoId} onValueChange={setProdutoId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                <SelectContent className="max-h-96">
+                  {filteredProducts.slice(0, 300).map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.title}{p.category ? ` — ${p.category}` : ""}
+                    </SelectItem>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <div className="px-2 py-4 text-xs text-muted-foreground text-center">Nenhum produto encontrado</div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">CTA principal (botão do email)</Label>
+              <Select
+                value={ctaPrincipal ? `${ctaPrincipal.tipo}::${ctaPrincipal.id}` : ""}
+                onValueChange={(v) => {
+                  const o = pickCta(v);
+                  if (o) setCtaPrincipal({ tipo: o.tipo, id: o.id, url: o.url, label: o.label });
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Escolha o destino principal" /></SelectTrigger>
+                <SelectContent className="max-h-96">
+                  {(["landing","form","knowledge","social_post","store","seller_wa"] as CtaType[]).flatMap(t => {
+                    const list = ctaOptions[t];
+                    if (!list.length) return [];
+                    return [
+                      <div key={`h-${t}`} className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
+                        {({ landing: "Landing Pages", form: "Formulários", knowledge: "Publicações",
+                            social_post: "Posts Redes", store: "Loja", seller_wa: "WhatsApp", custom: "" } as any)[t]}
+                      </div>,
+                      ...list.map(o => (
+                        <SelectItem key={`${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
+                      )),
+                    ];
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">CTAs secundários (rodapé, até 3)</Label>
+                {ctasSecundarios.length < 3 && (
+                  <Select
+                    value=""
+                    onValueChange={(v) => {
+                      const o = pickCta(v);
+                      if (o) setCtasSecundarios(prev => [...prev, { tipo: o.tipo, id: o.id, url: o.url, label: o.label }]);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-44"><SelectValue placeholder="+ Adicionar CTA" /></SelectTrigger>
+                    <SelectContent className="max-h-96">
+                      {allCtas.map(o => (
+                        <SelectItem key={`s-${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ctasSecundarios.map((c, i) => (
+                  <Badge key={i} variant="secondary" className="gap-1">
+                    {c.label.slice(0, 30)}
+                    <button onClick={() => setCtasSecundarios(prev => prev.filter((_, j) => j !== i))}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {!ctasSecundarios.length && <span className="text-xs text-muted-foreground">Nenhum</span>}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Tom da mensagem</Label>
+              <Select value={tom} onValueChange={setTom}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consultivo">🎓 Consultivo — orienta sem pressionar</SelectItem>
+                  <SelectItem value="tecnico">🔬 Técnico especialista — labs & dentistas avançados</SelectItem>
+                  <SelectItem value="educativo">📚 Educativo — artigos e casos clínicos</SelectItem>
+                  <SelectItem value="direto_comercial">🎯 Direto & Comercial — leads quentes</SelectItem>
+                  <SelectItem value="storytelling">📖 Storytelling clínico — jornada digital</SelectItem>
+                  <SelectItem value="urgencia_soft">⏰ Urgência suave — reativação / vagas</SelectItem>
+                  <SelectItem value="celebrativo">🎉 Celebrativo — lançamentos e marcos</SelectItem>
+                  <SelectItem value="reativacao_amigavel">🤝 Reativação amigável — leads frios</SelectItem>
+                  <SelectItem value="pos_venda_cs">✅ Pós-venda / CS — onboarding e suporte</SelectItem>
+                  <SelectItem value="evento_convite">🎫 Convite p/ evento — cursos e webinars</SelectItem>
+                  <SelectItem value="custom">✏️ Personalizado…</SelectItem>
+                </SelectContent>
+              </Select>
+              {tom === "custom" && (
+                <Input className="mt-2" value={tomCustom} onChange={e => setTomCustom(e.target.value)}
+                  placeholder="Ex: irreverente, provocativo mas técnico" />
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={() => handleGenerate("all")} disabled={generating || !produtoId || !ctaPrincipal}>
+                <Sparkles className="w-4 h-4 mr-1" />
+                {generating ? "Gerando com IA..." : "Gerar email com IA →"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ────── Step 2: Revisar & Ajustar ────── */}
+      {step === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>2. Revisar & Ajustar</span>
+              <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
+                <Eye className="w-4 h-4 mr-1" />
+                {showPreview ? "Ocultar preview" : "Ver preview"}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {htmlWarning && (
+              <div className="text-xs bg-yellow-100 text-yellow-900 border border-yellow-300 rounded px-3 py-2">
+                ⚠️ {htmlWarning}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Assunto</Label>
+                <Button size="sm" variant="ghost" onClick={() => handleGenerate("subject")} disabled={generating}>
+                  <RefreshCw className="w-3 h-3 mr-1" /> Regerar assunto
+                </Button>
+              </div>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Preheader (linha de pré-visualização na inbox)</Label>
+              <Input value={preheader} onChange={e => setPreheader(e.target.value)} />
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div>
+                <Label className="text-xs">HTML</Label>
+                <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
+              </div>
+              {showPreview && (
+                <div>
+                  <Label className="text-xs">Preview</Label>
+                  <div className="border rounded bg-white overflow-hidden h-96">
+                    <iframe srcDoc={previewHtml} title="preview" className="w-full h-full" sandbox="" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+              <Button onClick={() => setStep(3)} disabled={!subject || !html}>
+                Testar envio <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ────── Step 3: Testar envio ────── */}
+      {step === 3 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">3. Testar envio</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[240px]">
+                <Label className="text-xs">Enviar teste para</Label>
+                <Input placeholder="seu@email.com" value={testEmail} onChange={e => setTestEmail(e.target.value)} />
+              </div>
+              <Button onClick={handleTest} disabled={sending || !testEmail}>
+                <Send className="w-4 h-4 mr-1" /> {sending ? "Enviando..." : "Enviar teste"}
+              </Button>
+            </div>
+
+            {testHistory.length > 0 && (
+              <div className="space-y-1 text-xs">
+                <Label className="text-xs">Últimos testes</Label>
+                {testHistory.map((t, i) => (
+                  <div key={i} className={`flex items-center gap-2 px-2 py-1 rounded border ${
+                    t.status === "ok" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                  }`}>
+                    {t.status === "ok" ? "✅" : "❌"}
+                    <span className="font-mono">{t.to}</span>
+                    <span className="text-muted-foreground">{new Date(t.at).toLocaleTimeString()}</span>
+                    {t.error && <span className="text-red-700 truncate">— {t.error}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-2 text-xs bg-muted/40 rounded p-3">
+              <div className="font-medium text-sm mb-1">Checklist antes de disparar:</div>
+              <div className="flex items-center gap-2">{subject ? "✅" : "◻️"} Assunto preenchido</div>
+              <div className="flex items-center gap-2">{preheader ? "✅" : "◻️"} Preheader preenchido</div>
+              <div className="flex items-center gap-2">{ctaPrincipal ? "✅" : "◻️"} CTA principal definido</div>
+              <div className="flex items-center gap-2">{!htmlWarning ? "✅" : "⚠️"} HTML sanitário</div>
+              <div className="flex items-center gap-2">{testHistory.some(t => t.status === "ok") ? "✅" : "◻️"} Ao menos 1 teste OK</div>
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(2)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+              <Button onClick={() => setStep(4)}>Agendar ou enviar <ArrowRight className="w-4 h-4 ml-1" /></Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ────── Step 4: Agendar ou enviar ────── */}
+      {step === 4 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">4. Agendar ou enviar</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <RadioGroup value={dispatchMode} onValueChange={(v) => setDispatchMode(v as any)}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="now" id="rg-now" />
+                <label htmlFor="rg-now" className="text-sm">Enviar agora</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="scheduled" id="rg-sch" />
+                <label htmlFor="rg-sch" className="text-sm">Agendar para…</label>
+              </div>
+            </RadioGroup>
+            {dispatchMode === "scheduled" && (
+              <div>
+                <Label className="text-xs">Data e hora (America/Sao_Paulo)</Label>
+                <Input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ⚠️ Agendamento salva a campanha em <code>draft</code> — cron horária dispara na data.
+                </p>
+              </div>
+            )}
+
+            <div className="text-sm bg-primary/5 border border-primary/20 rounded p-3">
+              📧 <b>{audienceCount ?? "?"}</b> emails para leads da segmentação<br />
+              {dispatchMode === "now"
+                ? <>Envio imediato via Gmail conectado (<b>{connectedEmail}</b>)</>
+                : <>Agendado para <b>{scheduledAt || "—"}</b></>}
+            </div>
+
+            <div className="text-xs text-muted-foreground border-t pt-3">
+              ⚠️ Limite Gmail padrão: ~500 envios/dia. Aberturas dependem do cliente carregar imagens.
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(3)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+              <Button onClick={handleDispatch} disabled={sending}>
+                <Send className="w-4 h-4 mr-1" />
+                {sending ? "Disparando..."
+                  : dispatchMode === "now"
+                    ? `Disparar para ${audienceCount ?? "?"} leads`
+                    : "Confirmar agendamento"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ────── Step 5: Criar régua ────── */}
+      {step === 5 && (
+        <EmailSequenceBuilder
+          seedFromCurrent={{
+            produto_id: produtoId,
+            audience_filter: filters,
+            subject, preheader, html,
+            cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
+            cta_button_label: ctaLabel,
+            tom,
+            campaign_name: campaignName,
+          }}
+          onBack={() => setStep(4)}
+        />
+      )}
+    </div>
+  );
+}

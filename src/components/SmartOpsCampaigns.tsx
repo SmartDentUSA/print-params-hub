@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
-import { EmailComposer } from "@/components/smartops/EmailComposer";
+import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 
 // ── Types ──
 interface ContentItem {
@@ -1803,7 +1803,7 @@ function CreateCampaign({
                 Campanha: <b>{campaignName}</b> • Público: <b>{leadCount ?? 0}</b>
               </div>
             </div>
-            <EmailComposer
+            <EmailCampaignWizard
               campaignName={campaignName}
               description={campaignDesc}
               filters={buildFiltersObject()}

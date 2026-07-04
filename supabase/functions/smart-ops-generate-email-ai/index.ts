@@ -55,20 +55,75 @@ Deno.serve(async (req) => {
     };
     const tomInstruction = TOM_PRESETS[tom] || tom;
 
-    // Fetch product context from system_a_catalog if provided
-    let produtoCtx: Record<string, unknown> | null = null;
+    // ── Product context (REAL columns from system_a_catalog) ──
+    let produtoCtx: Record<string, any> | null = null;
+    const PRODUCT_COLS =
+      "id, name, description, image_url, product_category, product_subcategory, " +
+      "technical_specs, clinical_indications, contraindications, compatibility_list, " +
+      "certifications, cta_1_label, cta_1_url, cta_1_description, keywords, category";
     if (produto_id) {
       const { data } = await supabase
         .from("system_a_catalog")
-        .select("title,short_description,long_description,benefits,image_url,product_url,category,tags")
+        .select(PRODUCT_COLS)
         .eq("id", produto_id).maybeSingle();
-      produtoCtx = data;
+      produtoCtx = data as any;
     } else if (produto) {
       const { data } = await supabase
         .from("system_a_catalog")
-        .select("title,short_description,long_description,benefits,image_url,product_url,category,tags")
-        .ilike("title", `%${produto}%`).limit(1).maybeSingle();
-      produtoCtx = data;
+        .select(PRODUCT_COLS)
+        .ilike("name", `%${produto}%`).limit(1).maybeSingle();
+      produtoCtx = data as any;
+    }
+
+    // ── RAG: content related to the product (title/keyword match) ──
+    const searchTerm =
+      produtoCtx?.name || produtoCtx?.product_category || produto || "impressão 3D odontológica";
+    const [{ data: relatedContent }, { data: relatedLibrary }, { data: stories }, { data: reviews }] = await Promise.all([
+      supabase.from("knowledge_contents")
+        .select("title, slug, excerpt, og_image_url, content_image_url, category_id")
+        .eq("active", true)
+        .or(`title.ilike.%${searchTerm}%,excerpt.ilike.%${searchTerm}%`)
+        .limit(3),
+      supabase.from("system_a_content_library")
+        .select("title, content_text, landing_page_url, cta_url, thumbnail_url, media_url, product_category")
+        .eq("is_active", true)
+        .or(`title.ilike.%${searchTerm}%,product_name.ilike.%${searchTerm}%`)
+        .limit(3),
+      supabase.from("success_stories")
+        .select("client_name, client_role, city, state, challenge, solution, results, testimonial, image_url")
+        .eq("published", true)
+        .limit(2),
+      supabase.from("google_reviews")
+        .select("reviewer_name, star_rating, comment")
+        .gte("star_rating", 4)
+        .not("comment", "is", null)
+        .order("create_time", { ascending: false })
+        .limit(3),
+    ]);
+
+    const contentBlock = (relatedContent || [])
+      .map((c: any, i: number) => `[${i + 1}] "${c.title}" → https://smartdent.com.br/base-conhecimento/${c.category_id || "a"}/${c.slug}${c.og_image_url ? ` (img: ${c.og_image_url})` : ""}${c.excerpt ? ` — ${String(c.excerpt).slice(0, 150)}` : ""}`)
+      .join("\n") || "-";
+
+    const libraryBlock = (relatedLibrary || [])
+      .map((c: any, i: number) => `[L${i + 1}] "${c.title}" → ${c.landing_page_url || c.cta_url || ""}${c.thumbnail_url ? ` (thumb: ${c.thumbnail_url})` : ""}`)
+      .join("\n") || "-";
+
+    const proofBlock = [
+      ...(stories || []).map((s: any) => `• ${s.client_name}${s.client_role ? `, ${s.client_role}` : ""}${s.city ? ` (${s.city}/${s.state})` : ""}: "${String(s.testimonial || s.results || "").slice(0, 200)}"`),
+      ...(reviews || []).map((r: any) => `⭐ ${r.reviewer_name}: "${String(r.comment).slice(0, 160)}"`),
+    ].slice(0, 3).join("\n") || "-";
+
+    // Technical specs as bullets
+    const techSpecs = produtoCtx?.technical_specs;
+    let techBullets = "-";
+    if (techSpecs && typeof techSpecs === "object") {
+      techBullets = Object.entries(techSpecs)
+        .slice(0, 6)
+        .map(([k, v]) => `• ${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+        .join("\n");
+    } else if (typeof techSpecs === "string") {
+      techBullets = techSpecs.slice(0, 400);
     }
 
     const ctaLabel = (c?: CtaRef) => c?.label || {
@@ -93,18 +148,44 @@ REGRAS ABSOLUTAS:
 - NUNCA gere tags <table>, <tr> ou <td> soltas sem envolver em uma tabela completa e fechada corretamente. Se usar tabela para layout, feche todas as tags.
 - Personalizar com placeholders: {{nome}} (primeiro nome do lead), {{vendedor_nome}}, {{link_wa_vendedor}}.
 - CTA principal como botão destacado. CTAs secundários como links no rodapé.
-- Estrutura: preheader (invisível) → saudação → hook → 2-3 benefícios do produto → CTA botão → PS/rodapé com CTAs secundários + assinatura.
+- OBRIGATÓRIO: use a imagem do produto (\`<img src="…" alt="…" style="max-width:100%;height:auto">\`) no topo, logo após a saudação.
+- OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números.
+- OBRIGATÓRIO: inclua um bloco "Aprofunde-se" com 2 cards de conteúdo relacionado (title + link + thumbnail quando disponível).
+- OBRIGATÓRIO: se houver depoimento/review, incluir 1 bloco de prova social em itálico com o nome do cliente.
+- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão → prova social → "Aprofunde-se" (cards de conteúdo) → PS/rodapé com CTAs secundários + assinatura + link WhatsApp.
+- O link WhatsApp deve estar em uma \`<a href="{{link_wa_vendedor}}">\` — nunca escreva "link" solto.
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra.`;
 
-    const userPrompt = `Produto: ${produtoCtx?.title || produto || "produto Smart Dent"}
-Descrição curta: ${produtoCtx?.short_description || "-"}
-Benefícios: ${produtoCtx?.benefits || produtoCtx?.long_description?.toString().slice(0, 600) || "-"}
-Categoria: ${produtoCtx?.category || "-"}
-Imagem: ${produtoCtx?.image_url || "-"}
+    const userPrompt = `═══ DOSSIÊ DO PRODUTO ═══
+Nome: ${produtoCtx?.name || produto || "produto Smart Dent"}
+Categoria: ${produtoCtx?.product_category || produtoCtx?.category || "-"} / ${produtoCtx?.product_subcategory || ""}
+Descrição: ${produtoCtx?.description ? String(produtoCtx.description).slice(0, 800) : "-"}
+Imagem hero (USAR NO HTML): ${produtoCtx?.image_url || "-"}
 
+Especificações técnicas (usar 1 no email):
+${techBullets}
+
+Indicações clínicas:
+${produtoCtx?.clinical_indications ? (Array.isArray(produtoCtx.clinical_indications) ? produtoCtx.clinical_indications.slice(0, 5).join("; ") : String(produtoCtx.clinical_indications).slice(0, 400)) : "-"}
+
+Compatibilidade: ${produtoCtx?.compatibility_list ? (Array.isArray(produtoCtx.compatibility_list) ? produtoCtx.compatibility_list.slice(0, 5).join(", ") : String(produtoCtx.compatibility_list).slice(0, 200)) : "-"}
+Certificações: ${produtoCtx?.certifications ? (Array.isArray(produtoCtx.certifications) ? produtoCtx.certifications.join(", ") : String(produtoCtx.certifications)) : "-"}
+CTA oficial: ${produtoCtx?.cta_1_label || "-"} → ${produtoCtx?.cta_1_url || "-"}
+
+═══ CONTEÚDO RELACIONADO (base de conhecimento) — usar 2 no bloco "Aprofunde-se" ═══
+${contentBlock}
+
+═══ BIBLIOTECA System A (posts oficiais) ═══
+${libraryBlock}
+
+═══ PROVA SOCIAL (usar 1) ═══
+${proofBlock}
+
+═══ AUDIÊNCIA ═══
 Segmento de destino: ${segmento_resumo || "leads da base Smart Dent"}
 
+═══ CALLS-TO-ACTION ═══
 CTA principal:
 ${cta_principal ? ctaLine(cta_principal) : "- (nenhum)"}
 CTAs secundários:
