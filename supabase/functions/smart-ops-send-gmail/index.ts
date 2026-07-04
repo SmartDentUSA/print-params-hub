@@ -79,6 +79,44 @@ Deno.serve(async (req) => {
     const funcBase = `https://${projectRef}.supabase.co/functions/v1`;
     const shortBase = "https://smartdent.com.br/r"; // short-link redirect route
 
+    // ── Resolve OFFICIAL fallback WhatsApp (used when the lead has no seller,
+    //    e.g. in test emails or when the lead was never assigned).
+    //    Priority: connected Gmail account → team_members.email match →
+    //    site_settings.whatsapp_official → hardcoded Smart Dent central number.
+    let officialWaDigits = "5516993061659"; // Smart Dent central (fallback of last resort)
+    try {
+      // (a) Try site_settings.whatsapp_official
+      const { data: ss } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "whatsapp_official")
+        .maybeSingle();
+      const ssNumber = (ss?.value as any)?.number;
+      if (ssNumber) officialWaDigits = String(ssNumber).replace(/\D/g, "") || officialWaDigits;
+
+      // (b) Try to match the connected Gmail with a team_member row
+      const profRes = await fetch(`${GATEWAY_URL}/users/me/profile`, {
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+        },
+      });
+      const profJson = await profRes.json().catch(() => ({}));
+      const senderEmail = String((profJson as any)?.emailAddress || "").toLowerCase();
+      if (senderEmail) {
+        const { data: tm } = await supabase
+          .from("team_members")
+          .select("whatsapp_number")
+          .ilike("email", senderEmail)
+          .maybeSingle();
+        const own = String(tm?.whatsapp_number || "").replace(/\D/g, "");
+        if (own) officialWaDigits = own;
+      }
+    } catch (e) {
+      console.warn("[send-gmail] fallback WA resolution failed:", e);
+    }
+    const officialWaLink = `https://wa.me/${officialWaDigits}`;
+
     const body = await req.json();
 
     // ── whoami: return the connected Gmail address ──
@@ -186,7 +224,7 @@ Deno.serve(async (req) => {
         const seller = sellerId ? sellerMap[sellerId] : undefined;
         const waLink = seller?.whatsapp
           ? `https://wa.me/${String(seller.whatsapp).replace(/\D/g, "")}`
-          : "https://wa.me/5511999999999";
+          : officialWaLink;
 
         // 1) placeholder replacement
         let personalHtml = html

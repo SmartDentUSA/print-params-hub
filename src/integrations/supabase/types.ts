@@ -4888,6 +4888,164 @@ export type Database = {
         }
         Relationships: []
       }
+      email_sequence_dispatches: {
+        Row: {
+          created_at: string
+          dispatched_at: string | null
+          error_message: string | null
+          id: string
+          lead_id: string
+          scheduled_for: string
+          send_log_id: string | null
+          sequence_id: string
+          status: string
+          step_id: string
+        }
+        Insert: {
+          created_at?: string
+          dispatched_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          scheduled_for: string
+          send_log_id?: string | null
+          sequence_id: string
+          status?: string
+          step_id: string
+        }
+        Update: {
+          created_at?: string
+          dispatched_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          scheduled_for?: string
+          send_log_id?: string | null
+          sequence_id?: string
+          status?: string
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_sequence_dispatches_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_sequence_dispatches_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_sequence_steps: {
+        Row: {
+          active: boolean
+          created_at: string
+          cta_button_label: string | null
+          cta_config: Json | null
+          delay_days: number
+          html_template: string
+          id: string
+          preheader_template: string | null
+          send_hour: number
+          sequence_id: string
+          step_order: number
+          subject_template: string
+          tom: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          cta_button_label?: string | null
+          cta_config?: Json | null
+          delay_days?: number
+          html_template: string
+          id?: string
+          preheader_template?: string | null
+          send_hour?: number
+          sequence_id: string
+          step_order: number
+          subject_template: string
+          tom?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          cta_button_label?: string | null
+          cta_config?: Json | null
+          delay_days?: number
+          html_template?: string
+          id?: string
+          preheader_template?: string | null
+          send_hour?: number
+          sequence_id?: string
+          step_order?: number
+          subject_template?: string
+          tom?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_sequences: {
+        Row: {
+          activated_at: string | null
+          archived_at: string | null
+          audience_filter: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          produto_id: string | null
+          status: string
+          stop_condition: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          archived_at?: string | null
+          audience_filter?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          produto_id?: string | null
+          status?: string
+          stop_condition?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          archived_at?: string | null
+          audience_filter?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          produto_id?: string | null
+          status?: string
+          stop_condition?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       enrichment_safety_queue: {
         Row: {
           attempt_count: number
