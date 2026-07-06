@@ -2,7 +2,7 @@
 // ATENCAO: este arquivo e gerenciado manualmente, nao sobrescrever via Lovable auto-deploy
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY } from '../_shared/evolution.ts'
+import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY, findRecentOutgoingByText } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 import { resolveAiContent } from '../_shared/wa-ai-content.ts'
 
