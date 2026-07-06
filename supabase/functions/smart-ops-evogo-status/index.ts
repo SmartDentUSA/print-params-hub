@@ -45,18 +45,15 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    const attempts: string[] = [];
-    if (instance) {
-      attempts.push(`/instance/connectionState/${encodeURIComponent(instance)}`);
-      attempts.push(`/instance/${encodeURIComponent(instance)}/status`);
-    }
-    attempts.push("/instance/fetchInstances");
-    attempts.push("/");
 
-    // Fetch webhook info in parallel (best-effort, non-blocking)
+    // 1) Webhook lookup — EvoGo doesn't expose connectionState endpoints,
+    // but /webhook/find/{instance} returning 2xx is a strong signal the
+    // instance exists and the runtime is up.
     let webhook_url: string | null = null;
     let webhook_events: string[] | null = null;
     let webhook_enabled: boolean | null = null;
+    let webhookOk = false;
+    let webhookStatus = 0;
     if (instance) {
       try {
         const wr = await fetch(`${base}/webhook/find/${encodeURIComponent(instance)}`, {
@@ -64,6 +61,8 @@ Deno.serve(async (req) => {
           headers: { apikey },
           signal: AbortSignal.timeout(6000),
         });
+        webhookStatus = wr.status;
+        webhookOk = wr.ok;
         if (wr.ok) {
           const wtxt = await wr.text();
           try {
@@ -76,39 +75,80 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
     }
 
-    let lastStatus = 0;
-    let lastBody = "";
-    for (const path of attempts) {
+    if (webhookOk) {
+      return new Response(
+        JSON.stringify({
+          state: "open",
+          http: webhookStatus,
+          latency_ms: Date.now() - started,
+          probe: "webhook_find",
+          webhook_url, webhook_events, webhook_enabled,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 2) Recent webhook activity — EvoGo delivers events to
+    // smart-ops-evogo-groups-webhook, which persists to sentinela_group_messages.
+    // Any event in the last 10 minutes means the runtime is online and pushing.
+    const evtInstance = m.evolution_instance_name || instance;
+    if (evtInstance) {
       try {
-        const r = await fetch(`${base}${path}`, {
-          method: "GET",
-          headers: { apikey },
-          signal: AbortSignal.timeout(8000),
-        });
-        lastStatus = r.status;
-        const txt = await r.text().catch(() => "");
-        lastBody = txt;
-        if (!r.ok) continue;
-        let state: "open" | "close" | "connecting" = "close";
-        try {
-          const j = JSON.parse(txt);
-          const raw = j?.instance?.state || j?.state || j?.status || (Array.isArray(j) ? j[0]?.instance?.state : null);
-          if (raw === "open" || raw === "connected") state = "open";
-          else if (raw === "connecting") state = "connecting";
-          else if (r.ok) state = "open";
-        } catch {
-          if (r.ok) state = "open";
+        const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: recent } = await supabase
+          .from("sentinela_group_messages")
+          .select("id", { head: false })
+          .eq("instance_name", evtInstance)
+          .gte("received_at", since)
+          .limit(1);
+        if (recent && recent.length > 0) {
+          return new Response(
+            JSON.stringify({
+              state: "open",
+              latency_ms: Date.now() - started,
+              probe: "recent_webhook_events",
+              webhook_url, webhook_events, webhook_enabled,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         }
+      } catch { /* ignore */ }
+    }
+
+    // 3) Root health check — accept any 2xx as "runtime up".
+    let rootStatus = 0;
+    let rootBody = "";
+    try {
+      const r = await fetch(`${base}/`, {
+        method: "GET",
+        headers: { apikey },
+        signal: AbortSignal.timeout(6000),
+      });
+      rootStatus = r.status;
+      rootBody = await r.text().catch(() => "");
+      if (r.ok) {
         return new Response(
-          JSON.stringify({ state, http: r.status, latency_ms: Date.now() - started, path, webhook_url, webhook_events, webhook_enabled }),
+          JSON.stringify({
+            state: "open",
+            http: r.status,
+            latency_ms: Date.now() - started,
+            probe: "root_ping",
+            webhook_url, webhook_events, webhook_enabled,
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
-      } catch (_e) {
-        // try next
       }
-    }
+    } catch { /* ignore */ }
+
     return new Response(
-      JSON.stringify({ state: "close", http: lastStatus, latency_ms: Date.now() - started, body: lastBody.slice(0, 200), webhook_url, webhook_events, webhook_enabled }),
+      JSON.stringify({
+        state: "close",
+        http: rootStatus || webhookStatus,
+        latency_ms: Date.now() - started,
+        reason: webhookStatus ? `webhook_find_${webhookStatus}` : "no_signal",
+        body: rootBody.slice(0, 200),
+        webhook_url, webhook_events, webhook_enabled,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
