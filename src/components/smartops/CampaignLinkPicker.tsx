@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
 
@@ -43,6 +43,54 @@ const CHANNEL_LABEL: Record<Channel, string> = {
   whatsapp_groups: "Grupos WA",
 };
 
+const SHORT_LINK_DOMAIN = "https://s.smartdent.com.br";
+
+interface FormShortLink {
+  id: string;
+  name: string;
+  slug: string;
+  short_code: string;
+  default_target: "form" | "landing_page";
+  url: string;
+  click_count: number;
+}
+
+async function fetchFormShortLinks(): Promise<FormShortLink[]> {
+  const { data: links, error: linksError } = await (supabase as any)
+    .from("smartops_short_links")
+    .select("short_code, form_slug, default_target, click_count");
+  if (linksError || !links) {
+    console.error("[fetchFormShortLinks] links", linksError);
+    return [];
+  }
+  const slugs = links.map((l: any) => l.form_slug).filter(Boolean);
+  if (slugs.length === 0) return [];
+  const { data: forms, error: formsError } = await (supabase as any)
+    .from("smartops_forms")
+    .select("id, name, slug")
+    .in("slug", slugs);
+  if (formsError || !forms) {
+    console.error("[fetchFormShortLinks] forms", formsError);
+    return [];
+  }
+  const formBySlug = Object.fromEntries((forms as any[]).map((f: any) => [f.slug, f]));
+  return (links as any[])
+    .map((l: any) => {
+      const form = formBySlug[l.form_slug];
+      if (!form) return null;
+      return {
+        id: `${l.form_slug}-${l.default_target}`,
+        name: form.name,
+        slug: form.slug,
+        short_code: l.short_code,
+        default_target: l.default_target as "form" | "landing_page",
+        click_count: Number(l.click_count) || 0,
+        url: `${SHORT_LINK_DOMAIN}/${l.short_code}`,
+      };
+    })
+    .filter(Boolean) as FormShortLink[];
+}
+
 async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? SUPABASE_ANON;
@@ -64,8 +112,10 @@ async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
 export function CampaignLinkPicker({ channel, onInsert }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [formLinksLoading, setFormLinksLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [links, setLinks] = useState<CampaignLink[]>([]);
+  const [formLinks, setFormLinks] = useState<FormShortLink[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CampaignLink | null>(null);
 
@@ -80,8 +130,22 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     }
   };
 
+  const loadFormLinks = async () => {
+    setFormLinksLoading(true);
+    try {
+      setFormLinks(await fetchFormShortLinks());
+    } catch (e: any) {
+      toast.error("Falha ao carregar links de formulários: " + (e?.message ?? String(e)));
+    } finally {
+      setFormLinksLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (open) load();
+    if (open) {
+      load();
+      loadFormLinks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
 
@@ -121,6 +185,11 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     setOpen(false);
   };
 
+  const handleInsertFormLink = (link: FormShortLink) => {
+    onInsert(link.url);
+    setOpen(false);
+  };
+
   const openEditor = (link: CampaignLink | null) => {
     setEditing(link);
     setEditorOpen(true);
@@ -156,11 +225,11 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto">
-            {loading ? (
+            {loading && formLinksLoading && links.length === 0 && formLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 ? (
+            ) : links.length === 0 && formLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
@@ -184,6 +253,13 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     onInsert={handleInsert}
                     onEdit={openEditor}
                     onDelete={handleDelete}
+                  />
+                )}
+                {formLinks.length > 0 && (
+                  <FormLinkSection
+                    label="Formulários e Landing Pages"
+                    links={formLinks}
+                    onInsert={handleInsertFormLink}
                   />
                 )}
               </>
@@ -266,6 +342,68 @@ function LinkSection({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+function FormLinkSection({
+  label,
+  links,
+  onInsert,
+}: {
+  label: string;
+  links: FormShortLink[];
+  onInsert: (l: FormShortLink) => void;
+}) {
+  const formLinks = links.filter((l) => l.default_target === "form");
+  const landingLinks = links.filter((l) => l.default_target === "landing_page");
+
+  return (
+    <div className="py-1 border-t">
+      <div className="px-3 py-1.5 flex items-center gap-2 sticky top-0 bg-popover">
+        <Badge variant="outline" className="text-[10px]">{label}</Badge>
+        <span className="text-xs text-muted-foreground">{links.length}</span>
+      </div>
+      {formLinks.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <FileText className="w-3 h-3" /> Formulários
+          </div>
+          <ul className="divide-y">
+            {formLinks.map((l) => (
+              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{l.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {landingLinks.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <Layout className="w-3 h-3" /> Landing Pages
+          </div>
+          <ul className="divide-y">
+            {landingLinks.map((l) => (
+              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{l.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
