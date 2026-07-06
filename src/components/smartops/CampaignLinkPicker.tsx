@@ -43,6 +43,54 @@ const CHANNEL_LABEL: Record<Channel, string> = {
   whatsapp_groups: "Grupos WA",
 };
 
+const SHORT_LINK_DOMAIN = "https://s.smartdent.com.br";
+
+interface FormShortLink {
+  id: string;
+  name: string;
+  slug: string;
+  short_code: string;
+  default_target: "form" | "landing_page";
+  url: string;
+  click_count: number;
+}
+
+async function fetchFormShortLinks(): Promise<FormShortLink[]> {
+  const { data: links, error: linksError } = await (supabase as any)
+    .from("smartops_short_links")
+    .select("short_code, form_slug, default_target, click_count");
+  if (linksError || !links) {
+    console.error("[fetchFormShortLinks] links", linksError);
+    return [];
+  }
+  const slugs = links.map((l: any) => l.form_slug).filter(Boolean);
+  if (slugs.length === 0) return [];
+  const { data: forms, error: formsError } = await (supabase as any)
+    .from("smartops_forms")
+    .select("id, name, slug")
+    .in("slug", slugs);
+  if (formsError || !forms) {
+    console.error("[fetchFormShortLinks] forms", formsError);
+    return [];
+  }
+  const formBySlug = Object.fromEntries((forms as any[]).map((f: any) => [f.slug, f]));
+  return (links as any[])
+    .map((l: any) => {
+      const form = formBySlug[l.form_slug];
+      if (!form) return null;
+      return {
+        id: `${l.form_slug}-${l.default_target}`,
+        name: form.name,
+        slug: form.slug,
+        short_code: l.short_code,
+        default_target: l.default_target as "form" | "landing_page",
+        click_count: Number(l.click_count) || 0,
+        url: `${SHORT_LINK_DOMAIN}/${l.short_code}`,
+      };
+    })
+    .filter(Boolean) as FormShortLink[];
+}
+
 async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? SUPABASE_ANON;
