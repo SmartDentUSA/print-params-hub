@@ -1239,3 +1239,149 @@ function ConfigCarousel({ node, onChange }: { node: CarouselNode; onChange: (p: 
     </div>
   );
 }
+
+function WaitNodeEditor({ node, onChange }: { node: WaitNode; onChange: (patch: Partial<WaitNode>) => void }) {
+  const mode = node.mode ?? "relative";
+
+  const abs = node.absolute_at ? new Date(node.absolute_at) : undefined;
+  const absDate = abs && !Number.isNaN(abs.getTime()) ? abs : undefined;
+  const absTime = absDate
+    ? `${String(absDate.getHours()).padStart(2, "0")}:${String(absDate.getMinutes()).padStart(2, "0")}`
+    : "09:00";
+
+  const setAbsolute = (date: Date | undefined, time: string) => {
+    if (!date) {
+      onChange({ absolute_at: undefined } as Partial<WaitNode>);
+      return;
+    }
+    const [hh, mm] = (time || "09:00").split(":").map(Number);
+    const d = new Date(date);
+    d.setHours(Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0, 0, 0);
+    onChange({ absolute_at: d.toISOString() } as Partial<WaitNode>);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="inline-flex rounded-md border p-0.5 text-xs">
+        <button
+          type="button"
+          className={cn(
+            "px-2.5 py-1 rounded-sm transition-colors",
+            mode === "relative" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onChange({ mode: "relative" } as Partial<WaitNode>)}
+        >
+          Relativo
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "px-2.5 py-1 rounded-sm transition-colors",
+            mode === "absolute" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onChange({ mode: "absolute" } as Partial<WaitNode>)}
+        >
+          Data/hora exatos
+        </button>
+      </div>
+
+      {mode === "absolute" ? (
+        <div className="grid grid-cols-2 gap-2 items-end">
+          <div>
+            <Label className="text-xs">Data</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-9",
+                    !absDate && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {absDate ? format(absDate, "PPP", { locale: ptBR }) : "Escolher data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={absDate}
+                  onSelect={(d) => setAbsolute(d, absTime)}
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                  locale={ptBR}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label className="text-xs">Hora</Label>
+            <Input
+              type="time"
+              value={absTime}
+              onChange={(e) => setAbsolute(absDate, e.target.value)}
+            />
+          </div>
+          {absDate && (
+            <div className="col-span-2 text-[11px] text-muted-foreground">
+              Envio agendado para{" "}
+              <span className="font-medium text-foreground">
+                {format(new Date(node.absolute_at!), "EEEE, dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-5 gap-2 items-end">
+          <div>
+            <Label className="text-xs">Dias</Label>
+            <Input
+              type="number"
+              min={0}
+              value={node.days}
+              onChange={(e) => onChange({ days: Number(e.target.value) || 0 } as Partial<WaitNode>)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Horas</Label>
+            <Input
+              type="number"
+              min={0}
+              max={23}
+              value={node.hours ?? 0}
+              onChange={(e) => onChange({ hours: Number(e.target.value) || 0 } as Partial<WaitNode>)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Minutos</Label>
+            <Input
+              type="number"
+              min={0}
+              max={59}
+              value={node.minutes ?? 0}
+              onChange={(e) => onChange({ minutes: Number(e.target.value) || 0 } as Partial<WaitNode>)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Hora do dia</Label>
+            <Input
+              type="time"
+              value={node.time}
+              onChange={(e) => onChange({ time: e.target.value } as Partial<WaitNode>)}
+              disabled={(node.hours ?? 0) > 0 || (node.minutes ?? 0) > 0}
+              title={((node.hours ?? 0) > 0 || (node.minutes ?? 0) > 0) ? "Ignorado quando há horas/minutos configurados (usa offset relativo)" : ""}
+            />
+          </div>
+          <Label className="text-xs flex items-center gap-2 pb-2">
+            <Switch
+              checked={!!node.weekdays_only}
+              onCheckedChange={(v) => onChange({ weekdays_only: v } as Partial<WaitNode>)}
+            />
+            Só dias úteis
+          </Label>
+        </div>
+      )}
+    </div>
+  );
+}
