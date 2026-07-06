@@ -543,6 +543,7 @@ export function SmartOpsTeam() {
               <p className="text-[11px] text-muted-foreground -mt-2">
                 Sem esses campos preenchidos, o disparo cai na apikey global e a Evolution rejeita com HTTP 400 "Timed Out".
               </p>
+              <WebhookInfoBlock info={evolutionWebhook} onCopy={copyToClipboard} />
               <div>
                 <Label>Provedor de mensagens</Label>
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
@@ -596,6 +597,7 @@ export function SmartOpsTeam() {
                   placeholder="http://82.25.75.61:8081"
                 />
               </div>
+              <WebhookInfoBlock info={evoGoWebhook} onCopy={copyToClipboard} />
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
