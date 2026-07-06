@@ -263,11 +263,26 @@ export function SmartOpsTeam() {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
       toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
     }
+    const nullify = (v: string) => (v && v.trim() ? v.trim() : null);
+    const payload = {
+      ...form,
+      piperun_owner_id: nullify(form.piperun_owner_id) as any,
+      manychat_api_key: nullify(form.manychat_api_key) as any,
+      waleads_api_key: nullify(form.waleads_api_key) as any,
+      evolution_instance_name: nullify(form.evolution_instance_name) as any,
+      evolution_api_key: nullify(form.evolution_api_key) as any,
+      evolution_phone: nullify(form.evolution_phone) as any,
+      evolution_lid: nullify(form.evolution_lid) as any,
+      evolution_base_url: nullify(form.evolution_base_url) as any,
+      evo_go_instance_id: nullify(form.evo_go_instance_id) as any,
+      evo_go_instance_token: nullify(form.evo_go_instance_token) as any,
+      evo_go_base_url: nullify(form.evo_go_base_url) as any,
+    };
     if (editing) {
-      const { error } = await supabase.from("team_members").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("team_members").update(payload).eq("id", editing.id);
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     } else {
-      const { error } = await supabase.from("team_members").insert(form);
+      const { error } = await supabase.from("team_members").insert(payload);
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     }
     setDialogOpen(false);
