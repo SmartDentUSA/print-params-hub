@@ -82,6 +82,7 @@ export function SmartOpsTeam() {
 
   // Evolution state
   const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
+  const [evoGoStatus, setEvoGoStatus] = useState<EvolutionStatus>("unknown");
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
@@ -116,6 +117,7 @@ export function SmartOpsTeam() {
     setEditing(null);
     setForm({ ...EMPTY_FORM });
     setEvolutionStatus("unknown");
+    setEvoGoStatus("unknown");
     setDialogOpen(true);
   };
   const openEdit = (m: TeamMember) => {
@@ -139,10 +141,14 @@ export function SmartOpsTeam() {
       messaging_provider: m.messaging_provider || "waleads",
     });
     setEvolutionStatus("unknown");
+    setEvoGoStatus("unknown");
     setDialogOpen(true);
     // Fetch Evolution status
     if (m.evolution_instance_name) {
       fetchEvolutionStatus(m.id, m.evolution_instance_name);
+    }
+    if (m.evo_go_instance_token || m.evo_go_instance_id) {
+      fetchEvoGoStatus(m.id);
     }
   };
 
@@ -160,6 +166,23 @@ export function SmartOpsTeam() {
       }
     } catch {
       setEvolutionStatus("close");
+    }
+  };
+
+  const fetchEvoGoStatus = async (memberId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evogo-status", {
+        body: { member_id: memberId },
+      });
+      if (error) throw error;
+      const state = (data?.state || "close") as string;
+      if (state === "open" || state === "connecting" || state === "close") {
+        setEvoGoStatus(state);
+      } else {
+        setEvoGoStatus("unknown");
+      }
+    } catch {
+      setEvoGoStatus("close");
     }
   };
 
@@ -457,7 +480,17 @@ export function SmartOpsTeam() {
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
               <Separator className="my-2" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+                <button
+                  type="button"
+                  onClick={() => editing && fetchEvoGoStatus(editing.id)}
+                  className="cursor-pointer"
+                  title="Clique para re-verificar"
+                >
+                  <EvolutionStatusBadge status={evoGoStatus} />
+                </button>
+              </div>
               <div>
                 <Label>Instance ID</Label>
                 <Input
