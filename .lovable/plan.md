@@ -1,47 +1,73 @@
-## Diagnóstico
+## Normalização de `area_atuacao` + `especialidade` em `lia_attendances`
 
-O botão "Adicionar" no `PostGruposAddModal` está caindo em `Falha ao adicionar grupos`. Investiguei o banco e o código:
+Duas colunas, dois vocabulários controlados. Backfill único via `insert-tool`.
 
-- Tabela `post_group_targets` tem constraint `UNIQUE (group_id)` — não é composto com `instance_name`. Isso significa que um mesmo `group_id` só pode existir em **uma** instância no país inteiro. Qualquer tentativa de inserir um `group_id` já presente (mesmo em outra instância, ou por conta de dedupe/timing) retorna `23505` e o toast dispara.
-- Já existem 3 rows para `smartdent_marketing` no banco (RayShape, Exocad, Dashboard) — inserts anteriores passaram, mas o toast de erro continuou aparecendo porque cliques subsequentes/re-tentativas colidem na unique.
-- Hoje o toast engole a mensagem real (`toast.error('Falha ao adicionar grupos')`), por isso não dá pra ver `duplicate key value violates unique constraint`.
+### Vocabulário `area_atuacao` (9 canônicos)
+`CLÍNICA OU CONSULTÓRIO` · `LABORATÓRIO DE PRÓTESE` · `RADIOLOGIA ODONTOLÓGICA` · `PLANNING CENTER` · `EMPRESA DE ALINHADORES` · `GESTOR DE REDE DE CLÍNICAS` · `GESTOR DE FRANQUIAS` · `CENTRAL DE IMPRESSÕES` · `EDUCAÇÃO`
 
-Uma restrição por `group_id` global também não faz sentido no modelo: `wa_groups` já é particionado por `instance_name` (cada instância tem sua própria linha para o mesmo grupo do WhatsApp, com UUIDs diferentes), então a chave natural aqui é o par `(instance_name, group_id)`.
+### Vocabulário `especialidade` (13 canônicos)
+`CLÍNICO GERAL` · `DENTÍSTICA` · `IMPLANTODONTISTA` · `PROTESISTA` · `ORTODONTISTA` · `ODONTOPEDIATRIA` · `PERIODONTISTA` · `RADIOLOGISTA` · `CIRURGIA BUCO MAXILO FACIAL` · `TÉCNICO EM RADIOLOGIA` · `TÉCNICO EM PRÓTESE ODONTOLÓGICA` · `ENDODONTISTA` · `OUTROS`
 
-## Mudanças
+---
 
-### 1. Migration Supabase
-Trocar a unique global por composta em `post_group_targets`:
+### Regras de mapeamento — `area_atuacao`
 
-```sql
-ALTER TABLE public.post_group_targets
-  DROP CONSTRAINT IF EXISTS post_group_targets_group_id_key;
+| Canônico | Variantes que serão convertidas (case/acento-insensitive) |
+|---|---|
+| `CLÍNICA OU CONSULTÓRIO` | Clínica ou Consultório, CLÍNICA CONSULTÓRIO, Clínica / Consultório, Clínica, CLINICA, Consultório, Consultorio, Clínica Odontológica, Clinica (consultorio), Clinica (dentista), Clínicia, Clínico, Clínica/Consultório, Instituto e Clínica Odontológica, Consultório Odontológico, Clínica Radiológica |
+| `LABORATÓRIO DE PRÓTESE` | Laboratório de Prótese/Próteses/protese, Laboratório, Laboratorio, LABORATORIO, Lab de protese, Laboratório Ortopédico, laboratório_de_prótese |
+| `RADIOLOGIA ODONTOLÓGICA` | Radiologia, RADIOLOGIA, Radiologia Odontológica, RADIOLOGIA E IMAGINOLOGIA |
+| `GESTOR DE REDE DE CLÍNICAS` | Gestor de Rede, GESTOR DE REDE, Gestor de rede de clínicas |
+| `GESTOR DE FRANQUIAS` | Gestor de Franquias, Gestor de franquias |
+| `CENTRAL DE IMPRESSÕES` | Central de impressão 3D |
+| `PLANNING CENTER` | (só o próprio) |
+| `EMPRESA DE ALINHADORES` | Empresa de Alinhadores |
+| `EDUCAÇÃO` | Educação, PROFESSOR, Professor, ALUNOS DE GRADUAÇÃO, Estudante, Estagiário, ESTUDO, Escola, Universidade de Caxias do Sul-UCS |
 
-ALTER TABLE public.post_group_targets
-  ADD CONSTRAINT post_group_targets_instance_group_uk
-  UNIQUE (instance_name, group_id);
-```
+**Movimento cross-coluna** (valores hoje em `area_atuacao` que são especialidades): IMPLANTODONTISTA, ORTODONTISTA, CLÍNICO GERAL, DENTISTA/CD/Cirurgião Dentista, ENDODONTISTA, PERIODONTISTA, PROTESISTA, TÉCNICO EM PRÓTESE ODONTOLÓGICA, DENTÍSTICA, CIRURGIA BUCOMAXILOFACIAL, RADIOLOGISTA, TÉCNICO EM RADIOLOGIA, ODONTOPEDIATRIA e combos (`IMPLANTODONTISTA, PROTESISTA` etc.) →
+- `area_atuacao` = `CLÍNICA OU CONSULTÓRIO` (ou `LABORATÓRIO DE PRÓTESE` quando for TPD/PROTESISTA/PROTÉTICO isolados)
+- `especialidade` = valor canônico correspondente (**só sobrescreve se `especialidade` estiver NULL/vazio** para preservar dados já preenchidos)
 
-Sem alteração em RLS, grants, views ou dados existentes (as 5 linhas atuais respeitam a nova unique).
+**Combos clínica+laboratório** (`Clinica e Laboratório`, `Laboratório e Clínica`, `clínica/mini laboratório`, `Clínica e Laboratório de prótese`) → `area_atuacao = CLÍNICA OU CONSULTÓRIO` (perfil principal); NÃO mexemos em outros campos.
 
-### 2. `src/components/social/PostGruposAddModal.tsx`
-No `catch` do insert, mostrar o motivo real do Postgres pra evitar depuração cega em futuros erros:
+**Não classificáveis** (`Cargo não informado`, códigos Omie `49-Sócio-Administrador`, `22-Sócio`, `65-Titular…`, `Outros`, `Não Definido`, `Não sou da área…`, `SEM INFORMAÇÃO`, `Proprietário`, `CEO`, `Compras`, `Distribuidor`, `Joalheria`, `Ourives`, lixo tipo `X`, `valeu`, `en español por favor`, nomes de pessoas, frases soltas) → `area_atuacao = NULL`.
 
-```ts
-if (error) {
-  console.error('[post_group_targets] insert error', error);
-  return toast.error(`Falha ao adicionar grupos: ${error.message}`);
-}
-```
+### Regras de mapeamento — `especialidade`
 
-Nada mais no fluxo muda: seleção, dedupe por `existingGroupIds`, `onAdded()` continuam iguais.
+- Case/acento e wrappers `["…"]` normalizados (ex.: `["IMPLANTODONTISTA"]` → `IMPLANTODONTISTA`).
+- **Multi-especialidade** (`IMPLANTODONTISTA, PROTESISTA`, `["IMPLANTODONTISTA","ORTODONTISTA"]`, etc.) → mantém string CSV canônica em ordem alfabética: `IMPLANTODONTISTA, PROTESISTA`. Isso preserva a informação e permite `ILIKE '%PROTESISTA%'` em queries.
+- Mapeamentos especiais:
+  - `PROTESE E ESTÉTICA` (320) → `PROTESISTA`
+  - `Protético` / `PROTÉTICO` → `TÉCNICO EM PRÓTESE ODONTOLÓGICA`
+  - `Endodontia` → `ENDODONTISTA`
+  - `Ortodontia Implante e Prótese` → `IMPLANTODONTISTA, ORTODONTISTA, PROTESISTA`
+  - `Periodontista / Implantodontista` → `IMPLANTODONTISTA, PERIODONTISTA`
+  - `Ortodontia/ Clínica geral` → `CLÍNICO GERAL, ORTODONTISTA`
+  - `Prótese Total` → `PROTESISTA`
+  - `CIRURGIA BUCOMAXILOFACIAL` → `CIRURGIA BUCO MAXILO FACIAL` (padrão do vocabulário)
+  - `["OUTRA"]`, `[]`, valores que são perguntas de formulário (`Preciso de suporte…`, `Quero saber mais sobre…`, `parametros para resina…`) → `OUTROS`
+  - `Dentista/ TPD/ Implante` → `IMPLANTODONTISTA, TÉCNICO EM PRÓTESE ODONTOLÓGICA`
 
-## Fora de escopo
+---
 
-- Não mexe em `PostGrupos.tsx`, cards, view `v_post_group_targets_detail`, RLS ou grants.
-- Não altera edge functions nem o worker de publicação.
+### Execução
 
-## Resultado
+1. **UPDATE massivo** via insert-tool com `CASE WHEN` sobre `LOWER(UNACCENT(TRIM(area_atuacao)))` e `LOWER(UNACCENT(TRIM(especialidade)))`. Rodo os dois em uma transação única. Também pinto `especialidade` (quando NULL) a partir do que estava mal-alocado em `area_atuacao`.
+2. **Verificação**: rodo `GROUP BY area_atuacao` e `GROUP BY especialidade` pós-UPDATE — expectativa = 9 valores + NULL em uma, ~13 valores + CSVs canônicos + NULL na outra.
+3. **Sem alterações de schema, sem trigger, sem código de frontend** neste plano — só backfill de dados.
 
-- Adicionar um grupo que já pertence a outra instância deixa de falhar.
-- Se algum erro futuro acontecer (RLS, FK, etc.), o toast mostra a mensagem real do Postgres.
+### Contadores estimados pós-normalização
+- `area_atuacao = CLÍNICA OU CONSULTÓRIO`: ~14.700
+- `area_atuacao = LABORATÓRIO DE PRÓTESE`: ~4.470
+- `area_atuacao = RADIOLOGIA ODONTOLÓGICA`: ~170
+- `area_atuacao = EDUCAÇÃO`: ~155
+- `area_atuacao = GESTOR DE REDE DE CLÍNICAS`: ~60
+- `area_atuacao = GESTOR DE FRANQUIAS`: ~20
+- `area_atuacao = PLANNING CENTER`: 6
+- `area_atuacao = CENTRAL DE IMPRESSÕES`: 4
+- `area_atuacao = EMPRESA DE ALINHADORES`: 1
+- `area_atuacao = NULL`: ~1.900 (não classificáveis)
+
+### Fora do escopo
+- Trigger `BEFORE INSERT/UPDATE` para normalizar novas escritas — proponho como Fase 2 se você aprovar após ver o resultado do backfill.
+- UI de dropdown com opções canônicas nos formulários — proponho Fase 3.
