@@ -225,11 +225,11 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto">
-            {loading ? (
+            {loading && formLinksLoading && links.length === 0 && formLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 ? (
+            ) : links.length === 0 && formLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
@@ -253,6 +253,13 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     onInsert={handleInsert}
                     onEdit={openEditor}
                     onDelete={handleDelete}
+                  />
+                )}
+                {formLinks.length > 0 && (
+                  <FormLinkSection
+                    label="Formulários e Landing Pages"
+                    links={formLinks}
+                    onInsert={handleInsertFormLink}
                   />
                 )}
               </>
