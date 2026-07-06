@@ -109,6 +109,18 @@ function fallbackGroupName(jid: string): string {
   return `Grupo WA ${jid.replace('@g.us', '').slice(-12)}`
 }
 
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const anyErr = err as any
+    if (typeof anyErr.message === 'string') return anyErr.message
+    if (typeof anyErr.error === 'string') return anyErr.error
+    if (typeof anyErr.details === 'string') return anyErr.details
+    try { return JSON.stringify(err) } catch (_) { return String(err) }
+  }
+  return String(err)
+}
+
 type ObservedGroupSyncResult = {
   discovery_mode: 'webhook_observed_groups'
   observed: number
@@ -503,7 +515,7 @@ serve(async (req) => {
         }
         totalSynced += groupsToSync.length
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
+        const msg = errorMessage(err)
         console.error(`[wa-sync-groups] ${inst.instanceName} falhou:`, msg)
         per_instance[inst.instanceName] = { synced: 0, raw: 0, admin: 0, groups: [], error: msg }
       }
@@ -547,9 +559,9 @@ serve(async (req) => {
     }, { status: 200, headers: corsHeaders })
 
   } catch (err) {
-    console.error('[wa-sync-groups] ERRO:', err)
+    console.error('[wa-sync-groups] ERRO:', errorMessage(err))
     return Response.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, error: errorMessage(err) },
       { status: 500, headers: corsHeaders }
     )
   }
