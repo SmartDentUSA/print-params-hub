@@ -480,7 +480,17 @@ export function SmartOpsTeam() {
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
               <Separator className="my-2" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+                <button
+                  type="button"
+                  onClick={() => editing && fetchEvoGoStatus(editing.id)}
+                  className="cursor-pointer"
+                  title="Clique para re-verificar"
+                >
+                  <EvolutionStatusBadge status={evoGoStatus} />
+                </button>
+              </div>
               <div>
                 <Label>Instance ID</Label>
                 <Input
