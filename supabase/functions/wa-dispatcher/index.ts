@@ -2,7 +2,7 @@
 // ATENCAO: este arquivo e gerenciado manualmente, nao sobrescrever via Lovable auto-deploy
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY } from '../_shared/evolution.ts'
+import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY, findRecentOutgoingByText } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 import { resolveAiContent } from '../_shared/wa-ai-content.ts'
 
@@ -147,7 +147,11 @@ serve(async (req) => {
         let evoId: string | null = null
         const c = item.content_json ?? {}
 
-        const send = async (fnEvoGo: (() => Promise<string|null>) | null, fnApi: ((k: string) => Promise<string|null>) | null): Promise<string|null> => {
+        const send = async (
+          fnEvoGo: (() => Promise<string|null>) | null,
+          fnApi: ((k: string) => Promise<string|null>) | null,
+          dedupNeedle?: string,
+        ): Promise<string|null> => {
           if (useEvoGo && fnEvoGo) {
             try { return await fnEvoGo() } catch (e) { const m = e instanceof Error ? e.message : String(e); if (m.startsWith('ENDPOINT_NOT_FOUND')) throw new Error(`Tipo '${item.node_type}' nao suportado`); throw e }
           }
@@ -155,9 +159,27 @@ serve(async (req) => {
           try { return await fnApi(apikey) } catch (e) {
             const m = e instanceof Error ? e.message : String(e)
             if (/SessionError|No sessions|timed out|aborted/i.test(m) && instance) {
+              // Timeout no HTTP não significa que a mensagem não foi entregue —
+              // o Baileys pode ter enviado antes do abort. Antes de retentar,
+              // procuramos uma mensagem recente da própria instância no grupo
+              // com o mesmo conteúdo para evitar duplicata.
+              if (/timed out|aborted/i.test(m) && dedupNeedle && dedupNeedle.trim().length >= 3) {
+                const existingId = await findRecentOutgoingByText(item.group_jid, dedupNeedle, 180, instance, apikey)
+                if (existingId) {
+                  console.log(`[v66eg] dedupe-after-timeout: encontrou ${existingId} no grupo ${item.group_jid}, tratando como enviado`)
+                  return existingId
+                }
+              }
               await warmupGroup(item.group_jid, instance, apikey); await sleep(3000)
               try { return await fnApi(apikey) } catch (e2) {
                 const m2 = e2 instanceof Error ? e2.message : String(e2)
+                if (/timed out|aborted/i.test(m2) && dedupNeedle && dedupNeedle.trim().length >= 3) {
+                  const existingId2 = await findRecentOutgoingByText(item.group_jid, dedupNeedle, 240, instance, apikey)
+                  if (existingId2) {
+                    console.log(`[v66eg] dedupe-after-timeout(2): encontrou ${existingId2} no grupo ${item.group_jid}, tratando como enviado`)
+                    return existingId2
+                  }
+                }
                 if (/SessionError|No sessions|timed out|aborted/i.test(m2) && isGroup && apikey !== GLOBAL_EVOLUTION_KEY && tm) {
                   try { const r = await fnApi(GLOBAL_EVOLUTION_KEY); if (!tm.evolution_group_key_broken_at) { await supabase.from('team_members').update({ evolution_group_key_broken_at: new Date().toISOString() }).eq('id', tm.id).is('evolution_group_key_broken_at', null); tm.evolution_group_key_broken_at = new Date().toISOString() }; return r } catch (e3) { throw e3 }
                 }
@@ -172,19 +194,19 @@ serve(async (req) => {
           case 'msg': {
             const txt = (c.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), txt)
             break
           }
           case 'image': case 'video': case 'audio': case 'document': {
             const mtype = item.node_type as 'image'|'video'|'audio'|'document'
             const mediaUrl = (c.media_url ?? '') as string; const caption = (c.caption ?? '') as string; const fileName = (c.file_name ?? null) as string|null
             if (!mediaUrl) throw new Error('media_url vazio')
-            evoId = await send(useEvoGo ? () => sendMediaEvoGo(item.group_jid, mtype, mediaUrl, caption, fileName, evoGoBase, evoGoToken!) : null, (k) => sendMedia(item.group_jid, mtype, mediaUrl, caption, instance, k))
+            evoId = await send(useEvoGo ? () => sendMediaEvoGo(item.group_jid, mtype, mediaUrl, caption, fileName, evoGoBase, evoGoToken!) : null, (k) => sendMedia(item.group_jid, mtype, mediaUrl, caption, instance, k), caption)
             break
           }
           case 'link': {
             const txt = [c.title ? `*${c.title}*` : '', c.description ? String(c.description) : '', c.url ? String(c.url) : ''].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), (c.url as string) ?? txt)
             break
           }
           case 'post_ig': case 'post_yt': {
@@ -192,7 +214,7 @@ serve(async (req) => {
             const url = (c.post_url ?? '') as string
             if (!url) throw new Error('post_url vazio')
             const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
             break
           }
           case 'link_ig': case 'link_yt': {
@@ -200,12 +222,12 @@ serve(async (req) => {
             const url = (c.url ?? '') as string
             if (!url) throw new Error('url vazio')
             const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
             break
           }
           case 'ai': {
             const { text: txt } = await resolveAiContent(supabase, c as any)
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), txt)
             await supabase.from('wa_message_queue').update({ content_json: { ...c, _resolved_text: txt } }).eq('id', item.id)
             break
           }
