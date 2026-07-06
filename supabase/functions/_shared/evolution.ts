@@ -66,6 +66,46 @@ function hWith(apikey?: string) {
   return { 'Content-Type': 'application/json', 'apikey': apikey || EVO_KEY }
 }
 
+// -----------------------------------------------------------------------------
+// EvoTarget: descreve QUAL servidor/instância/token usar numa chamada.
+// Permite rotear per-membro entre Evolution (:8080) e Evolution GO (:8081)
+// sem duplicar toda a lógica de grupos. As funções antigas continuam apontando
+// para EVO_BASE + EVO_KEY como default (retrocompat total).
+// -----------------------------------------------------------------------------
+export type EvoTarget = {
+  baseUrl: string
+  instance: string
+  apikey: string
+}
+
+function targetHeaders(t: EvoTarget) {
+  return { 'Content-Type': 'application/json', 'apikey': t.apikey || EVO_KEY }
+}
+
+function stripSlash(u: string) {
+  return (u || '').replace(/\/+$/, '')
+}
+
+export async function fetchInstancesFor(t: EvoTarget): Promise<WaInstanceInfo[]> {
+  const res = await fetch(`${stripSlash(t.baseUrl)}/instance/fetchInstances`, {
+    headers: targetHeaders(t),
+  })
+  if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
+  const raw = await res.json()
+  const list = Array.isArray(raw) ? raw : []
+  return list
+    .map((it: any): WaInstanceInfo => {
+      const inst = it.instance ?? it
+      return {
+        instanceName:     inst.instanceName ?? inst.name ?? '',
+        connectionStatus: inst.connectionStatus ?? inst.status ?? 'close',
+        owner:            inst.owner ?? inst.ownerJid ?? undefined,
+        profileName:      inst.profileName ?? inst.profile_name ?? undefined,
+      }
+    })
+    .filter(i => i.instanceName)
+}
+
 export async function fetchInstances(apikey?: string): Promise<WaInstanceInfo[]> {
   const res = await fetch(`${EVO_BASE}/instance/fetchInstances`, { headers: hWith(apikey) })
   if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
@@ -140,12 +180,22 @@ export async function fetchGroupsWithAdminFlag(
   hints?: OwnerHints,
   apikey?: string,
 ): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
-  const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
+  return fetchGroupsWithAdminFlagFor(
+    { baseUrl: EVO_BASE, instance: instanceName, apikey: apikey || EVO_KEY },
+    hints,
+  )
+}
+
+export async function fetchGroupsWithAdminFlagFor(
+  t: EvoTarget,
+  hints?: OwnerHints,
+): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
+  const url = `${stripSlash(t.baseUrl)}/group/fetchAllGroups/${enc(t.instance)}?getParticipants=true`
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 120_000)
   let res: Response
   try {
-    res = await fetch(url, { headers: hWith(apikey), signal: ctrl.signal })
+    res = await fetch(url, { headers: targetHeaders(t), signal: ctrl.signal })
   } catch (e) {
     throw new Error(`fetchAllGroups timeout/aborted: ${e instanceof Error ? e.message : String(e)}`)
   } finally {
