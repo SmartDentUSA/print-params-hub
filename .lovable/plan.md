@@ -1,31 +1,47 @@
 ## Diagnóstico
 
-- Instância `smartdent_marketing_evogo` está de fato conectada. O runtime EvoGo (`http://82.25.75.61:8081`) responde 404 em `/webhook/find/{instance}` e em `/` — por isso o probe atual devolve `close` mesmo com a instância online.
-- Endpoint correto descoberto por probing: `GET /instance/status` com header `apikey: <evo_go_instance_token>` retorna:
-  ```json
-  {"data":{"Connected":true,"LoggedIn":true,"Name":"Smart Dent Marketing"},"message":"success"}
-  ```
-- Não há `{instance}` no path — o token já identifica a instância (padrão wuzapi-like).
+**Qual provider foi usado?** Evolution GO (porta 8081), não Evolution API.
+
+Em `wa-dispatcher/index.ts:112`:
+```ts
+const useEvoGo = !!evoGoToken
+```
+Como o membro `smartdent_marketing` tem `evo_go_instance_token` preenchido, o dispatcher roteia **todo o envio de grupo por EvoGo**, ignorando o `messaging_provider` do UI.
+
+**Causa do "Tipo 'msg' nao suportado":**
+
+- `team_members.evo_go_base_url` está gravado como `http://82.25.75.61:8081/` (com barra final).
+- `evoGoPost` faz `${baseUrl}${path}` → resulta em `http://82.25.75.61:8081//send/text`.
+- O runtime EvoGo devolve `404 page not found` para o path com barra dupla.
+- `evoGoPost` mapeia qualquer 404 para `ENDPOINT_NOT_FOUND`, e o dispatcher traduz para `Tipo 'msg' nao suportado`. Enganoso: o endpoint existe, só a URL estava mal formada.
+
+Confirmação via probe direto no runtime:
+- `POST /send/text` (uma barra) com token correto → **200 OK, mensagem entregue** no grupo `120363425605712771@g.us`.
+- `POST //send/text` (duas barras) → **404 page not found**.
 
 ## Correção
 
-Ajustar `supabase/functions/smart-ops-evogo-status/index.ts` para usar `/instance/status` como probe primário:
+`supabase/functions/wa-dispatcher/index.ts`:
 
-1. `GET {base}/instance/status` com header `apikey: <evo_go_instance_token>`, timeout 6s.
-2. Parse do JSON: considerar `state: "open"` quando `data.Connected === true` E `data.LoggedIn === true`. Retornar `probe: "instance_status"` e incluir `data.Name` no payload como `instance_display_name` para diagnóstico.
-3. Se `Connected` ou `LoggedIn` for falso → `state: "close"` com `reason: "not_logged_in"` (ou `"not_connected"`).
-4. Manter como fallback secundário a checagem de `sentinela_group_messages` (10 min) — se o `/instance/status` falhar por rede/timeout mas eventos recentes existirem, ainda retorna `open` com `probe: "recent_webhook_events"`.
-5. Remover os probes hoje quebrados: `/webhook/find/{instance}` e `GET /` (voltam sempre 404 e sujam os logs).
-6. Preservar payload atual (`http`, `latency_ms`, `webhook_url/events/enabled` como `null`) para não quebrar a UI existente em `SmartOpsTeam.tsx`.
+1. Em `evoGoPost` (linha 25), normalizar a base removendo barra final antes de concatenar o path:
+   ```ts
+   const url = `${baseUrl.replace(/\/$/, '')}${path}`
+   ```
+   Corrige todos os envios EvoGo (text/media/button/list/carousel) de uma vez.
 
-Nenhuma mudança no frontend.
+2. Trocar a mensagem enganosa `Tipo '${item.node_type}' nao suportado` (linha 156) por algo diagnóstico quando o path retorna 404:
+   ```ts
+   throw new Error(`EvoGo 404 em ${path} — verifique evo_go_base_url e token`)
+   ```
+   Assim, se voltar a ocorrer 404, o erro aponta para credencial/URL em vez de sugerir que o tipo `msg` não existe.
+
+Nenhuma mudança de frontend nem de schema. `evo_go_base_url` do membro pode continuar com barra final — o dispatcher passa a lidar com isso.
 
 ## Validação
 
-- Reabrir "Editar Membro" para `smartdent_marketing`: badge Evolution GO deve virar 🟢 Conectado.
-- Instância deslogada continua 🔴 com `reason: not_logged_in`.
-- Membro sem `evo_go_instance_token` continua 🔴 com `reason: missing_creds` (comportamento já existente).
+- Reprocessar a mensagem pendente do campaign `198aca33-f0bc-4ab0-8433-816a02b2b448` (grupo `120363425605712771@g.us`): deve sair como `sent` com `evo_message_id` preenchido.
+- Nenhuma nova ocorrência de `Tipo 'msg' nao suportado` em `wa_message_queue.error_message` após o deploy.
 
 ## Arquivos
 
-- `supabase/functions/smart-ops-evogo-status/index.ts` — trocar probe primário para `/instance/status`.
+- `supabase/functions/wa-dispatcher/index.ts` — strip de barra final em `evoGoPost` + mensagem de erro mais clara.
