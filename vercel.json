@@ -18,6 +18,16 @@
   ],
   "rewrites": [
     {
+      "source": "/:code([a-z0-9]{4,8})",
+      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve?c=:code"
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve"
+    },
+    {
       "source": "/llms.txt",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-llms-txt"
     },
