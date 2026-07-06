@@ -608,6 +608,11 @@ export function SmartOpsWaGroupCampaigns() {
                               <ShieldAlert className="w-3 h-3 mr-0.5" /> Não admin
                             </Badge>
                           )}
+                          {selectedInstance === "" && row.instance_name && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary/80">
+                              {row.instance_name}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
