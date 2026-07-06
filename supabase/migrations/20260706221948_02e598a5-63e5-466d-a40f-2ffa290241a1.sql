@@ -1,0 +1,2 @@
+ALTER TABLE public.post_group_targets DROP CONSTRAINT IF EXISTS post_group_targets_group_id_key;
+ALTER TABLE public.post_group_targets ADD CONSTRAINT post_group_targets_instance_group_uk UNIQUE (instance_name, group_id);

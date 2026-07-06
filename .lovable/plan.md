@@ -1,24 +1,47 @@
-# Post Grupos — alinhar com Campanhas WA (mesma fonte de instâncias)
+## Diagnóstico
 
-## Diferença encontrada
-- **Campanhas WA grupos** (`SmartOpsWaGroupCampaigns.tsx`, linhas 92-133): lista instâncias de `team_members` onde `ativo=true` e `evolution_instance_name IS NOT NULL`. **Não exige `evolution_phone`.**
-- **Post Grupos** (`PostGrupos.tsx` após a última mudança): mesma consulta, porém com filtro extra `evolution_phone IS NOT NULL` — por isso `smartdent_marketing` (que está sem telefone em `team_members`) não aparece.
+O botão "Adicionar" no `PostGruposAddModal` está caindo em `Falha ao adicionar grupos`. Investiguei o banco e o código:
 
-## Mudança
-Um único arquivo: `src/components/social/PostGrupos.tsx`.
+- Tabela `post_group_targets` tem constraint `UNIQUE (group_id)` — não é composto com `instance_name`. Isso significa que um mesmo `group_id` só pode existir em **uma** instância no país inteiro. Qualquer tentativa de inserir um `group_id` já presente (mesmo em outra instância, ou por conta de dedupe/timing) retorna `23505` e o toast dispara.
+- Já existem 3 rows para `smartdent_marketing` no banco (RayShape, Exocad, Dashboard) — inserts anteriores passaram, mas o toast de erro continuou aparecendo porque cliques subsequentes/re-tentativas colidem na unique.
+- Hoje o toast engole a mensagem real (`toast.error('Falha ao adicionar grupos')`), por isso não dá pra ver `duplicate key value violates unique constraint`.
 
-No auto-provisionamento dentro de `load()`:
+Uma restrição por `group_id` global também não faz sentido no modelo: `wa_groups` já é particionado por `instance_name` (cada instância tem sua própria linha para o mesmo grupo do WhatsApp, com UUIDs diferentes), então a chave natural aqui é o par `(instance_name, group_id)`.
 
-1. Remover o filtro `.not('evolution_phone', 'is', null)`.
-2. Passar a deduplicar apenas por `evolution_instance_name` (trim, ignora vazio).
-3. `evolution_phone` continua sendo gravado quando existir; quando não existir, insere `null`. O card do `PostGruposInstanceCard` já trata `evolution_phone: string | null`.
-4. Manter o insert só das instâncias que ainda não existem em `post_group_instance_config`, com `enabled=false`, `is_primary=false`.
+## Mudanças
 
-## Resultado
-- `smartdent_marketing` aparece no Post Grupos com os mesmos 3 grupos ativos que já estão em `wa_groups` (`v_post_group_targets_detail` já filtra por `instance_name`).
-- Qualquer outra instância presente nas campanhas WA passa a aparecer também.
-- Linhas existentes (Danilo/Lia/cs_principal) permanecem intactas.
+### 1. Migration Supabase
+Trocar a unique global por composta em `post_group_targets`:
+
+```sql
+ALTER TABLE public.post_group_targets
+  DROP CONSTRAINT IF EXISTS post_group_targets_group_id_key;
+
+ALTER TABLE public.post_group_targets
+  ADD CONSTRAINT post_group_targets_instance_group_uk
+  UNIQUE (instance_name, group_id);
+```
+
+Sem alteração em RLS, grants, views ou dados existentes (as 5 linhas atuais respeitam a nova unique).
+
+### 2. `src/components/social/PostGruposAddModal.tsx`
+No `catch` do insert, mostrar o motivo real do Postgres pra evitar depuração cega em futuros erros:
+
+```ts
+if (error) {
+  console.error('[post_group_targets] insert error', error);
+  return toast.error(`Falha ao adicionar grupos: ${error.message}`);
+}
+```
+
+Nada mais no fluxo muda: seleção, dedupe por `existingGroupIds`, `onAdded()` continuam iguais.
 
 ## Fora de escopo
-- Não altera schema, RLS, edge functions.
-- Não força `enabled=true`; você habilita cada instância manualmente no card.
+
+- Não mexe em `PostGrupos.tsx`, cards, view `v_post_group_targets_detail`, RLS ou grants.
+- Não altera edge functions nem o worker de publicação.
+
+## Resultado
+
+- Adicionar um grupo que já pertence a outra instância deixa de falhar.
+- Se algum erro futuro acontecer (RLS, FK, etc.), o toast mostra a mensagem real do Postgres.

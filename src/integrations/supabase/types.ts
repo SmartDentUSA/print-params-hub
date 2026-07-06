@@ -14493,21 +14493,21 @@ export type Database = {
           {
             foreignKeyName: "post_group_targets_group_id_fkey"
             columns: ["group_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_post_group_targets_detail"
             referencedColumns: ["group_id"]
           },
           {
             foreignKeyName: "post_group_targets_group_id_fkey"
             columns: ["group_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_wa_group_summary"
             referencedColumns: ["group_id"]
           },
           {
             foreignKeyName: "post_group_targets_group_id_fkey"
             columns: ["group_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "wa_groups"
             referencedColumns: ["id"]
           },
