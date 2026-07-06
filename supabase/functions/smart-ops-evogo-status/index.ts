@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     const { data: m, error } = await supabase
       .from("team_members")
-      .select("evo_go_base_url, evo_go_instance_id, evo_go_instance_token, evolution_api_key")
+      .select("evo_go_base_url, evo_go_instance_id, evo_go_instance_token, evolution_instance_name, evolution_api_key")
       .eq("id", member_id)
       .maybeSingle();
 
@@ -35,8 +35,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const base = (m.evo_go_base_url ?? "").replace(/\/$/, "");
+    const base = ((m.evo_go_base_url ?? "") || "http://82.25.75.61:8081").replace(/\/$/, "");
     const apikey = m.evo_go_instance_token || m.evolution_api_key || "";
+    const instance = m.evo_go_instance_id || m.evolution_instance_name || "";
     if (!base || !apikey) {
       return new Response(JSON.stringify({ state: "close", reason: "missing_creds" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -44,24 +45,49 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    try {
-      const r = await fetch(`${base}/instance/fetchInstances`, {
-        method: "GET",
-        headers: { apikey },
-        signal: AbortSignal.timeout(8000),
-      });
-      const latency_ms = Date.now() - started;
-      await r.text().catch(() => "");
-      const state = r.ok ? "open" : "close";
-      return new Response(JSON.stringify({ state, http: r.status, latency_ms }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ state: "close", reason: "fetch_failed", error: String(e) }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const attempts: string[] = [];
+    if (instance) {
+      attempts.push(`/instance/connectionState/${encodeURIComponent(instance)}`);
+      attempts.push(`/instance/${encodeURIComponent(instance)}/status`);
     }
+    attempts.push("/instance/fetchInstances");
+    attempts.push("/");
+
+    let lastStatus = 0;
+    let lastBody = "";
+    for (const path of attempts) {
+      try {
+        const r = await fetch(`${base}${path}`, {
+          method: "GET",
+          headers: { apikey },
+          signal: AbortSignal.timeout(8000),
+        });
+        lastStatus = r.status;
+        const txt = await r.text().catch(() => "");
+        lastBody = txt;
+        if (!r.ok) continue;
+        let state: "open" | "close" | "connecting" = "close";
+        try {
+          const j = JSON.parse(txt);
+          const raw = j?.instance?.state || j?.state || j?.status || (Array.isArray(j) ? j[0]?.instance?.state : null);
+          if (raw === "open" || raw === "connected") state = "open";
+          else if (raw === "connecting") state = "connecting";
+          else if (r.ok) state = "open";
+        } catch {
+          if (r.ok) state = "open";
+        }
+        return new Response(
+          JSON.stringify({ state, http: r.status, latency_ms: Date.now() - started, path }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (_e) {
+        // try next
+      }
+    }
+    return new Response(
+      JSON.stringify({ state: "close", http: lastStatus, latency_ms: Date.now() - started, body: lastBody.slice(0, 200) }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
