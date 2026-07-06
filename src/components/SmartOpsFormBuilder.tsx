@@ -186,6 +186,7 @@ export function SmartOpsFormBuilder() {
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
   const nameInputRef = useRef<HTMLInputElement | null>(null);
