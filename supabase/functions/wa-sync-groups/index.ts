@@ -97,6 +97,139 @@ function discoverLikelyAdminLid(groups: GroupWithAdminFlag[]): { lid: string; co
   return best.count >= minimum ? { ...best, confidence } : null
 }
 
+function normalizeInstanceKey(value: string): string {
+  return String(value ?? '').toLowerCase().replace(/[\s_-]/g, '')
+}
+
+function canonicalInstanceName(value: string): string {
+  return normalizeInstanceKey(value) === 'danilohenrique' ? 'Danilo-Henrique' : value
+}
+
+function fallbackGroupName(jid: string): string {
+  return `Grupo WA ${jid.replace('@g.us', '').slice(-12)}`
+}
+
+type ObservedGroupSyncResult = {
+  discovery_mode: 'webhook_observed_groups'
+  observed: number
+  created: number
+  updated: number
+  total_groups: number
+  admin: number
+  last_synced_at: string | null
+  last_observed_at: string | null
+  groups: string[]
+  warning?: string
+}
+
+async function syncObservedGroupsFromWebhooks(supabase: any, instanceName: string): Promise<ObservedGroupSyncResult> {
+  const canonical = canonicalInstanceName(instanceName)
+  const aliases = normalizeInstanceKey(canonical) === 'danilohenrique'
+    ? ['Danilo-Henrique', 'Danilo Henrique']
+    : [canonical]
+
+  const { data: observedRows, error: observedError } = await supabase
+    .from('sentinela_group_messages')
+    .select('group_jid, group_name, created_at')
+    .in('instance_name', aliases)
+    .not('group_jid', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(2000)
+  if (observedError) throw observedError
+
+  const observedByJid = new Map<string, { jid: string; name: string | null; last_seen: string | null }>()
+  for (const row of (observedRows ?? []) as any[]) {
+    const jid = String(row.group_jid ?? '').trim()
+    if (!jid.endsWith('@g.us')) continue
+    const name = typeof row.group_name === 'string' && row.group_name.trim() ? row.group_name.trim().slice(0, 200) : null
+    const current = observedByJid.get(jid)
+    if (!current) {
+      observedByJid.set(jid, { jid, name, last_seen: row.created_at ?? null })
+    } else if (!current.name && name) {
+      current.name = name
+    }
+  }
+
+  const observed = Array.from(observedByJid.values())
+  const now = new Date().toISOString()
+  let created = 0
+  let updated = 0
+  const groupNames: string[] = []
+
+  if (observed.length > 0) {
+    const jids = observed.map(g => g.jid)
+    const existingByJid = new Map<string, any>()
+    const BATCH = 100
+    for (let i = 0; i < jids.length; i += BATCH) {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('wa_groups')
+        .select('id, group_jid, name, picture_url, is_admin')
+        .in('group_jid', jids.slice(i, i + BATCH))
+      if (existingError) throw existingError
+      for (const row of existingRows ?? []) existingByJid.set(row.group_jid, row)
+    }
+
+    for (const group of observed) {
+      const existing = existingByJid.get(group.jid)
+      const safeName = group.name || existing?.name || fallbackGroupName(group.jid)
+      groupNames.push(safeName)
+      if (existing?.id) {
+        const patch: Record<string, unknown> = {
+          instance_name: canonical,
+          synced_at: now,
+          updated_at: now,
+        }
+        if ((!existing.name || String(existing.name).startsWith('Grupo WA ')) && safeName) patch.name = safeName
+        const { error } = await supabase.from('wa_groups').update(patch).eq('id', existing.id)
+        if (error) throw error
+        updated++
+      } else {
+        const { error } = await supabase.from('wa_groups').insert({
+          group_jid: group.jid,
+          name: safeName,
+          instance_name: canonical,
+          is_admin: true,
+          ativo: true,
+          enabled: true,
+          synced_at: now,
+          updated_at: now,
+        })
+        if (error) throw error
+        created++
+      }
+    }
+  }
+
+  const { data: totals, error: totalsError } = await supabase
+    .from('wa_groups')
+    .select('id, is_admin, synced_at')
+    .eq('instance_name', canonical)
+  if (totalsError) throw totalsError
+
+  const totalRows = (totals ?? []) as Array<{ id: string; is_admin: boolean; synced_at: string | null }>
+  const lastSyncedAt = totalRows.reduce<string | null>((latest, row) => {
+    if (!row.synced_at) return latest
+    return !latest || row.synced_at > latest ? row.synced_at : latest
+  }, null)
+  const lastObservedAt = observed.reduce<string | null>((latest, row) => {
+    if (!row.last_seen) return latest
+    return !latest || row.last_seen > latest ? row.last_seen : latest
+  }, null)
+
+  return {
+    discovery_mode: 'webhook_observed_groups',
+    observed: observed.length,
+    created,
+    updated,
+    total_groups: totalRows.length,
+    admin: totalRows.filter(row => row.is_admin).length,
+    last_synced_at: lastSyncedAt,
+    last_observed_at: lastObservedAt,
+    groups: groupNames.slice(0, 50),
+    ...(observed.length === 0 ? { warning: 'Nenhum evento de grupo recebido via EvoGo/Sentinela para esta instância.' } : {}),
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -173,7 +306,7 @@ serve(async (req) => {
       }
       void isEvoGoRow
 
-      if (!instances.some(i => i.instanceName === name)) {
+      if (!instances.some(i => i.instanceName === name) && !tmInstances.some(i => i.instanceName === name)) {
         tmInstances.push({
           instanceName: name,
           connectionStatus: 'unknown',
@@ -187,6 +320,10 @@ serve(async (req) => {
     // (apenas Dra. Lia aparece em fetchInstances com a key global).
     for (const [name, target] of targetByInstance) {
       if (instances.some(i => i.instanceName === name && i.connectionStatus === 'open')) continue
+      if (providerByInstance.get(name) === 'evolution_go') {
+        console.log(`[wa-sync-groups] ${name}: EvoGo usa descoberta por webhook; pulando fetchInstances/fetchAllGroups inexistentes`)
+        continue
+      }
       try {
         const live = await fetchInstancesFor(target)
         // No EvoGo o "instanceName" retornado pode ser o UUID (target.instance); casamos por qualquer um.
@@ -239,7 +376,7 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
@@ -260,6 +397,26 @@ serve(async (req) => {
         }
         const provider = providerByInstance.get(inst.instanceName) ?? 'evolution'
         console.log(`[wa-sync-groups] ${inst.instanceName}: provider=${provider} base=${target.baseUrl} instance_path=${target.instance} hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} lid=${storedLid ?? '-'}`)
+        if (provider === 'evolution_go') {
+          const observedSync = await syncObservedGroupsFromWebhooks(supabase, inst.instanceName)
+          per_instance[inst.instanceName] = {
+            synced: observedSync.created + observedSync.updated,
+            raw: observedSync.observed,
+            admin: observedSync.admin,
+            groups: observedSync.groups,
+            discovery_mode: observedSync.discovery_mode,
+            observed: observedSync.observed,
+            created: observedSync.created,
+            updated: observedSync.updated,
+            total_groups: observedSync.total_groups,
+            last_synced_at: observedSync.last_synced_at,
+            last_observed_at: observedSync.last_observed_at,
+            ...(observedSync.warning ? { warning: observedSync.warning } : {}),
+          }
+          totalSynced += observedSync.created + observedSync.updated
+          console.log(`[wa-sync-groups] ${inst.instanceName}: EvoGo observed=${observedSync.observed} created=${observedSync.created} updated=${observedSync.updated} total=${observedSync.total_groups}`)
+          return
+        }
         let all = await fetchGroupsWithAdminFlagFor(target, hints)
         let activeLid = storedLid
         let lidConfidence = storedLid ? 1 : 0
@@ -350,6 +507,24 @@ serve(async (req) => {
         console.error(`[wa-sync-groups] ${inst.instanceName} falhou:`, msg)
         per_instance[inst.instanceName] = { synced: 0, raw: 0, admin: 0, groups: [], error: msg }
       }
+    }
+
+    const allTargetsUseWebhookDiscovery = targets.every(inst => (providerByInstance.get(inst.instanceName) ?? 'evolution') === 'evolution_go')
+
+    if (allTargetsUseWebhookDiscovery) {
+      for (const inst of targets) {
+        await processInstance(inst)
+      }
+
+      return Response.json({
+        ok:        true,
+        started:   false,
+        synced:    totalSynced,
+        instances: combinedInstances,
+        targets:   targets.map(t => t.instanceName),
+        per_instance,
+        message:   `Atualização concluída por eventos observados para ${targets.length} instância(s) EvoGo.`,
+      }, { status: 200, headers: corsHeaders })
     }
 
     const job = (async () => {
