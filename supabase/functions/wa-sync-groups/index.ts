@@ -376,7 +376,7 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-        const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
@@ -507,6 +507,24 @@ serve(async (req) => {
         console.error(`[wa-sync-groups] ${inst.instanceName} falhou:`, msg)
         per_instance[inst.instanceName] = { synced: 0, raw: 0, admin: 0, groups: [], error: msg }
       }
+    }
+
+    const allTargetsUseWebhookDiscovery = targets.every(inst => (providerByInstance.get(inst.instanceName) ?? 'evolution') === 'evolution_go')
+
+    if (allTargetsUseWebhookDiscovery) {
+      for (const inst of targets) {
+        await processInstance(inst)
+      }
+
+      return Response.json({
+        ok:        true,
+        started:   false,
+        synced:    totalSynced,
+        instances: combinedInstances,
+        targets:   targets.map(t => t.instanceName),
+        per_instance,
+        message:   `Atualização concluída por eventos observados para ${targets.length} instância(s) EvoGo.`,
+      }, { status: 200, headers: corsHeaders })
     }
 
     const job = (async () => {
