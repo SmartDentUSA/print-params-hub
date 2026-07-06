@@ -118,6 +118,11 @@ export function WaGroupMultiSelect({ selectedIds, onChange, instanceFilter, clas
                 >
                   <Checkbox checked={checked} onCheckedChange={() => toggle(g.id)} />
                   <span className="flex-1 truncate">{g.name ?? "Sem nome"}</span>
+                  {!instanceFilter && g.instance_name && (
+                    <Badge variant="outline" className="text-[9px] border-primary/30 text-primary/80">
+                      {g.instance_name}
+                    </Badge>
+                  )}
                   {g.is_admin === false && (
                     <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-700 dark:text-amber-400">
                       não admin
