@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Upload, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { TechnicalSpecsEditor, type TechSpec } from '@/components/admin/TechnicalSpecsEditor';
@@ -22,6 +26,39 @@ export function AdminCatalogFormSection({
   const { fetchCategories, fetchSubcategories } = useCatalogCRUD();
   const [categories, setCategories] = useState<string[]>([]);
   const [subcategories, setSubcategories] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem válido');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande (máx 5 MB)');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const base = (formData.slug || formData.id || crypto.randomUUID()).toString();
+      const path = `products/${base}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('catalog-images')
+        .upload(path, file, { upsert: true, cacheControl: '3600' });
+      if (error) throw error;
+      const { data } = supabase.storage.from('catalog-images').getPublicUrl(path);
+      handleInputChange('image_url', data.publicUrl);
+      toast.success('Imagem enviada');
+    } catch (err: any) {
+      toast.error(`Erro no upload: ${err?.message || 'falha desconhecida'}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     loadCategories();
@@ -186,12 +223,34 @@ export function AdminCatalogFormSection({
       {/* Imagem */}
       <div>
         <Label htmlFor="image_url">URL da Imagem</Label>
-        <Input
-          id="image_url"
-          value={formData.image_url || ''}
-          onChange={(e) => handleInputChange('image_url', e.target.value)}
-          placeholder="https://..."
-        />
+        <div className="flex gap-2">
+          <Input
+            id="image_url"
+            value={formData.image_url || ''}
+            onChange={(e) => handleInputChange('image_url', e.target.value)}
+            placeholder="https://... ou envie um arquivo"
+            className="flex-1"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando…</>
+            ) : (
+              <><Upload className="w-4 h-4 mr-2" />Enviar imagem</>
+            )}
+          </Button>
+        </div>
         {formData.image_url && (
           <div className="mt-2">
             <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center overflow-hidden">
