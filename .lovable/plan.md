@@ -1,35 +1,70 @@
-## Objetivo
+## Diagnóstico
 
-Permitir que uma mesma régua em Central de Campanhas → Grupos WhatsApp inclua grupos das duas instâncias conectadas (`smartdent_marketing` e `cs_principal`) — hoje o seletor força escolher uma só, filtrando tudo por `instance_name`.
+O erro `supabase.rpc(...).catch is not a function` vem de `supabase/functions/wa-dispatcher/index.ts` linha ~235-240:
 
-## Por que é seguro no back-end
+```ts
+await supabase.rpc('fn_record_group_send', { ... })
+  .catch((e) => console.error('[v66eg] fn_record_group_send failed', e))
+```
 
-O `wa-dispatcher` já resolve a instância **por grupo**: em `wa_groups.instance_name` cada JID sabe de qual instância veio, e o dispatcher busca `evolution_api_key` do `team_members` correspondente (`tmByInstance` na linha 94-100 de `supabase/functions/wa-dispatcher/index.ts`). Portanto uma régua misturada (grupos de instâncias diferentes) já funciona no envio — falta apenas destravar a UI.
+`supabase.rpc()` retorna um `PostgrestFilterBuilder` que é *thenable* (implementa `.then`) mas **não** tem `.catch`. Ao encadear `.catch(...)` antes do `await`, o runtime chama `.catch` num objeto que não é um Promise → `TypeError: .catch is not a function`.
 
-## Mudanças (apenas front-end)
+**Consequência real:** esse trecho roda **logo depois** do envio bem-sucedido via Evolution (fingerprint de dedupe). O erro é lançado, capturado pelo `catch (err)` externo do dispatcher, que:
+1. Marca a mensagem como `failed` com esse texto no `error_message`.
+2. Insere `success: false` em `wa_send_log`.
+3. Depois de 3 tentativas, marca a **campanha inteira como `status='error'`** (ver linha ~260).
 
-### 1. `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx`
-- Adicionar opção **"Todas conectadas"** no `<Select>` de instância (`selectedInstance = ""`).
-- `fetchRows()`: quando `selectedInstance` for vazio, **não** aplicar `.eq("instance_name", ...)` — traz grupos de todas as instâncias.
-- `fetchShared()`: quando vazio, não filtrar links por instância.
-- `handleSync()`: já trata vazio (sincroniza todas). Mantém.
-- Default inicial: continuar priorizando primeira instância `open`, mas guardar a preferência em `localStorage` para o usuário não perder a escolha "Todas conectadas".
+A mensagem foi enviada de verdade no WhatsApp, mas a UI mostra `failed` / “Erro” / “sessão quebrada” (via lógica de `consecutive_send_errors` que não é acionada aqui, mas o resultado final é o mesmo pra visualização). Isso explica exatamente o quadro que você vê em `[Smart Dent] - Export - MKT` (Erro) e por que os pending nunca avançam.
 
-### 2. `src/components/smartops/wa-groups/WaGroupMultiSelect.tsx`
-- Já suporta `instanceFilter` undefined (linha 41). Passar `undefined` quando `selectedInstance === ""`.
-- Renderizar um badge com `instance_name` ao lado do nome do grupo **quando não há filtro** — ajuda o usuário a saber de qual instância cada grupo veio. Quando há filtro, esconde o badge (redundante).
+Por que aparece só em `smartdent_marketing`? Porque essa instância está no caminho **Baileys** (sem `evo_go_instance_token`) e alcança essa linha após um envio OK. Instâncias EvoGo (Paula/cs_principal via 8081) também deveriam cair aqui, mas os pending atuais delas ainda estão travando antes por outras razões — a bug afeta qualquer envio Baileys de sucesso.
 
-### 3. Listagem de grupos na tela principal (rows)
-- Adicionar coluna/badge `instance_name` também na tabela principal quando `selectedInstance === ""`, para consistência visual com o multi-select.
+## Correção
 
-## Não muda
+Substituir o `.catch` inválido por tratamento correto:
 
-- `wa-dispatcher`, `_shared/evolution.ts`, `WaGroupMultiSelect.tsx` lógica de dedup/cooldown, RPCs, schema, edge functions.
-- Nada é alterado no Evolution self-hosted nem nas apikeys.
-- O botão "Sincronizar" com "Todas" continua sincronizando todas as instâncias (comportamento atual quando `body` é `{}`).
+```ts
+try {
+  const { error: recErr } = await supabase.rpc('fn_record_group_send', {
+    p_group_jid: item.group_jid,
+    p_content_hash: cHash,
+    p_node_type: item.node_type,
+    p_campaign_id: item.campaign_id,
+  })
+  if (recErr) console.error('[v66eg] fn_record_group_send failed', recErr)
+} catch (e) {
+  console.error('[v66eg] fn_record_group_send threw', e)
+}
+```
 
-## Validação
+Isso garante que uma falha ao gravar o fingerprint **não** propague e não derrube o envio já efetuado.
 
-1. Selecionar "Todas conectadas" → conferir que grupos de `smartdent_marketing` e `cs_principal` aparecem juntos com badge da instância.
-2. Criar régua mista (1 grupo de cada instância) → checar em `wa_message_queue` que o `wa-dispatcher` enviou usando a apikey correta de cada `team_member` (log `[v66eg] OK` sem `SessionError`).
-3. Selecionar "smartdent_marketing" ou "cs_principal" individualmente → comportamento antigo preservado, badge de instância some.
+## Limpeza pós-fix (dados)
+
+Após deploy do wa-dispatcher corrigido, rodar SQL de reconciliação para as mensagens marcadas como falha por esse bug específico:
+
+```sql
+-- Reabrir apenas mensagens com esse erro exato, sem estar bloqueadas por sessão
+UPDATE wa_message_queue
+SET status = 'sent',
+    error_message = NULL,
+    delivery_status = COALESCE(delivery_status, 'sent_to_server')
+WHERE error_message ILIKE '%rpc(...).catch is not a function%'
+  AND status = 'failed'
+  AND evo_message_id IS NOT NULL;
+
+-- Reativar campanhas que caíram em 'error' só por esse bug
+UPDATE wa_campaigns
+SET status = 'active'
+WHERE status = 'error'
+  AND id IN (
+    SELECT DISTINCT campaign_id FROM wa_message_queue
+    WHERE error_message ILIKE '%rpc(...).catch is not a function%'
+  );
+```
+
+Confirmo o SQL antes de executar; se preferir não tocar o histórico só corrijo o código e deixo os registros como estão.
+
+## Escopo
+
+- **Alterar:** apenas `supabase/functions/wa-dispatcher/index.ts` (~5 linhas).
+- **Não tocar:** `_shared/evolution.ts`, credenciais, `team_members`, `wa_groups`, RPCs SQL, EvoGo, UI.
