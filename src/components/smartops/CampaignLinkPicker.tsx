@@ -185,6 +185,11 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     setOpen(false);
   };
 
+  const handleInsertFormLink = (link: FormShortLink) => {
+    onInsert(link.url);
+    setOpen(false);
+  };
+
   const openEditor = (link: CampaignLink | null) => {
     setEditing(link);
     setEditorOpen(true);
