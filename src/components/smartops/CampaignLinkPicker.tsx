@@ -346,6 +346,68 @@ function LinkSection({
   );
 }
 
+function FormLinkSection({
+  label,
+  links,
+  onInsert,
+}: {
+  label: string;
+  links: FormShortLink[];
+  onInsert: (l: FormShortLink) => void;
+}) {
+  const formLinks = links.filter((l) => l.default_target === "form");
+  const landingLinks = links.filter((l) => l.default_target === "landing_page");
+
+  return (
+    <div className="py-1 border-t">
+      <div className="px-3 py-1.5 flex items-center gap-2 sticky top-0 bg-popover">
+        <Badge variant="outline" className="text-[10px]">{label}</Badge>
+        <span className="text-xs text-muted-foreground">{links.length}</span>
+      </div>
+      {formLinks.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <FileText className="w-3 h-3" /> Formulários
+          </div>
+          <ul className="divide-y">
+            {formLinks.map((l) => (
+              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{l.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {landingLinks.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <Layout className="w-3 h-3" /> Landing Pages
+          </div>
+          <ul className="divide-y">
+            {landingLinks.map((l) => (
+              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{l.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 function LinkEditor({
   open,
   onOpenChange,
