@@ -93,6 +93,18 @@ serve(async (req) => {
     for (let i = 0; i < flow.length; i++) {
       const node = flow[i]
       if (node.type === 'wait') {
+        if (node.mode === 'absolute' && typeof node.absolute_at === 'string') {
+          const targetTs = new Date(node.absolute_at as string).getTime()
+          if (!Number.isNaN(targetTs)) {
+            // Anchor absoluto: accMs vira a diferença entre o alvo e o anchor da campanha.
+            // Se o alvo já passou, garante um mínimo de +15s a partir de agora.
+            const minTs = Math.max(anchorTs, Date.now() + 15_000)
+            const effective = Math.max(targetTs, minTs)
+            accMs = effective - anchorTs
+          }
+          lastWait = node
+          continue
+        }
         const days  = (node.days  as number) ?? 0
         const hours = (node.hours as number) ?? 0
         const minutes = (node.minutes as number) ?? 0
@@ -109,6 +121,10 @@ serve(async (req) => {
       }
       let ts: Date
       if (lastWait) {
+        if (lastWait.mode === 'absolute' && typeof lastWait.absolute_at === 'string') {
+          // Modo absoluto: instante exato, sem ajuste de hora do dia ou weekdays_only.
+          ts = new Date(anchorTs + accMs)
+        } else {
         const waitHours = (lastWait.hours as number) ?? 0
         const waitMinutes = (lastWait.minutes as number) ?? 0
         if (waitHours > 0 || waitMinutes > 0) {
@@ -124,6 +140,7 @@ serve(async (req) => {
           const d = spWeekday(ts)
           if (d === 0) ts = addDaysSp(ts, 1)
           else if (d === 6) ts = addDaysSp(ts, 2)
+        }
         }
       } else {
         // Primeiro nó de conteúdo: respeita exatamente o started_at escolhido na UI
