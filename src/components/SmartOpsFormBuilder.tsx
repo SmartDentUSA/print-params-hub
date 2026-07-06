@@ -346,6 +346,23 @@ export function SmartOpsFormBuilder() {
       .replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-")
       .replace(/^-+|-+$/g, "").trim();
 
+  const normalizeSearch = (text: string) =>
+    text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const matchesSearch = (form: SmartOpsForm) => {
+    if (!searchQuery.trim()) return true;
+    const term = normalizeSearch(searchQuery);
+    const haystack = [
+      form.name,
+      form.slug,
+      PURPOSE_CONFIG[form.form_purpose]?.label,
+    ]
+      .filter(Boolean)
+      .map((s) => normalizeSearch(String(s)))
+      .join(" ");
+    return haystack.includes(term);
+  };
+
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const slug = generateSlug(newName);
