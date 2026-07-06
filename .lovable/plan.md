@@ -1,27 +1,35 @@
-## Diagnóstico
+## Objetivo
 
-O grupo **"[Smart Dent] Pré-Venda - Exocad por assinatura!"** (`120363425605712771@g.us`, 40 membros) está cadastrado em `wa_groups` **apenas** na instância `smartdent_marketing`. A Central de Campanhas filtra `WaGroupMultiSelect` por `instance_name = selectedInstance`, então ele não aparece quando a instância "Danilo-Henrique" está selecionada.
+Permitir que uma mesma régua em Central de Campanhas → Grupos WhatsApp inclua grupos das duas instâncias conectadas (`smartdent_marketing` e `cs_principal`) — hoje o seletor força escolher uma só, filtrando tudo por `instance_name`.
 
-## Ação
+## Por que é seguro no back-end
 
-Nenhuma alteração de código necessária. Fluxo operacional:
+O `wa-dispatcher` já resolve a instância **por grupo**: em `wa_groups.instance_name` cada JID sabe de qual instância veio, e o dispatcher busca `evolution_api_key` do `team_members` correspondente (`tmByInstance` na linha 94-100 de `supabase/functions/wa-dispatcher/index.ts`). Portanto uma régua misturada (grupos de instâncias diferentes) já funciona no envio — falta apenas destravar a UI.
 
-1. Na Central de Campanhas de Grupos, no seletor de instância no topo, trocar de **"Danilo-Henrique"** para **"smartdent_marketing"**.
-2. O grupo "[Smart Dent] Pré-Venda - Exocad por assinatura!" passará a aparecer na lista do `WaGroupMultiSelect`.
-3. Selecioná-lo normalmente e prosseguir com o disparo/agendamento.
+## Mudanças (apenas front-end)
 
-## Alerta importante antes do disparo
+### 1. `src/components/smartops/wa-groups/SmartOpsWaGroupCampaigns.tsx`
+- Adicionar opção **"Todas conectadas"** no `<Select>` de instância (`selectedInstance = ""`).
+- `fetchRows()`: quando `selectedInstance` for vazio, **não** aplicar `.eq("instance_name", ...)` — traz grupos de todas as instâncias.
+- `fetchShared()`: quando vazio, não filtrar links por instância.
+- `handleSync()`: já trata vazio (sincroniza todas). Mantém.
+- Default inicial: continuar priorizando primeira instância `open`, mas guardar a preferência em `localStorage` para o usuário não perder a escolha "Todas conectadas".
 
-O registro atual desse grupo tem `is_admin = false`. Isso significa que o número da instância `smartdent_marketing` **não é admin** do grupo. Consequências:
+### 2. `src/components/smartops/wa-groups/WaGroupMultiSelect.tsx`
+- Já suporta `instanceFilter` undefined (linha 41). Passar `undefined` quando `selectedInstance === ""`.
+- Renderizar um badge com `instance_name` ao lado do nome do grupo **quando não há filtro** — ajuda o usuário a saber de qual instância cada grupo veio. Quando há filtro, esconde o badge (redundante).
 
-- Se o grupo estiver configurado como **"apenas admins podem enviar mensagens"** no WhatsApp, o disparo vai falhar (Evolution retorna erro de permissão).
-- Se estiver aberto para todos os membros, o disparo funciona normalmente.
+### 3. Listagem de grupos na tela principal (rows)
+- Adicionar coluna/badge `instance_name` também na tabela principal quando `selectedInstance === ""`, para consistência visual com o multi-select.
 
-Antes de agendar uma campanha grande, recomendo:
-- Fazer 1 disparo de teste manual para esse grupo pela instância `smartdent_marketing`.
-- Se der erro de permissão, promover o número da instância a admin no WhatsApp e rodar o sync de grupos para atualizar `is_admin=true` em `wa_groups`.
+## Não muda
 
-## Fora de escopo
+- `wa-dispatcher`, `_shared/evolution.ts`, `WaGroupMultiSelect.tsx` lógica de dedup/cooldown, RPCs, schema, edge functions.
+- Nada é alterado no Evolution self-hosted nem nas apikeys.
+- O botão "Sincronizar" com "Todas" continua sincronizando todas as instâncias (comportamento atual quando `body` é `{}`).
 
-- Não vou mexer no filtro do `WaGroupMultiSelect` para "ver todos os grupos independente da instância" — isso quebraria a lógica de qual número envia o quê e pode causar disparos falhos em massa.
-- Não vou sincronizar esse grupo sob a instância Danilo-Henrique — só faz sentido se o número dele for adicionado como membro/admin no WhatsApp real, o que é uma ação manual fora do sistema.
+## Validação
+
+1. Selecionar "Todas conectadas" → conferir que grupos de `smartdent_marketing` e `cs_principal` aparecem juntos com badge da instância.
+2. Criar régua mista (1 grupo de cada instância) → checar em `wa_message_queue` que o `wa-dispatcher` enviou usando a apikey correta de cada `team_member` (log `[v66eg] OK` sem `SessionError`).
+3. Selecionar "smartdent_marketing" ou "cs_principal" individualmente → comportamento antigo preservado, badge de instância some.
