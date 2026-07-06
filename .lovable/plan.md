@@ -1,46 +1,33 @@
-## Enriquecer o produto no catálogo a partir do playbook
+## Upload de imagem no formulário "Editar Produto"
 
-O produto **Ativação DentalCAD Ultimate Lab Bundle - RMS** já existe em `system_a_catalog` (`id 1821453d-fcdf-46b4-968a-63ae16119dab`, `external_id manual-1783378576576`, `slug ativacao-dentalcad-ultimate-lab-bundle-rms`), mas está com `price=0`, `technical_specs={}` e sem várias informações que o playbook fornece.
+Hoje, em `AdminCatalogFormSection.tsx` (usado pelo modal "Editar Produto" do catálogo), o campo **URL da Imagem** só aceita texto colado. Vou adicionar um botão de upload ao lado do input, mantendo o campo de URL para quem quiser colar link externo.
 
-Vou fazer um único `UPDATE` na linha, mapeando o playbook para as colunas existentes — sem criar tabelas novas e sem tocar em outros produtos.
+### Onde
+- **Arquivo:** `src/components/AdminCatalogFormSection.tsx`, bloco "Imagem" (linhas 186–211).
+- **Bucket:** `catalog-images` (já existe e já é usado por `SmartOpsROICardsManager.tsx` e `SmartOpsSdrCaptacaoEditor.tsx` — mesmo padrão de upload).
 
-### Mapeamento playbook → colunas
+### O que muda na UI
+```
+URL da Imagem
+[https://...                     ] [📤 Enviar imagem]
+[preview 128×128]
+```
+- Input de URL continua editável (permite colar link).
+- Botão "Enviar imagem" abre file picker (`accept="image/*"`).
+- Ao selecionar um arquivo:
+  1. Valida tipo (image/*) e tamanho (máx 5 MB).
+  2. Faz upload para `catalog-images/products/{slug || uuid}-{timestamp}.{ext}` com `upsert: true`.
+  3. Pega `getPublicUrl` e chama `handleInputChange('image_url', publicUrl)`.
+  4. Preview atualiza automaticamente (já reativo ao `formData.image_url`).
+- Estado de loading no botão ("Enviando…") e toast de sucesso/erro (usando `sonner`, já disponível no projeto).
 
-| Coluna | Valor |
-|---|---|
-| `product_subcategory` | `DentalCAD - exocad` |
-| `price` | `1199.00` (mensalidade recorrente) |
-| `promo_price` | `null` (não há promoção; ativação é separada) |
-| `description` | Descrição longa do playbook (~linha 74) — preserva se já preenchida, sobrescreve |
-| `technical_specs` (jsonb) | 12 pares chave/valor das Especificações Técnicas (linhas 89–101): software, modalidade, módulos, créditos IA, casos/exportações, tipo de licença, internet, investimento inicial, mensalidade, compatibilidade, material, restrição regional |
-| `compatibility_list` (text[]) | `["Scanners intraorais","Scanners de bancada","Impressoras 3D","Fresadoras"]` |
-| `clinical_indications` (text[]) | `["Coroas","Pontes","Inlays/Onlays","Facetas","Pilares personalizados","Próteses parafusadas","PPRs","Próteses totais","Placas oclusais"]` |
-| `keywords` (text[]) | `["exocad","DentalCAD","RMS","assinatura mensal","Ultimate Lab Bundle","CAD odontológico","laboratório digital"]` |
-| `extra_data` (jsonb, merge) | Adiciona chaves não mapeadas para colunas: `pitch`, `pricing_model` (activation/monthly), `workflow_stages` (3 estágios), `required_products` (Scanner Medit i700, T310, Elegoo Mars 5 Ultra, Rayshape Edge Mini, Miicraft Alpha, Smart Slice, Crédito Exocad IA), `brand: exocad`, `loja_integrada_id: 402002410`, `availability: out_of_stock`, `unit: unidade` |
-| `last_sync_at` | `now()` |
+### Escopo
+- Só o formulário do catálogo (o pedido foi sobre "Editar Produto"). Não altero o modal de Modelos/Marcas.
+- Não crio bucket novo (`catalog-images` já existe).
+- Não mexo em RLS/policies do storage (o bucket já aceita uploads pelos outros formulários admin).
+- Não altero backend nem o schema.
 
-Merge no `extra_data` via `extra_data || '{...}'::jsonb` para não perder o que já está lá.
-
-### O que fica de fora (fora do escopo desta tarefa)
-
-Estes dados do playbook não têm coluna direta e o playbook mostra vazio/pendente — não vou inventar valores:
-
-- Benefícios / Características / Público-alvo → "não definidos" no playbook
-- FAQ, blogs, WhatsApp, YouTube, Instagram, TikTok → todos "pendentes"
-- Comparação com concorrentes → não configurada
-- CTAs 1/2/3 → não configurados
-- GTIN/EAN/MPN, NCM, dimensões, peso → todos N/A no playbook
-- Vídeos (5) e 100 links inteligentes → já vivem em outras tabelas (`knowledge_videos`, tabela de links) e não pertencem a `system_a_catalog`
-
-Se quiser, depois eu faço um passo 2 gerando esses campos via IA (Lovable AI Gateway) — mas isso é outro plano.
-
-### Execução
-
-1. Chamar o **insert tool** (para dados) com um `UPDATE public.system_a_catalog SET ... WHERE id='1821453d-fcdf-46b4-968a-63ae16119dab'`.
-2. Rodar um `SELECT` de verificação para confirmar que os campos foram preenchidos.
-3. Nenhuma alteração de código frontend/edge function.
-
-### Confirmações necessárias antes de executar
-
-- **Preço**: uso `price = 1199` (mensalidade). A ativação R$ 2.390 vai em `extra_data.activation_fee`. OK ou prefere `price=2390`?
-- **Descrição**: sobrescrevo a atual pela do playbook, ou preservo se já existir e uso a do playbook só se estiver vazia?
+### Fora do escopo
+- Múltiplas imagens/galeria.
+- Crop/redimensionamento no navegador.
+- Aplicar o mesmo botão no campo "URL da Imagem" de Modelos (`AdminModal.tsx` linha 1098) — posso fazer depois se quiser.
