@@ -112,8 +112,10 @@ async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
 export function CampaignLinkPicker({ channel, onInsert }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [formLinksLoading, setFormLinksLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [links, setLinks] = useState<CampaignLink[]>([]);
+  const [formLinks, setFormLinks] = useState<FormShortLink[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CampaignLink | null>(null);
 
@@ -128,8 +130,22 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     }
   };
 
+  const loadFormLinks = async () => {
+    setFormLinksLoading(true);
+    try {
+      setFormLinks(await fetchFormShortLinks());
+    } catch (e: any) {
+      toast.error("Falha ao carregar links de formulários: " + (e?.message ?? String(e)));
+    } finally {
+      setFormLinksLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (open) load();
+    if (open) {
+      load();
+      loadFormLinks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
 
