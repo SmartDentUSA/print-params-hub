@@ -1294,6 +1294,23 @@ export function SmartOpsFormBuilder() {
               </section>
             );
           })}
+
+          {searchQuery &&
+            Object.entries(PURPOSE_CONFIG).every(
+              ([purposeKey]) => !forms.some((f) => f.form_purpose === purposeKey && matchesSearch(f))
+            ) && (
+              <div className="text-sm text-muted-foreground">
+                Nenhum formulário encontrado para “{searchQuery}”.
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-1 py-0"
+                  onClick={() => setSearchQuery("")}
+                >
+                  Limpar busca
+                </Button>
+              </div>
+            )}
         </div>
       )}
 
