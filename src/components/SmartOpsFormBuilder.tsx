@@ -1204,31 +1204,52 @@ export function SmartOpsFormBuilder() {
         <p className="text-muted-foreground text-sm">Nenhum formulário criado ainda.</p>
       ) : (
         <div className="space-y-6">
-          {/* Filtro de período */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground mr-1">Período:</span>
-            {[
-              { l: "24h", v: 1 },
-              { l: "7d", v: 7 },
-              { l: "30d", v: 30 },
-              { l: "90d", v: 90 },
-              { l: "Tudo", v: 0 },
-            ].map((p) => (
-              <Button
-                key={p.v}
-                size="sm"
-                variant={periodDays === p.v ? "default" : "outline"}
-                className="h-7 px-2.5"
-                onClick={() => setPeriodDays(p.v)}
-              >
-                {p.l}
-              </Button>
-            ))}
+          {/* Busca e período */}
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, slug ou finalidade..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground mr-1">Período:</span>
+              {[
+                { l: "24h", v: 1 },
+                { l: "7d", v: 7 },
+                { l: "30d", v: 30 },
+                { l: "90d", v: 90 },
+                { l: "Tudo", v: 0 },
+              ].map((p) => (
+                <Button
+                  key={p.v}
+                  size="sm"
+                  variant={periodDays === p.v ? "default" : "outline"}
+                  className="h-7 px-2.5"
+                  onClick={() => setPeriodDays(p.v)}
+                >
+                  {p.l}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Grupos por finalidade */}
           {Object.entries(PURPOSE_CONFIG).map(([purposeKey, cfg]) => {
-            const groupForms = forms.filter((f) => f.form_purpose === purposeKey);
+            const groupForms = forms.filter((f) => f.form_purpose === purposeKey && matchesSearch(f));
             if (groupForms.length === 0) return null;
             return (
               <section key={purposeKey} className="space-y-3">
