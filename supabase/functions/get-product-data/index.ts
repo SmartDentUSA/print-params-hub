@@ -36,11 +36,7 @@ Deno.serve(async (req) => {
       return candidate;
     };
     const slug = normalizeSlug(rawSlug);
-    const spaceQuery = slug ? slug.replace(/-/g, ' ') : null;
-    const tokens = spaceQuery ? spaceQuery.split(/\s+/).filter(t => t.length > 2 && !['resina','resin','modelo','model','smart','print','3d','the','and','for'].includes(t)) : [];
-    const longestToken = tokens.sort((a,b)=>b.length-a.length)[0];
-
-    console.log('🔍 get-product-data invoked:', { rawSlug, slug, approved, spaceQuery, longestToken });
+    console.log('🔍 get-product-data invoked:', { rawSlug, slug, approved });
 
     if (!slug) {
       return new Response(
@@ -76,13 +72,15 @@ Deno.serve(async (req) => {
     const { data, error } = await query.maybeSingle();
 
     if (error || !data) {
-      console.log('⚠️ Produto não encontrado no catálogo com slug exato, tentando fallbacks:', { slug, error });
+      console.log('⚠️ Produto não encontrado no catálogo com slug exato, tentando fallback tolerante por slug:', { slug, error });
 
-      // Enhanced fallback search in system_a_catalog with fuzzy matching
+      // Fallback tolerante APENAS por slug (para lidar com hífen/sufixo trivial).
+      // NUNCA fazer match por token de nome — isso cruza para produtos totalmente
+      // diferentes (ex: "ativacao-dentalcad-ultimate-lab-bundle-rms" caindo em
+      // "DentalCAD - Software CAD da exocad").
       let catalogProduct: any = null;
       let catalogError: any = null;
 
-      // Catalog Attempt 1: slug ilike
       if (slug) {
         const { data: c1, error: e1 } = await supabase
           .from('system_a_catalog')
@@ -95,31 +93,7 @@ Deno.serve(async (req) => {
         } else {
           catalogError = e1 || catalogError;
         }
-        console.log('🔎 Fallback attempt 1 (catalog.slug ilike):', { pattern: `%${slug}%`, found: !!c1, error: e1 });
-      }
-
-      // Catalog Attempt 2: name ilike with spaces
-      if (!catalogProduct && spaceQuery) {
-        const { data: c2, error: e2 } = await supabase
-          .from('system_a_catalog')
-          .select('*')
-          .eq('category', 'product')
-          .ilike('name', `%${spaceQuery}%`)
-          .maybeSingle();
-        if (c2) catalogProduct = c2; else catalogError = e2 || catalogError;
-        console.log('🔎 Fallback attempt 2 (catalog.name ilike spaceQuery):', { spaceQuery, found: !!c2, error: e2 });
-      }
-
-      // Catalog Attempt 3: name ilike longest token
-      if (!catalogProduct && longestToken) {
-        const { data: c3, error: e3 } = await supabase
-          .from('system_a_catalog')
-          .select('*')
-          .eq('category', 'product')
-          .ilike('name', `%${longestToken}%`)
-          .maybeSingle();
-        if (c3) catalogProduct = c3; else catalogError = e3 || catalogError;
-        console.log('🔎 Fallback attempt 3 (catalog.name ilike longestToken):', { longestToken, found: !!c3, error: e3 });
+        console.log('🔎 Fallback catalog.slug ilike:', { pattern: `%${slug}%`, found: !!c1, error: e1 });
       }
 
       // If found in catalog with fuzzy matching, return it
@@ -158,11 +132,10 @@ Deno.serve(async (req) => {
 
       console.log('⚠️ Produto não encontrado no catálogo, tentando fallback em resins:', { slug, catalogError });
 
-      // Enhanced fallback search in resins with multiple strategies
+      // Fallback em resins APENAS por slug — sem cruzar nomes.
       let resin: any = null;
       let resinError: any = null;
 
-      // Attempt 1: exact slug
       if (slug) {
         const { data: r1, error: e1 } = await supabase
           .from('resins')
@@ -174,10 +147,9 @@ Deno.serve(async (req) => {
         } else {
           resinError = e1 || resinError;
         }
-        console.log('🔎 Fallback attempt 1 (resins.slug eq):', { slug, found: !!r1, error: e1 });
+        console.log('🔎 Fallback resins.slug eq:', { slug, found: !!r1, error: e1 });
       }
 
-      // Attempt 2: slug ilike
       if (!resin && slug) {
         const { data: r2, error: e2 } = await supabase
           .from('resins')
@@ -185,29 +157,7 @@ Deno.serve(async (req) => {
           .ilike('slug', `%${slug}%`)
           .maybeSingle();
         if (r2) resin = r2; else resinError = e2 || resinError;
-        console.log('🔎 Fallback attempt 2 (resins.slug ilike):', { pattern: `%${slug}%`, found: !!r2, error: e2 });
-      }
-
-      // Attempt 3: name ilike with spaces
-      if (!resin && spaceQuery) {
-        const { data: r3, error: e3 } = await supabase
-          .from('resins')
-          .select('*')
-          .ilike('name', `%${spaceQuery}%`)
-          .maybeSingle();
-        if (r3) resin = r3; else resinError = e3 || resinError;
-        console.log('🔎 Fallback attempt 3 (resins.name ilike spaceQuery):', { spaceQuery, found: !!r3, error: e3 });
-      }
-
-      // Attempt 4: name ilike longest token
-      if (!resin && longestToken) {
-        const { data: r4, error: e4 } = await supabase
-          .from('resins')
-          .select('*')
-          .ilike('name', `%${longestToken}%`)
-          .maybeSingle();
-        if (r4) resin = r4; else resinError = e4 || resinError;
-        console.log('🔎 Fallback attempt 4 (resins.name ilike longestToken):', { longestToken, found: !!r4, error: e4 });
+        console.log('🔎 Fallback resins.slug ilike:', { pattern: `%${slug}%`, found: !!r2, error: e2 });
       }
 
       if (!resin) {
