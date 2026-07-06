@@ -1,32 +1,45 @@
-## Diagnóstico
+## Objetivo
 
-Erro "Signal timed out." vem do `AbortSignal.timeout(45_000)` em `supabase/functions/_shared/evolution.ts` (`sendText` linha 192, `sendMedia` linha 210). O servidor Evolution self-hosted da instância `smartdent_marketing` está demorando >45s para responder ao envio no grupo, o que dispara o timeout.
+Evitar erros como o de `smartdent_marketing` (credenciais Evolution vazias caindo na apikey global) expondo **todos** os campos por instância no dialog "Adicionar/Editar Membro" e adicionando uma seção separada para **Evolution GO**.
 
-O `wa-dispatcher` **já reconhece** esse padrão (`/timed out|aborted/`, linha 157) e tenta warmup + reenvio, mas se **ambas** tentativas estouram o mesmo teto de 45s, o item volta pra `pending` com o erro "Signal timed out." (é o quadro atual — status `pending`, agendado em 27min).
+## Estado atual
 
-Riscos do timeout: o Evolution/Baileys pode **ter efetivamente entregado** a mensagem mesmo com a nossa conexão HTTP abortada — reenviar cegamente duplicaria conteúdo no grupo. Por isso o remédio não pode ser apenas "aumentar retry".
+`SmartOpsTeam.tsx` só edita `evolution_instance_name`. Os demais campos que o `wa-dispatcher` / `_shared/evolution.ts` já leem por linha (`evolution_api_key`, `evolution_phone`, `evolution_lid`, `evolution_base_url`) só são preenchíveis via SQL. EvoGo (`evo_go_instance_id`, `evo_go_instance_token`, `evo_go_base_url`) idem.
 
-## Correção proposta
+## Mudanças (só UI + persistência do form)
 
-**1. `supabase/functions/_shared/evolution.ts`** — aumentar timeouts para envio em grupo, que costuma ter latência maior no Baileys:
+**Arquivo único: `src/components/SmartOpsTeam.tsx`**
 
-- `sendText`: `45_000` → **90_000** (mantém proteção contra loop infinito, mas dá folga para grupos grandes).
-- `sendMedia`: `60_000` → **120_000** (mídia em grupo é notavelmente mais lenta).
+1. Ampliar `interface TeamMember` e `EMPTY_FORM` com:
+   - `evolution_api_key`, `evolution_phone`, `evolution_lid`, `evolution_base_url`
+   - `evo_go_instance_id`, `evo_go_instance_token`, `evo_go_base_url`
 
-**2. `supabase/functions/wa-dispatcher/index.ts`** — quando `sendText`/`sendMedia` falhar com `timed out|aborted`, antes de retentar, checar via `findMessageStatus` **por conteúdo recente no grupo** para não duplicar. Como não temos `evo_message_id` ainda, uso a rota já existente `/chat/findMessages` filtrando por `remoteJid + fromMe=true + messageTimestamp > (now-2min)` e comparando o corpo textual. Se encontrado ⇒ marcar como `sent`, gravar `evo_message_id`, seguir para `advanceCampaign`. Se não ⇒ warmup + retry normal como hoje.
+2. `fetchMembers` (select) e `openEdit` (hidratação do form) passam a incluir esses campos. `handleSave` (`upsert`) grava-os. Strings vazias viram `null` para não sujar as rows.
 
-**3. Reconciliação da mensagem atual em `pending`** (SQL via `supabase--insert`, após deploy):
+3. Bloco "Configurações Evolution" no dialog ganha, abaixo do "Nome da Instância":
+   - `Input password` "API Key da Instância" (`evolution_api_key`)
+   - `Input` "Telefone Conectado" (`evolution_phone`, digits-only)
+   - `Input` "LID do Bot" (`evolution_lid`, placeholder `98908885786860@lid`)
+   - `Input` "Base URL" (`evolution_base_url`, placeholder `http://82.25.75.61:8080`)
+   - Nota curta: "Sem esses campos, o disparo cai na apikey global e a Evolution rejeita com 400."
 
-Não vou reabrir automaticamente. Deixo o dispatcher retomar no próximo ciclo (já está agendada em ~28min) — se ainda estiver `pending` amanhã e o Evolution voltar a responder, o novo código detecta duplicata via `findMessages` antes de reenviar.
+4. Novo bloco **"Configurações Evolution GO"** (`Separator` + título) com:
+   - `Input` "Instance ID" (`evo_go_instance_id`)
+   - `Input password` "Instance Token" (`evo_go_instance_token`)
+   - `Input` "Base URL" (`evo_go_base_url`)
 
-## Escopo
+5. `Select "Provedor de mensagens"` ganha item `evolution_go` → "Evolution GO". Badge da tabela: adicionar `EG` roxo-claro quando `messaging_provider === 'evolution_go'`.
 
-- **Alterar:** `supabase/functions/_shared/evolution.ts` (2 constantes), `supabase/functions/wa-dispatcher/index.ts` (bloco `send()` + nova função helper `findRecentGroupMessageByText`).
-- **Não tocar:** credenciais, `team_members`, `wa_groups`, EvoGo (path separado), UI, RPCs.
+6. Botão "Conectar WhatsApp" continua ligado só ao Evolution clássico (não mexer no fluxo QR do EvoGo).
+
+## Fora de escopo
+
+- Nenhuma mudança em `wa-dispatcher`, `_shared/evolution.ts`, migrations, RPCs, roteador de leads ou fluxo de campanhas.
+- Não sincronizo automaticamente LID via `fetchInstances` (fica manual pelo admin; podemos automatizar depois se quiser).
+- Não altero políticas RLS: a tabela `team_members` já é acessível ao admin com as policies atuais.
 
 ## Validação
 
-1. Deploy automático do wa-dispatcher.
-2. Aguardar retry agendado (~28min) ou pedir reprocesso manual pelo botão da UI.
-3. Confirmar em `wa_send_log` que aparece `success=true, http_status=200` OU `success=true, note='dedup_by_content_after_timeout'`.
-4. Ver `wa_message_queue` sem duplicatas para o mesmo `content_hash + group_jid` na janela de 2 min.
+- Abrir dialog em um membro Evolution existente (Danilo-Henrique) → campos aparecem preenchidos com os valores atuais.
+- Editar `smartdent_marketing` (Smart Dent | 16 anos) → preencher apikey `EDCEEC67FA93-...`, phone `5516997501531`, base_url `http://82.25.75.61:8080`, salvar, reabrir → valores persistiram.
+- Rodar `wa-dispatcher` pelo item pending: agora usa a apikey correta e o 400 "Timed Out" some.

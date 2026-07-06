@@ -26,6 +26,13 @@ interface TeamMember {
   manychat_api_key: string | null;
   waleads_api_key: string | null;
   evolution_instance_name: string | null;
+  evolution_api_key: string | null;
+  evolution_phone: string | null;
+  evolution_lid: string | null;
+  evolution_base_url: string | null;
+  evo_go_instance_id: string | null;
+  evo_go_instance_token: string | null;
+  evo_go_base_url: string | null;
   messaging_provider: string | null;
   ativo: boolean;
 }
@@ -47,6 +54,13 @@ const EMPTY_FORM = {
   manychat_api_key: "",
   waleads_api_key: "",
   evolution_instance_name: "",
+  evolution_api_key: "",
+  evolution_phone: "",
+  evolution_lid: "",
+  evolution_base_url: "",
+  evo_go_instance_id: "",
+  evo_go_instance_token: "",
+  evo_go_base_url: "",
   messaging_provider: "waleads",
 };
 
@@ -115,6 +129,13 @@ export function SmartOpsTeam() {
       manychat_api_key: m.manychat_api_key || "",
       waleads_api_key: m.waleads_api_key || "",
       evolution_instance_name: m.evolution_instance_name || "",
+      evolution_api_key: m.evolution_api_key || "",
+      evolution_phone: m.evolution_phone || "",
+      evolution_lid: m.evolution_lid || "",
+      evolution_base_url: m.evolution_base_url || "",
+      evo_go_instance_id: m.evo_go_instance_id || "",
+      evo_go_instance_token: m.evo_go_instance_token || "",
+      evo_go_base_url: m.evo_go_base_url || "",
       messaging_provider: m.messaging_provider || "waleads",
     });
     setEvolutionStatus("unknown");
@@ -242,11 +263,26 @@ export function SmartOpsTeam() {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
       toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
     }
+    const nullify = (v: string) => (v && v.trim() ? v.trim() : null);
+    const payload = {
+      ...form,
+      piperun_owner_id: nullify(form.piperun_owner_id) as any,
+      manychat_api_key: nullify(form.manychat_api_key) as any,
+      waleads_api_key: nullify(form.waleads_api_key) as any,
+      evolution_instance_name: nullify(form.evolution_instance_name) as any,
+      evolution_api_key: nullify(form.evolution_api_key) as any,
+      evolution_phone: nullify(form.evolution_phone) as any,
+      evolution_lid: nullify(form.evolution_lid) as any,
+      evolution_base_url: nullify(form.evolution_base_url) as any,
+      evo_go_instance_id: nullify(form.evo_go_instance_id) as any,
+      evo_go_instance_token: nullify(form.evo_go_instance_token) as any,
+      evo_go_base_url: nullify(form.evo_go_base_url) as any,
+    };
     if (editing) {
-      const { error } = await supabase.from("team_members").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("team_members").update(payload).eq("id", editing.id);
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     } else {
-      const { error } = await supabase.from("team_members").insert(form);
+      const { error } = await supabase.from("team_members").insert(payload);
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     }
     setDialogOpen(false);
@@ -366,12 +402,49 @@ export function SmartOpsTeam() {
                 />
               </div>
               <div>
+                <Label>API Key da Instância</Label>
+                <Input
+                  type="password"
+                  value={form.evolution_api_key}
+                  onChange={(e) => setForm({ ...form, evolution_api_key: e.target.value })}
+                  placeholder="Apikey única da instância (ex: EDCEEC67FA93-...)"
+                />
+              </div>
+              <div>
+                <Label>Telefone Conectado</Label>
+                <Input
+                  value={form.evolution_phone}
+                  onChange={(e) => setForm({ ...form, evolution_phone: e.target.value.replace(/\D/g, "") })}
+                  placeholder="5516997501531"
+                />
+              </div>
+              <div>
+                <Label>LID do Bot</Label>
+                <Input
+                  value={form.evolution_lid}
+                  onChange={(e) => setForm({ ...form, evolution_lid: e.target.value })}
+                  placeholder="98908885786860@lid"
+                />
+              </div>
+              <div>
+                <Label>Base URL</Label>
+                <Input
+                  value={form.evolution_base_url}
+                  onChange={(e) => setForm({ ...form, evolution_base_url: e.target.value })}
+                  placeholder="http://82.25.75.61:8080"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground -mt-2">
+                Sem esses campos preenchidos, o disparo cai na apikey global e a Evolution rejeita com HTTP 400 "Timed Out".
+              </p>
+              <div>
                 <Label>Provedor de mensagens</Label>
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="waleads">WaLeads</SelectItem>
                     <SelectItem value="evolution">Evolution API</SelectItem>
+                    <SelectItem value="evolution_go">Evolution GO</SelectItem>
                     <SelectItem value="manychat">ManyChat</SelectItem>
                     <SelectItem value="none">Manual</SelectItem>
                   </SelectContent>
@@ -380,6 +453,33 @@ export function SmartOpsTeam() {
               <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
+              <Separator className="my-2" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+              <div>
+                <Label>Instance ID</Label>
+                <Input
+                  value={form.evo_go_instance_id}
+                  onChange={(e) => setForm({ ...form, evo_go_instance_id: e.target.value })}
+                  placeholder="ID da instância no EvoGo"
+                />
+              </div>
+              <div>
+                <Label>Instance Token</Label>
+                <Input
+                  type="password"
+                  value={form.evo_go_instance_token}
+                  onChange={(e) => setForm({ ...form, evo_go_instance_token: e.target.value })}
+                  placeholder="Token da instância EvoGo"
+                />
+              </div>
+              <div>
+                <Label>Base URL</Label>
+                <Input
+                  value={form.evo_go_base_url}
+                  onChange={(e) => setForm({ ...form, evo_go_base_url: e.target.value })}
+                  placeholder="https://api.evogo.tech"
+                />
+              </div>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
@@ -411,7 +511,8 @@ export function SmartOpsTeam() {
                   {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
                   {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
                   {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
-                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && <span className="text-muted-foreground text-xs">—</span>}
+                  {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
+                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell className="space-x-1">
