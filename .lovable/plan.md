@@ -1,29 +1,41 @@
-## Objetivo
-Adicionar um indicador de conexão (Conectado / Desconectado) para a seção **Configurações Evolution GO** no modal de Team Members, espelhando o comportamento já existente na seção Evolution API.
+## Diagnóstico
+No banco, o Danilo Henrique **tem** `evo_go_instance_id`, `evo_go_instance_token` e `evo_go_base_url` preenchidos, mas o badge mostra **Desconectado** porque:
 
-## Como vai funcionar
-- No cabeçalho da seção "Configurações Evolution GO" aparece um badge:
-  - 🟢 **Conectado** — EvoGo respondeu OK
-  - 🔴 **Desconectado** — falha / credenciais ausentes / instância inválida
-  - ⚪ **Verificando…** — enquanto o check inicial roda
-- O status é buscado ao abrir o modal de edição (se o membro já tiver `evo_go_instance_id` + `evo_go_instance_token` cadastrados), e também sempre que o usuário clicar no badge para forçar re-check.
+1. A função `smart-ops-evogo-status` que criei consulta `GET ${base}/instance/fetchInstances` — esse é endpoint do Evolution API clássico, **não do EvoGo**. Vale para :8080 (Evolution API), mas :8081 (EvoGo) responde 404 → `state=close`.
+2. Além disso, o `evolution_base_url` dele está incorretamente cadastrado como `:8081` (deveria ser `:8080`), então o badge do Evolution também fica errado.
+
+Você confirmou a regra: **Evolution = `http://82.25.75.61:8080`**, **EvoGo = `http://82.25.75.61:8081`**.
 
 ## Alterações
 
-### 1. Nova edge function `smart-ops-evogo-status`
-- Recebe `{ member_id }` no body.
-- Lê de `team_members`: `evo_go_base_url`, `evo_go_instance_token`, `evo_go_instance_id`, `evolution_api_key` (fallback quando o token dedicado do EvoGo não estiver preenchido — mesma lógica de `smart-ops-integration-check`).
-- Faz `GET ${base}/instance/fetchInstances` com header `apikey`. Retorna `{ state: "open" | "close", http, latency_ms }`.
-- Se faltar `base` ou credencial, devolve `{ state: "close", reason: "missing_creds" }`.
-- Sem alteração de dados; sem RLS envolvida (usa service role apenas para ler as credenciais).
+### 1. `supabase/functions/smart-ops-evogo-status/index.ts`
+Trocar o endpoint checado por um que o EvoGo suporta de verdade:
+- Usar `GET ${base}/instance/connectionState/${instance_id}` com header `apikey: evo_go_instance_token` (padrão Evolution que o EvoGo espelha).
+- Fallback: se 404, tentar `GET ${base}/instance/status` e depois `GET ${base}/` para pelo menos detectar se o servidor está de pé.
+- Parse: considera `open` quando o corpo trouxer `state === "open"` ou HTTP 200 no `connectionState`; senão `close`.
+- Default do `base`: `http://82.25.75.61:8081` quando a coluna estiver vazia.
+- Identificador da instância: usa `evo_go_instance_id` se presente, senão `evolution_instance_name`.
 
-### 2. `src/components/SmartOpsTeam.tsx` (somente frontend)
-- Reutilizar o mesmo componente `EvolutionStatusBadge`, sob um segundo estado `evoGoStatus` (`open` / `close` / `unknown`).
-- Adicionar wrapper `flex items-center justify-between` no cabeçalho "Configurações Evolution GO" para exibir o badge à direita, igual ao Evolution.
-- No `openEdit`, se `m.evo_go_instance_token` (ou `m.evo_go_instance_id`) estiver preenchido, chamar `supabase.functions.invoke("smart-ops-evogo-status", { body: { member_id: m.id } })` e setar `evoGoStatus`.
-- No `openAdd`, resetar `evoGoStatus = "unknown"`.
-- Clicar no badge dispara re-check (mesma função).
+### 2. `src/components/SmartOpsTeam.tsx` — Defaults e placeholders
+- Placeholder do campo "Base URL" na seção **Evolution**: `http://82.25.75.61:8080`.
+- Placeholder do campo "Base URL" na seção **Evolution GO**: `http://82.25.75.61:8081`.
+- No `handleSubmit`, se o usuário deixar em branco, preencher automaticamente:
+  - `evolution_base_url` → `http://82.25.75.61:8080`
+  - `evo_go_base_url` → `http://82.25.75.61:8081`
+
+### 3. Correção pontual do registro do Danilo (SQL)
+Migration one-shot para consertar apenas esse membro:
+```sql
+UPDATE public.team_members
+SET evolution_base_url = 'http://82.25.75.61:8080'
+WHERE id = '39657ed1-3151-4f45-b8a2-ca4b9eb6e932'
+  AND evolution_base_url = 'http://82.25.75.61:8081';
+```
+Não toca nas credenciais nem no `evo_go_base_url` (que já está correto).
 
 ## O que NÃO muda
-- Nada em `wa-dispatcher`, `smart-ops-integration-check`, migrations, RLS, tabelas ou lógica de envio.
-- Nenhuma outra parte do modal (campos, ordem, provider select).
+- Nada em `wa-dispatcher`, `smart-ops-integration-check`, RLS, outras colunas ou lógica de envio.
+- Nenhum outro membro é alterado no update.
+
+## Pergunta rápida
+Se você souber o endpoint oficial de status do EvoGo (ex.: `/instance/connectionState/{id}` ou outro), me confirma que eu uso direto sem fallbacks. Caso contrário sigo com a cascata acima.

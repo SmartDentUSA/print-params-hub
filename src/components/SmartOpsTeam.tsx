@@ -287,8 +287,12 @@ export function SmartOpsTeam() {
       toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
     }
     const nullify = (v: string) => (v && v.trim() ? v.trim() : null);
+    const evolutionBaseUrl = form.evolution_base_url?.trim() || "http://82.25.75.61:8080";
+    const evoGoBaseUrl = form.evo_go_base_url?.trim() || "http://82.25.75.61:8081";
     const payload = {
       ...form,
+      evolution_base_url: evolutionBaseUrl,
+      evo_go_base_url: evoGoBaseUrl,
       piperun_owner_id: nullify(form.piperun_owner_id) as any,
       manychat_api_key: nullify(form.manychat_api_key) as any,
       waleads_api_key: nullify(form.waleads_api_key) as any,
@@ -296,10 +300,8 @@ export function SmartOpsTeam() {
       evolution_api_key: nullify(form.evolution_api_key) as any,
       evolution_phone: nullify(form.evolution_phone) as any,
       evolution_lid: nullify(form.evolution_lid) as any,
-      evolution_base_url: nullify(form.evolution_base_url) as any,
       evo_go_instance_id: nullify(form.evo_go_instance_id) as any,
       evo_go_instance_token: nullify(form.evo_go_instance_token) as any,
-      evo_go_base_url: nullify(form.evo_go_base_url) as any,
     };
     if (editing) {
       const { error } = await supabase.from("team_members").update(payload).eq("id", editing.id);
@@ -513,7 +515,7 @@ export function SmartOpsTeam() {
                 <Input
                   value={form.evo_go_base_url}
                   onChange={(e) => setForm({ ...form, evo_go_base_url: e.target.value })}
-                  placeholder="https://api.evogo.tech"
+                  placeholder="http://82.25.75.61:8081"
                 />
               </div>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
