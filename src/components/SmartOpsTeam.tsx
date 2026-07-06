@@ -402,12 +402,49 @@ export function SmartOpsTeam() {
                 />
               </div>
               <div>
+                <Label>API Key da Instância</Label>
+                <Input
+                  type="password"
+                  value={form.evolution_api_key}
+                  onChange={(e) => setForm({ ...form, evolution_api_key: e.target.value })}
+                  placeholder="Apikey única da instância (ex: EDCEEC67FA93-...)"
+                />
+              </div>
+              <div>
+                <Label>Telefone Conectado</Label>
+                <Input
+                  value={form.evolution_phone}
+                  onChange={(e) => setForm({ ...form, evolution_phone: e.target.value.replace(/\D/g, "") })}
+                  placeholder="5516997501531"
+                />
+              </div>
+              <div>
+                <Label>LID do Bot</Label>
+                <Input
+                  value={form.evolution_lid}
+                  onChange={(e) => setForm({ ...form, evolution_lid: e.target.value })}
+                  placeholder="98908885786860@lid"
+                />
+              </div>
+              <div>
+                <Label>Base URL</Label>
+                <Input
+                  value={form.evolution_base_url}
+                  onChange={(e) => setForm({ ...form, evolution_base_url: e.target.value })}
+                  placeholder="http://82.25.75.61:8080"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground -mt-2">
+                Sem esses campos preenchidos, o disparo cai na apikey global e a Evolution rejeita com HTTP 400 "Timed Out".
+              </p>
+              <div>
                 <Label>Provedor de mensagens</Label>
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="waleads">WaLeads</SelectItem>
                     <SelectItem value="evolution">Evolution API</SelectItem>
+                    <SelectItem value="evolution_go">Evolution GO</SelectItem>
                     <SelectItem value="manychat">ManyChat</SelectItem>
                     <SelectItem value="none">Manual</SelectItem>
                   </SelectContent>
@@ -416,6 +453,33 @@ export function SmartOpsTeam() {
               <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
+              <Separator className="my-2" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+              <div>
+                <Label>Instance ID</Label>
+                <Input
+                  value={form.evo_go_instance_id}
+                  onChange={(e) => setForm({ ...form, evo_go_instance_id: e.target.value })}
+                  placeholder="ID da instância no EvoGo"
+                />
+              </div>
+              <div>
+                <Label>Instance Token</Label>
+                <Input
+                  type="password"
+                  value={form.evo_go_instance_token}
+                  onChange={(e) => setForm({ ...form, evo_go_instance_token: e.target.value })}
+                  placeholder="Token da instância EvoGo"
+                />
+              </div>
+              <div>
+                <Label>Base URL</Label>
+                <Input
+                  value={form.evo_go_base_url}
+                  onChange={(e) => setForm({ ...form, evo_go_base_url: e.target.value })}
+                  placeholder="https://api.evogo.tech"
+                />
+              </div>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
