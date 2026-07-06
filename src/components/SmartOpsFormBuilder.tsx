@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock } from "lucide-react";
+import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock, Search, X } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
@@ -186,6 +186,7 @@ export function SmartOpsFormBuilder() {
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -344,6 +345,23 @@ export function SmartOpsFormBuilder() {
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-")
       .replace(/^-+|-+$/g, "").trim();
+
+  const normalizeSearch = (text: string) =>
+    text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const matchesSearch = (form: SmartOpsForm) => {
+    if (!searchQuery.trim()) return true;
+    const term = normalizeSearch(searchQuery);
+    const haystack = [
+      form.name,
+      form.slug,
+      PURPOSE_CONFIG[form.form_purpose]?.label,
+    ]
+      .filter(Boolean)
+      .map((s) => normalizeSearch(String(s)))
+      .join(" ");
+    return haystack.includes(term);
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -1186,31 +1204,52 @@ export function SmartOpsFormBuilder() {
         <p className="text-muted-foreground text-sm">Nenhum formulário criado ainda.</p>
       ) : (
         <div className="space-y-6">
-          {/* Filtro de período */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground mr-1">Período:</span>
-            {[
-              { l: "24h", v: 1 },
-              { l: "7d", v: 7 },
-              { l: "30d", v: 30 },
-              { l: "90d", v: 90 },
-              { l: "Tudo", v: 0 },
-            ].map((p) => (
-              <Button
-                key={p.v}
-                size="sm"
-                variant={periodDays === p.v ? "default" : "outline"}
-                className="h-7 px-2.5"
-                onClick={() => setPeriodDays(p.v)}
-              >
-                {p.l}
-              </Button>
-            ))}
+          {/* Busca e período */}
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, slug ou finalidade..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground mr-1">Período:</span>
+              {[
+                { l: "24h", v: 1 },
+                { l: "7d", v: 7 },
+                { l: "30d", v: 30 },
+                { l: "90d", v: 90 },
+                { l: "Tudo", v: 0 },
+              ].map((p) => (
+                <Button
+                  key={p.v}
+                  size="sm"
+                  variant={periodDays === p.v ? "default" : "outline"}
+                  className="h-7 px-2.5"
+                  onClick={() => setPeriodDays(p.v)}
+                >
+                  {p.l}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Grupos por finalidade */}
           {Object.entries(PURPOSE_CONFIG).map(([purposeKey, cfg]) => {
-            const groupForms = forms.filter((f) => f.form_purpose === purposeKey);
+            const groupForms = forms.filter((f) => f.form_purpose === purposeKey && matchesSearch(f));
             if (groupForms.length === 0) return null;
             return (
               <section key={purposeKey} className="space-y-3">
@@ -1255,6 +1294,23 @@ export function SmartOpsFormBuilder() {
               </section>
             );
           })}
+
+          {searchQuery &&
+            Object.entries(PURPOSE_CONFIG).every(
+              ([purposeKey]) => !forms.some((f) => f.form_purpose === purposeKey && matchesSearch(f))
+            ) && (
+              <div className="text-sm text-muted-foreground">
+                Nenhum formulário encontrado para “{searchQuery}”.
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-1 py-0"
+                  onClick={() => setSearchQuery("")}
+                >
+                  Limpar busca
+                </Button>
+              </div>
+            )}
         </div>
       )}
 
