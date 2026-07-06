@@ -1,33 +1,31 @@
-## Problema
+## Diagnóstico
 
-No diálogo "Editar Membro" da instância `smartdent_marketing`:
-- Evolution API (porta 8080) → 🟢 Conectado (correto)
-- Evolution GO (porta 8081) → 🔴 Desconectado (incorreto, o usuário confirma que ambas estão conectadas)
+- Instância `smartdent_marketing_evogo` está de fato conectada. O runtime EvoGo (`http://82.25.75.61:8081`) responde 404 em `/webhook/find/{instance}` e em `/` — por isso o probe atual devolve `close` mesmo com a instância online.
+- Endpoint correto descoberto por probing: `GET /instance/status` com header `apikey: <evo_go_instance_token>` retorna:
+  ```json
+  {"data":{"Connected":true,"LoggedIn":true,"Name":"Smart Dent Marketing"},"message":"success"}
+  ```
+- Não há `{instance}` no path — o token já identifica a instância (padrão wuzapi-like).
 
-## Causa
+## Correção
 
-`supabase/functions/smart-ops-evogo-status/index.ts` testa a conexão do EvoGo usando os mesmos caminhos da Evolution API tradicional (`/instance/connectionState/{name}`, `/instance/{name}/status`, `/instance/fetchInstances`). O runtime EvoGo (porta 8081) não expõe esses endpoints — o próprio código de webhook (`smart-ops-evogo-groups-webhook`) documenta que EvoGo não tem endpoint de listagem de grupos.
+Ajustar `supabase/functions/smart-ops-evogo-status/index.ts` para usar `/instance/status` como probe primário:
 
-Resultado: todos os attempts caem no `catch` ou retornam não-OK, e a função devolve `state: "close"` mesmo quando a instância está online.
+1. `GET {base}/instance/status` com header `apikey: <evo_go_instance_token>`, timeout 6s.
+2. Parse do JSON: considerar `state: "open"` quando `data.Connected === true` E `data.LoggedIn === true`. Retornar `probe: "instance_status"` e incluir `data.Name` no payload como `instance_display_name` para diagnóstico.
+3. Se `Connected` ou `LoggedIn` for falso → `state: "close"` com `reason: "not_logged_in"` (ou `"not_connected"`).
+4. Manter como fallback secundário a checagem de `sentinela_group_messages` (10 min) — se o `/instance/status` falhar por rede/timeout mas eventos recentes existirem, ainda retorna `open` com `probe: "recent_webhook_events"`.
+5. Remover os probes hoje quebrados: `/webhook/find/{instance}` e `GET /` (voltam sempre 404 e sujam os logs).
+6. Preservar payload atual (`http`, `latency_ms`, `webhook_url/events/enabled` como `null`) para não quebrar a UI existente em `SmartOpsTeam.tsx`.
 
-## Solução
-
-Reescrever a lógica de probe em `smart-ops-evogo-status` para detectar corretamente o EvoGo:
-
-1. **Fallback via webhook observado:** se o endpoint `/webhook/find/{instance}` responder 2xx (já é chamado hoje), a instância está online — retornar `state: "open"`.
-2. **Sinal de atividade recente:** consultar `sentinela_group_messages` filtrando por `instance_name = evolution_instance_name` e `received_at > now() - interval '10 minutes'`. Se houver eventos recentes, considerar `open` (a instância está entregando webhooks agora).
-3. **Ping raiz tolerante:** manter tentativa em `GET /` só para health-check (sem exigir JSON de state).
-4. **Ordem de decisão:** webhook 2xx → open; senão eventos recentes → open; senão HTTP raiz 2xx → open; caso contrário `close` com `reason`.
-5. Preservar payload atual (`webhook_url`, `webhook_events`, `webhook_enabled`, `http`, `latency_ms`) para não quebrar a UI.
-
-Nenhuma mudança no frontend: `SmartOpsTeam.tsx` já consome `state` e o badge passará a mostrar 🟢 Conectado quando a lógica corrigida retornar `open`.
+Nenhuma mudança no frontend.
 
 ## Validação
 
-- Reabrir "Editar Membro" para `smartdent_marketing` após deploy — badge Evolution GO deve virar 🟢 Conectado.
-- Membro sem credenciais EvoGo continua 🔴 (reason `missing_creds`).
-- Nenhum efeito na Evolution API tradicional (função separada).
+- Reabrir "Editar Membro" para `smartdent_marketing`: badge Evolution GO deve virar 🟢 Conectado.
+- Instância deslogada continua 🔴 com `reason: not_logged_in`.
+- Membro sem `evo_go_instance_token` continua 🔴 com `reason: missing_creds` (comportamento já existente).
 
 ## Arquivos
 
-- `supabase/functions/smart-ops-evogo-status/index.ts` — reescrita da lógica de probe.
+- `supabase/functions/smart-ops-evogo-status/index.ts` — trocar probe primário para `/instance/status`.
