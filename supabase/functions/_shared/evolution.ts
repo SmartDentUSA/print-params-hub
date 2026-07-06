@@ -189,7 +189,7 @@ export async function sendText(groupJid: string, text: string, instanceName: str
   const res = await fetch(`${EVO_BASE}/message/sendText/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, text }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(90_000),
   })
   if (!res.ok) throw new Error(`sendText ${res.status}: ${await res.text()}`)
   const d = await res.json()
@@ -207,7 +207,7 @@ export async function sendMedia(
   const res = await fetch(`${EVO_BASE}/message/sendMedia/${enc(instanceName)}`, {
     method: 'POST', headers: hWith(apikey),
     body: JSON.stringify({ number: groupJid, mediatype, media: mediaUrl, caption }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(120_000),
   })
   if (!res.ok) throw new Error(`sendMedia ${res.status}: ${await res.text()}`)
   const d = await res.json()
@@ -256,6 +256,59 @@ export async function findMessageStatus(
     const m = Array.isArray(records) && records.length ? records[0] : null
     if (!m) return null
     return (m.status ?? m?.message?.status ?? null) as string | null
+  } catch (_) {
+    return null
+  }
+}
+
+/**
+ * Procura uma mensagem recente que a instância mandou pro grupo, contendo o texto.
+ * Usado após timeout de sendText/sendMedia para detectar entrega que já ocorreu no
+ * lado do Evolution e evitar duplicata em retry.
+ * Retorna a chave (message id) se encontrada dentro da janela `sinceSeconds`.
+ */
+export async function findRecentOutgoingByText(
+  groupJid: string,
+  needle: string,
+  sinceSeconds: number,
+  instanceName: string = EVO_INST,
+  apikey?: string,
+): Promise<string | null> {
+  try {
+    if (!needle || needle.trim().length < 3) return null
+    const sinceTs = Math.floor(Date.now() / 1000) - Math.max(30, sinceSeconds)
+    const url = `${EVO_BASE}/chat/findMessages/${enc(instanceName)}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: hWith(apikey),
+      body: JSON.stringify({
+        where: { key: { remoteJid: groupJid, fromMe: true } },
+        limit: 25,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const records = Array.isArray(data)
+      ? data
+      : (data?.messages?.records ?? data?.records ?? [])
+    if (!Array.isArray(records) || !records.length) return null
+    const norm = needle.trim().slice(0, 80).toLowerCase()
+    for (const r of records) {
+      const ts = Number(r?.messageTimestamp ?? r?.message?.messageTimestamp ?? 0)
+      if (ts && ts < sinceTs) continue
+      const body =
+        r?.message?.conversation ??
+        r?.message?.extendedTextMessage?.text ??
+        r?.message?.imageMessage?.caption ??
+        r?.message?.videoMessage?.caption ??
+        r?.message?.documentMessage?.caption ??
+        ''
+      if (typeof body === 'string' && body.toLowerCase().includes(norm)) {
+        return (r?.key?.id ?? r?.messageId ?? null) as string | null
+      }
+    }
+    return null
   } catch (_) {
     return null
   }
