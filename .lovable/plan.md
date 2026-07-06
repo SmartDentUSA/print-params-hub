@@ -1,70 +1,41 @@
-## Diagnóstico
+## Objetivo
 
-O erro `supabase.rpc(...).catch is not a function` vem de `supabase/functions/wa-dispatcher/index.ts` linha ~235-240:
+Adicionar a função **Marketing** no cadastro de membros da equipe e aplicar essa role ao `Smart Dent Marketing` (`+55 16 99750-1531`) para que ele **não** entre no rodízio de leads.
 
-```ts
-await supabase.rpc('fn_record_group_send', { ... })
-  .catch((e) => console.error('[v66eg] fn_record_group_send failed', e))
+## Diagnóstico rápido
+
+- `supabase/functions/smart-ops-lia-assign/index.ts` já filtra rigorosamente `role='vendedor'` para atribuir leads (linhas 1126 e 1177). Qualquer outra role (`cs`, `suporte`, e a nova `marketing`) é **automaticamente ignorada** — nenhuma mudança no backend de distribuição é necessária.
+- O único ponto que limita a UI hoje é o `<Select>` de Função em `src/components/SmartOpsTeam.tsx` (linha 342-344), que só oferece Vendedor / CS / Suporte.
+
+## Mudanças
+
+**1. `src/components/SmartOpsTeam.tsx`** — adicionar a opção no seletor:
+
+```tsx
+<SelectItem value="vendedor">Vendedor</SelectItem>
+<SelectItem value="cs">CS</SelectItem>
+<SelectItem value="suporte">Suporte</SelectItem>
+<SelectItem value="marketing">Marketing</SelectItem>
 ```
 
-`supabase.rpc()` retorna um `PostgrestFilterBuilder` que é *thenable* (implementa `.then`) mas **não** tem `.catch`. Ao encadear `.catch(...)` antes do `await`, o runtime chama `.catch` num objeto que não é um Promise → `TypeError: .catch is not a function`.
-
-**Consequência real:** esse trecho roda **logo depois** do envio bem-sucedido via Evolution (fingerprint de dedupe). O erro é lançado, capturado pelo `catch (err)` externo do dispatcher, que:
-1. Marca a mensagem como `failed` com esse texto no `error_message`.
-2. Insere `success: false` em `wa_send_log`.
-3. Depois de 3 tentativas, marca a **campanha inteira como `status='error'`** (ver linha ~260).
-
-A mensagem foi enviada de verdade no WhatsApp, mas a UI mostra `failed` / “Erro” / “sessão quebrada” (via lógica de `consecutive_send_errors` que não é acionada aqui, mas o resultado final é o mesmo pra visualização). Isso explica exatamente o quadro que você vê em `[Smart Dent] - Export - MKT` (Erro) e por que os pending nunca avançam.
-
-Por que aparece só em `smartdent_marketing`? Porque essa instância está no caminho **Baileys** (sem `evo_go_instance_token`) e alcança essa linha após um envio OK. Instâncias EvoGo (Paula/cs_principal via 8081) também deveriam cair aqui, mas os pending atuais delas ainda estão travando antes por outras razões — a bug afeta qualquer envio Baileys de sucesso.
-
-## Correção
-
-Substituir o `.catch` inválido por tratamento correto:
-
-```ts
-try {
-  const { error: recErr } = await supabase.rpc('fn_record_group_send', {
-    p_group_jid: item.group_jid,
-    p_content_hash: cHash,
-    p_node_type: item.node_type,
-    p_campaign_id: item.campaign_id,
-  })
-  if (recErr) console.error('[v66eg] fn_record_group_send failed', recErr)
-} catch (e) {
-  console.error('[v66eg] fn_record_group_send threw', e)
-}
-```
-
-Isso garante que uma falha ao gravar o fingerprint **não** propague e não derrube o envio já efetuado.
-
-## Limpeza pós-fix (dados)
-
-Após deploy do wa-dispatcher corrigido, rodar SQL de reconciliação para as mensagens marcadas como falha por esse bug específico:
+**2. SQL (via `supabase--insert`)** — aplicar a role ao membro correto:
 
 ```sql
--- Reabrir apenas mensagens com esse erro exato, sem estar bloqueadas por sessão
-UPDATE wa_message_queue
-SET status = 'sent',
-    error_message = NULL,
-    delivery_status = COALESCE(delivery_status, 'sent_to_server')
-WHERE error_message ILIKE '%rpc(...).catch is not a function%'
-  AND status = 'failed'
-  AND evo_message_id IS NOT NULL;
-
--- Reativar campanhas que caíram em 'error' só por esse bug
-UPDATE wa_campaigns
-SET status = 'active'
-WHERE status = 'error'
-  AND id IN (
-    SELECT DISTINCT campaign_id FROM wa_message_queue
-    WHERE error_message ILIKE '%rpc(...).catch is not a function%'
-  );
+UPDATE team_members
+SET role = 'marketing'
+WHERE evolution_instance_name = 'smartdent_marketing'
+   OR whatsapp_number IN ('+5516997501531','5516997501531','16997501531');
 ```
 
-Confirmo o SQL antes de executar; se preferir não tocar o histórico só corrijo o código e deixo os registros como estão.
+Retorno esperado: 1 linha atualizada (o registro do Smart Dent Marketing).
 
-## Escopo
+## Fora de escopo
 
-- **Alterar:** apenas `supabase/functions/wa-dispatcher/index.ts` (~5 linhas).
-- **Não tocar:** `_shared/evolution.ts`, credenciais, `team_members`, `wa_groups`, RPCs SQL, EvoGo, UI.
+- `smart-ops-lia-assign`, `_shared/evolution.ts`, `wa-dispatcher`, RPCs SQL, credenciais Evolution e demais membros da equipe permanecem intocados.
+- Nenhuma migração DDL — `team_members.role` já é `text` livre.
+
+## Validação
+
+1. Abrir cadastro de team member → confirmar que "Marketing" aparece no select.
+2. Rodar SELECT para confirmar `role='marketing'` no registro do Smart Dent Marketing.
+3. Próxima execução de `smart-ops-lia-assign` naturalmente ignora esse membro (filtro `.eq("role","vendedor")` já ativo).
