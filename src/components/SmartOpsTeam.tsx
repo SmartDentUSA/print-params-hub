@@ -342,6 +342,7 @@ export function SmartOpsTeam() {
                     <SelectItem value="vendedor">Vendedor</SelectItem>
                     <SelectItem value="cs">CS</SelectItem>
                     <SelectItem value="suporte">Suporte</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
