@@ -72,6 +72,45 @@ function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   return <Badge className="bg-red-600 text-white text-[10px]">🔴 Desconectado</Badge>;
 }
 
+function WebhookInfoBlock({
+  info,
+  onCopy,
+}: {
+  info: { url: string | null; events?: string[] | null; enabled?: boolean | null } | null;
+  onCopy: (t: string) => void;
+}) {
+  if (!info || !info.url) {
+    return (
+      <div className="rounded-md border border-dashed border-muted-foreground/30 p-2 text-[11px] text-muted-foreground">
+        — Nenhum webhook configurado —
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border bg-muted/40 p-2 space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Webhook configurado</p>
+        {info.enabled === false ? (
+          <Badge className="bg-red-600 text-white text-[10px]">🔴 desativado</Badge>
+        ) : (
+          <Badge className="bg-green-600 text-white text-[10px]">🟢 ativo</Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 truncate text-[11px] font-mono">{info.url}</code>
+        <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => onCopy(info.url!)}>
+          Copiar
+        </Button>
+      </div>
+      {info.events && info.events.length > 0 && (
+        <p className="text-[10px] text-muted-foreground truncate">
+          <span className="font-semibold">Eventos:</span> {info.events.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SmartOpsTeam() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
