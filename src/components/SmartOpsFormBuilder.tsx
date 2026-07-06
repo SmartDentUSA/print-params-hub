@@ -13,6 +13,7 @@ import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
 import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
+import { FormMetricsRow } from "./smartops/FormMetricsRow";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import {
   Select,
@@ -1219,9 +1220,17 @@ export function SmartOpsFormBuilder() {
                   </h3>
                   <Badge variant="outline" className="text-[10px]">{groupForms.length}</Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="rounded-md border overflow-hidden">
+                  <div className="hidden md:grid grid-cols-12 gap-2 items-center px-3 py-2 bg-muted/40 border-b text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="col-span-1">Ativo</div>
+                    <div className="col-span-4">Formulário</div>
+                    <div className="col-span-2">Visitantes</div>
+                    <div className="col-span-2">Leads</div>
+                    <div className="col-span-1">Conversão</div>
+                    <div className="col-span-2 text-right">Ações</div>
+                  </div>
                   {groupForms.map((form) => (
-                    <FormMetricsCard
+                    <FormMetricsRow
                       key={form.id}
                       form={form}
                       metrics={metricsByForm[form.id]}
