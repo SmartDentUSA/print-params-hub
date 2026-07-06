@@ -13,12 +13,101 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Nome canônico = como está cadastrado em wa_groups/team_members.
-const TARGET_INSTANCE = "Danilo Henrique";
+// Nome canônico = como está cadastrado em wa_groups/team_members/UI.
+const TARGET_INSTANCE = "Danilo-Henrique";
 // Aceita aliases: "Danilo-Henrique", "danilo_henrique", "DANILO HENRIQUE", etc.
 const normalizeInstance = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
 const ALLOWED_INSTANCES = ["Danilo Henrique", "Danilo-Henrique"].map(normalizeInstance);
 const isAllowedInstance = (s: string) => ALLOWED_INSTANCES.includes(normalizeInstance(s));
+
+function canonicalInstanceName(_instanceName: string): string {
+  return TARGET_INSTANCE;
+}
+
+function safeGroupName(remoteJid: string, raw: any, existingName?: string | null): string {
+  const candidates = [
+    raw?.subject,
+    raw?.groupName,
+    raw?.chatName,
+    raw?.pushName,
+    raw?.notifyName,
+    raw?.message?.subject,
+    raw?.message?.groupName,
+    raw?.message?.pushName,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim() && !c.endsWith("@g.us")) return c.trim().slice(0, 200);
+  }
+  if (existingName?.trim()) return existingName.trim().slice(0, 200);
+  const shortId = remoteJid.replace("@g.us", "").slice(-12);
+  return `Grupo WA ${shortId}`;
+}
+
+function extractPictureUrl(raw: any): string | null {
+  const candidates = [raw?.profilePicUrl, raw?.pictureUrl, raw?.picture_url, raw?.imageUrl, raw?.avatarUrl];
+  for (const c of candidates) {
+    if (typeof c === "string" && /^https?:\/\//i.test(c)) return c;
+  }
+  return null;
+}
+
+async function ensureWaGroup(instance: string, remoteJid: string, raw: any) {
+  const canonicalInstance = canonicalInstanceName(instance);
+  const now = new Date().toISOString();
+  const { data: existing, error: lookupErr } = await sb
+    .from("wa_groups")
+    .select("id, name, picture_url")
+    .eq("group_jid", remoteJid)
+    .maybeSingle();
+
+  if (lookupErr) {
+    await logHealth("warning", "wa_groups lookup error", { instance: canonicalInstance, remoteJid, msg: lookupErr.message });
+    return { group: null, error: lookupErr };
+  }
+
+  const name = safeGroupName(remoteJid, raw, existing?.name ?? null);
+  const picture = extractPictureUrl(raw);
+
+  if (existing?.id) {
+    const patch: Record<string, unknown> = {
+      instance_name: canonicalInstance,
+      synced_at: now,
+      updated_at: now,
+    };
+    if ((!existing.name || existing.name.startsWith("Grupo WA ")) && name) patch.name = name;
+    if (!existing.picture_url && picture) patch.picture_url = picture;
+
+    const { error: updateErr } = await sb.from("wa_groups").update(patch).eq("id", existing.id);
+    if (updateErr) {
+      await logHealth("warning", "wa_groups update error", { instance: canonicalInstance, remoteJid, msg: updateErr.message });
+      return { group: existing, error: updateErr };
+    }
+    return { group: { ...existing, name: (patch.name as string | undefined) ?? existing.name }, error: null };
+  }
+
+  const { data: inserted, error: insertErr } = await sb
+    .from("wa_groups")
+    .insert({
+      group_jid: remoteJid,
+      instance_name: canonicalInstance,
+      name,
+      picture_url: picture,
+      is_admin: true,
+      ativo: true,
+      enabled: true,
+      synced_at: now,
+      updated_at: now,
+    })
+    .select("id, name")
+    .maybeSingle();
+
+  if (insertErr) {
+    await logHealth("warning", "wa_groups insert error", { instance: canonicalInstance, remoteJid, msg: insertErr.message });
+    return { group: null, error: insertErr };
+  }
+  await logHealth("info", "wa_groups discovered", { instance: canonicalInstance, remoteJid, name });
+  return { group: inserted, error: null };
+}
 
 function digits(s?: string | null): string {
   return (s ?? "").replace(/\D/g, "");
@@ -59,6 +148,7 @@ async function resolveLeadId(phone: string | null): Promise<string | null> {
 }
 
 async function handleMessage(instance: string, raw: any) {
+  const canonicalInstance = canonicalInstanceName(instance);
   const key = raw?.key ?? raw?.message?.key ?? {};
   const remoteJid: string | undefined =
     key?.remoteJid ?? raw?.remoteJid ?? raw?.chatId ?? raw?.chat ?? raw?.from;
@@ -68,18 +158,8 @@ async function handleMessage(instance: string, raw: any) {
   const fromMe: boolean = !!(key?.fromMe ?? raw?.fromMe ?? raw?.isFromMe);
   if (fromMe) return { skipped: "from_me" };
 
-  // Resolve group config / wa_groups row
-  const { data: group, error: groupErr } = await sb
-    .from("wa_groups")
-    .select("id, name")
-    .eq("instance_name", instance)
-    .eq("group_jid", remoteJid)
-    .maybeSingle();
-  if (groupErr) {
-    await logHealth("warning", "wa_groups lookup error", { instance, remoteJid, msg: groupErr.message });
-  } else if (!group) {
-    await logHealth("info", "wa_groups not found", { instance, remoteJid });
-  }
+  // Descobre/atualiza o grupo em wa_groups antes de registrar a mensagem.
+  const { group } = await ensureWaGroup(canonicalInstance, remoteJid, raw);
 
   // Check sentinela_config if group is known
   if (group?.id) {
@@ -110,8 +190,8 @@ async function handleMessage(instance: string, raw: any) {
   const leadId = await resolveLeadId(senderPhone);
 
   const row = {
-    // Persistimos sempre como nome canônico para casar com wa_groups (301 grupos).
-    instance_name: TARGET_INSTANCE,
+    // Persistimos sempre como nome canônico para casar com wa_groups/team_members/UI.
+    instance_name: canonicalInstance,
     group_id: group?.id ?? null,
     group_jid: remoteJid,
     group_name: group?.name ?? null,
@@ -179,8 +259,8 @@ Deno.serve(async (req) => {
     const results = [] as any[];
     for (const m of messages) {
       if (!m) continue;
-      // Sempre usa nome canônico para casar com wa_groups/team_members.
-      results.push(await handleMessage(TARGET_INSTANCE, m));
+      // Sempre usa nome canônico para casar com wa_groups/team_members/UI.
+      results.push(await handleMessage(canonicalInstanceName(instanceName), m));
     }
 
     const savedCount = results.filter((r) => r?.saved).length;
