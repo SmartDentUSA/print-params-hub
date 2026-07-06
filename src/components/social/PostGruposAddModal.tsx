@@ -66,7 +66,10 @@ export function PostGruposAddModal({
     }));
     const { error } = await supabase.from('post_group_targets').insert(rows);
     setSaving(false);
-    if (error) return toast.error('Falha ao adicionar grupos');
+    if (error) {
+      console.error('[post_group_targets] insert error', error);
+      return toast.error(`Falha ao adicionar grupos: ${error.message}`);
+    }
     toast.success(`${rows.length} grupo${rows.length === 1 ? '' : 's'} adicionado${rows.length === 1 ? '' : 's'}`);
     onAdded();
   }
