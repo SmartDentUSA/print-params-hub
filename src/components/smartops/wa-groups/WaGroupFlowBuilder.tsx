@@ -599,37 +599,7 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                     )}
 
                     {n.type === "wait" && (
-                      <div className="grid grid-cols-5 gap-2 items-end">
-                        <div>
-                          <Label className="text-xs">Dias</Label>
-                          <Input type="number" min={0} value={(n as WaitNode).days}
-                            onChange={(e) => updateNode(n.id, { days: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Horas</Label>
-                          <Input type="number" min={0} max={23} value={(n as WaitNode).hours ?? 0}
-                            onChange={(e) => updateNode(n.id, { hours: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Minutos</Label>
-                          <Input type="number" min={0} max={59} value={(n as WaitNode).minutes ?? 0}
-                            onChange={(e) => updateNode(n.id, { minutes: Number(e.target.value) || 0 } as Partial<WaitNode>)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Hora do dia</Label>
-                          <Input type="time" value={(n as WaitNode).time}
-                            onChange={(e) => updateNode(n.id, { time: e.target.value } as Partial<WaitNode>)}
-                            disabled={((n as WaitNode).hours ?? 0) > 0 || ((n as WaitNode).minutes ?? 0) > 0}
-                            title={(((n as WaitNode).hours ?? 0) > 0 || ((n as WaitNode).minutes ?? 0) > 0) ? "Ignorado quando há horas/minutos configurados (usa offset relativo)" : ""} />
-                        </div>
-                        <Label className="text-xs flex items-center gap-2 pb-2">
-                          <Switch
-                            checked={!!(n as WaitNode).weekdays_only}
-                            onCheckedChange={(v) => updateNode(n.id, { weekdays_only: v } as Partial<WaitNode>)}
-                          />
-                          Só dias úteis
-                        </Label>
-                      </div>
+                      <WaitNodeEditor node={n as WaitNode} onChange={(patch) => updateNode(n.id, patch)} />
                     )}
 
                     {n.type === "ai" && (
