@@ -55,7 +55,13 @@ export function SmartOpsWaGroupCampaigns() {
   const [builderCampaignId, setBuilderCampaignId] = useState<string | null>(null);
   const [multiBuilderIds, setMultiBuilderIds] = useState<string[] | null>(null);
   const [instances, setInstances] = useState<WaInstanceInfo[]>([]);
-  const [selectedInstance, setSelectedInstance] = useState<string>("");
+  // "" = todas as instâncias conectadas (régua pode misturar grupos de várias instâncias)
+  const [selectedInstance, setSelectedInstance] = useState<string>(() => {
+    try { return localStorage.getItem("smartops.wa.selectedInstance") ?? ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("smartops.wa.selectedInstance", selectedInstance); } catch { /* noop */ }
+  }, [selectedInstance]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [blastOpen, setBlastOpen] = useState(false);
@@ -114,10 +120,8 @@ export function SmartOpsWaGroupCampaigns() {
           (a.profileName ?? a.instanceName).localeCompare(b.profileName ?? b.instanceName)
         );
         setInstances(list);
-        if (list.length > 0 && !selectedInstance) {
-          const connected = list.find(i => (i as any).connectionStatus === "open");
-          setSelectedInstance((connected ?? list[0]).instanceName);
-        }
+        // Default: mantém preferência salva (inclusive "" = todas). Só sugere uma
+        // instância se não houver nada salvo E ainda não veio de localStorage.
       } catch (e: any) {
         toast.error("Falha ao listar instâncias: " + (e?.message ?? String(e)));
       }
@@ -384,11 +388,20 @@ export function SmartOpsWaGroupCampaigns() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedInstance} onValueChange={setSelectedInstance}>
+           <Select
+             value={selectedInstance === "" ? "__all__" : selectedInstance}
+             onValueChange={(v) => setSelectedInstance(v === "__all__" ? "" : v)}
+           >
             <SelectTrigger className="h-9 w-[240px] text-xs">
               <SelectValue placeholder={instances.length === 0 ? "Nenhuma instância" : "Instância"} />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">
+                <span className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Todas conectadas
+                </span>
+              </SelectItem>
               {instances.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   Nenhuma instância detectada
@@ -593,6 +606,11 @@ export function SmartOpsWaGroupCampaigns() {
                           ) : (
                             <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400 text-[10px] h-4 px-1.5">
                               <ShieldAlert className="w-3 h-3 mr-0.5" /> Não admin
+                            </Badge>
+                          )}
+                          {selectedInstance === "" && row.instance_name && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary/80">
+                              {row.instance_name}
                             </Badge>
                           )}
                         </div>
