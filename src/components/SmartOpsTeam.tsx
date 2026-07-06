@@ -515,7 +515,7 @@ export function SmartOpsTeam() {
                 <Input
                   value={form.evo_go_base_url}
                   onChange={(e) => setForm({ ...form, evo_go_base_url: e.target.value })}
-                  placeholder="https://api.evogo.tech"
+                  placeholder="http://82.25.75.61:8081"
                 />
               </div>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
