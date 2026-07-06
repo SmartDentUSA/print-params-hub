@@ -1,28 +1,24 @@
-# Post Grupos — mostrar todas as instâncias ativas
+# Post Grupos — alinhar com Campanhas WA (mesma fonte de instâncias)
 
-## Problema
-`PostGrupos.tsx` lê apenas `post_group_instance_config` (hoje só 3 linhas: `cs_principal`, `Danilo-Henrique`, `Dra. Lia`). Instâncias como `smartdent_marketing` existem em `team_members` mas nunca foram cadastradas nessa tabela, então não aparecem.
+## Diferença encontrada
+- **Campanhas WA grupos** (`SmartOpsWaGroupCampaigns.tsx`, linhas 92-133): lista instâncias de `team_members` onde `ativo=true` e `evolution_instance_name IS NOT NULL`. **Não exige `evolution_phone`.**
+- **Post Grupos** (`PostGrupos.tsx` após a última mudança): mesma consulta, porém com filtro extra `evolution_phone IS NOT NULL` — por isso `smartdent_marketing` (que está sem telefone em `team_members`) não aparece.
 
-## Solução (mesmo formato que Danilo-Henrique já tem hoje)
-Auto-provisionar linhas em `post_group_instance_config` no load da página, apenas para instâncias válidas.
-
-### Mudanças
+## Mudança
 Um único arquivo: `src/components/social/PostGrupos.tsx`.
 
-No início de `load()`, antes de buscar `post_group_instance_config`:
+No auto-provisionamento dentro de `load()`:
 
-1. `SELECT evolution_instance_name, evolution_phone FROM team_members WHERE ativo = true AND evolution_instance_name IS NOT NULL AND evolution_phone IS NOT NULL`.
-2. Deduplicar por `evolution_instance_name` (pegando o primeiro `evolution_phone` encontrado).
-3. `SELECT instance_name FROM post_group_instance_config` para descobrir o que já existe.
-4. Fazer `INSERT` das faltantes com `{ instance_name, evolution_phone, enabled: false, is_primary: false }`.
-5. Seguir com o `SELECT` existente que popula os cards.
+1. Remover o filtro `.not('evolution_phone', 'is', null)`.
+2. Passar a deduplicar apenas por `evolution_instance_name` (trim, ignora vazio).
+3. `evolution_phone` continua sendo gravado quando existir; quando não existir, insere `null`. O card do `PostGruposInstanceCard` já trata `evolution_phone: string | null`.
+4. Manter o insert só das instâncias que ainda não existem em `post_group_instance_config`, com `enabled=false`, `is_primary=false`.
 
-### Comportamento resultante
-- Cards passam a listar todas as instâncias ativas com telefone (ex.: `smartdent_marketing` aparece).
-- Instâncias sem `evolution_phone` (`p`, `t`, `smartdent_marketing` sem telefone) são ignoradas — atendendo ao filtro que você aprovou.
-- Novas linhas nascem `enabled=false` para você habilitar manualmente (mesmo padrão da UI atual, sem forçar disparo).
-- Linhas já existentes (Danilo/Lia/cs_principal) permanecem intactas — não sobrescreve `enabled`/`is_primary`.
+## Resultado
+- `smartdent_marketing` aparece no Post Grupos com os mesmos 3 grupos ativos que já estão em `wa_groups` (`v_post_group_targets_detail` já filtra por `instance_name`).
+- Qualquer outra instância presente nas campanhas WA passa a aparecer também.
+- Linhas existentes (Danilo/Lia/cs_principal) permanecem intactas.
 
 ## Fora de escopo
-- Não altera schema, edge functions, nem lógica de disparo.
-- Não mexe em `wa_groups`/campanhas.
+- Não altera schema, RLS, edge functions.
+- Não força `enabled=true`; você habilita cada instância manualmente no card.
