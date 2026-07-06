@@ -1,45 +1,38 @@
-## Seletor absoluto de data/hora nos nós de Wait (WA Campaigns)
+## Formulários em lista (em vez de cards)
 
-Hoje cada nó "Aguardar" só aceita offset relativo (dias + horas + minutos + hora do dia). Vou adicionar um **modo alternativo por nó**: "Data e hora exatos", com um DatePicker + input de hora, sem remover nada do que já existe.
+Trocar o grid de `FormMetricsCard` no `SmartOpsFormBuilder` por uma **tabela/lista compacta** por grupo de finalidade, preservando toda a informação atual + linhas dos links curtos.
 
-### 1. Modelo do nó
+### Estrutura da linha
 
-`src/components/smartops/wa-groups/types.ts` — `WaitNode` ganha campos opcionais:
-```ts
-mode?: "relative" | "absolute";   // default "relative" (retrocompatível)
-absolute_at?: string;             // ISO, quando mode === "absolute"
-```
-Nenhum wait existente é migrado; se `mode` ausente, comporta-se como hoje.
+Uma linha por form, com colunas:
 
-### 2. UI no `WaGroupFlowBuilder.tsx`
+| Col | Conteúdo |
+|-----|----------|
+| Ativo | Switch (toggleActive) |
+| Nome | `form.name` + badge de finalidade + `/f/{slug}` em muted; abaixo, chips `s.smartdent.com.br/{code}` (Form e LP quando existir) com contador de cliques e botão copiar |
+| Visitantes | `visitors` + `unique_visitors` únicos + sparkline mini |
+| Leads | `leads` + `% preench.` |
+| Conversão | `%` + `deals_won` ganhas |
+| Curto | botão "Gerar link curto" (form) e, se `hasLandingPage`, botão da LP — quando já existe, mostra o code + ícone copiar + cliques |
+| Ações | ícones: Config, Landing page, Campos, Duplicar, Copiar link, Copiar embed, Excluir (mesmos handlers atuais) |
 
-Dentro do bloco `n.type === "wait"`:
-- Toggle segmentado no topo: **"Relativo"** | **"Data/hora exatos"**.
-- Modo Relativo: mostra os 4 inputs atuais (dias, horas, minutos, hora, "só dias úteis") — inalterado.
-- Modo Absoluto: mostra um `Popover + Calendar` (shadcn, com `pointer-events-auto`) + input `type="time"`. Um único `absolute_at` é gravado, formatado como "seg, 15/07 às 09:00" no visualizador.
-- Validação: se modo absoluto e `absolute_at` vazio/passado → erro no `errors[]` do mesmo pipeline de validação já existente (linhas ~229).
+Colunas responsivas: em telas pequenas, colapsa Visitantes/Leads/Conversão em uma linha secundária abaixo do nome (padrão de "sub-row").
 
-### 3. Backend — `supabase/functions/wa-campaign-builder/index.ts`
+### Implementação
 
-Onde hoje calcula `accMs` a partir de days/hours/minutes (linhas 95–124):
-- Se `node.mode === "absolute"` e `node.absolute_at` válido:
-  - `targetTs = new Date(node.absolute_at).getTime()`
-  - `accMs = targetTs - campaignStartTs` (substitui o acúmulo até ali, não soma).
-  - Ignora `weekdays_only` e ajustes de hora do dia (o usuário já escolheu o instante exato).
-- O bloco de "sub-messages" (envios subsequentes do mesmo nó msg) segue usando o último wait como referência — se o último wait for absolute, herdamos hh:mm dele para o cálculo diário.
-- Backward compatível: waits antigos sem `mode` continuam no caminho relative.
+Novo componente `src/components/smartops/FormMetricsRow.tsx` que recebe **os mesmos props** do `FormMetricsCard` atual (mais nenhum), e renderiza uma linha `<tr>` ou `<div>` com grid CSS.
 
-### 4. Visualizador
-
-`WaGroupFlowVisualizer.tsx` (se renderizar wait) mostra "⏰ 15/07/2026 09:00" quando absolute, senão o texto atual "em Xd Yh Zm".
-
-### Arquivos afetados
-- `src/components/smartops/wa-groups/types.ts` (+2 campos opcionais)
-- `src/components/smartops/wa-groups/WaGroupFlowBuilder.tsx` (UI toggle + picker + validação)
-- `src/components/smartops/wa-groups/WaGroupFlowVisualizer.tsx` (label absolute)
-- `supabase/functions/wa-campaign-builder/index.ts` (ramo absolute no cálculo de `accMs`)
+No `SmartOpsFormBuilder.tsx`:
+- Substitui `<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">…FormMetricsCard…` por uma tabela por grupo:
+  - Header sticky com os títulos das colunas.
+  - Uma `FormMetricsRow` por form.
+- Mantém tudo mais (filtros de período, botão criar, edição, LP modal) intacto.
 
 ### O que NÃO muda
-- Nós `msg`, `ai`, `media`, `link` — intocados.
-- Fluxos e campanhas já salvas — continuam funcionando (sem `mode` = comportamento antigo).
-- Agendamento global da campanha (`scheduleEnabled/scheduleDate/scheduleTime`) — intocado.
+- `FormMetricsCard.tsx` fica no repo (não deleta) — pode ser reutilizado depois; simplesmente deixa de ser importado.
+- Nenhuma lógica de dados, RPC, short links, métricas ou permissões.
+- Handlers (`toggleActive`, `openEditMeta`, `handleGenerateShortLink`, etc.) reaproveitados.
+
+### Arquivos afetados
+- Novo: `src/components/smartops/FormMetricsRow.tsx`
+- Editado: `src/components/SmartOpsFormBuilder.tsx` — swap do grid por tabela + import da row.
