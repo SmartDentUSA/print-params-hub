@@ -137,7 +137,7 @@ export function SmartOpsWorkflowMapper() {
     const [mappingsRes, rulesRes, productsRes, formFieldsRes] = await Promise.all([
       supabase.from("workflow_cell_mappings").select("*").order("created_at"),
       supabase.from("opportunity_rules").select("*").order("created_at"),
-      supabase.from("system_a_catalog").select("id, name").eq("active", true).order("name"),
+      supabase.from("system_a_catalog").select("id, name").eq("active", true).not("category", "in", "(video_testimonial,category_config,company_info)").order("name"),
       supabase.from("smartops_form_fields" as any).select("id, label, db_column, custom_field_name, workflow_cell_target, form_id, field_type, options").order("order_index"),
     ]);
     setMappings((mappingsRes.data as CellMapping[]) || []);
