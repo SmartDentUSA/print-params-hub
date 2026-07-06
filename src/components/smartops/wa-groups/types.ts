@@ -24,6 +24,10 @@ export interface WaitNode extends FlowNodeBase {
   minutes?: number;
   time: string; // "HH:MM"
   weekdays_only?: boolean;
+  /** "relative" (default, offset em dias/horas/minutos) ou "absolute" (data+hora exatos) */
+  mode?: "relative" | "absolute";
+  /** ISO datetime quando mode === "absolute" */
+  absolute_at?: string;
 }
 
 export interface AiNode extends FlowNodeBase {
