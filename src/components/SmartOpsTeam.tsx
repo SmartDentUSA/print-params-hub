@@ -598,6 +598,18 @@ export function SmartOpsTeam() {
                 />
               </div>
               <WebhookInfoBlock info={evoGoWebhook} onCopy={copyToClipboard} />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const base = (form.evo_go_base_url?.trim() || "http://82.25.75.61:8081").replace(/\/$/, "");
+                  const id = form.evo_go_instance_id?.trim();
+                  const url = id ? `${base}/manager/instances/${id}/settings` : `${base}/manager`;
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }}
+                className="w-full"
+              >
+                📱 Conectar WhatsApp (EvoGo)
+              </Button>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
