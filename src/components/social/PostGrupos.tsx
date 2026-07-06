@@ -21,6 +21,42 @@ export function PostGrupos() {
   const [totalMembers, setTotalMembers] = useState(0);
 
   const load = useCallback(async () => {
+    // Auto-provision: garante uma linha em post_group_instance_config para
+    // toda instância ativa em team_members com evolution_phone preenchido.
+    const { data: tmRows } = await supabase
+      .from('team_members')
+      .select('evolution_instance_name, evolution_phone')
+      .eq('ativo', true)
+      .not('evolution_instance_name', 'is', null)
+      .not('evolution_phone', 'is', null);
+
+    const uniq = new Map<string, string>();
+    for (const r of (tmRows as { evolution_instance_name: string; evolution_phone: string }[]) ?? []) {
+      const name = (r.evolution_instance_name ?? '').trim();
+      const phone = (r.evolution_phone ?? '').trim();
+      if (name && phone && !uniq.has(name)) uniq.set(name, phone);
+    }
+
+    if (uniq.size > 0) {
+      const { data: existing } = await supabase
+        .from('post_group_instance_config')
+        .select('instance_name');
+      const known = new Set(
+        ((existing as { instance_name: string }[]) ?? []).map((r) => r.instance_name),
+      );
+      const toInsert = Array.from(uniq.entries())
+        .filter(([name]) => !known.has(name))
+        .map(([instance_name, evolution_phone]) => ({
+          instance_name,
+          evolution_phone,
+          enabled: false,
+          is_primary: false,
+        }));
+      if (toInsert.length > 0) {
+        await supabase.from('post_group_instance_config').insert(toInsert);
+      }
+    }
+
     const [{ data }, { data: targets }] = await Promise.all([
       supabase
         .from('post_group_instance_config')
