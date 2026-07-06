@@ -1,0 +1,2 @@
+ALTER TABLE public.team_members DROP CONSTRAINT IF EXISTS team_members_messaging_provider_check;
+ALTER TABLE public.team_members ADD CONSTRAINT team_members_messaging_provider_check CHECK (messaging_provider = ANY (ARRAY['waleads'::text, 'evolution'::text, 'evolution_go'::text, 'manychat'::text, 'none'::text]));
