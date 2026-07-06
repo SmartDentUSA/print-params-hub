@@ -149,18 +149,29 @@ serve(async (req) => {
       if (lid && !tmLids.has(name)) tmLids.set(name, lid)
       if (apikey && !apikeyByInstance.has(name)) apikeyByInstance.set(name, apikey)
 
-      // Decide o target: EvoGo se o membro está roteando por lá E tem creds próprias
+      // Decide o target por linha. Regra de prioridade quando várias linhas
+      // compartilham o mesmo evolution_instance_name (caso Danilo-Henrique):
+      //   1) linha com messaging_provider='evolution_go' + creds EvoGo → SEMPRE vence
+      //   2) linhas 'evolution' só ganham se ainda não houver target
       const provider = String(r.messaging_provider ?? '').trim()
       const evoGoInstance = String(r.evo_go_instance_id ?? '').trim()
       const evoGoToken = String(r.evo_go_instance_token ?? '').trim()
       const evoGoBase = String(r.evo_go_base_url ?? '').trim() || EVOGO_DEFAULT_BASE
+      const isEvoGoRow = provider === 'evolution_go' && !!evoGoInstance && !!evoGoToken
+      const currentProvider = providerByInstance.get(name)
       if (provider === 'evolution_go' && evoGoInstance && evoGoToken) {
+        // EvoGo sobrescreve qualquer target Evolution registrado antes
         targetByInstance.set(name, { baseUrl: evoGoBase, instance: evoGoInstance, apikey: evoGoToken })
         providerByInstance.set(name, 'evolution_go')
-      } else {
+        if (apikey) apikeyByInstance.set(name, evoGoToken)
+        else apikeyByInstance.set(name, evoGoToken)
+        console.log(`[wa-sync-groups] target ${name}: EvoGo winner (row=${r.nome_completo ?? '-'})`)
+      } else if (currentProvider !== 'evolution_go') {
+        // Só grava Evolution se nenhuma linha EvoGo tiver vencido antes
         targetByInstance.set(name, { baseUrl: EVO_BASE, instance: name, apikey: apikey || EVO_KEY })
         providerByInstance.set(name, 'evolution')
       }
+      void isEvoGoRow
 
       if (!instances.some(i => i.instanceName === name)) {
         tmInstances.push({
