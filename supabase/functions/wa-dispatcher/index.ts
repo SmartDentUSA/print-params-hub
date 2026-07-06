@@ -194,19 +194,19 @@ serve(async (req) => {
           case 'msg': {
             const txt = (c.text ?? '') as string
             if (!txt) throw new Error('Texto vazio')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), txt)
             break
           }
           case 'image': case 'video': case 'audio': case 'document': {
             const mtype = item.node_type as 'image'|'video'|'audio'|'document'
             const mediaUrl = (c.media_url ?? '') as string; const caption = (c.caption ?? '') as string; const fileName = (c.file_name ?? null) as string|null
             if (!mediaUrl) throw new Error('media_url vazio')
-            evoId = await send(useEvoGo ? () => sendMediaEvoGo(item.group_jid, mtype, mediaUrl, caption, fileName, evoGoBase, evoGoToken!) : null, (k) => sendMedia(item.group_jid, mtype, mediaUrl, caption, instance, k))
+            evoId = await send(useEvoGo ? () => sendMediaEvoGo(item.group_jid, mtype, mediaUrl, caption, fileName, evoGoBase, evoGoToken!) : null, (k) => sendMedia(item.group_jid, mtype, mediaUrl, caption, instance, k), caption)
             break
           }
           case 'link': {
             const txt = [c.title ? `*${c.title}*` : '', c.description ? String(c.description) : '', c.url ? String(c.url) : ''].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), (c.url as string) ?? txt)
             break
           }
           case 'post_ig': case 'post_yt': {
@@ -214,7 +214,7 @@ serve(async (req) => {
             const url = (c.post_url ?? '') as string
             if (!url) throw new Error('post_url vazio')
             const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
             break
           }
           case 'link_ig': case 'link_yt': {
@@ -222,12 +222,12 @@ serve(async (req) => {
             const url = (c.url ?? '') as string
             if (!url) throw new Error('url vazio')
             const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
             break
           }
           case 'ai': {
             const { text: txt } = await resolveAiContent(supabase, c as any)
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k))
+            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), txt)
             await supabase.from('wa_message_queue').update({ content_json: { ...c, _resolved_text: txt } }).eq('id', item.id)
             break
           }
