@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
 
