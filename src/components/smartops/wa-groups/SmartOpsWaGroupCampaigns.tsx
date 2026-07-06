@@ -76,6 +76,17 @@ export function SmartOpsWaGroupCampaigns() {
   const [renameFor, setRenameFor] = useState<{ id: string; name: string } | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{
+    instance: string;
+    mode?: string;
+    observed?: number;
+    created?: number;
+    updated?: number;
+    totalGroups?: number;
+    lastSyncedAt?: string | null;
+    lastObservedAt?: string | null;
+    warning?: string;
+  } | null>(null);
 
   // Load available instances on mount (sem sync — só lê do retorno)
   useEffect(() => {
@@ -217,9 +228,30 @@ export function SmartOpsWaGroupCampaigns() {
       const body = selectedInstance ? { instance_name: selectedInstance } : {};
       const { data, error } = await supabase.functions.invoke("wa-sync-groups", { body });
       if (error) throw error;
-      if (data?.started) {
+      const currentInstanceInfo = selectedInstance ? data?.per_instance?.[selectedInstance] : null;
+      if (currentInstanceInfo?.discovery_mode === "webhook_observed_groups") {
+        setSyncStatus({
+          instance: selectedInstance,
+          mode: currentInstanceInfo.discovery_mode,
+          observed: currentInstanceInfo.observed ?? currentInstanceInfo.raw ?? 0,
+          created: currentInstanceInfo.created ?? 0,
+          updated: currentInstanceInfo.updated ?? 0,
+          totalGroups: currentInstanceInfo.total_groups,
+          lastSyncedAt: currentInstanceInfo.last_synced_at ?? null,
+          lastObservedAt: currentInstanceInfo.last_observed_at ?? null,
+          warning: currentInstanceInfo.warning,
+        });
+        const observed = currentInstanceInfo.observed ?? currentInstanceInfo.raw ?? 0;
+        if (observed > 0) {
+          toast.success(`Danilo atualizado por eventos EvoGo: ${observed} grupos observados.`);
+        } else {
+          toast.warning("Nenhum evento novo do EvoGo recebido ainda.");
+        }
+      } else if (data?.started) {
+        setSyncStatus(null);
         toast.success("Sincronização iniciada — a lista atualiza automaticamente em instantes.");
       } else {
+        setSyncStatus(null);
         toast.success(`Sincronizados ${data?.synced ?? 0} grupos`);
       }
       if (Array.isArray(data?.instances)) setInstances(data.instances);
@@ -341,6 +373,13 @@ export function SmartOpsWaGroupCampaigns() {
 
   const adminCount = rows.filter(r => r.is_admin).length;
   const activeCount = rows.filter(r => r.campaign_status === "active").length;
+  const maxSyncedAt = useMemo(() => {
+    return rows.reduce<string | null>((latest, row) => {
+      if (!row.synced_at) return latest;
+      return !latest || row.synced_at > latest ? row.synced_at : latest;
+    }, null);
+  }, [rows]);
+  const showEvoGoStatus = selectedInstance === "Danilo-Henrique";
   const selectedRows = rows.filter(r => selectedIds.includes(r.group_id));
   const selectedMembers = selectedRows.reduce((s, r) => s + (r.member_count ?? 0), 0);
 
@@ -470,6 +509,20 @@ export function SmartOpsWaGroupCampaigns() {
           </button>
         </div>
       </div>
+
+      {showEvoGoStatus && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/20 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <Activity className="h-3.5 w-3.5 text-primary" />
+          <span>Danilo-Henrique via EvoGo</span>
+          <Badge variant="outline" className="text-[10px]">{rows.length} grupos na central</Badge>
+          <span>Último sync: {formatDateTime(syncStatus?.lastSyncedAt ?? maxSyncedAt)}</span>
+          {syncStatus?.lastObservedAt && <span>Último evento: {formatDateTime(syncStatus.lastObservedAt)}</span>}
+          {typeof syncStatus?.observed === "number" && (
+            <span>Observados: {syncStatus.observed} · criados: {syncStatus.created ?? 0} · atualizados: {syncStatus.updated ?? 0}</span>
+          )}
+          {syncStatus?.warning && <span className="text-amber-700 dark:text-amber-400">{syncStatus.warning}</span>}
+        </div>
+      )}
 
       {/* Card: enviar publicação histórica das contas sociais */}
       <HistoricalPostBroadcast instanceFilter={selectedInstance || undefined} />
