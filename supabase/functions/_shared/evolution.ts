@@ -66,6 +66,46 @@ function hWith(apikey?: string) {
   return { 'Content-Type': 'application/json', 'apikey': apikey || EVO_KEY }
 }
 
+// -----------------------------------------------------------------------------
+// EvoTarget: descreve QUAL servidor/instância/token usar numa chamada.
+// Permite rotear per-membro entre Evolution (:8080) e Evolution GO (:8081)
+// sem duplicar toda a lógica de grupos. As funções antigas continuam apontando
+// para EVO_BASE + EVO_KEY como default (retrocompat total).
+// -----------------------------------------------------------------------------
+export type EvoTarget = {
+  baseUrl: string
+  instance: string
+  apikey: string
+}
+
+function targetHeaders(t: EvoTarget) {
+  return { 'Content-Type': 'application/json', 'apikey': t.apikey || EVO_KEY }
+}
+
+function stripSlash(u: string) {
+  return (u || '').replace(/\/+$/, '')
+}
+
+export async function fetchInstancesFor(t: EvoTarget): Promise<WaInstanceInfo[]> {
+  const res = await fetch(`${stripSlash(t.baseUrl)}/instance/fetchInstances`, {
+    headers: targetHeaders(t),
+  })
+  if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
+  const raw = await res.json()
+  const list = Array.isArray(raw) ? raw : []
+  return list
+    .map((it: any): WaInstanceInfo => {
+      const inst = it.instance ?? it
+      return {
+        instanceName:     inst.instanceName ?? inst.name ?? '',
+        connectionStatus: inst.connectionStatus ?? inst.status ?? 'close',
+        owner:            inst.owner ?? inst.ownerJid ?? undefined,
+        profileName:      inst.profileName ?? inst.profile_name ?? undefined,
+      }
+    })
+    .filter(i => i.instanceName)
+}
+
 export async function fetchInstances(apikey?: string): Promise<WaInstanceInfo[]> {
   const res = await fetch(`${EVO_BASE}/instance/fetchInstances`, { headers: hWith(apikey) })
   if (!res.ok) throw new Error(`fetchInstances ${res.status}: ${await res.text()}`)
