@@ -72,6 +72,45 @@ function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   return <Badge className="bg-red-600 text-white text-[10px]">🔴 Desconectado</Badge>;
 }
 
+function WebhookInfoBlock({
+  info,
+  onCopy,
+}: {
+  info: { url: string | null; events?: string[] | null; enabled?: boolean | null } | null;
+  onCopy: (t: string) => void;
+}) {
+  if (!info || !info.url) {
+    return (
+      <div className="rounded-md border border-dashed border-muted-foreground/30 p-2 text-[11px] text-muted-foreground">
+        — Nenhum webhook configurado —
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border bg-muted/40 p-2 space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Webhook configurado</p>
+        {info.enabled === false ? (
+          <Badge className="bg-red-600 text-white text-[10px]">🔴 desativado</Badge>
+        ) : (
+          <Badge className="bg-green-600 text-white text-[10px]">🟢 ativo</Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 truncate text-[11px] font-mono">{info.url}</code>
+        <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => onCopy(info.url!)}>
+          Copiar
+        </Button>
+      </div>
+      {info.events && info.events.length > 0 && (
+        <p className="text-[10px] text-muted-foreground truncate">
+          <span className="font-semibold">Eventos:</span> {info.events.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SmartOpsTeam() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +122,9 @@ export function SmartOpsTeam() {
   // Evolution state
   const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
   const [evoGoStatus, setEvoGoStatus] = useState<EvolutionStatus>("unknown");
+  type WebhookInfo = { url: string | null; events?: string[] | null; enabled?: boolean | null };
+  const [evolutionWebhook, setEvolutionWebhook] = useState<WebhookInfo | null>(null);
+  const [evoGoWebhook, setEvoGoWebhook] = useState<WebhookInfo | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
@@ -118,6 +160,8 @@ export function SmartOpsTeam() {
     setForm({ ...EMPTY_FORM });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
+    setEvolutionWebhook(null);
+    setEvoGoWebhook(null);
     setDialogOpen(true);
   };
   const openEdit = (m: TeamMember) => {
@@ -142,10 +186,13 @@ export function SmartOpsTeam() {
     });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
+    setEvolutionWebhook(null);
+    setEvoGoWebhook(null);
     setDialogOpen(true);
     // Fetch Evolution status
     if (m.evolution_instance_name) {
       fetchEvolutionStatus(m.id, m.evolution_instance_name);
+      fetchEvolutionWebhook(m.id);
     }
     if (m.evo_go_instance_token || m.evo_go_instance_id) {
       fetchEvoGoStatus(m.id);
@@ -181,8 +228,39 @@ export function SmartOpsTeam() {
       } else {
         setEvoGoStatus("unknown");
       }
+      setEvoGoWebhook({
+        url: data?.webhook_url ?? null,
+        events: data?.webhook_events ?? null,
+        enabled: data?.webhook_enabled ?? null,
+      });
     } catch {
       setEvoGoStatus("close");
+      setEvoGoWebhook(null);
+    }
+  };
+
+  const fetchEvolutionWebhook = async (memberId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-webhook-info", {
+        body: { member_id: memberId },
+      });
+      if (error) throw error;
+      setEvolutionWebhook({
+        url: data?.webhook_url ?? null,
+        events: data?.webhook_events ?? null,
+        enabled: data?.webhook_enabled ?? null,
+      });
+    } catch {
+      setEvolutionWebhook(null);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "URL copiada" });
+    } catch {
+      toast({ title: "Falha ao copiar", variant: "destructive" });
     }
   };
 
@@ -465,6 +543,7 @@ export function SmartOpsTeam() {
               <p className="text-[11px] text-muted-foreground -mt-2">
                 Sem esses campos preenchidos, o disparo cai na apikey global e a Evolution rejeita com HTTP 400 "Timed Out".
               </p>
+              <WebhookInfoBlock info={evolutionWebhook} onCopy={copyToClipboard} />
               <div>
                 <Label>Provedor de mensagens</Label>
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
@@ -518,6 +597,7 @@ export function SmartOpsTeam() {
                   placeholder="http://82.25.75.61:8081"
                 />
               </div>
+              <WebhookInfoBlock info={evoGoWebhook} onCopy={copyToClipboard} />
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>

@@ -1,41 +1,43 @@
-## Diagnóstico
-No banco, o Danilo Henrique **tem** `evo_go_instance_id`, `evo_go_instance_token` e `evo_go_base_url` preenchidos, mas o badge mostra **Desconectado** porque:
-
-1. A função `smart-ops-evogo-status` que criei consulta `GET ${base}/instance/fetchInstances` — esse é endpoint do Evolution API clássico, **não do EvoGo**. Vale para :8080 (Evolution API), mas :8081 (EvoGo) responde 404 → `state=close`.
-2. Além disso, o `evolution_base_url` dele está incorretamente cadastrado como `:8081` (deveria ser `:8080`), então o badge do Evolution também fica errado.
-
-Você confirmou a regra: **Evolution = `http://82.25.75.61:8080`**, **EvoGo = `http://82.25.75.61:8081`**.
+## Objetivo
+Mostrar no modal do Team Member a **URL do webhook** que cada instância tem configurada — buscada ao vivo da Evolution API (:8080) e do Evolution GO (:8081) — em ambas as seções (Evolution e Evolution GO). Somente leitura. Também atualizar o token EvoGo do Danilo Henrique.
 
 ## Alterações
 
-### 1. `supabase/functions/smart-ops-evogo-status/index.ts`
-Trocar o endpoint checado por um que o EvoGo suporta de verdade:
-- Usar `GET ${base}/instance/connectionState/${instance_id}` com header `apikey: evo_go_instance_token` (padrão Evolution que o EvoGo espelha).
-- Fallback: se 404, tentar `GET ${base}/instance/status` e depois `GET ${base}/` para pelo menos detectar se o servidor está de pé.
-- Parse: considera `open` quando o corpo trouxer `state === "open"` ou HTTP 200 no `connectionState`; senão `close`.
-- Default do `base`: `http://82.25.75.61:8081` quando a coluna estiver vazia.
-- Identificador da instância: usa `evo_go_instance_id` se presente, senão `evolution_instance_name`.
+### 1. Edge function `smart-ops-evogo-status` — estender para retornar webhook
+- Além de `state`, incluir `webhook_url` e `webhook_events` no JSON de retorno.
+- Faz `GET ${base}/webhook/find/${instance}` com header `apikey: evo_go_instance_token` (padrão que Evolution API e EvoGo compartilham).
+- Se 404/erro → `webhook_url: null`.
+- Não altera contrato existente; frontend só passa a ler os campos novos.
 
-### 2. `src/components/SmartOpsTeam.tsx` — Defaults e placeholders
-- Placeholder do campo "Base URL" na seção **Evolution**: `http://82.25.75.61:8080`.
-- Placeholder do campo "Base URL" na seção **Evolution GO**: `http://82.25.75.61:8081`.
-- No `handleSubmit`, se o usuário deixar em branco, preencher automaticamente:
-  - `evolution_base_url` → `http://82.25.75.61:8080`
-  - `evo_go_base_url` → `http://82.25.75.61:8081`
+### 2. Nova edge function `smart-ops-evolution-webhook-info`
+- Para o **Evolution API clássico** (:8080). Recebe `{ member_id }`.
+- Lê `evolution_base_url` + `evolution_api_key` + `evolution_instance_name` de `team_members`.
+- Faz `GET ${base}/webhook/find/${instance_name}` com header `apikey`.
+- Retorna `{ webhook_url, webhook_events, enabled }` ou `null` se não configurado.
+- Motivo de ser função separada: usa credenciais diferentes das do EvoGo; mantém single-responsibility.
 
-### 3. Correção pontual do registro do Danilo (SQL)
-Migration one-shot para consertar apenas esse membro:
+### 3. Frontend `src/components/SmartOpsTeam.tsx`
+- Novos estados: `evolutionWebhook` e `evoGoWebhook` (`{ url: string|null, events?: string[] }`).
+- Ao abrir o modal em `openEdit`:
+  - Se tem credencial Evolution → chama `smart-ops-evolution-webhook-info` e popula `evolutionWebhook`.
+  - Se tem credencial EvoGo → o próprio `smart-ops-evogo-status` já traz o webhook; popular `evoGoWebhook`.
+- Renderizar em cada seção, logo abaixo do último campo (Base URL), um bloco read-only:
+  ```
+  Webhook configurado
+  https://... (copiar ao clicar)  [🟢 ativo | 🔴 desativado]
+  Eventos: MESSAGES_UPSERT, CONNECTION_UPDATE, ...
+  ```
+  Quando não houver webhook: `— Nenhum webhook configurado —` em texto muted.
+- Botão "Copiar" ao lado da URL (usa `navigator.clipboard`).
+
+### 4. UPDATE do token do Danilo (via insert tool, é operação de dados)
 ```sql
 UPDATE public.team_members
-SET evolution_base_url = 'http://82.25.75.61:8080'
-WHERE id = '39657ed1-3151-4f45-b8a2-ca4b9eb6e932'
-  AND evolution_base_url = 'http://82.25.75.61:8081';
+SET evo_go_instance_token = '31a54fac-92f6-4c36-a4c4-3dcd8b5f9293'
+WHERE id = '39657ed1-3151-4f45-b8a2-ca4b9eb6e932';
 ```
-Não toca nas credenciais nem no `evo_go_base_url` (que já está correto).
 
 ## O que NÃO muda
-- Nada em `wa-dispatcher`, `smart-ops-integration-check`, RLS, outras colunas ou lógica de envio.
-- Nenhum outro membro é alterado no update.
-
-## Pergunta rápida
-Se você souber o endpoint oficial de status do EvoGo (ex.: `/instance/connectionState/{id}` ou outro), me confirma que eu uso direto sem fallbacks. Caso contrário sigo com a cascata acima.
+- Nenhum campo novo em `team_members` (webhooks são só leitura, não persistem).
+- Nada em `wa-dispatcher`, envio de mensagens ou lógica de negócio.
+- Nenhuma outra seção do modal.

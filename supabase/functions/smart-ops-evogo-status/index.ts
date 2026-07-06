@@ -53,6 +53,29 @@ Deno.serve(async (req) => {
     attempts.push("/instance/fetchInstances");
     attempts.push("/");
 
+    // Fetch webhook info in parallel (best-effort, non-blocking)
+    let webhook_url: string | null = null;
+    let webhook_events: string[] | null = null;
+    let webhook_enabled: boolean | null = null;
+    if (instance) {
+      try {
+        const wr = await fetch(`${base}/webhook/find/${encodeURIComponent(instance)}`, {
+          method: "GET",
+          headers: { apikey },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (wr.ok) {
+          const wtxt = await wr.text();
+          try {
+            const wj = JSON.parse(wtxt);
+            webhook_url = wj?.url || wj?.webhook?.url || wj?.webhookUrl || null;
+            webhook_events = wj?.events || wj?.webhook?.events || null;
+            webhook_enabled = typeof wj?.enabled === "boolean" ? wj.enabled : (typeof wj?.webhook?.enabled === "boolean" ? wj.webhook.enabled : null);
+          } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+    }
+
     let lastStatus = 0;
     let lastBody = "";
     for (const path of attempts) {
@@ -77,7 +100,7 @@ Deno.serve(async (req) => {
           if (r.ok) state = "open";
         }
         return new Response(
-          JSON.stringify({ state, http: r.status, latency_ms: Date.now() - started, path }),
+          JSON.stringify({ state, http: r.status, latency_ms: Date.now() - started, path, webhook_url, webhook_events, webhook_enabled }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       } catch (_e) {
@@ -85,7 +108,7 @@ Deno.serve(async (req) => {
       }
     }
     return new Response(
-      JSON.stringify({ state: "close", http: lastStatus, latency_ms: Date.now() - started, body: lastBody.slice(0, 200) }),
+      JSON.stringify({ state: "close", http: lastStatus, latency_ms: Date.now() - started, body: lastBody.slice(0, 200), webhook_url, webhook_events, webhook_enabled }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
