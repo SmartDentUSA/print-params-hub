@@ -6,7 +6,21 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fetchGroupsWithAdminFlag, fetchInstances, EVO_INST, corsHeaders, WaInstanceInfo, OwnerHints } from '../_shared/evolution.ts'
+import {
+  fetchGroupsWithAdminFlag,
+  fetchGroupsWithAdminFlagFor,
+  fetchInstances,
+  fetchInstancesFor,
+  EVO_BASE,
+  EVO_KEY,
+  EVO_INST,
+  corsHeaders,
+  WaInstanceInfo,
+  OwnerHints,
+  EvoTarget,
+} from '../_shared/evolution.ts'
+
+const EVOGO_DEFAULT_BASE = 'http://82.25.75.61:8081'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -115,13 +129,16 @@ serve(async (req) => {
     // não usa uma única "global key": cada instância tem token próprio.
     const { data: tmAll } = await supabase
       .from('team_members')
-      .select('evolution_instance_name, evolution_phone, evolution_api_key, evolution_lid, nome_completo, ativo')
+      .select('evolution_instance_name, evolution_phone, evolution_api_key, evolution_lid, nome_completo, ativo, messaging_provider, evo_go_base_url, evo_go_instance_id, evo_go_instance_token')
       .eq('ativo', true)
       .not('evolution_instance_name', 'is', null)
     const tmInstances: WaInstanceInfo[] = []
     const tmPhones = new Map<string, string>()
     const tmLids = new Map<string, string>()
     const apikeyByInstance = new Map<string, string>()
+    // Roteamento per-membro: cada instância aponta pro servidor certo (Evolution ou EvoGo)
+    const targetByInstance = new Map<string, EvoTarget>()
+    const providerByInstance = new Map<string, string>()
     for (const r of (tmAll ?? []) as any[]) {
       const name = String(r.evolution_instance_name ?? '').trim()
       const phone = String(r.evolution_phone ?? '').replace(/\D/g, '')
@@ -131,6 +148,20 @@ serve(async (req) => {
       if (phone && !tmPhones.has(name)) tmPhones.set(name, phone)
       if (lid && !tmLids.has(name)) tmLids.set(name, lid)
       if (apikey && !apikeyByInstance.has(name)) apikeyByInstance.set(name, apikey)
+
+      // Decide o target: EvoGo se o membro está roteando por lá E tem creds próprias
+      const provider = String(r.messaging_provider ?? '').trim()
+      const evoGoInstance = String(r.evo_go_instance_id ?? '').trim()
+      const evoGoToken = String(r.evo_go_instance_token ?? '').trim()
+      const evoGoBase = String(r.evo_go_base_url ?? '').trim() || EVOGO_DEFAULT_BASE
+      if (provider === 'evolution_go' && evoGoInstance && evoGoToken) {
+        targetByInstance.set(name, { baseUrl: evoGoBase, instance: evoGoInstance, apikey: evoGoToken })
+        providerByInstance.set(name, 'evolution_go')
+      } else {
+        targetByInstance.set(name, { baseUrl: EVO_BASE, instance: name, apikey: apikey || EVO_KEY })
+        providerByInstance.set(name, 'evolution')
+      }
+
       if (!instances.some(i => i.instanceName === name)) {
         tmInstances.push({
           instanceName: name,
@@ -143,22 +174,25 @@ serve(async (req) => {
 
     // Descobre status real de cada instância usando o apikey próprio dela
     // (apenas Dra. Lia aparece em fetchInstances com a key global).
-    for (const [name, apikey] of apikeyByInstance) {
+    for (const [name, target] of targetByInstance) {
       if (instances.some(i => i.instanceName === name && i.connectionStatus === 'open')) continue
       try {
-        const live = await fetchInstances(apikey)
-        const found = live.find(i => i.instanceName === name)
+        const live = await fetchInstancesFor(target)
+        // No EvoGo o "instanceName" retornado pode ser o UUID (target.instance); casamos por qualquer um.
+        const found = live.find(i => i.instanceName === name || i.instanceName === target.instance)
         if (!found) continue
+        // Preserva o nome canônico (evolution_instance_name) para a UI/DB
+        const normalized: WaInstanceInfo = { ...found, instanceName: name }
         const idx = tmInstances.findIndex(i => i.instanceName === name)
         if (idx >= 0) {
-          tmInstances[idx] = { ...tmInstances[idx], ...found }
+          tmInstances[idx] = { ...tmInstances[idx], ...normalized }
         } else {
           const evoIdx = instances.findIndex(i => i.instanceName === name)
-          if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...found }
-          else instances.push(found)
+          if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...normalized }
+          else instances.push(normalized)
         }
       } catch (e) {
-        console.warn(`[wa-sync-groups] fetchInstances(${name}) com apikey própria falhou:`, e instanceof Error ? e.message : String(e))
+        console.warn(`[wa-sync-groups] fetchInstancesFor(${name}) provider=${providerByInstance.get(name)} base=${target.baseUrl} falhou:`, e instanceof Error ? e.message : String(e))
       }
     }
 
@@ -208,9 +242,14 @@ serve(async (req) => {
         const phone = ownerDigits || tmPhone || undefined
         const storedLid = lidByInstance.get(inst.instanceName)
         const hints: OwnerHints = { jid: ownerJid, phone, lid: storedLid }
-        const apikey = apikeyByInstance.get(inst.instanceName)
-        console.log(`[wa-sync-groups] ${inst.instanceName}: hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} lid=${storedLid ?? '-'} apikey=${apikey ? 'own' : 'global'}`)
-        let all = await fetchGroupsWithAdminFlag(inst.instanceName, hints, apikey)
+        const target = targetByInstance.get(inst.instanceName) ?? {
+          baseUrl: EVO_BASE,
+          instance: inst.instanceName,
+          apikey: apikeyByInstance.get(inst.instanceName) || EVO_KEY,
+        }
+        const provider = providerByInstance.get(inst.instanceName) ?? 'evolution'
+        console.log(`[wa-sync-groups] ${inst.instanceName}: provider=${provider} base=${target.baseUrl} instance_path=${target.instance} hints jid=${ownerJid ?? '-'} phone=${phone ?? '-'} lid=${storedLid ?? '-'}`)
+        let all = await fetchGroupsWithAdminFlagFor(target, hints)
         let activeLid = storedLid
         let lidConfidence = storedLid ? 1 : 0
         let discoveredLid: string | undefined
