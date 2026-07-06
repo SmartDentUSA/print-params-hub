@@ -129,6 +129,13 @@ export function SmartOpsTeam() {
       manychat_api_key: m.manychat_api_key || "",
       waleads_api_key: m.waleads_api_key || "",
       evolution_instance_name: m.evolution_instance_name || "",
+      evolution_api_key: m.evolution_api_key || "",
+      evolution_phone: m.evolution_phone || "",
+      evolution_lid: m.evolution_lid || "",
+      evolution_base_url: m.evolution_base_url || "",
+      evo_go_instance_id: m.evo_go_instance_id || "",
+      evo_go_instance_token: m.evo_go_instance_token || "",
+      evo_go_base_url: m.evo_go_base_url || "",
       messaging_provider: m.messaging_provider || "waleads",
     });
     setEvolutionStatus("unknown");
