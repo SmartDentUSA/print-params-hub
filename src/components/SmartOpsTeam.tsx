@@ -26,6 +26,13 @@ interface TeamMember {
   manychat_api_key: string | null;
   waleads_api_key: string | null;
   evolution_instance_name: string | null;
+  evolution_api_key: string | null;
+  evolution_phone: string | null;
+  evolution_lid: string | null;
+  evolution_base_url: string | null;
+  evo_go_instance_id: string | null;
+  evo_go_instance_token: string | null;
+  evo_go_base_url: string | null;
   messaging_provider: string | null;
   ativo: boolean;
 }
@@ -47,6 +54,13 @@ const EMPTY_FORM = {
   manychat_api_key: "",
   waleads_api_key: "",
   evolution_instance_name: "",
+  evolution_api_key: "",
+  evolution_phone: "",
+  evolution_lid: "",
+  evolution_base_url: "",
+  evo_go_instance_id: "",
+  evo_go_instance_token: "",
+  evo_go_base_url: "",
   messaging_provider: "waleads",
 };
 
