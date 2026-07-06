@@ -18329,6 +18329,36 @@ export type Database = {
           },
         ]
       }
+      smartops_short_links: {
+        Row: {
+          click_count: number
+          created_at: string
+          default_target: string
+          form_slug: string
+          id: string
+          last_clicked_at: string | null
+          short_code: string
+        }
+        Insert: {
+          click_count?: number
+          created_at?: string
+          default_target: string
+          form_slug: string
+          id?: string
+          last_clicked_at?: string | null
+          short_code: string
+        }
+        Update: {
+          click_count?: number
+          created_at?: string
+          default_target?: string
+          form_slug?: string
+          id?: string
+          last_clicked_at?: string | null
+          short_code?: string
+        }
+        Relationships: []
+      }
       smartops_turma_counters: {
         Row: {
           last_number: number
@@ -28338,6 +28368,10 @@ export type Database = {
           ticket_medio: number
           vendedores: number
         }[]
+      }
+      generate_short_link: {
+        Args: { p_form_slug: string; p_target: string }
+        Returns: string
       }
       get_brand_distribution: {
         Args: never

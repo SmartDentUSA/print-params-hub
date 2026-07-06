@@ -12,6 +12,7 @@ import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText,
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
+import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import {
   Select,
@@ -176,6 +177,11 @@ export function SmartOpsFormBuilder() {
   const [loading, setLoading] = useState(true);
   const [periodDays, setPeriodDays] = useState<number>(30);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
+  const [shortLinksBySlug, setShortLinksBySlug] = useState<
+    Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo }>
+  >({});
+  const [landingBySlug, setLandingBySlug] = useState<Record<string, boolean>>({});
+  const [generatingShort, setGeneratingShort] = useState<Record<string, "form" | "landing_page" | null>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -260,6 +266,78 @@ export function SmartOpsFormBuilder() {
 
   useEffect(() => { fetchForms(); }, []);
   useEffect(() => { fetchMetrics(periodDays); }, [periodDays, forms.length]);
+
+  const fetchShortLinks = async (slugs: string[]) => {
+    if (slugs.length === 0) return;
+    const { data } = await (supabase as any)
+      .from("smartops_short_links")
+      .select("short_code, form_slug, default_target, click_count")
+      .in("form_slug", slugs);
+    const map: Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo }> = {};
+    (data || []).forEach((row: any) => {
+      const bucket = (map[row.form_slug] = map[row.form_slug] || {});
+      const info: ShortLinkInfo = {
+        short_code: row.short_code,
+        click_count: Number(row.click_count) || 0,
+      };
+      if (row.default_target === "landing_page") bucket.landing_page = info;
+      else bucket.form = info;
+    });
+    setShortLinksBySlug(map);
+  };
+
+  const fetchLandingPages = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const { data } = await (supabase as any)
+      .from("smartops_form_landing_pages")
+      .select("form_id")
+      .in("form_id", ids);
+    const bySlug: Record<string, boolean> = {};
+    const idToSlug = new Map(forms.map((f) => [f.id, f.slug]));
+    (data || []).forEach((row: any) => {
+      const slug = idToSlug.get(row.form_id);
+      if (slug) bySlug[slug] = true;
+    });
+    setLandingBySlug(bySlug);
+  };
+
+  useEffect(() => {
+    const slugs = forms.map((f) => f.slug).filter(Boolean);
+    const ids = forms.map((f) => f.id);
+    fetchShortLinks(slugs);
+    fetchLandingPages(ids);
+  }, [forms.length]);
+
+  const handleGenerateShortLink = async (slug: string, target: "form" | "landing_page") => {
+    setGeneratingShort((s) => ({ ...s, [slug]: target }));
+    try {
+      const { data, error } = await (supabase as any).rpc("generate_short_link", {
+        p_form_slug: slug,
+        p_target: target,
+      });
+      if (error) throw error;
+      const code = String(data);
+      setShortLinksBySlug((prev) => {
+        const bucket = { ...(prev[slug] || {}) };
+        const info: ShortLinkInfo = { short_code: code, click_count: 0 };
+        if (target === "landing_page") bucket.landing_page = info;
+        else bucket.form = info;
+        return { ...prev, [slug]: bucket };
+      });
+      const url = `https://s.smartdent.com.br/${code}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(`Link curto criado e copiado: ${url}`);
+      } catch {
+        toast.success(`Link curto criado: ${url}`);
+      }
+    } catch (e: any) {
+      console.error("[generate_short_link]", e);
+      toast.error(e?.message || "Falha ao gerar link curto");
+    } finally {
+      setGeneratingShort((s) => ({ ...s, [slug]: null }));
+    }
+  };
 
   const generateSlug = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -1149,6 +1227,11 @@ export function SmartOpsFormBuilder() {
                       metrics={metricsByForm[form.id]}
                       purposeLabel={cfg.label}
                       purposeColor={cfg.color}
+                      hasLandingPage={!!landingBySlug[form.slug]}
+                      shortLinkForm={shortLinksBySlug[form.slug]?.form || null}
+                      shortLinkLanding={shortLinksBySlug[form.slug]?.landing_page || null}
+                      generatingTarget={generatingShort[form.slug] || null}
+                      onGenerateShortLink={(target) => handleGenerateShortLink(form.slug, target)}
                       onToggleActive={() => toggleActive(form)}
                       onEditMeta={() => openEditMeta(form)}
                       onEditFields={() => setEditingForm(form)}

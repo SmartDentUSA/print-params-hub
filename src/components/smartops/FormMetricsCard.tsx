@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy, Layout } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy, Layout, Link2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export interface FormMetrics {
   visitors: number;
@@ -12,11 +13,21 @@ export interface FormMetrics {
   daily_series: Array<{ d: string; v: number }>;
 }
 
+export interface ShortLinkInfo {
+  short_code: string;
+  click_count: number;
+}
+
 interface Props {
   form: any;
   metrics?: FormMetrics;
   purposeLabel: string;
   purposeColor: string;
+  hasLandingPage?: boolean;
+  shortLinkForm?: ShortLinkInfo | null;
+  shortLinkLanding?: ShortLinkInfo | null;
+  generatingTarget?: "form" | "landing_page" | null;
+  onGenerateShortLink?: (target: "form" | "landing_page") => void;
   onToggleActive: () => void;
   onEditMeta: () => void;
   onEditFields: () => void;
@@ -58,6 +69,11 @@ export function FormMetricsCard({
   metrics,
   purposeLabel,
   purposeColor,
+  hasLandingPage,
+  shortLinkForm,
+  shortLinkLanding,
+  generatingTarget,
+  onGenerateShortLink,
   onToggleActive,
   onEditMeta,
   onEditFields,
@@ -71,6 +87,58 @@ export function FormMetricsCard({
   const completion = pct(m.leads, m.unique_visitors);
   const conversion = pct(m.deals_won, m.leads);
 
+  const copyShort = (code: string) => {
+    const url = `https://s.smartdent.com.br/${code}`;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Link curto copiado"),
+      () => toast.error("Falha ao copiar"),
+    );
+  };
+
+  const renderShortLinkRow = (
+    target: "form" | "landing_page",
+    info: ShortLinkInfo | null | undefined,
+  ) => {
+    const label = target === "form" ? "Form" : "LP";
+    const busy = generatingTarget === target;
+    if (info) {
+      return (
+        <div className="flex items-center gap-1.5 text-[10px]">
+          <Badge variant="secondary" className="text-[9px] py-0 px-1">{label}</Badge>
+          <button
+            type="button"
+            onClick={() => copyShort(info.short_code)}
+            className="inline-flex items-center gap-1 font-mono text-muted-foreground hover:text-foreground truncate"
+            title="Copiar link curto"
+          >
+            <Link2 className="w-3 h-3" />
+            s.smartdent.com.br/{info.short_code}
+            <Copy className="w-2.5 h-2.5 opacity-60" />
+          </button>
+          <span className="text-muted-foreground tabular-nums">
+            ({info.click_count.toLocaleString()})
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5 text-[10px]">
+        <Badge variant="secondary" className="text-[9px] py-0 px-1">{label}</Badge>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-5 px-1.5 text-[10px] gap-1"
+          disabled={busy || !onGenerateShortLink}
+          onClick={() => onGenerateShortLink?.(target)}
+        >
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+          Gerar link curto
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Card className="flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col gap-3">
@@ -82,6 +150,10 @@ export function FormMetricsCard({
                 {purposeLabel}
               </Badge>
               <span className="text-[10px] text-muted-foreground truncate">/f/{form.slug}</span>
+            </div>
+            <div className="mt-1.5 space-y-0.5">
+              {renderShortLinkRow("form", shortLinkForm)}
+              {hasLandingPage && renderShortLinkRow("landing_page", shortLinkLanding)}
             </div>
           </div>
           <Switch checked={form.active} onCheckedChange={onToggleActive} />
