@@ -21,20 +21,21 @@ export function PostGrupos() {
   const [totalMembers, setTotalMembers] = useState(0);
 
   const load = useCallback(async () => {
-    // Auto-provision: garante uma linha em post_group_instance_config para
-    // toda instância ativa em team_members com evolution_phone preenchido.
+    // Auto-provision: mesma fonte usada em Campanhas WA — toda instância ativa
+    // em team_members com evolution_instance_name preenchido. evolution_phone
+    // é opcional (algumas instâncias não têm telefone cadastrado).
     const { data: tmRows } = await supabase
       .from('team_members')
       .select('evolution_instance_name, evolution_phone')
       .eq('ativo', true)
-      .not('evolution_instance_name', 'is', null)
-      .not('evolution_phone', 'is', null);
+      .not('evolution_instance_name', 'is', null);
 
-    const uniq = new Map<string, string>();
-    for (const r of (tmRows as { evolution_instance_name: string; evolution_phone: string }[]) ?? []) {
+    const uniq = new Map<string, string | null>();
+    for (const r of (tmRows as { evolution_instance_name: string; evolution_phone: string | null }[]) ?? []) {
       const name = (r.evolution_instance_name ?? '').trim();
+      if (!name || uniq.has(name)) continue;
       const phone = (r.evolution_phone ?? '').trim();
-      if (name && phone && !uniq.has(name)) uniq.set(name, phone);
+      uniq.set(name, phone.length > 0 ? phone : null);
     }
 
     if (uniq.size > 0) {
