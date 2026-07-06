@@ -14,6 +14,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const DANILO_CANONICAL_INSTANCE = "Danilo-Henrique";
+
+function normalizeInstanceName(value: string): string {
+  return (value ?? "").toLowerCase().replace(/[\s_-]/g, "");
+}
+
+function canonicalInstanceName(value: string): string {
+  const normalized = normalizeInstanceName(value);
+  if (normalized === "danilohenrique") return DANILO_CANONICAL_INSTANCE;
+  return value.trim();
+}
+
+function fallbackGroupName(jid: string): string {
+  return `Grupo WA ${jid.replace("@g.us", "").slice(-12)}`;
+}
+
 function collectGroupHints(node: any, acc: Map<string, { name?: string; picture?: string }>) {
   if (!node || typeof node !== "object") return;
   if (Array.isArray(node)) { for (const n of node) collectGroupHints(n, acc); return; }
@@ -26,8 +42,8 @@ function collectGroupHints(node: any, acc: Map<string, { name?: string; picture?
       if (!acc.has(v)) acc.set(v, {});
       const cur = acc.get(v)!;
       // Nome possível em irmãos
-      const name = node.subject ?? node.groupName ?? node.name ?? node.pushName;
-      if (typeof name === "string" && name.trim() && !cur.name) cur.name = name.trim().slice(0, 200);
+      const name = node.subject ?? node.groupName ?? node.chatName ?? node.name ?? node.pushName ?? node.notifyName;
+      if (typeof name === "string" && name.trim() && !name.endsWith("@g.us") && !cur.name) cur.name = name.trim().slice(0, 200);
       const pic = node.profilePicUrl ?? node.pictureUrl ?? node.picture_url;
       if (typeof pic === "string" && pic.startsWith("http") && !cur.picture) cur.picture = pic;
     }
@@ -60,6 +76,8 @@ Deno.serve(async (req) => {
         "";
     }
 
+    instance = canonicalInstanceName(instance);
+
     console.log(`[evogo-groups-webhook] instance=${instance || "?"} bytes=${raw.length} event=${body?.event ?? "-"}`);
 
     if (!instance) {
@@ -80,24 +98,24 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     let upserted = 0;
     for (const [jid, info] of hints) {
-      // Não sobrescrevemos is_admin nem name existente (upsert com ignoreDuplicates=false + merge parcial)
+      // wa_groups é único por group_jid. Procuramos por JID para corrigir aliases
+      // antigos de instance_name sem criar duplicatas/conflitos.
       const { data: existing } = await supabase
         .from("wa_groups")
         .select("id, name, picture_url")
         .eq("group_jid", jid)
-        .eq("instance_name", instance)
         .maybeSingle();
 
       if (existing) {
-        const patch: Record<string, unknown> = { synced_at: now, updated_at: now };
-        if (info.name && !existing.name) patch.name = info.name;
+        const patch: Record<string, unknown> = { instance_name: instance, synced_at: now, updated_at: now };
+        if (info.name && (!existing.name || existing.name.startsWith("Grupo WA "))) patch.name = info.name;
         if (info.picture && !existing.picture_url) patch.picture_url = info.picture;
         await supabase.from("wa_groups").update(patch).eq("id", existing.id);
       } else {
         await supabase.from("wa_groups").insert({
           group_jid: jid,
           instance_name: instance,
-          name: info.name ?? null,
+          name: info.name ?? fallbackGroupName(jid),
           picture_url: info.picture ?? null,
           is_admin: true,
           ativo: true,
