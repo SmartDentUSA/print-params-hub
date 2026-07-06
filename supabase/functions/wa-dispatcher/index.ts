@@ -23,7 +23,8 @@ async function contentHashOf(nodeType: string, content: unknown): Promise<string
 }
 
 async function evoGoPost(path: string, body: Record<string, unknown>, baseUrl: string, token: string, timeoutMs = 30_000): Promise<Record<string, unknown>> {
-  const res = await fetch(`${baseUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: token }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
+  const url = `${baseUrl.replace(/\/$/, '')}${path}`
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: token }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
   if (!res.ok) { const t = await res.text(); if (res.status === 404) throw new Error(`ENDPOINT_NOT_FOUND:${path}`); throw new Error(`${path} ${res.status}: ${t}`) }
   return await res.json()
 }
@@ -153,7 +154,7 @@ serve(async (req) => {
           dedupNeedle?: string,
         ): Promise<string|null> => {
           if (useEvoGo && fnEvoGo) {
-            try { return await fnEvoGo() } catch (e) { const m = e instanceof Error ? e.message : String(e); if (m.startsWith('ENDPOINT_NOT_FOUND')) throw new Error(`Tipo '${item.node_type}' nao suportado`); throw e }
+            try { return await fnEvoGo() } catch (e) { const m = e instanceof Error ? e.message : String(e); if (m.startsWith('ENDPOINT_NOT_FOUND')) { const p = m.slice('ENDPOINT_NOT_FOUND:'.length); throw new Error(`EvoGo 404 em ${p} — verifique evo_go_base_url e token`) } throw e }
           }
           if (!fnApi) throw new Error('Sem handler')
           try { return await fnApi(apikey) } catch (e) {
