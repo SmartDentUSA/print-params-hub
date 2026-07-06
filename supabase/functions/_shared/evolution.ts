@@ -180,12 +180,22 @@ export async function fetchGroupsWithAdminFlag(
   hints?: OwnerHints,
   apikey?: string,
 ): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
-  const url = `${EVO_BASE}/group/fetchAllGroups/${enc(instanceName)}?getParticipants=true`
+  return fetchGroupsWithAdminFlagFor(
+    { baseUrl: EVO_BASE, instance: instanceName, apikey: apikey || EVO_KEY },
+    hints,
+  )
+}
+
+export async function fetchGroupsWithAdminFlagFor(
+  t: EvoTarget,
+  hints?: OwnerHints,
+): Promise<Array<EvoGroup & { isAdmin: boolean }>> {
+  const url = `${stripSlash(t.baseUrl)}/group/fetchAllGroups/${enc(t.instance)}?getParticipants=true`
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 120_000)
   let res: Response
   try {
-    res = await fetch(url, { headers: hWith(apikey), signal: ctrl.signal })
+    res = await fetch(url, { headers: targetHeaders(t), signal: ctrl.signal })
   } catch (e) {
     throw new Error(`fetchAllGroups timeout/aborted: ${e instanceof Error ? e.message : String(e)}`)
   } finally {
