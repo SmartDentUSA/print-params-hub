@@ -222,11 +222,22 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
         if (!p.interval_seconds || p.interval_seconds < 60) errors.push(`${tag}: intervalo mínimo 60s.`);
       }
       if (n.type === "wait") {
-        const d = (n as WaitNode).days ?? 0;
-        const h = (n as WaitNode).hours ?? 0;
-        const m = (n as WaitNode).minutes ?? 0;
-        if (d < 0 || h < 0 || m < 0) errors.push(`${tag}: tempo inválido.`);
-        if (d === 0 && h === 0 && m === 0) errors.push(`${tag}: defina dias, horas ou minutos (>0).`);
+        const w = n as WaitNode;
+        if (w.mode === "absolute") {
+          if (!w.absolute_at) {
+            errors.push(`${tag}: escolha data e hora.`);
+          } else {
+            const ts = new Date(w.absolute_at).getTime();
+            if (Number.isNaN(ts)) errors.push(`${tag}: data/hora inválida.`);
+            else if (ts <= Date.now()) errors.push(`${tag}: data/hora deve ser futura.`);
+          }
+        } else {
+          const d = w.days ?? 0;
+          const h = w.hours ?? 0;
+          const m = w.minutes ?? 0;
+          if (d < 0 || h < 0 || m < 0) errors.push(`${tag}: tempo inválido.`);
+          if (d === 0 && h === 0 && m === 0) errors.push(`${tag}: defina dias, horas ou minutos (>0).`);
+        }
       }
       if (n.type === "button") {
         const b = n as ButtonNode;
