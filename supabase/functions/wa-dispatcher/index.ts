@@ -147,7 +147,11 @@ serve(async (req) => {
         let evoId: string | null = null
         const c = item.content_json ?? {}
 
-        const send = async (fnEvoGo: (() => Promise<string|null>) | null, fnApi: ((k: string) => Promise<string|null>) | null): Promise<string|null> => {
+        const send = async (
+          fnEvoGo: (() => Promise<string|null>) | null,
+          fnApi: ((k: string) => Promise<string|null>) | null,
+          dedupNeedle?: string,
+        ): Promise<string|null> => {
           if (useEvoGo && fnEvoGo) {
             try { return await fnEvoGo() } catch (e) { const m = e instanceof Error ? e.message : String(e); if (m.startsWith('ENDPOINT_NOT_FOUND')) throw new Error(`Tipo '${item.node_type}' nao suportado`); throw e }
           }
@@ -155,9 +159,27 @@ serve(async (req) => {
           try { return await fnApi(apikey) } catch (e) {
             const m = e instanceof Error ? e.message : String(e)
             if (/SessionError|No sessions|timed out|aborted/i.test(m) && instance) {
+              // Timeout no HTTP não significa que a mensagem não foi entregue —
+              // o Baileys pode ter enviado antes do abort. Antes de retentar,
+              // procuramos uma mensagem recente da própria instância no grupo
+              // com o mesmo conteúdo para evitar duplicata.
+              if (/timed out|aborted/i.test(m) && dedupNeedle && dedupNeedle.trim().length >= 3) {
+                const existingId = await findRecentOutgoingByText(item.group_jid, dedupNeedle, 180, instance, apikey)
+                if (existingId) {
+                  console.log(`[v66eg] dedupe-after-timeout: encontrou ${existingId} no grupo ${item.group_jid}, tratando como enviado`)
+                  return existingId
+                }
+              }
               await warmupGroup(item.group_jid, instance, apikey); await sleep(3000)
               try { return await fnApi(apikey) } catch (e2) {
                 const m2 = e2 instanceof Error ? e2.message : String(e2)
+                if (/timed out|aborted/i.test(m2) && dedupNeedle && dedupNeedle.trim().length >= 3) {
+                  const existingId2 = await findRecentOutgoingByText(item.group_jid, dedupNeedle, 240, instance, apikey)
+                  if (existingId2) {
+                    console.log(`[v66eg] dedupe-after-timeout(2): encontrou ${existingId2} no grupo ${item.group_jid}, tratando como enviado`)
+                    return existingId2
+                  }
+                }
                 if (/SessionError|No sessions|timed out|aborted/i.test(m2) && isGroup && apikey !== GLOBAL_EVOLUTION_KEY && tm) {
                   try { const r = await fnApi(GLOBAL_EVOLUTION_KEY); if (!tm.evolution_group_key_broken_at) { await supabase.from('team_members').update({ evolution_group_key_broken_at: new Date().toISOString() }).eq('id', tm.id).is('evolution_group_key_broken_at', null); tm.evolution_group_key_broken_at = new Date().toISOString() }; return r } catch (e3) { throw e3 }
                 }
