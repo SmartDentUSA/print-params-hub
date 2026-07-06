@@ -83,6 +83,9 @@ export function SmartOpsTeam() {
   // Evolution state
   const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus>("unknown");
   const [evoGoStatus, setEvoGoStatus] = useState<EvolutionStatus>("unknown");
+  type WebhookInfo = { url: string | null; events?: string[] | null; enabled?: boolean | null };
+  const [evolutionWebhook, setEvolutionWebhook] = useState<WebhookInfo | null>(null);
+  const [evoGoWebhook, setEvoGoWebhook] = useState<WebhookInfo | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
@@ -118,6 +121,8 @@ export function SmartOpsTeam() {
     setForm({ ...EMPTY_FORM });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
+    setEvolutionWebhook(null);
+    setEvoGoWebhook(null);
     setDialogOpen(true);
   };
   const openEdit = (m: TeamMember) => {
@@ -142,10 +147,13 @@ export function SmartOpsTeam() {
     });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
+    setEvolutionWebhook(null);
+    setEvoGoWebhook(null);
     setDialogOpen(true);
     // Fetch Evolution status
     if (m.evolution_instance_name) {
       fetchEvolutionStatus(m.id, m.evolution_instance_name);
+      fetchEvolutionWebhook(m.id);
     }
     if (m.evo_go_instance_token || m.evo_go_instance_id) {
       fetchEvoGoStatus(m.id);
@@ -181,8 +189,39 @@ export function SmartOpsTeam() {
       } else {
         setEvoGoStatus("unknown");
       }
+      setEvoGoWebhook({
+        url: data?.webhook_url ?? null,
+        events: data?.webhook_events ?? null,
+        enabled: data?.webhook_enabled ?? null,
+      });
     } catch {
       setEvoGoStatus("close");
+      setEvoGoWebhook(null);
+    }
+  };
+
+  const fetchEvolutionWebhook = async (memberId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evolution-webhook-info", {
+        body: { member_id: memberId },
+      });
+      if (error) throw error;
+      setEvolutionWebhook({
+        url: data?.webhook_url ?? null,
+        events: data?.webhook_events ?? null,
+        enabled: data?.webhook_enabled ?? null,
+      });
+    } catch {
+      setEvolutionWebhook(null);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "URL copiada" });
+    } catch {
+      toast({ title: "Falha ao copiar", variant: "destructive" });
     }
   };
 
