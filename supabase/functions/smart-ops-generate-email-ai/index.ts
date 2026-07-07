@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface CtaRef {
-  tipo: "landing" | "form" | "knowledge" | "social_post" | "store" | "seller_wa" | "custom";
+  tipo: "landing" | "form" | "custom";
   id?: string;
   url?: string;
   label?: string;
@@ -75,20 +75,8 @@ Deno.serve(async (req) => {
       produtoCtx = data as any;
     }
 
-    // ── RAG: content related to the product (title/keyword match) ──
-    const searchTerm =
-      produtoCtx?.name || produtoCtx?.product_category || produto || "impressão 3D odontológica";
-    const [{ data: relatedContent }, { data: relatedLibrary }, { data: stories }, { data: reviews }] = await Promise.all([
-      supabase.from("knowledge_contents")
-        .select("title, slug, excerpt, og_image_url, content_image_url, category_id")
-        .eq("active", true)
-        .or(`title.ilike.%${searchTerm}%,excerpt.ilike.%${searchTerm}%`)
-        .limit(3),
-      supabase.from("system_a_content_library")
-        .select("title, content_text, landing_page_url, cta_url, thumbnail_url, media_url, product_category")
-        .eq("is_active", true)
-        .or(`title.ilike.%${searchTerm}%,product_name.ilike.%${searchTerm}%`)
-        .limit(3),
+    // ── RAG: only social proof (no knowledge/library — those became email links) ──
+    const [{ data: stories }, { data: reviews }] = await Promise.all([
       supabase.from("success_stories")
         .select("client_name, client_role, city, state, challenge, solution, results, testimonial, image_url")
         .eq("published", true)
@@ -100,14 +88,6 @@ Deno.serve(async (req) => {
         .order("create_time", { ascending: false })
         .limit(3),
     ]);
-
-    const contentBlock = (relatedContent || [])
-      .map((c: any, i: number) => `[${i + 1}] "${c.title}" → https://smartdent.com.br/base-conhecimento/${c.category_id || "a"}/${c.slug}${c.og_image_url ? ` (img: ${c.og_image_url})` : ""}${c.excerpt ? ` — ${String(c.excerpt).slice(0, 150)}` : ""}`)
-      .join("\n") || "-";
-
-    const libraryBlock = (relatedLibrary || [])
-      .map((c: any, i: number) => `[L${i + 1}] "${c.title}" → ${c.landing_page_url || c.cta_url || ""}${c.thumbnail_url ? ` (thumb: ${c.thumbnail_url})` : ""}`)
-      .join("\n") || "-";
 
     const proofBlock = [
       ...(stories || []).map((s: any) => `• ${s.client_name}${s.client_role ? `, ${s.client_role}` : ""}${s.city ? ` (${s.city}/${s.state})` : ""}: "${String(s.testimonial || s.results || "").slice(0, 200)}"`),
@@ -126,17 +106,16 @@ Deno.serve(async (req) => {
       techBullets = techSpecs.slice(0, 400);
     }
 
-    const ctaLabel = (c?: CtaRef) => c?.label || {
-      landing: "Acessar Landing Page",
-      form: "Preencher Formulário",
-      knowledge: "Ler o artigo completo",
-      social_post: "Ver publicação",
-      store: "Comprar na loja",
-      seller_wa: "Falar no WhatsApp",
+    const ctaLabel = (c?: CtaRef) => c?.label || ({
+      landing: "Acessar landing page do produto",
+      form: "Preencher formulário do produto",
       custom: "Saiba mais",
-    }[c?.tipo || "custom"];
+    } as Record<string, string>)[c?.tipo || "custom"];
 
     const ctaLine = (c: CtaRef) => `- [${c.tipo}] ${ctaLabel(c)} → ${c.url || "{{url}}"}`;
+
+    const allowedUrls = [cta_principal?.url, ...(ctas_secundarios || []).map(c => c.url)]
+      .filter((u): u is string => !!u);
 
     const systemPrompt = `Você é um copywriter sênior da Smart Dent | Fluxo Digital, especializado em odontologia digital (impressão 3D, escaneamento, CAD/CAM). Escreve emails B2B para dentistas e laboratórios.
 
@@ -146,14 +125,18 @@ REGRAS ABSOLUTAS:
 - Português do Brasil, sem gírias, sem exagero, sem emojis em excesso (no máx. 1-2 no assunto).
 - HTML DEVE ser um documento COMPLETO começando em \`<!doctype html><html><head><meta charset="UTF-8"></head><body ...>\` e terminando em \`</body></html>\`. Inline styles (Gmail/Outlook), largura máx 600px, fontes web-safe.
 - NUNCA gere tags <table>, <tr> ou <td> soltas sem envolver em uma tabela completa e fechada corretamente. Se usar tabela para layout, feche todas as tags.
-- Personalizar com placeholders: {{nome}} (primeiro nome do lead), {{vendedor_nome}}, {{link_wa_vendedor}}.
+- Personalizar com placeholders: {{nome}} (primeiro nome do lead) e {{vendedor_nome}}. NUNCA use {{link_wa_vendedor}} nem qualquer outro placeholder.
 - CTA principal como botão destacado. CTAs secundários como links no rodapé.
 - OBRIGATÓRIO: use a imagem do produto (\`<img src="…" alt="…" style="max-width:100%;height:auto">\`) no topo, logo após a saudação.
 - OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números.
-- OBRIGATÓRIO: inclua um bloco "Aprofunde-se" com 2 cards de conteúdo relacionado (title + link + thumbnail quando disponível).
 - OBRIGATÓRIO: se houver depoimento/review, incluir 1 bloco de prova social em itálico com o nome do cliente.
-- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão → prova social → "Aprofunde-se" (cards de conteúdo) → PS/rodapé com CTAs secundários + assinatura + link WhatsApp.
-- O link WhatsApp deve estar em uma \`<a href="{{link_wa_vendedor}}">\` — nunca escreva "link" solto.
+- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → prova social → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
+
+REGRAS DE LINKS (CRÍTICAS — QUEBRAM O E-MAIL SE VIOLADAS):
+- Todo \`<a href="...">\` do HTML DEVE usar EXATAMENTE uma das URLs listadas abaixo em "CALLS-TO-ACTION". Não invente URLs, não use encurtadores, não use utm.
+- PROIBIDO qualquer link para: WhatsApp, wa.me, api.whatsapp.com, mailto:, telefone (tel:), redes sociais (instagram/facebook/youtube/linkedin/tiktok), base de conhecimento (/base-conhecimento/...), blog, ou qualquer outro domínio/rota.
+- PROIBIDO escrever "Falar no WhatsApp", "Fale pelo WhatsApp", "WhatsApp do vendedor" ou variações. Não existe CTA de WhatsApp neste e-mail.
+- URLs permitidas neste e-mail:\n${allowedUrls.map(u => `  • ${u}`).join("\n") || "  (nenhuma — abortar)"}
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra.`;
 
@@ -171,13 +154,6 @@ ${produtoCtx?.clinical_indications ? (Array.isArray(produtoCtx.clinical_indicati
 
 Compatibilidade: ${produtoCtx?.compatibility_list ? (Array.isArray(produtoCtx.compatibility_list) ? produtoCtx.compatibility_list.slice(0, 5).join(", ") : String(produtoCtx.compatibility_list).slice(0, 200)) : "-"}
 Certificações: ${produtoCtx?.certifications ? (Array.isArray(produtoCtx.certifications) ? produtoCtx.certifications.join(", ") : String(produtoCtx.certifications)) : "-"}
-CTA oficial: ${produtoCtx?.cta_1_label || "-"} → ${produtoCtx?.cta_1_url || "-"}
-
-═══ CONTEÚDO RELACIONADO (base de conhecimento) — usar 2 no bloco "Aprofunde-se" ═══
-${contentBlock}
-
-═══ BIBLIOTECA System A (posts oficiais) ═══
-${libraryBlock}
 
 ═══ PROVA SOCIAL (usar 1) ═══
 ${proofBlock}
@@ -239,13 +215,36 @@ Retorne JSON no formato:
       parsed = m ? JSON.parse(m[0]) : {};
     }
 
+    // ── Server-side link sanitizer: replace any href not in the allow-list ──
+    const fallbackUrl = cta_principal?.url || allowedUrls[0] || "";
+    const allowedSet = new Set(allowedUrls);
+    const sanitizeHtml = (h: string): string => {
+      if (!h || !fallbackUrl) return h;
+      // Strip any {{link_wa_vendedor}} placeholder leftovers
+      h = h.replaceAll("{{link_wa_vendedor}}", fallbackUrl);
+      // Rewrite disallowed hrefs
+      h = h.replace(/href\s*=\s*"([^"]*)"/gi, (_m, url) =>
+        `href="${allowedSet.has(url) ? url : fallbackUrl}"`
+      );
+      h = h.replace(/href\s*=\s*'([^']*)'/gi, (_m, url) =>
+        `href='${allowedSet.has(url) ? url : fallbackUrl}'`
+      );
+      // Neutralize any residual "Falar no WhatsApp"-style text
+      h = h.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal));
+      return h;
+    };
+    const sanitizedHtml = sanitizeHtml(parsed.html_body || "");
+    const sanitizedText = (parsed.plain_text || "")
+      .replaceAll("{{link_wa_vendedor}}", fallbackUrl)
+      .replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal) || "");
+
     return new Response(JSON.stringify({
       success: true,
       subject: parsed.subject || "",
       preheader: parsed.preheader || "",
       cta_button_label: parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais",
-      html_body: parsed.html_body || "",
-      plain_text: parsed.plain_text || "",
+      html_body: sanitizedHtml,
+      plain_text: sanitizedText,
       produto_context: produtoCtx,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
