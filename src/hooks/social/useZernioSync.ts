@@ -17,6 +17,15 @@ export function useZernioSync() {
       toast.success(`${upserted} post${upserted === 1 ? '' : 's'} sincronizado${upserted === 1 ? '' : 's'}`);
       await qc.invalidateQueries({ queryKey: ['social-posts-bank'] });
       await qc.refetchQueries({ queryKey: ['social-posts-bank'] });
+      // Fire-and-forget: dispara posts novos para os grupos WA configurados.
+      supabase.functions
+        .invoke('social-post-auto-blast', { method: 'POST', body: {} })
+        .then(({ data, error }) => {
+          if (error) return console.warn('[auto-blast] falhou', error);
+          const n = Number((data as any)?.dispatched_campaigns ?? 0);
+          if (n > 0) toast.success(`${n} campanha${n === 1 ? '' : 's'} de grupo enfileirada${n === 1 ? '' : 's'}`);
+        })
+        .catch((e) => console.warn('[auto-blast] erro', e));
     } catch (err: any) {
       const msg = String(err?.message ?? err);
       toast.error(`Erro ao sincronizar: ${msg}`);
