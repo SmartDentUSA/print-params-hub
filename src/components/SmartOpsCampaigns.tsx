@@ -1979,7 +1979,7 @@ function CreateCampaign({
                   </Button>
                   <Button
                     onClick={handleSendSms}
-                    disabled={sending || !smsMessage.trim() || ((audiencePreview?.com_telefone || smsLeadValidCount || 0) === 0)}
+                    disabled={sending || !smsMessage.trim() || !campaignName.trim()}
                     className="flex-1"
                   >
                     {sending
