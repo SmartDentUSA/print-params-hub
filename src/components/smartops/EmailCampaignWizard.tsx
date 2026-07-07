@@ -235,8 +235,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const previewHtml = html
     .split("{{nome}}").join("Dr. João")
     .split("{{primeiro_nome}}").join("Dr. João")
-    .split("{{vendedor_nome}}").join(fromName)
-    .split("{{link_wa_vendedor}}").join("https://wa.me/5516993061659");
+    .split("{{vendedor_nome}}").join(fromName);
 
   const htmlWarning = useMemo(() => {
     if (!html) return null;
@@ -336,19 +335,25 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               >
                 <SelectTrigger><SelectValue placeholder="Escolha o destino principal" /></SelectTrigger>
                 <SelectContent className="max-h-96">
-                  {(["landing","form","knowledge","social_post","store","seller_wa"] as CtaType[]).flatMap(t => {
+                  {(["landing","form"] as CtaType[]).flatMap(t => {
                     const list = ctaOptions[t];
                     if (!list.length) return [];
                     return [
                       <div key={`h-${t}`} className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
-                        {({ landing: "Landing Pages", form: "Formulários", knowledge: "Publicações",
-                            social_post: "Posts Redes", store: "Loja", seller_wa: "WhatsApp", custom: "" } as any)[t]}
+                        {({ landing: "Landing Page do produto", form: "Formulário do produto" } as any)[t]}
                       </div>,
                       ...list.map(o => (
                         <SelectItem key={`${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
                       )),
                     ];
                   })}
+                  {!allCtas.length && (
+                    <div className="px-2 py-4 text-xs text-muted-foreground text-center">
+                      {produtoId
+                        ? "Este produto não tem landing page nem formulário vinculado."
+                        : "Selecione um produto primeiro."}
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
