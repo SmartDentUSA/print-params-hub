@@ -1844,9 +1844,9 @@ function CreateCampaign({
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium">Preview de Audiência</p>
                       <div className="flex gap-2">
-                        <Badge variant="secondary">{audiencePreview.total} total</Badge>
+                        <Badge variant="secondary">{audiencePreview.total || (leadCount ?? 0)} total</Badge>
                         <Badge className="bg-green-100 text-green-800">
-                          {audiencePreview.com_telefone} c/ telefone
+                          {audiencePreview.com_telefone || (smsLeadValidCount ?? 0)} c/ telefone
                         </Badge>
                       </div>
                     </div>
@@ -1894,12 +1894,12 @@ function CreateCampaign({
                   </Button>
                   <Button
                     onClick={handleSendSms}
-                    disabled={sending || !smsMessage.trim()}
+                    disabled={sending || !smsMessage.trim() || ((audiencePreview?.com_telefone || smsLeadValidCount || 0) === 0)}
                     className="flex-1"
                   >
                     {sending
                       ? "Disparando..."
-                      : `📱 Disparar SMS agora (${audiencePreview?.com_telefone ?? smsLeadValidCount ?? 0} leads)`}
+                      : `📱 Disparar SMS agora (${(audiencePreview?.com_telefone || smsLeadValidCount) ?? 0} leads)`}
                   </Button>
                 </div>
               </>
