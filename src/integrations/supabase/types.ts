@@ -28281,6 +28281,10 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_smartops_parse_timestamp: {
+        Args: { p_value: string }
+        Returns: string
+      }
       fn_sms_campaign_attribution: {
         Args: { p_campaign_id: string }
         Returns: Json
