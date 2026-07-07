@@ -17,6 +17,35 @@ function normalizePhone(raw: string): string {
   return digits;
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+function parseProviderItems(body: string): any[] {
+  try {
+    const parsed = JSON.parse(body);
+    if (Array.isArray(parsed?.numeros)) return parsed.numeros;
+    if (Array.isArray(parsed)) return parsed;
+    return parsed ? [parsed] : [];
+  } catch {
+    return [];
+  }
+}
+
+function isProviderAccepted(item: any): boolean {
+  return Boolean(item && (
+    item.sucesso === true ||
+    item.status === "ok" || item.status === "enviado" || item.status === "aceito" ||
+    item.codigo === 0 || item.codigo === "0" || item.codigo === 200 || item.codigo === "200"
+  ));
+}
+
+function providerProtocol(item: any): string | null {
+  return item?.protocolo ?? item?.id ?? item?.message_id ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -33,7 +62,14 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { campaign_id, sms_message: directMsg, sms_codificacao: directEnc } = body || {};
+    const {
+      campaign_id,
+      source_campaign_id,
+      sms_message: directMsg,
+      sms_codificacao: directEnc,
+      async: runAsync = false,
+      batch_size: rawBatchSize,
+    } = body || {};
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "campaign_id obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -80,86 +116,186 @@ Deno.serve(async (req) => {
       .in("id", leadIds)
       .is("merged_into", null);
 
-    let sent = 0, failed = 0;
-    const perLeadResults: Array<Record<string, unknown>> = [];
+    const batchSize = Math.max(1, Math.min(Number(rawBatchSize) || 100, 500));
+    const publicCampaignId = source_campaign_id || campaign_id;
 
-    for (const lead of leads || []) {
-      const phoneRaw = lead.telefone_normalized || lead.telefone_raw || lead.wa_phone;
-      const numero = normalizePhone(String(phoneRaw || ""));
-      if (!numero) {
-        failed++;
-        perLeadResults.push({ lead_id: lead.id, status: "erro", error: "sem telefone" });
-        await supabase.from("message_logs").insert({
-          lead_id: lead.id, tipo: "sms_disparopro",
+    const processCampaign = async () => {
+      let sent = 0, failed = 0;
+      const perLeadResults: Array<Record<string, unknown>> = [];
+
+      await supabase.from("campaign_sessions").update({
+        status: "running",
+        started_at: new Date().toISOString(),
+      }).eq("id", campaign_id);
+
+      if (source_campaign_id) {
+        await supabase.from("campaigns").update({
+          status: "running",
+          started_at: new Date().toISOString(),
+          total_leads: leadIds.length,
+          total_sent: 0,
+          total_failed: 0,
+        }).eq("id", source_campaign_id);
+      }
+
+      const normalizedLeads = (leads || []).map((lead: any) => ({
+        ...lead,
+        numero: normalizePhone(String(lead.telefone_normalized || lead.telefone_raw || lead.wa_phone || "")),
+      }));
+
+      const missingPhone = normalizedLeads.filter((lead: any) => !lead.numero);
+      if (missingPhone.length > 0) {
+        failed += missingPhone.length;
+        perLeadResults.push(...missingPhone.map((lead: any) => ({ lead_id: lead.id, status: "erro", error: "sem telefone" })));
+        await supabase.from("message_logs").insert(missingPhone.map((lead: any) => ({
+          lead_id: lead.id,
+          tipo: "sms_disparopro",
           mensagem_preview: message.slice(0, 200),
-          status: "erro", error_details: "sem telefone",
-        });
-        continue;
+          status: "erro",
+          error_details: "sem telefone",
+          data_envio: new Date().toISOString(),
+        })));
+        await supabase.from("campaign_send_log").insert(missingPhone.map((lead: any) => ({
+          campaign_id: publicCampaignId,
+          lead_id: lead.id,
+          telefone: lead.telefone_normalized || lead.telefone_raw || lead.wa_phone || null,
+          nome: lead.nome || null,
+          content_sent: message,
+          mensagem_rendered: message,
+          status: "failed",
+          error_message: "sem telefone",
+          provider: "disparopro",
+          provider_status: "ERROR",
+          provider_detail_message: "sem telefone",
+          sent_at: new Date().toISOString(),
+        })));
       }
 
-      // 3. Chamar DisparoPro
-      let providerStatus = "erro";
-      let providerBody = "";
-      let httpStatus = 0;
-      let providerProtocol: string | null = null;
-      try {
-        const apiRes = await fetch(DISPARO_PRO_URL, {
-          method: "POST",
-          headers: {
-            "Authorization": `Basic ${DISPARO_PRO_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            numeros: [{ numero, mensagem: message, codificacao }],
-          }),
-        });
-        httpStatus = apiRes.status;
-        providerBody = await apiRes.text();
-        // Parse body para validar de verdade — HTTP 200 não basta.
-        let parsed: any = null;
-        try { parsed = JSON.parse(providerBody); } catch { parsed = null; }
-        // DisparoPro retorna por número: status/sucesso/codigo/protocolo
-        const item = Array.isArray(parsed?.numeros) ? parsed.numeros[0]
-                   : Array.isArray(parsed) ? parsed[0]
-                   : parsed;
-        const codigoOk = item && (
-          item.sucesso === true ||
-          item.status === "ok" || item.status === "enviado" || item.status === "aceito" ||
-          item.codigo === 0 || item.codigo === "0" || item.codigo === 200
-        );
-        providerProtocol = item?.protocolo ?? item?.id ?? item?.message_id ?? parsed?.protocolo ?? null;
-        if (apiRes.ok && codigoOk) { providerStatus = "aceito_provider"; sent++; }
-        else if (apiRes.ok && parsed && !codigoOk) { providerStatus = "rejeitado_provider"; failed++; }
-        else { providerStatus = "erro"; failed++; }
-      } catch (e) {
-        failed++;
-        providerBody = String(e);
+      const deliverable = normalizedLeads.filter((lead: any) => lead.numero);
+
+      for (const batch of chunkArray(deliverable, batchSize)) {
+        let httpStatus = 0;
+        let providerBody = "";
+        let providerItems: any[] = [];
+        try {
+          const apiRes = await fetch(DISPARO_PRO_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${DISPARO_PRO_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              numeros: batch.map((lead: any) => ({ numero: lead.numero, mensagem: message, codificacao })),
+            }),
+          });
+          httpStatus = apiRes.status;
+          providerBody = await apiRes.text();
+          providerItems = parseProviderItems(providerBody);
+        } catch (e) {
+          providerBody = String(e);
+        }
+
+        const nowIso = new Date().toISOString();
+        const messageLogRows = [];
+        const sendLogRows = [];
+
+        for (let i = 0; i < batch.length; i++) {
+          const lead: any = batch[i];
+          const item = providerItems[i] ?? providerItems[0] ?? null;
+          const ok = httpStatus >= 200 && httpStatus < 300 && isProviderAccepted(item);
+          const protocol = providerProtocol(item);
+          const detailCode = item?.codigo != null ? String(item.codigo) : (httpStatus ? String(httpStatus) : null);
+          const detailMessage = item?.mensagem ?? item?.message ?? item?.erro ?? item?.error ?? providerBody.slice(0, 500);
+          const providerStatus = ok ? "ACCEPTED" : (httpStatus >= 200 && httpStatus < 300 ? "REJECTED" : "ERROR");
+          const status = ok ? "sent" : "failed";
+
+          if (ok) sent++; else failed++;
+          perLeadResults.push({
+            lead_id: lead.id,
+            numero: lead.numero,
+            status: ok ? "aceito_provider" : "erro",
+            http_status: httpStatus,
+            protocolo: protocol,
+            provider: providerBody.slice(0, 500),
+          });
+
+          messageLogRows.push({
+            lead_id: lead.id,
+            tipo: "sms_disparopro",
+            mensagem_preview: message.slice(0, 200),
+            status: ok ? "aceito_provider" : "erro",
+            error_details: ok ? (protocol ? `protocolo=${protocol}` : null) : `[${httpStatus}] ${providerBody.slice(0, 500)}`,
+            data_envio: nowIso,
+          });
+
+          sendLogRows.push({
+            campaign_id: publicCampaignId,
+            lead_id: lead.id,
+            telefone: lead.numero,
+            nome: lead.nome || null,
+            content_sent: message,
+            mensagem_rendered: message,
+            status,
+            error_message: ok ? null : String(detailMessage || "Erro no provedor").slice(0, 500),
+            provider: "disparopro",
+            provider_message_id: protocol,
+            provider_status: providerStatus,
+            provider_detail_code: detailCode,
+            provider_detail_message: String(detailMessage || "").slice(0, 500),
+            sent_at: nowIso,
+          });
+        }
+
+        if (messageLogRows.length) await supabase.from("message_logs").insert(messageLogRows);
+        if (sendLogRows.length) await supabase.from("campaign_send_log").insert(sendLogRows);
+
+        const partialStatus = failed === 0 ? "running" : (sent === 0 ? "running" : "running");
+        await supabase.from("campaign_sessions").update({
+          status: partialStatus,
+          sent_count: sent,
+          failed_count: failed,
+          results: { ...(camp.results || {}), sent, failed, processed: sent + failed, total: leadIds.length },
+        }).eq("id", campaign_id);
+        if (source_campaign_id) {
+          await supabase.from("campaigns").update({
+            total_sent: sent,
+            total_failed: failed,
+          }).eq("id", source_campaign_id);
+        }
       }
 
-      perLeadResults.push({
-        lead_id: lead.id, numero, status: providerStatus,
-        http_status: httpStatus, protocolo: providerProtocol,
-        provider: providerBody.slice(0, 500),
-      });
+      const finalStatus = failed === 0 ? "completed" : (sent === 0 ? "failed" : "completed_with_errors");
+      const completedAt = new Date().toISOString();
+      await supabase.from("campaign_sessions").update({
+        status: finalStatus,
+        sent_count: sent,
+        failed_count: failed,
+        completed_at: completedAt,
+        results: { ...(camp.results || {}), sent, failed, per_lead: perLeadResults.slice(0, 1000), finished_at: completedAt },
+      }).eq("id", campaign_id);
 
-      await supabase.from("message_logs").insert({
-        lead_id: lead.id,
-        tipo: "sms_disparopro",
-        mensagem_preview: message.slice(0, 200),
-        status: providerStatus,
-        error_details: providerStatus === "aceito_provider"
-          ? (providerProtocol ? `protocolo=${providerProtocol}` : null)
-          : `[${httpStatus}] ${providerBody.slice(0, 500)}`,
+      if (source_campaign_id) {
+        await supabase.from("campaigns").update({
+          status: finalStatus,
+          total_leads: leadIds.length,
+          total_sent: sent,
+          total_failed: failed,
+          completed_at: completedAt,
+        }).eq("id", source_campaign_id);
+      }
+
+      return { sent, failed, perLeadResults };
+    };
+
+    if (runAsync) {
+      EdgeRuntime.waitUntil(processCampaign());
+      return new Response(JSON.stringify({ success: true, queued: true, campaign_id, source_campaign_id, total: leadIds.length }), {
+        status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 4. Atualizar campaign_session
-    await supabase.from("campaign_sessions").update({
-      status: failed === 0 ? "completed" : (sent === 0 ? "failed" : "completed_with_errors"),
-      results: { ...(camp.results || {}), sent, failed, per_lead: perLeadResults, finished_at: new Date().toISOString() },
-    }).eq("id", campaign_id);
-
-    return new Response(JSON.stringify({ success: true, campaign_id, sent, failed, per_lead: perLeadResults }), {
+    const result = await processCampaign();
+    return new Response(JSON.stringify({ success: true, campaign_id, sent: result.sent, failed: result.failed, per_lead: result.perLeadResults }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
