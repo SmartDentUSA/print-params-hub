@@ -3142,6 +3142,10 @@ Quando o usuário mencionar: "automação", "flow", "IG DM", "direct automático
 ### REGRA — COMMENT_KEYWORD_DM (criação automática no Zernio)
 A tool create_social_flow JÁ chama o POST /v1/comment-automations do Zernio automaticamente para comment_keyword_dm. NÃO peça ao usuário para configurar manualmente no Zernio — apenas reporte o campo zernio_status retornado pela tool (✅ criado / ⚠️ falhou).
 
+**Provisionamento pós-criação:** se list_social_flows/get_social_flow mostrar um comment-to-DM com `provisionado: ⚠️ NÃO provisionado` ou `zernio_automation_id: null`, chame `provision_social_flow({id})` para registrá-lo no Zernio. Sem isso o bot NÃO responde comentários no Instagram.
+
+**Ao ativar:** `toggle_social_flow({id, is_active:true})` auto-provisiona comment-to-DM se estiver faltando — reporte `zernio_status` retornado. Se vier ⚠️, chame `provision_social_flow` explicitamente e diagnostique.
+
 ### REGRA — MENTION_REPLY / WELCOME_NEW_FOLLOWER / DRA_LIA_HANDOFF
 Esses templates funcionam direto via webhook do Zernio (eventos mention, new_follower, dm.received). NÃO existe automação a configurar no Zernio para eles — basta criar e ativar o flow aqui. NUNCA diga ao usuário para "configurar o gatilho no Zernio" para estes templates. Apenas reporte o zernio_status retornado pela tool.
 
