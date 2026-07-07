@@ -63,9 +63,10 @@ serve(async (req) => {
   // targets por instância
   const { data: targets } = await sb
     .from('post_group_targets')
-    .select('instance_name, wa_group_id')
-    .in('instance_name', instanceNames);
-  const targetIds = Array.from(new Set((targets ?? []).map((t: any) => t.wa_group_id).filter(Boolean)));
+    .select('instance_name, group_id, enabled')
+    .in('instance_name', instanceNames)
+    .eq('enabled', true);
+  const targetIds = Array.from(new Set((targets ?? []).map((t: any) => t.group_id).filter(Boolean)));
 
   const { data: groups } = targetIds.length
     ? await sb.from('wa_groups').select('id, group_jid, instance_name, is_admin, enabled').in('id', targetIds)
@@ -74,7 +75,7 @@ serve(async (req) => {
 
   const jidsByInstance: Record<string, string[]> = {};
   for (const t of (targets ?? []) as any[]) {
-    const g = groupById.get(t.wa_group_id);
+    const g = groupById.get(t.group_id);
     if (!g || !g.group_jid || !g.is_admin || !g.enabled) continue;
     (jidsByInstance[t.instance_name] ??= []).push(g.group_jid);
   }
