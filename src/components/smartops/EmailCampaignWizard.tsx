@@ -115,7 +115,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       const { data: prodLps } = formIds.length
         ? await sb
             .from("smartops_form_landing_pages")
-            .select("id, slug, title, status, form_id")
+            .select("id, status, form_id")
             .in("form_id", formIds)
             .eq("status", "published")
         : { data: [] as any[] };
@@ -138,18 +138,23 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         }
       }
       const formSlugById: Record<string, string> = {};
-      for (const f of (prodForms || []) as any[]) formSlugById[f.id] = f.slug;
+      const formNameById: Record<string, string> = {};
+      for (const f of (prodForms || []) as any[]) {
+        formSlugById[f.id] = f.slug;
+        formNameById[f.id] = f.name || f.slug;
+      }
 
       const origin = "https://smartdent.com.br";
-      const landing: CtaOption[] = (prodLps || []).map((p: any) => ({
-        id: p.id, tipo: "landing",
-        label: `Landing: ${p.title || p.slug}`,
-        url: (() => {
-          const fSlug = formSlugById[p.form_id];
-          const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
-          return code ? `${shortBase}/${code}` : `${origin}/lp/${p.slug}`;
-        })(),
-      }));
+      const landing: CtaOption[] = (prodLps || []).map((p: any) => {
+        const fSlug = formSlugById[p.form_id];
+        const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
+        return {
+          id: p.id,
+          tipo: "landing" as const,
+          label: `Landing: ${formNameById[p.form_id] || fSlug || p.id}`,
+          url: code ? `${shortBase}/${code}` : `${origin}/lp/${fSlug || ""}`,
+        };
+      });
       const form: CtaOption[] = (prodForms || []).map((f: any) => ({
         id: f.id, tipo: "form",
         label: `Formulário: ${f.name || f.slug}`,
