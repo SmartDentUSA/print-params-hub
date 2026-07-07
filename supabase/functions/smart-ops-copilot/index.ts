@@ -3592,7 +3592,18 @@ serve(async (req) => {
 
     // --- SMART FALLBACK: If we hit max iterations, ask model to summarize ---
     console.log(`[Copilot] Max iterations reached, requesting summary from ${config.label}`);
-    
+
+    // Se já estamos quase no IDLE_TIMEOUT (150s), pula a chamada extra ao modelo
+    // e devolve um resumo textual imediato para evitar 504.
+    if (Date.now() - REQUEST_START > 135_000) {
+      const quick = executedActions.length > 0
+        ? executedActions.map(renderActionResultBlock).join("\n\n")
+        : "⏱️ Processamento longo — parei antes do timeout. Reformule a pergunta com um escopo menor.";
+      return new Response(createSSEFromText(quick), {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
+      });
+    }
+
     currentMessages.push({
       role: "user",
       content: "SISTEMA: Você atingiu o limite de iterações. Com base em todos os resultados das ferramentas acima, forneça uma resposta final resumida e útil ao usuário. Não chame mais ferramentas."
