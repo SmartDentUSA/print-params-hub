@@ -960,7 +960,8 @@ function CreateCampaign({
           .from("lia_attendances")
           .select("id", { count: "exact", head: true })
           .is("merged_into", null)
-          .not("telefone_normalized", "is", null) as any;
+          .not("telefone_normalized", "is", null)
+          .like("telefone_normalized", "55%") as any;
         return applyFiltersToQuery(q, currentFilters);
       };
       try {
