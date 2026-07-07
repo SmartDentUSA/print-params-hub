@@ -76,23 +76,19 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
   }, [redirectUrl]);
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center public-form-page"
-      data-pp-default="true"
-      style={{ backgroundColor: "#EEF1F6", color: "#0F172A" }}
-    >
-      <div className="text-center space-y-6 p-8 max-w-md w-full bg-white rounded-2xl shadow-lg border border-black/5">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-surface text-foreground">
+      <div className="text-center space-y-6 p-8 max-w-md w-full bg-card rounded-2xl shadow-medium border border-border">
         <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
         <div className="space-y-2">
           <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
-          {isWhatsApp && <p className="text-sm" style={{ color: "#475569" }}>Você será direcionado para o grupo do WhatsApp em instantes.</p>}
+          {isWhatsApp && <p className="text-sm text-muted-foreground">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
         </div>
 
         {redirectUrl && (
           <Button
             asChild
-            className="w-full h-12 text-base"
-            style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))`, color: "#fff" }}
+            className="w-full h-12 text-base text-primary-foreground"
+            style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
           >
             <a href={redirectUrl} target="_blank" rel="noopener noreferrer">
               {isWhatsApp ? "Entrar no grupo de WhatsApp" : "Continuar"}
@@ -101,7 +97,7 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
         )}
 
         {autoRedirectFailed && isWhatsApp && (
-          <p className="text-sm" style={{ color: "#475569" }}>
+          <p className="text-sm text-muted-foreground">
             Se não abrir automaticamente, clique no botão acima.
           </p>
         )}
