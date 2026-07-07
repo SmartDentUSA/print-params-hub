@@ -1,33 +1,43 @@
-## Upload de imagem no formulário "Editar Produto"
+## Objetivo
 
-Hoje, em `AdminCatalogFormSection.tsx` (usado pelo modal "Editar Produto" do catálogo), o campo **URL da Imagem** só aceita texto colado. Vou adicionar um botão de upload ao lado do input, mantendo o campo de URL para quem quiser colar link externo.
+Na página pública do produto (`/produto/:slug`), exibir dois botões quando o produto tiver um formulário SmartOps atrelado (via `smartops_forms.product_catalog_id`) e existirem short links publicados:
 
-### Onde
-- **Arquivo:** `src/components/AdminCatalogFormSection.tsx`, bloco "Imagem" (linhas 186–211).
-- **Bucket:** `catalog-images` (já existe e já é usado por `SmartOpsROICardsManager.tsx` e `SmartOpsSdrCaptacaoEditor.tsx` — mesmo padrão de upload).
+- **Saiba mais** → short link da landing page (`default_target = 'landing_page'`)
+- **Entre em contato** → short link do formulário (`default_target = 'form'`)
 
-### O que muda na UI
-```
-URL da Imagem
-[https://...                     ] [📤 Enviar imagem]
-[preview 128×128]
-```
-- Input de URL continua editável (permite colar link).
-- Botão "Enviar imagem" abre file picker (`accept="image/*"`).
-- Ao selecionar um arquivo:
-  1. Valida tipo (image/*) e tamanho (máx 5 MB).
-  2. Faz upload para `catalog-images/products/{slug || uuid}-{timestamp}.{ext}` com `upsert: true`.
-  3. Pega `getPublicUrl` e chama `handleInputChange('image_url', publicUrl)`.
-  4. Preview atualiza automaticamente (já reativo ao `formData.image_url`).
-- Estado de loading no botão ("Enviando…") e toast de sucesso/erro (usando `sonner`, já disponível no projeto).
+Regra: cada botão só aparece se o short link correspondente existir.
 
-### Escopo
-- Só o formulário do catálogo (o pedido foi sobre "Editar Produto"). Não altero o modal de Modelos/Marcas.
-- Não crio bucket novo (`catalog-images` já existe).
-- Não mexo em RLS/policies do storage (o bucket já aceita uploads pelos outros formulários admin).
-- Não altero backend nem o schema.
+## Onde alterar
 
-### Fora do escopo
-- Múltiplas imagens/galeria.
-- Crop/redimensionamento no navegador.
-- Aplicar o mesmo botão no campo "URL da Imagem" de Modelos (`AdminModal.tsx` linha 1098) — posso fazer depois se quiser.
+`src/pages/ProductPage.tsx` — apenas frontend, sem mudanças de schema, RLS, ou edge functions.
+
+## Como implementar
+
+1. Após buscar o `product`, disparar consulta adicional:
+   ```ts
+   supabase.from('smartops_forms')
+     .select('id, slug')
+     .eq('product_catalog_id', product.id)
+     .maybeSingle();
+   ```
+2. Se existir form, buscar short links:
+   ```ts
+   supabase.from('smartops_short_links')
+     .select('short_code, default_target')
+     .eq('form_slug', form.slug);
+   ```
+3. Guardar em estado:
+   - `landingShortUrl`: `https://s.smartdent.com.br/{short_code}` do registro com `default_target='landing_page'`
+   - `formShortUrl`: idem para `default_target='form'`
+4. Renderizar os botões no bloco de CTAs existente (`ProductPage.tsx` ~linhas 276-292), logo após os CTAs `cta_1_url`/`cta_2_url`:
+   - `Saiba mais` — `variant="default"`, ícone `ExternalLink`, abre `landingShortUrl` em nova aba, só se `landingShortUrl` existir.
+   - `Entre em contato` — `variant="secondary"`, ícone `MessageCircle`, abre `formShortUrl` em nova aba, só se `formShortUrl` existir.
+   - Ambos com `rel="noopener noreferrer"` e `target="_blank"`.
+5. Sem loading states extras: enquanto os short links não carregam, os botões simplesmente não aparecem.
+
+## Fora do escopo
+
+- Não altera admin, listagem, `InlineProductCard`, `CategoryPage`, ou outros cards.
+- Não cria/edita short links (usa apenas os que já existem em `smartops_short_links`).
+- Não muda os CTAs manuais (`cta_1_url`, `cta_2_url`) do produto — os novos botões aparecem em adição a eles.
+- Sem novos textos i18n neste momento (labels hardcoded em PT: "Saiba mais" / "Entre em contato").
