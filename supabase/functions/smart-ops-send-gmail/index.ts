@@ -289,28 +289,47 @@ Deno.serve(async (req) => {
 
     // ────────── Mode: TEST EMAIL — send one right now, no queue ──────────
     if (test_email) {
-      // Create a throwaway send log to keep tracking consistent
-      const { data: c } = await supabase.from("campaigns").insert({
-        nome: `Teste — ${new Date().toISOString().slice(0, 10)}`,
-        canal: "email", email_subject: subject, email_preheader: preheader,
-        email_html: html, cta_config, lead_filter: filters,
-        audience_count: 1, total_leads: 1,
-        status: "completed", started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(), notes: "test_email",
-      }).select("id").single();
-      const { data: slog } = await supabase.from("campaign_send_log").insert({
-        campaign_id: c!.id, lead_id: null, email: test_email, nome: "Teste",
-        provider: "gmail", status: "queued", subject_snapshot: subject,
-      }).select("id").single();
-      const r = await sendOne({
-        supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
-        email: test_email, nome: "Teste", leadId: null,
-        campaignId: c!.id, sendLogId: slog!.id,
-        subject, preheader, html, fromName: from_name, waLink: officialWaLink,
+      // Send test inline: no campaigns row, no send_log, no short_links, no pixel.
+      const personalHtml = html
+        .replaceAll("{{nome}}", "Teste")
+        .replaceAll("{{primeiro_nome}}", "Teste")
+        .replaceAll("{{vendedor_nome}}", from_name)
+        .replaceAll("{{link_wa_vendedor}}", officialWaLink);
+      const preheaderBlock = preheader
+        ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${preheader}</div>`
+        : "";
+      const sanitized = sanitizeEmailHtml(personalHtml);
+      const wrappedHtml = preheaderBlock
+        ? sanitized.replace(/<body([^>]*)>/i, `<body$1>${preheaderBlock}`)
+        : sanitized;
+      const raw = [
+        `To: ${test_email}`,
+        `Subject: =?UTF-8?B?${b64std(`[TESTE] ${subject}`)}?=`,
+        `From: ${from_name} <me@gmail>`,
+        `MIME-Version: 1.0`,
+        `Content-Language: pt-BR`,
+        `Content-Type: text/html; charset="UTF-8"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        b64std(wrappedHtml).replace(/(.{76})/g, "$1\r\n"),
+      ].join("\r\n");
+      const gres = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+        },
+        body: JSON.stringify({ raw: b64url(raw) }),
       });
-      return new Response(JSON.stringify({ ok: r.ok, audience: 1, sent: r.ok ? 1 : 0, failed: r.ok ? 0 : 1, errors: r.error ? [r.error] : [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const gjson = await gres.json().catch(() => ({}));
+      const errMsg = gres.ok ? null : (gjson?.error?.message || JSON.stringify(gjson).slice(0, 400));
+      return new Response(JSON.stringify({
+        ok: gres.ok, audience: 1,
+        sent: gres.ok ? 1 : 0, failed: gres.ok ? 0 : 1,
+        errors: errMsg ? [errMsg] : [],
+        provider_status: gres.status,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ────────── Mode: ENQUEUE — resolve audience and queue for the scheduler ──────────
