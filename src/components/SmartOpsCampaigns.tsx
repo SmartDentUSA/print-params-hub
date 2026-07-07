@@ -1079,20 +1079,46 @@ function CreateCampaign({
       const id = await ensureSmsCampaign();
       if (!id) throw new Error("Não foi possível criar a campanha");
 
-      // Backend resolves audience + dispatches. Frontend just triggers the function.
-      console.info("[SMS] Invocando campaign-execute-sms", { campaign_id: id });
-      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
-        body: { campaign_id: id },
+      // 1) Resolve audiência (leads com telefone válido, respeitando opt-out).
+      const audience = await resolveSmsAudience(true);
+      const leadIds = audience.lead_ids;
+      if (!leadIds.length) {
+        throw new Error("Nenhum lead com telefone válido para esta audiência");
+      }
+
+      // 2) Cria campaign_session com lead_ids + mensagem (o que a função disparopro consome).
+      const filters = buildFiltersObject();
+      const { data: session, error: sessErr } = await supabase
+        .from("campaign_sessions")
+        .insert({
+          name: campaignName.trim(),
+          description: campaignDesc.trim() || null,
+          status: "queued",
+          channel: "sms",
+          lead_filters: Object.keys(filters).length ? filters : null,
+          lead_ids: leadIds,
+          lead_count: leadIds.length,
+          results: { sms_message: smsMessage, sms_codificacao: "0" },
+        })
+        .select("id")
+        .single();
+      if (sessErr || !session) throw new Error(sessErr?.message || "Falha ao criar sessão SMS");
+
+      // 3) Dispara via DisparoPro (async no backend p/ evitar timeout).
+      console.info("[SMS] Invocando smart-ops-sms-disparopro", { campaign_id: session.id, source_campaign_id: id });
+      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
+        body: {
+          campaign_id: session.id,
+          source_campaign_id: id,
+          sms_message: smsMessage,
+          sms_codificacao: "0",
+          async: true,
+        },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
-      console.info("[SMS] campaign-execute-sms OK", data);
-      const enfileirados = (data as any)?.total_leads ?? (data as any)?.enqueued ?? null;
-      toast.success(
-        enfileirados != null
-          ? `Disparo SMS enfileirado: ${enfileirados} leads. Acompanhe em Histórico.`
-          : "Disparo SMS enfileirado. Acompanhe em Histórico.",
-        { id: tId }
-      );
+      console.info("[SMS] disparopro OK", data);
+      const total = (data as any)?.total ?? leadIds.length;
+      toast.success(`Disparo SMS enfileirado: ${total} leads. Acompanhe em Histórico.`, { id: tId });
       onCreated();
     } catch (e) {
       console.error("[SMS] Falha em handleSendSms", e);
