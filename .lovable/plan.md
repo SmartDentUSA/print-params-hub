@@ -1,22 +1,19 @@
-## Problema
-Insert em `campaign_sessions` pelo frontend falha com RLS. Hoje só existem:
-- SELECT para admins
-- ALL para service_role
+## Reverter filtro BR-only no disparo de SMS
 
-Sem policy de INSERT/UPDATE, o disparo SMS quebra ao criar a sessão da campanha.
+Confiar em `telefone_normalized` como fonte da verdade. Removo o guard client-side que adicionei na última mudança.
 
-## Correção
-Migration adicionando policies de INSERT e UPDATE para admins na tabela `campaign_sessions`:
+### Alterações em `src/components/SmartOpsCampaigns.tsx`
 
-```sql
-CREATE POLICY "Admins insert campaign_sessions"
-ON public.campaign_sessions FOR INSERT TO authenticated
-WITH CHECK (public.is_admin((SELECT auth.uid())));
+1. **`resolveSmsAudience`**
+   - Remover `.like('telefone_normalized', '55%')` do `applySmsFilters`.
+   - Remover a função `isValidBrPhone` e o filtro por regex no loop de paginação de `lead_ids`.
+   - Voltar `select('id')` (sem `telefone_normalized`) na paginação.
+   - Voltar `.limit(5)` na `sampleQuery` e remover o `.filter(isValidBrPhone).slice(0,5)` da montagem da amostra.
 
-CREATE POLICY "Admins update campaign_sessions"
-ON public.campaign_sessions FOR UPDATE TO authenticated
-USING (public.is_admin((SELECT auth.uid())))
-WITH CHECK (public.is_admin((SELECT auth.uid())));
-```
+2. **Contador de leads SMS válidos (useEffect do step 2)**
+   - Remover `.like('telefone_normalized', '55%')` do `buildBase`.
 
-Nenhuma mudança de código frontend/backend. Depois disso o fluxo SMS (exocad) segue direto para `smart-ops-sms-disparopro`.
+### Fora de escopo
+
+- `handleSendSms` continua como está: cria `campaign_sessions` com `lead_ids` + `results.sms_message` e invoca `smart-ops-sms-disparopro` com `async: true`. Esse fluxo é o fix da mensagem anterior e não faz parte da reversão.
+- Nada muda na tabela `lia_attendances`, no pipeline de ingestão nem na edge function `smart-ops-sms-disparopro`.
