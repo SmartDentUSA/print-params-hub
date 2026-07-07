@@ -2377,6 +2377,122 @@ function CampaignHistory() {
 // ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
+function CampaignDrafts({ onEdit }: { onEdit: (draft: DraftCampaign) => void }) {
+  const [drafts, setDrafts] = useState<DraftCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("campaigns" as any)
+      .select("id,nome,descricao,canal,status,mensagem_template,lead_filter,created_at,total_leads,audience_count")
+      .eq("status", "rascunho")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      toast.error(`Erro ao carregar rascunhos: ${error.message}`);
+      setDrafts([]);
+    } else {
+      setDrafts((data as any) || []);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (draft: DraftCampaign) => {
+    if (!confirm(`Excluir o rascunho "${draft.nome}"? Esta ação não pode ser desfeita.`)) return;
+    setDeletingId(draft.id);
+    const { error } = await supabase.from("campaigns" as any).delete().eq("id", draft.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error(`Erro ao excluir: ${error.message}`);
+      return;
+    }
+    toast.success("Rascunho excluído");
+    setDrafts(prev => prev.filter(d => d.id !== draft.id));
+  };
+
+  if (loading) {
+    return <div className="h-40 flex items-center justify-center text-muted-foreground">Carregando rascunhos...</div>;
+  }
+
+  if (!drafts.length) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-3">
+        <Bookmark className="w-12 h-12 text-muted-foreground/40" />
+        <p className="text-muted-foreground">Nenhum rascunho salvo</p>
+        <p className="text-xs text-muted-foreground">
+          Rascunhos aparecem aqui quando você salva uma campanha sem disparar
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {drafts.length} rascunho{drafts.length === 1 ? "" : "s"} salvo{drafts.length === 1 ? "" : "s"}
+        </p>
+        <Button variant="ghost" size="sm" onClick={load}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Atualizar
+        </Button>
+      </div>
+      <div className="border rounded-lg overflow-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="text-left p-3 font-medium">Nome</th>
+              <th className="text-left p-3 font-medium">Canal</th>
+              <th className="text-left p-3 font-medium">Mensagem</th>
+              <th className="text-right p-3 font-medium">Leads</th>
+              <th className="text-left p-3 font-medium">Criado</th>
+              <th className="text-right p-3 font-medium">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {drafts.map(d => (
+              <tr key={d.id} className="border-b hover:bg-accent/5">
+                <td className="p-3 font-medium">{d.nome}</td>
+                <td className="p-3">
+                  <Badge variant="outline" className={channelColors[d.canal || ""] || ""}>
+                    {d.canal || "—"}
+                  </Badge>
+                </td>
+                <td className="p-3 max-w-[320px] truncate text-muted-foreground">
+                  {d.mensagem_template || "—"}
+                </td>
+                <td className="p-3 text-right">{d.total_leads ?? d.audience_count ?? "—"}</td>
+                <td className="p-3 text-muted-foreground">{formatDate(d.created_at)}</td>
+                <td className="p-3">
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => onEdit(d)}>
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(d)}
+                      disabled={deletingId === d.id}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      {deletingId === d.id
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function SmartOpsCampaigns() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("sub") || "biblioteca";
