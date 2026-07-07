@@ -3035,6 +3035,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   update_social_flow: executeUpdateSocialFlow,
   toggle_social_flow: executeToggleSocialFlow,
   delete_social_flow: executeDeleteSocialFlow,
+  provision_social_flow: executeProvisionSocialFlow,
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
