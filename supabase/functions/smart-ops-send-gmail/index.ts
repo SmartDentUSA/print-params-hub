@@ -145,7 +145,59 @@ Deno.serve(async (req) => {
       cta_config = null,
       test_email,        // if set, sends single test and skips DB campaign
       dry_run = false,
+      scheduled_at = null,
+      action,            // 'send_one' when invoked by the scheduler
+      send_log_id,       // required with action='send_one'
     } = body || {};
+
+    // ────────── Mode: send a single queued row (scheduler-driven) ──────────
+    if (action === "send_one") {
+      if (!send_log_id) {
+        return new Response(JSON.stringify({ error: "send_log_id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: log } = await supabase
+        .from("campaign_send_log")
+        .select("id, campaign_id, lead_id, email, nome, status, subject_snapshot")
+        .eq("id", send_log_id)
+        .maybeSingle();
+      if (!log) return new Response(JSON.stringify({ error: "log not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (log.status !== "queued") {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: `status=${log.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: camp } = await supabase
+        .from("campaigns")
+        .select("id, email_subject, email_preheader, email_html, cta_config, nome")
+        .eq("id", log.campaign_id).maybeSingle();
+      if (!camp) return new Response(JSON.stringify({ error: "campaign not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      // Resolve seller for this lead
+      let seller: { nome: string; whatsapp: string } | undefined;
+      if (log.lead_id) {
+        const { data: la } = await supabase.from("lia_attendances")
+          .select("responsavel_id").eq("id", log.lead_id).maybeSingle();
+        const sid = (la as any)?.responsavel_id;
+        if (sid) {
+          const { data: tm } = await supabase.from("team_members")
+            .select("nome_completo, whatsapp_number").eq("id", sid).maybeSingle();
+          if (tm) seller = { nome: tm.nome_completo, whatsapp: tm.whatsapp_number };
+        }
+      }
+      const waLink = seller?.whatsapp ? `https://wa.me/${String(seller.whatsapp).replace(/\D/g, "")}` : officialWaLink;
+      const result = await sendOne({
+        supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
+        email: log.email, nome: (log.nome as any) || "", leadId: log.lead_id,
+        campaignId: camp.id, sendLogId: log.id,
+        subject: camp.email_subject || log.subject_snapshot || "",
+        preheader: camp.email_preheader || "",
+        html: camp.email_html || "",
+        fromName: from_name, seller, waLink,
+      });
+      return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!subject || !html) {
       return new Response(JSON.stringify({ error: "subject e html são obrigatórios" }), {
