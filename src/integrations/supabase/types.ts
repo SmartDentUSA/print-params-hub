@@ -19859,6 +19859,7 @@ export type Database = {
           payment_flow: string | null
           platform: string | null
           product: string | null
+          renewal_reminder_sent_for: string | null
           status: string | null
           stripe_checkout_session_id: string | null
           stripe_customer_id: string | null
@@ -19877,6 +19878,7 @@ export type Database = {
           payment_flow?: string | null
           platform?: string | null
           product?: string | null
+          renewal_reminder_sent_for?: string | null
           status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
@@ -19895,6 +19897,7 @@ export type Database = {
           payment_flow?: string | null
           platform?: string | null
           product?: string | null
+          renewal_reminder_sent_for?: string | null
           status?: string | null
           stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
