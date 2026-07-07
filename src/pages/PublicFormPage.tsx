@@ -518,12 +518,11 @@ export default function PublicFormPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4 p-8">
-          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
-          <p className="text-lg font-medium">{form.success_message}</p>
-        </div>
-      </div>
+      <SubmittedScreen
+        form={form}
+        company={company}
+        redirectUrl={redirectUrl}
+      />
     );
   }
 
