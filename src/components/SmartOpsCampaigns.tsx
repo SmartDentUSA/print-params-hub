@@ -827,6 +827,22 @@ function CreateCampaign({
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
 
+  // Hydrate wizard state from a draft campaign and jump to step 3
+  useEffect(() => {
+    if (!resumeDraft) return;
+    setCampaignName(resumeDraft.nome ?? "");
+    setCampaignDesc(resumeDraft.descricao ?? "");
+    if (resumeDraft.canal) setSendChannel(resumeDraft.canal);
+    if (resumeDraft.canal === "sms") {
+      setSmsMessage(resumeDraft.mensagem_template ?? "");
+    }
+    applySegmentFilters(resumeDraft.lead_filter ?? {});
+    setSmsCampaignId(resumeDraft.id);
+    setStep(3);
+    onDraftConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeDraft?.id]);
+
   // Fetch DisparoPro balance when SMS channel is selected
   useEffect(() => {
     if (sendChannel !== "sms") return;
