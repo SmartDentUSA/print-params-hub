@@ -246,6 +246,32 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     .split("{{primeiro_nome}}").join("Dr. João")
     .split("{{vendedor_nome}}").join(fromName);
 
+  // Poll global queue status while on step 4
+  useEffect(() => {
+    if (step !== 4) return;
+    let alive = true;
+    const tick = async () => {
+      const { data } = await supabase.rpc("fn_email_queue_status");
+      if (alive && data) setQueueStatus(data as any);
+    };
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => { alive = false; clearInterval(id); };
+  }, [step]);
+
+  // Poll metrics for the just-enqueued campaign while on step 5
+  useEffect(() => {
+    if (!lastCampaignId || step !== 5) return;
+    let alive = true;
+    const tick = async () => {
+      const { data } = await supabase.rpc("fn_email_campaign_metrics", { p_campaign_id: lastCampaignId });
+      if (alive && data) setMetrics(data);
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => { alive = false; clearInterval(id); };
+  }, [lastCampaignId, step]);
+
   const htmlWarning = useMemo(() => {
     if (!html) return null;
     if (!/<body[\s>]/i.test(html)) return "HTML sem <body> — sanitizador vai envolver, mas prefira regenerar.";
