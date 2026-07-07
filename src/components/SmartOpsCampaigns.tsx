@@ -962,18 +962,63 @@ function CreateCampaign({
     try {
       const id = await ensureSmsCampaign();
       if (!id) throw new Error("Não foi possível criar a campanha");
-      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
-        body: { campaign_id: id },
+
+      // Resolve lead_ids client-side (mesma query do smsLeadValidCount)
+      const leadIds: string[] = [];
+      const PAGE = 1000;
+      const CAP = 10000;
+      let from = 0;
+      while (leadIds.length < CAP) {
+        let q = supabase
+          .from("lia_attendances")
+          .select("id")
+          .is("merged_into", null)
+          .not("telefone_normalized", "is", null) as any;
+        q = applyFiltersToQuery(q, currentFilters);
+        try { q = q.neq("sms_opt_out", true); } catch { /* coluna opcional */ }
+        const { data: rows, error: qErr } = await q.range(from, from + PAGE - 1);
+        if (qErr) throw new Error(qErr.message);
+        if (!rows || rows.length === 0) break;
+        for (const r of rows) leadIds.push((r as any).id);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      if (leadIds.length === 0) {
+        toast.error("Nenhum lead com telefone válido para os filtros", { id: tId });
+        return;
+      }
+
+      // Cria campaign_session e dispara via smart-ops-sms-disparopro
+      const { data: sessionRow, error: sessErr } = await supabase
+        .from("campaign_sessions")
+        .insert({
+          name: campaignName.trim(),
+          description: campaignDesc.trim() || null,
+          channel: "sms",
+          status: "running",
+          lead_ids: leadIds,
+          lead_count: leadIds.length,
+          lead_filters: buildFiltersObject(),
+          results: {
+            sms_message: smsMessage,
+            sms_codificacao: smsCodificacao,
+            source_campaign_id: id,
+          },
+        })
+        .select("id")
+        .single();
+      if (sessErr || !sessionRow) throw new Error(sessErr?.message ?? "Falha ao criar campaign_session");
+      const sessionId = (sessionRow as any).id as string;
+
+      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
+        body: { campaign_id: sessionId, sms_message: smsMessage, sms_codificacao: smsCodificacao },
       });
       if (error) throw error;
       const sent = (data as any)?.sent ?? 0;
       const failed = (data as any)?.failed ?? 0;
-      const total = (data as any)?.total_leads ?? 0;
-      const status = (data as any)?.status ?? "completed";
-      toast.success(
-        `Disparo ${status}: ${sent}/${total} enviados, ${failed} falhas`,
-        { id: tId }
-      );
+      const total = leadIds.length;
+      await supabase.from("campaigns" as any).update({ status: "completed" }).eq("id", id);
+      toast.success(`Disparo completed: ${sent}/${total} enviados, ${failed} falhas`, { id: tId });
       onCreated();
     } catch (e) {
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
