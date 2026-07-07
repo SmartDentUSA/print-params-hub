@@ -124,8 +124,12 @@ export default function PublicFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const isStepMode = form?.display_mode === "step";
+  const isFirstThreeMode = form?.display_mode === "first_three";
   // Filter fields by conditional logic against current answers
-  const renderableFields = fields.filter((f) => isFieldVisible(f, values));
+  const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
+  const renderableFields = isFirstThreeMode
+    ? allRenderableFields.slice(0, 3)
+    : allRenderableFields;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
@@ -673,16 +677,26 @@ export default function PublicFormPage() {
         .public-form-page .text-muted-foreground { color: var(--form-muted) !important; }
         .public-form-page .text-foreground { color: var(--form-heading) !important; }
         .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
-          background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
+          background-color: rgba(255,255,255,0.06); color: #f5f5f5 !important; border-color: rgba(255,255,255,0.18);
+          caret-color: #f5f5f5 !important;
         }
-        .public-form-page:not(.dark) input, .public-form-page:not(.dark) select, .public-form-page:not(.dark) textarea {
-          color: #0F172A;
-          caret-color: #0F172A;
+        .public-form-page.dark input::placeholder,
+        .public-form-page.dark select::placeholder,
+        .public-form-page.dark textarea::placeholder {
+          color: rgba(255,255,255,0.6) !important;
+          opacity: 1;
+        }
+        /* Always keep typed text legible on the light input background used by the form panel */
+        .public-form-page:not(.dark) input,
+        .public-form-page:not(.dark) select,
+        .public-form-page:not(.dark) textarea {
+          color: #0F172A !important;
+          caret-color: #0F172A !important;
         }
         .public-form-page:not(.dark) input::placeholder,
         .public-form-page:not(.dark) select::placeholder,
         .public-form-page:not(.dark) textarea::placeholder {
-          color: #64748B;
+          color: #64748B !important;
           opacity: 1;
         }
         /* KB-style fallback form panel (only when no custom background) */

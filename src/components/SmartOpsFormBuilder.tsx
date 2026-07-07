@@ -204,7 +204,7 @@ export function SmartOpsFormBuilder() {
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
-  const [metaDisplayMode, setMetaDisplayMode] = useState<"list" | "step">("list");
+  const [metaDisplayMode, setMetaDisplayMode] = useState<"list" | "step" | "first_three">("list");
   const [metaShowProgress, setMetaShowProgress] = useState(true);
   // ------- Aparência (page builder) -------
   const [metaBgType, setMetaBgType] = useState<"solid" | "gradient" | "image">("solid");
@@ -483,7 +483,13 @@ export function SmartOpsFormBuilder() {
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
-    setMetaDisplayMode((form.display_mode as any) === "step" ? "step" : "list");
+    setMetaDisplayMode(
+      (form.display_mode as any) === "step"
+        ? "step"
+        : (form.display_mode as any) === "first_three"
+          ? "first_three"
+          : "list",
+    );
     setMetaShowProgress(form.show_progress !== false);
     const f: any = form;
     setMetaBgType((f.bg_type as any) || "solid");
@@ -817,11 +823,12 @@ export function SmartOpsFormBuilder() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
                 <div>
                   <label className="text-xs font-medium">Como as perguntas aparecem</label>
-                  <Select value={metaDisplayMode} onValueChange={(v) => setMetaDisplayMode(v as "list" | "step")}>
+                  <Select value={metaDisplayMode} onValueChange={(v) => setMetaDisplayMode(v as "list" | "step" | "first_three")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="list">Lista única (todas as perguntas)</SelectItem>
                       <SelectItem value="step">Passo a passo (1 pergunta por vez)</SelectItem>
+                      <SelectItem value="first_three">Somente as 3 primeiras perguntas</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
