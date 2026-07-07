@@ -3365,6 +3365,10 @@ serve(async (req) => {
 
     let currentMessages = [...allMessages];
     const MAX_ITERATIONS = 10;
+    // Guard contra IDLE_TIMEOUT (150s) da edge function: reservamos ~25s
+    // para o summary final e cortamos o loop antes de estourar.
+    const REQUEST_START = Date.now();
+    const REQUEST_BUDGET_MS = 120_000;
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
@@ -3418,6 +3422,12 @@ serve(async (req) => {
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       console.log(`[Copilot] Iteration ${iteration + 1}/${MAX_ITERATIONS} using ${config.label}`);
+
+      // Bail-out se estamos perto do IDLE_TIMEOUT — cai para o summary final.
+      if (Date.now() - REQUEST_START > REQUEST_BUDGET_MS) {
+        console.warn(`[Copilot] Time budget exceeded (${Date.now() - REQUEST_START}ms) — breaking to summary`);
+        break;
+      }
 
       // Cadeia começa pelo provedor ativo atual, depois os demais na ordem padrão.
       const iterChain = buildFallbackChain(modelId);
