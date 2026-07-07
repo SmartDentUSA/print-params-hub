@@ -1085,6 +1085,18 @@ const tools = [
         required: ["id","confirmed"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "provision_social_flow",
+      description: "Registra/re-registra a automação Zernio de um flow comment_keyword_dm existente que ainda não tem zernio_automation_id (ou precisa ser recriada). Use quando: (a) flow foi criado sem provisionar, (b) zernio_automation_id está null, (c) usuário pede para 'ativar/testar de verdade' um comment-to-DM, (d) toggle_social_flow retornar zernio_status ⚠️. Sem esse registro o Zernio NÃO escuta comentários no Instagram.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "string", description: "UUID do flow em social_flows" } },
+        required: ["id"]
+      }
+    }
   }
 ];
 
