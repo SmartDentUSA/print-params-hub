@@ -1046,61 +1046,23 @@ function CreateCampaign({
       const id = await ensureSmsCampaign();
       if (!id) throw new Error("Não foi possível criar a campanha");
 
-      // Resolve lead_ids client-side usando a mesma query do contador SMS.
-      const audience = await resolveSmsAudience(true);
-      const leadIds = audience.lead_ids;
-      if (leadIds.length === 0) {
-        toast.error("Nenhum lead com telefone válido para os filtros", { id: tId });
-        return;
-      }
-
-      await supabase.from("campaigns" as any).update({
-        status: "running",
-        audience_count: audience.total,
-        audience_snapshot_at: new Date().toISOString(),
-        total_leads: leadIds.length,
-        total_sent: 0,
-        total_failed: 0,
-        started_at: new Date().toISOString(),
-      }).eq("id", id);
-
-      // Cria campaign_session e dispara via smart-ops-sms-disparopro
-      const { data: sessionRow, error: sessErr } = await supabase
-        .from("campaign_sessions")
-        .insert({
-          name: campaignName.trim(),
-          description: campaignDesc.trim() || null,
-          channel: "sms",
-          status: "running",
-          lead_ids: leadIds,
-          lead_count: leadIds.length,
-          lead_filters: buildFiltersObject(),
-          results: {
-            sms_message: smsMessage,
-            sms_codificacao: smsCodificacao,
-            source_campaign_id: id,
-          },
-        })
-        .select("id")
-        .single();
-      if (sessErr || !sessionRow) throw new Error(sessErr?.message ?? "Falha ao criar campaign_session");
-      const sessionId = (sessionRow as any).id as string;
-
-      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
-        body: {
-          campaign_id: sessionId,
-          source_campaign_id: id,
-          sms_message: smsMessage,
-          sms_codificacao: smsCodificacao,
-          async: true,
-          batch_size: 100,
-        },
+      // Backend resolves audience + dispatches. Frontend just triggers the function.
+      console.info("[SMS] Invocando campaign-execute-sms", { campaign_id: id });
+      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
+        body: { campaign_id: id },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
-      const total = leadIds.length;
-      toast.success(`Disparo SMS enfileirado: ${total} leads. Acompanhe em Histórico.`, { id: tId });
+      console.info("[SMS] campaign-execute-sms OK", data);
+      const enfileirados = (data as any)?.total_leads ?? (data as any)?.enqueued ?? null;
+      toast.success(
+        enfileirados != null
+          ? `Disparo SMS enfileirado: ${enfileirados} leads. Acompanhe em Histórico.`
+          : "Disparo SMS enfileirado. Acompanhe em Histórico.",
+        { id: tId }
+      );
       onCreated();
     } catch (e) {
+      console.error("[SMS] Falha em handleSendSms", e);
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
     } finally {
       setSending(false);
