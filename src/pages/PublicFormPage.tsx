@@ -483,8 +483,7 @@ export default function PublicFormPage() {
       // Redirect if URL configured
       const redirectUrl = (form as any).success_redirect_url;
       if (redirectUrl) {
-        window.location.href = redirectUrl;
-        return;
+        setRedirectUrl(redirectUrl);
       }
       setSubmitted(true);
     } catch (err: any) {
