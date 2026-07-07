@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus } from "lucide-react";
 import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
 
-type CtaType = "landing" | "form" | "knowledge" | "social_post" | "store" | "seller_wa" | "custom";
+type CtaType = "landing" | "form" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
 interface Cta { tipo: CtaType; id?: string; url: string; label: string }
 
@@ -40,7 +40,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [produtoId, setProdutoId] = useState<string>("");
   const [productSearch, setProductSearch] = useState("");
   const [ctaOptions, setCtaOptions] = useState<Record<CtaType, CtaOption[]>>({
-    landing: [], form: [], knowledge: [], social_post: [], store: [], seller_wa: [], custom: [],
+    landing: [], form: [], custom: [],
   });
   const [ctaPrincipal, setCtaPrincipal] = useState<Cta | null>(null);
   const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
@@ -89,67 +89,52 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     })();
   }, []);
 
-  // ── Load CTA option lists (product-aware) ──
+  // ── Load CTA option lists — restricted to the selected product's LP + Form ──
   useEffect(() => {
     (async () => {
+      if (!produtoId) {
+        setCtaOptions({ landing: [], form: [], custom: [] });
+        setCtaPrincipal(null);
+        setCtasSecundarios([]);
+        return;
+      }
       const sb = supabase as any;
-      const [lp, forms, know, posts, store] = await Promise.all([
-        sb.from("smartops_form_landing_pages").select("id, slug, title").limit(200),
-        sb.from("smartops_forms").select("id, name, slug").limit(200),
-        // knowledge_contents has no `status` column — filter by `active` instead
-        sb.from("knowledge_contents").select("id, title, slug, category_id")
-          .eq("active", true).order("updated_at", { ascending: false }).limit(80),
-        sb.from("social_scheduled_posts")
-          .select("id, caption, permalink_url, media_url").eq("status", "published")
-          .order("scheduled_at", { ascending: false }).limit(40),
-        produtoId
-          ? sb.from("system_a_catalog").select("id, name, cta_1_url, cta_2_url, cta_3_url").eq("id", produtoId).limit(1)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
+      const { data: prodForms } = await sb
+        .from("smartops_forms")
+        .select("id, name, slug")
+        .eq("product_catalog_id", produtoId);
+      const formIds = (prodForms || []).map((f: any) => f.id);
+      const { data: prodLps } = formIds.length
+        ? await sb
+            .from("smartops_form_landing_pages")
+            .select("id, slug, title, status, form_id")
+            .in("form_id", formIds)
+            .eq("status", "published")
+        : { data: [] as any[] };
 
       const origin = "https://smartdent.com.br";
-      const storeItems: CtaOption[] = [];
-      const prod = (store.data || [])[0];
-      if (prod) {
-        for (const [k, urlKey] of [["cta_1_url", "cta_1_url"], ["cta_2_url", "cta_2_url"], ["cta_3_url", "cta_3_url"]] as const) {
-          const u = prod[urlKey];
-          if (u) storeItems.push({ id: `${prod.id}-${k}`, tipo: "store", label: `Loja: ${prod.name}`, url: u });
-        }
-      }
+      const landing: CtaOption[] = (prodLps || []).map((p: any) => ({
+        id: p.id, tipo: "landing",
+        label: `Landing: ${p.title || p.slug}`,
+        url: `${origin}/lp/${p.slug}`,
+      }));
+      const form: CtaOption[] = (prodForms || []).map((f: any) => ({
+        id: f.id, tipo: "form",
+        label: `Formulário: ${f.name || f.slug}`,
+        url: `${origin}/f/${f.slug}`,
+      }));
 
-      setCtaOptions({
-        landing: (lp.data || []).map((p: any) => ({
-          id: p.id, tipo: "landing", label: p.title || p.slug,
-          url: `${origin}/lp/${p.slug}`,
-        })),
-        form: (forms.data || []).map((f: any) => ({
-          id: f.id, tipo: "form", label: f.name || f.slug,
-          url: `${origin}/formulario/${f.slug}`,
-        })),
-        knowledge: (know.data || []).map((k: any) => ({
-          id: k.id, tipo: "knowledge", label: k.title,
-          url: `${origin}/base-conhecimento/a/${k.slug}`,
-        })),
-        social_post: (posts.data || []).filter((p: any) => p.permalink_url).map((p: any) => ({
-          id: p.id, tipo: "social_post",
-          label: (p.caption || "post").slice(0, 60),
-          url: p.permalink_url,
-        })),
-        store: storeItems,
-        seller_wa: [{
-          id: "dynamic", tipo: "seller_wa",
-          label: "WhatsApp do vendedor responsável (dinâmico)",
-          url: "{{link_wa_vendedor}}",
-        }],
-        custom: [],
-      });
+      setCtaOptions({ landing, form, custom: [] });
+
+      // Auto-select: LP as principal, Form as secondary (or reverse if only one exists)
+      const first = landing[0] || form[0] || null;
+      const second = landing[0] && form[0] ? form[0] : null;
+      setCtaPrincipal(first ? { tipo: first.tipo, id: first.id, url: first.url, label: first.label } : null);
+      setCtasSecundarios(second ? [{ tipo: second.tipo, id: second.id, url: second.url, label: second.label }] : []);
     })();
   }, [produtoId]);
 
-  const allCtas = useMemo(() =>
-    [...ctaOptions.landing, ...ctaOptions.form, ...ctaOptions.knowledge,
-     ...ctaOptions.social_post, ...ctaOptions.store, ...ctaOptions.seller_wa],
-  [ctaOptions]);
+  const allCtas = useMemo(() => [...ctaOptions.landing, ...ctaOptions.form], [ctaOptions]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -166,7 +151,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
   async function handleGenerate(mode: "all" | "subject" = "all") {
     if (!produtoId) return toast.error("Escolha um produto primeiro");
-    if (!ctaPrincipal) return toast.error("Escolha um CTA principal");
+    if (!ctaPrincipal) return toast.error("Este produto não tem landing page nem formulário vinculado. Cadastre um antes de gerar o e-mail.");
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
