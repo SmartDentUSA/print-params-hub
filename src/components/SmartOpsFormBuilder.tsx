@@ -176,7 +176,7 @@ const BASE_FORM_FIELDS = [
 export function SmartOpsFormBuilder() {
   const [forms, setForms] = useState<SmartOpsForm[]>([]);
   const [loading, setLoading] = useState(true);
-  const [periodDays, setPeriodDays] = useState<number>(30);
+  const [periodDays, setPeriodDays] = useState<number>(0);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
   const [shortLinksBySlug, setShortLinksBySlug] = useState<
     Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo }>
