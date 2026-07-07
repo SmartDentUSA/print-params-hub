@@ -1,18 +1,20 @@
 ## Bug
 
-Envio de teste falha com 500. Log: `Cannot read properties of null (reading 'id')` na criação da campanha "teste". A tabela `campaigns` está rejeitando o insert com `status='completed'` + `completed_at`, e o código lê `c!.id` sem checar erro.
+O e-mail está usando `https://smartdent.com.br/f/<slug>` e `.../lp/<slug>` como CTA. O correto é usar os shorts oficiais registrados em `smartops_short_links` (`https://s.smartdent.com.br/<short_code>`), que já existem para o formulário e a landing page do produto (mesmos shorts mostrados no card do formulário).
+
+Exemplo (produto `exocad_dentalcad_rms`):
+- LP → `hxssbk`
+- Form → `fwr5e6`
 
 ## Fix
 
-**`supabase/functions/smart-ops-send-gmail/index.ts` — modo `test_email`**
+**`src/components/smartops/EmailCampaignWizard.tsx`** (efeito que carrega CTAs do produto):
 
-Simplificar: teste NÃO cria linha em `campaigns` nem em `campaign_send_log`. Envia direto para o Gmail com:
-- placeholder replacement (`{{nome}}` = "Teste", `{{vendedor_nome}}` = `from_name`, `{{link_wa_vendedor}}` = fallback oficial)
-- sem short_links (link direto)
-- sem pixel de tracking (é teste, não conta métricas)
-- monta o RFC 2822 + `messages/send` do Gmail
-- retorna `{ ok, sent, failed, errors }`
+1. Depois de carregar `smartops_forms` e `smartops_form_landing_pages`, buscar em paralelo `smartops_short_links` filtrado por `form_slug IN (slugs dos formulários do produto)`.
+2. Montar mapa `{ form_slug → { form: short_code, landing_page: short_code } }`.
+3. Trocar as URLs:
+   - Landing: se houver short `landing_page` para o `form_slug` correspondente, usar `https://s.smartdent.com.br/<short_code>`; senão, manter fallback `.../lp/<slug>`.
+   - Form: se houver short `form`, usar `https://s.smartdent.com.br/<short_code>`; senão, manter fallback `.../f/<slug>`.
+4. Nenhuma outra mudança — o allow-list de URLs do gerador de e-mail já usa apenas `cta_principal.url` + `ctas_secundarios[].url`, então isso propaga automaticamente ao prompt.
 
-Mantém a assinatura pública igual. Nenhuma outra rota é afetada (enqueue, send_one e whoami continuam iguais).
-
-Depois deploy da função.
+Sem migração, sem alterações de edge function.
