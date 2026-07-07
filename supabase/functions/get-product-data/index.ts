@@ -201,6 +201,65 @@ Deno.serve(async (req) => {
       }
 
       if (!resin) {
+        // 🌐 Fallback final: Sistema A live (fonte autoritativa)
+        try {
+          const isNumeric = /^\d+$/.test(slug);
+          const liveUrl = isNumeric
+            ? `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id=${encodeURIComponent(slug)}`
+            : `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?slug=${encodeURIComponent(slug)}`;
+          console.log('🌐 Fallback Sistema A live:', { param: slug, url: liveUrl });
+
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 8000);
+          let liveJson: any = null;
+          try {
+            const liveRes = await fetch(liveUrl, { signal: ctrl.signal });
+            console.log('🌐 Sistema A live status:', liveRes.status);
+            if (liveRes.ok) {
+              liveJson = await liveRes.json();
+            } else {
+              await liveRes.text().catch(() => null);
+            }
+          } finally {
+            clearTimeout(to);
+          }
+
+          const live = liveJson?.data;
+          if (live && (live.id || live.name)) {
+            const liveSlug = String(live.slug || live.canonical_slug || slug);
+            const liveUrlOut = live.url || live.canonical_url || `https://loja.smartdent.com.br/${liveSlug}`;
+            const response = {
+              success: true,
+              message: 'Produto encontrado (Sistema A live)',
+              data: {
+                id: live.id,
+                uuid: live.id,
+                external_id: String(live.id || live.external_id || slug),
+                name: live.name,
+                slug: liveSlug,
+                description: live.description || live.applications || '',
+                image_url: live.image_url || live.main_image_url || null,
+                price: live.price ?? null,
+                promo_price: live.promo_price ?? null,
+                currency: live.currency || 'BRL',
+                url: liveUrlOut,
+                canonical_url: live.canonical_url || liveUrlOut,
+                seo_title_override: live.seo_title_override || live.seo_title || null,
+                seo_description_override: live.seo_description_override || live.meta_description || null,
+                keywords: live.keywords || live.market_keywords || [],
+                product_category: live.product_category || null,
+                product_subcategory: live.product_subcategory || null,
+              },
+            };
+            return new Response(JSON.stringify(response), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } catch (e) {
+          console.warn('🌐 Sistema A live falhou:', e instanceof Error ? e.message : e);
+        }
+
         console.log('❌ Produto não encontrado em nenhum lugar:', { slug, resinError });
         return new Response(
           JSON.stringify({
