@@ -960,7 +960,8 @@ function CreateCampaign({
           .from("lia_attendances")
           .select("id", { count: "exact", head: true })
           .is("merged_into", null)
-          .not("telefone_normalized", "is", null) as any;
+          .not("telefone_normalized", "is", null)
+          .like("telefone_normalized", "55%") as any;
         return applyFiltersToQuery(q, currentFilters);
       };
       try {
@@ -1004,7 +1005,17 @@ function CreateCampaign({
 
   const resolveSmsAudience = async (includeIds = false) => {
     const filters = buildFiltersObject();
-    const applySmsFilters = (q: any) => applyFiltersToQuery(q, filters).neq("sms_opt_out", true);
+    // BR-only guard: DisparoPro só envia para números brasileiros (55DDDNNNNNNNNN).
+    // Filtramos no servidor tudo que começa com "55" e depois validamos length (12–13 dígitos)
+    // no cliente para descartar lixo tipo "55" isolado ou entradas curtas.
+    const applySmsFilters = (q: any) =>
+      applyFiltersToQuery(q, filters)
+        .neq("sms_opt_out", true)
+        .like("telefone_normalized", "55%");
+    const isValidBrPhone = (raw: string | null | undefined) => {
+      const digits = String(raw || "").replace(/\D+/g, "");
+      return /^55[1-9]\d{9,10}$/.test(digits);
+    };
 
     const totalQuery = applyFiltersToQuery(
       supabase
@@ -1028,7 +1039,7 @@ function CreateCampaign({
         .select("id,nome,telefone_normalized,telefone_raw,wa_phone")
         .is("merged_into", null)
         .not("telefone_normalized", "is", null)
-        .limit(5) as any,
+        .limit(20) as any,
     );
 
     const [totalRes, validRes, sampleRes] = await Promise.all([totalQuery, validQuery, sampleQuery]);
@@ -1044,24 +1055,29 @@ function CreateCampaign({
       while (leadIds.length < CAP) {
         let q = supabase
           .from("lia_attendances")
-          .select("id")
+          .select("id,telefone_normalized")
           .is("merged_into", null)
           .not("telefone_normalized", "is", null) as any;
         q = applySmsFilters(q).range(from, from + PAGE - 1);
         const { data: rows, error: qErr } = await q;
         if (qErr) throw new Error(qErr.message);
         if (!rows || rows.length === 0) break;
-        for (const r of rows) leadIds.push((r as any).id);
+        for (const r of rows as any[]) {
+          if (isValidBrPhone(r.telefone_normalized)) leadIds.push(r.id);
+        }
         if (rows.length < PAGE) break;
         from += PAGE;
       }
     }
 
-    const sample = ((sampleRes.data as any[]) || []).map((row) => ({
-      id: row.id,
-      nome: row.nome,
-      telefone: row.telefone_normalized || row.telefone_raw || row.wa_phone || null,
-    }));
+    const sample = ((sampleRes.data as any[]) || [])
+      .filter((row) => isValidBrPhone(row.telefone_normalized))
+      .slice(0, 5)
+      .map((row) => ({
+        id: row.id,
+        nome: row.nome,
+        telefone: row.telefone_normalized || row.telefone_raw || row.wa_phone || null,
+      }));
 
     return {
       total: totalRes.count ?? 0,
