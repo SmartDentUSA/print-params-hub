@@ -58,6 +58,14 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [sending, setSending] = useState(false);
   const [fromName, setFromName] = useState("Smart Dent | Fluxo Digital");
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+
+  // Queue + metrics
+  const [queueStatus, setQueueStatus] = useState<{
+    sent_today: number; daily_cap: number; queued_total: number;
+    active_campaigns: number; window_start: string; window_end: string;
+  } | null>(null);
+  const [lastCampaignId, setLastCampaignId] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<any>(null);
   const [testEmail, setTestEmail] = useState("");
   const [testHistory, setTestHistory] = useState<Array<{ to: string; status: "ok" | "fail"; at: string; error?: string }>>([]);
   const [showPreview, setShowPreview] = useState(true);
@@ -224,9 +232,10 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       });
       if (error) throw error;
       const d = data as any;
-      toast.success(`Enviados ${d.sent}/${d.audience} • Falhas: ${d.failed}`);
+      setLastCampaignId(d?.campaign_id ?? null);
+      toast.success(`Campanha enfileirada — ${d.audience} leads na fila global`);
       onSent?.(d);
-      setStep(5); // suggest creating a sequence next
+      setStep(5);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao enviar");
     } finally { setSending(false); }
@@ -236,6 +245,32 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     .split("{{nome}}").join("Dr. João")
     .split("{{primeiro_nome}}").join("Dr. João")
     .split("{{vendedor_nome}}").join(fromName);
+
+  // Poll global queue status while on step 4
+  useEffect(() => {
+    if (step !== 4) return;
+    let alive = true;
+    const tick = async () => {
+      const { data } = await supabase.rpc("fn_email_queue_status");
+      if (alive && data) setQueueStatus(data as any);
+    };
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => { alive = false; clearInterval(id); };
+  }, [step]);
+
+  // Poll metrics for the just-enqueued campaign while on step 5
+  useEffect(() => {
+    if (!lastCampaignId || step !== 5) return;
+    let alive = true;
+    const tick = async () => {
+      const { data } = await supabase.rpc("fn_email_campaign_metrics", { p_campaign_id: lastCampaignId });
+      if (alive && data) setMetrics(data);
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => { alive = false; clearInterval(id); };
+  }, [lastCampaignId, step]);
 
   const htmlWarning = useMemo(() => {
     if (!html) return null;
@@ -548,7 +583,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 <Label className="text-xs">Data e hora (America/Sao_Paulo)</Label>
                 <Input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
                 <p className="text-xs text-muted-foreground mt-1">
-                  ⚠️ Agendamento salva a campanha em <code>draft</code> — cron horária dispara na data.
+                  A fila só começa a enviar a partir da data agendada, respeitando janela e cap diário.
                 </p>
               </div>
             )}
@@ -556,12 +591,34 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             <div className="text-sm bg-primary/5 border border-primary/20 rounded p-3">
               📧 <b>{audienceCount ?? "?"}</b> emails para leads da segmentação<br />
               {dispatchMode === "now"
-                ? <>Envio imediato via Gmail conectado (<b>{connectedEmail}</b>)</>
+                ? <>Enfileirar agora via Gmail conectado (<b>{connectedEmail}</b>)</>
                 : <>Agendado para <b>{scheduledAt || "—"}</b></>}
             </div>
 
-            <div className="text-xs text-muted-foreground border-t pt-3">
-              ⚠️ Limite Gmail padrão: ~500 envios/dia. Aberturas dependem do cliente carregar imagens.
+            <div className="border-t pt-3 space-y-2 text-xs">
+              <div className="font-medium text-foreground">Fila inteligente de envio</div>
+              <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                <li>Até <b>499 e-mails/dia</b> no Gmail conectado (limite oficial ~500/dia).</li>
+                <li>Janela: <b>{queueStatus?.window_start ?? "07:30"}–{queueStatus?.window_end ?? "19:00"}</b> (America/Sao_Paulo).</li>
+                <li>Se houver várias campanhas ativas, a fila envia <b>1 e-mail de cada em rodízio</b> até completar todas.</li>
+                <li>Aberturas e cliques são rastreados automaticamente.</li>
+              </ul>
+              {queueStatus && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Enviados hoje</div>
+                    <div className="font-semibold">{queueStatus.sent_today}/{queueStatus.daily_cap}</div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Na fila</div>
+                    <div className="font-semibold">{queueStatus.queued_total}</div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Campanhas ativas</div>
+                    <div className="font-semibold">{queueStatus.active_campaigns}</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between pt-2">
@@ -570,7 +627,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 <Send className="w-4 h-4 mr-1" />
                 {sending ? "Disparando..."
                   : dispatchMode === "now"
-                    ? `Disparar para ${audienceCount ?? "?"} leads`
+                    ? `Enfileirar ${audienceCount ?? "?"} leads`
                     : "Confirmar agendamento"}
               </Button>
             </div>
@@ -580,7 +637,42 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
       {/* ────── Step 5: Criar régua ────── */}
       {step === 5 && (
-        <EmailSequenceBuilder
+        <div className="space-y-4">
+          {lastCampaignId && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Métricas ao vivo</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Enviados</div>
+                    <div className="font-semibold text-base">{metrics?.enviados ?? 0}<span className="text-muted-foreground text-xs">/{metrics?.total ?? 0}</span></div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Pendentes</div>
+                    <div className="font-semibold text-base">{metrics?.pendentes ?? 0}</div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Abertos</div>
+                    <div className="font-semibold text-base">{metrics?.abertos ?? 0} <span className="text-muted-foreground">({metrics?.taxa_abertura ?? 0}%)</span></div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Cliques (leads)</div>
+                    <div className="font-semibold text-base">{metrics?.clicks ?? 0} <span className="text-muted-foreground">({metrics?.taxa_click ?? 0}%)</span></div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Cliques (total)</div>
+                    <div className="font-semibold text-base">{metrics?.click_total ?? 0}</div>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <div className="text-[10px] text-muted-foreground">Erros</div>
+                    <div className="font-semibold text-base">{metrics?.erros ?? 0}</div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">Atualiza a cada 30s. Fila envia entre 07:30–19:00 (America/Sao_Paulo), respeitando 499/dia.</p>
+              </CardContent>
+            </Card>
+          )}
+          <EmailSequenceBuilder
           seedFromCurrent={{
             produto_id: produtoId,
             audience_filter: filters,
@@ -591,7 +683,8 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             campaign_name: campaignName,
           }}
           onBack={() => setStep(4)}
-        />
+          />
+        </div>
       )}
     </div>
   );
