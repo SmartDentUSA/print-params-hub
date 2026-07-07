@@ -74,6 +74,46 @@ Deno.serve(async (req) => {
     if (error || !data) {
       console.log('⚠️ Produto não encontrado no catálogo com slug exato, tentando fallback tolerante por slug:', { slug, error });
 
+      // Fallback por external_id (quando o "slug" recebido é na verdade um id numérico do Sistema A)
+      if (/^\d+$/.test(slug)) {
+        const { data: byExt, error: extErr } = await supabase
+          .from('system_a_catalog')
+          .select('*')
+          .eq('external_id', slug)
+          .eq('category', 'product')
+          .maybeSingle();
+        console.log('🔎 Fallback catalog.external_id eq:', { external_id: slug, found: !!byExt, error: extErr });
+        if (byExt) {
+          const response = {
+            success: true,
+            message: 'Produto encontrado (fallback external_id)',
+            data: {
+              id: byExt.id,
+              uuid: byExt.id,
+              external_id: byExt.external_id,
+              name: byExt.name,
+              slug: byExt.slug,
+              description: byExt.description,
+              image_url: byExt.image_url,
+              price: byExt.price,
+              promo_price: byExt.promo_price,
+              currency: byExt.currency || 'BRL',
+              url: byExt.canonical_url || `https://loja.smartdent.com.br/${byExt.slug}`,
+              canonical_url: byExt.canonical_url,
+              seo_title_override: byExt.seo_title_override,
+              seo_description_override: byExt.meta_description,
+              keywords: byExt.keywords || [],
+              product_category: byExt.product_category,
+              product_subcategory: byExt.product_subcategory,
+            },
+          };
+          return new Response(JSON.stringify(response), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       // Fallback tolerante APENAS por slug (para lidar com hífen/sufixo trivial).
       // NUNCA fazer match por token de nome — isso cruza para produtos totalmente
       // diferentes (ex: "ativacao-dentalcad-ultimate-lab-bundle-rms" caindo em
