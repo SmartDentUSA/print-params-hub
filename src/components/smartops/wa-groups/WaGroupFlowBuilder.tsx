@@ -1336,6 +1336,7 @@ function WaitNodeEditor({ node, onChange }: { node: WaitNode; onChange: (patch: 
               Envio agendado para{" "}
               <span className="font-medium text-foreground">
                 {format(new Date(node.absolute_at!), "EEEE, dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              <span className="ml-1 text-muted-foreground">(horário de Brasília)</span>
               </span>
             </div>
           )}
