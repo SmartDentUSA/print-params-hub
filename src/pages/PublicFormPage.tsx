@@ -124,8 +124,12 @@ export default function PublicFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const isStepMode = form?.display_mode === "step";
+  const isFirstThreeMode = form?.display_mode === "first_three";
   // Filter fields by conditional logic against current answers
-  const renderableFields = fields.filter((f) => isFieldVisible(f, values));
+  const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
+  const renderableFields = isFirstThreeMode
+    ? allRenderableFields.slice(0, 3)
+    : allRenderableFields;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
