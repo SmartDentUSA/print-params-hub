@@ -1241,6 +1241,47 @@ function ConfigCarousel({ node, onChange }: { node: CarouselNode; onChange: (p: 
 }
 
 function WaitNodeEditor({ node, onChange }: { node: WaitNode; onChange: (patch: Partial<WaitNode>) => void }) {
+  // ── Timezone helpers (America/Sao_Paulo → UTC and back) ──
+  // These convert the user's chosen wall-clock (Brasília) to a correct UTC ISO
+  // regardless of the browser's local timezone. Backend expects UTC in absolute_at.
+  function getSaoPauloParts(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(d);
+    const get = (k: string) => Number(parts.find(p => p.type === k)?.value ?? "0");
+    let hour = get("hour");
+    if (hour === 24) hour = 0;
+    return {
+      year: get("year"),
+      month: get("month"),
+      day: get("day"),
+      hour,
+      minute: get("minute"),
+    };
+  }
+
+  function saoPauloWallClockToUtcIso(y: number, m: number, d: number, hh: number, mm: number): string {
+    // Guess UTC as if the wall clock was UTC, then measure how SP re-labels it,
+    // and subtract the offset so the returned UTC maps back to the wanted SP time.
+    const guess = Date.UTC(y, m - 1, d, hh, mm, 0);
+    const spSeenAsUtc = (() => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+      }).formatToParts(new Date(guess));
+      const get = (k: string) => Number(parts.find(p => p.type === k)?.value ?? "0");
+      let h = get("hour"); if (h === 24) h = 0;
+      return Date.UTC(get("year"), get("month") - 1, get("day"), h, get("minute"), get("second"));
+    })();
+    const offset = spSeenAsUtc - guess; // ms that SP is ahead of UTC (negative in Brazil)
+    return new Date(guess - offset).toISOString();
+  }
+
   const mode = node.mode ?? "relative";
 
   // Read absolute_at back as America/Sao_Paulo wall-clock (independent of browser TZ)
