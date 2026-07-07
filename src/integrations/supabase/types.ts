@@ -27638,6 +27638,50 @@ export type Database = {
         Returns: undefined
       }
       check_copilot_brain_drift: { Args: never; Returns: Json }
+      claim_active_sequence_enrollments: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string | null
+          current_step: number | null
+          id: string
+          ig_user_id: string
+          next_step_at: string | null
+          sequence_id: string | null
+          status: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_sequence_enrollments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_email_sequence_dispatch: {
+        Args: {
+          p_lead_id: string
+          p_scheduled_for: string
+          p_sequence_id: string
+          p_step_id: string
+        }
+        Returns: {
+          created_at: string
+          dispatched_at: string | null
+          error_message: string | null
+          id: string
+          lead_id: string
+          scheduled_for: string
+          send_log_id: string | null
+          sequence_id: string
+          status: string
+          step_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_sequence_dispatches"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_pending_kb_docs: {
         Args: { p_limit?: number }
         Returns: {
@@ -27647,6 +27691,40 @@ export type Database = {
           source_label: string
           title: string
         }[]
+      }
+      claim_pending_social_posts: {
+        Args: { p_limit?: number }
+        Returns: {
+          caption: string | null
+          channels: Json
+          created_at: string | null
+          created_by: string | null
+          first_comment: string | null
+          hashtags: string[] | null
+          id: string
+          media_items: Json | null
+          per_channel_media: Json | null
+          post_type: string
+          product_category: string | null
+          product_name: string | null
+          product_ref: string | null
+          product_slug: string | null
+          publish_errors: Json | null
+          publish_now: boolean | null
+          published_at: string | null
+          scheduled_at: string | null
+          social_post_ids: string[] | null
+          status: string | null
+          timezone: string | null
+          updated_at: string | null
+          zernio_post_ids: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_scheduled_posts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_pending_wa_messages: {
         Args: { p_limit?: number }
