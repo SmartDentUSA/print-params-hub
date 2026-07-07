@@ -62,6 +62,88 @@ function extractUrls(html: string): string[] {
   return [...set];
 }
 
+// Send a single email for a queued campaign_send_log row.
+// Updates the log row and short_links; returns { ok, sent, error }.
+async function sendOne(args: {
+  supabase: any; funcBase: string; shortBase: string; GATEWAY_URL: string;
+  LOVABLE_API_KEY: string; GOOGLE_MAIL_API_KEY: string;
+  email: string; nome: string; leadId: string | null;
+  campaignId: string; sendLogId: string;
+  subject: string; preheader: string; html: string;
+  fromName: string; seller?: { nome: string; whatsapp: string }; waLink: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
+    email, nome, leadId, campaignId, sendLogId, subject, preheader, html, fromName, seller, waLink } = args;
+
+  let personalHtml = html
+    .replaceAll("{{nome}}", firstName(nome))
+    .replaceAll("{{primeiro_nome}}", firstName(nome))
+    .replaceAll("{{vendedor_nome}}", seller?.nome || fromName)
+    .replaceAll("{{link_wa_vendedor}}", waLink);
+
+  // Short-link rewrite
+  const urls = extractUrls(personalHtml);
+  for (const original of urls) {
+    if (original.includes("/email-track-open")) continue;
+    const code = randomCode(8);
+    const { error: slErr } = await supabase.from("short_links").insert({
+      code, destination_url: original,
+      campaign_id: campaignId, send_log_id: sendLogId, lead_id: leadId,
+      seller_phone: seller?.whatsapp || null, seller_name: seller?.nome || null,
+    });
+    if (!slErr) {
+      const shortUrl = `${shortBase}/${code}`;
+      personalHtml = personalHtml.split(`href="${original}"`).join(`href="${shortUrl}"`);
+    }
+  }
+
+  // Pixel + sanitize
+  const pixel = `<img src="${funcBase}/email-track-open?m=${sendLogId}" width="1" height="1" alt="" style="display:none;border:0;width:1px;height:1px" />`;
+  personalHtml = personalHtml.replace(/<\/body>/i, `${pixel}</body>`);
+  if (!/<\/body>/i.test(personalHtml)) personalHtml += pixel;
+  const preheaderBlock = preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${preheader}</div>`
+    : "";
+  const sanitized = sanitizeEmailHtml(personalHtml);
+  const wrappedHtml = preheaderBlock
+    ? sanitized.replace(/<body([^>]*)>/i, `<body$1>${preheaderBlock}`)
+    : sanitized;
+
+  const raw = [
+    `To: ${email}`,
+    `Subject: =?UTF-8?B?${b64std(subject)}?=`,
+    `From: ${fromName} <me@gmail>`,
+    `MIME-Version: 1.0`,
+    `Content-Language: pt-BR`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    b64std(wrappedHtml).replace(/(.{76})/g, "$1\r\n"),
+  ].join("\r\n");
+
+  const gres = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+    },
+    body: JSON.stringify({ raw: b64url(raw) }),
+  });
+  const gjson = await gres.json().catch(() => ({}));
+
+  await supabase.from("campaign_send_log").update({
+    status: gres.ok ? "sent" : "error",
+    sent_at: gres.ok ? new Date().toISOString() : null,
+    provider_message_id: gjson?.id || null,
+    provider_status: String(gres.status),
+    error_message: gres.ok ? null : (gjson?.error?.message || JSON.stringify(gjson).slice(0, 400)),
+    html_snapshot: gres.ok ? wrappedHtml.slice(0, 60000) : null,
+  }).eq("id", sendLogId);
+
+  return gres.ok ? { ok: true } : { ok: false, error: `${gres.status} ${gjson?.error?.message || ""}`.slice(0, 200) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
