@@ -1,63 +1,57 @@
-## Diagnóstico
+## Escopo
 
-**1. Fonte ilegível no input.** A screenshot da landing `https://parametros.smartdent.com.br/f/exocad_dentalcad_rms` mostra o campo "Nome completo" com fundo branco e texto/quase branco. Em `src/pages/PublicFormPage.tsx` (linhas ~621-637), o painel padrão `[data-pp-default="true"]` força `background: #E8ECF4` e `border` nos inputs, mas **não define a cor do texto digitado**. Como a página usa tema escuro (`.public-form-page` herda cor clara de `--form-body`), o texto fica invisível sobre o bg claro.
+Alterar apenas o formulário (`PublicFormPage.tsx`), o builder (`SmartOpsFormBuilder.tsx`) e a função de métricas (`fn_form_metrics`). A landing page não será tocada.
 
-**2. "Erro ao abrir o WhatsApp" após envio.** O `success_redirect_url` do form é `https://chat.whatsapp.com/KWqNzep7sdZJsfPiHW1awq`. O usuário confirmou que, ao acessar o link diretamente, ele funciona (carrega a tela do WhatsApp Web). O `PublicFormPage` faz `window.location.href = redirectUrl` (linhas 483-486). O erro provavelmente ocorre quando:
-- O redirect dispara em um momento em que o navegador ainda está processando eventos, e alguns bloqueadores/popup-blockers interceptam.
-- No mobile, a navegação automática para `chat.whatsapp.com` às vezes não dispara o app nativo.
-- A mensagem "Erro ao abrir o WhatsApp" pode ser um toast/mensagem própria da página que não deveria aparecer, ou o usuário vê a tela do WhatsApp Web e clica em "Abrir app", e aí falha (o link em si carrega, mas a abertura do app desktop/mobile não funciona em certos contextos).
+## 1) Contraste da fonte dentro dos campos
 
-## Plano de correção
+Diagnóstico: quando o formulário usa fundo escuro (ex.: `bg_color=#1D1446`, `theme_mode=light`), o cálculo automático define `--form-body` como quase-branco. O `<Input>` do shadcn herda `color` desse `--form-body`, deixando o texto digitado invisível sobre o `bg-background` branco do input. A regra anterior `.public-form-page:not(.dark) input { color: #0F172A }` é sobrescrita em alguns navegadores por herança/especificidade.
 
-### 1. Corrigir contraste do input no painel default
+Correção em `src/pages/PublicFormPage.tsx` (bloco `<style>`):
+- Forçar cor legível **sempre** em `input, select, textarea` do formulário, **independente de `.dark`**, usando `!important` e cobrindo também o `PhoneInputWithDDI` (`.public-form-page .public-form-page input, .public-form-page select, .public-form-page textarea { color: #0F172A !important; caret-color: #0F172A !important; }`).
+- Manter regra específica para `.public-form-page.dark input` com `color: #f5f5f5 !important` (usada apenas quando `theme_mode=dark` — a landing page não é afetada).
+- Manter placeholders com `#64748B` / `rgba(255,255,255,.6)` conforme o modo.
 
-Arquivo: `src/pages/PublicFormPage.tsx`
+Nenhuma alteração em variáveis globais, tokens de tema, ou na landing page.
 
-Ajustar o bloco `[data-pp-default="true"]` para forçar texto escuro e placeholder cinza legível:
+## 2) Novo modo de exibição: "Primeiras 3 perguntas"
 
-```css
-.public-form-page[data-pp-default="true"] input,
-.public-form-page[data-pp-default="true"] select,
-.public-form-page[data-pp-default="true"] textarea {
-  background: #E8ECF4;
-  border: 1px solid #C8CACF;
-  border-radius: 10px;
-  color: #0F172A;
-  caret-color: #0F172A;
-}
-.public-form-page[data-pp-default="true"] input::placeholder,
-.public-form-page[data-pp-default="true"] select::placeholder,
-.public-form-page[data-pp-default="true"] textarea::placeholder {
-  color: #64748B;
-  opacity: 1;
-}
-```
+Objetivo: exibir apenas as 3 primeiras perguntas visíveis; ao clicar em Enviar, salvar o lead com esses 3 campos e (opcionalmente) continuar. Comportamento pedido: "aparecer as primeiras 3 perguntas do formulário".
 
-Isso mantém a experiência light para esse formulário específico sem afetar o tema dark padrão (`.dark` já sobrescreve quando aplicado).
+Alterações:
+- **DB (migration)**: nenhum schema novo. A coluna `smartops_forms.display_mode` (text) já existe — passará a aceitar o valor `"first_three"` (validação apenas no app).
+- **`SmartOpsFormBuilder.tsx`**:
+  - Ampliar tipo `metaDisplayMode` para `"list" | "step" | "first_three"`.
+  - Adicionar `<SelectItem value="first_three">Somente as 3 primeiras perguntas</SelectItem>` no dropdown "Como as perguntas aparecem".
+  - Manter salvamento existente (`display_mode: metaDisplayMode`).
+- **`PublicFormPage.tsx`**:
+  - Novo derivado `isFirstThreeMode = form?.display_mode === "first_three"`.
+  - `visibleFields`: quando `isFirstThreeMode`, `renderableFields.slice(0, 3)`.
+  - Validação só considera os campos visíveis (já é o caso do modo lista, mantido).
+  - Botão de submit reutiliza o layout do modo lista (não há próximo passo).
 
-### 2. Tornar o redirect para WhatsApp mais robusto
+## 3) Estatística "Ganhas" — contar qualquer venda pós-cadastro
 
-Arquivo: `src/pages/PublicFormPage.tsx` (linhas ~480-488)
+Diagnóstico: `fn_form_metrics` conta como `deals_won` apenas negócios cujo `origem` no `piperun_deals_history` bate exatamente com `form_name`. Um lead que preencheu o formulário e depois comprou por outro canal (e-commerce, outro deal, Astron, upsell) não é contado.
 
-Substituir o redirect direto por uma página de confirmação intermédia que:
-- Tenta automaticamente abrir o WhatsApp após 800ms usando `window.location.href = redirectUrl`.
-- Mostra um botão visível "Entrar no grupo de WhatsApp" como fallback.
-- Exibe a mensagem de erro personalizada apenas se o redirect falhar de fato (timeout + confirmação de navegação não iniciada).
+Correção (migration em `fn_form_metrics`):
+- Trocar o CTE `wins`: contar leads (`lia_attendances`) cujo `form_name = f.name`, não-mesclados, com criação dentro do período, e que possuam **qualquer** conversão/ganho após `la.created_at`:
+  - Um `piperun_deals_history[*]` com `status ILIKE 'ganha'` e `created_at >= la.created_at - interval '1 day'` (independente da `origem`), **OU**
+  - `la.total_deals_won > 0` combinado com `la.ltv_total > 0` (fallback quando o histórico ainda não replicou), **OU**
+  - Pedido em `loja_integrada_orders` vinculado ao mesmo `email`/`telefone` do lead com `created_at >= la.created_at`.
+- Manter filtros de canonical lead (`merged_into IS NULL`) e a exclusão de `source IN ('loja_integrada','astron_postback')` na contagem de leads (o formulário não gera esses sources).
+- Sem mudanças em `visitors`, `unique_visitors`, `leads`, `daily_series`.
+- Sem mudanças no frontend — os campos retornados são os mesmos.
 
-Novo fluxo após submit bem-sucedido:
-1. Setar estado `submitted=true` (mesmo que haja redirect_url).
-2. Renderizar tela de sucesso com título/mensagem do form e CTA principal para o WhatsApp.
-3. Usar `useEffect` para tentar o redirect automático: `window.location.href = success_redirect_url`.
-4. Se após 1,5s a URL ainda for a mesma do form, mostrar mensagem: "Se o WhatsApp não abrir, clique no botão abaixo."
+Observação: a métrica passa a refletir a intenção "qualquer lead ganho oriundo deste formulário", incluindo e-commerce pós-cadastro.
 
-### 3. Validação
+## Fora do escopo
 
-- Acessar `https://parametros.smartdent.com.br/f/exocad_dentalcad_rms`, digitar no campo e verificar texto/placeholder legíveis.
-- Simular envio do formulário e confirmar que aparece a tela de sucesso com botão de fallback e tentativa automática de redirect.
-- Testar no desktop e mobile para garantir que não há mais a mensagem "Erro ao abrir o WhatsApp" genérica.
+- Landing page (`SmartOpsFormLandingPage*`), tema global, tokens do design system.
+- Ajuste no link do WhatsApp (já confirmado como link válido — sem mudança de código nesta iteração).
+- Não altero `success_redirect_url` nem outros formulários.
 
-## Fora de escopo
+## Validação
 
-- Não alterar tokens globais do tema (não impactar outras landings).
-- Não modificar a tabela `smartops_forms` nem o `success_redirect_url` salvo no banco (o link está correto).
-- Não mexer em outros formulários ou fluxos de submit.
+1. Abrir `https://parametros.smartdent.com.br/f/exocad_dentalcad_rms` e digitar em cada campo — texto legível.
+2. No builder, editar formulário → alterar "Como as perguntas aparecem" → **Somente as 3 primeiras perguntas** → salvar → recarregar public form → apenas 3 primeiros campos aparecem, submit funciona.
+3. Rodar `SELECT * FROM fn_form_metrics(30) WHERE form_id = '<exocad>'` e conferir `deals_won` > 0 se houver leads deste formulário com compras posteriores.
