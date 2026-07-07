@@ -75,25 +75,6 @@ Deno.serve(async (req) => {
       produtoCtx = data as any;
     }
 
-    // ── RAG: only social proof (no knowledge/library — those became email links) ──
-    const [{ data: stories }, { data: reviews }] = await Promise.all([
-      supabase.from("success_stories")
-        .select("client_name, client_role, city, state, challenge, solution, results, testimonial, image_url")
-        .eq("published", true)
-        .limit(2),
-      supabase.from("google_reviews")
-        .select("reviewer_name, star_rating, comment")
-        .gte("star_rating", 4)
-        .not("comment", "is", null)
-        .order("create_time", { ascending: false })
-        .limit(3),
-    ]);
-
-    const proofBlock = [
-      ...(stories || []).map((s: any) => `• ${s.client_name}${s.client_role ? `, ${s.client_role}` : ""}${s.city ? ` (${s.city}/${s.state})` : ""}: "${String(s.testimonial || s.results || "").slice(0, 200)}"`),
-      ...(reviews || []).map((r: any) => `⭐ ${r.reviewer_name}: "${String(r.comment).slice(0, 160)}"`),
-    ].slice(0, 3).join("\n") || "-";
-
     // Technical specs as bullets
     const techSpecs = produtoCtx?.technical_specs;
     let techBullets = "-";
@@ -129,8 +110,8 @@ REGRAS ABSOLUTAS:
 - CTA principal como botão destacado. CTAs secundários como links no rodapé.
 - OBRIGATÓRIO: use a imagem do produto (\`<img src="…" alt="…" style="max-width:100%;height:auto">\`) no topo, logo após a saudação.
 - OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números.
-- OBRIGATÓRIO: se houver depoimento/review, incluir 1 bloco de prova social em itálico com o nome do cliente.
-- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → prova social → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
+- PROIBIDO incluir depoimentos, citações de clientes, blocos em itálico com nome de dentista, "Dra. Joyce", "Cliente Smart Dent" ou qualquer prova social. O e-mail vai direto do dossiê ao CTA.
+- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
 
 REGRAS DE LINKS (CRÍTICAS — QUEBRAM O E-MAIL SE VIOLADAS):
 - Todo \`<a href="...">\` do HTML DEVE usar EXATAMENTE uma das URLs listadas abaixo em "CALLS-TO-ACTION". Não invente URLs, não use encurtadores, não use utm.
@@ -154,9 +135,6 @@ ${produtoCtx?.clinical_indications ? (Array.isArray(produtoCtx.clinical_indicati
 
 Compatibilidade: ${produtoCtx?.compatibility_list ? (Array.isArray(produtoCtx.compatibility_list) ? produtoCtx.compatibility_list.slice(0, 5).join(", ") : String(produtoCtx.compatibility_list).slice(0, 200)) : "-"}
 Certificações: ${produtoCtx?.certifications ? (Array.isArray(produtoCtx.certifications) ? produtoCtx.certifications.join(", ") : String(produtoCtx.certifications)) : "-"}
-
-═══ PROVA SOCIAL (usar 1) ═══
-${proofBlock}
 
 ═══ AUDIÊNCIA ═══
 Segmento de destino: ${segmento_resumo || "leads da base Smart Dent"}
