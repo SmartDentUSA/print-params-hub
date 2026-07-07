@@ -317,6 +317,22 @@ const ProductPage = () => {
                     </a>
                   </Button>
                 )}
+                {landingShortUrl && (
+                  <Button asChild size="lg" className="w-full">
+                    <a href={landingShortUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Saiba mais
+                    </a>
+                  </Button>
+                )}
+                {formShortUrl && (
+                  <Button asChild variant="secondary" size="lg" className="w-full">
+                    <a href={formShortUrl} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Entre em contato
+                    </a>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
