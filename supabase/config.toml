@@ -24,6 +24,9 @@ verify_jwt = false
 [functions.wa-broadcast-dispatch]
 verify_jwt = false
 
+[functions.social-post-auto-blast]
+verify_jwt = false
+
 [functions.sequence-runner]
 verify_jwt = false
 
