@@ -2449,6 +2449,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           cta_config: Json | null
+          daily_cap: number
           descricao: string | null
           email_html: string | null
           email_preheader: string | null
@@ -2466,6 +2467,8 @@ export type Database = {
           platforms: Json | null
           post_caption: string | null
           scheduled_at: string | null
+          send_window_end: string
+          send_window_start: string
           social_post_id: string | null
           started_at: string | null
           status: string | null
@@ -2488,6 +2491,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           cta_config?: Json | null
+          daily_cap?: number
           descricao?: string | null
           email_html?: string | null
           email_preheader?: string | null
@@ -2505,6 +2509,8 @@ export type Database = {
           platforms?: Json | null
           post_caption?: string | null
           scheduled_at?: string | null
+          send_window_end?: string
+          send_window_start?: string
           social_post_id?: string | null
           started_at?: string | null
           status?: string | null
@@ -2527,6 +2533,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           cta_config?: Json | null
+          daily_cap?: number
           descricao?: string | null
           email_html?: string | null
           email_preheader?: string | null
@@ -2544,6 +2551,8 @@ export type Database = {
           platforms?: Json | null
           post_caption?: string | null
           scheduled_at?: string | null
+          send_window_end?: string
+          send_window_start?: string
           social_post_id?: string | null
           started_at?: string | null
           status?: string | null
@@ -27732,6 +27741,11 @@ export type Database = {
         Args: { p_campaign_id: string; p_group_id: string }
         Returns: Json
       }
+      fn_email_campaign_metrics: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
+      fn_email_queue_status: { Args: never; Returns: Json }
       fn_enqueue_whatsapp: {
         Args: {
           p_automation_id?: string

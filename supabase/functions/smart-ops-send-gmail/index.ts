@@ -62,6 +62,88 @@ function extractUrls(html: string): string[] {
   return [...set];
 }
 
+// Send a single email for a queued campaign_send_log row.
+// Updates the log row and short_links; returns { ok, sent, error }.
+async function sendOne(args: {
+  supabase: any; funcBase: string; shortBase: string; GATEWAY_URL: string;
+  LOVABLE_API_KEY: string; GOOGLE_MAIL_API_KEY: string;
+  email: string; nome: string; leadId: string | null;
+  campaignId: string; sendLogId: string;
+  subject: string; preheader: string; html: string;
+  fromName: string; seller?: { nome: string; whatsapp: string }; waLink: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
+    email, nome, leadId, campaignId, sendLogId, subject, preheader, html, fromName, seller, waLink } = args;
+
+  let personalHtml = html
+    .replaceAll("{{nome}}", firstName(nome))
+    .replaceAll("{{primeiro_nome}}", firstName(nome))
+    .replaceAll("{{vendedor_nome}}", seller?.nome || fromName)
+    .replaceAll("{{link_wa_vendedor}}", waLink);
+
+  // Short-link rewrite
+  const urls = extractUrls(personalHtml);
+  for (const original of urls) {
+    if (original.includes("/email-track-open")) continue;
+    const code = randomCode(8);
+    const { error: slErr } = await supabase.from("short_links").insert({
+      code, destination_url: original,
+      campaign_id: campaignId, send_log_id: sendLogId, lead_id: leadId,
+      seller_phone: seller?.whatsapp || null, seller_name: seller?.nome || null,
+    });
+    if (!slErr) {
+      const shortUrl = `${shortBase}/${code}`;
+      personalHtml = personalHtml.split(`href="${original}"`).join(`href="${shortUrl}"`);
+    }
+  }
+
+  // Pixel + sanitize
+  const pixel = `<img src="${funcBase}/email-track-open?m=${sendLogId}" width="1" height="1" alt="" style="display:none;border:0;width:1px;height:1px" />`;
+  personalHtml = personalHtml.replace(/<\/body>/i, `${pixel}</body>`);
+  if (!/<\/body>/i.test(personalHtml)) personalHtml += pixel;
+  const preheaderBlock = preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${preheader}</div>`
+    : "";
+  const sanitized = sanitizeEmailHtml(personalHtml);
+  const wrappedHtml = preheaderBlock
+    ? sanitized.replace(/<body([^>]*)>/i, `<body$1>${preheaderBlock}`)
+    : sanitized;
+
+  const raw = [
+    `To: ${email}`,
+    `Subject: =?UTF-8?B?${b64std(subject)}?=`,
+    `From: ${fromName} <me@gmail>`,
+    `MIME-Version: 1.0`,
+    `Content-Language: pt-BR`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    b64std(wrappedHtml).replace(/(.{76})/g, "$1\r\n"),
+  ].join("\r\n");
+
+  const gres = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+    },
+    body: JSON.stringify({ raw: b64url(raw) }),
+  });
+  const gjson = await gres.json().catch(() => ({}));
+
+  await supabase.from("campaign_send_log").update({
+    status: gres.ok ? "sent" : "error",
+    sent_at: gres.ok ? new Date().toISOString() : null,
+    provider_message_id: gjson?.id || null,
+    provider_status: String(gres.status),
+    error_message: gres.ok ? null : (gjson?.error?.message || JSON.stringify(gjson).slice(0, 400)),
+    html_snapshot: gres.ok ? wrappedHtml.slice(0, 60000) : null,
+  }).eq("id", sendLogId);
+
+  return gres.ok ? { ok: true } : { ok: false, error: `${gres.status} ${gjson?.error?.message || ""}`.slice(0, 200) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -145,7 +227,59 @@ Deno.serve(async (req) => {
       cta_config = null,
       test_email,        // if set, sends single test and skips DB campaign
       dry_run = false,
+      scheduled_at = null,
+      action,            // 'send_one' when invoked by the scheduler
+      send_log_id,       // required with action='send_one'
     } = body || {};
+
+    // ────────── Mode: send a single queued row (scheduler-driven) ──────────
+    if (action === "send_one") {
+      if (!send_log_id) {
+        return new Response(JSON.stringify({ error: "send_log_id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: log } = await supabase
+        .from("campaign_send_log")
+        .select("id, campaign_id, lead_id, email, nome, status, subject_snapshot")
+        .eq("id", send_log_id)
+        .maybeSingle();
+      if (!log) return new Response(JSON.stringify({ error: "log not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (log.status !== "queued") {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: `status=${log.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: camp } = await supabase
+        .from("campaigns")
+        .select("id, email_subject, email_preheader, email_html, cta_config, nome")
+        .eq("id", log.campaign_id).maybeSingle();
+      if (!camp) return new Response(JSON.stringify({ error: "campaign not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      // Resolve seller for this lead
+      let seller: { nome: string; whatsapp: string } | undefined;
+      if (log.lead_id) {
+        const { data: la } = await supabase.from("lia_attendances")
+          .select("responsavel_id").eq("id", log.lead_id).maybeSingle();
+        const sid = (la as any)?.responsavel_id;
+        if (sid) {
+          const { data: tm } = await supabase.from("team_members")
+            .select("nome_completo, whatsapp_number").eq("id", sid).maybeSingle();
+          if (tm) seller = { nome: tm.nome_completo, whatsapp: tm.whatsapp_number };
+        }
+      }
+      const waLink = seller?.whatsapp ? `https://wa.me/${String(seller.whatsapp).replace(/\D/g, "")}` : officialWaLink;
+      const result = await sendOne({
+        supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
+        email: log.email, nome: (log.nome as any) || "", leadId: log.lead_id,
+        campaignId: camp.id, sendLogId: log.id,
+        subject: camp.email_subject || log.subject_snapshot || "",
+        preheader: camp.email_preheader || "",
+        html: camp.email_html || "",
+        fromName: from_name, seller, waLink,
+      });
+      return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!subject || !html) {
       return new Response(JSON.stringify({ error: "subject e html são obrigatórios" }), {
@@ -153,25 +287,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Resolve audience (canonical leads with email) ──
-    let leads: Array<Record<string, unknown>> = [];
+    // ────────── Mode: TEST EMAIL — send one right now, no queue ──────────
     if (test_email) {
-      leads = [{ id: null, nome: "Teste", email: test_email }];
-    } else {
-      let q = supabase.from("lia_attendances")
-        .select("id, nome, email, responsavel, responsavel_id")
-        .is("merged_into", null)
-        .not("email", "is", null)
-        .neq("email", "")
-        .limit(2000);
-      if (filters.uf) q = q.eq("uf", filters.uf);
-      if (filters.etapa_funil) q = q.eq("etapa_funil", filters.etapa_funil);
-      if (filters.produto_interesse) q = q.eq("produto_interesse", filters.produto_interesse);
-      if (filters.temperatura) q = q.eq("temperatura", filters.temperatura);
-      const { data, error } = await q;
-      if (error) throw error;
-      leads = data || [];
+      // Create a throwaway send log to keep tracking consistent
+      const { data: c } = await supabase.from("campaigns").insert({
+        nome: `Teste — ${new Date().toISOString().slice(0, 10)}`,
+        canal: "email", email_subject: subject, email_preheader: preheader,
+        email_html: html, cta_config, lead_filter: filters,
+        audience_count: 1, total_leads: 1,
+        status: "completed", started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(), notes: "test_email",
+      }).select("id").single();
+      const { data: slog } = await supabase.from("campaign_send_log").insert({
+        campaign_id: c!.id, lead_id: null, email: test_email, nome: "Teste",
+        provider: "gmail", status: "queued", subject_snapshot: subject,
+      }).select("id").single();
+      const r = await sendOne({
+        supabase, funcBase, shortBase, GATEWAY_URL, LOVABLE_API_KEY, GOOGLE_MAIL_API_KEY,
+        email: test_email, nome: "Teste", leadId: null,
+        campaignId: c!.id, sendLogId: slog!.id,
+        subject, preheader, html, fromName: from_name, waLink: officialWaLink,
+      });
+      return new Response(JSON.stringify({ ok: r.ok, audience: 1, sent: r.ok ? 1 : 0, failed: r.ok ? 0 : 1, errors: r.error ? [r.error] : [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    // ────────── Mode: ENQUEUE — resolve audience and queue for the scheduler ──────────
+    let q = supabase.from("lia_attendances")
+      .select("id, nome, email, responsavel_id")
+      .is("merged_into", null)
+      .not("email", "is", null)
+      .neq("email", "")
+      .limit(5000);
+    if (filters.uf) q = q.eq("uf", filters.uf);
+    if (filters.etapa_funil) q = q.eq("etapa_funil", filters.etapa_funil);
+    if (filters.produto_interesse) q = q.eq("produto_interesse", filters.produto_interesse);
+    if (filters.temperatura) q = q.eq("temperatura", filters.temperatura);
+    const { data: leadsData, error: leadsErr } = await q;
+    if (leadsErr) throw leadsErr;
+    const leads = (leadsData || []).filter((l: any) => String(l.email || "").trim());
 
     if (dry_run) {
       return new Response(JSON.stringify({ ok: true, dry_run: true, audience: leads.length }), {
@@ -179,178 +334,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Create campaign row (skip on test_email) ──
-    let campaignId: string | null = null;
-    if (!test_email) {
-      const { data: c, error: cErr } = await supabase.from("campaigns").insert({
-        nome: campaign_name || `Email — ${new Date().toISOString().slice(0, 10)}`,
-        descricao: description || null,
-        canal: "email",
-        email_subject: subject,
-        email_preheader: preheader,
-        email_html: html,
-        cta_config,
-        lead_filter: filters,
-        audience_count: leads.length,
-        total_leads: leads.length,
-        status: "sending",
-        started_at: new Date().toISOString(),
-      }).select("id").single();
-      if (cErr) throw cErr;
-      campaignId = c.id;
-    }
+    const isFutureSchedule = scheduled_at && new Date(scheduled_at).getTime() > Date.now();
+    const { data: c, error: cErr } = await supabase.from("campaigns").insert({
+      nome: campaign_name || `Email — ${new Date().toISOString().slice(0, 10)}`,
+      descricao: description || null,
+      canal: "email",
+      email_subject: subject, email_preheader: preheader, email_html: html,
+      cta_config, lead_filter: filters,
+      audience_count: leads.length, total_leads: leads.length,
+      status: "scheduled",
+      scheduled_at: scheduled_at || new Date().toISOString(),
+    }).select("id").single();
+    if (cErr) throw cErr;
+    const campaignId = c.id;
 
-    // ── Pre-map seller info for placeholder replacement ──
-    const sellerIds = [...new Set(leads.map(l => l.responsavel_id).filter(Boolean))] as string[];
-    const sellerMap: Record<string, { nome: string; whatsapp: string }> = {};
-    if (sellerIds.length) {
-      const { data: tm } = await supabase.from("team_members")
-        .select("id, nome_completo, whatsapp_number")
-        .in("id", sellerIds);
-      for (const t of tm || []) {
-        sellerMap[t.id] = { nome: t.nome_completo, whatsapp: t.whatsapp_number };
-      }
-    }
-
-    let sent = 0, failed = 0;
-    const errors: string[] = [];
-
-    for (const lead of leads) {
-      try {
-        const email = String(lead.email || "").trim();
-        if (!email) { failed++; continue; }
-
-        const sellerId = lead.responsavel_id as string | undefined;
-        const seller = sellerId ? sellerMap[sellerId] : undefined;
-        const waLink = seller?.whatsapp
-          ? `https://wa.me/${String(seller.whatsapp).replace(/\D/g, "")}`
-          : officialWaLink;
-
-        // 1) placeholder replacement
-        let personalHtml = html
-          .replaceAll("{{nome}}", firstName(lead.nome as string))
-          .replaceAll("{{primeiro_nome}}", firstName(lead.nome as string))
-          .replaceAll("{{vendedor_nome}}", seller?.nome || from_name)
-          .replaceAll("{{link_wa_vendedor}}", waLink);
-
-        // 2) create send_log row (need id for tracking)
-        let sendLogId: string | null = null;
-        if (campaignId && lead.id) {
-          const { data: slog } = await supabase.from("campaign_send_log").insert({
-            campaign_id: campaignId,
-            lead_id: lead.id,
-            email,
-            nome: lead.nome as string,
-            provider: "gmail",
-            status: "queued",
-            subject_snapshot: subject,
-          }).select("id").single();
-          sendLogId = slog?.id || null;
-        }
-
-        // 3) rewrite all http(s) links via short_links
-        const urls = extractUrls(personalHtml);
-        for (const original of urls) {
-          // skip tracking pixel URLs
-          if (original.includes("/email-track-open")) continue;
-          const code = randomCode(8);
-          const { error: slErr } = await supabase.from("short_links").insert({
-            code,
-            destination_url: original,
-            campaign_id: campaignId,
-            send_log_id: sendLogId,
-            lead_id: lead.id || null,
-            seller_phone: seller?.whatsapp || null,
-            seller_name: seller?.nome || null,
-          });
-          if (!slErr) {
-            const shortUrl = `${shortBase}/${code}`;
-            personalHtml = personalHtml.split(`href="${original}"`).join(`href="${shortUrl}"`);
-          }
-        }
-
-        // 4) inject open-tracking pixel
-        if (sendLogId) {
-          const pixel = `<img src="${funcBase}/email-track-open?m=${sendLogId}" width="1" height="1" alt="" style="display:none;border:0;width:1px;height:1px" />`;
-          personalHtml = personalHtml.replace(/<\/body>/i, `${pixel}</body>`);
-          if (!/\<\/body\>/i.test(personalHtml)) personalHtml += pixel;
-        }
-
-        // 5) build RFC 2822 with preheader hack + sanitized document
-        const preheaderBlock = preheader
-          ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${preheader}</div>`
-          : "";
-        const sanitized = sanitizeEmailHtml(personalHtml);
-        // Insert preheader right after <body ...>
-        const wrappedHtml = preheaderBlock
-          ? sanitized.replace(/<body([^>]*)>/i, `<body$1>${preheaderBlock}`)
-          : sanitized;
-
-        const senderHeader = `${from_name} <me@gmail>`; // Gmail replaces with authenticated addr
-        const raw = [
-          `To: ${email}`,
-          `Subject: =?UTF-8?B?${b64std(subject)}?=`,
-          `From: ${senderHeader}`,
-          `MIME-Version: 1.0`,
-          `Content-Language: pt-BR`,
-          `Content-Type: text/html; charset="UTF-8"`,
-          `Content-Transfer-Encoding: base64`,
-          ``,
-          b64std(wrappedHtml).replace(/(.{76})/g, "$1\r\n"),
-        ].join("\r\n");
-
-        const gres = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-            "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
-          },
-          body: JSON.stringify({ raw: b64url(raw) }),
-        });
-
-        const gjson = await gres.json().catch(() => ({}));
-
-        if (sendLogId) {
-          await supabase.from("campaign_send_log").update({
-            status: gres.ok ? "sent" : "error",
-            sent_at: gres.ok ? new Date().toISOString() : null,
-            provider_message_id: gjson?.id || null,
-            provider_status: String(gres.status),
-            error_message: gres.ok ? null : (gjson?.error?.message || JSON.stringify(gjson).slice(0, 400)),
-            html_snapshot: gres.ok ? wrappedHtml.slice(0, 60000) : null,
-          }).eq("id", sendLogId);
-        }
-
-        if (gres.ok) sent++; else {
-          failed++;
-          errors.push(`${email}: ${gres.status} ${gjson?.error?.message || ""}`.slice(0, 200));
-        }
-
-        if (test_email) break;
-        // gentle throttle: ~3 req/s
-        await new Promise(r => setTimeout(r, 330));
-      } catch (err) {
-        failed++;
-        errors.push(String(err).slice(0, 200));
-      }
-    }
-
-    if (campaignId) {
-      await supabase.from("campaigns").update({
-        status: failed === leads.length ? "failed" : "completed",
-        completed_at: new Date().toISOString(),
-        total_sent: sent,
-        total_failed: failed,
-      }).eq("id", campaignId);
+    // Bulk insert queued send-log rows in batches of 500
+    const rows = leads.map((l: any) => ({
+      campaign_id: campaignId, lead_id: l.id,
+      email: String(l.email).trim(), nome: l.nome,
+      provider: "gmail", status: "queued", subject_snapshot: subject,
+    }));
+    let queued = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500);
+      const { error: insErr, count } = await supabase.from("campaign_send_log")
+        .insert(chunk, { count: "exact" });
+      if (insErr) throw insErr;
+      queued += count ?? chunk.length;
     }
 
     return new Response(JSON.stringify({
-      ok: true,
-      campaign_id: campaignId,
-      audience: leads.length,
-      sent, failed,
-      errors: errors.slice(0, 20),
+      ok: true, queued: true, campaign_id: campaignId,
+      audience: leads.length, sent: 0, failed: 0,
+      scheduled_at: scheduled_at || null,
+      future: !!isFutureSchedule,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[send-gmail] fatal", err);
