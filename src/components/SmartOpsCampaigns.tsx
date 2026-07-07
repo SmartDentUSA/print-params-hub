@@ -2387,6 +2387,7 @@ export function SmartOpsCampaigns() {
     setSearchParams(next, { replace: true });
   };
   const [preSelectedContent, setPreSelectedContent] = useState<ContentItem | null>(null);
+  const [resumeDraft, setResumeDraft] = useState<DraftCampaign | null>(null);
 
   const handleSelectContent = (content: ContentItem) => {
     setPreSelectedContent(content);
@@ -2395,7 +2396,13 @@ export function SmartOpsCampaigns() {
 
   const handleCampaignCreated = () => {
     setPreSelectedContent(null);
+    setResumeDraft(null);
     setActiveTab("historico");
+  };
+
+  const handleEditDraft = (draft: DraftCampaign) => {
+    setResumeDraft(draft);
+    setActiveTab("criar");
   };
 
   return (
@@ -2409,6 +2416,7 @@ export function SmartOpsCampaigns() {
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Conteúdo</TabsTrigger>
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
+          <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
         </TabsList>
@@ -2417,7 +2425,15 @@ export function SmartOpsCampaigns() {
           <ContentLibrary onSelectContent={handleSelectContent} />
         </TabsContent>
         <TabsContent value="criar">
-          <CreateCampaign preSelectedContent={preSelectedContent} onCreated={handleCampaignCreated} />
+          <CreateCampaign
+            preSelectedContent={preSelectedContent}
+            onCreated={handleCampaignCreated}
+            resumeDraft={resumeDraft}
+            onDraftConsumed={() => setResumeDraft(null)}
+          />
+        </TabsContent>
+        <TabsContent value="rascunhos">
+          <CampaignDrafts onEdit={handleEditDraft} />
         </TabsContent>
         <TabsContent value="historico">
           <CampaignHistory />
