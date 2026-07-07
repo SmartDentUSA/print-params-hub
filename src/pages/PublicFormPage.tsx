@@ -675,6 +675,16 @@ export default function PublicFormPage() {
         .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
           background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
         }
+        .public-form-page:not(.dark) input, .public-form-page:not(.dark) select, .public-form-page:not(.dark) textarea {
+          color: #0F172A;
+          caret-color: #0F172A;
+        }
+        .public-form-page:not(.dark) input::placeholder,
+        .public-form-page:not(.dark) select::placeholder,
+        .public-form-page:not(.dark) textarea::placeholder {
+          color: #64748B;
+          opacity: 1;
+        }
         /* KB-style fallback form panel (only when no custom background) */
         .public-form-page[data-pp-default="true"] form {
           background: #FFFFFF;
