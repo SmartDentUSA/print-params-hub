@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ExternalLink, ArrowLeft, FileText, BarChart3 } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
@@ -80,6 +81,8 @@ const ProductPage = () => {
   const navigate = useNavigate();
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [landingShortUrl, setLandingShortUrl] = useState<string | null>(null);
+  const [formShortUrl, setFormShortUrl] = useState<string | null>(null);
   const { data: companyData } = useCompanyData();
   const { t, language } = useLanguage();
 
@@ -128,6 +131,31 @@ const ProductPage = () => {
 
     fetchProduct();
   }, [slug, navigate, t]);
+
+  useEffect(() => {
+    const fetchShortLinks = async () => {
+      if (!product?.id) return;
+      setLandingShortUrl(null);
+      setFormShortUrl(null);
+      const { data: form } = await supabase
+        .from("smartops_forms")
+        .select("id, slug")
+        .eq("product_catalog_id", product.id)
+        .maybeSingle();
+      if (!form?.slug) return;
+      const { data: links } = await supabase
+        .from("smartops_short_links")
+        .select("short_code, default_target")
+        .eq("form_slug", form.slug);
+      if (!links) return;
+      const base = "https://s.smartdent.com.br";
+      const landing = links.find((l: any) => l.default_target === "landing_page");
+      const formLink = links.find((l: any) => l.default_target === "form");
+      if (landing?.short_code) setLandingShortUrl(`${base}/${landing.short_code}`);
+      if (formLink?.short_code) setFormShortUrl(`${base}/${formLink.short_code}`);
+    };
+    fetchShortLinks();
+  }, [product?.id]);
 
   if (loading) {
     return (
