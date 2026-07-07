@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_forms DROP CONSTRAINT IF EXISTS smartops_forms_display_mode_check;
+ALTER TABLE public.smartops_forms ADD CONSTRAINT smartops_forms_display_mode_check CHECK (display_mode = ANY (ARRAY['list','step','first_three']));
