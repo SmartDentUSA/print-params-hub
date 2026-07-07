@@ -1,43 +1,25 @@
-## Objetivo
+## Diagnóstico
 
-Na página pública do produto (`/produto/:slug`), exibir dois botões quando o produto tiver um formulário SmartOps atrelado (via `smartops_forms.product_catalog_id`) e existirem short links publicados:
+Para o produto **Ativação DentalCAD Ultimate Lab Bundle - RMS** os dois short links já existem no banco:
 
-- **Saiba mais** → short link da landing page (`default_target = 'landing_page'`)
-- **Entre em contato** → short link do formulário (`default_target = 'form'`)
+- `hxssbk` → `default_target = 'landing_page'`
+- `fwr5e6` → `default_target = 'form'`
 
-Regra: cada botão só aparece se o short link correspondente existir.
+E o formulário `exocad_dentalcad_rms` está corretamente vinculado ao produto via `smartops_forms.product_catalog_id`.
 
-## Onde alterar
+O motivo dos botões não aparecerem é que **as tabelas `smartops_forms` e `smartops_short_links` não possuem `GRANT SELECT` para os roles `anon` e `authenticated`**. Suas policies RLS liberam leitura pública, mas sem o GRANT o PostgREST retorna vazio silenciosamente — o front recebe zero linhas e nenhum botão é renderizado.
 
-`src/pages/ProductPage.tsx` — apenas frontend, sem mudanças de schema, RLS, ou edge functions.
+## Correção
 
-## Como implementar
+Migration curta apenas com grants:
 
-1. Após buscar o `product`, disparar consulta adicional:
-   ```ts
-   supabase.from('smartops_forms')
-     .select('id, slug')
-     .eq('product_catalog_id', product.id)
-     .maybeSingle();
-   ```
-2. Se existir form, buscar short links:
-   ```ts
-   supabase.from('smartops_short_links')
-     .select('short_code, default_target')
-     .eq('form_slug', form.slug);
-   ```
-3. Guardar em estado:
-   - `landingShortUrl`: `https://s.smartdent.com.br/{short_code}` do registro com `default_target='landing_page'`
-   - `formShortUrl`: idem para `default_target='form'`
-4. Renderizar os botões no bloco de CTAs existente (`ProductPage.tsx` ~linhas 276-292), logo após os CTAs `cta_1_url`/`cta_2_url`:
-   - `Saiba mais` — `variant="default"`, ícone `ExternalLink`, abre `landingShortUrl` em nova aba, só se `landingShortUrl` existir.
-   - `Entre em contato` — `variant="secondary"`, ícone `MessageCircle`, abre `formShortUrl` em nova aba, só se `formShortUrl` existir.
-   - Ambos com `rel="noopener noreferrer"` e `target="_blank"`.
-5. Sem loading states extras: enquanto os short links não carregam, os botões simplesmente não aparecem.
+```sql
+GRANT SELECT ON public.smartops_forms TO anon, authenticated;
+GRANT SELECT ON public.smartops_short_links TO anon, authenticated;
+```
 
 ## Fora do escopo
 
-- Não altera admin, listagem, `InlineProductCard`, `CategoryPage`, ou outros cards.
-- Não cria/edita short links (usa apenas os que já existem em `smartops_short_links`).
-- Não muda os CTAs manuais (`cta_1_url`, `cta_2_url`) do produto — os novos botões aparecem em adição a eles.
-- Sem novos textos i18n neste momento (labels hardcoded em PT: "Saiba mais" / "Entre em contato").
+- Não altera policies RLS existentes.
+- Não muda o código da `ProductPage`.
+- Não toca em nenhuma outra tabela.
