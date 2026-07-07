@@ -19193,6 +19193,7 @@ export type Database = {
         Row: {
           account_id: string | null
           analytics_synced_at: string | null
+          auto_blast_at: string | null
           campaign_id: string | null
           caption: string | null
           caption_fingerprint: string | null
@@ -19227,6 +19228,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           analytics_synced_at?: string | null
+          auto_blast_at?: string | null
           campaign_id?: string | null
           caption?: string | null
           caption_fingerprint?: string | null
@@ -19261,6 +19263,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           analytics_synced_at?: string | null
+          auto_blast_at?: string | null
           campaign_id?: string | null
           caption?: string | null
           caption_fingerprint?: string | null

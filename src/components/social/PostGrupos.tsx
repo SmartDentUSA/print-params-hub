@@ -86,7 +86,7 @@ export function PostGrupos() {
         <div>
           <h1 className="text-2xl font-bold">Post Grupos</h1>
           <p className="text-sm text-muted-foreground">
-            Selecione os grupos de WhatsApp que receberão os disparos automáticos por instância.
+            Todo post novo sincronizado do Banco de Posts é disparado automaticamente para os grupos das instâncias ATIVAS abaixo.
           </p>
         </div>
       </div>
