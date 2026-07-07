@@ -2761,7 +2761,7 @@ function buildFlowFromTemplate(template: string, config: any): { nodes: any[]; e
 async function executeListSocialFlows(args: any) {
   const channel = args.channel || "instagram";
   let q = supabase.from("social_flows")
-    .select("id, name, is_active, channel, total_triggered, total_completed, nodes, updated_at")
+    .select("id, name, is_active, channel, total_triggered, total_completed, nodes, updated_at, zernio_automation_id")
     .eq("channel", channel)
     .order("updated_at", { ascending: false })
     .limit(20);
@@ -2771,6 +2771,7 @@ async function executeListSocialFlows(args: any) {
   return (data || []).map((f: any) => {
     const trig = (f.nodes || []).find((n: any) => n?.data?.nodeType === "trigger");
     const cfg = trig?.data?.config || {};
+    const isCommentToDm = cfg.trigger_type === "comment_keyword" || cfg.trigger_type === "comment_to_dm";
     return {
       id: f.id,
       name: f.name,
@@ -2780,6 +2781,8 @@ async function executeListSocialFlows(args: any) {
       concluidos: f.total_completed || 0,
       trigger_tipo: cfg.trigger_type || "—",
       keywords: cfg.keywords || [],
+      zernio_automation_id: f.zernio_automation_id || null,
+      provisionado: isCommentToDm ? (f.zernio_automation_id ? "✅ provisionado" : "⚠️ NÃO provisionado (chame provision_social_flow)") : "n/a",
       ultima_atualizacao: f.updated_at?.slice(0, 10),
     };
   });
@@ -2804,6 +2807,53 @@ async function executeGetSocialFlow(args: any) {
     passos,
     edges: data.edges || [],
   };
+}
+
+// Helper compartilhado: registra automação comment-to-DM no Zernio
+async function provisionZernioComment(flow: any): Promise<{ ok: boolean; zernio_automation_id?: string; zernio_status: string }> {
+  const zernioKey = Deno.env.get("ZERNIO_API_KEY");
+  if (!zernioKey) return { ok: false, zernio_status: "⚠️ ZERNIO_API_KEY ausente. Crie a automação manualmente no Zernio." };
+
+  const nodes = flow.nodes || [];
+  const trigger = nodes.find((n: any) => n?.data?.nodeType === "trigger");
+  const dmNode = nodes.find((n: any) => n?.data?.nodeType === "send_dm");
+  const replyNode = nodes.find((n: any) => n?.data?.nodeType === "comment_reply");
+  const tCfg = trigger?.data?.config || {};
+  const dCfg = dmNode?.data?.config || {};
+  const rCfg = replyNode?.data?.config || {};
+
+  const keywords: string[] = tCfg.keywords || [];
+  const dmMessage = (dCfg.message || dCfg.dm_message || "") + (dCfg.link || dCfg.dm_link ? "\n\n" + (dCfg.link || dCfg.dm_link) : "");
+  const commentReply = rCfg.message || rCfg.public_reply || tCfg.public_reply || "";
+
+  if (!keywords.length) return { ok: false, zernio_status: "⚠️ Flow sem keywords no trigger. Configure keywords antes de provisionar." };
+
+  try {
+    const zRes = await fetch("https://zernio.com/api/v1/comment-automations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId: "6a1e1a2368fd70c014724ef0",
+        accountId: "6a1e1b992b2567671a925559",
+        name: flow.name,
+        keywords,
+        matchMode: "contains",
+        dmMessage,
+        commentReply,
+        linkTracking: false,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const zData = await zRes.json().catch(() => ({} as any));
+    const zernioId = zData?.automation?.id ?? zData?.id ?? null;
+    if (zernioId) {
+      await supabase.from("social_flows").update({ zernio_automation_id: zernioId }).eq("id", flow.id);
+      return { ok: true, zernio_automation_id: zernioId, zernio_status: "✅ Automação registrada no Zernio" };
+    }
+    return { ok: false, zernio_status: `⚠️ Zernio respondeu HTTP ${zRes.status} sem id. Verifique manualmente.` };
+  } catch (e) {
+    return { ok: false, zernio_status: `⚠️ Erro ao chamar Zernio: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }
 
 async function executeCreateSocialFlow(args: any) {
@@ -2836,41 +2886,12 @@ async function executeCreateSocialFlow(args: any) {
     proximos_passos: "Confirme se deseja ativar agora.",
   };
 
-  // Auto-criar automação no Zernio para comment_keyword_dm
+  // Auto-provisiona no Zernio para comment_keyword_dm
   if (template === "comment_keyword_dm") {
-    const zernioKey = Deno.env.get("ZERNIO_API_KEY");
-    if (!zernioKey) {
-      result.zernio_status = "⚠️ ZERNIO_API_KEY ausente. Crie a automação manualmente no Zernio.";
-    } else {
-      try {
-        const zRes = await fetch("https://zernio.com/api/v1/comment-automations", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            profileId: "6a1e1a2368fd70c014724ef0",
-            accountId: "6a1e1b992b2567671a925559",
-            name,
-            keywords: config.keywords || [],
-            matchMode: "contains",
-            dmMessage: (config.dm_message || "") + (config.dm_link ? "\n\n" + config.dm_link : ""),
-            commentReply: config.public_reply || "",
-            linkTracking: false,
-          }),
-          signal: AbortSignal.timeout(15_000),
-        });
-        const zData = await zRes.json().catch(() => ({} as any));
-        const zernioId = zData?.automation?.id ?? zData?.id ?? null;
-        if (zernioId) {
-          await supabase.from("social_flows").update({ zernio_automation_id: zernioId }).eq("id", flowId);
-          result.zernio_automation_id = zernioId;
-          result.zernio_status = "✅ Automação criada no Zernio automaticamente";
-        } else {
-          result.zernio_status = `⚠️ Flow criado no banco mas automação Zernio falhou (HTTP ${zRes.status}). Verifique manualmente.`;
-        }
-      } catch (e) {
-        result.zernio_status = `⚠️ Flow criado mas erro ao chamar Zernio: ${e instanceof Error ? e.message : String(e)}`;
-      }
-    }
+    const { data: freshFlow } = await supabase.from("social_flows").select("*").eq("id", flowId).single();
+    const prov = await provisionZernioComment(freshFlow || { id: flowId, name, nodes });
+    result.zernio_status = prov.zernio_status;
+    if (prov.zernio_automation_id) result.zernio_automation_id = prov.zernio_automation_id;
   }
 
   // Menções em Story: webhook Zernio entrega evento 'mention' nativamente.
@@ -2904,9 +2925,39 @@ async function executeUpdateSocialFlow(args: any) {
 
 async function executeToggleSocialFlow(args: any) {
   const { id, is_active } = args;
-  const { data: flow } = await supabase.from("social_flows").select("name").eq("id", id).single();
+  const { data: flow } = await supabase.from("social_flows").select("*").eq("id", id).single();
+  if (!flow) return { error: "flow não encontrado" };
+
+  // Ao ATIVAR: se for comment-to-DM sem zernio_automation_id, provisiona antes
+  let provisionInfo: any = null;
+  if (is_active) {
+    const trig = (flow.nodes || []).find((n: any) => n?.data?.nodeType === "trigger");
+    const trigType = trig?.data?.config?.trigger_type;
+    const isCommentToDm = trigType === "comment_keyword" || trigType === "comment_to_dm";
+    if (isCommentToDm && !flow.zernio_automation_id) {
+      provisionInfo = await provisionZernioComment(flow);
+    }
+  }
+
   const { error } = await supabase.from("social_flows").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
-  return error ? { error: error.message } : { ok: true, flow: flow?.name, status: is_active ? "✅ ativado" : "⏸ pausado" };
+  if (error) return { error: error.message };
+  const out: any = { ok: true, flow: flow.name, status: is_active ? "✅ ativado" : "⏸ pausado" };
+  if (provisionInfo) {
+    out.zernio_status = provisionInfo.zernio_status;
+    if (provisionInfo.zernio_automation_id) out.zernio_automation_id = provisionInfo.zernio_automation_id;
+  }
+  return out;
+}
+
+async function executeProvisionSocialFlow(args: any) {
+  const { id } = args;
+  const { data: flow, error } = await supabase.from("social_flows").select("*").eq("id", id).single();
+  if (error || !flow) return { error: error?.message || "flow não encontrado" };
+  if (flow.zernio_automation_id) {
+    return { ok: true, already_provisioned: true, zernio_automation_id: flow.zernio_automation_id, zernio_status: "ℹ️ Já provisionado. Nada a fazer." };
+  }
+  const prov = await provisionZernioComment(flow);
+  return { ok: prov.ok, flow: flow.name, zernio_automation_id: prov.zernio_automation_id, zernio_status: prov.zernio_status };
 }
 
 async function executeDeleteSocialFlow(args: any) {
