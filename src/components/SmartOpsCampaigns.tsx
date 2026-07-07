@@ -508,6 +508,20 @@ function CreateCampaign({
       .replace(/\{\{primeiro_nome\}\}/g, "João")
       .replace(/\{\{empresa\}\}/g, "Clínica Exemplo");
 
+  const getFunctionErrorMessage = async (error: any) => {
+    const context = error?.context;
+    if (context && typeof context.text === "function") {
+      const text = await context.text();
+      try {
+        const parsed = JSON.parse(text);
+        return parsed?.error || parsed?.message || text || error?.message || "Erro na Edge Function";
+      } catch {
+        return text || error?.message || "Erro na Edge Function";
+      }
+    }
+    return error?.message || "Erro na Edge Function";
+  };
+
   // Build current filter object from state (single source of truth)
   const buildFiltersObject = useCallback(() => {
     const f: Record<string, any> = {};
@@ -955,16 +969,42 @@ function CreateCampaign({
     }
   };
 
-  const handleSendSms = async () => {
-    if (!smsMessage.trim() || !campaignName.trim()) return;
-    setSending(true);
-    const tId = toast.loading("Disparando SMS...");
-    try {
-      const id = await ensureSmsCampaign();
-      if (!id) throw new Error("Não foi possível criar a campanha");
+  const resolveSmsAudience = async (includeIds = false) => {
+    const filters = buildFiltersObject();
+    const applySmsFilters = (q: any) => applyFiltersToQuery(q, filters).neq("sms_opt_out", true);
 
-      // Resolve lead_ids client-side (mesma query do smsLeadValidCount)
-      const leadIds: string[] = [];
+    const totalQuery = applyFiltersToQuery(
+      supabase
+        .from("lia_attendances")
+        .select("id", { count: "exact", head: true })
+        .is("merged_into", null) as any,
+      filters,
+    );
+
+    const validQuery = applySmsFilters(
+      supabase
+        .from("lia_attendances")
+        .select("id", { count: "exact", head: true })
+        .is("merged_into", null)
+        .not("telefone_normalized", "is", null) as any,
+    );
+
+    const sampleQuery = applySmsFilters(
+      supabase
+        .from("lia_attendances")
+        .select("id,nome,telefone_normalized,telefone_raw,wa_phone")
+        .is("merged_into", null)
+        .not("telefone_normalized", "is", null)
+        .limit(5) as any,
+    );
+
+    const [totalRes, validRes, sampleRes] = await Promise.all([totalQuery, validQuery, sampleQuery]);
+    if (totalRes.error) throw new Error(totalRes.error.message);
+    if (validRes.error) throw new Error(validRes.error.message);
+    if (sampleRes.error) throw new Error(sampleRes.error.message);
+
+    const leadIds: string[] = [];
+    if (includeIds) {
       const PAGE = 1000;
       const CAP = 10000;
       let from = 0;
@@ -974,19 +1014,55 @@ function CreateCampaign({
           .select("id")
           .is("merged_into", null)
           .not("telefone_normalized", "is", null) as any;
-        q = applyFiltersToQuery(q, currentFilters);
-        try { q = q.neq("sms_opt_out", true); } catch { /* coluna opcional */ }
-        const { data: rows, error: qErr } = await q.range(from, from + PAGE - 1);
+        q = applySmsFilters(q).range(from, from + PAGE - 1);
+        const { data: rows, error: qErr } = await q;
         if (qErr) throw new Error(qErr.message);
         if (!rows || rows.length === 0) break;
         for (const r of rows) leadIds.push((r as any).id);
         if (rows.length < PAGE) break;
         from += PAGE;
       }
+    }
+
+    const sample = ((sampleRes.data as any[]) || []).map((row) => ({
+      id: row.id,
+      nome: row.nome,
+      telefone: row.telefone_normalized || row.telefone_raw || row.wa_phone || null,
+    }));
+
+    return {
+      total: totalRes.count ?? 0,
+      com_telefone: validRes.count ?? 0,
+      sample,
+      lead_ids: leadIds,
+    };
+  };
+
+  const handleSendSms = async () => {
+    if (!smsMessage.trim() || !campaignName.trim()) return;
+    setSending(true);
+    const tId = toast.loading("Disparando SMS...");
+    try {
+      const id = await ensureSmsCampaign();
+      if (!id) throw new Error("Não foi possível criar a campanha");
+
+      // Resolve lead_ids client-side usando a mesma query do contador SMS.
+      const audience = await resolveSmsAudience(true);
+      const leadIds = audience.lead_ids;
       if (leadIds.length === 0) {
         toast.error("Nenhum lead com telefone válido para os filtros", { id: tId });
         return;
       }
+
+      await supabase.from("campaigns" as any).update({
+        status: "running",
+        audience_count: audience.total,
+        audience_snapshot_at: new Date().toISOString(),
+        total_leads: leadIds.length,
+        total_sent: 0,
+        total_failed: 0,
+        started_at: new Date().toISOString(),
+      }).eq("id", id);
 
       // Cria campaign_session e dispara via smart-ops-sms-disparopro
       const { data: sessionRow, error: sessErr } = await supabase
@@ -1011,14 +1087,18 @@ function CreateCampaign({
       const sessionId = (sessionRow as any).id as string;
 
       const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
-        body: { campaign_id: sessionId, sms_message: smsMessage, sms_codificacao: smsCodificacao },
+        body: {
+          campaign_id: sessionId,
+          source_campaign_id: id,
+          sms_message: smsMessage,
+          sms_codificacao: smsCodificacao,
+          async: true,
+          batch_size: 100,
+        },
       });
-      if (error) throw error;
-      const sent = (data as any)?.sent ?? 0;
-      const failed = (data as any)?.failed ?? 0;
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       const total = leadIds.length;
-      await supabase.from("campaigns" as any).update({ status: "completed" }).eq("id", id);
-      toast.success(`Disparo completed: ${sent}/${total} enviados, ${failed} falhas`, { id: tId });
+      toast.success(`Disparo SMS enfileirado: ${total} leads. Acompanhe em Histórico.`, { id: tId });
       onCreated();
     } catch (e) {
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
@@ -1066,20 +1146,18 @@ function CreateCampaign({
     try {
       const id = await ensureSmsCampaign();
       if (!id) throw new Error("Não foi possível criar a campanha");
-      const filters: any = buildFiltersObject();
-      const { data, error } = await supabase.functions.invoke("campaign-build-audience", {
-        body: { ...filters, campaign_id: id },
-      });
-      if (error) throw error;
-      const aud = (data as any)?.audience ?? { total: 0, com_telefone: 0 };
-      const sample = (data as any)?.sample ?? [];
-      const lead_ids = (data as any)?.lead_ids ?? [];
+      const aud = await resolveSmsAudience(false);
       setAudiencePreview({
         total: aud.total ?? 0,
         com_telefone: aud.com_telefone ?? 0,
-        sample,
-        lead_ids,
+        sample: aud.sample,
+        lead_ids: [],
       });
+      await supabase.from("campaigns" as any).update({
+        audience_count: aud.total ?? 0,
+        total_leads: aud.com_telefone ?? 0,
+        audience_snapshot_at: new Date().toISOString(),
+      }).eq("id", id);
       toast.success(`Audiência: ${aud.total} leads (${aud.com_telefone} com telefone)`, { id: tId });
     } catch (e) {
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no preview"}`, { id: tId });
