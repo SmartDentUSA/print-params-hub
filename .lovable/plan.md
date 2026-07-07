@@ -1,60 +1,64 @@
-# Copilot: autonomia total sobre fluxos sociais
+## Objetivo
+Cada post novo que entra no **Banco de Posts** (via sync Zernio) passa a ser **disparado automaticamente** para todos os grupos configurados em **Post Grupos**, em todas as instâncias com `enabled=true` — sem clique humano.
 
-## Situação atual
+## Como vai funcionar
 
-O Copilot já tem 6 tools para `social_flows`: `list`, `get`, `create`, `update`, `toggle`, `delete`. A tool `create_social_flow` **já** chama a API do Zernio automaticamente ao criar (linhas 2829-2860 de `smart-ops-copilot/index.ts`).
+```text
+Zernio sync ──► social_posts (INSERT)
+                    │
+                    ▼
+        social-post-auto-blast (edge fn, service role)
+                    │
+                    ├── lê post_group_instance_config WHERE enabled=true
+                    ├── lê post_group_targets ligados a essas instâncias
+                    ├── monta content = { type:'msg', text: caption + "\n\n" + permalink }
+                    ├── chama wa-group-blast (1 campanha por instância)
+                    └── marca social_posts.auto_blast_at = now()
+```
 
-**Gap real:** fluxos que já existem sem `zernio_automation_id` (caso exocad RMS) não podem ser provisionados pelo Copilot — nem `toggle` nem `update` disparam o registro no Zernio. Foi por isso que precisei rodar `zernio-provision-flow` manualmente.
+- **Dedupe global** já existe no `wa-group-blast` via `wa_group_sent_fingerprints` (janela 30d por `group_jid + content_hash`), portanto reruns do sync não enviam duas vezes.
+- **Coluna nova `social_posts.auto_blast_at timestamptz null`** para marcar posts já processados e evitar retrabalho a cada sync.
+- Só dispara para posts com `permalink/url` válido e `caption` não vazia. Formatos sem permalink (ex.: rascunhos) ficam de fora.
+- Instância desativada em Post Grupos ignora aquele lote (comportamento já esperado da tela).
 
-## O que fazer
+## Passo a passo
 
-### 1. Nova tool `provision_social_flow` no Copilot
-Arquivo: `supabase/functions/smart-ops-copilot/index.ts`
+### 1. Migration
+- Adicionar `social_posts.auto_blast_at timestamptz null` + índice parcial `WHERE auto_blast_at IS NULL`.
+- Nada mais — `post_group_instance_config`, `post_group_targets`, `wa_groups`, `wa_group_sent_fingerprints` já existem.
 
-- Definição da tool (após `delete_social_flow`, ~linha 1088):
-  - `name: "provision_social_flow"`
-  - `description`: "Registra/re-registra a automação de um flow comment_to_dm existente no Zernio, populando `zernio_automation_id`. Use quando: (a) flow foi criado sem provisionar, (b) `zernio_automation_id` está null, (c) usuário pede para 'ativar/testar de verdade' um flow comment-to-DM, (d) `toggle_social_flow` reclamar de id ausente."
-  - `parameters`: `{ id: string (uuid do flow) }`
+### 2. Edge function nova: `supabase/functions/social-post-auto-blast/index.ts`
+- Serve como worker; aceita POST sem payload (varredura) ou `{ post_id }` (pontual).
+- Para cada `social_posts` pendente (`auto_blast_at IS NULL AND permalink IS NOT NULL AND caption IS NOT NULL`):
+  1. Para cada instância em `post_group_instance_config WHERE enabled=true`:
+     - Buscar `post_group_targets` → `wa_groups.group_jid` (filtrando `is_admin AND enabled`).
+     - Se vazio, pular.
+     - Chamar `wa-group-blast` com `group_jids`, `message_type:'msg'`, `content:{ text: caption + "\n\n" + permalink }`, `campaign_name: "Auto | ${platform} | ${post_id.slice(0,8)}"`.
+  2. Setar `auto_blast_at = now()` no post.
+- Retorna resumo `{ processed, dispatched_campaigns, skipped }`.
 
-- Executor `executeProvisionSocialFlow(args)`:
-  - Lê o flow em `social_flows`
-  - Se já tem `zernio_automation_id` → retorna `{ ok: true, already_provisioned: true }`
-  - Extrai keywords/dm_message/comment_reply do node `comment_trigger` + `send_dm`
-  - Chama `POST https://zernio.com/api/v1/comment-automations` com header `Authorization: Bearer ZERNIO_API_KEY` (mesmo padrão de `create_social_flow`, linhas 2834-2860) — reaproveitar a lógica em helper `provisionZernioComment(flow)` compartilhado entre `create` e `provision`
-  - Atualiza `social_flows.zernio_automation_id`
-  - Retorna `{ ok, zernio_automation_id, zernio_status }`
+### 3. Gatilho automático
+Duas camadas complementares para robustez:
+- **Fire-and-forget no `useZernioSync`**: após `social-posts-sync` retornar ok, invocar `social-post-auto-blast` (sem `await` no toast). Cobre 99% dos casos (sync manual do usuário).
+- **Cron a cada 10min** em `supabase/config.toml` chamando `social-post-auto-blast` para pegar qualquer atraso (syncs automáticos futuros, retries).
 
-- Registrar no dispatch `TOOL_HANDLERS` (~linha 2969): `provision_social_flow: executeProvisionSocialFlow`.
+### 4. UI (mudanças mínimas)
+- No **PostGrupos.tsx** adicionar aviso no cabeçalho: *"Todo post novo sincronizado é disparado automaticamente para os grupos ativos abaixo."*
+- No **SocialPostCard**, mostrar badge sutil `Enviado aos grupos` quando `auto_blast_at` estiver preenchido (leitura opcional; se preferir não mexer no card, tudo bem).
 
-### 2. Auto-provisionar ao ativar
-No `executeToggleSocialFlow` (~linha 2895), antes de setar `is_active:true`:
-- Se flow é `comment_to_dm` e `zernio_automation_id` é null → chamar `provisionZernioComment(flow)` inline.
-- Retornar `zernio_status` no result para o Copilot reportar ao usuário.
+## O que NÃO muda
+- `HistoricalPostBroadcast` continua existindo como envio manual pontual (mesmo modal `WaGroupBlastModal`).
+- `wa-group-blast` não é alterado — apenas passa a ser chamado programaticamente.
+- Copilot, flows do Zernio, e sync existentes ficam intactos.
 
-### 3. Atualizar system prompt do Copilot
-Seção "Comment-to-DM" (~linha 3079):
-- Adicionar: "Se `toggle_social_flow` retornar `zernio_status` ⚠️ ou o usuário pedir para testar um flow existente sem `zernio_automation_id`, chame `provision_social_flow({id})` antes de ativar."
-- Adicionar ao Passo 0: quando listar, sinalizar flows sem `zernio_automation_id` como "não provisionado".
-
-### 4. Ajuste em `list_social_flows`
-Incluir `zernio_automation_id` no select (~linha 2751) para o Copilot enxergar quais estão provisionados.
-
-## Como o usuário vai usar
-
-Comandos naturais que passarão a funcionar de ponta a ponta:
-- *"Cria um flow comment-to-DM para a palavra 'RESINA' respondendo com link X"* → `create_social_flow` (já funcionava)
-- *"Ativa o fluxo exocad RMS e deixa funcional"* → `toggle_social_flow` auto-provisiona
-- *"Aquele flow que criei ontem não está respondendo no Instagram"* → Copilot chama `list` → identifica `zernio_automation_id` null → chama `provision_social_flow`
-- *"Registra a automação do fluxo Copa no Zernio"* → `provision_social_flow`
-
-## Detalhes técnicos
-
-- Zero migrations, zero mudança de schema
-- Reaproveita `ZERNIO_API_KEY` (já configurada)
-- Helper compartilhado evita duplicação entre `create` e `provision`
-- Edge function `zernio-provision-flow` continua existindo como fallback manual (não remover)
-- Tools/UI de social flows no frontend não são alteradas
+## Riscos e mitigações
+- **Duplicidade se o mesmo post trocar de caption** → `content_hash` muda, mas `auto_blast_at` já está preenchido, então não redispara. OK.
+- **Blast em massa involuntário na primeira execução**: histórico do banco pode ter dezenas de posts sem `auto_blast_at`. Mitigação: no primeiro deploy, o backfill marca todos os posts antigos como `auto_blast_at = created_at` (só posts sincronizados de agora em diante disparam).
+- **Instância ATIVA sem grupos selecionados** → função só pula, não erra.
 
 ## Arquivos tocados
-
-- `supabase/functions/smart-ops-copilot/index.ts` (única edição)
+- Migration nova (coluna + índice + backfill de `auto_blast_at`).
+- `supabase/functions/social-post-auto-blast/index.ts` (novo).
+- `supabase/config.toml` (schedule do cron).
+- `src/hooks/social/useZernioSync.ts` (invoca a nova função após o sync).
+- `src/components/social/PostGrupos.tsx` (aviso de comportamento automático).
