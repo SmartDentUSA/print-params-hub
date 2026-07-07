@@ -715,6 +715,8 @@ export default function KbTabCatalogo() {
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
             const shortCtas = productShortLinks.get(p.id);
+            const landingShortCtaUrl = shortCtas?.landingUrl || null;
+            const formShortCtaUrl = shortCtas?.formUrl || null;
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
             const rDocs: ResinDoc[] = resin ? (resinDocs.get(resin.id) || []) : [];
             const rPres: ResinPresentation[] = resin ? (resinPres.get(resin.id) || []) : [];
@@ -850,7 +852,7 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{stripHtml(p.description) || p.product_subcategory}</p>
                   )}
-                  {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0 || shortCtas?.landingUrl || shortCtas?.formUrl) && (
+                  {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0 || landingShortCtaUrl || formShortCtaUrl) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
                       {lojaUrl && (
                         <button
@@ -883,13 +885,13 @@ export default function KbTabCatalogo() {
                           {t('kb.catalogo.actions.docs', { count: allExtraDocs.length })}
                         </button>
                       )}
-                      {shortCtas?.landingUrl && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(shortCtas.landingUrl)} title="Saiba mais">
+                      {landingShortCtaUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(landingShortCtaUrl)} title="Saiba mais">
                           Saiba mais
                         </button>
                       )}
-                      {shortCtas?.formUrl && (
-                        <button type="button" className="kb-action-btn" onClick={() => open(shortCtas.formUrl)} title="Entre em contato">
+                      {formShortCtaUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(formShortCtaUrl)} title="Entre em contato">
                           Entre em contato
                         </button>
                       )}
