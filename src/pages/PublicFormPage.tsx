@@ -689,6 +689,14 @@ export default function PublicFormPage() {
           background: #E8ECF4;
           border: 1px solid #C8CACF;
           border-radius: 10px;
+          color: #0F172A;
+          caret-color: #0F172A;
+        }
+        .public-form-page[data-pp-default="true"] input::placeholder,
+        .public-form-page[data-pp-default="true"] select::placeholder,
+        .public-form-page[data-pp-default="true"] textarea::placeholder {
+          color: #64748B;
+          opacity: 1;
         }
         .public-form-page[data-pp-default="true"] input:hover,
         .public-form-page[data-pp-default="true"] select:hover,
