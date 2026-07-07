@@ -419,9 +419,13 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
 function CreateCampaign({
   preSelectedContent,
   onCreated,
+  resumeDraft,
+  onDraftConsumed,
 }: {
   preSelectedContent: ContentItem | null;
   onCreated: () => void;
+  resumeDraft?: DraftCampaign | null;
+  onDraftConsumed?: () => void;
 }) {
   const [step, setStep] = useState(1);
   const [creating, setCreating] = useState(false);
