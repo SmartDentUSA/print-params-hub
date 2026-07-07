@@ -508,6 +508,20 @@ function CreateCampaign({
       .replace(/\{\{primeiro_nome\}\}/g, "João")
       .replace(/\{\{empresa\}\}/g, "Clínica Exemplo");
 
+  const getFunctionErrorMessage = async (error: any) => {
+    const context = error?.context;
+    if (context && typeof context.text === "function") {
+      const text = await context.text();
+      try {
+        const parsed = JSON.parse(text);
+        return parsed?.error || parsed?.message || text || error?.message || "Erro na Edge Function";
+      } catch {
+        return text || error?.message || "Erro na Edge Function";
+      }
+    }
+    return error?.message || "Erro na Edge Function";
+  };
+
   // Build current filter object from state (single source of truth)
   const buildFiltersObject = useCallback(() => {
     const f: Record<string, any> = {};
@@ -1082,7 +1096,7 @@ function CreateCampaign({
           batch_size: 100,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       const total = leadIds.length;
       toast.success(`Disparo SMS enfileirado: ${total} leads. Acompanhe em Histórico.`, { id: tId });
       onCreated();
