@@ -120,16 +120,43 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             .eq("status", "published")
         : { data: [] as any[] };
 
+      // Load official short links for these forms (same shorts shown on the form card).
+      const formSlugs = (prodForms || []).map((f: any) => f.slug).filter(Boolean);
+      const { data: shortRows } = formSlugs.length
+        ? await sb
+            .from("smartops_short_links")
+            .select("short_code, form_slug, default_target")
+            .in("form_slug", formSlugs)
+        : { data: [] as any[] };
+      const shortBase = "https://s.smartdent.com.br";
+      const shortMap: Record<string, { form?: string; landing_page?: string }> = {};
+      for (const r of (shortRows || []) as any[]) {
+        if (!r.form_slug) continue;
+        shortMap[r.form_slug] = shortMap[r.form_slug] || {};
+        if (r.default_target === "form" || r.default_target === "landing_page") {
+          shortMap[r.form_slug][r.default_target as "form" | "landing_page"] = r.short_code;
+        }
+      }
+      const formSlugById: Record<string, string> = {};
+      for (const f of (prodForms || []) as any[]) formSlugById[f.id] = f.slug;
+
       const origin = "https://smartdent.com.br";
       const landing: CtaOption[] = (prodLps || []).map((p: any) => ({
         id: p.id, tipo: "landing",
         label: `Landing: ${p.title || p.slug}`,
-        url: `${origin}/lp/${p.slug}`,
+        url: (() => {
+          const fSlug = formSlugById[p.form_id];
+          const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
+          return code ? `${shortBase}/${code}` : `${origin}/lp/${p.slug}`;
+        })(),
       }));
       const form: CtaOption[] = (prodForms || []).map((f: any) => ({
         id: f.id, tipo: "form",
         label: `Formulário: ${f.name || f.slug}`,
-        url: `${origin}/f/${f.slug}`,
+        url: (() => {
+          const code = shortMap[f.slug]?.form;
+          return code ? `${shortBase}/${code}` : `${origin}/f/${f.slug}`;
+        })(),
       }));
 
       setCtaOptions({ landing, form, custom: [] });
