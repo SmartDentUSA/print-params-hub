@@ -58,6 +58,14 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [sending, setSending] = useState(false);
   const [fromName, setFromName] = useState("Smart Dent | Fluxo Digital");
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+
+  // Queue + metrics
+  const [queueStatus, setQueueStatus] = useState<{
+    sent_today: number; daily_cap: number; queued_total: number;
+    active_campaigns: number; window_start: string; window_end: string;
+  } | null>(null);
+  const [lastCampaignId, setLastCampaignId] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<any>(null);
   const [testEmail, setTestEmail] = useState("");
   const [testHistory, setTestHistory] = useState<Array<{ to: string; status: "ok" | "fail"; at: string; error?: string }>>([]);
   const [showPreview, setShowPreview] = useState(true);
@@ -224,9 +232,10 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       });
       if (error) throw error;
       const d = data as any;
-      toast.success(`Enviados ${d.sent}/${d.audience} • Falhas: ${d.failed}`);
+      setLastCampaignId(d?.campaign_id ?? null);
+      toast.success(`Campanha enfileirada — ${d.audience} leads na fila global`);
       onSent?.(d);
-      setStep(5); // suggest creating a sequence next
+      setStep(5);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao enviar");
     } finally { setSending(false); }
