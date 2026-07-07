@@ -9,6 +9,9 @@ interface State {
 }
 
 const RELOAD_FLAG = "__chunk_reload_attempted__";
+// Auto-reload again if the last attempt was more than this many ms ago.
+// Prevents infinite reload loops but still recovers from stale chunks after redeploys.
+const RELOAD_COOLDOWN_MS = 15_000;
 
 function isChunkLoadError(error: unknown): boolean {
   if (!error) return false;
@@ -32,8 +35,9 @@ export class ChunkErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: unknown) {
     if (!isChunkLoadError(error)) return;
     try {
-      const already = sessionStorage.getItem(RELOAD_FLAG);
-      if (!already) {
+      const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
+      const now = Date.now();
+      if (!last || now - last > RELOAD_COOLDOWN_MS) {
         sessionStorage.setItem(RELOAD_FLAG, String(Date.now()));
         const url = new URL(window.location.href);
         url.searchParams.set("_cb", String(Date.now()));
