@@ -2077,11 +2077,13 @@ function CampaignHistory() {
         supabase
           .from("campaigns" as any)
           .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
+          .in("status", ["running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
         supabase
           .from("campaign_sessions")
           .select("*")
+          .in("status", ["running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
       ]);
