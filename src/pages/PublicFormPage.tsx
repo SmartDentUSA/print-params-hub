@@ -76,18 +76,18 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
   }, [redirectUrl]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background public-form-page" data-pp-default="true">
-      <div className="text-center space-y-6 p-8 max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-[#EEF1F6] text-[#0F172A]">
+      <div className="text-center space-y-6 p-8 max-w-md w-full bg-white rounded-2xl shadow-lg border border-black/5">
         <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
         <div className="space-y-2">
           <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
-          {isWhatsApp && <p className="text-sm text-muted-foreground">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
+          {isWhatsApp && <p className="text-sm text-[#475569]">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
         </div>
 
         {redirectUrl && (
           <Button
             asChild
-            className="w-full h-12 text-base"
+            className="w-full h-12 text-base text-white"
             style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
           >
             <a href={redirectUrl} target="_blank" rel="noopener noreferrer">
@@ -97,7 +97,7 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
         )}
 
         {autoRedirectFailed && isWhatsApp && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-[#475569]">
             Se não abrir automaticamente, clique no botão acima.
           </p>
         )}
