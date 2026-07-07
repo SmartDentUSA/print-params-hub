@@ -90,7 +90,7 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
             className="w-full h-12 text-base text-primary-foreground"
             style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
           >
-            <a href={redirectUrl} target="_blank" rel="noopener noreferrer">
+            <a href={redirectUrl} target={isWhatsApp ? undefined : "_blank"} rel="noopener noreferrer">
               {isWhatsApp ? "Entrar no grupo de WhatsApp" : "Continuar"}
             </a>
           </Button>
