@@ -1243,10 +1243,13 @@ function ConfigCarousel({ node, onChange }: { node: CarouselNode; onChange: (p: 
 function WaitNodeEditor({ node, onChange }: { node: WaitNode; onChange: (patch: Partial<WaitNode>) => void }) {
   const mode = node.mode ?? "relative";
 
-  const abs = node.absolute_at ? new Date(node.absolute_at) : undefined;
-  const absDate = abs && !Number.isNaN(abs.getTime()) ? abs : undefined;
-  const absTime = absDate
-    ? `${String(absDate.getHours()).padStart(2, "0")}:${String(absDate.getMinutes()).padStart(2, "0")}`
+  // Read absolute_at back as America/Sao_Paulo wall-clock (independent of browser TZ)
+  const spParts = node.absolute_at ? getSaoPauloParts(node.absolute_at) : null;
+  const absDate = spParts
+    ? new Date(spParts.year, spParts.month - 1, spParts.day)
+    : undefined;
+  const absTime = spParts
+    ? `${String(spParts.hour).padStart(2, "0")}:${String(spParts.minute).padStart(2, "0")}`
     : "09:00";
 
   const setAbsolute = (date: Date | undefined, time: string) => {
@@ -1255,9 +1258,14 @@ function WaitNodeEditor({ node, onChange }: { node: WaitNode; onChange: (patch: 
       return;
     }
     const [hh, mm] = (time || "09:00").split(":").map(Number);
-    const d = new Date(date);
-    d.setHours(Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0, 0, 0);
-    onChange({ absolute_at: d.toISOString() } as Partial<WaitNode>);
+    const iso = saoPauloWallClockToUtcIso(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      date.getDate(),
+      Number.isFinite(hh) ? hh : 9,
+      Number.isFinite(mm) ? mm : 0,
+    );
+    onChange({ absolute_at: iso } as Partial<WaitNode>);
   };
 
   return (
