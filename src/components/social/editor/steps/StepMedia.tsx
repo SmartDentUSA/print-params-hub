@@ -406,7 +406,7 @@ export function StepMedia({
           items={value.media_items}
           onChange={(next) => onChange({ media_items: next })}
           maxItems={10}
-          hint="Imagens ou vídeos (até 100MB cada)"
+          hint="Imagens ou vídeos (até 500MB cada)"
           onSplitIntoPosts={onSplitIntoPosts}
         />
         {value.media_items.length > 0 && value.channels.length > 0 && (
