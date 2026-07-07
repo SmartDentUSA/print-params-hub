@@ -51,6 +51,65 @@ interface FormData {
   show_progress?: boolean | null;
 }
 
+interface SubmittedScreenProps {
+  form: FormData;
+  company: any;
+  redirectUrl: string | null;
+}
+
+function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
+  const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
+  const isWhatsApp = redirectUrl?.includes("whatsapp.com") || redirectUrl?.startsWith("whatsapp://");
+
+  useEffect(() => {
+    if (!redirectUrl) return;
+    const t1 = setTimeout(() => {
+      window.location.href = redirectUrl;
+    }, 800);
+    const t2 = setTimeout(() => {
+      setAutoRedirectFailed(true);
+    }, 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [redirectUrl]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background public-form-page" data-pp-default="true">
+      <div className="text-center space-y-6 p-8 max-w-md w-full">
+        <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
+        <div className="space-y-2">
+          <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
+          {isWhatsApp && <p className="text-sm text-muted-foreground">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
+        </div>
+
+        {redirectUrl && (
+          <Button
+            asChild
+            className="w-full h-12 text-base"
+            style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
+          >
+            <a href={redirectUrl} target="_blank" rel="noopener noreferrer">
+              {isWhatsApp ? "Entrar no grupo de WhatsApp" : "Continuar"}
+            </a>
+          </Button>
+        )}
+
+        {autoRedirectFailed && isWhatsApp && (
+          <p className="text-sm text-muted-foreground">
+            Se não abrir automaticamente, clique no botão acima.
+          </p>
+        )}
+
+        {company?.logo_url && (
+          <img src={company.logo_url} alt={company.name || "Smart Dent"} className="h-8 mx-auto opacity-80" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
