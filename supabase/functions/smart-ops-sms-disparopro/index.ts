@@ -109,12 +109,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Buscar telefones (canonical leads)
-    const { data: leads } = await supabase
-      .from("lia_attendances")
-      .select("id,nome,telefone_normalized,telefone_raw,wa_phone")
-      .in("id", leadIds)
-      .is("merged_into", null);
+    // 2. Buscar telefones (canonical leads) em blocos para evitar URL/query gigante.
+    const leads: any[] = [];
+    for (const idsChunk of chunkArray(leadIds, 500)) {
+      const { data: chunkRows, error: leadsErr } = await supabase
+        .from("lia_attendances")
+        .select("id,nome,telefone_normalized,telefone_raw,wa_phone")
+        .in("id", idsChunk)
+        .is("merged_into", null);
+      if (leadsErr) throw new Error(`Erro ao buscar leads: ${leadsErr.message}`);
+      leads.push(...(chunkRows || []));
+    }
 
     const batchSize = Math.max(1, Math.min(Number(rawBatchSize) || 100, 500));
     const publicCampaignId = source_campaign_id || campaign_id;
@@ -138,7 +143,7 @@ Deno.serve(async (req) => {
         }).eq("id", source_campaign_id);
       }
 
-      const normalizedLeads = (leads || []).map((lead: any) => ({
+      const normalizedLeads = leads.map((lead: any) => ({
         ...lead,
         numero: normalizePhone(String(lead.telefone_normalized || lead.telefone_raw || lead.wa_phone || "")),
       }));
@@ -288,7 +293,21 @@ Deno.serve(async (req) => {
     };
 
     if (runAsync) {
-      EdgeRuntime.waitUntil(processCampaign());
+      EdgeRuntime.waitUntil(processCampaign().catch(async (e) => {
+        const failedAt = new Date().toISOString();
+        await supabase.from("campaign_sessions").update({
+          status: "failed",
+          completed_at: failedAt,
+          results: { ...(camp.results || {}), error: (e as Error).message, finished_at: failedAt },
+        }).eq("id", campaign_id);
+        if (source_campaign_id) {
+          await supabase.from("campaigns").update({
+            status: "failed",
+            completed_at: failedAt,
+            notes: (e as Error).message,
+          }).eq("id", source_campaign_id);
+        }
+      }));
       return new Response(JSON.stringify({ success: true, queued: true, campaign_id, source_campaign_id, total: leadIds.length }), {
         status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
