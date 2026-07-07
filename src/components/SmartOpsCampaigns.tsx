@@ -107,6 +107,19 @@ interface SavedSegment {
   created_at: string | null;
 }
 
+interface DraftCampaign {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  canal: string | null;
+  status: string | null;
+  mensagem_template: string | null;
+  lead_filter: Record<string, any> | null;
+  created_at: string | null;
+  total_leads: number | null;
+  audience_count: number | null;
+}
+
 // ── Helpers ──
 const channelColors: Record<string, string> = {
   whatsapp: "bg-green-100 text-green-800 border-green-300",
@@ -406,9 +419,13 @@ function ContentLibrary({ onSelectContent }: { onSelectContent: (c: ContentItem)
 function CreateCampaign({
   preSelectedContent,
   onCreated,
+  resumeDraft,
+  onDraftConsumed,
 }: {
   preSelectedContent: ContentItem | null;
   onCreated: () => void;
+  resumeDraft?: DraftCampaign | null;
+  onDraftConsumed?: () => void;
 }) {
   const [step, setStep] = useState(1);
   const [creating, setCreating] = useState(false);
@@ -810,6 +827,22 @@ function CreateCampaign({
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
 
+  // Hydrate wizard state from a draft campaign and jump to step 3
+  useEffect(() => {
+    if (!resumeDraft) return;
+    setCampaignName(resumeDraft.nome ?? "");
+    setCampaignDesc(resumeDraft.descricao ?? "");
+    if (resumeDraft.canal) setSendChannel(resumeDraft.canal);
+    if (resumeDraft.canal === "sms") {
+      setSmsMessage(resumeDraft.mensagem_template ?? "");
+    }
+    applySegmentFilters(resumeDraft.lead_filter ?? {});
+    setSmsCampaignId(resumeDraft.id);
+    setStep(3);
+    onDraftConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeDraft?.id]);
+
   // Fetch DisparoPro balance when SMS channel is selected
   useEffect(() => {
     if (sendChannel !== "sms") return;
@@ -1046,61 +1079,23 @@ function CreateCampaign({
       const id = await ensureSmsCampaign();
       if (!id) throw new Error("Não foi possível criar a campanha");
 
-      // Resolve lead_ids client-side usando a mesma query do contador SMS.
-      const audience = await resolveSmsAudience(true);
-      const leadIds = audience.lead_ids;
-      if (leadIds.length === 0) {
-        toast.error("Nenhum lead com telefone válido para os filtros", { id: tId });
-        return;
-      }
-
-      await supabase.from("campaigns" as any).update({
-        status: "running",
-        audience_count: audience.total,
-        audience_snapshot_at: new Date().toISOString(),
-        total_leads: leadIds.length,
-        total_sent: 0,
-        total_failed: 0,
-        started_at: new Date().toISOString(),
-      }).eq("id", id);
-
-      // Cria campaign_session e dispara via smart-ops-sms-disparopro
-      const { data: sessionRow, error: sessErr } = await supabase
-        .from("campaign_sessions")
-        .insert({
-          name: campaignName.trim(),
-          description: campaignDesc.trim() || null,
-          channel: "sms",
-          status: "running",
-          lead_ids: leadIds,
-          lead_count: leadIds.length,
-          lead_filters: buildFiltersObject(),
-          results: {
-            sms_message: smsMessage,
-            sms_codificacao: smsCodificacao,
-            source_campaign_id: id,
-          },
-        })
-        .select("id")
-        .single();
-      if (sessErr || !sessionRow) throw new Error(sessErr?.message ?? "Falha ao criar campaign_session");
-      const sessionId = (sessionRow as any).id as string;
-
-      const { data, error } = await supabase.functions.invoke("smart-ops-sms-disparopro", {
-        body: {
-          campaign_id: sessionId,
-          source_campaign_id: id,
-          sms_message: smsMessage,
-          sms_codificacao: smsCodificacao,
-          async: true,
-          batch_size: 100,
-        },
+      // Backend resolves audience + dispatches. Frontend just triggers the function.
+      console.info("[SMS] Invocando campaign-execute-sms", { campaign_id: id });
+      const { data, error } = await supabase.functions.invoke("campaign-execute-sms", {
+        body: { campaign_id: id },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
-      const total = leadIds.length;
-      toast.success(`Disparo SMS enfileirado: ${total} leads. Acompanhe em Histórico.`, { id: tId });
+      console.info("[SMS] campaign-execute-sms OK", data);
+      const enfileirados = (data as any)?.total_leads ?? (data as any)?.enqueued ?? null;
+      toast.success(
+        enfileirados != null
+          ? `Disparo SMS enfileirado: ${enfileirados} leads. Acompanhe em Histórico.`
+          : "Disparo SMS enfileirado. Acompanhe em Histórico.",
+        { id: tId }
+      );
       onCreated();
     } catch (e) {
+      console.error("[SMS] Falha em handleSendSms", e);
       toast.error(`Erro: ${e instanceof Error ? e.message : "Falha no disparo"}`, { id: tId });
     } finally {
       setSending(false);
@@ -2017,7 +2012,7 @@ function CreateCampaign({
                   </Button>
                   <Button
                     onClick={handleSendSms}
-                    disabled={sending || !smsMessage.trim() || ((audiencePreview?.com_telefone || smsLeadValidCount || 0) === 0)}
+                    disabled={sending || !smsMessage.trim() || !campaignName.trim()}
                     className="flex-1"
                   >
                     {sending
@@ -2115,11 +2110,13 @@ function CampaignHistory() {
         supabase
           .from("campaigns" as any)
           .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
+          .in("status", ["running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
         supabase
           .from("campaign_sessions")
           .select("*")
+          .in("status", ["running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
       ]);
@@ -2380,6 +2377,122 @@ function CampaignHistory() {
 // ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
+function CampaignDrafts({ onEdit }: { onEdit: (draft: DraftCampaign) => void }) {
+  const [drafts, setDrafts] = useState<DraftCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("campaigns" as any)
+      .select("id,nome,descricao,canal,status,mensagem_template,lead_filter,created_at,total_leads,audience_count")
+      .eq("status", "rascunho")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      toast.error(`Erro ao carregar rascunhos: ${error.message}`);
+      setDrafts([]);
+    } else {
+      setDrafts((data as any) || []);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (draft: DraftCampaign) => {
+    if (!confirm(`Excluir o rascunho "${draft.nome}"? Esta ação não pode ser desfeita.`)) return;
+    setDeletingId(draft.id);
+    const { error } = await supabase.from("campaigns" as any).delete().eq("id", draft.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error(`Erro ao excluir: ${error.message}`);
+      return;
+    }
+    toast.success("Rascunho excluído");
+    setDrafts(prev => prev.filter(d => d.id !== draft.id));
+  };
+
+  if (loading) {
+    return <div className="h-40 flex items-center justify-center text-muted-foreground">Carregando rascunhos...</div>;
+  }
+
+  if (!drafts.length) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-3">
+        <Bookmark className="w-12 h-12 text-muted-foreground/40" />
+        <p className="text-muted-foreground">Nenhum rascunho salvo</p>
+        <p className="text-xs text-muted-foreground">
+          Rascunhos aparecem aqui quando você salva uma campanha sem disparar
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {drafts.length} rascunho{drafts.length === 1 ? "" : "s"} salvo{drafts.length === 1 ? "" : "s"}
+        </p>
+        <Button variant="ghost" size="sm" onClick={load}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Atualizar
+        </Button>
+      </div>
+      <div className="border rounded-lg overflow-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="text-left p-3 font-medium">Nome</th>
+              <th className="text-left p-3 font-medium">Canal</th>
+              <th className="text-left p-3 font-medium">Mensagem</th>
+              <th className="text-right p-3 font-medium">Leads</th>
+              <th className="text-left p-3 font-medium">Criado</th>
+              <th className="text-right p-3 font-medium">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {drafts.map(d => (
+              <tr key={d.id} className="border-b hover:bg-accent/5">
+                <td className="p-3 font-medium">{d.nome}</td>
+                <td className="p-3">
+                  <Badge variant="outline" className={channelColors[d.canal || ""] || ""}>
+                    {d.canal || "—"}
+                  </Badge>
+                </td>
+                <td className="p-3 max-w-[320px] truncate text-muted-foreground">
+                  {d.mensagem_template || "—"}
+                </td>
+                <td className="p-3 text-right">{d.total_leads ?? d.audience_count ?? "—"}</td>
+                <td className="p-3 text-muted-foreground">{formatDate(d.created_at)}</td>
+                <td className="p-3">
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => onEdit(d)}>
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(d)}
+                      disabled={deletingId === d.id}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      {deletingId === d.id
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function SmartOpsCampaigns() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("sub") || "biblioteca";
@@ -2390,6 +2503,7 @@ export function SmartOpsCampaigns() {
     setSearchParams(next, { replace: true });
   };
   const [preSelectedContent, setPreSelectedContent] = useState<ContentItem | null>(null);
+  const [resumeDraft, setResumeDraft] = useState<DraftCampaign | null>(null);
 
   const handleSelectContent = (content: ContentItem) => {
     setPreSelectedContent(content);
@@ -2398,7 +2512,13 @@ export function SmartOpsCampaigns() {
 
   const handleCampaignCreated = () => {
     setPreSelectedContent(null);
+    setResumeDraft(null);
     setActiveTab("historico");
+  };
+
+  const handleEditDraft = (draft: DraftCampaign) => {
+    setResumeDraft(draft);
+    setActiveTab("criar");
   };
 
   return (
@@ -2412,6 +2532,7 @@ export function SmartOpsCampaigns() {
         <TabsList>
           <TabsTrigger value="biblioteca">Biblioteca de Conteúdo</TabsTrigger>
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
+          <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
         </TabsList>
@@ -2420,7 +2541,15 @@ export function SmartOpsCampaigns() {
           <ContentLibrary onSelectContent={handleSelectContent} />
         </TabsContent>
         <TabsContent value="criar">
-          <CreateCampaign preSelectedContent={preSelectedContent} onCreated={handleCampaignCreated} />
+          <CreateCampaign
+            preSelectedContent={preSelectedContent}
+            onCreated={handleCampaignCreated}
+            resumeDraft={resumeDraft}
+            onDraftConsumed={() => setResumeDraft(null)}
+          />
+        </TabsContent>
+        <TabsContent value="rascunhos">
+          <CampaignDrafts onEdit={handleEditDraft} />
         </TabsContent>
         <TabsContent value="historico">
           <CampaignHistory />
