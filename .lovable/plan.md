@@ -1,42 +1,63 @@
-## Objetivo
+## Diagnóstico
 
-Fazer o importador (`PublicAPIProductImporter` → edge `get-product-data`) voltar a buscar direto no **Sistema A live** quando o produto não estiver no espelho local, como funcionava antes. Assim `399446992` (id da Loja Integrada/Sistema A) e qualquer slug ainda não sincronizado passam a retornar dados.
+**1. Fonte ilegível no input.** A screenshot da landing `https://parametros.smartdent.com.br/f/exocad_dentalcad_rms` mostra o campo "Nome completo" com fundo branco e texto/quase branco. Em `src/pages/PublicFormPage.tsx` (linhas ~621-637), o painel padrão `[data-pp-default="true"]` força `background: #E8ECF4` e `border` nos inputs, mas **não define a cor do texto digitado**. Como a página usa tema escuro (`.public-form-page` herda cor clara de `--form-body`), o texto fica invisível sobre o bg claro.
 
-## Escopo
+**2. "Erro ao abrir o WhatsApp" após envio.** O `success_redirect_url` do form é `https://chat.whatsapp.com/KWqNzep7sdZJsfPiHW1awq`. O usuário confirmou que, ao acessar o link diretamente, ele funciona (carrega a tela do WhatsApp Web). O `PublicFormPage` faz `window.location.href = redirectUrl` (linhas 483-486). O erro provavelmente ocorre quando:
+- O redirect dispara em um momento em que o navegador ainda está processando eventos, e alguns bloqueadores/popup-blockers interceptam.
+- No mobile, a navegação automática para `chat.whatsapp.com` às vezes não dispara o app nativo.
+- A mensagem "Erro ao abrir o WhatsApp" pode ser um toast/mensagem própria da página que não deveria aparecer, ou o usuário vê a tela do WhatsApp Web e clica em "Abrir app", e aí falha (o link em si carrega, mas a abertura do app desktop/mobile não funciona em certos contextos).
 
-Editar apenas a edge function `supabase/functions/get-product-data/index.ts`. Sem mudanças no frontend, sem migração de banco.
+## Plano de correção
 
-## Fluxo novo do endpoint
+### 1. Corrigir contraste do input no painel default
 
-Ordem de resolução (a primeira que retornar dados vence):
+Arquivo: `src/pages/PublicFormPage.tsx`
 
-1. Local `system_a_catalog` por `slug` exato (já existe).
-2. Local `system_a_catalog` por `external_id` quando o parâmetro for numérico (já existe).
-3. Local `system_a_catalog` por `slug ilike '%…%'` (já existe).
-4. Local `resins` por `slug` (já existe).
-5. **[NOVO] Sistema A live** — fallback final, chamando:
-   - `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/get-product-data?product_id=<slug>` quando o valor for numérico;
-   - `…?slug=<slug>` caso contrário.
-   Timeout curto (8s), soft-fail: se o live também não achar/erros de rede, mantém o 404 atual.
-6. Se nada retornar, 404 como hoje.
+Ajustar o bloco `[data-pp-default="true"]` para forçar texto escuro e placeholder cinza legível:
 
-A resposta do Sistema A live é remapeada para o mesmo shape que o endpoint já devolve (`id`, `external_id`, `name`, `slug`, `description`, `image_url`, `price`, `promo_price`, `currency`, `url`, `canonical_url`, `seo_title_override`, `seo_description_override`, `keywords`, `product_category`, `product_subcategory`), com `message: 'Produto encontrado (Sistema A live)'` para diagnóstico.
+```css
+.public-form-page[data-pp-default="true"] input,
+.public-form-page[data-pp-default="true"] select,
+.public-form-page[data-pp-default="true"] textarea {
+  background: #E8ECF4;
+  border: 1px solid #C8CACF;
+  border-radius: 10px;
+  color: #0F172A;
+  caret-color: #0F172A;
+}
+.public-form-page[data-pp-default="true"] input::placeholder,
+.public-form-page[data-pp-default="true"] select::placeholder,
+.public-form-page[data-pp-default="true"] textarea::placeholder {
+  color: #64748B;
+  opacity: 1;
+}
+```
 
-## Detalhes técnicos
+Isso mantém a experiência light para esse formulário específico sem afetar o tema dark padrão (`.dark` já sobrescreve quando aplicado).
 
-- Reaproveitar o padrão do `_shared/system-a-live.ts` (já existe no projeto): fetch com `AbortController` de 8s, tratamento de erro silencioso, sem cache persistente aqui (o refresh continua sendo responsabilidade do `smart-ops-refresh-system-a-cache`).
-- Logs `console.log('🌐 Fallback Sistema A live', { param, status })` para facilitar debug.
-- Não persistir o produto encontrado — apenas responder ao caller. O importador, ao clicar "Importar", segue gravando localmente como já faz.
-- CORS e formato de resposta inalterados.
+### 2. Tornar o redirect para WhatsApp mais robusto
 
-## Validação
+Arquivo: `src/pages/PublicFormPage.tsx` (linhas ~480-488)
 
-- `curl …/get-product-data?slug=399446992&approved=true` → 200 com dados do SmartSlicer vindos do Sistema A live.
-- `curl …/get-product-data?slug=software-smart-slicer` → 200 continua vindo do local.
-- `curl …/get-product-data?slug=slug-inexistente-xyz` → 404 como hoje.
-- Testar no admin: colar `399446992` no importador e conferir preview populado.
+Substituir o redirect direto por uma página de confirmação intermédia que:
+- Tenta automaticamente abrir o WhatsApp após 800ms usando `window.location.href = redirectUrl`.
+- Mostra um botão visível "Entrar no grupo de WhatsApp" como fallback.
+- Exibe a mensagem de erro personalizada apenas se o redirect falhar de fato (timeout + confirmação de navegação não iniciada).
+
+Novo fluxo após submit bem-sucedido:
+1. Setar estado `submitted=true` (mesmo que haja redirect_url).
+2. Renderizar tela de sucesso com título/mensagem do form e CTA principal para o WhatsApp.
+3. Usar `useEffect` para tentar o redirect automático: `window.location.href = success_redirect_url`.
+4. Se após 1,5s a URL ainda for a mesma do form, mostrar mensagem: "Se o WhatsApp não abrir, clique no botão abaixo."
+
+### 3. Validação
+
+- Acessar `https://parametros.smartdent.com.br/f/exocad_dentalcad_rms`, digitar no campo e verificar texto/placeholder legíveis.
+- Simular envio do formulário e confirmar que aparece a tela de sucesso com botão de fallback e tentativa automática de redirect.
+- Testar no desktop e mobile para garantir que não há mais a mensagem "Erro ao abrir o WhatsApp" genérica.
 
 ## Fora de escopo
 
-- Não vou criar coluna nova, mapear LI id ↔ catálogo, nem alterar RLS/GRANTs.
-- Não vou tocar em outros lugares que chamam o endpoint (`ProductPage`, `KbTabCatalogo` seguem funcionando pelo fluxo local).
+- Não alterar tokens globais do tema (não impactar outras landings).
+- Não modificar a tabela `smartops_forms` nem o `success_redirect_url` salvo no banco (o link está correto).
+- Não mexer em outros formulários ou fluxos de submit.

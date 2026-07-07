@@ -51,6 +51,65 @@ interface FormData {
   show_progress?: boolean | null;
 }
 
+interface SubmittedScreenProps {
+  form: FormData;
+  company: any;
+  redirectUrl: string | null;
+}
+
+function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
+  const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
+  const isWhatsApp = redirectUrl?.includes("whatsapp.com") || redirectUrl?.startsWith("whatsapp://");
+
+  useEffect(() => {
+    if (!redirectUrl) return;
+    const t1 = setTimeout(() => {
+      window.location.href = redirectUrl;
+    }, 800);
+    const t2 = setTimeout(() => {
+      setAutoRedirectFailed(true);
+    }, 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [redirectUrl]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-surface text-foreground">
+      <div className="text-center space-y-6 p-8 max-w-md w-full bg-card rounded-2xl shadow-medium border border-border">
+        <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
+        <div className="space-y-2">
+          <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
+          {isWhatsApp && <p className="text-sm text-muted-foreground">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
+        </div>
+
+        {redirectUrl && (
+          <Button
+            asChild
+            className="w-full h-12 text-base text-primary-foreground"
+            style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
+          >
+            <a href={redirectUrl} target={isWhatsApp ? undefined : "_blank"} rel="noopener noreferrer">
+              {isWhatsApp ? "Entrar no grupo de WhatsApp" : "Continuar"}
+            </a>
+          </Button>
+        )}
+
+        {autoRedirectFailed && isWhatsApp && (
+          <p className="text-sm text-muted-foreground">
+            Se não abrir automaticamente, clique no botão acima.
+          </p>
+        )}
+
+        {company?.logo_url && (
+          <img src={company.logo_url} alt={company.name || "Smart Dent"} className="h-8 mx-auto opacity-80" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -59,6 +118,7 @@ export default function PublicFormPage() {
   const [fields, setFields] = useState<FormField[]>([]);
   const [values, setValues] = useState<Record<string, any>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -482,8 +542,7 @@ export default function PublicFormPage() {
       // Redirect if URL configured
       const redirectUrl = (form as any).success_redirect_url;
       if (redirectUrl) {
-        window.location.href = redirectUrl;
-        return;
+        setRedirectUrl(redirectUrl);
       }
       setSubmitted(true);
     } catch (err: any) {
@@ -518,12 +577,11 @@ export default function PublicFormPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4 p-8">
-          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
-          <p className="text-lg font-medium">{form.success_message}</p>
-        </div>
-      </div>
+      <SubmittedScreen
+        form={form}
+        company={company}
+        redirectUrl={redirectUrl}
+      />
     );
   }
 
@@ -617,6 +675,16 @@ export default function PublicFormPage() {
         .public-form-page.dark input, .public-form-page.dark select, .public-form-page.dark textarea {
           background-color: rgba(255,255,255,0.06); color: #f5f5f5; border-color: rgba(255,255,255,0.18);
         }
+        .public-form-page:not(.dark) input, .public-form-page:not(.dark) select, .public-form-page:not(.dark) textarea {
+          color: #0F172A;
+          caret-color: #0F172A;
+        }
+        .public-form-page:not(.dark) input::placeholder,
+        .public-form-page:not(.dark) select::placeholder,
+        .public-form-page:not(.dark) textarea::placeholder {
+          color: #64748B;
+          opacity: 1;
+        }
         /* KB-style fallback form panel (only when no custom background) */
         .public-form-page[data-pp-default="true"] form {
           background: #FFFFFF;
@@ -631,6 +699,14 @@ export default function PublicFormPage() {
           background: #E8ECF4;
           border: 1px solid #C8CACF;
           border-radius: 10px;
+          color: #0F172A;
+          caret-color: #0F172A;
+        }
+        .public-form-page[data-pp-default="true"] input::placeholder,
+        .public-form-page[data-pp-default="true"] select::placeholder,
+        .public-form-page[data-pp-default="true"] textarea::placeholder {
+          color: #64748B;
+          opacity: 1;
         }
         .public-form-page[data-pp-default="true"] input:hover,
         .public-form-page[data-pp-default="true"] select:hover,
