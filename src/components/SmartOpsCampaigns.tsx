@@ -107,6 +107,19 @@ interface SavedSegment {
   created_at: string | null;
 }
 
+interface DraftCampaign {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  canal: string | null;
+  status: string | null;
+  mensagem_template: string | null;
+  lead_filter: Record<string, any> | null;
+  created_at: string | null;
+  total_leads: number | null;
+  audience_count: number | null;
+}
+
 // ── Helpers ──
 const channelColors: Record<string, string> = {
   whatsapp: "bg-green-100 text-green-800 border-green-300",
