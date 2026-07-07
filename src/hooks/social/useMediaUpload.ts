@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { MediaItem } from '@/lib/social/postSchema';
 
 const BUCKET = 'wa-media';
-const MAX_BYTES = 100 * 1024 * 1024;
+const MAX_BYTES = 500 * 1024 * 1024;
 
 function getMediaDimensions(file: File): Promise<{ width?: number; height?: number }> {
   return new Promise((resolve) => {
