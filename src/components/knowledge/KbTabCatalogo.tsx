@@ -72,6 +72,11 @@ interface CatalogDoc {
   kind: 'FDS' | 'IFU' | 'GUIA' | 'PERFIL' | 'DOC';
 }
 
+interface ProductShortLinks {
+  landingUrl: string | null;
+  formUrl: string | null;
+}
+
 const classifyDoc = (n: string): CatalogDoc['kind'] => {
   const u = n.toUpperCase();
   if (u.includes('FDS')) return 'FDS';
@@ -386,6 +391,7 @@ export default function KbTabCatalogo() {
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
+  const [productShortLinks, setProductShortLinks] = useState<Map<string, ProductShortLinks>>(new Map());
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [subChip, setSubChip] = useState('all');
@@ -403,7 +409,16 @@ export default function KbTabCatalogo() {
     let cancel = false;
     setLoading(true);
     (async () => {
-      const [{ data: cat, error: e1 }, { data: pc, error: e2 }, { data: rs, error: e3 }, { data: cd, error: e4 }, { data: rd, error: e5 }, { data: rp, error: e6 }] = await Promise.all([
+      const [
+        { data: cat, error: e1 },
+        { data: pc, error: e2 },
+        { data: rs, error: e3 },
+        { data: cd, error: e4 },
+        { data: rd, error: e5 },
+        { data: rp, error: e6 },
+        { data: forms, error: e7 },
+        { data: shortLinks, error: e8 },
+      ] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, technical_specs_en, technical_specs_es, extra_data')
@@ -441,6 +456,16 @@ export default function KbTabCatalogo() {
           .select('resin_id, label, price, print_type, grams_per_print, prints_per_bottle, sort_order')
           .order('sort_order')
           .limit(2000),
+        supabase
+          .from('smartops_forms')
+          .select('slug, product_catalog_id')
+          .not('product_catalog_id', 'is', null)
+          .eq('active', true)
+          .limit(1000),
+        supabase
+          .from('smartops_short_links')
+          .select('short_code, form_slug, default_target')
+          .limit(2000),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
@@ -449,6 +474,8 @@ export default function KbTabCatalogo() {
       if (e4) console.error(e4);
       if (e5) console.error(e5);
       if (e6) console.error(e6);
+      if (e7) console.error(e7);
+      if (e8) console.error(e8);
       const docMap = new Map<string, DocLinks>();
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
@@ -460,6 +487,27 @@ export default function KbTabCatalogo() {
           technical_specifications: p.technical_specifications ?? null,
           technical_specifications_en: p.technical_specifications_en ?? null,
           technical_specifications_es: p.technical_specifications_es ?? null,
+        });
+      });
+      const shortByForm = new Map<string, ProductShortLinks>();
+      const shortBase = 'https://s.smartdent.com.br';
+      (shortLinks || []).forEach((link: any) => {
+        if (!link?.form_slug || !link?.short_code) return;
+        const current = shortByForm.get(link.form_slug) || { landingUrl: null, formUrl: null };
+        const url = `${shortBase}/${link.short_code}`;
+        if (link.default_target === 'landing_page') current.landingUrl = url;
+        if (link.default_target === 'form') current.formUrl = url;
+        shortByForm.set(link.form_slug, current);
+      });
+      const shortByProduct = new Map<string, ProductShortLinks>();
+      (forms || []).forEach((form: any) => {
+        if (!form?.product_catalog_id || !form?.slug) return;
+        const links = shortByForm.get(form.slug);
+        if (!links?.landingUrl && !links?.formUrl) return;
+        const current = shortByProduct.get(form.product_catalog_id) || { landingUrl: null, formUrl: null };
+        shortByProduct.set(form.product_catalog_id, {
+          landingUrl: current.landingUrl || links.landingUrl,
+          formUrl: current.formUrl || links.formUrl,
         });
       });
       const extraMap = new Map<string, CatalogDoc[]>();
@@ -481,6 +529,7 @@ export default function KbTabCatalogo() {
         rdMap.set(d.resin_id, list);
       });
       setResinDocs(rdMap);
+      setProductShortLinks(shortByProduct);
       const rpMap = new Map<string, ResinPresentation[]>();
       (rp || []).forEach((p: any) => {
         if (!p?.resin_id) return;
@@ -665,6 +714,9 @@ export default function KbTabCatalogo() {
             const resin = resinExact || resinFuzzy;
             const hasParametrizacao = !!resin;
             const productDocs = extraDocs.get(p.id) || [];
+            const shortCtas = productShortLinks.get(p.id);
+            const landingShortCtaUrl = shortCtas?.landingUrl || null;
+            const formShortCtaUrl = shortCtas?.formUrl || null;
             const hasDocKind = (k: CatalogDoc['kind']) => productDocs.some((x) => x.kind === k);
             const rDocs: ResinDoc[] = resin ? (resinDocs.get(resin.id) || []) : [];
             const rPres: ResinPresentation[] = resin ? (resinPres.get(resin.id) || []) : [];
@@ -800,7 +852,7 @@ export default function KbTabCatalogo() {
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{stripHtml(p.description) || p.product_subcategory}</p>
                   )}
-                  {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0) && (
+                  {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0 || landingShortCtaUrl || formShortCtaUrl) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
                       {lojaUrl && (
                         <button
@@ -831,6 +883,16 @@ export default function KbTabCatalogo() {
                           title={t('kb.catalogo.actions.docs_title')}
                         >
                           {t('kb.catalogo.actions.docs', { count: allExtraDocs.length })}
+                        </button>
+                      )}
+                      {landingShortCtaUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(landingShortCtaUrl)} title="Saiba mais">
+                          Saiba mais
+                        </button>
+                      )}
+                      {formShortCtaUrl && (
+                        <button type="button" className="kb-action-btn" onClick={() => open(formShortCtaUrl)} title="Entre em contato">
+                          Entre em contato
                         </button>
                       )}
                       {specs.length > 0 && (

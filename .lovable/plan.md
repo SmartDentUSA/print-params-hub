@@ -1,25 +1,31 @@
 ## Diagnóstico
 
-Para o produto **Ativação DentalCAD Ultimate Lab Bundle - RMS** os dois short links já existem no banco:
+- Os dois links curtos existem no banco para **Ativação DentalCAD Ultimate Lab Bundle - RMS**:
+  - `hxssbk` para landing page
+  - `fwr5e6` para formulário
+- A implementação anterior foi feita em `ProductPage`, ou seja, na página individual `/produtos/:slug`.
+- O print atual é do catálogo em `/base-conhecimento?tab=catalogo`, renderizado por `KbTabCatalogo`, onde esses links ainda não são buscados nem exibidos.
 
-- `hxssbk` → `default_target = 'landing_page'`
-- `fwr5e6` → `default_target = 'form'`
+## Plano de correção
 
-E o formulário `exocad_dentalcad_rms` está corretamente vinculado ao produto via `smartops_forms.product_catalog_id`.
+1. **Buscar os short links no catálogo público**
+   - Em `KbTabCatalogo`, carregar `smartops_forms` vinculados aos produtos exibidos por `product_catalog_id`.
+   - Buscar `smartops_short_links` pelos `form_slug` encontrados.
+   - Montar um mapa por `product_id` com:
+     - `landingUrl`: `https://s.smartdent.com.br/{short_code}` quando `default_target = 'landing_page'`
+     - `formUrl`: `https://s.smartdent.com.br/{short_code}` quando `default_target = 'form'`
 
-O motivo dos botões não aparecerem é que **as tabelas `smartops_forms` e `smartops_short_links` não possuem `GRANT SELECT` para os roles `anon` e `authenticated`**. Suas policies RLS liberam leitura pública, mas sem o GRANT o PostgREST retorna vazio silenciosamente — o front recebe zero linhas e nenhum botão é renderizado.
+2. **Renderizar os botões no card público**
+   - No card do catálogo, exibir:
+     - **Saiba mais** somente se existir short link de landing page
+     - **Entre em contato** somente se existir short link de formulário
+   - Manter o comportamento pedido: se não houver links curtos, não mostrar nada.
 
-## Correção
+3. **Preservar o que já existe**
+   - Não alterar regras de banco/RLS.
+   - Não mudar os botões atuais de Loja/FDS/IFU/documentos.
+   - Não mexer no card da página individual, que já foi implementado.
 
-Migration curta apenas com grants:
-
-```sql
-GRANT SELECT ON public.smartops_forms TO anon, authenticated;
-GRANT SELECT ON public.smartops_short_links TO anon, authenticated;
-```
-
-## Fora do escopo
-
-- Não altera policies RLS existentes.
-- Não muda o código da `ProductPage`.
-- Não toca em nenhuma outra tabela.
+4. **Validar**
+   - Conferir no preview `/base-conhecimento?tab=catalogo` se o produto passa a mostrar os dois botões no card.
+   - Verificar que produtos sem short links continuam sem esses CTAs.
