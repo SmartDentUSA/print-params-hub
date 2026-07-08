@@ -1,36 +1,36 @@
-## Problema
+## Problemas observados
 
-Na aba **Seções** aparece só a mensagem "Este email não tem seções marcadas" mesmo depois de regenerar. Isso acontece porque:
-
-1. O prompt do `smart-ops-generate-email-ai` foi atualizado para pedir `data-section`, mas emails já gerados anteriormente (como o da imagem) não têm o markup.
-2. Mesmo em novas gerações, o modelo às vezes ignora o atributo — não há garantia estrutural.
-3. O parser exige `<section data-section="...">` exato; qualquer variação (div, section sem atributo) cai no fallback de bloco único.
+1. **Só 2 blocos detectados** no email da imagem que visualmente tem 4-5 seções (hero, oferta/preço, benefícios, CTA, rodapé). O drill do heurístico para no primeiro container com >1 filho e ignora blocos aninhados mais fundo (comum em emails de tabela: `<table><tr><td><table>...</table></td></tr></table>`).
+2. **Preview/envio "em branco" após desligar seções**: quando o container real está aninhado, o shell reconstruído pode preservar a estrutura externa mas não os wrappers intermediários dos blocos, e desligar sections zera o conteúdo visível.
+3. **Warning tiptap `Duplicate extension names found: ['link']`** — o StarterKit v3 já inclui Link; nosso `Link.configure(...)` extra causa duplicata.
 
 ## Plano
 
-**1. Auto-segmentação heurística (fallback robusto)**
-Em `emailSections.ts`, quando não houver `data-section`, quebrar o `<body>` em blocos por heurística:
-- Cada `<section>`, `<table role="presentation">` de primeiro nível, ou `<div>` filho direto do container principal vira uma seção.
-- Rotular automaticamente detectando palavras-chave no conteúdo/classe: hero, benefícios, prova social, CTA, rodapé, preço, etc.
-- Retornar `Array<Section>` normal — a UI de toggle passa a funcionar em qualquer email, mesmo legado.
+**1. Heurística de segmentação mais robusta (`emailSections.ts`)**
+- Após escolher o container, **achatar recursivamente** wrappers de 1 filho: se um dos filhos é uma table/div wrapper com >1 filho semântico, expandir para os netos.
+- Estratégia: coletar candidatos varrendo em profundidade limitada, preferindo o **nível mais profundo** que tenha pelo menos 3 blocos "de conteúdo" (com heading, imagem grande, parágrafo longo ou anchor).
+- Fallback: se ainda encontrar < 3 blocos, aceitar 2; se 1, tratar como bloco único.
 
-**2. Injetar `data-section` ao carregar**
-Ao abrir o wizard, reserializar o HTML com os atributos adicionados. Assim Visual/HTML/Seções ficam sincronizados e o toggle persiste corretamente.
+**2. Serialização mais resiliente**
+- Guardar não só o shell externo (`before`/`after`) mas também um **wrapper por seção** (o próprio `outerHTML` do bloco já inclui isso, então basta juntar em ordem original, com separador `\n`).
+- Quando **todas** as sections estiverem desligadas, retornar `head + bodyOpen + shell + bodyClose` só com um comentário `<!-- todas as seções desligadas -->` para não enviar HTML vazio invisível.
+- Adicionar aviso na UI: "Você desligou todas as seções — o email ficará vazio" se `sections.filter(s=>s.enabled).length === 0`.
 
-**3. Reforçar o prompt do gerador**
-Adicionar exemplo few-shot no `smart-ops-generate-email-ai` mostrando o HTML com `data-section` já preenchido, além de instrução explícita "OBRIGATÓRIO: cada bloco visual deve ter `data-section="chave"`".
+**3. Fix warning tiptap duplicado**
+- Em `EmailRichEditor.tsx`, remover `Link.configure(...)` da lista (StarterKit v3 já traz Link) OU desativar Link no StarterKit (`StarterKit.configure({ link: false })`) e manter só o nosso — decisão: **desativar no StarterKit** para preservar nosso `openOnClick:false` e `HTMLAttributes` customizados.
 
-**4. UI da aba Seções**
-- Se auto-detectado, mostrar aviso sutil "Seções detectadas automaticamente" com botão "Regenerar com IA" para melhorar rótulos.
-- Manter switches enabled/disabled + botões de reordenar.
+**4. Melhorar rotulagem**
+- Adicionar detecção de "revendedor oficial", "oportunidade", "exclusivo" → "Hero / Abertura".
+- Detecção de "bundle", "assinatura", "mensalidade" → "Oferta / Preço" (além do R$).
 
 ## Fora de escopo
 
-- Editor visual por seção (continua editando HTML completo no Visual/HTML).
-- Migrar emails já enviados no histórico.
+- Editor visual por seção individual.
+- Reordenação (já existente, não muda).
 
 ## Validação
 
-- Abrir campanha existente (email da imagem) → aba Seções deve listar hero, preço, CTA, rodapé com switches.
-- Desativar uma seção → preview e envio omitem o bloco.
-- Gerar novo email → seções vêm rotuladas pela IA.
+- Abrir o email da imagem → aba Seções deve listar 4+ blocos rotulados (Hero, Oferta, CTA/Benefícios, Rodapé).
+- Desligar 1 seção → preview mantém o resto visível.
+- Desligar todas → aviso amarelo na UI, preview mostra vazio.
+- Console sem warning "Duplicate extension names".
