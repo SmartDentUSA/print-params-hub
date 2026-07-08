@@ -429,12 +429,16 @@ function GenerateLayout(props: {
   mono?: boolean;
   preview: JSX.Element;
   hint: string;
+  extraHeader?: JSX.Element;
 }) {
   return (
     <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
       <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
-          <Label className="text-xs">{props.inputLabel}</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">{props.inputLabel}</Label>
+            {props.extraHeader}
+          </div>
           <Textarea
             value={props.value}
             onChange={(e) => props.onChange(e.target.value)}
