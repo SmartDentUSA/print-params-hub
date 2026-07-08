@@ -46,6 +46,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
   const [tom, setTom] = useState<string>("consultivo");
   const [tomCustom, setTomCustom] = useState<string>("");
+  const [useLandingPage, setUseLandingPage] = useState<boolean>(true);
 
   // ── Generated content ──
   const [subject, setSubject] = useState("");
@@ -203,6 +204,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           tom: tom === "custom" ? (tomCustom || "consultivo, profissional") : tom,
           regenerate: mode,
           base_html: mode === "subject" ? html : undefined,
+          use_landing_page: useLandingPage,
         },
       });
       if (error) throw error;
