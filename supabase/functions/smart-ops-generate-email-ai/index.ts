@@ -138,16 +138,10 @@ type LPDossier = {
     product_card_caption?: string;
   };
   positioning?: { eyebrow?: string; headline?: string; body?: string };
-  benefits?: { title?: string; items: { title: string; desc: string }[] };
-  how_it_works?: { title: string; desc: string }[];
-  how_title?: string;
-  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
-  implementation?: {
+  conditions?: {
     title?: string;
     subtitle?: string;
-    activation?: { title: string; items: string[] };
-    training?: { title: string; body: string };
-    support?: { title: string; items: string[] };
+    items: { title: string; ribbon?: string; includes: string[]; footnote?: string }[];
   };
   final_cta?: { headline?: string; sub?: string; cta?: string };
   trust_bar?: string[];
