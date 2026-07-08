@@ -613,6 +613,7 @@ function Headline({ hero }: { hero: LPContent["hero"] }) {
 export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
+  const sectionOn = (k: LPSectionKey) => c.sectionsEnabled?.[k] !== false;
 
   return (
     <div
