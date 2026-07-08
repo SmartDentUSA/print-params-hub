@@ -524,39 +524,112 @@ Receba o texto bruto abaixo e:
     }
   };
 
-  // Geração confiável: orquestrador primeiro, metadados depois como etapa opcional
-  const handleGenerateCompleteArticle = async () => {
-    console.log('🚀 Iniciando geração completa pelo orquestrador...');
-    
-    // Validações
-    const hasAnySources = Object.values(orchestratorActiveSources).some(v => v);
-    if (!hasAnySources) {
-      toast({
-        title: '⚠️ Nenhuma fonte selecionada',
-        description: 'Selecione pelo menos uma fonte de conteúdo',
-        variant: 'destructive'
-      });
-      return;
+  const getGenerationSourcePayload = () => {
+    const emptySources = {
+      rawText: null as string | null,
+      pdfTranscription: null as string | null,
+      videoTranscription: null as string | null,
+      relatedPdfs: [] as Array<{ name: string; content: string }>,
+    };
+
+    if (!useOrchestrator) {
+      const quickText = rawTextInput.trim();
+      const hasQuickText = quickText.length > 0;
+
+      return {
+        hasAnySources: hasQuickText,
+        emptyActiveSources: hasQuickText ? [] : ['Texto/PDF do modo rápido'],
+        activeSources: {
+          rawText: hasQuickText,
+          pdfTranscription: false,
+          videoTranscription: false,
+          relatedPdfs: false,
+        },
+        sources: {
+          ...emptySources,
+          rawText: hasQuickText ? quickText : null,
+        },
+        totalSourceChars: quickText.length,
+      };
     }
 
-    // ✅ Validar que fontes ativas têm conteúdo (paridade com handleGenerate)
     const emptyActiveSources: string[] = [];
-    if (orchestratorActiveSources.rawText && !orchestratorExtractedData.rawText) {
+    if (orchestratorActiveSources.rawText && !orchestratorExtractedData.rawText.trim()) {
       emptyActiveSources.push('Texto Colado');
     }
-    if (orchestratorActiveSources.pdfTranscription && !orchestratorExtractedData.pdfTranscription) {
+    if (orchestratorActiveSources.pdfTranscription && !orchestratorExtractedData.pdfTranscription.trim()) {
       emptyActiveSources.push('Upload de PDF');
     }
-    if (orchestratorActiveSources.videoTranscription && !orchestratorExtractedData.videoTranscription) {
+    if (orchestratorActiveSources.videoTranscription && !orchestratorExtractedData.videoTranscription.trim()) {
       emptyActiveSources.push('Transcrição de Vídeo');
     }
     if (orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length === 0) {
       emptyActiveSources.push('PDFs da Base');
     }
-    if (emptyActiveSources.length > 0) {
+
+    const relatedPdfs = orchestratorExtractedData.relatedPdfs.map(pdf => ({
+      name: pdf.name,
+      content: pdf.content,
+    }));
+
+    const totalSourceChars =
+      (orchestratorExtractedData.rawText?.length || 0) +
+      (orchestratorExtractedData.pdfTranscription?.length || 0) +
+      (orchestratorExtractedData.videoTranscription?.length || 0) +
+      relatedPdfs.reduce((sum, pdf) => sum + pdf.content.length, 0);
+
+    return {
+      hasAnySources: Object.values(orchestratorActiveSources).some(Boolean),
+      emptyActiveSources,
+      activeSources: orchestratorActiveSources,
+      sources: {
+        rawText: orchestratorExtractedData.rawText.trim() || null,
+        pdfTranscription: orchestratorExtractedData.pdfTranscription.trim() || null,
+        videoTranscription: orchestratorExtractedData.videoTranscription.trim() || null,
+        relatedPdfs,
+      },
+      totalSourceChars,
+    };
+  };
+
+  const formatGenerationErrorMessage = (error: any) => {
+    const message = String(error?.message || error || 'Tente novamente');
+    if (/timeout|demorando|tempo limite/i.test(message)) {
+      return 'A IA demorou demais para responder. Reduza PDFs/textos muito grandes ou tente novamente.';
+    }
+    if (/INSUFFICIENT_CREDITS|cr[eé]ditos|402/i.test(message)) {
+      return 'Créditos de IA indisponíveis. Verifique os créditos/roteamento de IA e tente novamente.';
+    }
+    if (/RATE_LIMITED|rate limit|429|limite de taxa/i.test(message)) {
+      return 'Limite temporário do provedor de IA. Aguarde alguns instantes e tente novamente.';
+    }
+    if (/INVALID_AI_RESPONSE|JSON|estrutura inválida|HTML vazio|não retornou/i.test(message)) {
+      return 'A IA retornou uma resposta incompleta. Tente novamente ou reduza a quantidade de fontes.';
+    }
+    return message;
+  };
+
+  // Geração confiável: orquestrador primeiro, metadados depois como etapa opcional
+  const handleGenerateCompleteArticle = async () => {
+    console.log('🚀 Iniciando geração completa pelo orquestrador...');
+    const generationPayload = getGenerationSourcePayload();
+    
+    // Validações
+    if (!generationPayload.hasAnySources) {
+      toast({
+        title: '⚠️ Nenhuma fonte selecionada',
+        description: useOrchestrator
+          ? 'Selecione pelo menos uma fonte de conteúdo'
+          : 'Cole um texto ou transcreva um PDF antes de gerar.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (generationPayload.emptyActiveSources.length > 0) {
       toast({
         title: '⚠️ Fontes vazias detectadas',
-        description: `As seguintes fontes estão marcadas mas sem conteúdo: ${emptyActiveSources.join(', ')}. Desmarque-as ou adicione conteúdo.`,
+        description: `As seguintes fontes estão marcadas mas sem conteúdo: ${generationPayload.emptyActiveSources.join(', ')}. Desmarque-as ou adicione conteúdo.`,
         variant: 'destructive',
         duration: 8000,
       });
@@ -572,27 +645,18 @@ Receba o texto bruto abaixo e:
       const orchestratorPayload = {
         title: formData.title,
         excerpt: formData.excerpt || '',
-        activeSources: orchestratorActiveSources,
+        activeSources: generationPayload.activeSources,
         selectedResinIds: formData.recommended_resins || [],
         selectedProductIds: formData.recommended_products || [],
-        // ✅ NOVO: Enviar expansionWarning para controle de temperatura
-        expansionWarning: orchestratorExtractedData.pdfTranscription && 
-                         orchestratorExtractedData.pdfTranscription.length > 10000,
-        sources: {
-          rawText: orchestratorExtractedData.rawText || null,
-          pdfTranscription: orchestratorExtractedData.pdfTranscription || null,
-          videoTranscription: orchestratorExtractedData.videoTranscription || null,
-          relatedPdfs: orchestratorExtractedData.relatedPdfs.map(pdf => ({
-            name: pdf.name,
-            content: pdf.content
-          }))
-        },
+        expansionWarning: generationPayload.totalSourceChars > 10000,
+        sources: generationPayload.sources,
         aiPrompt: formData.aiPromptTemplate || ''
       };
 
       console.log('🔄 Chamando ai-orchestrate-content...', {
         payloadBytes: JSON.stringify(orchestratorPayload).length,
         activeSources: orchestratorPayload.activeSources,
+        useOrchestrator,
       });
 
       const { data: orchestratorData, error: orchestratorError } = await invokeWithTimeout(
@@ -665,7 +729,7 @@ Receba o texto bruto abaixo e:
       console.error('❌ Erro na geração pelo orquestrador:', error);
       toast({
         title: 'Erro no Orquestrador Multi-Fonte',
-        description: error.message || 'Tente novamente',
+        description: formatGenerationErrorMessage(error),
         variant: 'destructive'
       });
     } finally {
@@ -690,29 +754,14 @@ Receba o texto bruto abaixo e:
       }
       
       setFormData(prev => ({ ...prev, ...updates }));
+
+      const saved = await saveContentToDatabase(updates, { closeModal: false, successToast: false });
+      if (!saved) return;
       
-      // Se for edição, salvar direto no banco
-      if (editingContent?.id) {
-        const { error } = await supabase
-          .from('knowledge_contents')
-          .update(updates)
-          .eq('id', editingContent.id);
-        
-        if (error) throw error;
-        
-        toast({
-          title: '✅ Conteúdo atualizado!',
-          description: `HTML inserido + ${generatedFAQs?.length || 0} FAQs salvas`
-        });
-        
-        // Recarregar dados
-        loadContents();
-      } else {
-        toast({
-          title: '✅ HTML e FAQs inseridos!',
-          description: `Lembre-se de salvar o artigo para persistir. ${generatedFAQs?.length || 0} FAQs prontas.`
-        });
-      }
+      toast({
+        title: editingContent?.id ? '✅ Conteúdo atualizado!' : '✅ Conteúdo criado e salvo!',
+        description: `HTML inserido + ${generatedFAQs?.length || 0} FAQs salvas no banco.`
+      });
       
       // Limpar preview
       setGeneratedHTML(null);
@@ -909,6 +958,18 @@ Receba o texto bruto abaixo e:
     setGeneratedHTML(null);
     setGeneratedFAQs(null);
     setRawTextInput('');
+    setOrchestratorActiveSources({
+      rawText: false,
+      pdfTranscription: false,
+      videoTranscription: false,
+      relatedPdfs: false,
+    });
+    setOrchestratorExtractedData({
+      rawText: '',
+      pdfTranscription: '',
+      videoTranscription: '',
+      relatedPdfs: [],
+    });
     setPendingAutoSave(false);
     setPreviousHTML(null);
     setFormData({
@@ -964,6 +1025,18 @@ Receba o texto bruto abaixo e:
     setGeneratedHTML(null);
     setGeneratedFAQs(null);
     setRawTextInput('');
+    setOrchestratorActiveSources({
+      rawText: false,
+      pdfTranscription: false,
+      videoTranscription: false,
+      relatedPdfs: false,
+    });
+    setOrchestratorExtractedData({
+      rawText: '',
+      pdfTranscription: '',
+      videoTranscription: '',
+      relatedPdfs: [],
+    });
     setPendingAutoSave(false);
     setPreviousHTML(null);
     setFormData({
@@ -1066,53 +1139,58 @@ Receba o texto bruto abaixo e:
     }
   };
 
-  const handleSaveContent = async () => {
-    if (!formData.title || !formData.excerpt) {
+  const saveContentToDatabase = async (
+    formOverrides: Partial<typeof formData> = {},
+    options: { closeModal?: boolean; successToast?: boolean } = { closeModal: true, successToast: true }
+  ) => {
+    const effectiveFormData = { ...formData, ...formOverrides };
+
+    if (!effectiveFormData.title || !effectiveFormData.excerpt) {
       toast({
         title: "⚠️ Campos obrigatórios",
         description: "Preencha Título e Resumo antes de salvar.",
         variant: "destructive"
       });
-      return;
+      return false;
     }
 
     try {
-      const categoryId = formData.category_id
+      const categoryId = effectiveFormData.category_id
         || categories.find(c => c.letter === selectedCategory)?.id;
       
       const contentData = {
-        title: formData.title,
+        title: effectiveFormData.title,
         title_es: titleES || null,
         title_en: titleEN || null,
-        slug: formData.slug || generateSlug(formData.title),
-        excerpt: formData.excerpt,
+        slug: effectiveFormData.slug || generateSlug(effectiveFormData.title),
+        excerpt: effectiveFormData.excerpt,
         excerpt_es: excerptES || null,
         excerpt_en: excerptEN || null,
-        content_html: formData.content_html,
+        content_html: effectiveFormData.content_html,
         content_html_es: contentES || null,
         content_html_en: contentEN || null,
-        icon_color: formData.icon_color,
-        meta_description: formData.meta_description,
-        og_image_url: formData.og_image_url,
-        content_image_url: formData.content_image_url,
-        content_image_alt: formData.content_image_alt,
-        canva_template_url: formData.canva_template_url,
-        file_url: formData.file_url,
-        file_name: formData.file_name,
-        author_id: formData.author_id,
-        keywords: formData.keywords?.length > 0 ? formData.keywords : null,
-        faqs: formData.faqs,
+        icon_color: effectiveFormData.icon_color,
+        meta_description: effectiveFormData.meta_description,
+        og_image_url: effectiveFormData.og_image_url,
+        content_image_url: effectiveFormData.content_image_url,
+        content_image_alt: effectiveFormData.content_image_alt,
+        canva_template_url: effectiveFormData.canva_template_url,
+        file_url: effectiveFormData.file_url,
+        file_name: effectiveFormData.file_name,
+        author_id: effectiveFormData.author_id,
+        keywords: effectiveFormData.keywords?.length > 0 ? effectiveFormData.keywords : null,
+        faqs: effectiveFormData.faqs,
         faqs_es: faqsES.length > 0 ? faqsES : null,
         faqs_en: faqsEN.length > 0 ? faqsEN : null,
-        order_index: formData.order_index,
-        active: formData.active,
-        ai_prompt_template: formData.aiPromptTemplate || null,
+        order_index: effectiveFormData.order_index,
+        active: effectiveFormData.active,
+        ai_prompt_template: effectiveFormData.aiPromptTemplate || null,
         category_id: categoryId,
-        recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
-        recommended_products: formData.recommended_products?.length > 0 ? formData.recommended_products : null,
-        selected_pdf_ids_pt: formData.selected_pdf_ids_pt || [],
-        selected_pdf_ids_es: formData.selected_pdf_ids_es || [],
-        selected_pdf_ids_en: formData.selected_pdf_ids_en || [],
+        recommended_resins: effectiveFormData.recommended_resins?.length > 0 ? effectiveFormData.recommended_resins : null,
+        recommended_products: effectiveFormData.recommended_products?.length > 0 ? effectiveFormData.recommended_products : null,
+        selected_pdf_ids_pt: effectiveFormData.selected_pdf_ids_pt || [],
+        selected_pdf_ids_es: effectiveFormData.selected_pdf_ids_es || [],
+        selected_pdf_ids_en: effectiveFormData.selected_pdf_ids_en || [],
       };
 
       console.log('💾 Saving content with PDFs:', {
@@ -1184,26 +1262,34 @@ Receba o texto bruto abaixo e:
           }
         }
         
-        toast({ title: "✅ Conteúdo atualizado!" });
+        if (options.successToast !== false) {
+          toast({ title: "✅ Conteúdo atualizado!" });
+        }
       } else {
         const newContent = await insertContent(contentData);
         if (newContent) {
+          setEditingContent(newContent);
           for (const video of videos) {
             await insertVideo({ ...video, content_id: newContent.id });
           }
         }
-        toast({ title: "✅ Conteúdo criado!" });
+        if (options.successToast !== false) {
+          toast({ title: "✅ Conteúdo criado!" });
+        }
       }
       
       setPromptEdited(false);
       setPendingAutoSave(false);
       await loadContents();
       
-      // ✅ CORREÇÃO: Aguardar 1 tick antes de fechar o modal
-      // Garante que setPendingAutoSave(false) seja propagado antes de onOpenChange verificar
-      setTimeout(() => {
-        setModalOpen(false);
-      }, 0);
+      if (options.closeModal !== false) {
+        // ✅ CORREÇÃO: Aguardar 1 tick antes de fechar o modal
+        // Garante que setPendingAutoSave(false) seja propagado antes de onOpenChange verificar
+        setTimeout(() => {
+          setModalOpen(false);
+        }, 0);
+      }
+      return true;
     } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
       toast({
@@ -1211,7 +1297,12 @@ Receba o texto bruto abaixo e:
         description: error?.message || "Verifique os campos e tente novamente.",
         variant: "destructive"
       });
+      return false;
     }
+  };
+
+  const handleSaveContent = async () => {
+    await saveContentToDatabase();
   };
   
   // Translate content function
@@ -3390,7 +3481,9 @@ Receba o texto bruto abaixo e:
                   onClick={handleGenerateCompleteArticle}
                   disabled={
                     isGenerating || 
-                    Object.values(orchestratorActiveSources).every(v => !v)
+                    (useOrchestrator
+                      ? Object.values(orchestratorActiveSources).every(v => !v)
+                      : rawTextInput.trim().length === 0)
                   }
                   className="w-full mt-4"
                   size="lg"
@@ -3469,7 +3562,7 @@ Receba o texto bruto abaixo e:
                         variant="outline"
                         onClick={handleInsertGeneratedHTML}
                       >
-                        ➕ Inserir HTML + FAQs
+                        ➕ Inserir e Salvar HTML + FAQs
                       </Button>
                       
                       <Button 
