@@ -20,7 +20,7 @@ interface Props {
 export function EmailRichEditor({ value, onChange }: Props) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener", target: "_blank" } }),
       Image,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
