@@ -46,6 +46,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
   const [tom, setTom] = useState<string>("consultivo");
   const [tomCustom, setTomCustom] = useState<string>("");
+  const [useLandingPage, setUseLandingPage] = useState<boolean>(true);
 
   // ── Generated content ──
   const [subject, setSubject] = useState("");
@@ -203,6 +204,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           tom: tom === "custom" ? (tomCustom || "consultivo, profissional") : tom,
           regenerate: mode,
           base_html: mode === "subject" ? html : undefined,
+          use_landing_page: useLandingPage,
         },
       });
       if (error) throw error;
@@ -488,6 +490,22 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 {generating ? "Gerando com IA..." : "Gerar email com IA →"}
               </Button>
             </div>
+            {ctaPrincipal?.tipo === "landing" && (
+              <div className="flex items-center justify-end gap-3 -mt-2 text-xs">
+                <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useLandingPage}
+                    onChange={e => setUseLandingPage(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Usar a Landing Page do produto como base visual e de copy
+                </label>
+                {useLandingPage && (
+                  <Badge variant="secondary" className="text-[10px]">Copy espelhada da LP</Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
