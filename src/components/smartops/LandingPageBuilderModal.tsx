@@ -21,9 +21,12 @@ import {
   LP_THEMES,
   type LPThemeKey,
   type LPContent,
+  type LPSectionKey,
+  type LPMedia,
 } from "@/components/lp/PremiumLandingTemplate";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import HeroAudioUpload from "@/components/smartops/HeroAudioUpload";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   open: boolean;
@@ -34,7 +37,7 @@ interface Props {
 type LP = {
   id: string;
   form_id: string;
-  mode: "ai" | "briefing";
+  mode: "ai" | "briefing" | "playbook" | "rag";
   input_prompt: string | null;
   content: LPContent | null;
   generated_html: string | null;
@@ -74,6 +77,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
   const [playbook, setPlaybook] = useState("");
+  const [productLink, setProductLink] = useState<{ id: string; name: string } | null>(null);
   const [lp, setLp] = useState<LP | null>(null);
   const [content, setContent] = useState<LPContent | null>(null);
   const [heroImage, setHeroImage] = useState<string>("");
@@ -89,26 +93,45 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     setAiIdea("");
     setBriefing("");
     setPlaybook("");
+    setProductLink(null);
     setLoading(true);
-    supabase
-      .from("smartops_form_landing_pages" as any)
-      .select("*")
-      .eq("form_id", form.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    Promise.all([
+      supabase
+        .from("smartops_form_landing_pages" as any)
+        .select("*")
+        .eq("form_id", form.id)
+        .maybeSingle(),
+      supabase
+        .from("smartops_forms" as any)
+        .select("ln")
+        .eq("id", form.id)
+        .maybeSingle(),
+    ])
+      .then(async ([{ data }, formRow]) => {
+        const productId = (formRow.data as any)?.ln as string | undefined;
+        if (productId) {
+          const { data: prod } = await supabase
+            .from("system_a_catalog" as any)
+            .select("id,name")
+            .eq("id", productId)
+            .maybeSingle();
+          if (prod) setProductLink({ id: (prod as any).id, name: (prod as any).name });
+          else setProductLink({ id: productId, name: "Produto vinculado" });
+        }
         if (data) {
           const row = data as unknown as LP;
           const rowContent = ensureContent(row.content);
           setLp(row);
           setContent(row.content && (row.content as any).hero ? rowContent : null);
           setHeroImage(row.hero_image_url || "");
-          setTab(row.mode === "briefing" ? "briefing" : "ai");
+          setTab(row.mode === "briefing" ? "briefing" : row.mode === "playbook" || row.mode === "rag" ? "playbook" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
           else if ((row.mode as any) === "playbook") setPlaybook(row.input_prompt || "");
           else setAiIdea(row.input_prompt || "");
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [open, form]);
 
   if (!form) return null;
@@ -171,11 +194,13 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     await runGenerate(mode, input);
   }
 
-  async function runGenerate(mode: "ai" | "briefing" | "playbook", input: string) {
+  async function runGenerate(mode: "ai" | "briefing" | "playbook" | "rag", input: string) {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("landing-page-generator", {
-        body: { form_id: form!.id, mode, input },
+        body: mode === "rag"
+          ? { form_id: form!.id, mode }
+          : { form_id: form!.id, mode, input },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -188,7 +213,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
       const saved = await persist({
         mode,
-        input_prompt: input,
+        input_prompt: mode === "rag" ? `[RAG:${productLink?.id ?? ""}]` : input,
         content: nextContent,
         status: lp?.status ?? "draft",
       } as any);
@@ -203,6 +228,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       if (msg.includes("rate_limited")) toast.error("Muitas requisições — aguarde alguns segundos");
       else if (msg.includes("credits_exhausted"))
         toast.error("Créditos de IA esgotados — recarregue em Settings");
+      else if (msg.includes("no_product_linked")) toast.error("Este formulário não tem produto vinculado. Vincule um produto no editor do form primeiro.");
       else toast.error(msg);
     } finally {
       setGenerating(false);
