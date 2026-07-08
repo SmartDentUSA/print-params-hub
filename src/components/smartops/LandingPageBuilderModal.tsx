@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil } from "lucide-react";
+import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil, Package, Upload } from "lucide-react";
 import {
   PremiumLandingTemplate,
   DEFAULT_LP_CONTENT,
@@ -70,9 +70,10 @@ function ensureContent(raw: unknown): LPContent {
 }
 
 export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
-  const [tab, setTab] = useState<"ai" | "briefing" | "edit">("ai");
+  const [tab, setTab] = useState<"ai" | "briefing" | "playbook" | "edit">("ai");
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
+  const [playbook, setPlaybook] = useState("");
   const [lp, setLp] = useState<LP | null>(null);
   const [content, setContent] = useState<LPContent | null>(null);
   const [heroImage, setHeroImage] = useState<string>("");
@@ -87,6 +88,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     setHeroImage("");
     setAiIdea("");
     setBriefing("");
+    setPlaybook("");
     setLoading(true);
     supabase
       .from("smartops_form_landing_pages" as any)
@@ -102,6 +104,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           setHeroImage(row.hero_image_url || "");
           setTab(row.mode === "briefing" ? "briefing" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
+          else if ((row.mode as any) === "playbook") setPlaybook(row.input_prompt || "");
           else setAiIdea(row.input_prompt || "");
         }
         setLoading(false);
@@ -131,27 +134,44 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   async function handleGenerate() {
     if (tab === "edit") return;
-    const input = tab === "ai" ? aiIdea.trim() : briefing.trim();
+    const input = tab === "ai" ? aiIdea.trim() : tab === "briefing" ? briefing.trim() : playbook.trim();
     if (!input) {
-      toast.error(tab === "ai" ? "Descreva a ideia da landing page" : "Cole o briefing");
+      toast.error(
+        tab === "ai"
+          ? "Descreva a ideia da landing page"
+          : tab === "briefing"
+          ? "Cole o briefing"
+          : "Cole ou carregue o JSON do playbook do produto",
+      );
       return;
+    }
+    if (tab === "playbook") {
+      try {
+        JSON.parse(input);
+      } catch {
+        toast.error("JSON do playbook inválido");
+        return;
+      }
     }
     await runGenerate(tab, input);
   }
 
   async function handleRegenerate() {
     if (!lp) return;
-    const mode = (lp.mode ?? "ai") as "ai" | "briefing";
-    const input = (lp.input_prompt ?? (mode === "ai" ? aiIdea : briefing)).trim();
+    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook";
+    const input = (
+      lp.input_prompt ??
+      (mode === "ai" ? aiIdea : mode === "briefing" ? briefing : playbook)
+    ).trim();
     if (!input) {
       toast.error("Preencha a ideia ou o briefing primeiro");
-      setTab(mode === "briefing" ? "briefing" : "ai");
+      setTab(mode === "briefing" ? "briefing" : mode === "playbook" ? "playbook" : "ai");
       return;
     }
     await runGenerate(mode, input);
   }
 
-  async function runGenerate(mode: "ai" | "briefing", input: string) {
+  async function runGenerate(mode: "ai" | "briefing" | "playbook", input: string) {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("landing-page-generator", {
@@ -195,7 +215,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     const saved = await persist({
       content,
       hero_image_url: heroImage || null,
-      mode: lp?.mode ?? (tab === "briefing" ? "briefing" : "ai"),
+      mode:
+        lp?.mode ??
+        (tab === "briefing" ? "briefing" : tab === "playbook" ? "playbook" : "ai"),
       input_prompt: lp?.input_prompt ?? "",
       status: lp?.status ?? "draft",
     } as any);
@@ -263,6 +285,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             <TabsList>
               <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
               <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing</TabsTrigger>
+              <TabsTrigger value="playbook" className="gap-1"><Package className="w-3.5 h-3.5" /> Playbook do Produto</TabsTrigger>
               <TabsTrigger value="edit" className="gap-1" disabled={!content}>
                 <Pencil className="w-3.5 h-3.5" /> Editar & publicar
               </TabsTrigger>
@@ -331,6 +354,46 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             />
           </TabsContent>
 
+          <TabsContent value="playbook" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+            <GenerateLayout
+              inputLabel="JSON do AI Playbook do produto"
+              placeholder='Cole aqui o JSON completo do playbook do produto (basic_info, marketing_data.sales_pitch, technical_specs, product_variations…) ou use "Carregar .json" acima.'
+              value={playbook}
+              onChange={setPlaybook}
+              onGenerate={handleGenerate}
+              generating={generating}
+              loading={loading}
+              hasContent={!!content}
+              mono
+              preview={<LivePreview content={previewContent} heroImage={heroImage} />}
+              hint="Modo fidelidade máxima: nome, descrição, sales pitch, preço, promo e specs técnicas são extraídos direto do playbook."
+              extraHeader={
+                <label className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border bg-white cursor-pointer hover:border-primary hover:text-primary transition">
+                  <Upload className="w-3.5 h-3.5" /> Carregar .json
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        JSON.parse(text);
+                        setPlaybook(text);
+                        toast.success(`Playbook carregado (${file.name})`);
+                      } catch {
+                        toast.error("Arquivo não é um JSON válido");
+                      } finally {
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                </label>
+              }
+            />
+          </TabsContent>
+
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
               <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] overflow-hidden">
@@ -366,12 +429,16 @@ function GenerateLayout(props: {
   mono?: boolean;
   preview: JSX.Element;
   hint: string;
+  extraHeader?: JSX.Element;
 }) {
   return (
     <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
       <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
         <div>
-          <Label className="text-xs">{props.inputLabel}</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">{props.inputLabel}</Label>
+            {props.extraHeader}
+          </div>
           <Textarea
             value={props.value}
             onChange={(e) => props.onChange(e.target.value)}
