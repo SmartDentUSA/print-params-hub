@@ -52,12 +52,23 @@ function labelFor(el: Element, i: number): string {
   const txt = (el.textContent || "").toLowerCase();
   if (/©|cancelar inscri|descadastr|unsubscribe|todos os direitos|rodap[eé]/.test(txt)) return "Rodapé";
   if (/depoimento|clientes? diz|⭐|★|estrelas?/.test(txt)) return "Prova social";
-  if (/r\$\s*\d/.test(txt) && /(por|apenas|só|mensa|parcel|desconto|oferta)/.test(txt)) return "Preço / Oferta";
+  if (/r\$\s*\d/.test(txt) || /(bundle|assinatura|mensalidade|parcel|desconto|oferta exclusiva)/.test(txt)) return "Preço / Oferta";
+  if (/revendedor oficial|oportunidade|exclusivo|lan[çc]amento|novidade/.test(txt) && i <= 1) return "Hero / Abertura";
   const anchors = el.querySelectorAll("a[href]");
   if (anchors.length >= 1 && txt.length < 240 && txt.length > 0) return "Chamada para ação";
   if (/benef[ií]cio|vantagem|✓|✔|inclui|recurso/.test(txt) || el.querySelector("ul,ol")) return "Benefícios";
   if (i === 0 && (el.querySelector("h1,h2") || el.querySelector("img"))) return "Hero / Abertura";
   return `Bloco ${i + 1}`;
+}
+
+// Conta filhos "de conteúdo" (com heading, imagem, âncora, texto significativo).
+function contentChildren(el: Element): Element[] {
+  return Array.from(el.children).filter((c) => {
+    const txt = (c.textContent || "").trim();
+    if (txt.length >= 20) return true;
+    if (c.querySelector("h1,h2,h3,img,a[href],button")) return true;
+    return false;
+  });
 }
 
 function parseAuto(bodyHtml: string): EmailSection[] | null {
@@ -67,31 +78,40 @@ function parseAuto(bodyHtml: string): EmailSection[] | null {
       `<!doctype html><html><body><div id="__sd_root">${bodyHtml}</div></body></html>`,
       "text/html",
     );
-    let container = doc.getElementById("__sd_root") as HTMLElement | null;
-    if (!container) return null;
+    const root = doc.getElementById("__sd_root") as HTMLElement | null;
+    if (!root) return null;
 
-    // Drill into single-element wrappers (div/table/center/tbody/tr/td...) to find the real content container.
-    const drillable = new Set(["DIV", "TABLE", "TBODY", "TR", "TD", "CENTER", "MAIN", "ARTICLE"]);
-    for (let depth = 0; depth < 6; depth++) {
-      const elChildren = Array.from(container.children);
-      if (elChildren.length === 1 && drillable.has(elChildren[0].tagName)) {
-        container = elChildren[0] as HTMLElement;
-      } else {
-        break;
+    // BFS até profundidade 10 procurando o descendente com MAIS filhos "de conteúdo".
+    // Preferimos ≥3; se nada satisfaz, aceitamos o melhor com ≥2.
+    const drillable = new Set(["DIV", "TABLE", "TBODY", "TR", "TD", "CENTER", "MAIN", "ARTICLE", "SECTION"]);
+    let best: { el: HTMLElement; children: Element[]; depth: number } | null = null;
+    const queue: Array<{ el: HTMLElement; depth: number }> = [{ el: root, depth: 0 }];
+    while (queue.length) {
+      const { el, depth } = queue.shift()!;
+      const kids = contentChildren(el);
+      if (kids.length >= 2) {
+        if (
+          !best ||
+          kids.length > best.children.length ||
+          (kids.length === best.children.length && depth > best.depth)
+        ) {
+          best = { el, children: kids, depth };
+        }
+      }
+      if (depth < 10) {
+        for (const c of Array.from(el.children)) {
+          if (drillable.has(c.tagName)) queue.push({ el: c as HTMLElement, depth: depth + 1 });
+        }
       }
     }
-
-    const children = Array.from(container.children).filter((el) => {
-      const txt = (el.textContent || "").trim();
-      return txt.length > 0 || !!el.querySelector("img,button,a");
-    });
-    if (children.length < 2) return null;
+    if (!best) return null;
+    const container = best.el;
+    const children = best.children;
 
     // Build shell (everything wrapping the container up to __sd_root) via a marker swap.
     const marker = "__SD_SECTIONS_MARKER__";
     const originalInner = container.innerHTML;
     container.innerHTML = marker;
-    const root = doc.getElementById("__sd_root")!;
     const wrapped = root.innerHTML;
     const [before, after] = wrapped.split(marker);
     container.innerHTML = originalInner;
@@ -165,7 +185,11 @@ export function serializeSections(originalHtml: string, sections: EmailSection[]
   // Heurística: sections auto → reconstroi o container preservando o shell.
   if (sections.some((s) => s.auto)) {
     const shell = sections.find((s) => s._shell)?._shell ?? { before: "", after: "" };
-    const inner = sections.filter((s) => s.enabled).map((s) => s.html).join("\n");
+    const enabled = sections.filter((s) => s.enabled);
+    if (enabled.length === 0) {
+      return `${head}${bodyOpen}<!-- todas as seções foram desativadas -->${bodyClose}`;
+    }
+    const inner = enabled.map((s) => s.html).join("\n");
     return `${head}${bodyOpen}${shell.before}${inner}${shell.after}${bodyClose}`;
   }
   const regex = /<section\b[^>]*\bdata-section=["'][^"']+["'][^>]*>[\s\S]*?<\/section>/gi;

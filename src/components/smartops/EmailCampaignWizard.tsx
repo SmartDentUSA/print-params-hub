@@ -638,6 +638,11 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                         Seções detectadas automaticamente. Rótulos são aproximações — regere o email para rótulos mais precisos.
                       </div>
                     )}
+                    {sections.filter(s => s.removable).length > 0 && sections.filter(s => s.removable).every(s => !s.enabled) && (
+                      <div className="text-xs text-amber-800 p-2 mb-2 border border-amber-300 rounded bg-amber-50">
+                        Todas as seções estão desativadas — o email será enviado vazio. Reative pelo menos uma.
+                      </div>
+                    )}
                     <div className="space-y-2">
                       {sections.filter(s => s.removable).map((s) => (
                         <div key={s.id} className="flex items-center justify-between border rounded px-3 py-2 bg-background">
