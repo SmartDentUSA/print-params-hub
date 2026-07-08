@@ -1,69 +1,48 @@
-# E-mail IA a partir da Landing Page do produto
+# Fix: e-mail não está usando o layout da Landing Page
 
-**Referência visual de fidelidade**: `https://parametros.smartdent.com.br/lp/exocad_dentalcad_rms` — o e-mail gerado deve reproduzir a mesma linguagem visual dessa LP (hero com card do produto, badge/eyebrow roxo, headline com destaque gradiente, bullets com check, botão CTA gradiente roxo→laranja, seção de posicionamento com fundo suave, "como funciona" em passos).
+O screenshot mostra o e-mail com **logo image Smart Dent + botão azul retangular + "Olá, Teste"** — nada do skeleton roxo/gradiente/card que criamos. O ramo LP não foi tomado, e o código caiu no prompt legado.
 
-Hoje o gerador (`smart-ops-generate-email-ai`) só usa o dossiê do `system_a_catalog`. Vamos passar a usar **o conteúdo real da LP publicada** do produto como fonte primária de copy + guia visual, mantendo o tom escolhido no wizard.
+## Causa provável
+1. `loadLpDossier` retornou `null` (LP não encontrada por `id`), ou
+2. A chamada ao LLM dentro do ramo LP retornou `!ok` e caiu **silenciosamente** para o prompt legado (comment `Fall through to the legacy dossier path below`).
 
-## Fluxo atual (já existe)
-- Wizard `Campanhas → Email` (`EmailCampaignWizard.tsx`) já carrega a LP publicada do produto via `campaign_produto_map` → `smartops_forms` → `smartops_form_landing_pages`, e envia `produto_id`, `cta_principal` (landing), `tom` para a edge function.
+Nos dois casos, hoje o e-mail volta para o layout genérico do prompt antigo — que é justamente o que o screenshot mostra.
 
-## O que muda
+## Correções
 
-### 1. Edge function `smart-ops-generate-email-ai`
-- Se `cta_principal.tipo === "landing"` (ou existir LP publicada mapeada ao produto), carregar:
-  ```
-  select id, hero_image_url, content
-  from smartops_form_landing_pages
-  where status='published' and id = <cta_principal.id>
-  ```
-- Extrair do JSON `content` (schema `LPContent` em `src/components/lp/PremiumLandingTemplate.tsx`):
-  - `hero.badge`, `hero.eyebrow`, `hero.headline` / `headlineParts` (marcar quais trechos são highlight), `hero.sub`, `hero.bullets`, `hero.trustInline`, `hero.productCardCaption`
-  - `positioning.eyebrow`, `positioning.headline`, `positioning.body`
-  - `howItWorks.items` (título + desc)
-  - `trustBar`, `resellerBadge`
-- Novo bloco no prompt: `═══ LANDING PAGE DO PRODUTO (fonte primária) ═══` com esse conteúdo estruturado, instruindo o LLM a:
-  - Reaproveitar headline/sub/bullets **reescritos no tom** (não copiar literal, mas manter a mesma mensagem/posicionamento).
-  - Espelhar a hierarquia da LP: hero → bullets → posicionamento → como funciona → CTA.
-  - Usar `hero_image_url` da LP (fallback `image_url` do catálogo) no topo.
+### 1. `smart-ops-generate-email-ai/index.ts` — nunca cair no legado quando existe LP
+- Se o produto tem LP publicada (via `cta_principal.id` **ou** fallback por `produto_id`), o ramo LP **é obrigatório**.
+- Se `loadLpDossier` retornar `null`, logar o motivo (`no_lp_row`, `not_published`, `no_form_ids`) e prosseguir para o legado.
+- Se o LLM falhar (gateway ≠ 200 ou JSON inválido), **não** cair para o legado. Em vez disso, renderizar o skeleton com os textos **originais da LP** (sem tom aplicado): `hero.headline`, `hero.sub`, `hero.bullets`, `positioning`, `how_it_works`. Assim o e-mail sempre sai com a estética da LP; a IA só refina o texto quando responde.
+- Adicionar logs claros:
+  - `[generate-email-ai] LP branch selected id=<lp_id> hero_image=<url>`
+  - `[generate-email-ai] LLM copy ok / fallback_to_lp_verbatim reason=<...>`
+  - `source: "landing_page_ai" | "landing_page_verbatim" | "catalog_dossier"` no JSON de resposta.
 
-### 2. Skeleton HTML fiel à LP de referência (embutido no prompt)
-Skeleton fixo (tabelas 600px, Gmail-safe, inline styles) que o LLM apenas preenche com textos — assim garantimos a mesma "beleza" da LP:
+### 2. Ajustes de robustez no skeleton
+- Garantir `!doctype html` limpo (o `sanitizeEmailHtml` do `smart-ops-send-gmail` já preserva; ok).
+- Escapar corretamente `headline_html` — permitir só `<span class="hl">…</span>` e converter server-side; qualquer outra tag é removida.
+- Se `heroImageUrl` estiver ausente, esconder o bloco sem quebrar layout.
+- Verificar que o botão CTA usa `background:linear-gradient(...)` inline (alguns clientes ignoram — manter cor de fundo sólida `#7C3AED` como fallback via `bgcolor` no `<td>`).
 
-- **Header** (600px, fundo branco): logo Smart Dent + badge de revendedor autorizado quando presente.
-- **Hero card** (fundo `linear-gradient(180deg,#FAF7FF 0%,#FFFFFF 100%)`, borda `#EEE7FA`, radius 16px, padding 32px):
-  - Eyebrow em `#7C3AED` uppercase 12px letter-spacing 2px.
-  - Headline em **Manrope 800**, 30-34px, `#1B1030`. Trechos com `highlight` renderizados com `background: linear-gradient(90deg,#7C3AED,#F97316); -webkit-background-clip:text; color:transparent`.
-  - Sub em Inter 500, 16px, `#4A4458`.
-  - Imagem hero (`hero_image_url`) centralizada, radius 12px, sombra suave.
-  - Bullets em lista com bullet roxo (•) `#7C3AED`.
-- **Trust inline** (linha com 2-4 itens `✓ label`, ícones inline em SVG data-uri ou emoji `✓` colorido).
-- **Positioning band** (fundo `#F4EEFB`, padding 28px, radius 16px): eyebrow, headline em Manrope 700, body em Inter 400.
-- **How it works** (3 cards horizontais, numerados 01/02/03 em círculo gradiente).
-- **CTA principal** (botão gradiente `#7C3AED → #F97316`, texto branco, radius 12px, padding 16px 32px, `<a>` inline table para compatibilidade Outlook).
-- **Rodapé**: CTA secundário como link sublinhado + assinatura "Smart Dent | Fluxo Digital" em Inter 500 `#6B6478` + linha fina divisória `#EEE7FA`.
-- Paleta e tipografia **fixas no skeleton** (Inter/Manrope via Google Fonts + fallbacks web-safe). LLM não escolhe cor nem fonte.
+### 3. Wizard — sinalizar a fonte no preview
+- Exibir badge no passo 2 baseado em `data.source`:
+  - `landing_page_ai` → "Copy espelhada da LP (IA + tom aplicado)"
+  - `landing_page_verbatim` → "Layout da LP com copy original (IA indisponível)"
+  - `catalog_dossier` → "Sem LP — copy pelo dossiê do catálogo"
+- Se o usuário selecionou LP mas o retorno veio `catalog_dossier`, mostrar toast de aviso.
 
-### 3. Reforço no system prompt
-Adicionar regras:
-- "O e-mail deve parecer uma versão condensada da LP: mesmas cores (`#7C3AED`, `#F97316`, `#1B1030`, `#F4EEFB`), mesmas fontes (Manrope headline, Inter body), mesmo tom visual (cards, gradientes suaves, muito espaço em branco)."
-- "NÃO inventar seções que não existem na LP. Se a LP não tem `howItWorks`, omitir o bloco."
-- "Reescrever a headline aplicando o TOM (`${tom}`) mantendo o significado da headline original da LP."
-
-### 4. Wizard (frontend)
-Mudança mínima:
-- Badge "Copy baseada na Landing Page" no passo de geração quando o CTA principal for `landing`.
-- Envio da flag `use_landing_page: true` para a edge function (default quando existir LP; usuário pode desligar em toggle discreto).
-
-## Fora de escopo
-- Não altera `PremiumLandingTemplate` nem schema das tabelas.
-- Não gera imagens novas.
-- Não mexe em SMS/WhatsApp/disparo.
+### 4. Validação
+- Testar com `exocad_dentalcad_rms`:
+  - Verificar em `Edge Function logs` a linha `LP branch selected id=…`.
+  - Confirmar preview com: eyebrow roxo, headline com trecho em gradiente, imagem hero, bullets com bolinha roxa, faixa de posicionamento `#F4EEFB`, passos numerados 01/02/03, botão gradiente roxo→laranja.
+  - Trocar o tom: só os textos mudam, layout permanece idêntico.
+- Testar produto sem LP → cai em `catalog_dossier`.
 
 ## Arquivos afetados
-- `supabase/functions/smart-ops-generate-email-ai/index.ts` — carregar LP, novo prompt + skeleton fiel à LP de referência.
-- `src/components/smartops/EmailCampaignWizard.tsx` — badge + toggle + envio da flag.
+- `supabase/functions/smart-ops-generate-email-ai/index.ts` — remover fallthrough silencioso, adicionar caminho `landing_page_verbatim`, logs, escape do headline_html.
+- `src/components/smartops/EmailCampaignWizard.tsx` — badge dinâmico por `source`, toast de aviso.
 
-## Validação
-- Produto **com** LP (ex.: `exocad_dentalcad_rms`) → gerar com tom `consultivo`, `técnico`, `celebrativo` → conferir que headline, bullets e posicionamento ecoam a LP, com paleta roxo→laranja e imagem hero da LP; só o texto muda entre tons.
-- Produto **sem** LP → cai no fluxo atual (dossiê do catálogo), sem erro.
-- Renderizar HTML gerado em Gmail preview (largura 600px, sem quebra de layout).
+## Fora de escopo
+- Não alteramos `smart-ops-send-gmail` (o pipeline de envio já não altera estilos).
+- Não mudamos schema.
