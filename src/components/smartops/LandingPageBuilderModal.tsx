@@ -1027,8 +1027,8 @@ function StepListEditor({
   items,
   onChange,
 }: {
-  items: { title: string; desc: string }[];
-  onChange: (items: { title: string; desc: string }[]) => void;
+  items: { title: string; desc: string; media?: LPMedia }[];
+  onChange: (items: { title: string; desc: string; media?: LPMedia }[]) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -1040,6 +1040,7 @@ function StepListEditor({
           </div>
           <Input value={s.title} onChange={(e) => { const n = [...items]; n[i] = { ...s, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
           <Textarea value={s.desc} onChange={(e) => { const n = [...items]; n[i] = { ...s, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+          <MediaField media={s.media} onChange={(media) => { const n = [...items]; n[i] = { ...s, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { title: "", desc: "" }])} className="h-7 text-xs">
@@ -1053,7 +1054,7 @@ function BenefitsEditor({
   items,
   onChange,
 }: {
-  items: { icon: any; title: string; desc: string }[];
+  items: { icon: any; title: string; desc: string; media?: LPMedia }[];
   onChange: (items: any[]) => void;
 }) {
   const icons = ["licenca", "computador", "treinamento", "cartao", "suporte", "brasil", "modulos", "shield", "sparkles", "rocket", "clock"];
@@ -1072,8 +1073,10 @@ function BenefitsEditor({
           >
             {icons.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
           </select>
+          <p className="text-[10px] text-muted-foreground">Ícone será substituído se houver imagem/vídeo abaixo.</p>
           <Input value={b.title} onChange={(e) => { const n = [...items]; n[i] = { ...b, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
           <Textarea value={b.desc} onChange={(e) => { const n = [...items]; n[i] = { ...b, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+          <MediaField media={b.media} onChange={(media) => { const n = [...items]; n[i] = { ...b, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { icon: "sparkles", title: "", desc: "" }])} className="h-7 text-xs">
