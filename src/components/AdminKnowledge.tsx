@@ -631,27 +631,29 @@ Receba o texto bruto abaixo e:
       );
       setGeneratedHTML(finalHTML);
       
-      // Metadados são auxiliares: geram depois do HTML novo e nunca bloqueiam o preview
-      try {
-        const { data: metadataData, error: metadataError } = await invokeWithTimeout('ai-metadata-generator', {
-          title: formData.title || 'Artigo Técnico Smart Dent',
-          contentHTML: finalHTML,
-          regenerate: { title: false, metaDescription: true, keywords: true },
-        }, 60000) as any;
+      // Metadados são auxiliares: rodam em segundo plano e nunca seguram preview/toast
+      void (async () => {
+        try {
+          const { data: metadataData, error: metadataError } = await invokeWithTimeout('ai-metadata-generator', {
+            title: formData.title || 'Artigo Técnico Smart Dent',
+            contentHTML: finalHTML,
+            regenerate: { title: false, metaDescription: true, keywords: true },
+          }, 60000) as any;
 
-        if (metadataError) {
-          console.warn('⚠️ Metadata generator falhou (ignorado):', metadataError);
-        } else if (metadataData) {
-          setFormData(prev => ({
-            ...prev,
-            meta_description: metadataData.metaDescription || prev.meta_description,
-            keywords: metadataData.keywords || prev.keywords
-          }));
-          console.log('✅ Metadata Generator OK');
+          if (metadataError) {
+            console.warn('⚠️ Metadata generator falhou (ignorado):', metadataError);
+          } else if (metadataData) {
+            setFormData(prev => ({
+              ...prev,
+              meta_description: metadataData.metaDescription || prev.meta_description,
+              keywords: metadataData.keywords || prev.keywords
+            }));
+            console.log('✅ Metadata Generator OK');
+          }
+        } catch (metadataError) {
+          console.warn('⚠️ Metadata generator indisponível (ignorado):', metadataError);
         }
-      } catch (metadataError) {
-        console.warn('⚠️ Metadata generator indisponível (ignorado):', metadataError);
-      }
+      })();
       
       toast({
         title: '✅ Conteúdo gerado!',
