@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -33,6 +33,8 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   form: { id: string; name: string; slug: string; form_purpose: string } | null;
 }
+
+const LPMediaFormIdContext = createContext<string>("draft");
 
 type LP = {
   id: string;
@@ -448,6 +450,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
+              <LPMediaFormIdContext.Provider value={form?.id ?? "draft"}>
               <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] overflow-hidden">
                 <EditorSidebar
                   content={content}
@@ -457,6 +460,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
                 />
                 <LivePreview content={content} heroImage={heroImage} />
               </div>
+              </LPMediaFormIdContext.Provider>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
                 Gere primeiro na aba "Gerar por IA" ou "Briefing".
@@ -1140,14 +1144,90 @@ function ModulesEditor({
 }
 
 function MediaField({ media, onChange }: { media?: LPMedia; onChange: (m: LPMedia | undefined) => void }) {
+  const formId = useContext(LPMediaFormIdContext);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const MAX_SIZE = 50 * 1024 * 1024;
+
+  async function handleFile(file: File) {
+    if (file.size > MAX_SIZE) {
+      toast.error("Arquivo maior que 50MB");
+      return;
+    }
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    if (!isVideo && !isImage) {
+      toast.error("Envie uma imagem ou vídeo");
+      return;
+    }
+    try {
+      setUploading(true);
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 80);
+      const path = `landing-pages/${formId}/${Date.now()}-${safe}`;
+      const { error: upErr } = await supabase.storage
+        .from("landing-page-media")
+        .upload(path, file, {
+          cacheControl: "31536000",
+          upsert: false,
+          contentType: file.type,
+        });
+      if (upErr) throw upErr;
+      // Bucket is private → use long-lived signed URL (~100 years) so the LP renders publicly.
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("landing-page-media")
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 100);
+      if (signErr || !signed?.signedUrl) throw signErr ?? new Error("Sem URL");
+      onChange({
+        url: signed.signedUrl,
+        type: isVideo ? "video" : "image",
+        alt: media?.alt || file.name.replace(/\.[^.]+$/, ""),
+      });
+      toast.success("Mídia enviada");
+    } catch (e: any) {
+      console.error("[LP MediaField] upload failed", e);
+      toast.error(e?.message ?? "Falha no upload");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="rounded border border-dashed border-primary/30 bg-primary/5 p-2 space-y-1.5">
-      <Label className="text-[10px] uppercase font-semibold text-muted-foreground">Imagem/Vídeo (opcional)</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-[10px] uppercase font-semibold text-muted-foreground">Imagem/Vídeo (opcional)</Label>
+        <div className="flex items-center gap-1.5">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="h-7 px-2 text-[11px]"
+          >
+            {uploading ? (
+              <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Enviando…</>
+            ) : (
+              <><Upload className="h-3 w-3 mr-1" />Enviar arquivo</>
+            )}
+          </Button>
+        </div>
+      </div>
       <div className="flex items-center gap-1.5">
         <Input
           value={media?.url ?? ""}
           onChange={(e) => onChange(e.target.value ? { ...(media ?? {}), url: e.target.value } : undefined)}
-          placeholder="Cole URL de imagem (.jpg/.png/.webp) ou vídeo (.mp4/.webm)"
+          placeholder="Cole URL ou envie um arquivo (até 50MB)"
           className="h-8 text-sm"
         />
         {media?.url && (
