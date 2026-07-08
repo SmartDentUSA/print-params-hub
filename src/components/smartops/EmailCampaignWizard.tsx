@@ -224,9 +224,9 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         if (useLandingPage && ctaPrincipal?.tipo === "landing" && src === "catalog_dossier") {
           toast.warning("A LP do produto não foi encontrada — gerado a partir do catálogo.");
         } else if (src === "landing_page_verbatim") {
-          toast.warning("IA indisponível — layout da LP com copy original.");
+          toast.warning("IA indisponível — template visual da LP com copy original.");
         } else {
-          toast.success("Email gerado a partir da Landing Page");
+          toast.success("Email gerado com template visual clonado da Landing Page");
         }
       } else {
         toast.success("Assunto regenerado");
@@ -517,12 +517,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 {useLandingPage && (
                   <Badge variant="secondary" className="text-[10px]">
                     {emailSource === "landing_page_ai"
-                      ? "Copy espelhada da LP (IA + tom)"
+                      ? "Template da LP + tom IA"
                       : emailSource === "landing_page_verbatim"
-                      ? "Layout da LP (copy original)"
+                      ? "Template da LP (copy original)"
                       : emailSource === "catalog_dossier"
                       ? "Fallback: dossiê do catálogo"
-                      : "Copy espelhada da LP"}
+                      : "Template visual da LP"}
                   </Badge>
                 )}
               </div>
