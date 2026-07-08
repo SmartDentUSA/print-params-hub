@@ -14,6 +14,7 @@ import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { EmailRichEditor } from "./EmailRichEditor";
+import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 
 type CtaType = "landing" | "form" | "custom";
@@ -614,7 +615,16 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="visual" className="mt-2">
-                    <EmailRichEditor value={html} onChange={setHtml} />
+                    {/<table[\s>]|style\s*=\s*"/i.test(html) ? (
+                      <>
+                        <div className="text-[11px] text-muted-foreground mb-2 p-2 border rounded bg-muted/20">
+                          Este email usa layout HTML complexo (tabelas / estilos inline). Edite o código à esquerda — o preview atualiza automaticamente e todo o estilo é preservado.
+                        </div>
+                        <EmailHtmlEditor value={html} onChange={setHtml} />
+                      </>
+                    ) : (
+                      <EmailRichEditor value={html} onChange={setHtml} />
+                    )}
                     {sections.some(s => s.removable && !s.enabled) && (
                       <p className="text-[11px] text-muted-foreground mt-1">
                         Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.
