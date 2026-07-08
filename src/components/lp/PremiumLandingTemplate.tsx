@@ -112,7 +112,17 @@ export type LPContent = {
     support?: { title: string; items: string[] };
   };
   benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string; media?: LPMedia }[] };
-  testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
+  testimonials?: {
+    title?: string;
+    items: {
+      quote: string;
+      author: string;
+      role?: string;
+      avatar?: LPMedia;
+      instagram_url?: string;
+      facebook_url?: string;
+    }[];
+  };
   comparison?: {
     title?: string;
     subtitle?: string;
@@ -1159,9 +1169,51 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                     <path d="M7 7h4v10H3V11c0-2.2 1.8-4 4-4zm10 0h4v10h-8V11c0-2.2 1.8-4 4-4z" />
                   </svg>
                   <blockquote className="text-[var(--lp-text)] leading-relaxed">"{t.quote}"</blockquote>
-                  <figcaption className="mt-5 pt-4 border-t border-[var(--lp-border)]">
-                    <div className="font-bold text-[var(--lp-text)]">{t.author}</div>
-                    {t.role && <div className="text-xs text-[var(--lp-brand-2)]">{t.role}</div>}
+                  <figcaption className="mt-5 pt-4 border-t border-[var(--lp-border)] flex items-center gap-3">
+                    {t.avatar?.url && (
+                      <img
+                        src={t.avatar.url}
+                        alt={t.avatar.alt || t.author}
+                        loading="lazy"
+                        className="w-14 h-14 rounded-full object-cover border border-[var(--lp-border)] shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-[var(--lp-text)] truncate">{t.author}</div>
+                      {t.role && <div className="text-xs text-[var(--lp-brand-2)] truncate">{t.role}</div>}
+                    </div>
+                    {(t.instagram_url || t.facebook_url) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {t.instagram_url && (
+                          <a
+                            href={t.instagram_url}
+                            target="_blank"
+                            rel="noopener nofollow noreferrer"
+                            aria-label={`Instagram de ${t.author}`}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--lp-brand)] hover:text-[var(--lp-orange)] transition-colors border border-[var(--lp-border)]"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                              <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                            </svg>
+                          </a>
+                        )}
+                        {t.facebook_url && (
+                          <a
+                            href={t.facebook_url}
+                            target="_blank"
+                            rel="noopener nofollow noreferrer"
+                            aria-label={`Facebook de ${t.author}`}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--lp-brand)] hover:text-[var(--lp-orange)] transition-colors border border-[var(--lp-border)]"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4" aria-hidden>
+                              <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12z" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </figcaption>
                 </figure>
               ))}

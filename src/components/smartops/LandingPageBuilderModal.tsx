@@ -821,6 +821,18 @@ function ContentEditor({
         />
       </Section>
 
+      <Section title="O que os dentistas dizem" anchorId="sec-depoimentos" toggle={{ enabled: isOn("testimonials"), onChange: toggleSection("testimonials") }}>
+        <TextField
+          label="Título"
+          value={content.testimonials?.title ?? ""}
+          onChange={(v) => patch({ testimonials: { ...(content.testimonials ?? { items: [] }), title: v } })}
+        />
+        <TestimonialsEditor
+          items={content.testimonials?.items ?? []}
+          onChange={(items) => patch({ testimonials: { ...(content.testimonials ?? {}), items } })}
+        />
+      </Section>
+
       <Section title="CTA final" anchorId="sec-cta-final" toggle={{ enabled: isOn("finalCta"), onChange: toggleSection("finalCta") }}>
         <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
         <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
@@ -1111,6 +1123,72 @@ function FaqEditor({
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { q: "", a: "" }])} className="h-7 text-xs">
         + Adicionar pergunta
+      </Button>
+    </div>
+  );
+}
+
+function TestimonialsEditor({
+  items,
+  onChange,
+}: {
+  items: {
+    quote: string;
+    author: string;
+    role?: string;
+    avatar?: LPMedia;
+    instagram_url?: string;
+    facebook_url?: string;
+  }[];
+  onChange: (items: any[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((t, i) => (
+        <div key={i} className="border rounded p-2 space-y-1 bg-muted/30">
+          <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+            Depoimento {i + 1}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+          </div>
+          <Textarea
+            value={t.quote}
+            onChange={(e) => { const n = [...items]; n[i] = { ...t, quote: e.target.value }; onChange(n); }}
+            rows={3}
+            placeholder="Depoimento (frase entre aspas)"
+            className="text-sm"
+          />
+          <Input
+            value={t.author}
+            onChange={(e) => { const n = [...items]; n[i] = { ...t, author: e.target.value }; onChange(n); }}
+            placeholder="Autor (ex.: Dr. Danilo Henrique)"
+            className="h-8 text-sm"
+          />
+          <Input
+            value={t.role ?? ""}
+            onChange={(e) => { const n = [...items]; n[i] = { ...t, role: e.target.value }; onChange(n); }}
+            placeholder="Cargo / cidade (ex.: Dentista, Limeira/SP)"
+            className="h-8 text-sm"
+          />
+          <div className="grid grid-cols-2 gap-1">
+            <Input
+              value={t.instagram_url ?? ""}
+              onChange={(e) => { const n = [...items]; n[i] = { ...t, instagram_url: e.target.value }; onChange(n); }}
+              placeholder="URL Instagram"
+              className="h-8 text-sm"
+            />
+            <Input
+              value={t.facebook_url ?? ""}
+              onChange={(e) => { const n = [...items]; n[i] = { ...t, facebook_url: e.target.value }; onChange(n); }}
+              placeholder="URL Facebook"
+              className="h-8 text-sm"
+            />
+          </div>
+          <Label className="text-[10px] text-muted-foreground">Foto do cliente</Label>
+          <MediaField media={t.avatar} onChange={(avatar) => { const n = [...items]; n[i] = { ...t, avatar }; onChange(n); }} />
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { quote: "", author: "", role: "" }])} className="h-7 text-xs">
+        + Adicionar depoimento
       </Button>
     </div>
   );
