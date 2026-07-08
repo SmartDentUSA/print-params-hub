@@ -84,7 +84,7 @@ serve(async (req) => {
     console.log('🎯 Iniciando geração orquestrada de conteúdo...');
     
     const { 
-      sources, 
+      sources = {}, 
       title, 
       excerpt, 
       productId, 
@@ -124,7 +124,15 @@ serve(async (req) => {
         videoTranscription: sources.videoTranscription?.length || 0,
         relatedPdfs: sources.relatedPdfs?.length || 0
       });
-      throw new Error('É necessário fornecer pelo menos uma fonte de conteúdo com dados válidos. Verifique se as fontes marcadas como ativas contêm texto.');
+      return new Response(
+        JSON.stringify({
+          error: 'NO_CONTENT_SOURCES',
+          message: 'É necessário fornecer pelo menos uma fonte de conteúdo com dados válidos. Verifique se as fontes marcadas como ativas contêm texto.',
+          fallback: false,
+          success: false,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Buscar dados complementares do banco de dados
@@ -1209,24 +1217,24 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
     const msg = error instanceof Error ? error.message : 'Erro desconhecido';
     const isCredits = /Cr[eé]ditos insuficientes/i.test(msg) || /\b402\b/.test(msg);
     const isRate = /Limite de taxa|\b429\b/i.test(msg);
-    if (isCredits || isRate) {
-      return new Response(
-        JSON.stringify({
-          error: isCredits ? 'INSUFFICIENT_CREDITS' : 'RATE_LIMITED',
-          message: msg,
-          fallback: true,
-          success: false,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+    const isParse = /JSON|parse|estrutura inválida|HTML vazio|não retornou/i.test(msg);
+    const errorCode = isCredits
+      ? 'INSUFFICIENT_CREDITS'
+      : isRate
+        ? 'RATE_LIMITED'
+        : isParse
+          ? 'INVALID_AI_RESPONSE'
+          : 'SERVICE_FAILED';
+
     return new Response(
       JSON.stringify({ 
-        error: msg,
+        error: errorCode,
+        message: msg,
+        fallback: true,
         success: false
       }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

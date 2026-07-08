@@ -524,9 +524,9 @@ Receba o texto bruto abaixo e:
     }
   };
 
-  // ✅ NOVO: Paralelização completa - chama 3 edge functions simultaneamente
+  // Geração confiável: orquestrador primeiro, metadados depois como etapa opcional
   const handleGenerateCompleteArticle = async () => {
-    console.log('🚀 Iniciando geração paralela completa...');
+    console.log('🚀 Iniciando geração completa pelo orquestrador...');
     
     // Validações
     const hasAnySources = Object.values(orchestratorActiveSources).some(v => v);
@@ -564,6 +564,8 @@ Receba o texto bruto abaixo e:
     }
 
     setIsGenerating(true);
+    setGeneratedHTML(null);
+    setGeneratedFAQs(null);
     
     try {
       // Preparar dados para orchestrator
@@ -588,55 +590,33 @@ Receba o texto bruto abaixo e:
         aiPrompt: formData.aiPromptTemplate || ''
       };
 
-      // 🚀 Paralelização: chamadas simultâneas via supabase.functions.invoke
-      console.log('🔄 Disparando edge functions em paralelo...', {
+      console.log('🔄 Chamando ai-orchestrate-content...', {
         payloadBytes: JSON.stringify(orchestratorPayload).length,
-        hasContentHTML: !!formData.content_html,
+        activeSources: orchestratorPayload.activeSources,
       });
-      const [orchestratorResult, metadataResult] = await Promise.allSettled([
-        supabase.functions.invoke('ai-orchestrate-content', { body: orchestratorPayload }),
-        formData.content_html
-          ? supabase.functions.invoke('ai-metadata-generator', {
-              body: {
-                title: formData.title,
-                contentHTML: formData.content_html,
-                regenerate: { title: false, metaDescription: true, keywords: true },
-              },
-            })
-          : Promise.resolve({ data: null, error: null } as any),
-      ]);
 
-      // Processar resultado do Orchestrator
-      let orchestratorData: any = null;
-      if (orchestratorResult.status === 'fulfilled') {
-        const { data, error } = orchestratorResult.value as any;
-        if (error) {
-          console.error('❌ Orchestrator error:', error);
-          throw new Error(`Orchestrator: ${error.message || 'falha desconhecida'}`);
-        }
-        orchestratorData = data;
-        console.log('✅ Orchestrator OK — HTML:', orchestratorData?.html?.length || 0, 'chars');
-      } else {
-        console.error('❌ Orchestrator rejeitou:', orchestratorResult.reason);
-        throw new Error(`Orchestrator: ${orchestratorResult.reason?.message || 'rede indisponível'}`);
+      const { data: orchestratorData, error: orchestratorError } = await invokeWithTimeout(
+        'ai-orchestrate-content',
+        orchestratorPayload,
+        150000
+      ) as any;
+
+      if (orchestratorError) {
+        console.error('❌ Orchestrator error:', orchestratorError);
+        throw new Error(orchestratorError.message || 'Falha ao chamar o Orquestrador Multi-Fonte');
       }
+
+      if (orchestratorData?.success === false || orchestratorData?.error || orchestratorData?.fallback) {
+        console.error('❌ Orchestrator retornou erro estruturado:', orchestratorData);
+        const structuredMessage = orchestratorData?.message || orchestratorData?.error || 'O orquestrador não conseguiu gerar o conteúdo';
+        throw new Error(structuredMessage);
+      }
+
+      console.log('✅ Orchestrator OK — HTML:', orchestratorData?.html?.length || 0, 'chars');
 
       if (!orchestratorData?.html) {
-        throw new Error('Orchestrator retornou HTML vazio');
-      }
-
-      // Processar resultado do Metadata Generator (opcional — não bloqueia)
-      let metadataData: any = null;
-      if (metadataResult.status === 'fulfilled') {
-        const { data, error } = metadataResult.value as any;
-        if (error) {
-          console.warn('⚠️ Metadata generator falhou (ignorado):', error);
-        } else if (data) {
-          metadataData = data;
-          console.log('✅ Metadata Generator OK');
-        }
-      } else {
-        console.warn('⚠️ Metadata generator rejeitou (ignorado):', metadataResult.reason);
+        console.error('❌ Resposta inválida do Orchestrator:', orchestratorData);
+        throw new Error('Orquestrador retornou HTML vazio. Tente reduzir as fontes ou gerar novamente.');
       }
       
       // ✅ Unificar FAQs: Usar APENAS as do Orchestrator
@@ -651,25 +631,38 @@ Receba o texto bruto abaixo e:
       );
       setGeneratedHTML(finalHTML);
       
-      // ✅ Metadados: Do Metadata Generator
-      if (metadataData) {
-        setFormData(prev => ({
-          ...prev,
-          meta_description: metadataData.metaDescription || prev.meta_description,
-          keywords: metadataData.keywords || prev.keywords
-        }));
+      // Metadados são auxiliares: geram depois do HTML novo e nunca bloqueiam o preview
+      try {
+        const { data: metadataData, error: metadataError } = await invokeWithTimeout('ai-metadata-generator', {
+          title: formData.title || 'Artigo Técnico Smart Dent',
+          contentHTML: finalHTML,
+          regenerate: { title: false, metaDescription: true, keywords: true },
+        }, 60000) as any;
+
+        if (metadataError) {
+          console.warn('⚠️ Metadata generator falhou (ignorado):', metadataError);
+        } else if (metadataData) {
+          setFormData(prev => ({
+            ...prev,
+            meta_description: metadataData.metaDescription || prev.meta_description,
+            keywords: metadataData.keywords || prev.keywords
+          }));
+          console.log('✅ Metadata Generator OK');
+        }
+      } catch (metadataError) {
+        console.warn('⚠️ Metadata generator indisponível (ignorado):', metadataError);
       }
       
       toast({
-        title: '✅ Geração completa em paralelo!',
-        description: `HTML + ${unifiedFAQs.length} FAQs + Metadados prontos. Tempo reduzido em ~60%!`,
+        title: '✅ Conteúdo gerado!',
+        description: `HTML + ${unifiedFAQs.length} FAQs prontos. Revise o preview e clique em Inserir e Salvar.`,
         duration: 6000
       });
       
     } catch (error: any) {
-      console.error('❌ Erro na geração paralela:', error);
+      console.error('❌ Erro na geração pelo orquestrador:', error);
       toast({
-        title: 'Erro na geração paralela',
+        title: 'Erro no Orquestrador Multi-Fonte',
         description: error.message || 'Tente novamente',
         variant: 'destructive'
       });
