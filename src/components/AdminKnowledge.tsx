@@ -3457,7 +3457,9 @@ Receba o texto bruto abaixo e:
                   onClick={handleGenerateCompleteArticle}
                   disabled={
                     isGenerating || 
-                    Object.values(orchestratorActiveSources).every(v => !v)
+                    (useOrchestrator
+                      ? Object.values(orchestratorActiveSources).every(v => !v)
+                      : rawTextInput.trim().length === 0)
                   }
                   className="w-full mt-4"
                   size="lg"
