@@ -89,10 +89,24 @@ function stripPrices(s: string): string {
   if (!s) return s;
   return s
     .replace(/R\$\s*[\d.,]+/gi, "")
+    .replace(/\b(?:de|por|mensalidade\s+de|ativação\s+de|cobrança\s+mensal\s+de)\s*[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?/gi, "")
+    .replace(/\b[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?\s*(?:no cartão|por mês|mensais|mensal|\/mês)/gi, "")
+    .replace(/\b\d+(?:[,.]\d+)?%\b/g, "")
     .replace(/\{strike\}/gi, "")
     .replace(/\bpor\s+R\$[^.,]*/gi, "")
+    .replace(/\s+([,.!?:;])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function cleanPriceHeavyText(v: unknown): string {
+  const raw = typeof v === "string" ? v : cleanLpText(v);
+  if (!raw) return "";
+  const hadCommercialValue = /R\$|\b(?:por|de)\s*[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?|\b\d+(?:[,.]\d+)?%\b/i.test(raw);
+  const cleaned = stripPrices(raw);
+  if (!hadCommercialValue) return cleaned;
+  if (cleaned.length < 30 || /\b(de|por|mensalidade|desconto)\b/i.test(cleaned)) return "";
+  return cleaned;
 }
 
 function cleanLpText(v: unknown): string {
