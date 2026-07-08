@@ -187,7 +187,7 @@ export function serializeSections(originalHtml: string, sections: EmailSection[]
     const shell = sections.find((s) => s._shell)?._shell ?? { before: "", after: "" };
     const enabled = sections.filter((s) => s.enabled);
     if (enabled.length === 0) {
-      return `${head}${bodyOpen}<!-- todas as seções foram desativadas --></body>${bodyClose.replace(/^<\/body>/i, "")}`;
+      return `${head}${bodyOpen}<!-- todas as seções foram desativadas -->${bodyClose}`;
     }
     const inner = enabled.map((s) => s.html).join("\n");
     return `${head}${bodyOpen}${shell.before}${inner}${shell.after}${bodyClose}`;
