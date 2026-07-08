@@ -219,7 +219,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         setStep(2);
       }
       const src = (d.source || null) as typeof emailSource;
-      setEmailSource(src);
+      if (mode === "all") setEmailSource(src);
       if (mode === "all") {
         if (useLandingPage && ctaPrincipal?.tipo === "landing" && src === "catalog_dossier") {
           toast.warning("A LP do produto não foi encontrada — gerado a partir do catálogo.");
@@ -570,7 +570,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               {showPreview && (
                 <div>
                   <Label className="text-xs">Preview</Label>
-                  <div className="border rounded bg-white overflow-hidden h-96">
+                  <div className={`border rounded bg-white overflow-hidden ${emailSource?.startsWith("landing_page") ? "h-[640px]" : "h-96"}`}>
                     <iframe srcDoc={previewHtml} title="preview" className="w-full h-full" sandbox="" />
                   </div>
                 </div>
