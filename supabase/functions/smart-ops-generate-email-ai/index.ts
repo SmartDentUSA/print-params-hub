@@ -884,7 +884,7 @@ Deno.serve(async (req) => {
       const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
       return buildLpEmailHtml({
         subject: subj,
-        preheader: stripPrices(lpData.hero.sub || ""),
+        preheader: lpData.hero.sub || "",
         heroImageUrl: heroImage,
         logoUrl: lpData.logo_url || null,
         brandName: lpData.brand_name || "Smart Dent",
@@ -892,15 +892,23 @@ Deno.serve(async (req) => {
         badge: lpData.hero.badge || "",
         eyebrow: lpData.hero.eyebrow || "",
         headlineHtml: headlineVerbatim,
-        sub: stripPrices(lpData.hero.sub || ""),
-        bullets: (lpData.hero.bullets || []).map(b => stripPrices(b)),
+        sub: lpData.hero.sub || "",
+        bullets: lpData.hero.bullets || [],
         trust: lpData.hero.trust || [],
         positioning: lpData.positioning ? {
           eyebrow: lpData.positioning.eyebrow,
-          headline: stripPrices(lpData.positioning.headline || ""),
-          body: stripPrices(lpData.positioning.body || ""),
+          headline: lpData.positioning.headline || "",
+          body: lpData.positioning.body || "",
         } : undefined,
+        howItWorks: lpData.howItWorks,
+        price: lpData.price,
         conditions: lpData.conditions,
+        modules: lpData.modules,
+        regionalRules: lpData.regionalRules,
+        implementation: lpData.implementation,
+        benefits: lpData.benefits,
+        testimonials: lpData.testimonials,
+        faq: lpData.faq,
         finalCta: lpData.final_cta,
         ctaPrimary: { label: lpData.hero.primary_cta || lpData.nav_cta || ctaLabel(cta_principal!), url: cta_principal!.url! },
         ctaSecondary: secondary ? { label: lpData.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
@@ -908,178 +916,23 @@ Deno.serve(async (req) => {
       });
     };
 
-    // If we have an LP, take the deterministic-assembly path:
-    // ask the LLM ONLY for the copy fields, then render the branded skeleton server-side.
-    // If the LLM fails, we DO NOT fall back to the legacy prompt — we render the LP verbatim
-    // so the email always keeps the LP visual identity.
+    // If we have an LP, ALWAYS render the email as a verbatim mirror of the LP —
+    // same text, same sections, same order, same theme. No LLM rewriting the body.
     if (lp && cta_principal?.url && regenerate === "all") {
-      const heroImage = lp.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
-      console.log("[generate-email-ai] LP branch selected id=", (lp as any).id || "?", "hero_image=", heroImage || "none");
-
-      const lpBrief = {
-        hero: {
-          eyebrow: lp.hero.eyebrow || "",
-          headline: lp.hero.headline_parts?.map(p => (p.highlight ? `«${p.text}»` : p.text)).join("").trim() || lp.hero.headline || "",
-          sub: lp.hero.sub || "",
-          bullets: lp.hero.bullets || [],
-          trust: lp.hero.trust || [],
-        },
-        positioning: lp.positioning || null,
-        conditions: lp.conditions || null,
-      };
-
-      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail em 4 SEÇÕES FIXAS: (1) Hero, (2) Oferta/Posicionamento, (3) Condições, (4) CTA final. NÃO invente novas seções.
-
-REGRAS ABSOLUTAS:
-- NUNCA cite preços, valores em R$, descontos numéricos ou promoções com valor. NUNCA cite "assinatura mensal de R$…", "de R$… por R$…".
-- Preserve o significado e o posicionamento originais da LP. Reescreva no TOM: ${tomInstruction}
-- Português do Brasil. Sem emojis exagerados (máx 1 no assunto).
-- Headline: mantenha a intenção da headline da LP. Se a LP marcou parte com «…», envolva a MESMA ideia com <span class="hl">…</span> no seu HTML (será renderizada com gradiente roxo→laranja no e-mail).
-- Bullets (Hero): 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
-- Positioning body: máx 260 chars, sem preços.
-- Seções "Como funciona", "Módulos", "Benefícios", "Implantação" NÃO devem ser geradas — o e-mail final tem só 4 seções.
-
-SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
-{
-  "subject": string (máx 70 chars),
-  "preheader": string (máx 110 chars),
-  "cta_button_label": string (máx 32 chars),
-  "eyebrow": string (máx 40 chars, uppercase-friendly),
-  "headline_html": string (uma linha, pode conter <span class="hl">trecho destacado</span>, sem outras tags),
-  "sub": string (máx 220 chars),
-  "bullets": string[] (3-5 itens),
-  "positioning": { "eyebrow": string, "headline": string, "body": string } | null,
-  "plain_text": string (versão texto puro do email, com CTA no final)
-}`;
-
-      const copyUser = `═══ DOSSIÊ DA LANDING PAGE (fonte primária) ═══
-Produto: ${produtoCtx?.name || produto || "produto Smart Dent"}
-Marca/badge: ${lp.reseller_badge || "-"}
-Imagem hero disponível no e-mail: ${heroImage || "(sem imagem)"}
-
-Hero:
-- Eyebrow LP: ${lpBrief.hero.eyebrow || "-"}
-- Headline LP: ${lpBrief.hero.headline || "-"}
-- Sub LP: ${lpBrief.hero.sub || "-"}
-- Bullets LP: ${(lpBrief.hero.bullets || []).map(b => `• ${b}`).join("\n") || "-"}
-- Trust inline LP: ${(lpBrief.hero.trust || []).join(" · ") || "-"}
-
-Positioning LP: ${lpBrief.positioning ? JSON.stringify(lpBrief.positioning) : "(nenhum)"}
-
-Condições LP (renderizadas direto pelo template — não reescrever): ${lpBrief.conditions ? `${(lpBrief.conditions.items || []).length} condição(ões) disponível(is)` : "(nenhum)"}
-
-═══ AUDIÊNCIA ═══
-${segmento_resumo || "leads da base Smart Dent"}
-
-═══ CTA principal ═══
-Rótulo sugerido (pode ser reescrito no tom): ${ctaLabel(cta_principal)}
-Destino: ${cta_principal.url}
-
-Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
-
-      const copyRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: copySystem },
-            { role: "user", content: copyUser },
-          ],
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      const doVerbatimReturn = (reason: string) => {
-        console.warn("[generate-email-ai] fallback_to_lp_verbatim reason=", reason);
-        const html = buildVerbatim(lp, produtoCtx?.name || produto || "Smart Dent");
-        return new Response(JSON.stringify({
-          success: true,
-          subject: (produtoCtx?.name || "Smart Dent").slice(0, 90),
-          preheader: stripPrices(lp.hero.sub || "").slice(0, 130),
-          cta_button_label: ctaLabel(cta_principal!) || "Saiba mais",
-          html_body: html,
-          plain_text: "",
-          produto_context: produtoCtx,
-          source: "landing_page_verbatim",
-          fallback_reason: reason,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      };
-
-      if (!copyRes.ok) {
-        const errTxt = await copyRes.text();
-        console.error("[generate-email-ai/lp] gateway error", copyRes.status, errTxt);
-        return doVerbatimReturn(`gateway_${copyRes.status}`);
-      }
-      {
-        const aiJson = await copyRes.json();
-        const content = aiJson.choices?.[0]?.message?.content || "{}";
-        let parsed: any = {};
-        try { parsed = JSON.parse(content); }
-        catch { const m = content.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; }
-
-        if (!parsed || !parsed.headline_html) {
-          return doVerbatimReturn("empty_llm_json");
-        }
-
-        const bulletsClean = Array.isArray(parsed.bullets)
-          ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
-          : (lp.hero.bullets || []).map(b => stripPrices(b)).filter(Boolean).slice(0, 5);
-
-        const positioningClean = parsed.positioning && (parsed.positioning.headline || parsed.positioning.body)
-          ? {
-              eyebrow: stripPrices(String(parsed.positioning.eyebrow || "")),
-              headline: stripPrices(String(parsed.positioning.headline || "")),
-              body: stripPrices(String(parsed.positioning.body || "")),
-            }
-          : lp.positioning;
-
-        const ctaBtnLabel = String(parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais").slice(0, 40);
-
-        const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
-
-        // Sanitize headline_html: allow only <span class="hl">…</span>. Strip anything else.
-        const rawHeadline = stripPrices(String(parsed.headline_html || lp.hero.headline || ""));
-        const safeHeadline = rawHeadline
-          .replace(/<(?!\/?span\b|\/?SPAN\b)[^>]*>/g, "")
-          .replace(/<span(?![^>]*class=["']?hl)[^>]*>/gi, "");
-
-        const html = buildLpEmailHtml({
-          subject: String(parsed.subject || produtoCtx?.name || "Smart Dent"),
-          preheader: stripPrices(String(parsed.preheader || "")),
-          heroImageUrl: heroImage,
-          logoUrl: lp.logo_url || null,
-          brandName: lp.brand_name || "Smart Dent",
-          theme: lp.theme,
-          badge: lp.hero.badge || "",
-          eyebrow: stripPrices(String(parsed.eyebrow || lp.hero.eyebrow || "")),
-          headlineHtml: safeHeadline,
-          sub: stripPrices(String(parsed.sub || lp.hero.sub || "")),
-          bullets: bulletsClean,
-          trust: lp.hero.trust || [],
-          positioning: positioningClean,
-          conditions: lp.conditions,
-          finalCta: lp.final_cta,
-          ctaPrimary: { label: ctaBtnLabel, url: cta_principal.url },
-          ctaSecondary: secondary ? { label: lp.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
-          resellerBadge: lp.reseller_badge,
-        });
-
-        console.log("[generate-email-ai] LP branch OK — source=landing_page_ai");
-        return new Response(JSON.stringify({
-          success: true,
-          subject: String(parsed.subject || "").slice(0, 90),
-          preheader: stripPrices(String(parsed.preheader || "")).slice(0, 130),
-          cta_button_label: ctaBtnLabel,
-          html_body: html,
-          plain_text: stripPrices(String(parsed.plain_text || "")),
-          produto_context: produtoCtx,
-          source: "landing_page_ai",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const subj = (produtoCtx?.name || lp.hero.headline || "Smart Dent").toString().slice(0, 90);
+      const html = buildVerbatim(lp, subj);
+      const preheader = (lp.hero.sub || "").toString().slice(0, 130);
+      console.log("[generate-email-ai] LP branch → landing_page_verbatim (full mirror)");
+      return new Response(JSON.stringify({
+        success: true,
+        subject: subj,
+        preheader,
+        cta_button_label: lp.hero.primary_cta || lp.nav_cta || ctaLabel(cta_principal) || "Saiba mais",
+        html_body: html,
+        plain_text: "",
+        produto_context: produtoCtx,
+        source: "landing_page_verbatim",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const systemPrompt = `Você é um copywriter sênior da Smart Dent | Fluxo Digital, especializado em odontologia digital (impressão 3D, escaneamento, CAD/CAM). Escreve emails B2B para dentistas e laboratórios.
