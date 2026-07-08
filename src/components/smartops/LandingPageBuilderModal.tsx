@@ -697,7 +697,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="Como funciona" anchorId="sec-como-funciona">
+      <Section title="Como funciona" anchorId="sec-como-funciona" toggle={{ enabled: isOn("howItWorks"), onChange: toggleSection("howItWorks") }}>
         <TextField label="Título" value={content.howItWorks?.title ?? ""} onChange={(v) => patch({ howItWorks: { ...(content.howItWorks ?? { items: [] }), title: v } })} />
         <StepListEditor
           items={content.howItWorks?.items ?? []}
@@ -705,7 +705,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Oferta / Posicionamento" anchorId="sec-posicionamento">
+      <Section title="Oferta / Posicionamento" anchorId="sec-posicionamento" toggle={{ enabled: isOn("positioning"), onChange: toggleSection("positioning") }}>
         <p className="text-[11px] text-muted-foreground">Bloco laranja abaixo do hero. Use <code>{"{strike}"}</code> na headline onde entra o preço-âncora riscado. Deixe todos os campos vazios para ocultar a seção.</p>
         <TextField label="Eyebrow (ex: OFERTA DE PRÉ-LANÇAMENTO)" value={content.positioning?.eyebrow ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), eyebrow: v } })} />
         <TextField label="Headline (use {strike} para o preço riscado)" value={content.positioning?.headline ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), headline: v } })} multiline />
@@ -714,7 +714,7 @@ function ContentEditor({
         <TextField label="Texto de apoio (opcional)" value={content.positioning?.body ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), body: v } })} multiline />
       </Section>
 
-      <Section title="Condições" anchorId="sec-condicoes">
+      <Section title="Condições" anchorId="sec-condicoes" toggle={{ enabled: isOn("conditions"), onChange: toggleSection("conditions") }}>
         <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
         <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
         <ConditionCardsEditor
@@ -723,7 +723,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Módulos" anchorId="sec-modulos">
+      <Section title="Módulos" anchorId="sec-modulos" toggle={{ enabled: isOn("modules"), onChange: toggleSection("modules") }}>
         <TextField label="Eyebrow (ex: O QUE ESTÁ INCLUÍDO)" value={content.modules?.eyebrow ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), eyebrow: v } })} />
         <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
         <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
@@ -746,7 +746,7 @@ function ContentEditor({
         <TextField label="Nota final" value={content.modules?.footnote ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), footnote: v } })} multiline />
       </Section>
 
-      <Section title="Uso seguro e regular da licença" anchorId="sec-regional">
+      <Section title="Uso seguro e regular da licença" anchorId="sec-regional" toggle={{ enabled: isOn("regionalRules"), onChange: toggleSection("regionalRules") }}>
         <TextField label="Título" value={content.regionalRules?.title ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), title: v } })} />
         <TextField label="Introdução" value={content.regionalRules?.intro ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), intro: v } })} multiline />
         <ListEditor
@@ -757,7 +757,7 @@ function ContentEditor({
         <TextField label="Nota final" value={content.regionalRules?.footnote ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), footnote: v } })} multiline />
       </Section>
 
-      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao">
+      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao" toggle={{ enabled: isOn("implementation"), onChange: toggleSection("implementation") }}>
         <TextField label="Título" value={content.implementation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), title: v } })} />
         <TextField label="Subtítulo" value={content.implementation?.subtitle ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), subtitle: v } })} multiline />
         <div className="border rounded p-2 space-y-2 bg-muted/30">
@@ -777,7 +777,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios">
+      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios" toggle={{ enabled: isOn("benefits"), onChange: toggleSection("benefits") }}>
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
           items={content.benefits?.items ?? []}
@@ -785,7 +785,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="FAQ" anchorId="sec-faq">
+      <Section title="FAQ" anchorId="sec-faq" toggle={{ enabled: isOn("faq"), onChange: toggleSection("faq") }}>
         <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">FAQs ({content.faq?.items.length ?? 0})</Label>
@@ -805,7 +805,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="CTA final" anchorId="sec-cta-final">
+      <Section title="CTA final" anchorId="sec-cta-final" toggle={{ enabled: isOn("finalCta"), onChange: toggleSection("finalCta") }}>
         <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
         <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
         <TextField label="CTA" value={content.finalCta?.cta ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "" }), cta: v } })} />
