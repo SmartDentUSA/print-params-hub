@@ -352,20 +352,26 @@ function buildLpEmailHtml(opts: {
        </div>`
     : "";
 
-  const howHtml = (howItWorks && howItWorks.length)
+  // (Section 3) Condições — renderiza os cards da LP (sem preços)
+  const conditionsHtml = (conditions && conditions.items && conditions.items.length)
     ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
-         ${howTitle ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(howTitle)}</h2>` : ""}
+         ${conditions.title ? `<h2 style="margin:0 0 8px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:28px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(conditions.title)}</h2>` : ""}
+         ${conditions.subtitle ? `<p style="margin:0 auto 22px auto;max-width:520px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(conditions.subtitle)}</p>` : ""}
          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-           <tr>${howItWorks.map((it, i) => `
-             <td valign="top" width="33.33%" style="padding:0 6px 14px 6px;">
+           ${conditions.items.map((card) => `
+             <tr><td valign="top" style="padding:0 0 14px 0;">
                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:18px;">
-                 <tr><td style="padding:22px 18px;">
-                   <div style="width:44px;height:44px;border-radius:13px;background:${t.brand};background:${grad};font-family:Arial Black,Inter,Arial,sans-serif;font-size:16px;line-height:44px;text-align:center;color:#ffffff;margin:0 0 16px 0;">${String(i+1).padStart(2,"0")}</div>
-                   <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:17px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(it.title)}</div>
-                   <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(it.desc)}</div>
+                 <tr><td style="padding:22px 22px;">
+                   ${card.ribbon ? `<div style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:${t.orange};font-weight:900;background:${t.orangeSoft};border-radius:999px;padding:5px 10px;margin-bottom:10px;">${esc(card.ribbon)}</div>` : ""}
+                   ${card.title ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:19px;line-height:1.2;color:${t.text};margin-bottom:12px;">${esc(card.title)}</div>` : ""}
+                   ${card.includes && card.includes.length ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${card.includes.map((it) => `
+                     <tr><td valign="top" style="padding:5px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">
+                       <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+                     </td></tr>`).join("")}</table>` : ""}
+                   ${card.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};font-style:italic;">${esc(card.footnote)}</div>` : ""}
                  </td></tr>
                </table>
-             </td>`).join("")}</tr>
+             </td></tr>`).join("")}
          </table>
        </td></tr>`
     : "";
@@ -394,72 +400,6 @@ function buildLpEmailHtml(opts: {
   const resellerHtml = resellerBadge
     ? `<span style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:${t.orange};font-weight:900;background:${t.orangeSoft};border:1px solid ${t.orange}33;border-radius:999px;padding:6px 10px;vertical-align:middle;">${esc(resellerBadge)}</span>`
     : "";
-
-  const benefitsHtml = benefits?.items?.length ? `
-    <tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
-      ${benefits.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(benefits.title)}</h2>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        ${benefits.items.slice(0, 6).reduce((rows, item, i) => {
-          if (i % 2 === 0) rows.push(benefits.items.slice(i, i + 2));
-          return rows;
-        }, [] as { title: string; desc: string }[][]).map(row => `<tr>${row.map(item => `
-          <td valign="top" width="50%" style="padding:0 7px 14px 7px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:18px;">
-              <tr><td style="padding:20px 18px;">
-                <div style="width:42px;height:42px;border-radius:13px;background:${t.orangeSoft};font-size:20px;line-height:42px;text-align:center;color:${t.orange};font-weight:900;margin-bottom:14px;">✓</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:16px;line-height:1.28;color:${t.text};margin-bottom:8px;">${esc(item.title)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(item.desc)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}${row.length === 1 ? `<td width="50%" style="padding:0 7px 14px 7px;"></td>` : ""}</tr>`).join("")}
-      </table>
-    </td></tr>` : "";
-
-  const modulesHtml = modules?.items?.length ? `
-    <tr><td style="padding:34px 28px;background:${t.bgSoft};">
-      ${modules.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.6px;text-transform:uppercase;color:${t.textSoft};font-weight:900;margin-bottom:10px;">${esc(modules.eyebrow)}</div>` : ""}
-      ${modules.title ? `<h2 style="margin:0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:33px;line-height:1.08;color:${t.text};letter-spacing:0;">${esc(modules.title)}</h2>` : ""}
-      ${modules.subtitle ? `<p style="margin:14px 0 24px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        ${modules.items.slice(0, 15).reduce((rows, item, i) => {
-          if (i % 3 === 0) rows.push(modules.items.slice(i, i + 3));
-          return rows;
-        }, [] as { name: string; application: string }[][]).map(row => `<tr>${row.map(item => `
-          <td valign="top" width="33.33%" style="padding:0 5px 10px 5px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:14px;">
-              <tr><td style="padding:15px 13px;">
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:13px;line-height:1.25;color:${t.text};margin-bottom:5px;">${esc(item.name)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:11px;line-height:1.45;color:${t.textSoft};">${esc(item.application)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}${row.length < 3 ? Array.from({ length: 3 - row.length }).map(() => `<td width="33.33%" style="padding:0 5px 10px 5px;"></td>`).join("") : ""}</tr>`).join("")}
-      </table>
-      ${modules.footnote ? `<div style="margin-top:12px;background:#ffffff99;border:1px solid ${t.border};border-radius:14px;padding:13px 15px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};">${esc(modules.footnote)}</div>` : ""}
-    </td></tr>` : "";
-
-  const implementationCards = implementation ? [
-    implementation.activation ? { title: implementation.activation.title || "Ativação", body: implementation.activation.items.join(" • "), tone: t.orangeSoft, icon: "↗" } : null,
-    implementation.training ? { title: implementation.training.title || "Treinamento", body: implementation.training.body || "", tone: t.soft, icon: "◎" } : null,
-    implementation.support ? { title: implementation.support.title || "Suporte", body: implementation.support.items.join(" • "), tone: t.orangeSoft, icon: "✓" } : null,
-  ].filter(Boolean) as { title: string; body: string; tone: string; icon: string }[] : [];
-
-  const implementationHtml = implementationCards.length ? `
-    <tr><td style="padding:34px 28px;background:${t.soft};">
-      ${implementation?.title ? `<h2 style="margin:0 0 10px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:29px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(implementation.title)}</h2>` : ""}
-      ${implementation?.subtitle ? `<p style="margin:0 auto 24px auto;max-width:500px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.subtitle)}</p>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>${implementationCards.slice(0, 3).map(card => `
-          <td valign="top" width="33.33%" style="padding:0 6px 12px 6px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
-              <tr><td style="padding:18px 15px;">
-                <div style="width:40px;height:40px;border-radius:12px;background:${card.tone};font-family:Arial,sans-serif;font-weight:900;font-size:18px;line-height:40px;text-align:center;color:${t.brand};margin-bottom:12px;">${card.icon}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:15px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(card.title)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">${esc(card.body)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}</tr>
-      </table>
-    </td></tr>` : "";
 
   const finalCtaHtml = `
     <tr><td style="padding:34px 28px;background:#ffffff;">
