@@ -316,7 +316,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     } finally { setSending(false); }
   }
 
-  const previewHtml = html
+  const previewHtml = effectiveHtml
     .split("{{nome}}").join("Dr. João")
     .split("{{primeiro_nome}}").join("Dr. João")
     .split("{{vendedor_nome}}").join(fromName);
