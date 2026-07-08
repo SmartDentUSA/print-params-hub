@@ -515,7 +515,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   Usar a Landing Page do produto como base visual e de copy
                 </label>
                 {useLandingPage && (
-                  <Badge variant="secondary" className="text-[10px]">Copy espelhada da LP</Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {emailSource === "landing_page_ai"
+                      ? "Copy espelhada da LP (IA + tom)"
+                      : emailSource === "landing_page_verbatim"
+                      ? "Layout da LP (copy original)"
+                      : emailSource === "catalog_dossier"
+                      ? "Fallback: dossiê do catálogo"
+                      : "Copy espelhada da LP"}
+                  </Badge>
                 )}
               </div>
             )}
