@@ -181,7 +181,11 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   async function handleRegenerate() {
     if (!lp) return;
-    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook";
+    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook" | "rag";
+    if (mode === "rag") {
+      await runGenerate("rag", "");
+      return;
+    }
     const input = (
       lp.input_prompt ??
       (mode === "ai" ? aiIdea : mode === "briefing" ? briefing : playbook)
