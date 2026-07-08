@@ -467,9 +467,9 @@ function buildLpEmailHtml(opts: {
     </td></tr>` : "";
 
   const implementationCards = implementation ? [
-    implementation.activation ? { title: implementation.activation.title, body: implementation.activation.items.join(" • "), tone: t.orangeSoft, icon: "↗" } : null,
-    implementation.training ? { title: implementation.training.title, body: implementation.training.body, tone: t.soft, icon: "◎" } : null,
-    implementation.support ? { title: implementation.support.title, body: implementation.support.items.join(" • "), tone: t.orangeSoft, icon: "✓" } : null,
+    implementation.activation ? { title: implementation.activation.title || "Ativação", body: implementation.activation.items.join(" • "), tone: t.orangeSoft, icon: "↗" } : null,
+    implementation.training ? { title: implementation.training.title || "Treinamento", body: implementation.training.body || "", tone: t.soft, icon: "◎" } : null,
+    implementation.support ? { title: implementation.support.title || "Suporte", body: implementation.support.items.join(" • "), tone: t.orangeSoft, icon: "✓" } : null,
   ].filter(Boolean) as { title: string; body: string; tone: string; icon: string }[] : [];
 
   const implementationHtml = implementationCards.length ? `
@@ -666,6 +666,10 @@ Deno.serve(async (req) => {
         subject: subj,
         preheader: stripPrices(lpData.hero.sub || ""),
         heroImageUrl: heroImage,
+        logoUrl: lpData.logo_url || null,
+        brandName: lpData.brand_name || "Smart Dent",
+        theme: lpData.theme,
+        badge: lpData.hero.badge || "",
         eyebrow: lpData.hero.eyebrow || "",
         headlineHtml: headlineVerbatim,
         sub: stripPrices(lpData.hero.sub || ""),
@@ -679,8 +683,13 @@ Deno.serve(async (req) => {
         howItWorks: (lpData.how_it_works || []).map(h => ({
           title: stripPrices(h.title), desc: stripPrices(h.desc),
         })),
-        ctaPrimary: { label: ctaLabel(cta_principal!), url: cta_principal!.url! },
-        ctaSecondary: secondary ? { label: ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
+        howTitle: lpData.how_title,
+        benefits: lpData.benefits,
+        modules: lpData.modules,
+        implementation: lpData.implementation,
+        finalCta: lpData.final_cta,
+        ctaPrimary: { label: lpData.hero.primary_cta || lpData.nav_cta || ctaLabel(cta_principal!), url: cta_principal!.url! },
+        ctaSecondary: secondary ? { label: lpData.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
         resellerBadge: lpData.reseller_badge,
       });
     };
@@ -703,7 +712,9 @@ Deno.serve(async (req) => {
         },
         positioning: lp.positioning || null,
         howItWorks: lp.how_it_works || [],
-        benefits: lp.benefits || [],
+        benefits: lp.benefits?.items || [],
+        modules: lp.modules?.items || [],
+        implementation: lp.implementation || null,
       };
 
       const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail, aplicando o TOM escolhido, sem inventar nada além do que está no dossiê da LP.
@@ -748,6 +759,8 @@ Positioning LP: ${lpBrief.positioning ? JSON.stringify(lpBrief.positioning) : "(
 How it works LP: ${(lpBrief.howItWorks || []).length ? JSON.stringify(lpBrief.howItWorks) : "(nenhum)"}
 
 Benefícios LP (opcional para inspirar bullets se hero.bullets estiver vazio): ${(lpBrief.benefits || []).length ? JSON.stringify(lpBrief.benefits) : "(nenhum)"}
+Módulos LP (não reescrever; layout renderiza direto da LP): ${(lpBrief.modules || []).length ? `${lpBrief.modules.length} módulos disponíveis` : "(nenhum)"}
+Implantação/Suporte LP: ${lpBrief.implementation ? JSON.stringify(lpBrief.implementation).slice(0, 1200) : "(nenhum)"}
 
 ═══ AUDIÊNCIA ═══
 ${segmento_resumo || "leads da base Smart Dent"}
