@@ -397,6 +397,28 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
               mono
               preview={<LivePreview content={previewContent} heroImage={heroImage} />}
               hint="Modo fidelidade máxima: nome, descrição, sales pitch, preço, promo e specs técnicas são extraídos direto do playbook."
+              topBanner={
+                <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-[#605882]/10 to-[#DF7344]/10 p-3 space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#605882]">
+                    RAG do produto vinculado
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {productLink
+                      ? <>Produto vinculado ao form: <span className="font-semibold text-foreground">{productLink.name}</span>. Puxa tudo do catálogo (descrição, sales pitch, benefícios, specs, comparativo).</>
+                      : <>Nenhum produto vinculado a este formulário. Vincule um produto no editor do form para usar a RAG.</>}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => runGenerate("rag", "")}
+                    disabled={!productLink || generating}
+                    className="w-full gap-2 bg-gradient-to-r from-[#605882] to-[#DF7344] text-white hover:opacity-90"
+                  >
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Usar toda a RAG do produto
+                  </Button>
+                </div>
+              }
               extraHeader={
                 <label className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border bg-white cursor-pointer hover:border-primary hover:text-primary transition">
                   <Upload className="w-3.5 h-3.5" /> Carregar .json
