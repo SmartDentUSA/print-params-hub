@@ -1,51 +1,41 @@
-## Clonar a Landing Page 1:1 no e-mail (mesmo texto, mesmas condições, mesmo layout)
+## Problema
 
-O e-mail passa a ser um **espelho fiel da LP publicada**, renderizado em HTML email-safe. Nada de IA reescrevendo, nada de template genérico. Se está na LP, está no e-mail — nas mesmas palavras, mesma ordem, mesmos blocos, mesmas cores.
+Hoje o `landing-page-generator` só recebe uma string livre (`input`) via aba "IA" ou "Briefing". O `LandingPageBuilderModal` não conhece produto nem playbook — por isso o JSON `produto-rayshape-edge-mini-...-ia-playbook.json` que você anexou não foi usado pela IA. Não há qualquer referência a `playbook` no código.
 
-### Estratégia
+## Objetivo
 
-Em vez de deixar a IA "montar" o e-mail a partir de um dossiê, vamos **ler o mesmo `content` (LPContent) usado pelo `PremiumLandingTemplate`** e renderizar cada seção da LP como uma tabela HTML compatível com Gmail/Outlook, mantendo:
+Permitir que o gerador de landing page use, com fidelidade total, o **AI Playbook** do produto (o mesmo JSON que você anexou: `basic_info`, `marketing_data.sales_pitch`, `technical_specs`, `product_variations`, etc.).
 
-- Textos verbatim (headline, subheadline, badges, eyebrow, bullets, parágrafos, itens de condições, CTA)
-- Ordem exata das seções que existem no `content` da LP
-- Paleta/tema da LP (cores primária, fundo, texto) aplicadas inline
-- Imagem hero da LP
-- Links de CTA apontando para a LP publicada (`/lp/{slug}`)
+## Mudanças
 
-### O que o e-mail vai conter (na ordem da LP)
+### 1. `src/components/smartops/LandingPageBuilderModal.tsx`
+- Adicionar uma nova aba **"Playbook do Produto"** (ao lado de "IA" e "Briefing").
+- Dois modos de entrada:
+  - Colar JSON do playbook em um `Textarea` grande.
+  - Botão "Carregar arquivo .json" (upload local via `<input type="file" accept=".json">`).
+- Ao gerar, validar que é JSON válido e enviar para a edge function com `mode: "playbook"` e `input: <JSON stringificado>`.
+- Persistir em `smartops_form_landing_pages.input_prompt` normalmente (mesma coluna, texto).
 
-Renderiza **exatamente as seções que existirem em `lp.content`**, uma a uma, no mesmo layout visual da LP, adaptado para e-mail:
+### 2. `supabase/functions/landing-page-generator/index.ts`
+- Aceitar `mode: "ai" | "briefing" | "playbook"`.
+- Novo `buildUserPrompt` para `playbook`:
+  - Faz `JSON.parse` do input; se falhar, retorna `invalid_playbook_json`.
+  - Extrai campos-chave: `basic_info.name`, `description`, `price`, `promo_price`, `marketing_data.sales_pitch`, `benefits`, `features`, `unique_selling_points`, `target_audience`, `technical_specs`, `product_variations`, `seo_data`.
+  - Monta um prompt "MODO: PLAYBOOK (fidelidade máxima)" instruindo o LLM a:
+    - Usar **exatamente** o `sales_pitch` como base editorial do hero/positioning.
+    - Popular `benefits` a partir de `marketing_data.benefits`/`unique_selling_points`.
+    - Popular `modules` a partir de `technical_specs` (nome = `label`, application = `value`) quando o produto **não** for exocad.
+    - Usar `price` e `promo_price` reais em `hero.pricePill` e `price.priceLabel` quando presentes (sem inventar).
+    - Não aplicar as canônicas de exocad se o produto for outra coisa (o `isExocadContext` já ignora fora desse domínio — manter como está).
+- Manter cascade de modelos e `response_format: json_object`.
 
-1. **Hero** — badge, eyebrow, headline (com `<span class="hl">` preservado como cor de destaque), subheadline, CTA primário, CTA secundário, trust row, imagem hero — texto idêntico.
-2. **Posicionamento / Oferta** — título + parágrafos verbatim.
-3. **Como funciona / Módulos / Benefícios / Implementação** — se existirem no `content` da LP, aparecem no e-mail com os mesmos textos e mesma ordem (não são mais suprimidos). O e-mail espelha a LP; não inventa nem remove blocos.
-4. **Condições** — título + itens verbatim. `stripPrices` continua ativo só aqui, por política ("sem preços em e-mail IA"): valores em R$ viram "recorrência mensal", "ativação inclusa", etc. Todo o resto do texto do bloco fica igual.
-5. **CTA Final** — headline + botão verbatim, cor do tema.
-6. **Assinatura** — "Smart Dent | Fluxo Digital" + telefone/link da LP.
+### 3. Sem migrations, sem mudança no template `PremiumLandingTemplate` e sem alteração nos schemas do DB. Só UI e edge function.
 
-Se um bloco não existir na LP, ele simplesmente não aparece no e-mail. Se existir, aparece igual.
+## Fora de escopo
+- Ligar `smartops_forms` diretamente a um `product_id` (poderia ser feito depois; agora fica manual via upload/paste do JSON).
+- Alterações no e-mail, no LP template visual, ou no fluxo de publicação.
 
-### Papel da IA
-
-**Nenhum**, por padrão. A geração vira **determinística**: lê o `content` da LP e serializa em HTML email-safe. `source` na resposta passa a ser sempre `"landing_page_verbatim"`.
-
-Fica um flag opcional (`aiTone: true`, desligado por padrão) que só pode ajustar micro-tom em `subject` e `preheader` — nunca o corpo. Se falhar, usa o headline/subheadline da LP.
-
-### Mudanças de código
-
-- `supabase/functions/smart-ops-generate-email-ai/index.ts`
-  - `loadLpDossier` passa a devolver o `LPContent` completo (hero, positioning, howItWorks, modules, benefits, implementation, conditions, finalCta, theme, logoUrl, brandName, lpUrl) — sem descartar seções.
-  - `buildLpEmailHtml` reescrita para iterar as seções presentes no `content` e renderizar cada uma como tabela HTML inline, com cores do `theme` da LP e imagem hero real.
-  - `stripPrices` aplicado **apenas** aos itens da seção Condições.
-  - Prompt de IA para corpo do e-mail é **removido**; IA só toca `subject`/`preheader` se `aiTone` estiver ligado.
-  - `source` sempre `"landing_page_verbatim"`.
-
-- `src/components/smartops/EmailCampaignWizard.tsx`
-  - Badge do preview: "Espelho fiel da Landing Page (verbatim)".
-  - Sem outras mudanças de UX.
-
-### Fora do escopo
-
-- Não altero a Landing Page.
-- Não altero envio Gmail, SMS, config.toml, migrations.
-- Preços continuam removidos **apenas** do bloco Condições no e-mail (política existente); LP fica intocada.
+## Como validar
+1. Abrir a LP do form "Impressora 3D Rayshape Edge Mini".
+2. Aba "Playbook do Produto" → colar/upar o JSON anexado → Gerar.
+3. Conferir no preview: hero com nome/descrição do playbook, pricePill com R$ 28.500 / R$ 35.000, benefícios extraídos do `sales_pitch`, seção "modules" com specs técnicas reais (MSLA, precisão 34,4 µm, plataformas, etc.).
