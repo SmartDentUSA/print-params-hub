@@ -89,6 +89,8 @@ function stripPrices(s: string): string {
   if (!s) return s;
   return s
     .replace(/R\$\s*[\d.,]+/gi, "")
+    .replace(/\binicia-se a cobrança mensal de\s*(?:no cartão cadastrado)?/gi, "inicia-se a recorrência no cartão cadastrado")
+    .replace(/\bcobrança mensal de\s*(?:no cartão)?/gi, "recorrência")
     .replace(/\b(?:de|por|mensalidade\s+de|ativação\s+de|cobrança\s+mensal\s+de)\s*[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?/gi, "")
     .replace(/\b[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?\s*(?:no cartão|por mês|mensais|mensal|\/mês)/gi, "")
     .replace(/\b\d+(?:[,.]\d+)?%\b/g, "")
