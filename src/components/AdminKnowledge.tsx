@@ -754,29 +754,13 @@ Receba o texto bruto abaixo e:
       }
       
       setFormData(prev => ({ ...prev, ...updates }));
+
+      await saveContentToDatabase(updates, { closeModal: false });
       
-      // Se for edição, salvar direto no banco
-      if (editingContent?.id) {
-        const { error } = await supabase
-          .from('knowledge_contents')
-          .update(updates)
-          .eq('id', editingContent.id);
-        
-        if (error) throw error;
-        
-        toast({
-          title: '✅ Conteúdo atualizado!',
-          description: `HTML inserido + ${generatedFAQs?.length || 0} FAQs salvas`
-        });
-        
-        // Recarregar dados
-        loadContents();
-      } else {
-        toast({
-          title: '✅ HTML e FAQs inseridos!',
-          description: `Lembre-se de salvar o artigo para persistir. ${generatedFAQs?.length || 0} FAQs prontas.`
-        });
-      }
+      toast({
+        title: editingContent?.id ? '✅ Conteúdo atualizado!' : '✅ Conteúdo criado e salvo!',
+        description: `HTML inserido + ${generatedFAQs?.length || 0} FAQs salvas no banco.`
+      });
       
       // Limpar preview
       setGeneratedHTML(null);
