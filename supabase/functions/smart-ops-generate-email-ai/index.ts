@@ -210,47 +210,36 @@ async function loadLpDossier(
       ? c.hero.bullets.map(cleanLpText).filter(Boolean).slice(0, 5)
       : undefined;
 
-    const how = Array.isArray(c?.howItWorks?.items)
-      ? c.howItWorks.items
-          .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
-          .filter((x: any) => x.title || x.desc)
+    // Section 3 — Condições. Aggregate all condition cards from the LP.
+    const conditionCards = Array.isArray(c?.conditions?.cards)
+      ? c.conditions.cards
+          .map((card: any) => ({
+            title: cleanLpText(card?.title),
+            ribbon: cleanLpText(card?.ribbon),
+            includes: Array.isArray(card?.includes)
+              ? card.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 6)
+              : [],
+            footnote: cleanPriceHeavyText(card?.footnote),
+          }))
+          .filter((x: any) => x.title || (x.includes && x.includes.length))
           .slice(0, 3)
+      : [];
+    // Fallback: use top-level price.includes as a single "Condições" card if no cards[]
+    if (!conditionCards.length && Array.isArray(c?.price?.includes) && c.price.includes.length) {
+      conditionCards.push({
+        title: cleanLpText(c?.price?.title) || "Condições",
+        ribbon: cleanLpText(c?.price?.ribbon),
+        includes: c.price.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 8),
+        footnote: cleanPriceHeavyText(c?.price?.footnote),
+      });
+    }
+    const conditions = conditionCards.length
+      ? {
+          title: cleanLpText(c?.conditions?.title) || cleanLpText(c?.price?.title) || "Condições",
+          subtitle: cleanPriceHeavyText(c?.conditions?.subtitle) || cleanPriceHeavyText(c?.price?.priceNote),
+          items: conditionCards,
+        }
       : undefined;
-
-    const benefitsItems = Array.isArray(c?.benefits?.items)
-      ? c.benefits.items
-          .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
-          .filter((x: any) => x.title || x.desc)
-          .slice(0, 6)
-      : [];
-
-    const modulesItems = Array.isArray(c?.modules?.items)
-      ? c.modules.items
-          .map((it: any) => ({ name: cleanLpText(it?.name), application: cleanLpText(it?.application) }))
-          .filter((x: any) => x.name || x.application)
-          .slice(0, 15)
-      : [];
-
-    const implementation = c?.implementation ? {
-      title: cleanLpText(c.implementation.title),
-      subtitle: cleanLpText(c.implementation.subtitle),
-      activation: c.implementation.activation ? {
-        title: cleanLpText(c.implementation.activation.title),
-        items: Array.isArray(c.implementation.activation.items)
-          ? c.implementation.activation.items.map(cleanLpText).filter(Boolean).slice(0, 4)
-          : [],
-      } : undefined,
-      training: c.implementation.training ? {
-        title: cleanLpText(c.implementation.training.title),
-        body: cleanLpText(c.implementation.training.body),
-      } : undefined,
-      support: c.implementation.support ? {
-        title: cleanLpText(c.implementation.support.title),
-        items: Array.isArray(c.implementation.support.items)
-          ? c.implementation.support.items.map(cleanLpText).filter(Boolean).slice(0, 4)
-          : [],
-      } : undefined,
-    } : undefined;
 
     const trustBar = Array.isArray(c?.trustBar)
       ? c.trustBar.map(cleanLpText).filter(Boolean).slice(0, 4)
@@ -282,17 +271,7 @@ async function loadLpDossier(
         headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
         body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
       } : undefined,
-      how_it_works: how,
-      how_title: cleanLpText(c?.howItWorks?.title),
-      benefits: benefitsItems.length ? { title: cleanLpText(c?.benefits?.title), items: benefitsItems } : undefined,
-      modules: modulesItems.length ? {
-        eyebrow: cleanLpText(c?.modules?.eyebrow),
-        title: cleanLpText(c?.modules?.title),
-        subtitle: cleanLpText(c?.modules?.subtitle),
-        items: modulesItems,
-        footnote: cleanLpText(c?.modules?.footnote),
-      } : undefined,
-      implementation,
+      conditions,
       final_cta: c?.finalCta ? {
         headline: cleanLpText(c.finalCta.headline),
         sub: cleanLpText(c.finalCta.sub),
