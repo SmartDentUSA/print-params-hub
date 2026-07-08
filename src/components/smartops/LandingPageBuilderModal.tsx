@@ -21,9 +21,12 @@ import {
   LP_THEMES,
   type LPThemeKey,
   type LPContent,
+  type LPSectionKey,
+  type LPMedia,
 } from "@/components/lp/PremiumLandingTemplate";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import HeroAudioUpload from "@/components/smartops/HeroAudioUpload";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   open: boolean;
@@ -34,7 +37,7 @@ interface Props {
 type LP = {
   id: string;
   form_id: string;
-  mode: "ai" | "briefing";
+  mode: "ai" | "briefing" | "playbook" | "rag";
   input_prompt: string | null;
   content: LPContent | null;
   generated_html: string | null;
@@ -74,6 +77,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
   const [playbook, setPlaybook] = useState("");
+  const [productLink, setProductLink] = useState<{ id: string; name: string } | null>(null);
   const [lp, setLp] = useState<LP | null>(null);
   const [content, setContent] = useState<LPContent | null>(null);
   const [heroImage, setHeroImage] = useState<string>("");
@@ -89,26 +93,45 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     setAiIdea("");
     setBriefing("");
     setPlaybook("");
+    setProductLink(null);
     setLoading(true);
-    supabase
-      .from("smartops_form_landing_pages" as any)
-      .select("*")
-      .eq("form_id", form.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    Promise.all([
+      supabase
+        .from("smartops_form_landing_pages" as any)
+        .select("*")
+        .eq("form_id", form.id)
+        .maybeSingle(),
+      supabase
+        .from("smartops_forms" as any)
+        .select("ln")
+        .eq("id", form.id)
+        .maybeSingle(),
+    ])
+      .then(async ([{ data }, formRow]) => {
+        const productId = (formRow.data as any)?.ln as string | undefined;
+        if (productId) {
+          const { data: prod } = await supabase
+            .from("system_a_catalog" as any)
+            .select("id,name")
+            .eq("id", productId)
+            .maybeSingle();
+          if (prod) setProductLink({ id: (prod as any).id, name: (prod as any).name });
+          else setProductLink({ id: productId, name: "Produto vinculado" });
+        }
         if (data) {
           const row = data as unknown as LP;
           const rowContent = ensureContent(row.content);
           setLp(row);
           setContent(row.content && (row.content as any).hero ? rowContent : null);
           setHeroImage(row.hero_image_url || "");
-          setTab(row.mode === "briefing" ? "briefing" : "ai");
+          setTab(row.mode === "briefing" ? "briefing" : row.mode === "playbook" || row.mode === "rag" ? "playbook" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
           else if ((row.mode as any) === "playbook") setPlaybook(row.input_prompt || "");
           else setAiIdea(row.input_prompt || "");
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [open, form]);
 
   if (!form) return null;
@@ -158,7 +181,11 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   async function handleRegenerate() {
     if (!lp) return;
-    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook";
+    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook" | "rag";
+    if (mode === "rag") {
+      await runGenerate("rag", "");
+      return;
+    }
     const input = (
       lp.input_prompt ??
       (mode === "ai" ? aiIdea : mode === "briefing" ? briefing : playbook)
@@ -171,11 +198,13 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     await runGenerate(mode, input);
   }
 
-  async function runGenerate(mode: "ai" | "briefing" | "playbook", input: string) {
+  async function runGenerate(mode: "ai" | "briefing" | "playbook" | "rag", input: string) {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("landing-page-generator", {
-        body: { form_id: form!.id, mode, input },
+        body: mode === "rag"
+          ? { form_id: form!.id, mode }
+          : { form_id: form!.id, mode, input },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -188,7 +217,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
       const saved = await persist({
         mode,
-        input_prompt: input,
+        input_prompt: mode === "rag" ? `[RAG:${productLink?.id ?? ""}]` : input,
         content: nextContent,
         status: lp?.status ?? "draft",
       } as any);
@@ -203,6 +232,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
       if (msg.includes("rate_limited")) toast.error("Muitas requisições — aguarde alguns segundos");
       else if (msg.includes("credits_exhausted"))
         toast.error("Créditos de IA esgotados — recarregue em Settings");
+      else if (msg.includes("no_product_linked")) toast.error("Este formulário não tem produto vinculado. Vincule um produto no editor do form primeiro.");
       else toast.error(msg);
     } finally {
       setGenerating(false);
@@ -367,6 +397,28 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
               mono
               preview={<LivePreview content={previewContent} heroImage={heroImage} />}
               hint="Modo fidelidade máxima: nome, descrição, sales pitch, preço, promo e specs técnicas são extraídos direto do playbook."
+              topBanner={
+                <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-[#605882]/10 to-[#DF7344]/10 p-3 space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#605882]">
+                    RAG do produto vinculado
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {productLink
+                      ? <>Produto vinculado ao form: <span className="font-semibold text-foreground">{productLink.name}</span>. Puxa tudo do catálogo (descrição, sales pitch, benefícios, specs, comparativo).</>
+                      : <>Nenhum produto vinculado a este formulário. Vincule um produto no editor do form para usar a RAG.</>}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => runGenerate("rag", "")}
+                    disabled={!productLink || generating}
+                    className="w-full gap-2 bg-gradient-to-r from-[#605882] to-[#DF7344] text-white hover:opacity-90"
+                  >
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Usar toda a RAG do produto
+                  </Button>
+                </div>
+              }
               extraHeader={
                 <label className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border bg-white cursor-pointer hover:border-primary hover:text-primary transition">
                   <Upload className="w-3.5 h-3.5" /> Carregar .json
@@ -430,10 +482,12 @@ function GenerateLayout(props: {
   preview: JSX.Element;
   hint: string;
   extraHeader?: JSX.Element;
+  topBanner?: JSX.Element;
 }) {
   return (
     <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
       <div className="h-full min-h-0 border-r p-5 flex flex-col gap-3 overflow-y-auto bg-muted/20">
+        {props.topBanner}
         <div>
           <div className="flex items-center justify-between gap-2">
             <Label className="text-xs">{props.inputLabel}</Label>
@@ -488,6 +542,7 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-regional", label: "Uso da licença" },
   { id: "sec-implantacao", label: "Implantação" },
   { id: "sec-beneficios", label: "O que a Smart Dent entrega" },
+  { id: "sec-comparativo", label: "Tabela comparativa" },
   { id: "sec-faq", label: "FAQ" },
   { id: "sec-cta-final", label: "CTA final" },
   { id: "sec-rodape", label: "Rodapé" },
@@ -560,6 +615,10 @@ function ContentEditor({
   onHeroImageChange: (v: string) => void;
 }) {
   const patch = (p: Partial<LPContent>) => onChange({ ...content, ...p });
+  const sectionsEnabled = content.sectionsEnabled ?? {};
+  const isOn = (k: LPSectionKey) => sectionsEnabled[k] !== false;
+  const toggleSection = (k: LPSectionKey) => (v: boolean) =>
+    patch({ sectionsEnabled: { ...sectionsEnabled, [k]: v } });
 
   return (
     <>
@@ -639,7 +698,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="Como funciona" anchorId="sec-como-funciona">
+      <Section title="Como funciona" anchorId="sec-como-funciona" toggle={{ enabled: isOn("howItWorks"), onChange: toggleSection("howItWorks") }}>
         <TextField label="Título" value={content.howItWorks?.title ?? ""} onChange={(v) => patch({ howItWorks: { ...(content.howItWorks ?? { items: [] }), title: v } })} />
         <StepListEditor
           items={content.howItWorks?.items ?? []}
@@ -647,7 +706,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Oferta / Posicionamento" anchorId="sec-posicionamento">
+      <Section title="Oferta / Posicionamento" anchorId="sec-posicionamento" toggle={{ enabled: isOn("positioning"), onChange: toggleSection("positioning") }}>
         <p className="text-[11px] text-muted-foreground">Bloco laranja abaixo do hero. Use <code>{"{strike}"}</code> na headline onde entra o preço-âncora riscado. Deixe todos os campos vazios para ocultar a seção.</p>
         <TextField label="Eyebrow (ex: OFERTA DE PRÉ-LANÇAMENTO)" value={content.positioning?.eyebrow ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), eyebrow: v } })} />
         <TextField label="Headline (use {strike} para o preço riscado)" value={content.positioning?.headline ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), headline: v } })} multiline />
@@ -656,7 +715,7 @@ function ContentEditor({
         <TextField label="Texto de apoio (opcional)" value={content.positioning?.body ?? ""} onChange={(v) => patch({ positioning: { ...(content.positioning ?? { headline: "" }), body: v } })} multiline />
       </Section>
 
-      <Section title="Condições" anchorId="sec-condicoes">
+      <Section title="Condições" anchorId="sec-condicoes" toggle={{ enabled: isOn("conditions"), onChange: toggleSection("conditions") }}>
         <TextField label="Título da seção" value={content.conditions?.title ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), title: v } })} />
         <TextField label="Subtítulo da seção" value={content.conditions?.subtitle ?? ""} onChange={(v) => patch({ conditions: { ...(content.conditions ?? { cards: defaultConditionCards() }), subtitle: v } })} multiline />
         <ConditionCardsEditor
@@ -665,7 +724,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="Módulos" anchorId="sec-modulos">
+      <Section title="Módulos" anchorId="sec-modulos" toggle={{ enabled: isOn("modules"), onChange: toggleSection("modules") }}>
         <TextField label="Eyebrow (ex: O QUE ESTÁ INCLUÍDO)" value={content.modules?.eyebrow ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), eyebrow: v } })} />
         <TextField label="Título" value={content.modules?.title ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), title: v } })} />
         <TextField label="Subtítulo" value={content.modules?.subtitle ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), subtitle: v } })} multiline />
@@ -688,7 +747,7 @@ function ContentEditor({
         <TextField label="Nota final" value={content.modules?.footnote ?? ""} onChange={(v) => patch({ modules: { ...(content.modules ?? { items: [] }), footnote: v } })} multiline />
       </Section>
 
-      <Section title="Uso seguro e regular da licença" anchorId="sec-regional">
+      <Section title="Uso seguro e regular da licença" anchorId="sec-regional" toggle={{ enabled: isOn("regionalRules"), onChange: toggleSection("regionalRules") }}>
         <TextField label="Título" value={content.regionalRules?.title ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), title: v } })} />
         <TextField label="Introdução" value={content.regionalRules?.intro ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), intro: v } })} multiline />
         <ListEditor
@@ -699,7 +758,7 @@ function ContentEditor({
         <TextField label="Nota final" value={content.regionalRules?.footnote ?? ""} onChange={(v) => patch({ regionalRules: { ...(content.regionalRules ?? { items: [] }), footnote: v } })} multiline />
       </Section>
 
-      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao">
+      <Section title="Implantação, ativação, treinamento e suporte" anchorId="sec-implantacao" toggle={{ enabled: isOn("implementation"), onChange: toggleSection("implementation") }}>
         <TextField label="Título" value={content.implementation?.title ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), title: v } })} />
         <TextField label="Subtítulo" value={content.implementation?.subtitle ?? ""} onChange={(v) => patch({ implementation: { ...(content.implementation ?? {}), subtitle: v } })} multiline />
         <div className="border rounded p-2 space-y-2 bg-muted/30">
@@ -719,7 +778,7 @@ function ContentEditor({
         </div>
       </Section>
 
-      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios">
+      <Section title="O que a Smart Dent entrega" anchorId="sec-beneficios" toggle={{ enabled: isOn("benefits"), onChange: toggleSection("benefits") }}>
         <TextField label="Título" value={content.benefits?.title ?? ""} onChange={(v) => patch({ benefits: { ...(content.benefits ?? { items: [] }), title: v } })} />
         <BenefitsEditor
           items={content.benefits?.items ?? []}
@@ -727,7 +786,18 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="FAQ" anchorId="sec-faq">
+      <Section title="Tabela comparativa" anchorId="sec-comparativo" toggle={{ enabled: isOn("comparison"), onChange: toggleSection("comparison") }}>
+        <p className="text-[11px] text-muted-foreground">Renderiza uma tabela comparativa (produto vs. concorrentes). A segunda coluna é destacada em laranja como "seu produto". Células com "Sim" / "Não" viram check/traço automaticamente.</p>
+        <TextField label="Título" value={content.comparison?.title ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }), title: v } })} />
+        <TextField label="Subtítulo" value={content.comparison?.subtitle ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }), subtitle: v } })} multiline />
+        <ComparisonEditor
+          value={content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }}
+          onChange={(cmp) => patch({ comparison: cmp })}
+        />
+        <TextField label="Nota final" value={content.comparison?.footnote ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto"], rows: [] }), footnote: v } })} multiline />
+      </Section>
+
+      <Section title="FAQ" anchorId="sec-faq" toggle={{ enabled: isOn("faq"), onChange: toggleSection("faq") }}>
         <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">FAQs ({content.faq?.items.length ?? 0})</Label>
@@ -747,7 +817,7 @@ function ContentEditor({
         />
       </Section>
 
-      <Section title="CTA final" anchorId="sec-cta-final">
+      <Section title="CTA final" anchorId="sec-cta-final" toggle={{ enabled: isOn("finalCta"), onChange: toggleSection("finalCta") }}>
         <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
         <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
         <TextField label="CTA" value={content.finalCta?.cta ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "" }), cta: v } })} />
@@ -767,12 +837,39 @@ function ContentEditor({
   );
 }
 
-function Section({ title, children, anchorId }: { title: string; children: React.ReactNode; anchorId?: string }) {
+function Section({
+  title,
+  children,
+  anchorId,
+  toggle,
+}: {
+  title: string;
+  children: React.ReactNode;
+  anchorId?: string;
+  toggle?: { enabled: boolean; onChange: (v: boolean) => void };
+}) {
   return (
     <details open id={anchorId} className="group border rounded-lg bg-white scroll-mt-16">
       <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-sm flex items-center justify-between">
-        {title}
-        <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
+        <span className="flex items-center gap-2">
+          {title}
+          {toggle && !toggle.enabled && (
+            <span className="text-[10px] uppercase font-bold text-muted-foreground bg-muted rounded px-1.5 py-0.5">Oculta</span>
+          )}
+        </span>
+        <span className="flex items-center gap-3">
+          {toggle && (
+            <span
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            >
+              <Switch checked={toggle.enabled} onCheckedChange={toggle.onChange} />
+              {toggle.enabled ? "Visível" : "Oculta"}
+            </span>
+          )}
+          <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
+        </span>
       </summary>
       <div className="px-3 pb-3 space-y-2">{children}</div>
     </details>
@@ -930,8 +1027,8 @@ function StepListEditor({
   items,
   onChange,
 }: {
-  items: { title: string; desc: string }[];
-  onChange: (items: { title: string; desc: string }[]) => void;
+  items: { title: string; desc: string; media?: LPMedia }[];
+  onChange: (items: { title: string; desc: string; media?: LPMedia }[]) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -943,6 +1040,7 @@ function StepListEditor({
           </div>
           <Input value={s.title} onChange={(e) => { const n = [...items]; n[i] = { ...s, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
           <Textarea value={s.desc} onChange={(e) => { const n = [...items]; n[i] = { ...s, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+          <MediaField media={s.media} onChange={(media) => { const n = [...items]; n[i] = { ...s, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { title: "", desc: "" }])} className="h-7 text-xs">
@@ -956,7 +1054,7 @@ function BenefitsEditor({
   items,
   onChange,
 }: {
-  items: { icon: any; title: string; desc: string }[];
+  items: { icon: any; title: string; desc: string; media?: LPMedia }[];
   onChange: (items: any[]) => void;
 }) {
   const icons = ["licenca", "computador", "treinamento", "cartao", "suporte", "brasil", "modulos", "shield", "sparkles", "rocket", "clock"];
@@ -975,8 +1073,10 @@ function BenefitsEditor({
           >
             {icons.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
           </select>
+          <p className="text-[10px] text-muted-foreground">Ícone será substituído se houver imagem/vídeo abaixo.</p>
           <Input value={b.title} onChange={(e) => { const n = [...items]; n[i] = { ...b, title: e.target.value }; onChange(n); }} placeholder="Título" className="h-8 text-sm" />
           <Textarea value={b.desc} onChange={(e) => { const n = [...items]; n[i] = { ...b, desc: e.target.value }; onChange(n); }} rows={2} placeholder="Descrição" className="text-sm" />
+          <MediaField media={b.media} onChange={(media) => { const n = [...items]; n[i] = { ...b, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { icon: "sparkles", title: "", desc: "" }])} className="h-7 text-xs">
@@ -1016,8 +1116,8 @@ function ModulesEditor({
   items,
   onChange,
 }: {
-  items: { name: string; application: string }[];
-  onChange: (items: { name: string; application: string }[]) => void;
+  items: { name: string; application: string; media?: LPMedia }[];
+  onChange: (items: { name: string; application: string; media?: LPMedia }[]) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -1029,11 +1129,156 @@ function ModulesEditor({
           </div>
           <Input value={m.name} onChange={(e) => { const n = [...items]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="Nome do módulo" className="h-8 text-sm" />
           <Textarea value={m.application} onChange={(e) => { const n = [...items]; n[i] = { ...m, application: e.target.value }; onChange(n); }} rows={2} placeholder="Aplicação comercial" className="text-sm" />
+          <MediaField media={m.media} onChange={(media) => { const n = [...items]; n[i] = { ...m, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { name: "", application: "" }])} className="h-7 text-xs">
         + Adicionar módulo
       </Button>
+    </div>
+  );
+}
+
+function MediaField({ media, onChange }: { media?: LPMedia; onChange: (m: LPMedia | undefined) => void }) {
+  return (
+    <div className="rounded border border-dashed border-primary/30 bg-primary/5 p-2 space-y-1.5">
+      <Label className="text-[10px] uppercase font-semibold text-muted-foreground">Imagem/Vídeo (opcional)</Label>
+      <div className="flex items-center gap-1.5">
+        <Input
+          value={media?.url ?? ""}
+          onChange={(e) => onChange(e.target.value ? { ...(media ?? {}), url: e.target.value } : undefined)}
+          placeholder="Cole URL de imagem (.jpg/.png/.webp) ou vídeo (.mp4/.webm)"
+          className="h-8 text-sm"
+        />
+        {media?.url && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange(undefined)} className="h-8 px-2 text-xs">
+            Remover
+          </Button>
+        )}
+      </div>
+      {media?.url && (
+        <>
+          <div className="flex items-center gap-2">
+            <select
+              value={media.type ?? (/(\.mp4|\.webm|\.ogg|\.mov)(\?|$)/i.test(media.url) ? "video" : "image")}
+              onChange={(e) => onChange({ ...(media ?? { url: "" }), type: e.target.value as "image" | "video" })}
+              className="h-7 text-xs rounded border bg-background px-2"
+            >
+              <option value="image">Imagem</option>
+              <option value="video">Vídeo</option>
+            </select>
+            <Input
+              value={media.alt ?? ""}
+              onChange={(e) => onChange({ ...(media ?? { url: "" }), alt: e.target.value })}
+              placeholder="Alt / descrição (SEO)"
+              className="h-7 text-xs flex-1"
+            />
+          </div>
+          <div className="aspect-video rounded overflow-hidden bg-black/5 border">
+            {(media.type === "video" || /(\.mp4|\.webm|\.ogg|\.mov)(\?|$)/i.test(media.url)) ? (
+              <video src={media.url} controls className="w-full h-full object-cover" />
+            ) : (
+              <img src={media.url} alt={media.alt ?? ""} className="w-full h-full object-cover" />
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ComparisonEditor({
+  value,
+  onChange,
+}: {
+  value: NonNullable<LPContent["comparison"]>;
+  onChange: (v: NonNullable<LPContent["comparison"]>) => void;
+}) {
+  const cols = value.columns ?? [];
+  const rows = value.rows ?? [];
+  const setCols = (next: string[]) => {
+    const nextRows = rows.map((r) => ({
+      cells: Array.from({ length: next.length }, (_, i) => r.cells?.[i] ?? ""),
+    }));
+    onChange({ ...value, columns: next, rows: nextRows });
+  };
+  const setRow = (idx: number, next: { cells: string[] }) => {
+    const nextRows = rows.map((r, i) => (i === idx ? next : r));
+    onChange({ ...value, rows: nextRows });
+  };
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Colunas (a 2ª coluna é destacada como "seu produto")</Label>
+        <div className="space-y-1.5">
+          {cols.map((col, i) => (
+            <div key={i} className="flex gap-1">
+              <Input
+                value={col}
+                onChange={(e) => { const n = [...cols]; n[i] = e.target.value; setCols(n); }}
+                placeholder={i === 0 ? "Recurso" : i === 1 ? "Este produto" : `Concorrente ${String.fromCharCode(63 + i)}`}
+                className="h-8 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setCols(cols.filter((_, j) => j !== i))}
+                disabled={cols.length <= 2}
+                className="h-8 px-2 text-xs"
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" onClick={() => setCols([...cols, ""])} className="h-7 text-xs" disabled={cols.length >= 6}>
+            + Adicionar coluna
+          </Button>
+        </div>
+      </div>
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Linhas ({rows.length})</Label>
+        <div className="space-y-2">
+          {rows.map((row, ri) => (
+            <div key={ri} className="border rounded p-2 space-y-1 bg-muted/30">
+              <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+                Linha {ri + 1}
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...value, rows: rows.filter((_, j) => j !== ri) })}
+                  className="hover:text-destructive"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.max(1, cols.length)}, minmax(0, 1fr))` }}>
+                {cols.map((_, ci) => (
+                  <Input
+                    key={ci}
+                    value={row.cells?.[ci] ?? ""}
+                    onChange={(e) => {
+                      const nextCells = Array.from({ length: cols.length }, (_, i) => row.cells?.[i] ?? "");
+                      nextCells[ci] = e.target.value;
+                      setRow(ri, { cells: nextCells });
+                    }}
+                    placeholder={ci === 0 ? "Recurso" : "Valor / Sim / Não"}
+                    className="h-8 text-sm"
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onChange({ ...value, rows: [...rows, { cells: Array(cols.length).fill("") }] })}
+            className="h-7 text-xs"
+          >
+            + Adicionar linha
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

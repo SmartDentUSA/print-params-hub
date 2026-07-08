@@ -22,11 +22,28 @@ export type BenefitIcon =
 
 export type TrustIcon = "shield" | "headphones" | "infinity" | "check" | "clock";
 
+export type LPMedia = { url: string; type?: "image" | "video"; alt?: string };
+
+export type LPSectionKey =
+  | "positioning"
+  | "howItWorks"
+  | "price"
+  | "conditions"
+  | "modules"
+  | "regionalRules"
+  | "implementation"
+  | "benefits"
+  | "comparison"
+  | "testimonials"
+  | "faq"
+  | "finalCta";
+
 export type LPContent = {
   brandName?: string;
   logoUrl?: string;
   theme?: LPThemeKey;
   resellerBadge?: string;
+  sectionsEnabled?: Partial<Record<LPSectionKey, boolean>>;
   nav?: { items: { label: string; anchor?: string }[]; cta?: string };
   trustBar?: string[];
   hero: {
@@ -50,7 +67,7 @@ export type LPContent = {
     highlightPrice?: string;
     body?: string;
   };
-  howItWorks?: { title?: string; items: { title: string; desc: string }[] };
+  howItWorks?: { title?: string; items: { title: string; desc: string; media?: LPMedia }[] };
   price?: {
     ribbon?: string;
     title: string;
@@ -78,7 +95,7 @@ export type LPContent = {
     eyebrow?: string;
     title?: string;
     subtitle?: string;
-    items: { name: string; application: string }[];
+    items: { name: string; application: string; media?: LPMedia }[];
     footnote?: string;
   };
   regionalRules?: {
@@ -94,8 +111,15 @@ export type LPContent = {
     training?: { title: string; body: string };
     support?: { title: string; items: string[] };
   };
-  benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string }[] };
+  benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string; media?: LPMedia }[] };
   testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
+  comparison?: {
+    title?: string;
+    subtitle?: string;
+    columns: string[];
+    rows: { cells: string[] }[];
+    footnote?: string;
+  };
   faq?: { title?: string; items: { q: string; a: string }[] };
   finalCta?: { headline: string; sub?: string; cta: string };
   legal?: string;
@@ -586,9 +610,114 @@ function Headline({ hero }: { hero: LPContent["hero"] }) {
   );
 }
 
+function MediaFrame({ media, className }: { media: LPMedia; className?: string }) {
+  if (!media?.url) return null;
+  const isVideo =
+    media.type === "video" || /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(media.url);
+  return (
+    <div className={`aspect-video bg-[var(--lp-bg-soft)] ${className ?? ""}`}>
+      {isVideo ? (
+        <video
+          src={media.url}
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <img
+          src={media.url}
+          alt={media.alt ?? ""}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
+function ComparisonSection({ comparison }: { comparison: NonNullable<LPContent["comparison"]> }) {
+  return (
+    <section id="comparativo" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+      <div className="max-w-6xl mx-auto px-6">
+        {(comparison.title || comparison.subtitle) && (
+          <div className="max-w-3xl mx-auto text-center">
+            {comparison.title && (
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                {comparison.title}
+              </h2>
+            )}
+            {comparison.subtitle && (
+              <p className="mt-4 text-base md:text-lg leading-relaxed text-[var(--lp-text-soft)]">
+                {comparison.subtitle}
+              </p>
+            )}
+          </div>
+        )}
+        <div
+          className="mt-10 overflow-x-auto rounded-2xl border border-[var(--lp-border)] bg-white"
+          style={{ boxShadow: "0 20px 40px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: GRADIENT_BRAND }} className="text-white">
+                {comparison.columns.map((col, i) => (
+                  <th
+                    key={i}
+                    className={`px-4 py-3.5 text-left font-bold uppercase tracking-wider text-xs ${
+                      i === 1 ? "bg-[var(--lp-orange)]" : ""
+                    }`}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.rows.map((row, r) => (
+                <tr key={r} className={r % 2 === 0 ? "bg-white" : "bg-[var(--lp-bg-soft)]"}>
+                  {comparison.columns.map((_, c) => {
+                    const cell = row.cells?.[c] ?? "";
+                    const isCheck = /^(sim|✓|✔|yes)$/i.test(cell.trim());
+                    const isCross = /^(não|nao|✗|✘|no|—|-)$/i.test(cell.trim());
+                    return (
+                      <td
+                        key={c}
+                        className={`px-4 py-3.5 border-t border-[var(--lp-border)] align-top ${
+                          c === 0 ? "font-bold text-[var(--lp-text)]" : "text-[var(--lp-text-soft)]"
+                        } ${c === 1 ? "bg-[var(--lp-orange)]/5 text-[var(--lp-text)] font-semibold" : ""}`}
+                      >
+                        {isCheck ? (
+                          <span className="inline-flex items-center gap-1 text-[var(--lp-brand)] font-bold">
+                            <TrustSvg name="check" className="w-4 h-4" /> Sim
+                          </span>
+                        ) : isCross ? (
+                          <span className="text-[var(--lp-text-soft)]">—</span>
+                        ) : (
+                          cell
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {comparison.footnote && (
+          <p className="mt-4 text-xs text-[var(--lp-text-soft)] text-center leading-relaxed">
+            {comparison.footnote}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
+  const sectionOn = (k: LPSectionKey) => c.sectionsEnabled?.[k] !== false;
 
   return (
     <div
@@ -704,7 +833,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       </section>
 
       {/* POSITIONING BANNER */}
-      {c.positioning && (
+      {sectionOn("positioning") && c.positioning && (
         <section className="border-y border-[var(--lp-border)] bg-white py-16">
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <div
@@ -755,7 +884,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* HOW IT WORKS */}
-      {c.howItWorks && c.howItWorks.items.length > 0 && (
+      {sectionOn("howItWorks") && c.howItWorks && c.howItWorks.items.length > 0 && (
         <section id="como-funciona" className="py-20 md:py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             {c.howItWorks.title && (
@@ -766,6 +895,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
             <div className="mt-12 grid md:grid-cols-3 gap-6">
               {c.howItWorks.items.map((step, i) => (
                 <div key={i} className="relative rounded-2xl bg-[var(--lp-bg-soft)] p-8 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-[var(--lp-border)]">
+                  {step.media?.url && <MediaFrame media={step.media} className="mb-5 rounded-xl overflow-hidden" />}
                   <div
                     className="w-11 h-11 rounded-xl text-white font-black flex items-center justify-center text-lg mb-5"
                     style={{ background: GRADIENT_BRAND }}
@@ -782,7 +912,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* PRICE CARD */}
-      {c.price && (
+      {sectionOn("price") && c.price && (
         <section id="preco" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
           <div className="max-w-3xl mx-auto px-6">
             <div
@@ -830,7 +960,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
 
       {/* CONDITIONS */}
       {/* BENEFITS */}
-      {c.benefits && c.benefits.items.length > 0 && (
+      {sectionOn("benefits") && c.benefits && c.benefits.items.length > 0 && (
         <section id="beneficios" className="py-20 md:py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
@@ -845,9 +975,13 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   className="group rounded-2xl bg-white border border-[var(--lp-border)] p-7 hover:border-[var(--lp-orange)]/40 hover:-translate-y-1 transition-all duration-300"
                   style={{ boxShadow: "0 10px 25px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-5 group-hover:bg-[var(--lp-orange)] group-hover:text-white transition-colors">
-                    <BenefitSvg name={b.icon} className="w-6 h-6" />
-                  </div>
+                  {b.media?.url ? (
+                    <MediaFrame media={b.media} className="mb-5 rounded-xl overflow-hidden" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-[var(--lp-orange)]/10 text-[var(--lp-orange)] flex items-center justify-center mb-5 group-hover:bg-[var(--lp-orange)] group-hover:text-white transition-colors">
+                      <BenefitSvg name={b.icon} className="w-6 h-6" />
+                    </div>
+                  )}
                   <h3 className="text-lg font-bold text-[var(--lp-text)] mb-2">{b.title}</h3>
                   <p className="text-sm text-[var(--lp-text-soft)] leading-relaxed">{b.desc}</p>
                 </div>
@@ -858,7 +992,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* MODULES — Ultimate Lab Bundle */}
-      {c.modules && c.modules.items.length > 0 && (
+      {sectionOn("modules") && c.modules && c.modules.items.length > 0 && (
         <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
           <div className="max-w-6xl mx-auto px-6">
             <div className="max-w-3xl">
@@ -884,6 +1018,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
                   key={i}
                   className="rounded-2xl bg-white border border-[var(--lp-border)] p-5 hover:border-[var(--lp-orange)]/40 transition"
                 >
+                  {m.media?.url && <MediaFrame media={m.media} className="mb-3 rounded-lg overflow-hidden" />}
                   <div className="flex items-start gap-3">
                     <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[var(--lp-orange)]/10 flex items-center justify-center">
                       <TrustSvg name="check" className="w-3 h-3 text-[var(--lp-orange)]" />
@@ -908,7 +1043,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* REGIONAL RULES — Uso seguro e regular da licença */}
-      {c.regionalRules && c.regionalRules.items.length > 0 && (
+      {sectionOn("regionalRules") && c.regionalRules && c.regionalRules.items.length > 0 && (
         <section id="uso-regular" className="py-20 md:py-24 bg-white">
           <div className="max-w-4xl mx-auto px-6">
             <div
@@ -950,7 +1085,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* IMPLEMENTATION — Implantação, ativação, treinamento e suporte */}
-      {c.implementation && (
+      {sectionOn("implementation") && c.implementation && (
         <section id="implantacao" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
           <div className="max-w-6xl mx-auto px-6">
             <div className="max-w-3xl mx-auto text-center">
@@ -1009,7 +1144,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* TESTIMONIALS */}
-      {c.testimonials && c.testimonials.items.length > 0 && (
+      {sectionOn("testimonials") && c.testimonials && c.testimonials.items.length > 0 && (
         <section className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
           <div className="max-w-6xl mx-auto px-6">
             {c.testimonials.title && (
@@ -1036,7 +1171,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* FAQ */}
-      {c.conditions && (c.conditions.cards ?? []).length > 0 && (
+      {sectionOn("conditions") && c.conditions && (c.conditions.cards ?? []).length > 0 && (
         <section id="condicoes" className="py-20 md:py-24 bg-white">
           <div className="max-w-7xl mx-auto px-6">
             {(c.conditions.title || c.conditions.subtitle) && (
@@ -1123,7 +1258,11 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
         </section>
       )}
 
-      {c.faq && c.faq.items.length > 0 && (
+      {sectionOn("comparison") && c.comparison && c.comparison.columns?.length > 0 && (c.comparison.rows?.length ?? 0) > 0 && (
+        <ComparisonSection comparison={c.comparison} />
+      )}
+
+      {sectionOn("faq") && c.faq && c.faq.items.length > 0 && (
         <section id="faq" className="py-20 md:py-24 bg-white">
           <div className="max-w-3xl mx-auto px-6">
             <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center text-[var(--lp-text)]">
@@ -1147,7 +1286,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* FINAL CTA */}
-      {c.finalCta && (
+      {sectionOn("finalCta") && c.finalCta && (
         <section id="contato" className="relative py-20 md:py-24 overflow-hidden text-white" style={{ background: GRADIENT_BRAND }}>
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-white opacity-10 blur-3xl" aria-hidden />
           <div className="relative max-w-3xl mx-auto px-6 text-center">
