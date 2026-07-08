@@ -562,7 +562,7 @@ function buildLpEmailHtml(opts: {
 
         <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
           <div style="border-top:1px solid ${t.border};padding-top:18px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};text-align:center;">
-            Enviado por <strong style="color:${BRAND.ink};">Smart Dent | Fluxo Digital</strong> para {{nome}}.<br/>
+            Enviado por <strong style="color:${t.text};">Smart Dent | Fluxo Digital</strong> para {{nome}}.<br/>
             Consultoria e revenda oficial em odontologia digital.
           </div>
         </td></tr>
