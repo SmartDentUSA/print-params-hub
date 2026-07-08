@@ -1,54 +1,51 @@
-## Padronizar o e-mail em 4 seções fixas espelhadas da LP
+## Clonar a Landing Page 1:1 no e-mail (mesmo texto, mesmas condições, mesmo layout)
 
-O e-mail gerado sempre terá exatamente **4 seções**, na ordem abaixo, com conteúdo copiado literalmente da Landing Page (sem reescrita de IA no layout, sem blocos extras como "Como funciona", "Módulos", "Benefícios" etc.).
+O e-mail passa a ser um **espelho fiel da LP publicada**, renderizado em HTML email-safe. Nada de IA reescrevendo, nada de template genérico. Se está na LP, está no e-mail — nas mesmas palavras, mesma ordem, mesmos blocos, mesmas cores.
 
-### Estrutura fixa
+### Estratégia
 
-**Seção 1 — Hero com imagem (verbatim da LP)**
-- Badge (ex.: "LICENÇA OFICIAL - RMS PARA O BRASIL")
-- Eyebrow (ex.: "PRÉ-LANÇAMENTO")
-- Headline principal em display grande, exatamente como na LP (com destaque colorido em `<span class="hl">` quando existir)
-- Subheadline curta, exatamente como na LP
-- CTA primário + CTA secundário (mesmos textos da LP)
-- Trust row (ícones/textos curtos da LP, ex.: "Licença Oficial exocad", "Casos Ilimitados", "Suporte Smart Dent")
-- Imagem hero da LP (produto/campanha) à direita/abaixo em fallback mobile
-- Nada é reescrito por IA nesta seção
+Em vez de deixar a IA "montar" o e-mail a partir de um dossiê, vamos **ler o mesmo `content` (LPContent) usado pelo `PremiumLandingTemplate`** e renderizar cada seção da LP como uma tabela HTML compatível com Gmail/Outlook, mantendo:
 
-**Seção 2 — Oferta / Posicionamento**
-- Bloco de fundo suave (tom claro do tema da LP)
-- Título curto de posicionamento vindo da LP (ex.: "Oportunidade histórica da exocad no Brasil")
-- 2–4 parágrafos curtos vindos direto do bloco de posicionamento da LP
-- Sem preços, sem valores numéricos comerciais (sanitizador `stripPrices` continua ativo)
+- Textos verbatim (headline, subheadline, badges, eyebrow, bullets, parágrafos, itens de condições, CTA)
+- Ordem exata das seções que existem no `content` da LP
+- Paleta/tema da LP (cores primária, fundo, texto) aplicadas inline
+- Imagem hero da LP
+- Links de CTA apontando para a LP publicada (`/lp/{slug}`)
 
-**Seção 3 — Condições**
-- Título "Condições" (ou o rótulo equivalente da LP)
-- Lista das condições comerciais da LP (ativação, recorrência, treinamento, suporte, licenciamento), em bullets curtos
-- Valores em R$ são removidos/parafraseados para "recorrência mensal", "ativação inclusa" etc. (mantendo a política de "sem preços em e-mail IA")
-- Sem cards decorativos extras
+### O que o e-mail vai conter (na ordem da LP)
 
-**Seção 4 — CTA final**
-- Banner com fundo escuro/gradiente do tema da LP
-- Headline curta de fechamento (verbatim da LP `finalCta.title` quando existir, senão headline principal encurtada)
-- Um único botão CTA (mesmo texto da LP `nav.cta` / `finalCta.button`)
-- Linha de assinatura simples "Smart Dent | Fluxo Digital" + link/telefone da LP
+Renderiza **exatamente as seções que existirem em `lp.content`**, uma a uma, no mesmo layout visual da LP, adaptado para e-mail:
 
-### O que muda no código
+1. **Hero** — badge, eyebrow, headline (com `<span class="hl">` preservado como cor de destaque), subheadline, CTA primário, CTA secundário, trust row, imagem hero — texto idêntico.
+2. **Posicionamento / Oferta** — título + parágrafos verbatim.
+3. **Como funciona / Módulos / Benefícios / Implementação** — se existirem no `content` da LP, aparecem no e-mail com os mesmos textos e mesma ordem (não são mais suprimidos). O e-mail espelha a LP; não inventa nem remove blocos.
+4. **Condições** — título + itens verbatim. `stripPrices` continua ativo só aqui, por política ("sem preços em e-mail IA"): valores em R$ viram "recorrência mensal", "ativação inclusa", etc. Todo o resto do texto do bloco fica igual.
+5. **CTA Final** — headline + botão verbatim, cor do tema.
+6. **Assinatura** — "Smart Dent | Fluxo Digital" + telefone/link da LP.
+
+Se um bloco não existir na LP, ele simplesmente não aparece no e-mail. Se existir, aparece igual.
+
+### Papel da IA
+
+**Nenhum**, por padrão. A geração vira **determinística**: lê o `content` da LP e serializa em HTML email-safe. `source` na resposta passa a ser sempre `"landing_page_verbatim"`.
+
+Fica um flag opcional (`aiTone: true`, desligado por padrão) que só pode ajustar micro-tom em `subject` e `preheader` — nunca o corpo. Se falhar, usa o headline/subheadline da LP.
+
+### Mudanças de código
 
 - `supabase/functions/smart-ops-generate-email-ai/index.ts`
-  - Reescrever `buildLpEmailHtml` para renderizar **somente** essas 4 seções, nessa ordem, ignorando `modules`, `benefits`, `implementation`, "como funciona", "por que escolher".
-  - `loadLpDossier` passa a extrair apenas: `hero {badge, eyebrow, headline, subheadline, ctaPrimary, ctaSecondary, trustRow, heroImage}`, `positioning {title, paragraphs}`, `conditions {title, items}`, `finalCta {title, button, footerLine}`, `theme`, `logoUrl`, `brandName`.
-  - IA continua desligada para layout; ela só pode ajustar micro-tom em textos curtos (opcional) — se falhar, usa verbatim.
-  - `stripPrices` reforçado para a Seção 3 (Condições).
-  - Resposta continua expondo `source: "landing_page_verbatim" | "landing_page_ai" | "catalog_dossier"`.
+  - `loadLpDossier` passa a devolver o `LPContent` completo (hero, positioning, howItWorks, modules, benefits, implementation, conditions, finalCta, theme, logoUrl, brandName, lpUrl) — sem descartar seções.
+  - `buildLpEmailHtml` reescrita para iterar as seções presentes no `content` e renderizar cada uma como tabela HTML inline, com cores do `theme` da LP e imagem hero real.
+  - `stripPrices` aplicado **apenas** aos itens da seção Condições.
+  - Prompt de IA para corpo do e-mail é **removido**; IA só toca `subject`/`preheader` se `aiTone` estiver ligado.
+  - `source` sempre `"landing_page_verbatim"`.
 
 - `src/components/smartops/EmailCampaignWizard.tsx`
-  - Badge do preview atualizado para: "E-mail padrão 4 seções (Hero · Oferta · Condições · CTA)".
+  - Badge do preview: "Espelho fiel da Landing Page (verbatim)".
   - Sem outras mudanças de UX.
 
 ### Fora do escopo
 
 - Não altero a Landing Page.
-- Não altero envio Gmail / SMS / config.toml.
-- Não crio migrations.
-- Não coloco preços no e-mail gerado por IA.
-- Removo do e-mail (não da LP) blocos "Como funciona", "Módulos" e "Benefícios" — eles não fazem parte das 4 seções pedidas.
+- Não altero envio Gmail, SMS, config.toml, migrations.
+- Preços continuam removidos **apenas** do bloco Condições no e-mail (política existente); LP fica intocada.
