@@ -1130,8 +1130,13 @@ Receba o texto bruto abaixo e:
     }
   };
 
-  const handleSaveContent = async () => {
-    if (!formData.title || !formData.excerpt) {
+  const saveContentToDatabase = async (
+    formOverrides: Partial<typeof formData> = {},
+    options: { closeModal?: boolean } = { closeModal: true }
+  ) => {
+    const effectiveFormData = { ...formData, ...formOverrides };
+
+    if (!effectiveFormData.title || !effectiveFormData.excerpt) {
       toast({
         title: "⚠️ Campos obrigatórios",
         description: "Preencha Título e Resumo antes de salvar.",
@@ -1141,42 +1146,42 @@ Receba o texto bruto abaixo e:
     }
 
     try {
-      const categoryId = formData.category_id
+      const categoryId = effectiveFormData.category_id
         || categories.find(c => c.letter === selectedCategory)?.id;
       
       const contentData = {
-        title: formData.title,
+        title: effectiveFormData.title,
         title_es: titleES || null,
         title_en: titleEN || null,
-        slug: formData.slug || generateSlug(formData.title),
-        excerpt: formData.excerpt,
+        slug: effectiveFormData.slug || generateSlug(effectiveFormData.title),
+        excerpt: effectiveFormData.excerpt,
         excerpt_es: excerptES || null,
         excerpt_en: excerptEN || null,
-        content_html: formData.content_html,
+        content_html: effectiveFormData.content_html,
         content_html_es: contentES || null,
         content_html_en: contentEN || null,
-        icon_color: formData.icon_color,
-        meta_description: formData.meta_description,
-        og_image_url: formData.og_image_url,
-        content_image_url: formData.content_image_url,
-        content_image_alt: formData.content_image_alt,
-        canva_template_url: formData.canva_template_url,
-        file_url: formData.file_url,
-        file_name: formData.file_name,
-        author_id: formData.author_id,
-        keywords: formData.keywords?.length > 0 ? formData.keywords : null,
-        faqs: formData.faqs,
+        icon_color: effectiveFormData.icon_color,
+        meta_description: effectiveFormData.meta_description,
+        og_image_url: effectiveFormData.og_image_url,
+        content_image_url: effectiveFormData.content_image_url,
+        content_image_alt: effectiveFormData.content_image_alt,
+        canva_template_url: effectiveFormData.canva_template_url,
+        file_url: effectiveFormData.file_url,
+        file_name: effectiveFormData.file_name,
+        author_id: effectiveFormData.author_id,
+        keywords: effectiveFormData.keywords?.length > 0 ? effectiveFormData.keywords : null,
+        faqs: effectiveFormData.faqs,
         faqs_es: faqsES.length > 0 ? faqsES : null,
         faqs_en: faqsEN.length > 0 ? faqsEN : null,
-        order_index: formData.order_index,
-        active: formData.active,
-        ai_prompt_template: formData.aiPromptTemplate || null,
+        order_index: effectiveFormData.order_index,
+        active: effectiveFormData.active,
+        ai_prompt_template: effectiveFormData.aiPromptTemplate || null,
         category_id: categoryId,
-        recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
-        recommended_products: formData.recommended_products?.length > 0 ? formData.recommended_products : null,
-        selected_pdf_ids_pt: formData.selected_pdf_ids_pt || [],
-        selected_pdf_ids_es: formData.selected_pdf_ids_es || [],
-        selected_pdf_ids_en: formData.selected_pdf_ids_en || [],
+        recommended_resins: effectiveFormData.recommended_resins?.length > 0 ? effectiveFormData.recommended_resins : null,
+        recommended_products: effectiveFormData.recommended_products?.length > 0 ? effectiveFormData.recommended_products : null,
+        selected_pdf_ids_pt: effectiveFormData.selected_pdf_ids_pt || [],
+        selected_pdf_ids_es: effectiveFormData.selected_pdf_ids_es || [],
+        selected_pdf_ids_en: effectiveFormData.selected_pdf_ids_en || [],
       };
 
       console.log('💾 Saving content with PDFs:', {
@@ -1252,6 +1257,7 @@ Receba o texto bruto abaixo e:
       } else {
         const newContent = await insertContent(contentData);
         if (newContent) {
+          setEditingContent(newContent);
           for (const video of videos) {
             await insertVideo({ ...video, content_id: newContent.id });
           }
@@ -1263,11 +1269,13 @@ Receba o texto bruto abaixo e:
       setPendingAutoSave(false);
       await loadContents();
       
-      // ✅ CORREÇÃO: Aguardar 1 tick antes de fechar o modal
-      // Garante que setPendingAutoSave(false) seja propagado antes de onOpenChange verificar
-      setTimeout(() => {
-        setModalOpen(false);
-      }, 0);
+      if (options.closeModal !== false) {
+        // ✅ CORREÇÃO: Aguardar 1 tick antes de fechar o modal
+        // Garante que setPendingAutoSave(false) seja propagado antes de onOpenChange verificar
+        setTimeout(() => {
+          setModalOpen(false);
+        }, 0);
+      }
     } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
       toast({
@@ -1276,6 +1284,10 @@ Receba o texto bruto abaixo e:
         variant: "destructive"
       });
     }
+  };
+
+  const handleSaveContent = async () => {
+    await saveContentToDatabase();
   };
   
   // Translate content function
