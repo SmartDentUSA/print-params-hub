@@ -821,14 +821,14 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
 
         const bulletsClean = Array.isArray(parsed.bullets)
           ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
-          : [];
+          : (lp.hero.bullets || []).map(b => stripPrices(b)).filter(Boolean).slice(0, 5);
 
         const howClean = Array.isArray(parsed.how_it_works)
           ? parsed.how_it_works
               .map((h: any) => ({ title: stripPrices(String(h?.title || "")), desc: stripPrices(String(h?.desc || "")) }))
               .filter((h: any) => h.title || h.desc)
               .slice(0, 3)
-          : [];
+          : (lp.how_it_works || []).map(h => ({ title: stripPrices(h.title), desc: stripPrices(h.desc) })).filter(h => h.title || h.desc).slice(0, 3);
 
         const positioningClean = parsed.positioning && (parsed.positioning.headline || parsed.positioning.body)
           ? {
@@ -836,7 +836,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
               headline: stripPrices(String(parsed.positioning.headline || "")),
               body: stripPrices(String(parsed.positioning.body || "")),
             }
-          : undefined;
+          : lp.positioning;
 
         const ctaBtnLabel = String(parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais").slice(0, 40);
 
@@ -852,15 +852,24 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           subject: String(parsed.subject || produtoCtx?.name || "Smart Dent"),
           preheader: stripPrices(String(parsed.preheader || "")),
           heroImageUrl: heroImage,
+          logoUrl: lp.logo_url || null,
+          brandName: lp.brand_name || "Smart Dent",
+          theme: lp.theme,
+          badge: lp.hero.badge || "",
           eyebrow: stripPrices(String(parsed.eyebrow || lp.hero.eyebrow || "")),
           headlineHtml: safeHeadline,
-          sub: stripPrices(String(parsed.sub || "")),
+          sub: stripPrices(String(parsed.sub || lp.hero.sub || "")),
           bullets: bulletsClean,
           trust: lp.hero.trust || [],
           positioning: positioningClean,
+          howTitle: lp.how_title,
           howItWorks: howClean,
+          benefits: lp.benefits,
+          modules: lp.modules,
+          implementation: lp.implementation,
+          finalCta: lp.final_cta,
           ctaPrimary: { label: ctaBtnLabel, url: cta_principal.url },
-          ctaSecondary: secondary ? { label: ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
+          ctaSecondary: secondary ? { label: lp.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
           resellerBadge: lp.reseller_badge,
         });
 
