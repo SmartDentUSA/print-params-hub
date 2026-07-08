@@ -523,6 +523,180 @@ function buildLpEmailHtml(opts: {
        </td></tr>`
     : "";
 
+  // ── How it works ──
+  const howItWorksHtml = howItWorks && howItWorks.items && howItWorks.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         ${howItWorks.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(howItWorks.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${howItWorks.items.map((step, i) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:16px;">
+                 <tr>
+                   <td width="64" valign="top" style="padding:18px 0 18px 18px;">
+                     <div style="width:44px;height:44px;border-radius:12px;background:${t.brand};background:${grad};font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:16px;line-height:44px;text-align:center;color:#ffffff;">${String(i + 1).padStart(2, "0")}</div>
+                   </td>
+                   <td valign="top" style="padding:18px 20px 18px 14px;">
+                     ${step.title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:4px;">${esc(step.title)}</div>` : ""}
+                     ${step.desc ? `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(step.desc)}</div>` : ""}
+                   </td>
+                 </tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Price card (single) ──
+  const priceHtml = price && price.includes && price.includes.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};background:${softGrad};">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:22px;overflow:hidden;">
+           ${price.ribbon ? `<tr><td align="center" style="padding:12px 20px;background:${t.brand};background:${grad};font-family:Inter,Arial,sans-serif;font-weight:900;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff;">${esc(price.ribbon)}</td></tr>` : ""}
+           <tr><td style="padding:24px 24px 22px 24px;">
+             ${price.title ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:24px;line-height:1.15;color:${t.text};margin-bottom:14px;">${esc(price.title)}</div>` : ""}
+             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+               ${price.includes.map((it) => `
+                 <tr><td valign="top" style="padding:5px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+                   <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+                 </td></tr>`).join("")}
+             </table>
+             <div style="margin-top:20px;">${primaryButton(price.cta || ctaPrimary.label, ctaPrimary.url)}</div>
+             ${price.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};font-style:italic;text-align:center;">${esc(price.footnote)}</div>` : ""}
+           </td></tr>
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Modules ──
+  const modulesHtml = modules && modules.items && modules.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};">
+         ${modules.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:${t.textSoft};font-weight:900;margin-bottom:6px;">${esc(modules.eyebrow)}</div>` : ""}
+         ${modules.title ? `<h2 style="margin:0 0 8px 0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(modules.title)}</h2>` : ""}
+         ${modules.subtitle ? `<p style="margin:0 0 18px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${modules.items.map((m) => `
+             <tr><td valign="top" style="padding:0 0 10px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:14px;">
+                 <tr>
+                   <td width="30" valign="top" style="padding:14px 0 14px 14px;">
+                     <div style="width:18px;height:18px;border-radius:50%;background:${t.orangeSoft};text-align:center;line-height:18px;color:${t.orange};font-family:Arial,sans-serif;font-weight:900;font-size:11px;">✓</div>
+                   </td>
+                   <td valign="top" style="padding:14px 16px 14px 10px;">
+                     ${m.name ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:14px;color:${t.text};line-height:1.3;">${esc(m.name)}</div>` : ""}
+                     ${m.application ? `<div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.5;color:${t.textSoft};margin-top:3px;">${esc(m.application)}</div>` : ""}
+                   </td>
+                 </tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+         ${modules.footnote ? `<div style="margin-top:8px;padding:12px 14px;background:#ffffff99;border:1px solid ${t.border};border-radius:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};">${esc(modules.footnote)}</div>` : ""}
+       </td></tr>`
+    : "";
+
+  // ── Regional rules ──
+  const regionalRulesHtml = regionalRules && regionalRules.items && regionalRules.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:20px;">
+           <tr><td style="padding:22px 22px 8px 22px;">
+             ${regionalRules.title ? `<h2 style="margin:0 0 6px 0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:22px;line-height:1.2;color:${t.text};">${esc(regionalRules.title)}</h2>` : ""}
+             ${regionalRules.intro ? `<p style="margin:0 0 14px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(regionalRules.intro)}</p>` : ""}
+           </td></tr>
+           <tr><td style="padding:0 22px 22px 22px;">
+             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+               ${regionalRules.items.map((r) => `
+                 <tr><td valign="top" style="padding:6px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+                   <span style="display:inline-block;width:7px;height:7px;background:${t.brand};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(r)}
+                 </td></tr>`).join("")}
+             </table>
+             ${regionalRules.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">${esc(regionalRules.footnote)}</div>` : ""}
+           </td></tr>
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Implementation (activation/training/support) ──
+  const implCard = (title: string, bodyHtml: string) => `
+    <tr><td valign="top" style="padding:0 0 12px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+        <tr><td style="padding:20px 20px;">
+          ${title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:8px;">${esc(title)}</div>` : ""}
+          ${bodyHtml}
+        </td></tr>
+      </table>
+    </td></tr>`;
+  const implListHtml = (items: string[]) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      ${items.map((it) => `
+        <tr><td valign="top" style="padding:4px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+          <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+        </td></tr>`).join("")}
+    </table>`;
+  const implementationHtml = implementation
+    && (implementation.activation || implementation.training || implementation.support)
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};background:${softGrad};">
+         ${implementation.title ? `<h2 style="margin:0 0 8px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(implementation.title)}</h2>` : ""}
+         ${implementation.subtitle ? `<p style="margin:0 auto 20px auto;max-width:520px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.subtitle)}</p>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${implementation.activation ? implCard(implementation.activation.title || "Ativação", implListHtml(implementation.activation.items || [])) : ""}
+           ${implementation.training ? implCard(implementation.training.title || "Treinamento", `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.training.body || "")}</div>`) : ""}
+           ${implementation.support ? implCard(implementation.support.title || "Suporte", implListHtml(implementation.support.items || [])) : ""}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Benefits ──
+  const benefitsHtml = benefits && benefits.items && benefits.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         ${benefits.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(benefits.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${benefits.items.map((b) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+                 <tr><td style="padding:18px 20px;">
+                   ${b.title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:4px;">${esc(b.title)}</div>` : ""}
+                   ${b.desc ? `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(b.desc)}</div>` : ""}
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Testimonials ──
+  const testimonialsHtml = testimonials && testimonials.items && testimonials.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};">
+         ${testimonials.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:24px;line-height:1.15;color:${t.text};">${esc(testimonials.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${testimonials.items.map((tm) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+                 <tr><td style="padding:20px 22px;">
+                   <div style="font-family:Georgia,serif;font-style:italic;font-size:15px;line-height:1.6;color:${t.text};">“${esc(tm.quote)}”</div>
+                   <div style="margin-top:12px;padding-top:10px;border-top:1px solid ${t.border};font-family:Inter,Arial,sans-serif;font-size:13px;color:${t.text};font-weight:800;">${esc(tm.author)}${tm.role ? ` <span style="font-weight:500;color:${t.textSoft};"> · ${esc(tm.role)}</span>` : ""}</div>
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── FAQ ──
+  const faqHtml = faq && faq.items && faq.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         <h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(faq.title || "Perguntas frequentes")}</h2>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${faq.items.map((qa) => `
+             <tr><td valign="top" style="padding:0 0 10px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:14px;">
+                 <tr><td style="padding:16px 18px;">
+                   <div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:15px;color:${t.text};margin-bottom:6px;">${esc(qa.q)}</div>
+                   <div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(qa.a)}</div>
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
   const heroImgHtml = heroImageUrl
     ? `<img src="${esc(heroImageUrl)}" alt="Produto" width="300" style="display:block;width:100%;max-width:300px;height:auto;border-radius:18px;box-shadow:0 28px 60px rgba(66,73,92,0.18);" />`
     : "";
