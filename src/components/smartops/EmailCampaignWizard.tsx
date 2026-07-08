@@ -630,7 +630,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                     )}
                     {sections.length > 0 && sections.every(s => !s.removable) && (
                       <div className="text-xs text-muted-foreground p-3 border rounded bg-muted/30">
-                        Este email não tem seções marcadas. Regere para que a IA divida o conteúdo em blocos (hero, benefícios, CTA, prova social, rodapé) que você pode ligar/desligar aqui.
+                        Este email tem um único bloco de conteúdo. Não foi possível detectar seções automaticamente — regere para que a IA gere blocos separados (hero, benefícios, CTA, prova social, rodapé).
+                      </div>
+                    )}
+                    {sections.some(s => s.auto) && (
+                      <div className="text-xs text-muted-foreground p-2 mb-2 border rounded bg-muted/20">
+                        Seções detectadas automaticamente. Rótulos são aproximações — regere o email para rótulos mais precisos.
                       </div>
                     )}
                     <div className="space-y-2">
