@@ -933,6 +933,12 @@ REGRAS ABSOLUTAS:
 - PROIBIDO incluir depoimentos, citações de clientes, blocos em itálico com nome de dentista, "Dra. Joyce", "Cliente Smart Dent" ou qualquer prova social. O e-mail vai direto do dossiê ao CTA.
 - Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
 
+SEÇÕES OBRIGATÓRIAS (para o editor visual do usuário):
+- Envolva CADA bloco principal do corpo em \`<section data-section="KEY" data-section-label="Nome amigável">…</section>\`.
+- KEYs permitidas (use nesta ordem quando existirem): \`hero\`, \`intro\`, \`benefits\`, \`cta\`, \`social-proof\` (só se houver — hoje é proibido), \`footer\`.
+- \`data-section-label\` em português curto (ex: "Hero", "Benefícios", "CTA", "Rodapé"). Sem seções aninhadas.
+- Não use \`<section>\` para nada além dessa marcação de blocos.
+
 REGRAS DE LINKS (CRÍTICAS — QUEBRAM O E-MAIL SE VIOLADAS):
 - Todo \`<a href="...">\` do HTML DEVE usar EXATAMENTE uma das URLs listadas abaixo em "CALLS-TO-ACTION". Não invente URLs, não use encurtadores, não use utm.
 - PROIBIDO qualquer link para: WhatsApp, wa.me, api.whatsapp.com, mailto:, telefone (tel:), redes sociais (instagram/facebook/youtube/linkedin/tiktok), base de conhecimento (/base-conhecimento/...), blog, ou qualquer outro domínio/rota.

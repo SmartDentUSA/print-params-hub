@@ -9,8 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus } from "lucide-react";
+import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus, Code2, LayoutList, Type } from "lucide-react";
 import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { EmailRichEditor } from "./EmailRichEditor";
+import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 
 type CtaType = "landing" | "form" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
@@ -73,6 +77,30 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [showPreview, setShowPreview] = useState(true);
   const [dispatchMode, setDispatchMode] = useState<"now" | "scheduled">("now");
   const [scheduledAt, setScheduledAt] = useState<string>("");
+
+  // ── Section toggles ──
+  const [sections, setSections] = useState<EmailSection[]>([]);
+  const [editorTab, setEditorTab] = useState<"visual" | "html" | "sections">("visual");
+
+  // Re-parse sections whenever the HTML changes, preserving enabled state by key+ordinal.
+  useEffect(() => {
+    setSections((prev) => {
+      const parsed = parseSections(html);
+      const seen = new Map<string, number>();
+      return parsed.map((p) => {
+        const idx = seen.get(p.key) ?? 0;
+        seen.set(p.key, idx + 1);
+        const match = prev.filter((s) => s.key === p.key)[idx];
+        return match ? { ...p, enabled: match.enabled } : p;
+      });
+    });
+  }, [html]);
+
+  const effectiveHtml = useMemo(() => {
+    if (!html) return "";
+    if (sections.length === 0) return html;
+    return serializeSections(html, sections);
+  }, [html, sections]);
 
   // ── Load who am I ──
   useEffect(() => {
@@ -247,7 +275,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         body: {
           campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
           description, from_name: fromName,
-          subject, preheader, html,
+          subject, preheader, html: effectiveHtml || html,
           filters,
           cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
           test_email: testEmail,
@@ -272,7 +300,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         body: {
           campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
           description, from_name: fromName,
-          subject, preheader, html, filters,
+          subject, preheader, html: effectiveHtml || html, filters,
           cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
           scheduled_at: dispatchMode === "scheduled" ? new Date(scheduledAt).toISOString() : undefined,
         },
@@ -288,7 +316,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     } finally { setSending(false); }
   }
 
-  const previewHtml = html
+  const previewHtml = effectiveHtml
     .split("{{nome}}").join("Dr. João")
     .split("{{primeiro_nome}}").join("Dr. João")
     .split("{{vendedor_nome}}").join(fromName);
@@ -572,8 +600,55 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               <div>
-                <Label className="text-xs">HTML</Label>
-                <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
+                <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as typeof editorTab)}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="visual" className="text-xs gap-1"><Type className="w-3 h-3" /> Visual</TabsTrigger>
+                    <TabsTrigger value="html" className="text-xs gap-1"><Code2 className="w-3 h-3" /> HTML</TabsTrigger>
+                    <TabsTrigger value="sections" className="text-xs gap-1">
+                      <LayoutList className="w-3 h-3" /> Seções
+                      {sections.filter(s => s.removable).length > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                          {sections.filter(s => s.enabled && s.removable).length}/{sections.filter(s => s.removable).length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="visual" className="mt-2">
+                    <EmailRichEditor value={html} onChange={setHtml} />
+                    {sections.some(s => s.removable && !s.enabled) && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.
+                      </p>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="html" className="mt-2">
+                    <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
+                  </TabsContent>
+                  <TabsContent value="sections" className="mt-2">
+                    {sections.length === 0 && (
+                      <p className="text-xs text-muted-foreground p-3">Gere o email para ver as seções.</p>
+                    )}
+                    {sections.length > 0 && sections.every(s => !s.removable) && (
+                      <div className="text-xs text-muted-foreground p-3 border rounded bg-muted/30">
+                        Este email não tem seções marcadas. Regere para que a IA divida o conteúdo em blocos (hero, benefícios, CTA, prova social, rodapé) que você pode ligar/desligar aqui.
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {sections.filter(s => s.removable).map((s) => (
+                        <div key={s.id} className="flex items-center justify-between border rounded px-3 py-2 bg-background">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{s.label}</span>
+                            <span className="text-[11px] text-muted-foreground">{s.key}</span>
+                          </div>
+                          <Switch
+                            checked={s.enabled}
+                            onCheckedChange={() => setSections(prev => toggleSection(prev, s.id))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
               {showPreview && (
                 <div>
@@ -755,7 +830,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           seedFromCurrent={{
             produto_id: produtoId,
             audience_filter: filters,
-            subject, preheader, html,
+            subject, preheader, html: effectiveHtml || html,
             cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
             cta_button_label: ctaLabel,
             tom,
