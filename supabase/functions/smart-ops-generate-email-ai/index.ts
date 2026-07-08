@@ -86,6 +86,7 @@ async function loadLpDossier(
 ): Promise<LPDossier | null> {
   try {
     let row: any = null;
+    let reason = "";
 
     // Prefer explicit landing CTA id.
     if (ctaPrincipal?.tipo === "landing" && ctaPrincipal.id) {
@@ -94,7 +95,9 @@ async function loadLpDossier(
         .select("id, hero_image_url, content, status, form_id")
         .eq("id", ctaPrincipal.id)
         .maybeSingle();
-      if (data && data.status === "published") row = data;
+      if (!data) reason = "cta_id_not_found";
+      else if (data.status !== "published") reason = `cta_status_${data.status}`;
+      else row = data;
     }
 
     // Fallback: any published LP whose form belongs to this product.
@@ -102,7 +105,9 @@ async function loadLpDossier(
       const { data: forms } = await supabase
         .from("smartops_forms").select("id").eq("product_catalog_id", produtoId);
       const ids = (forms || []).map((f: any) => f.id);
-      if (ids.length) {
+      if (!ids.length) {
+        reason = reason || "no_forms_for_product";
+      } else {
         const { data } = await supabase
           .from("smartops_form_landing_pages")
           .select("id, hero_image_url, content, status, form_id")
@@ -110,10 +115,17 @@ async function loadLpDossier(
           .eq("status", "published")
           .limit(1);
         if (data && data[0]) row = data[0];
+        else reason = reason || "no_published_lp_for_forms";
       }
     }
 
-    if (!row || !row.content) return null;
+    if (!row || !row.content) {
+      console.log("[generate-email-ai] loadLpDossier no row:", reason || "no_reason", {
+        cta_id: ctaPrincipal?.id, cta_tipo: ctaPrincipal?.tipo, produto_id: produtoId,
+      });
+      return null;
+    }
+    console.log("[generate-email-ai] LP row loaded:", row.id, "hero:", row.hero_image_url ? "yes" : "no");
     const c = row.content as any;
 
     const parts = Array.isArray(c?.hero?.headlineParts)
