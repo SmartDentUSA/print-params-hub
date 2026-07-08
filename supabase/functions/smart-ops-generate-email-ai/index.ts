@@ -769,7 +769,15 @@ function buildLpEmailHtml(opts: {
         </td></tr>
 
         ${positioningHtml}
+        ${howItWorksHtml}
+        ${priceHtml}
         ${conditionsHtml}
+        ${modulesHtml}
+        ${regionalRulesHtml}
+        ${implementationHtml}
+        ${benefitsHtml}
+        ${testimonialsHtml}
+        ${faqHtml}
         ${finalCtaHtml}
 
         <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
