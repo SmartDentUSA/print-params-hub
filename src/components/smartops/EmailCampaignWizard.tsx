@@ -614,7 +614,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="visual" className="mt-2">
-                    <EmailRichEditor value={effectiveHtml || html} onChange={setHtml} />
+                    <EmailRichEditor value={html} onChange={setHtml} />
+                    {sections.some(s => s.removable && !s.enabled) && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.
+                      </p>
+                    )}
                   </TabsContent>
                   <TabsContent value="html" className="mt-2">
                     <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
