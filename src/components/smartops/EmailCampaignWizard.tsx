@@ -78,6 +78,30 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [dispatchMode, setDispatchMode] = useState<"now" | "scheduled">("now");
   const [scheduledAt, setScheduledAt] = useState<string>("");
 
+  // ── Section toggles ──
+  const [sections, setSections] = useState<EmailSection[]>([]);
+  const [editorTab, setEditorTab] = useState<"visual" | "html" | "sections">("visual");
+
+  // Re-parse sections whenever the HTML changes, preserving enabled state by key+ordinal.
+  useEffect(() => {
+    setSections((prev) => {
+      const parsed = parseSections(html);
+      const seen = new Map<string, number>();
+      return parsed.map((p) => {
+        const idx = seen.get(p.key) ?? 0;
+        seen.set(p.key, idx + 1);
+        const match = prev.filter((s) => s.key === p.key)[idx];
+        return match ? { ...p, enabled: match.enabled } : p;
+      });
+    });
+  }, [html]);
+
+  const effectiveHtml = useMemo(() => {
+    if (!html) return "";
+    if (sections.length === 0) return html;
+    return serializeSections(html, sections);
+  }, [html, sections]);
+
   // ── Load who am I ──
   useEffect(() => {
     (async () => {
