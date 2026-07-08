@@ -613,22 +613,19 @@ Deno.serve(async (req) => {
           trust: lp.hero.trust || [],
         },
         positioning: lp.positioning || null,
-        howItWorks: lp.how_it_works || [],
-        benefits: lp.benefits?.items || [],
-        modules: lp.modules?.items || [],
-        implementation: lp.implementation || null,
+        conditions: lp.conditions || null,
       };
 
-      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail, aplicando o TOM escolhido, sem inventar nada além do que está no dossiê da LP.
+      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail em 4 SEÇÕES FIXAS: (1) Hero, (2) Oferta/Posicionamento, (3) Condições, (4) CTA final. NÃO invente novas seções.
 
 REGRAS ABSOLUTAS:
 - NUNCA cite preços, valores em R$, descontos numéricos ou promoções com valor. NUNCA cite "assinatura mensal de R$…", "de R$… por R$…".
 - Preserve o significado e o posicionamento originais da LP. Reescreva no TOM: ${tomInstruction}
 - Português do Brasil. Sem emojis exagerados (máx 1 no assunto).
 - Headline: mantenha a intenção da headline da LP. Se a LP marcou parte com «…», envolva a MESMA ideia com <span class="hl">…</span> no seu HTML (será renderizada com gradiente roxo→laranja no e-mail).
-- Bullets: 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
+- Bullets (Hero): 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
 - Positioning body: máx 260 chars, sem preços.
-- How it works: até 3 passos, título curto (máx 32 chars) e desc (máx 140 chars).
+- Seções "Como funciona", "Módulos", "Benefícios", "Implantação" NÃO devem ser geradas — o e-mail final tem só 4 seções.
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
 {
@@ -640,7 +637,6 @@ SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
   "sub": string (máx 220 chars),
   "bullets": string[] (3-5 itens),
   "positioning": { "eyebrow": string, "headline": string, "body": string } | null,
-  "how_it_works": [{ "title": string, "desc": string }] (0 a 3),
   "plain_text": string (versão texto puro do email, com CTA no final)
 }`;
 
@@ -658,11 +654,7 @@ Hero:
 
 Positioning LP: ${lpBrief.positioning ? JSON.stringify(lpBrief.positioning) : "(nenhum)"}
 
-How it works LP: ${(lpBrief.howItWorks || []).length ? JSON.stringify(lpBrief.howItWorks) : "(nenhum)"}
-
-Benefícios LP (opcional para inspirar bullets se hero.bullets estiver vazio): ${(lpBrief.benefits || []).length ? JSON.stringify(lpBrief.benefits) : "(nenhum)"}
-Módulos LP (não reescrever; layout renderiza direto da LP): ${(lpBrief.modules || []).length ? `${lpBrief.modules.length} módulos disponíveis` : "(nenhum)"}
-Implantação/Suporte LP: ${lpBrief.implementation ? JSON.stringify(lpBrief.implementation).slice(0, 1200) : "(nenhum)"}
+Condições LP (renderizadas direto pelo template — não reescrever): ${lpBrief.conditions ? `${(lpBrief.conditions.items || []).length} condição(ões) disponível(is)` : "(nenhum)"}
 
 ═══ AUDIÊNCIA ═══
 ${segmento_resumo || "leads da base Smart Dent"}
