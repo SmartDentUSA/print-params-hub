@@ -84,38 +84,21 @@ function esc(s: unknown): string {
   }[c] as string));
 }
 
-// Strip anything price-shaped from LP text (Core rule: no prices in AI content).
+// Verbatim mirror: no price stripping. The email must match the Landing Page 1:1,
+// including commercial values, discounts and percentages exactly as published.
 function stripPrices(s: string): string {
-  if (!s) return s;
-  return s
-    .replace(/R\$\s*[\d.,]+/gi, "")
-    .replace(/\binicia-se a cobrança mensal de\s*(?:no cartão cadastrado)?/gi, "inicia-se a recorrência no cartão cadastrado")
-    .replace(/\bcobrança mensal de\s*(?:no cartão)?/gi, "recorrência")
-    .replace(/\b(?:de|por|mensalidade\s+de|ativação\s+de|cobrança\s+mensal\s+de)\s*[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?/gi, "")
-    .replace(/\b[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?\s*(?:no cartão|por mês|mensais|mensal|\/mês)/gi, "")
-    .replace(/\b\d+(?:[,.]\d+)?%\b/g, "")
-    .replace(/\{strike\}/gi, "")
-    .replace(/\bpor\s+R\$[^.,]*/gi, "")
-    .replace(/\s+([,.!?:;])/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return s ?? "";
 }
 
 function cleanPriceHeavyText(v: unknown): string {
-  const raw = typeof v === "string" ? v : cleanLpText(v);
-  if (!raw) return "";
-  const hadCommercialValue = /R\$|\b(?:por|de)\s*[\d]{1,3}(?:\.\d{3})*(?:,\d{2})?|\b\d+(?:[,.]\d+)?%\b/i.test(raw);
-  const cleaned = stripPrices(raw);
-  if (!hadCommercialValue) return cleaned;
-  if (cleaned.length < 30 || /\b(de|por|mensalidade|desconto)\b/i.test(cleaned)) return "";
-  return cleaned;
+  return cleanLpText(v);
 }
 
 function cleanLpText(v: unknown): string {
   if (v == null) return "";
   if (Array.isArray(v)) return v.map(cleanLpText).filter(Boolean).join(" ");
   if (typeof v === "object") return "";
-  return stripPrices(String(v));
+  return String(v);
 }
 
 type LPDossier = {
