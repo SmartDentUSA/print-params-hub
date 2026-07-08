@@ -786,6 +786,17 @@ function ContentEditor({
         />
       </Section>
 
+      <Section title="Tabela comparativa" anchorId="sec-comparativo" toggle={{ enabled: isOn("comparison"), onChange: toggleSection("comparison") }}>
+        <p className="text-[11px] text-muted-foreground">Renderiza uma tabela comparativa (produto vs. concorrentes). A segunda coluna é destacada em laranja como "seu produto". Células com "Sim" / "Não" viram check/traço automaticamente.</p>
+        <TextField label="Título" value={content.comparison?.title ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }), title: v } })} />
+        <TextField label="Subtítulo" value={content.comparison?.subtitle ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }), subtitle: v } })} multiline />
+        <ComparisonEditor
+          value={content.comparison ?? { columns: ["Recurso", "Este produto", "Concorrente A"], rows: [] }}
+          onChange={(cmp) => patch({ comparison: cmp })}
+        />
+        <TextField label="Nota final" value={content.comparison?.footnote ?? ""} onChange={(v) => patch({ comparison: { ...(content.comparison ?? { columns: ["Recurso", "Este produto"], rows: [] }), footnote: v } })} multiline />
+      </Section>
+
       <Section title="FAQ" anchorId="sec-faq" toggle={{ enabled: isOn("faq"), onChange: toggleSection("faq") }}>
         <TextField label="Título" value={content.faq?.title ?? ""} onChange={(v) => patch({ faq: { ...(content.faq ?? { items: [] }), title: v } })} />
         <div className="flex items-center justify-between">
