@@ -97,7 +97,7 @@ const ALLOWED_CONTENT_KEYS = [
   'content_html', 'content_html_es', 'content_html_en',
   'icon_color', 'file_url', 'file_name',
   'meta_description', 'og_image_url', 'content_image_url', 'content_image_alt', 'canva_template_url',
-  'author_id', 'faqs', 'faqs_es', 'faqs_en', 'order_index', 'active', 'category_id', 'recommended_resins',
+  'author_id', 'faqs', 'faqs_es', 'faqs_en', 'order_index', 'active', 'category_id', 'recommended_resins', 'recommended_products',
   'ai_prompt_template', 'keywords', 'keyword_ids',
   'selected_pdf_ids_pt', 'selected_pdf_ids_es', 'selected_pdf_ids_en'
 ];
