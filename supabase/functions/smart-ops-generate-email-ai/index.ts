@@ -300,11 +300,7 @@ function buildLpEmailHtml(opts: {
   bullets?: string[];
   trust?: string[];
   positioning?: { eyebrow?: string; headline?: string; body?: string };
-  howTitle?: string;
-  howItWorks?: { title: string; desc: string }[];
-  benefits?: { title?: string; items: { title: string; desc: string }[] };
-  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
-  implementation?: LPDossier["implementation"];
+  conditions?: LPDossier["conditions"];
   finalCta?: { headline?: string; sub?: string; cta?: string };
   ctaPrimary: { label: string; url: string };
   ctaSecondary?: { label: string; url: string } | null;
@@ -312,8 +308,8 @@ function buildLpEmailHtml(opts: {
 }): string {
   const {
     preheader, heroImageUrl, logoUrl, brandName = "Smart Dent", theme, eyebrow, badge,
-    headlineHtml, sub, bullets, trust, positioning, howTitle, howItWorks, benefits,
-    modules, implementation, finalCta, ctaPrimary, ctaSecondary, resellerBadge,
+    headlineHtml, sub, bullets, trust, positioning, conditions,
+    finalCta, ctaPrimary, ctaSecondary, resellerBadge,
   } = opts;
 
   const t = getTheme(theme);
