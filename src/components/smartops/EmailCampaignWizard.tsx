@@ -47,6 +47,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [tom, setTom] = useState<string>("consultivo");
   const [tomCustom, setTomCustom] = useState<string>("");
   const [useLandingPage, setUseLandingPage] = useState<boolean>(true);
+  const [emailSource, setEmailSource] = useState<"landing_page_ai" | "landing_page_verbatim" | "catalog_dossier" | null>(null);
 
   // ── Generated content ──
   const [subject, setSubject] = useState("");
@@ -217,7 +218,19 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         setHtml(d.html_body);
         setStep(2);
       }
-      toast.success(mode === "subject" ? "Assunto regenerado" : "Email gerado pela IA");
+      const src = (d.source || null) as typeof emailSource;
+      setEmailSource(src);
+      if (mode === "all") {
+        if (useLandingPage && ctaPrincipal?.tipo === "landing" && src === "catalog_dossier") {
+          toast.warning("A LP do produto não foi encontrada — gerado a partir do catálogo.");
+        } else if (src === "landing_page_verbatim") {
+          toast.warning("IA indisponível — layout da LP com copy original.");
+        } else {
+          toast.success("Email gerado a partir da Landing Page");
+        }
+      } else {
+        toast.success("Assunto regenerado");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro na geração");
     } finally {
@@ -502,7 +515,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   Usar a Landing Page do produto como base visual e de copy
                 </label>
                 {useLandingPage && (
-                  <Badge variant="secondary" className="text-[10px]">Copy espelhada da LP</Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {emailSource === "landing_page_ai"
+                      ? "Copy espelhada da LP (IA + tom)"
+                      : emailSource === "landing_page_verbatim"
+                      ? "Layout da LP (copy original)"
+                      : emailSource === "catalog_dossier"
+                      ? "Fallback: dossiê do catálogo"
+                      : "Copy espelhada da LP"}
+                  </Badge>
                 )}
               </div>
             )}

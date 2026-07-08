@@ -86,6 +86,7 @@ async function loadLpDossier(
 ): Promise<LPDossier | null> {
   try {
     let row: any = null;
+    let reason = "";
 
     // Prefer explicit landing CTA id.
     if (ctaPrincipal?.tipo === "landing" && ctaPrincipal.id) {
@@ -94,7 +95,9 @@ async function loadLpDossier(
         .select("id, hero_image_url, content, status, form_id")
         .eq("id", ctaPrincipal.id)
         .maybeSingle();
-      if (data && data.status === "published") row = data;
+      if (!data) reason = "cta_id_not_found";
+      else if (data.status !== "published") reason = `cta_status_${data.status}`;
+      else row = data;
     }
 
     // Fallback: any published LP whose form belongs to this product.
@@ -102,7 +105,9 @@ async function loadLpDossier(
       const { data: forms } = await supabase
         .from("smartops_forms").select("id").eq("product_catalog_id", produtoId);
       const ids = (forms || []).map((f: any) => f.id);
-      if (ids.length) {
+      if (!ids.length) {
+        reason = reason || "no_forms_for_product";
+      } else {
         const { data } = await supabase
           .from("smartops_form_landing_pages")
           .select("id, hero_image_url, content, status, form_id")
@@ -110,10 +115,17 @@ async function loadLpDossier(
           .eq("status", "published")
           .limit(1);
         if (data && data[0]) row = data[0];
+        else reason = reason || "no_published_lp_for_forms";
       }
     }
 
-    if (!row || !row.content) return null;
+    if (!row || !row.content) {
+      console.log("[generate-email-ai] loadLpDossier no row:", reason || "no_reason", {
+        cta_id: ctaPrincipal?.id, cta_tipo: ctaPrincipal?.tipo, produto_id: produtoId,
+      });
+      return null;
+    }
+    console.log("[generate-email-ai] LP row loaded:", row.id, "hero:", row.hero_image_url ? "yes" : "no");
     const c = row.content as any;
 
     const parts = Array.isArray(c?.hero?.headlineParts)
@@ -258,7 +270,7 @@ function buildLpEmailHtml(opts: {
 
   const ctaBtn = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 0 auto;">
-      <tr><td align="center" style="border-radius:12px;background:${grad};">
+      <tr><td align="center" bgcolor="${BRAND.purple}" style="border-radius:12px;background:${BRAND.purple};background:${grad};">
         <a href="${esc(ctaPrimary.url)}" style="display:inline-block;padding:16px 32px;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:15px;letter-spacing:0.3px;color:#ffffff;text-decoration:none;border-radius:12px;">
           ${esc(ctaPrimary.label)} →
         </a>
@@ -402,11 +414,48 @@ Deno.serve(async (req) => {
 
     // ── Load Landing Page dossier (primary copy + visual source of truth) ──
     const lp = use_landing_page ? await loadLpDossier(supabase, cta_principal, produto_id) : null;
+    console.log("[generate-email-ai] LP branch selected:", lp ? "YES" : "NO",
+      "regenerate=", regenerate, "cta_url=", cta_principal?.url ? "yes" : "no");
+
+    // Helper: build the branded email using LP content verbatim (no LLM copy).
+    const buildVerbatim = (lpData: LPDossier, subj: string) => {
+      const heroImage = lpData.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
+      const headlineVerbatim = lpData.hero.headline_parts?.length
+        ? lpData.hero.headline_parts.map(p =>
+            p.highlight ? `<span class="hl">${esc(p.text)}</span>` : esc(p.text)
+          ).join("")
+        : esc(lpData.hero.headline || produtoCtx?.name || "Smart Dent");
+      const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
+      return buildLpEmailHtml({
+        subject: subj,
+        preheader: stripPrices(lpData.hero.sub || ""),
+        heroImageUrl: heroImage,
+        eyebrow: lpData.hero.eyebrow || "",
+        headlineHtml: headlineVerbatim,
+        sub: stripPrices(lpData.hero.sub || ""),
+        bullets: (lpData.hero.bullets || []).map(b => stripPrices(b)),
+        trust: lpData.hero.trust || [],
+        positioning: lpData.positioning ? {
+          eyebrow: lpData.positioning.eyebrow,
+          headline: stripPrices(lpData.positioning.headline || ""),
+          body: stripPrices(lpData.positioning.body || ""),
+        } : undefined,
+        howItWorks: (lpData.how_it_works || []).map(h => ({
+          title: stripPrices(h.title), desc: stripPrices(h.desc),
+        })),
+        ctaPrimary: { label: ctaLabel(cta_principal!), url: cta_principal!.url! },
+        ctaSecondary: secondary ? { label: ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
+        resellerBadge: lpData.reseller_badge,
+      });
+    };
 
     // If we have an LP, take the deterministic-assembly path:
     // ask the LLM ONLY for the copy fields, then render the branded skeleton server-side.
+    // If the LLM fails, we DO NOT fall back to the legacy prompt — we render the LP verbatim
+    // so the email always keeps the LP visual identity.
     if (lp && cta_principal?.url && regenerate === "all") {
       const heroImage = lp.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
+      console.log("[generate-email-ai] LP branch selected id=", (lp as any).id || "?", "hero_image=", heroImage || "none");
 
       const lpBrief = {
         hero: {
@@ -489,16 +538,37 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
         }),
       });
 
+      const doVerbatimReturn = (reason: string) => {
+        console.warn("[generate-email-ai] fallback_to_lp_verbatim reason=", reason);
+        const html = buildVerbatim(lp, produtoCtx?.name || produto || "Smart Dent");
+        return new Response(JSON.stringify({
+          success: true,
+          subject: (produtoCtx?.name || "Smart Dent").slice(0, 90),
+          preheader: stripPrices(lp.hero.sub || "").slice(0, 130),
+          cta_button_label: ctaLabel(cta_principal!) || "Saiba mais",
+          html_body: html,
+          plain_text: "",
+          produto_context: produtoCtx,
+          source: "landing_page_verbatim",
+          fallback_reason: reason,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      };
+
       if (!copyRes.ok) {
         const errTxt = await copyRes.text();
         console.error("[generate-email-ai/lp] gateway error", copyRes.status, errTxt);
-        // Fall through to the legacy dossier path below.
-      } else {
+        return doVerbatimReturn(`gateway_${copyRes.status}`);
+      }
+      {
         const aiJson = await copyRes.json();
         const content = aiJson.choices?.[0]?.message?.content || "{}";
         let parsed: any = {};
         try { parsed = JSON.parse(content); }
         catch { const m = content.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; }
+
+        if (!parsed || !parsed.headline_html) {
+          return doVerbatimReturn("empty_llm_json");
+        }
 
         const bulletsClean = Array.isArray(parsed.bullets)
           ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
@@ -522,12 +592,19 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
         const ctaBtnLabel = String(parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais").slice(0, 40);
 
         const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
+
+        // Sanitize headline_html: allow only <span class="hl">…</span>. Strip anything else.
+        const rawHeadline = stripPrices(String(parsed.headline_html || lp.hero.headline || ""));
+        const safeHeadline = rawHeadline
+          .replace(/<(?!\/?span\b|\/?SPAN\b)[^>]*>/g, "")
+          .replace(/<span(?![^>]*class=["']?hl)[^>]*>/gi, "");
+
         const html = buildLpEmailHtml({
           subject: String(parsed.subject || produtoCtx?.name || "Smart Dent"),
           preheader: stripPrices(String(parsed.preheader || "")),
           heroImageUrl: heroImage,
           eyebrow: stripPrices(String(parsed.eyebrow || lp.hero.eyebrow || "")),
-          headlineHtml: stripPrices(String(parsed.headline_html || lp.hero.headline || "")),
+          headlineHtml: safeHeadline,
           sub: stripPrices(String(parsed.sub || "")),
           bullets: bulletsClean,
           trust: lp.hero.trust || [],
@@ -538,6 +615,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           resellerBadge: lp.reseller_badge,
         });
 
+        console.log("[generate-email-ai] LP branch OK — source=landing_page_ai");
         return new Response(JSON.stringify({
           success: true,
           subject: String(parsed.subject || "").slice(0, 90),
@@ -546,7 +624,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           html_body: html,
           plain_text: stripPrices(String(parsed.plain_text || "")),
           produto_context: produtoCtx,
-          source: "landing_page",
+          source: "landing_page_ai",
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
@@ -677,6 +755,7 @@ Retorne JSON no formato:
       html_body: sanitizedHtml,
       plain_text: sanitizedText,
       produto_context: produtoCtx,
+      source: "catalog_dossier",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[generate-email-ai] error", err);
