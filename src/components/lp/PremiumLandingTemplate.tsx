@@ -610,6 +610,110 @@ function Headline({ hero }: { hero: LPContent["hero"] }) {
   );
 }
 
+function MediaFrame({ media, className }: { media: LPMedia; className?: string }) {
+  if (!media?.url) return null;
+  const isVideo =
+    media.type === "video" || /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(media.url);
+  return (
+    <div className={`aspect-video bg-[var(--lp-bg-soft)] ${className ?? ""}`}>
+      {isVideo ? (
+        <video
+          src={media.url}
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <img
+          src={media.url}
+          alt={media.alt ?? ""}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
+function ComparisonSection({ comparison }: { comparison: NonNullable<LPContent["comparison"]> }) {
+  return (
+    <section id="comparativo" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+      <div className="max-w-6xl mx-auto px-6">
+        {(comparison.title || comparison.subtitle) && (
+          <div className="max-w-3xl mx-auto text-center">
+            {comparison.title && (
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                {comparison.title}
+              </h2>
+            )}
+            {comparison.subtitle && (
+              <p className="mt-4 text-base md:text-lg leading-relaxed text-[var(--lp-text-soft)]">
+                {comparison.subtitle}
+              </p>
+            )}
+          </div>
+        )}
+        <div
+          className="mt-10 overflow-x-auto rounded-2xl border border-[var(--lp-border)] bg-white"
+          style={{ boxShadow: "0 20px 40px -20px color-mix(in oklab, var(--lp-brand) 25%, transparent)" }}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: GRADIENT_BRAND }} className="text-white">
+                {comparison.columns.map((col, i) => (
+                  <th
+                    key={i}
+                    className={`px-4 py-3.5 text-left font-bold uppercase tracking-wider text-xs ${
+                      i === 1 ? "bg-[var(--lp-orange)]" : ""
+                    }`}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.rows.map((row, r) => (
+                <tr key={r} className={r % 2 === 0 ? "bg-white" : "bg-[var(--lp-bg-soft)]"}>
+                  {comparison.columns.map((_, c) => {
+                    const cell = row.cells?.[c] ?? "";
+                    const isCheck = /^(sim|✓|✔|yes)$/i.test(cell.trim());
+                    const isCross = /^(não|nao|✗|✘|no|—|-)$/i.test(cell.trim());
+                    return (
+                      <td
+                        key={c}
+                        className={`px-4 py-3.5 border-t border-[var(--lp-border)] align-top ${
+                          c === 0 ? "font-bold text-[var(--lp-text)]" : "text-[var(--lp-text-soft)]"
+                        } ${c === 1 ? "bg-[var(--lp-orange)]/5 text-[var(--lp-text)] font-semibold" : ""}`}
+                      >
+                        {isCheck ? (
+                          <span className="inline-flex items-center gap-1 text-[var(--lp-brand)] font-bold">
+                            <TrustSvg name="check" className="w-4 h-4" /> Sim
+                          </span>
+                        ) : isCross ? (
+                          <span className="text-[var(--lp-text-soft)]">—</span>
+                        ) : (
+                          cell
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {comparison.footnote && (
+          <p className="mt-4 text-xs text-[var(--lp-text-soft)] text-center leading-relaxed">
+            {comparison.footnote}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
