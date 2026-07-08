@@ -1113,8 +1113,8 @@ function ModulesEditor({
   items,
   onChange,
 }: {
-  items: { name: string; application: string }[];
-  onChange: (items: { name: string; application: string }[]) => void;
+  items: { name: string; application: string; media?: LPMedia }[];
+  onChange: (items: { name: string; application: string; media?: LPMedia }[]) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -1126,11 +1126,156 @@ function ModulesEditor({
           </div>
           <Input value={m.name} onChange={(e) => { const n = [...items]; n[i] = { ...m, name: e.target.value }; onChange(n); }} placeholder="Nome do módulo" className="h-8 text-sm" />
           <Textarea value={m.application} onChange={(e) => { const n = [...items]; n[i] = { ...m, application: e.target.value }; onChange(n); }} rows={2} placeholder="Aplicação comercial" className="text-sm" />
+          <MediaField media={m.media} onChange={(media) => { const n = [...items]; n[i] = { ...m, media }; onChange(n); }} />
         </div>
       ))}
       <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { name: "", application: "" }])} className="h-7 text-xs">
         + Adicionar módulo
       </Button>
+    </div>
+  );
+}
+
+function MediaField({ media, onChange }: { media?: LPMedia; onChange: (m: LPMedia | undefined) => void }) {
+  return (
+    <div className="rounded border border-dashed border-primary/30 bg-primary/5 p-2 space-y-1.5">
+      <Label className="text-[10px] uppercase font-semibold text-muted-foreground">Imagem/Vídeo (opcional)</Label>
+      <div className="flex items-center gap-1.5">
+        <Input
+          value={media?.url ?? ""}
+          onChange={(e) => onChange(e.target.value ? { ...(media ?? {}), url: e.target.value } : undefined)}
+          placeholder="Cole URL de imagem (.jpg/.png/.webp) ou vídeo (.mp4/.webm)"
+          className="h-8 text-sm"
+        />
+        {media?.url && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange(undefined)} className="h-8 px-2 text-xs">
+            Remover
+          </Button>
+        )}
+      </div>
+      {media?.url && (
+        <>
+          <div className="flex items-center gap-2">
+            <select
+              value={media.type ?? (/(\.mp4|\.webm|\.ogg|\.mov)(\?|$)/i.test(media.url) ? "video" : "image")}
+              onChange={(e) => onChange({ ...(media ?? { url: "" }), type: e.target.value as "image" | "video" })}
+              className="h-7 text-xs rounded border bg-background px-2"
+            >
+              <option value="image">Imagem</option>
+              <option value="video">Vídeo</option>
+            </select>
+            <Input
+              value={media.alt ?? ""}
+              onChange={(e) => onChange({ ...(media ?? { url: "" }), alt: e.target.value })}
+              placeholder="Alt / descrição (SEO)"
+              className="h-7 text-xs flex-1"
+            />
+          </div>
+          <div className="aspect-video rounded overflow-hidden bg-black/5 border">
+            {(media.type === "video" || /(\.mp4|\.webm|\.ogg|\.mov)(\?|$)/i.test(media.url)) ? (
+              <video src={media.url} controls className="w-full h-full object-cover" />
+            ) : (
+              <img src={media.url} alt={media.alt ?? ""} className="w-full h-full object-cover" />
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ComparisonEditor({
+  value,
+  onChange,
+}: {
+  value: NonNullable<LPContent["comparison"]>;
+  onChange: (v: NonNullable<LPContent["comparison"]>) => void;
+}) {
+  const cols = value.columns ?? [];
+  const rows = value.rows ?? [];
+  const setCols = (next: string[]) => {
+    const nextRows = rows.map((r) => ({
+      cells: Array.from({ length: next.length }, (_, i) => r.cells?.[i] ?? ""),
+    }));
+    onChange({ ...value, columns: next, rows: nextRows });
+  };
+  const setRow = (idx: number, next: { cells: string[] }) => {
+    const nextRows = rows.map((r, i) => (i === idx ? next : r));
+    onChange({ ...value, rows: nextRows });
+  };
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Colunas (a 2ª coluna é destacada como "seu produto")</Label>
+        <div className="space-y-1.5">
+          {cols.map((col, i) => (
+            <div key={i} className="flex gap-1">
+              <Input
+                value={col}
+                onChange={(e) => { const n = [...cols]; n[i] = e.target.value; setCols(n); }}
+                placeholder={i === 0 ? "Recurso" : i === 1 ? "Este produto" : `Concorrente ${String.fromCharCode(63 + i)}`}
+                className="h-8 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setCols(cols.filter((_, j) => j !== i))}
+                disabled={cols.length <= 2}
+                className="h-8 px-2 text-xs"
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" onClick={() => setCols([...cols, ""])} className="h-7 text-xs" disabled={cols.length >= 6}>
+            + Adicionar coluna
+          </Button>
+        </div>
+      </div>
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Linhas ({rows.length})</Label>
+        <div className="space-y-2">
+          {rows.map((row, ri) => (
+            <div key={ri} className="border rounded p-2 space-y-1 bg-muted/30">
+              <div className="flex items-center justify-between text-[10px] uppercase text-muted-foreground">
+                Linha {ri + 1}
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...value, rows: rows.filter((_, j) => j !== ri) })}
+                  className="hover:text-destructive"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.max(1, cols.length)}, minmax(0, 1fr))` }}>
+                {cols.map((_, ci) => (
+                  <Input
+                    key={ci}
+                    value={row.cells?.[ci] ?? ""}
+                    onChange={(e) => {
+                      const nextCells = Array.from({ length: cols.length }, (_, i) => row.cells?.[i] ?? "");
+                      nextCells[ci] = e.target.value;
+                      setRow(ri, { cells: nextCells });
+                    }}
+                    placeholder={ci === 0 ? "Recurso" : "Valor / Sim / Não"}
+                    className="h-8 text-sm"
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onChange({ ...value, rows: [...rows, { cells: Array(cols.length).fill("") }] })}
+            className="h-7 text-xs"
+          >
+            + Adicionar linha
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
