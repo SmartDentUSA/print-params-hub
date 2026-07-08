@@ -1116,7 +1116,7 @@ Receba o texto bruto abaixo e:
 
   const saveContentToDatabase = async (
     formOverrides: Partial<typeof formData> = {},
-    options: { closeModal?: boolean } = { closeModal: true }
+    options: { closeModal?: boolean; successToast?: boolean } = { closeModal: true, successToast: true }
   ) => {
     const effectiveFormData = { ...formData, ...formOverrides };
 
@@ -1126,7 +1126,7 @@ Receba o texto bruto abaixo e:
         description: "Preencha Título e Resumo antes de salvar.",
         variant: "destructive"
       });
-      return;
+      return false;
     }
 
     try {
@@ -1237,7 +1237,9 @@ Receba o texto bruto abaixo e:
           }
         }
         
-        toast({ title: "✅ Conteúdo atualizado!" });
+        if (options.successToast !== false) {
+          toast({ title: "✅ Conteúdo atualizado!" });
+        }
       } else {
         const newContent = await insertContent(contentData);
         if (newContent) {
@@ -1246,7 +1248,9 @@ Receba o texto bruto abaixo e:
             await insertVideo({ ...video, content_id: newContent.id });
           }
         }
-        toast({ title: "✅ Conteúdo criado!" });
+        if (options.successToast !== false) {
+          toast({ title: "✅ Conteúdo criado!" });
+        }
       }
       
       setPromptEdited(false);
@@ -1260,6 +1264,7 @@ Receba o texto bruto abaixo e:
           setModalOpen(false);
         }, 0);
       }
+      return true;
     } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
       toast({
@@ -1267,6 +1272,7 @@ Receba o texto bruto abaixo e:
         description: error?.message || "Verifique os campos e tente novamente.",
         variant: "destructive"
       });
+      return false;
     }
   };
 
