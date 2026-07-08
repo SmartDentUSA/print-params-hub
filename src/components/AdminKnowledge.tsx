@@ -958,6 +958,18 @@ Receba o texto bruto abaixo e:
     setGeneratedHTML(null);
     setGeneratedFAQs(null);
     setRawTextInput('');
+    setOrchestratorActiveSources({
+      rawText: false,
+      pdfTranscription: false,
+      videoTranscription: false,
+      relatedPdfs: false,
+    });
+    setOrchestratorExtractedData({
+      rawText: '',
+      pdfTranscription: '',
+      videoTranscription: '',
+      relatedPdfs: [],
+    });
     setPendingAutoSave(false);
     setPreviousHTML(null);
     setFormData({
@@ -1013,6 +1025,18 @@ Receba o texto bruto abaixo e:
     setGeneratedHTML(null);
     setGeneratedFAQs(null);
     setRawTextInput('');
+    setOrchestratorActiveSources({
+      rawText: false,
+      pdfTranscription: false,
+      videoTranscription: false,
+      relatedPdfs: false,
+    });
+    setOrchestratorExtractedData({
+      rawText: '',
+      pdfTranscription: '',
+      videoTranscription: '',
+      relatedPdfs: [],
+    });
     setPendingAutoSave(false);
     setPreviousHTML(null);
     setFormData({
