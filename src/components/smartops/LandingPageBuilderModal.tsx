@@ -821,12 +821,39 @@ function ContentEditor({
   );
 }
 
-function Section({ title, children, anchorId }: { title: string; children: React.ReactNode; anchorId?: string }) {
+function Section({
+  title,
+  children,
+  anchorId,
+  toggle,
+}: {
+  title: string;
+  children: React.ReactNode;
+  anchorId?: string;
+  toggle?: { enabled: boolean; onChange: (v: boolean) => void };
+}) {
   return (
     <details open id={anchorId} className="group border rounded-lg bg-white scroll-mt-16">
       <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-sm flex items-center justify-between">
-        {title}
-        <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
+        <span className="flex items-center gap-2">
+          {title}
+          {toggle && !toggle.enabled && (
+            <span className="text-[10px] uppercase font-bold text-muted-foreground bg-muted rounded px-1.5 py-0.5">Oculta</span>
+          )}
+        </span>
+        <span className="flex items-center gap-3">
+          {toggle && (
+            <span
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            >
+              <Switch checked={toggle.enabled} onCheckedChange={toggle.onChange} />
+              {toggle.enabled ? "Visível" : "Oculta"}
+            </span>
+          )}
+          <span className="text-[#F47C42] group-open:rotate-45 transition text-lg leading-none">+</span>
+        </span>
       </summary>
       <div className="px-3 pb-3 space-y-2">{children}</div>
     </details>
