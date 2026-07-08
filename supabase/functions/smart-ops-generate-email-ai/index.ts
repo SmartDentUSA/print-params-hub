@@ -283,8 +283,8 @@ async function loadLpDossier(
       },
       positioning: c?.positioning ? {
         eyebrow: cleanLpText(c.positioning.eyebrow),
-        headline: cleanPriceHeavyText(c.positioning.headline),
-        body: cleanPriceHeavyText(c.positioning.body),
+        headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
+        body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
       } : undefined,
       how_it_works: how,
       how_title: cleanLpText(c?.howItWorks?.title),
@@ -450,7 +450,7 @@ function buildLpEmailHtml(opts: {
       ${modules.title ? `<h2 style="margin:0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:33px;line-height:1.08;color:${t.text};letter-spacing:0;">${esc(modules.title)}</h2>` : ""}
       ${modules.subtitle ? `<p style="margin:14px 0 24px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        ${modules.items.slice(0, 9).reduce((rows, item, i) => {
+        ${modules.items.slice(0, 15).reduce((rows, item, i) => {
           if (i % 3 === 0) rows.push(modules.items.slice(i, i + 3));
           return rows;
         }, [] as { name: string; application: string }[][]).map(row => `<tr>${row.map(item => `
@@ -463,7 +463,7 @@ function buildLpEmailHtml(opts: {
             </table>
           </td>`).join("")}${row.length < 3 ? Array.from({ length: 3 - row.length }).map(() => `<td width="33.33%" style="padding:0 5px 10px 5px;"></td>`).join("") : ""}</tr>`).join("")}
       </table>
-      ${modules.items.length > 9 ? `<div style="margin-top:10px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">+ ${modules.items.length - 9} módulos adicionais descritos na landing page.</div>` : ""}
+      ${modules.footnote ? `<div style="margin-top:12px;background:#ffffff99;border:1px solid ${t.border};border-radius:14px;padding:13px 15px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};">${esc(modules.footnote)}</div>` : ""}
     </td></tr>` : "";
 
   const implementationCards = implementation ? [
