@@ -588,52 +588,55 @@ Receba o texto bruto abaixo e:
         aiPrompt: formData.aiPromptTemplate || ''
       };
 
-      // 🚀 Paralelização: 3 chamadas simultâneas
-      console.log('🔄 Disparando 3 edge functions em paralelo...');
+      // 🚀 Paralelização: chamadas simultâneas via supabase.functions.invoke
+      console.log('🔄 Disparando edge functions em paralelo...', {
+        payloadBytes: JSON.stringify(orchestratorPayload).length,
+        hasContentHTML: !!formData.content_html,
+      });
       const [orchestratorResult, metadataResult] = await Promise.allSettled([
-        // H: Orchestrator (Pro) - Artigo completo + FAQs
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrate-content`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
-          },
-          body: JSON.stringify(orchestratorPayload)
-        }),
-        
-        // F: Metadata Generator (Flash Lite) - SEO Title + Meta Desc. + Keywords (SEM FAQs)
-        formData.content_html ? fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-metadata-generator`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
-          },
-          body: JSON.stringify({
-            title: formData.title,
-            contentHTML: formData.content_html,
-            regenerate: { title: false, metaDescription: true, keywords: true }
-          })
-        }) : Promise.resolve({ ok: false })
+        supabase.functions.invoke('ai-orchestrate-content', { body: orchestratorPayload }),
+        formData.content_html
+          ? supabase.functions.invoke('ai-metadata-generator', {
+              body: {
+                title: formData.title,
+                contentHTML: formData.content_html,
+                regenerate: { title: false, metaDescription: true, keywords: true },
+              },
+            })
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
-      
+
       // Processar resultado do Orchestrator
-      let orchestratorData = null;
-      if (orchestratorResult.status === 'fulfilled' && orchestratorResult.value.ok) {
-        orchestratorData = await orchestratorResult.value.json();
-        console.log('✅ Orchestrator: HTML gerado', orchestratorData.html?.length, 'caracteres');
-      } else {
-        console.error('❌ Orchestrator falhou:', orchestratorResult);
-        throw new Error('Falha ao gerar conteúdo principal');
-      }
-      
-      // Processar resultado do Metadata Generator
-      let metadataData = null;
-      if (metadataResult.status === 'fulfilled' && metadataResult.value.ok) {
-        // Verificar se é uma Response real antes de chamar .json()
-        if ('json' in metadataResult.value) {
-          metadataData = await metadataResult.value.json();
-          console.log('✅ Metadata Generator: Meta description e keywords gerados');
+      let orchestratorData: any = null;
+      if (orchestratorResult.status === 'fulfilled') {
+        const { data, error } = orchestratorResult.value as any;
+        if (error) {
+          console.error('❌ Orchestrator error:', error);
+          throw new Error(`Orchestrator: ${error.message || 'falha desconhecida'}`);
         }
+        orchestratorData = data;
+        console.log('✅ Orchestrator OK — HTML:', orchestratorData?.html?.length || 0, 'chars');
+      } else {
+        console.error('❌ Orchestrator rejeitou:', orchestratorResult.reason);
+        throw new Error(`Orchestrator: ${orchestratorResult.reason?.message || 'rede indisponível'}`);
+      }
+
+      if (!orchestratorData?.html) {
+        throw new Error('Orchestrator retornou HTML vazio');
+      }
+
+      // Processar resultado do Metadata Generator (opcional — não bloqueia)
+      let metadataData: any = null;
+      if (metadataResult.status === 'fulfilled') {
+        const { data, error } = metadataResult.value as any;
+        if (error) {
+          console.warn('⚠️ Metadata generator falhou (ignorado):', error);
+        } else if (data) {
+          metadataData = data;
+          console.log('✅ Metadata Generator OK');
+        }
+      } else {
+        console.warn('⚠️ Metadata generator rejeitou (ignorado):', metadataResult.reason);
       }
       
       // ✅ Unificar FAQs: Usar APENAS as do Orchestrator
