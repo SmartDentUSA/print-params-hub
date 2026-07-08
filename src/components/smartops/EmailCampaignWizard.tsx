@@ -9,8 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus } from "lucide-react";
+import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus, Code2, LayoutList, Type } from "lucide-react";
 import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { EmailRichEditor } from "./EmailRichEditor";
+import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 
 type CtaType = "landing" | "form" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
