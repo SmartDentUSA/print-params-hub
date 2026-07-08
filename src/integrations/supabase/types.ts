@@ -19847,6 +19847,30 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_payment_notify_recipients: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          phone: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          phone: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       stripe_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
