@@ -260,6 +260,106 @@ async function loadLpDossier(
 
     const theme = typeof c?.theme === "string" && c.theme in LP_THEMES ? c.theme as LPThemeKey : "exocad-purple";
 
+    // Section: How it works (verbatim)
+    const howItWorks = c?.howItWorks && Array.isArray(c.howItWorks.items) && c.howItWorks.items.length
+      ? {
+          title: cleanLpText(c.howItWorks.title),
+          items: c.howItWorks.items
+            .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
+            .filter((it: any) => it.title || it.desc),
+        }
+      : undefined;
+
+    // Section: Price card (single). Apply price stripping — política "sem preços".
+    const price = c?.price && Array.isArray(c.price.includes) && c.price.includes.length
+      ? {
+          ribbon: cleanLpText(c.price.ribbon),
+          title: cleanLpText(c.price.title),
+          priceLabel: undefined,
+          priceNote: cleanPriceHeavyText(c.price.priceNote),
+          includes: c.price.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 10),
+          cta: cleanLpText(c.price.cta),
+          footnote: cleanPriceHeavyText(c.price.footnote),
+        }
+      : undefined;
+
+    // Section: Modules
+    const modules = c?.modules && Array.isArray(c.modules.items) && c.modules.items.length
+      ? {
+          eyebrow: cleanLpText(c.modules.eyebrow),
+          title: cleanLpText(c.modules.title),
+          subtitle: cleanLpText(c.modules.subtitle),
+          items: c.modules.items
+            .map((it: any) => ({ name: cleanLpText(it?.name), application: cleanLpText(it?.application) }))
+            .filter((it: any) => it.name || it.application),
+          footnote: cleanLpText(c.modules.footnote),
+        }
+      : undefined;
+
+    // Section: Regional rules
+    const regionalRules = c?.regionalRules && Array.isArray(c.regionalRules.items) && c.regionalRules.items.length
+      ? {
+          title: cleanLpText(c.regionalRules.title),
+          intro: cleanLpText(c.regionalRules.intro),
+          items: c.regionalRules.items.map((s: any) => cleanLpText(s)).filter(Boolean),
+          footnote: cleanLpText(c.regionalRules.footnote),
+        }
+      : undefined;
+
+    // Section: Implementation
+    const implementation = c?.implementation
+      ? {
+          title: cleanLpText(c.implementation.title),
+          subtitle: cleanLpText(c.implementation.subtitle),
+          activation: c.implementation.activation ? {
+            title: cleanLpText(c.implementation.activation.title),
+            items: Array.isArray(c.implementation.activation.items)
+              ? c.implementation.activation.items.map((s: any) => cleanLpText(s)).filter(Boolean)
+              : [],
+          } : undefined,
+          training: c.implementation.training ? {
+            title: cleanLpText(c.implementation.training.title),
+            body: cleanLpText(c.implementation.training.body),
+          } : undefined,
+          support: c.implementation.support ? {
+            title: cleanLpText(c.implementation.support.title),
+            items: Array.isArray(c.implementation.support.items)
+              ? c.implementation.support.items.map((s: any) => cleanLpText(s)).filter(Boolean)
+              : [],
+          } : undefined,
+        }
+      : undefined;
+
+    // Section: Benefits
+    const benefits = c?.benefits && Array.isArray(c.benefits.items) && c.benefits.items.length
+      ? {
+          title: cleanLpText(c.benefits.title),
+          items: c.benefits.items
+            .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
+            .filter((it: any) => it.title || it.desc),
+        }
+      : undefined;
+
+    // Section: Testimonials
+    const testimonials = c?.testimonials && Array.isArray(c.testimonials.items) && c.testimonials.items.length
+      ? {
+          title: cleanLpText(c.testimonials.title),
+          items: c.testimonials.items
+            .map((it: any) => ({ quote: cleanLpText(it?.quote), author: cleanLpText(it?.author), role: cleanLpText(it?.role) }))
+            .filter((it: any) => it.quote),
+        }
+      : undefined;
+
+    // Section: FAQ
+    const faq = c?.faq && Array.isArray(c.faq.items) && c.faq.items.length
+      ? {
+          title: cleanLpText(c.faq.title),
+          items: c.faq.items
+            .map((it: any) => ({ q: cleanLpText(it?.q), a: cleanLpText(it?.a) }))
+            .filter((it: any) => it.q && it.a),
+        }
+      : undefined;
+
     return {
       hero_image_url: row.hero_image_url || null,
       logo_url: c?.logoUrl || null,
@@ -284,7 +384,15 @@ async function loadLpDossier(
         headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
         body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
       } : undefined,
+      howItWorks,
+      price,
       conditions,
+      modules,
+      regionalRules,
+      implementation,
+      benefits,
+      testimonials,
+      faq,
       final_cta: c?.finalCta ? {
         headline: cleanLpText(c.finalCta.headline),
         sub: cleanLpText(c.finalCta.sub),
