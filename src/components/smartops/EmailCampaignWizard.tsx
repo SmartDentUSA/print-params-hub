@@ -536,7 +536,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
-              <span>2. Revisar & Ajustar</span>
+              <span className="flex items-center gap-2">
+                2. Revisar & Ajustar
+                {emailSource?.startsWith("landing_page") && (
+                  <Badge variant="secondary" className="text-[10px]">Template visual da LP</Badge>
+                )}
+                {emailSource === "catalog_dossier" && (
+                  <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
+                )}
+              </span>
               <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
                 <Eye className="w-4 h-4 mr-1" />
                 {showPreview ? "Ocultar preview" : "Ver preview"}
