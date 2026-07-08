@@ -138,16 +138,10 @@ type LPDossier = {
     product_card_caption?: string;
   };
   positioning?: { eyebrow?: string; headline?: string; body?: string };
-  benefits?: { title?: string; items: { title: string; desc: string }[] };
-  how_it_works?: { title: string; desc: string }[];
-  how_title?: string;
-  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
-  implementation?: {
+  conditions?: {
     title?: string;
     subtitle?: string;
-    activation?: { title: string; items: string[] };
-    training?: { title: string; body: string };
-    support?: { title: string; items: string[] };
+    items: { title: string; ribbon?: string; includes: string[]; footnote?: string }[];
   };
   final_cta?: { headline?: string; sub?: string; cta?: string };
   trust_bar?: string[];
@@ -216,47 +210,36 @@ async function loadLpDossier(
       ? c.hero.bullets.map(cleanLpText).filter(Boolean).slice(0, 5)
       : undefined;
 
-    const how = Array.isArray(c?.howItWorks?.items)
-      ? c.howItWorks.items
-          .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
-          .filter((x: any) => x.title || x.desc)
+    // Section 3 — Condições. Aggregate all condition cards from the LP.
+    const conditionCards = Array.isArray(c?.conditions?.cards)
+      ? c.conditions.cards
+          .map((card: any) => ({
+            title: cleanLpText(card?.title),
+            ribbon: cleanLpText(card?.ribbon),
+            includes: Array.isArray(card?.includes)
+              ? card.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 6)
+              : [],
+            footnote: cleanPriceHeavyText(card?.footnote),
+          }))
+          .filter((x: any) => x.title || (x.includes && x.includes.length))
           .slice(0, 3)
+      : [];
+    // Fallback: use top-level price.includes as a single "Condições" card if no cards[]
+    if (!conditionCards.length && Array.isArray(c?.price?.includes) && c.price.includes.length) {
+      conditionCards.push({
+        title: cleanLpText(c?.price?.title) || "Condições",
+        ribbon: cleanLpText(c?.price?.ribbon),
+        includes: c.price.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 8),
+        footnote: cleanPriceHeavyText(c?.price?.footnote),
+      });
+    }
+    const conditions = conditionCards.length
+      ? {
+          title: cleanLpText(c?.conditions?.title) || cleanLpText(c?.price?.title) || "Condições",
+          subtitle: cleanPriceHeavyText(c?.conditions?.subtitle) || cleanPriceHeavyText(c?.price?.priceNote),
+          items: conditionCards,
+        }
       : undefined;
-
-    const benefitsItems = Array.isArray(c?.benefits?.items)
-      ? c.benefits.items
-          .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
-          .filter((x: any) => x.title || x.desc)
-          .slice(0, 6)
-      : [];
-
-    const modulesItems = Array.isArray(c?.modules?.items)
-      ? c.modules.items
-          .map((it: any) => ({ name: cleanLpText(it?.name), application: cleanLpText(it?.application) }))
-          .filter((x: any) => x.name || x.application)
-          .slice(0, 15)
-      : [];
-
-    const implementation = c?.implementation ? {
-      title: cleanLpText(c.implementation.title),
-      subtitle: cleanLpText(c.implementation.subtitle),
-      activation: c.implementation.activation ? {
-        title: cleanLpText(c.implementation.activation.title),
-        items: Array.isArray(c.implementation.activation.items)
-          ? c.implementation.activation.items.map(cleanLpText).filter(Boolean).slice(0, 4)
-          : [],
-      } : undefined,
-      training: c.implementation.training ? {
-        title: cleanLpText(c.implementation.training.title),
-        body: cleanLpText(c.implementation.training.body),
-      } : undefined,
-      support: c.implementation.support ? {
-        title: cleanLpText(c.implementation.support.title),
-        items: Array.isArray(c.implementation.support.items)
-          ? c.implementation.support.items.map(cleanLpText).filter(Boolean).slice(0, 4)
-          : [],
-      } : undefined,
-    } : undefined;
 
     const trustBar = Array.isArray(c?.trustBar)
       ? c.trustBar.map(cleanLpText).filter(Boolean).slice(0, 4)
@@ -288,17 +271,7 @@ async function loadLpDossier(
         headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
         body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
       } : undefined,
-      how_it_works: how,
-      how_title: cleanLpText(c?.howItWorks?.title),
-      benefits: benefitsItems.length ? { title: cleanLpText(c?.benefits?.title), items: benefitsItems } : undefined,
-      modules: modulesItems.length ? {
-        eyebrow: cleanLpText(c?.modules?.eyebrow),
-        title: cleanLpText(c?.modules?.title),
-        subtitle: cleanLpText(c?.modules?.subtitle),
-        items: modulesItems,
-        footnote: cleanLpText(c?.modules?.footnote),
-      } : undefined,
-      implementation,
+      conditions,
       final_cta: c?.finalCta ? {
         headline: cleanLpText(c.finalCta.headline),
         sub: cleanLpText(c.finalCta.sub),
@@ -327,11 +300,7 @@ function buildLpEmailHtml(opts: {
   bullets?: string[];
   trust?: string[];
   positioning?: { eyebrow?: string; headline?: string; body?: string };
-  howTitle?: string;
-  howItWorks?: { title: string; desc: string }[];
-  benefits?: { title?: string; items: { title: string; desc: string }[] };
-  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
-  implementation?: LPDossier["implementation"];
+  conditions?: LPDossier["conditions"];
   finalCta?: { headline?: string; sub?: string; cta?: string };
   ctaPrimary: { label: string; url: string };
   ctaSecondary?: { label: string; url: string } | null;
@@ -339,8 +308,8 @@ function buildLpEmailHtml(opts: {
 }): string {
   const {
     preheader, heroImageUrl, logoUrl, brandName = "Smart Dent", theme, eyebrow, badge,
-    headlineHtml, sub, bullets, trust, positioning, howTitle, howItWorks, benefits,
-    modules, implementation, finalCta, ctaPrimary, ctaSecondary, resellerBadge,
+    headlineHtml, sub, bullets, trust, positioning, conditions,
+    finalCta, ctaPrimary, ctaSecondary, resellerBadge,
   } = opts;
 
   const t = getTheme(theme);
@@ -383,20 +352,26 @@ function buildLpEmailHtml(opts: {
        </div>`
     : "";
 
-  const howHtml = (howItWorks && howItWorks.length)
+  // (Section 3) Condições — renderiza os cards da LP (sem preços)
+  const conditionsHtml = (conditions && conditions.items && conditions.items.length)
     ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
-         ${howTitle ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(howTitle)}</h2>` : ""}
+         ${conditions.title ? `<h2 style="margin:0 0 8px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:28px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(conditions.title)}</h2>` : ""}
+         ${conditions.subtitle ? `<p style="margin:0 auto 22px auto;max-width:520px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(conditions.subtitle)}</p>` : ""}
          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-           <tr>${howItWorks.map((it, i) => `
-             <td valign="top" width="33.33%" style="padding:0 6px 14px 6px;">
+           ${conditions.items.map((card) => `
+             <tr><td valign="top" style="padding:0 0 14px 0;">
                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:18px;">
-                 <tr><td style="padding:22px 18px;">
-                   <div style="width:44px;height:44px;border-radius:13px;background:${t.brand};background:${grad};font-family:Arial Black,Inter,Arial,sans-serif;font-size:16px;line-height:44px;text-align:center;color:#ffffff;margin:0 0 16px 0;">${String(i+1).padStart(2,"0")}</div>
-                   <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:17px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(it.title)}</div>
-                   <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(it.desc)}</div>
+                 <tr><td style="padding:22px 22px;">
+                   ${card.ribbon ? `<div style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:${t.orange};font-weight:900;background:${t.orangeSoft};border-radius:999px;padding:5px 10px;margin-bottom:10px;">${esc(card.ribbon)}</div>` : ""}
+                   ${card.title ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:19px;line-height:1.2;color:${t.text};margin-bottom:12px;">${esc(card.title)}</div>` : ""}
+                   ${card.includes && card.includes.length ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${card.includes.map((it) => `
+                     <tr><td valign="top" style="padding:5px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">
+                       <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+                     </td></tr>`).join("")}</table>` : ""}
+                   ${card.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};font-style:italic;">${esc(card.footnote)}</div>` : ""}
                  </td></tr>
                </table>
-             </td>`).join("")}</tr>
+             </td></tr>`).join("")}
          </table>
        </td></tr>`
     : "";
@@ -425,72 +400,6 @@ function buildLpEmailHtml(opts: {
   const resellerHtml = resellerBadge
     ? `<span style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:${t.orange};font-weight:900;background:${t.orangeSoft};border:1px solid ${t.orange}33;border-radius:999px;padding:6px 10px;vertical-align:middle;">${esc(resellerBadge)}</span>`
     : "";
-
-  const benefitsHtml = benefits?.items?.length ? `
-    <tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
-      ${benefits.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(benefits.title)}</h2>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        ${benefits.items.slice(0, 6).reduce((rows, item, i) => {
-          if (i % 2 === 0) rows.push(benefits.items.slice(i, i + 2));
-          return rows;
-        }, [] as { title: string; desc: string }[][]).map(row => `<tr>${row.map(item => `
-          <td valign="top" width="50%" style="padding:0 7px 14px 7px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:18px;">
-              <tr><td style="padding:20px 18px;">
-                <div style="width:42px;height:42px;border-radius:13px;background:${t.orangeSoft};font-size:20px;line-height:42px;text-align:center;color:${t.orange};font-weight:900;margin-bottom:14px;">✓</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:16px;line-height:1.28;color:${t.text};margin-bottom:8px;">${esc(item.title)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(item.desc)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}${row.length === 1 ? `<td width="50%" style="padding:0 7px 14px 7px;"></td>` : ""}</tr>`).join("")}
-      </table>
-    </td></tr>` : "";
-
-  const modulesHtml = modules?.items?.length ? `
-    <tr><td style="padding:34px 28px;background:${t.bgSoft};">
-      ${modules.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.6px;text-transform:uppercase;color:${t.textSoft};font-weight:900;margin-bottom:10px;">${esc(modules.eyebrow)}</div>` : ""}
-      ${modules.title ? `<h2 style="margin:0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:33px;line-height:1.08;color:${t.text};letter-spacing:0;">${esc(modules.title)}</h2>` : ""}
-      ${modules.subtitle ? `<p style="margin:14px 0 24px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        ${modules.items.slice(0, 15).reduce((rows, item, i) => {
-          if (i % 3 === 0) rows.push(modules.items.slice(i, i + 3));
-          return rows;
-        }, [] as { name: string; application: string }[][]).map(row => `<tr>${row.map(item => `
-          <td valign="top" width="33.33%" style="padding:0 5px 10px 5px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:14px;">
-              <tr><td style="padding:15px 13px;">
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:13px;line-height:1.25;color:${t.text};margin-bottom:5px;">${esc(item.name)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:11px;line-height:1.45;color:${t.textSoft};">${esc(item.application)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}${row.length < 3 ? Array.from({ length: 3 - row.length }).map(() => `<td width="33.33%" style="padding:0 5px 10px 5px;"></td>`).join("") : ""}</tr>`).join("")}
-      </table>
-      ${modules.footnote ? `<div style="margin-top:12px;background:#ffffff99;border:1px solid ${t.border};border-radius:14px;padding:13px 15px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};">${esc(modules.footnote)}</div>` : ""}
-    </td></tr>` : "";
-
-  const implementationCards = implementation ? [
-    implementation.activation ? { title: implementation.activation.title || "Ativação", body: implementation.activation.items.join(" • "), tone: t.orangeSoft, icon: "↗" } : null,
-    implementation.training ? { title: implementation.training.title || "Treinamento", body: implementation.training.body || "", tone: t.soft, icon: "◎" } : null,
-    implementation.support ? { title: implementation.support.title || "Suporte", body: implementation.support.items.join(" • "), tone: t.orangeSoft, icon: "✓" } : null,
-  ].filter(Boolean) as { title: string; body: string; tone: string; icon: string }[] : [];
-
-  const implementationHtml = implementationCards.length ? `
-    <tr><td style="padding:34px 28px;background:${t.soft};">
-      ${implementation?.title ? `<h2 style="margin:0 0 10px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:29px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(implementation.title)}</h2>` : ""}
-      ${implementation?.subtitle ? `<p style="margin:0 auto 24px auto;max-width:500px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.subtitle)}</p>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>${implementationCards.slice(0, 3).map(card => `
-          <td valign="top" width="33.33%" style="padding:0 6px 12px 6px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
-              <tr><td style="padding:18px 15px;">
-                <div style="width:40px;height:40px;border-radius:12px;background:${card.tone};font-family:Arial,sans-serif;font-weight:900;font-size:18px;line-height:40px;text-align:center;color:${t.brand};margin-bottom:12px;">${card.icon}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:15px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(card.title)}</div>
-                <div style="font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">${esc(card.body)}</div>
-              </td></tr>
-            </table>
-          </td>`).join("")}</tr>
-      </table>
-    </td></tr>` : "";
 
   const finalCtaHtml = `
     <tr><td style="padding:34px 28px;background:#ffffff;">
@@ -556,10 +465,7 @@ function buildLpEmailHtml(opts: {
         </td></tr>
 
         ${positioningHtml}
-        ${howHtml}
-        ${benefitsHtml}
-        ${modulesHtml}
-        ${implementationHtml}
+        ${conditionsHtml}
         ${finalCtaHtml}
 
         <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
@@ -682,13 +588,7 @@ Deno.serve(async (req) => {
           headline: stripPrices(lpData.positioning.headline || ""),
           body: stripPrices(lpData.positioning.body || ""),
         } : undefined,
-        howItWorks: (lpData.how_it_works || []).map(h => ({
-          title: stripPrices(h.title), desc: stripPrices(h.desc),
-        })),
-        howTitle: lpData.how_title,
-        benefits: lpData.benefits,
-        modules: lpData.modules,
-        implementation: lpData.implementation,
+        conditions: lpData.conditions,
         finalCta: lpData.final_cta,
         ctaPrimary: { label: lpData.hero.primary_cta || lpData.nav_cta || ctaLabel(cta_principal!), url: cta_principal!.url! },
         ctaSecondary: secondary ? { label: lpData.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
@@ -713,22 +613,19 @@ Deno.serve(async (req) => {
           trust: lp.hero.trust || [],
         },
         positioning: lp.positioning || null,
-        howItWorks: lp.how_it_works || [],
-        benefits: lp.benefits?.items || [],
-        modules: lp.modules?.items || [],
-        implementation: lp.implementation || null,
+        conditions: lp.conditions || null,
       };
 
-      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail, aplicando o TOM escolhido, sem inventar nada além do que está no dossiê da LP.
+      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail em 4 SEÇÕES FIXAS: (1) Hero, (2) Oferta/Posicionamento, (3) Condições, (4) CTA final. NÃO invente novas seções.
 
 REGRAS ABSOLUTAS:
 - NUNCA cite preços, valores em R$, descontos numéricos ou promoções com valor. NUNCA cite "assinatura mensal de R$…", "de R$… por R$…".
 - Preserve o significado e o posicionamento originais da LP. Reescreva no TOM: ${tomInstruction}
 - Português do Brasil. Sem emojis exagerados (máx 1 no assunto).
 - Headline: mantenha a intenção da headline da LP. Se a LP marcou parte com «…», envolva a MESMA ideia com <span class="hl">…</span> no seu HTML (será renderizada com gradiente roxo→laranja no e-mail).
-- Bullets: 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
+- Bullets (Hero): 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
 - Positioning body: máx 260 chars, sem preços.
-- How it works: até 3 passos, título curto (máx 32 chars) e desc (máx 140 chars).
+- Seções "Como funciona", "Módulos", "Benefícios", "Implantação" NÃO devem ser geradas — o e-mail final tem só 4 seções.
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
 {
@@ -740,7 +637,6 @@ SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
   "sub": string (máx 220 chars),
   "bullets": string[] (3-5 itens),
   "positioning": { "eyebrow": string, "headline": string, "body": string } | null,
-  "how_it_works": [{ "title": string, "desc": string }] (0 a 3),
   "plain_text": string (versão texto puro do email, com CTA no final)
 }`;
 
@@ -758,11 +654,7 @@ Hero:
 
 Positioning LP: ${lpBrief.positioning ? JSON.stringify(lpBrief.positioning) : "(nenhum)"}
 
-How it works LP: ${(lpBrief.howItWorks || []).length ? JSON.stringify(lpBrief.howItWorks) : "(nenhum)"}
-
-Benefícios LP (opcional para inspirar bullets se hero.bullets estiver vazio): ${(lpBrief.benefits || []).length ? JSON.stringify(lpBrief.benefits) : "(nenhum)"}
-Módulos LP (não reescrever; layout renderiza direto da LP): ${(lpBrief.modules || []).length ? `${lpBrief.modules.length} módulos disponíveis` : "(nenhum)"}
-Implantação/Suporte LP: ${lpBrief.implementation ? JSON.stringify(lpBrief.implementation).slice(0, 1200) : "(nenhum)"}
+Condições LP (renderizadas direto pelo template — não reescrever): ${lpBrief.conditions ? `${(lpBrief.conditions.items || []).length} condição(ões) disponível(is)` : "(nenhum)"}
 
 ═══ AUDIÊNCIA ═══
 ${segmento_resumo || "leads da base Smart Dent"}
@@ -825,13 +717,6 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
           : (lp.hero.bullets || []).map(b => stripPrices(b)).filter(Boolean).slice(0, 5);
 
-        const howClean = Array.isArray(parsed.how_it_works)
-          ? parsed.how_it_works
-              .map((h: any) => ({ title: stripPrices(String(h?.title || "")), desc: stripPrices(String(h?.desc || "")) }))
-              .filter((h: any) => h.title || h.desc)
-              .slice(0, 3)
-          : (lp.how_it_works || []).map(h => ({ title: stripPrices(h.title), desc: stripPrices(h.desc) })).filter(h => h.title || h.desc).slice(0, 3);
-
         const positioningClean = parsed.positioning && (parsed.positioning.headline || parsed.positioning.body)
           ? {
               eyebrow: stripPrices(String(parsed.positioning.eyebrow || "")),
@@ -864,11 +749,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           bullets: bulletsClean,
           trust: lp.hero.trust || [],
           positioning: positioningClean,
-          howTitle: lp.how_title,
-          howItWorks: howClean,
-          benefits: lp.benefits,
-          modules: lp.modules,
-          implementation: lp.implementation,
+          conditions: lp.conditions,
           finalCta: lp.final_cta,
           ctaPrimary: { label: ctaBtnLabel, url: cta_principal.url },
           ctaSecondary: secondary ? { label: lp.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
