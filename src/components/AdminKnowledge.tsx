@@ -3562,7 +3562,7 @@ Receba o texto bruto abaixo e:
                         variant="outline"
                         onClick={handleInsertGeneratedHTML}
                       >
-                        ➕ Inserir HTML + FAQs
+                        ➕ Inserir e Salvar HTML + FAQs
                       </Button>
                       
                       <Button 
