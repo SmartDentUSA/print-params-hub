@@ -221,21 +221,54 @@ async function loadLpDossier(
           .slice(0, 3)
       : undefined;
 
-    const benefits = Array.isArray(c?.benefits?.items)
+    const benefitsItems = Array.isArray(c?.benefits?.items)
       ? c.benefits.items
           .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
           .filter((x: any) => x.title || x.desc)
           .slice(0, 6)
-      : undefined;
+      : [];
+
+    const modulesItems = Array.isArray(c?.modules?.items)
+      ? c.modules.items
+          .map((it: any) => ({ name: cleanLpText(it?.name), application: cleanLpText(it?.application) }))
+          .filter((x: any) => x.name || x.application)
+          .slice(0, 15)
+      : [];
+
+    const implementation = c?.implementation ? {
+      title: cleanLpText(c.implementation.title),
+      subtitle: cleanLpText(c.implementation.subtitle),
+      activation: c.implementation.activation ? {
+        title: cleanLpText(c.implementation.activation.title),
+        items: Array.isArray(c.implementation.activation.items)
+          ? c.implementation.activation.items.map(cleanLpText).filter(Boolean).slice(0, 4)
+          : [],
+      } : undefined,
+      training: c.implementation.training ? {
+        title: cleanLpText(c.implementation.training.title),
+        body: cleanLpText(c.implementation.training.body),
+      } : undefined,
+      support: c.implementation.support ? {
+        title: cleanLpText(c.implementation.support.title),
+        items: Array.isArray(c.implementation.support.items)
+          ? c.implementation.support.items.map(cleanLpText).filter(Boolean).slice(0, 4)
+          : [],
+      } : undefined,
+    } : undefined;
 
     const trustBar = Array.isArray(c?.trustBar)
       ? c.trustBar.map(cleanLpText).filter(Boolean).slice(0, 4)
       : undefined;
 
+    const theme = typeof c?.theme === "string" && c.theme in LP_THEMES ? c.theme as LPThemeKey : "exocad-purple";
+
     return {
       hero_image_url: row.hero_image_url || null,
+      logo_url: c?.logoUrl || null,
+      theme,
       brand_name: cleanLpText(c?.brandName) || "Smart Dent",
       reseller_badge: cleanLpText(c?.resellerBadge),
+      nav_cta: cleanLpText(c?.nav?.cta),
       hero: {
         eyebrow: cleanLpText(c?.hero?.eyebrow),
         badge: cleanLpText(c?.hero?.badge),
@@ -244,14 +277,31 @@ async function loadLpDossier(
         sub: cleanLpText(c?.hero?.sub),
         bullets,
         trust: trustInline,
+        primary_cta: cleanLpText(c?.hero?.primaryCta),
+        secondary_cta: cleanLpText(c?.hero?.secondaryCta),
+        product_card_caption: cleanLpText(c?.hero?.productCardCaption),
       },
       positioning: c?.positioning ? {
         eyebrow: cleanLpText(c.positioning.eyebrow),
-        headline: cleanLpText(c.positioning.headline),
-        body: cleanLpText(c.positioning.body),
+        headline: cleanPriceHeavyText(c.positioning.headline),
+        body: cleanPriceHeavyText(c.positioning.body),
       } : undefined,
       how_it_works: how,
-      benefits,
+      how_title: cleanLpText(c?.howItWorks?.title),
+      benefits: benefitsItems.length ? { title: cleanLpText(c?.benefits?.title), items: benefitsItems } : undefined,
+      modules: modulesItems.length ? {
+        eyebrow: cleanLpText(c?.modules?.eyebrow),
+        title: cleanLpText(c?.modules?.title),
+        subtitle: cleanLpText(c?.modules?.subtitle),
+        items: modulesItems,
+        footnote: cleanLpText(c?.modules?.footnote),
+      } : undefined,
+      implementation,
+      final_cta: c?.finalCta ? {
+        headline: cleanLpText(c.finalCta.headline),
+        sub: cleanLpText(c.finalCta.sub),
+        cta: cleanLpText(c.finalCta.cta),
+      } : undefined,
       trust_bar: trustBar,
     };
   } catch (e) {
