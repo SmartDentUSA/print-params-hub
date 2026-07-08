@@ -3389,12 +3389,12 @@ Receba o texto bruto abaixo e:
                   {isGenerating ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Gerando conteúdo em paralelo...
+                      Gerando conteúdo...
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 mr-2" />
-                      🚀 Gerar por IA (Otimizado - 60% mais rápido)
+                      🚀 Gerar por IA
                     </>
                   )}
                 </Button>
