@@ -717,13 +717,6 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
           : (lp.hero.bullets || []).map(b => stripPrices(b)).filter(Boolean).slice(0, 5);
 
-        const howClean = Array.isArray(parsed.how_it_works)
-          ? parsed.how_it_works
-              .map((h: any) => ({ title: stripPrices(String(h?.title || "")), desc: stripPrices(String(h?.desc || "")) }))
-              .filter((h: any) => h.title || h.desc)
-              .slice(0, 3)
-          : (lp.how_it_works || []).map(h => ({ title: stripPrices(h.title), desc: stripPrices(h.desc) })).filter(h => h.title || h.desc).slice(0, 3);
-
         const positioningClean = parsed.positioning && (parsed.positioning.headline || parsed.positioning.body)
           ? {
               eyebrow: stripPrices(String(parsed.positioning.eyebrow || "")),
