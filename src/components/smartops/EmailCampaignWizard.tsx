@@ -224,9 +224,9 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         if (useLandingPage && ctaPrincipal?.tipo === "landing" && src === "catalog_dossier") {
           toast.warning("A LP do produto não foi encontrada — gerado a partir do catálogo.");
         } else if (src === "landing_page_verbatim") {
-          toast.warning("IA indisponível — template visual da LP com copy original.");
+          toast.success("Email gerado como espelho fiel da Landing Page");
         } else {
-          toast.success("Email gerado com template visual clonado da Landing Page");
+          toast.success("Email gerado a partir do dossiê do catálogo");
         }
       } else {
         toast.success("Assunto regenerado");
@@ -517,12 +517,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 {useLandingPage && (
                   <Badge variant="secondary" className="text-[10px]">
                     {emailSource === "landing_page_ai"
-                      ? "4 seções (Hero · Oferta · Condições · CTA) + tom IA"
+                      ? "Espelho fiel da Landing Page (verbatim)"
                       : emailSource === "landing_page_verbatim"
-                      ? "4 seções (Hero · Oferta · Condições · CTA)"
+                      ? "Espelho fiel da Landing Page (verbatim)"
                       : emailSource === "catalog_dossier"
                       ? "Fallback: dossiê do catálogo"
-                      : "E-mail padrão: 4 seções da LP"}
+                      : "E-mail padrão: espelho fiel da LP"}
                   </Badge>
                 )}
               </div>
@@ -539,7 +539,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               <span className="flex items-center gap-2">
                 2. Revisar & Ajustar
                 {emailSource?.startsWith("landing_page") && (
-                  <Badge variant="secondary" className="text-[10px]">4 seções: Hero · Oferta · Condições · CTA</Badge>
+                  <Badge variant="secondary" className="text-[10px]">Espelho fiel da Landing Page</Badge>
                 )}
                 {emailSource === "catalog_dossier" && (
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>

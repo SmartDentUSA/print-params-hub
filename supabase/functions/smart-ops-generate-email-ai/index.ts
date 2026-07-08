@@ -138,11 +138,24 @@ type LPDossier = {
     product_card_caption?: string;
   };
   positioning?: { eyebrow?: string; headline?: string; body?: string };
+  howItWorks?: { title?: string; items: { title: string; desc: string }[] };
+  price?: { ribbon?: string; title?: string; priceLabel?: string; priceNote?: string; includes: string[]; cta?: string; footnote?: string };
   conditions?: {
     title?: string;
     subtitle?: string;
-    items: { title: string; ribbon?: string; includes: string[]; footnote?: string }[];
+    items: { title: string; ribbon?: string; priceLabel?: string; priceNote?: string; originalPrice?: string; includes: string[]; cta?: string; footnote?: string }[];
   };
+  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
+  regionalRules?: { title?: string; intro?: string; items: string[]; footnote?: string };
+  implementation?: {
+    title?: string; subtitle?: string;
+    activation?: { title: string; items: string[] };
+    training?: { title: string; body: string };
+    support?: { title: string; items: string[] };
+  };
+  benefits?: { title?: string; items: { title: string; desc: string }[] };
+  testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
+  faq?: { title?: string; items: { q: string; a: string }[] };
   final_cta?: { headline?: string; sub?: string; cta?: string };
   trust_bar?: string[];
 };
@@ -247,6 +260,106 @@ async function loadLpDossier(
 
     const theme = typeof c?.theme === "string" && c.theme in LP_THEMES ? c.theme as LPThemeKey : "exocad-purple";
 
+    // Section: How it works (verbatim)
+    const howItWorks = c?.howItWorks && Array.isArray(c.howItWorks.items) && c.howItWorks.items.length
+      ? {
+          title: cleanLpText(c.howItWorks.title),
+          items: c.howItWorks.items
+            .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
+            .filter((it: any) => it.title || it.desc),
+        }
+      : undefined;
+
+    // Section: Price card (single). Apply price stripping — política "sem preços".
+    const price = c?.price && Array.isArray(c.price.includes) && c.price.includes.length
+      ? {
+          ribbon: cleanLpText(c.price.ribbon),
+          title: cleanLpText(c.price.title),
+          priceLabel: undefined,
+          priceNote: cleanPriceHeavyText(c.price.priceNote),
+          includes: c.price.includes.map((s: any) => cleanPriceHeavyText(s)).filter(Boolean).slice(0, 10),
+          cta: cleanLpText(c.price.cta),
+          footnote: cleanPriceHeavyText(c.price.footnote),
+        }
+      : undefined;
+
+    // Section: Modules
+    const modules = c?.modules && Array.isArray(c.modules.items) && c.modules.items.length
+      ? {
+          eyebrow: cleanLpText(c.modules.eyebrow),
+          title: cleanLpText(c.modules.title),
+          subtitle: cleanLpText(c.modules.subtitle),
+          items: c.modules.items
+            .map((it: any) => ({ name: cleanLpText(it?.name), application: cleanLpText(it?.application) }))
+            .filter((it: any) => it.name || it.application),
+          footnote: cleanLpText(c.modules.footnote),
+        }
+      : undefined;
+
+    // Section: Regional rules
+    const regionalRules = c?.regionalRules && Array.isArray(c.regionalRules.items) && c.regionalRules.items.length
+      ? {
+          title: cleanLpText(c.regionalRules.title),
+          intro: cleanLpText(c.regionalRules.intro),
+          items: c.regionalRules.items.map((s: any) => cleanLpText(s)).filter(Boolean),
+          footnote: cleanLpText(c.regionalRules.footnote),
+        }
+      : undefined;
+
+    // Section: Implementation
+    const implementation = c?.implementation
+      ? {
+          title: cleanLpText(c.implementation.title),
+          subtitle: cleanLpText(c.implementation.subtitle),
+          activation: c.implementation.activation ? {
+            title: cleanLpText(c.implementation.activation.title),
+            items: Array.isArray(c.implementation.activation.items)
+              ? c.implementation.activation.items.map((s: any) => cleanLpText(s)).filter(Boolean)
+              : [],
+          } : undefined,
+          training: c.implementation.training ? {
+            title: cleanLpText(c.implementation.training.title),
+            body: cleanLpText(c.implementation.training.body),
+          } : undefined,
+          support: c.implementation.support ? {
+            title: cleanLpText(c.implementation.support.title),
+            items: Array.isArray(c.implementation.support.items)
+              ? c.implementation.support.items.map((s: any) => cleanLpText(s)).filter(Boolean)
+              : [],
+          } : undefined,
+        }
+      : undefined;
+
+    // Section: Benefits
+    const benefits = c?.benefits && Array.isArray(c.benefits.items) && c.benefits.items.length
+      ? {
+          title: cleanLpText(c.benefits.title),
+          items: c.benefits.items
+            .map((it: any) => ({ title: cleanLpText(it?.title), desc: cleanLpText(it?.desc) }))
+            .filter((it: any) => it.title || it.desc),
+        }
+      : undefined;
+
+    // Section: Testimonials
+    const testimonials = c?.testimonials && Array.isArray(c.testimonials.items) && c.testimonials.items.length
+      ? {
+          title: cleanLpText(c.testimonials.title),
+          items: c.testimonials.items
+            .map((it: any) => ({ quote: cleanLpText(it?.quote), author: cleanLpText(it?.author), role: cleanLpText(it?.role) }))
+            .filter((it: any) => it.quote),
+        }
+      : undefined;
+
+    // Section: FAQ
+    const faq = c?.faq && Array.isArray(c.faq.items) && c.faq.items.length
+      ? {
+          title: cleanLpText(c.faq.title),
+          items: c.faq.items
+            .map((it: any) => ({ q: cleanLpText(it?.q), a: cleanLpText(it?.a) }))
+            .filter((it: any) => it.q && it.a),
+        }
+      : undefined;
+
     return {
       hero_image_url: row.hero_image_url || null,
       logo_url: c?.logoUrl || null,
@@ -271,7 +384,15 @@ async function loadLpDossier(
         headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
         body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
       } : undefined,
+      howItWorks,
+      price,
       conditions,
+      modules,
+      regionalRules,
+      implementation,
+      benefits,
+      testimonials,
+      faq,
       final_cta: c?.finalCta ? {
         headline: cleanLpText(c.finalCta.headline),
         sub: cleanLpText(c.finalCta.sub),
@@ -300,7 +421,15 @@ function buildLpEmailHtml(opts: {
   bullets?: string[];
   trust?: string[];
   positioning?: { eyebrow?: string; headline?: string; body?: string };
+  howItWorks?: LPDossier["howItWorks"];
+  price?: LPDossier["price"];
   conditions?: LPDossier["conditions"];
+  modules?: LPDossier["modules"];
+  regionalRules?: LPDossier["regionalRules"];
+  implementation?: LPDossier["implementation"];
+  benefits?: LPDossier["benefits"];
+  testimonials?: LPDossier["testimonials"];
+  faq?: LPDossier["faq"];
   finalCta?: { headline?: string; sub?: string; cta?: string };
   ctaPrimary: { label: string; url: string };
   ctaSecondary?: { label: string; url: string } | null;
@@ -308,7 +437,8 @@ function buildLpEmailHtml(opts: {
 }): string {
   const {
     preheader, heroImageUrl, logoUrl, brandName = "Smart Dent", theme, eyebrow, badge,
-    headlineHtml, sub, bullets, trust, positioning, conditions,
+    headlineHtml, sub, bullets, trust, positioning,
+    howItWorks, price, conditions, modules, regionalRules, implementation, benefits, testimonials, faq,
     finalCta, ctaPrimary, ctaSecondary, resellerBadge,
   } = opts;
 
@@ -393,6 +523,180 @@ function buildLpEmailHtml(opts: {
        </td></tr>`
     : "";
 
+  // ── How it works ──
+  const howItWorksHtml = howItWorks && howItWorks.items && howItWorks.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         ${howItWorks.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(howItWorks.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${howItWorks.items.map((step, i) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:16px;">
+                 <tr>
+                   <td width="64" valign="top" style="padding:18px 0 18px 18px;">
+                     <div style="width:44px;height:44px;border-radius:12px;background:${t.brand};background:${grad};font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:16px;line-height:44px;text-align:center;color:#ffffff;">${String(i + 1).padStart(2, "0")}</div>
+                   </td>
+                   <td valign="top" style="padding:18px 20px 18px 14px;">
+                     ${step.title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:4px;">${esc(step.title)}</div>` : ""}
+                     ${step.desc ? `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(step.desc)}</div>` : ""}
+                   </td>
+                 </tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Price card (single) ──
+  const priceHtml = price && price.includes && price.includes.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};background:${softGrad};">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:22px;overflow:hidden;">
+           ${price.ribbon ? `<tr><td align="center" style="padding:12px 20px;background:${t.brand};background:${grad};font-family:Inter,Arial,sans-serif;font-weight:900;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff;">${esc(price.ribbon)}</td></tr>` : ""}
+           <tr><td style="padding:24px 24px 22px 24px;">
+             ${price.title ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:24px;line-height:1.15;color:${t.text};margin-bottom:14px;">${esc(price.title)}</div>` : ""}
+             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+               ${price.includes.map((it) => `
+                 <tr><td valign="top" style="padding:5px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+                   <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+                 </td></tr>`).join("")}
+             </table>
+             <div style="margin-top:20px;">${primaryButton(price.cta || ctaPrimary.label, ctaPrimary.url)}</div>
+             ${price.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};font-style:italic;text-align:center;">${esc(price.footnote)}</div>` : ""}
+           </td></tr>
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Modules ──
+  const modulesHtml = modules && modules.items && modules.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};">
+         ${modules.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:${t.textSoft};font-weight:900;margin-bottom:6px;">${esc(modules.eyebrow)}</div>` : ""}
+         ${modules.title ? `<h2 style="margin:0 0 8px 0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(modules.title)}</h2>` : ""}
+         ${modules.subtitle ? `<p style="margin:0 0 18px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${modules.items.map((m) => `
+             <tr><td valign="top" style="padding:0 0 10px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:14px;">
+                 <tr>
+                   <td width="30" valign="top" style="padding:14px 0 14px 14px;">
+                     <div style="width:18px;height:18px;border-radius:50%;background:${t.orangeSoft};text-align:center;line-height:18px;color:${t.orange};font-family:Arial,sans-serif;font-weight:900;font-size:11px;">✓</div>
+                   </td>
+                   <td valign="top" style="padding:14px 16px 14px 10px;">
+                     ${m.name ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:14px;color:${t.text};line-height:1.3;">${esc(m.name)}</div>` : ""}
+                     ${m.application ? `<div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.5;color:${t.textSoft};margin-top:3px;">${esc(m.application)}</div>` : ""}
+                   </td>
+                 </tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+         ${modules.footnote ? `<div style="margin-top:8px;padding:12px 14px;background:#ffffff99;border:1px solid ${t.border};border-radius:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};">${esc(modules.footnote)}</div>` : ""}
+       </td></tr>`
+    : "";
+
+  // ── Regional rules ──
+  const regionalRulesHtml = regionalRules && regionalRules.items && regionalRules.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:20px;">
+           <tr><td style="padding:22px 22px 8px 22px;">
+             ${regionalRules.title ? `<h2 style="margin:0 0 6px 0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:22px;line-height:1.2;color:${t.text};">${esc(regionalRules.title)}</h2>` : ""}
+             ${regionalRules.intro ? `<p style="margin:0 0 14px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(regionalRules.intro)}</p>` : ""}
+           </td></tr>
+           <tr><td style="padding:0 22px 22px 22px;">
+             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+               ${regionalRules.items.map((r) => `
+                 <tr><td valign="top" style="padding:6px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+                   <span style="display:inline-block;width:7px;height:7px;background:${t.brand};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(r)}
+                 </td></tr>`).join("")}
+             </table>
+             ${regionalRules.footnote ? `<div style="margin-top:12px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">${esc(regionalRules.footnote)}</div>` : ""}
+           </td></tr>
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Implementation (activation/training/support) ──
+  const implCard = (title: string, bodyHtml: string) => `
+    <tr><td valign="top" style="padding:0 0 12px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+        <tr><td style="padding:20px 20px;">
+          ${title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:8px;">${esc(title)}</div>` : ""}
+          ${bodyHtml}
+        </td></tr>
+      </table>
+    </td></tr>`;
+  const implListHtml = (items: string[]) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      ${items.map((it) => `
+        <tr><td valign="top" style="padding:4px 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.text};">
+          <span style="display:inline-block;width:7px;height:7px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(it)}
+        </td></tr>`).join("")}
+    </table>`;
+  const implementationHtml = implementation
+    && (implementation.activation || implementation.training || implementation.support)
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};background:${softGrad};">
+         ${implementation.title ? `<h2 style="margin:0 0 8px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(implementation.title)}</h2>` : ""}
+         ${implementation.subtitle ? `<p style="margin:0 auto 20px auto;max-width:520px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.subtitle)}</p>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${implementation.activation ? implCard(implementation.activation.title || "Ativação", implListHtml(implementation.activation.items || [])) : ""}
+           ${implementation.training ? implCard(implementation.training.title || "Treinamento", `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.training.body || "")}</div>`) : ""}
+           ${implementation.support ? implCard(implementation.support.title || "Suporte", implListHtml(implementation.support.items || [])) : ""}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Benefits ──
+  const benefitsHtml = benefits && benefits.items && benefits.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         ${benefits.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(benefits.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${benefits.items.map((b) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+                 <tr><td style="padding:18px 20px;">
+                   ${b.title ? `<div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:16px;color:${t.text};margin-bottom:4px;">${esc(b.title)}</div>` : ""}
+                   ${b.desc ? `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(b.desc)}</div>` : ""}
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── Testimonials ──
+  const testimonialsHtml = testimonials && testimonials.items && testimonials.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:${t.bgSoft};">
+         ${testimonials.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:24px;line-height:1.15;color:${t.text};">${esc(testimonials.title)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${testimonials.items.map((tm) => `
+             <tr><td valign="top" style="padding:0 0 12px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+                 <tr><td style="padding:20px 22px;">
+                   <div style="font-family:Georgia,serif;font-style:italic;font-size:15px;line-height:1.6;color:${t.text};">“${esc(tm.quote)}”</div>
+                   <div style="margin-top:12px;padding-top:10px;border-top:1px solid ${t.border};font-family:Inter,Arial,sans-serif;font-size:13px;color:${t.text};font-weight:800;">${esc(tm.author)}${tm.role ? ` <span style="font-weight:500;color:${t.textSoft};"> · ${esc(tm.role)}</span>` : ""}</div>
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
+  // ── FAQ ──
+  const faqHtml = faq && faq.items && faq.items.length
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         <h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:26px;line-height:1.15;color:${t.text};">${esc(faq.title || "Perguntas frequentes")}</h2>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           ${faq.items.map((qa) => `
+             <tr><td valign="top" style="padding:0 0 10px 0;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:14px;">
+                 <tr><td style="padding:16px 18px;">
+                   <div style="font-family:Inter,Arial,sans-serif;font-weight:800;font-size:15px;color:${t.text};margin-bottom:6px;">${esc(qa.q)}</div>
+                   <div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(qa.a)}</div>
+                 </td></tr>
+               </table>
+             </td></tr>`).join("")}
+         </table>
+       </td></tr>`
+    : "";
+
   const heroImgHtml = heroImageUrl
     ? `<img src="${esc(heroImageUrl)}" alt="Produto" width="300" style="display:block;width:100%;max-width:300px;height:auto;border-radius:18px;box-shadow:0 28px 60px rgba(66,73,92,0.18);" />`
     : "";
@@ -465,7 +769,15 @@ function buildLpEmailHtml(opts: {
         </td></tr>
 
         ${positioningHtml}
+        ${howItWorksHtml}
+        ${priceHtml}
         ${conditionsHtml}
+        ${modulesHtml}
+        ${regionalRulesHtml}
+        ${implementationHtml}
+        ${benefitsHtml}
+        ${testimonialsHtml}
+        ${faqHtml}
         ${finalCtaHtml}
 
         <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
@@ -572,7 +884,7 @@ Deno.serve(async (req) => {
       const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
       return buildLpEmailHtml({
         subject: subj,
-        preheader: stripPrices(lpData.hero.sub || ""),
+        preheader: lpData.hero.sub || "",
         heroImageUrl: heroImage,
         logoUrl: lpData.logo_url || null,
         brandName: lpData.brand_name || "Smart Dent",
@@ -580,15 +892,23 @@ Deno.serve(async (req) => {
         badge: lpData.hero.badge || "",
         eyebrow: lpData.hero.eyebrow || "",
         headlineHtml: headlineVerbatim,
-        sub: stripPrices(lpData.hero.sub || ""),
-        bullets: (lpData.hero.bullets || []).map(b => stripPrices(b)),
+        sub: lpData.hero.sub || "",
+        bullets: lpData.hero.bullets || [],
         trust: lpData.hero.trust || [],
         positioning: lpData.positioning ? {
           eyebrow: lpData.positioning.eyebrow,
-          headline: stripPrices(lpData.positioning.headline || ""),
-          body: stripPrices(lpData.positioning.body || ""),
+          headline: lpData.positioning.headline || "",
+          body: lpData.positioning.body || "",
         } : undefined,
+        howItWorks: lpData.howItWorks,
+        price: lpData.price,
         conditions: lpData.conditions,
+        modules: lpData.modules,
+        regionalRules: lpData.regionalRules,
+        implementation: lpData.implementation,
+        benefits: lpData.benefits,
+        testimonials: lpData.testimonials,
+        faq: lpData.faq,
         finalCta: lpData.final_cta,
         ctaPrimary: { label: lpData.hero.primary_cta || lpData.nav_cta || ctaLabel(cta_principal!), url: cta_principal!.url! },
         ctaSecondary: secondary ? { label: lpData.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
@@ -596,178 +916,23 @@ Deno.serve(async (req) => {
       });
     };
 
-    // If we have an LP, take the deterministic-assembly path:
-    // ask the LLM ONLY for the copy fields, then render the branded skeleton server-side.
-    // If the LLM fails, we DO NOT fall back to the legacy prompt — we render the LP verbatim
-    // so the email always keeps the LP visual identity.
+    // If we have an LP, ALWAYS render the email as a verbatim mirror of the LP —
+    // same text, same sections, same order, same theme. No LLM rewriting the body.
     if (lp && cta_principal?.url && regenerate === "all") {
-      const heroImage = lp.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
-      console.log("[generate-email-ai] LP branch selected id=", (lp as any).id || "?", "hero_image=", heroImage || "none");
-
-      const lpBrief = {
-        hero: {
-          eyebrow: lp.hero.eyebrow || "",
-          headline: lp.hero.headline_parts?.map(p => (p.highlight ? `«${p.text}»` : p.text)).join("").trim() || lp.hero.headline || "",
-          sub: lp.hero.sub || "",
-          bullets: lp.hero.bullets || [],
-          trust: lp.hero.trust || [],
-        },
-        positioning: lp.positioning || null,
-        conditions: lp.conditions || null,
-      };
-
-      const copySystem = `Você é copywriter sênior da Smart Dent | Fluxo Digital. Reescreve a copy da LANDING PAGE do produto para um e-mail em 4 SEÇÕES FIXAS: (1) Hero, (2) Oferta/Posicionamento, (3) Condições, (4) CTA final. NÃO invente novas seções.
-
-REGRAS ABSOLUTAS:
-- NUNCA cite preços, valores em R$, descontos numéricos ou promoções com valor. NUNCA cite "assinatura mensal de R$…", "de R$… por R$…".
-- Preserve o significado e o posicionamento originais da LP. Reescreva no TOM: ${tomInstruction}
-- Português do Brasil. Sem emojis exagerados (máx 1 no assunto).
-- Headline: mantenha a intenção da headline da LP. Se a LP marcou parte com «…», envolva a MESMA ideia com <span class="hl">…</span> no seu HTML (será renderizada com gradiente roxo→laranja no e-mail).
-- Bullets (Hero): 3-5 no máximo, curtos (máx 90 chars), sem valores monetários.
-- Positioning body: máx 260 chars, sem preços.
-- Seções "Como funciona", "Módulos", "Benefícios", "Implantação" NÃO devem ser geradas — o e-mail final tem só 4 seções.
-
-SAÍDA: apenas JSON válido, sem markdown, sem texto extra, com este schema:
-{
-  "subject": string (máx 70 chars),
-  "preheader": string (máx 110 chars),
-  "cta_button_label": string (máx 32 chars),
-  "eyebrow": string (máx 40 chars, uppercase-friendly),
-  "headline_html": string (uma linha, pode conter <span class="hl">trecho destacado</span>, sem outras tags),
-  "sub": string (máx 220 chars),
-  "bullets": string[] (3-5 itens),
-  "positioning": { "eyebrow": string, "headline": string, "body": string } | null,
-  "plain_text": string (versão texto puro do email, com CTA no final)
-}`;
-
-      const copyUser = `═══ DOSSIÊ DA LANDING PAGE (fonte primária) ═══
-Produto: ${produtoCtx?.name || produto || "produto Smart Dent"}
-Marca/badge: ${lp.reseller_badge || "-"}
-Imagem hero disponível no e-mail: ${heroImage || "(sem imagem)"}
-
-Hero:
-- Eyebrow LP: ${lpBrief.hero.eyebrow || "-"}
-- Headline LP: ${lpBrief.hero.headline || "-"}
-- Sub LP: ${lpBrief.hero.sub || "-"}
-- Bullets LP: ${(lpBrief.hero.bullets || []).map(b => `• ${b}`).join("\n") || "-"}
-- Trust inline LP: ${(lpBrief.hero.trust || []).join(" · ") || "-"}
-
-Positioning LP: ${lpBrief.positioning ? JSON.stringify(lpBrief.positioning) : "(nenhum)"}
-
-Condições LP (renderizadas direto pelo template — não reescrever): ${lpBrief.conditions ? `${(lpBrief.conditions.items || []).length} condição(ões) disponível(is)` : "(nenhum)"}
-
-═══ AUDIÊNCIA ═══
-${segmento_resumo || "leads da base Smart Dent"}
-
-═══ CTA principal ═══
-Rótulo sugerido (pode ser reescrito no tom): ${ctaLabel(cta_principal)}
-Destino: ${cta_principal.url}
-
-Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
-
-      const copyRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: copySystem },
-            { role: "user", content: copyUser },
-          ],
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      const doVerbatimReturn = (reason: string) => {
-        console.warn("[generate-email-ai] fallback_to_lp_verbatim reason=", reason);
-        const html = buildVerbatim(lp, produtoCtx?.name || produto || "Smart Dent");
-        return new Response(JSON.stringify({
-          success: true,
-          subject: (produtoCtx?.name || "Smart Dent").slice(0, 90),
-          preheader: stripPrices(lp.hero.sub || "").slice(0, 130),
-          cta_button_label: ctaLabel(cta_principal!) || "Saiba mais",
-          html_body: html,
-          plain_text: "",
-          produto_context: produtoCtx,
-          source: "landing_page_verbatim",
-          fallback_reason: reason,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      };
-
-      if (!copyRes.ok) {
-        const errTxt = await copyRes.text();
-        console.error("[generate-email-ai/lp] gateway error", copyRes.status, errTxt);
-        return doVerbatimReturn(`gateway_${copyRes.status}`);
-      }
-      {
-        const aiJson = await copyRes.json();
-        const content = aiJson.choices?.[0]?.message?.content || "{}";
-        let parsed: any = {};
-        try { parsed = JSON.parse(content); }
-        catch { const m = content.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; }
-
-        if (!parsed || !parsed.headline_html) {
-          return doVerbatimReturn("empty_llm_json");
-        }
-
-        const bulletsClean = Array.isArray(parsed.bullets)
-          ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
-          : (lp.hero.bullets || []).map(b => stripPrices(b)).filter(Boolean).slice(0, 5);
-
-        const positioningClean = parsed.positioning && (parsed.positioning.headline || parsed.positioning.body)
-          ? {
-              eyebrow: stripPrices(String(parsed.positioning.eyebrow || "")),
-              headline: stripPrices(String(parsed.positioning.headline || "")),
-              body: stripPrices(String(parsed.positioning.body || "")),
-            }
-          : lp.positioning;
-
-        const ctaBtnLabel = String(parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais").slice(0, 40);
-
-        const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
-
-        // Sanitize headline_html: allow only <span class="hl">…</span>. Strip anything else.
-        const rawHeadline = stripPrices(String(parsed.headline_html || lp.hero.headline || ""));
-        const safeHeadline = rawHeadline
-          .replace(/<(?!\/?span\b|\/?SPAN\b)[^>]*>/g, "")
-          .replace(/<span(?![^>]*class=["']?hl)[^>]*>/gi, "");
-
-        const html = buildLpEmailHtml({
-          subject: String(parsed.subject || produtoCtx?.name || "Smart Dent"),
-          preheader: stripPrices(String(parsed.preheader || "")),
-          heroImageUrl: heroImage,
-          logoUrl: lp.logo_url || null,
-          brandName: lp.brand_name || "Smart Dent",
-          theme: lp.theme,
-          badge: lp.hero.badge || "",
-          eyebrow: stripPrices(String(parsed.eyebrow || lp.hero.eyebrow || "")),
-          headlineHtml: safeHeadline,
-          sub: stripPrices(String(parsed.sub || lp.hero.sub || "")),
-          bullets: bulletsClean,
-          trust: lp.hero.trust || [],
-          positioning: positioningClean,
-          conditions: lp.conditions,
-          finalCta: lp.final_cta,
-          ctaPrimary: { label: ctaBtnLabel, url: cta_principal.url },
-          ctaSecondary: secondary ? { label: lp.hero.secondary_cta || ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
-          resellerBadge: lp.reseller_badge,
-        });
-
-        console.log("[generate-email-ai] LP branch OK — source=landing_page_ai");
-        return new Response(JSON.stringify({
-          success: true,
-          subject: String(parsed.subject || "").slice(0, 90),
-          preheader: stripPrices(String(parsed.preheader || "")).slice(0, 130),
-          cta_button_label: ctaBtnLabel,
-          html_body: html,
-          plain_text: stripPrices(String(parsed.plain_text || "")),
-          produto_context: produtoCtx,
-          source: "landing_page_ai",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const subj = (produtoCtx?.name || lp.hero.headline || "Smart Dent").toString().slice(0, 90);
+      const html = buildVerbatim(lp, subj);
+      const preheader = (lp.hero.sub || "").toString().slice(0, 130);
+      console.log("[generate-email-ai] LP branch → landing_page_verbatim (full mirror)");
+      return new Response(JSON.stringify({
+        success: true,
+        subject: subj,
+        preheader,
+        cta_button_label: lp.hero.primary_cta || lp.nav_cta || ctaLabel(cta_principal) || "Saiba mais",
+        html_body: html,
+        plain_text: "",
+        produto_context: produtoCtx,
+        source: "landing_page_verbatim",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const systemPrompt = `Você é um copywriter sênior da Smart Dent | Fluxo Digital, especializado em odontologia digital (impressão 3D, escaneamento, CAD/CAM). Escreve emails B2B para dentistas e laboratórios.
