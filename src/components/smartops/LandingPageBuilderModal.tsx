@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -33,6 +33,8 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   form: { id: string; name: string; slug: string; form_purpose: string } | null;
 }
+
+const LPMediaFormIdContext = createContext<string>("draft");
 
 type LP = {
   id: string;
