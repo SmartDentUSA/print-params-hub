@@ -1,41 +1,39 @@
-## Onde fica a seção
+## Plano de correção
 
-A seção "O que os dentistas dizem" é a `testimonials` do `PremiumLandingTemplate` (linhas ~1146-1171 de `src/components/lp/PremiumLandingTemplate.tsx`). Hoje cada item só tem `quote`, `author` e `role` — não há foto, Instagram nem Facebook. E o editor (`LandingPageBuilderModal.tsx`) não tem UI para editar essa seção; ela só aparece se a IA gerar.
+1. **Unificar o botão “Gerar por IA” em uma rota confiável**
+   - Remover a dependência frágil da geração paralela obrigatória.
+   - Fazer o botão chamar o orquestrador como etapa principal e tratar metadados como etapa opcional, sem bloquear a geração do artigo.
 
-## O que vamos fazer
+2. **Corrigir retorno silencioso do Orquestrador**
+   - No frontend, validar `success: false`, `fallback: true`, `error` e ausência de `html` com mensagens claras no toast.
+   - Se a edge function retornar erro encapsulado com status 200, o usuário verá o motivo em vez de “nada acontece”.
 
-1. **Ampliar o schema `LPContent.testimonials.items`** em `PremiumLandingTemplate.tsx`:
-   ```ts
-   items: {
-     quote: string;
-     author: string;
-     role?: string;
-     avatar?: LPMedia;      // foto do cliente (upload)
-     instagram_url?: string;
-     facebook_url?: string;
-   }[]
-   ```
+3. **Blindar a edge function `ai-orchestrate-content`**
+   - Ajustar o `catch` para não devolver 500 bruto em falhas previsíveis de IA/API.
+   - Retornar JSON estruturado com `success: false`, `error`, `message` e `fallback: true` para falhas de provider, parse ou indisponibilidade.
+   - Manter 400 apenas para validação de entrada quando faltar fonte de conteúdo.
 
-2. **Renderização** (mesmo arquivo, bloco testimonials):
-   - Se `avatar?.url` existir, mostrar `<img>` redondo 56px ao lado do nome no `figcaption`.
-   - Se `instagram_url` ou `facebook_url` existir, renderizar ícones (lucide `Instagram` / `Facebook`) como links com `target="_blank" rel="noopener nofollow"` à direita do bloco de autor.
-   - Layout continua o mesmo card; alteração só dentro de `figcaption`.
+4. **Reduzir travamentos por payload grande/timeout**
+   - Adicionar timeout controlado no cliente para a chamada do orquestrador.
+   - Mostrar mensagem específica quando o conteúdo/PDFs forem grandes demais ou demorarem.
+   - Evitar que a chamada de metadados rode em paralelo quando não houver HTML novo; ela passa a rodar depois do HTML gerado e sem impedir o preview.
 
-3. **Editor no `LandingPageBuilderModal.tsx`**:
-   - Adicionar uma nova aba/`TabsTrigger` "Depoimentos" (ou incluir na aba "Conteúdo" existente, dependendo do padrão atual do modal — verificar antes de implementar).
-   - UI:
-     - Campo `title` da seção.
-     - Lista editável de depoimentos com botões "Adicionar" / "Remover" (mesmo padrão dos benefits/steps).
-     - Por item: `Textarea` para `quote`, `Input` para `author`, `Input` para `role`, `MediaField` reutilizado para `avatar` (upload de foto — mesmo bucket `landing-page-media`, mesmo fluxo já implementado), `Input` para `instagram_url`, `Input` para `facebook_url`.
-   - Persistir em `content.testimonials`.
+5. **Corrigir inconsistência de metadados**
+   - Hoje a geração paralela envia `formData.content_html`, que pode estar vazio/antigo, em vez do HTML recém-gerado.
+   - Após gerar o artigo, usar o HTML novo para atualizar meta description/keywords de forma não bloqueante.
 
-4. **Sem mudança em edge functions nem banco** — `content` é JSONB, os novos campos são aditivos. Buckets e uploads já foram criados na etapa anterior.
+6. **Validar o fluxo no preview**
+   - Testar com fonte “Texto Colado” mínima no modo Orquestrador.
+   - Confirmar que aparece loader, depois preview ou toast de erro claro.
+   - Conferir console/network para garantir que a função não deixa o usuário sem feedback.
 
-## Arquivos afetados
+## Arquivos previstos
 
-- `src/components/lp/PremiumLandingTemplate.tsx` — expandir tipo + renderização (avatar + ícones sociais).
-- `src/components/smartops/LandingPageBuilderModal.tsx` — nova seção de edição de depoimentos com upload de avatar e URLs sociais, reutilizando `MediaField`.
+- `src/components/AdminKnowledge.tsx`
+- `supabase/functions/ai-orchestrate-content/index.ts`
 
 ## Fora do escopo
 
-- Buscar depoimentos automáticos do `system_a_catalog` (`video_testimonial`) — se você quiser depois "puxar depoimentos reais já cadastrados", posso adicionar num próximo passo; por ora ficamos com edição manual + upload.
+- Não alterar schema/tabelas.
+- Não mexer em geração de landing pages.
+- Não trocar provider/modelo de IA sem necessidade.
