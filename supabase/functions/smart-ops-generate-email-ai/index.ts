@@ -755,6 +755,7 @@ Retorne JSON no formato:
       html_body: sanitizedHtml,
       plain_text: sanitizedText,
       produto_context: produtoCtx,
+      source: "catalog_dossier",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[generate-email-ai] error", err);
