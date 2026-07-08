@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil } from "lucide-react";
+import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil, Package, Upload } from "lucide-react";
 import {
   PremiumLandingTemplate,
   DEFAULT_LP_CONTENT,
@@ -70,9 +70,10 @@ function ensureContent(raw: unknown): LPContent {
 }
 
 export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
-  const [tab, setTab] = useState<"ai" | "briefing" | "edit">("ai");
+  const [tab, setTab] = useState<"ai" | "briefing" | "playbook" | "edit">("ai");
   const [aiIdea, setAiIdea] = useState("");
   const [briefing, setBriefing] = useState("");
+  const [playbook, setPlaybook] = useState("");
   const [lp, setLp] = useState<LP | null>(null);
   const [content, setContent] = useState<LPContent | null>(null);
   const [heroImage, setHeroImage] = useState<string>("");
@@ -87,6 +88,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     setHeroImage("");
     setAiIdea("");
     setBriefing("");
+    setPlaybook("");
     setLoading(true);
     supabase
       .from("smartops_form_landing_pages" as any)
@@ -102,6 +104,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           setHeroImage(row.hero_image_url || "");
           setTab(row.mode === "briefing" ? "briefing" : "ai");
           if (row.mode === "briefing") setBriefing(row.input_prompt || "");
+          else if ((row.mode as any) === "playbook") setPlaybook(row.input_prompt || "");
           else setAiIdea(row.input_prompt || "");
         }
         setLoading(false);
@@ -131,27 +134,44 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
   async function handleGenerate() {
     if (tab === "edit") return;
-    const input = tab === "ai" ? aiIdea.trim() : briefing.trim();
+    const input = tab === "ai" ? aiIdea.trim() : tab === "briefing" ? briefing.trim() : playbook.trim();
     if (!input) {
-      toast.error(tab === "ai" ? "Descreva a ideia da landing page" : "Cole o briefing");
+      toast.error(
+        tab === "ai"
+          ? "Descreva a ideia da landing page"
+          : tab === "briefing"
+          ? "Cole o briefing"
+          : "Cole ou carregue o JSON do playbook do produto",
+      );
       return;
+    }
+    if (tab === "playbook") {
+      try {
+        JSON.parse(input);
+      } catch {
+        toast.error("JSON do playbook inválido");
+        return;
+      }
     }
     await runGenerate(tab, input);
   }
 
   async function handleRegenerate() {
     if (!lp) return;
-    const mode = (lp.mode ?? "ai") as "ai" | "briefing";
-    const input = (lp.input_prompt ?? (mode === "ai" ? aiIdea : briefing)).trim();
+    const mode = (lp.mode ?? "ai") as "ai" | "briefing" | "playbook";
+    const input = (
+      lp.input_prompt ??
+      (mode === "ai" ? aiIdea : mode === "briefing" ? briefing : playbook)
+    ).trim();
     if (!input) {
       toast.error("Preencha a ideia ou o briefing primeiro");
-      setTab(mode === "briefing" ? "briefing" : "ai");
+      setTab(mode === "briefing" ? "briefing" : mode === "playbook" ? "playbook" : "ai");
       return;
     }
     await runGenerate(mode, input);
   }
 
-  async function runGenerate(mode: "ai" | "briefing", input: string) {
+  async function runGenerate(mode: "ai" | "briefing" | "playbook", input: string) {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("landing-page-generator", {
@@ -195,7 +215,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     const saved = await persist({
       content,
       hero_image_url: heroImage || null,
-      mode: lp?.mode ?? (tab === "briefing" ? "briefing" : "ai"),
+      mode:
+        lp?.mode ??
+        (tab === "briefing" ? "briefing" : tab === "playbook" ? "playbook" : "ai"),
       input_prompt: lp?.input_prompt ?? "",
       status: lp?.status ?? "draft",
     } as any);
