@@ -1,25 +1,44 @@
-## Plano: fazer o gerador de conteúdo voltar a gerar e salvar
+## Objetivo
 
-1. **Corrigir a fonte única do botão “Gerar por IA”**
-   - Hoje o botão sempre valida `orchestratorActiveSources`, mesmo quando o modo orquestrador está desligado.
-   - Ajustar para que, no modo rápido, ele use o texto/PDF de `rawTextInput` como fonte real.
+No passo "2. Revisar & Ajustar" do `EmailCampaignWizard`, substituir o textarea único de HTML por um editor com três modos e controle de seções ligáveis/desligáveis.
 
-2. **Sincronizar PDF transcrito e texto colado com o payload da IA**
-   - Quando o usuário usa PDF ou cola texto no modo rápido, montar automaticamente `sources.rawText` para o `ai-orchestrate-content`.
-   - Evitar o erro “Nenhuma fonte selecionada” ou “fontes vazias” quando existe texto na tela.
+## O que o usuário verá
 
-3. **Tornar “Inserir HTML + FAQs” também um salvamento real**
-   - Para conteúdo novo, o botão deve inserir o HTML gerado no formulário e chamar o fluxo completo de salvar/criar conteúdo, sem depender de um segundo clique manual.
-   - Para conteúdo existente, manter atualização direta, mas também preservar metadados/FAQs gerados.
+No card "Revisar & Ajustar", acima do campo HTML, aparecem três abas:
 
-4. **Evitar salvamento vazio ou stale state**
-   - Ajustar o fluxo para salvar usando o HTML gerado diretamente, não dependendo de `setFormData` assíncrono antes do save.
-   - Garantir que `content_html` e `faqs` cheguem corretamente em `knowledge_contents`.
+- **Visual** — editor rico WYSIWYG (negrito, itálico, links, listas, títulos, alinhamento, cor, imagens embutidas via URL, desfazer/refazer). Edita o corpo do email diretamente com formatação clicável.
+- **HTML** — editor de código com destaque monoespaçado (mantém o textarea atual, melhorado).
+- **Seções** — lista das seções detectadas no HTML (hero, benefícios, CTA, prova social, rodapé, etc.), cada uma com um switch ligar/desligar e botão para reordenar (subir/descer). Seções desligadas somem do HTML final e do preview.
 
-5. **Mensagens claras para falhas de IA**
-   - Melhorar os toasts quando a edge function retornar timeout, créditos, rate limit ou resposta inválida.
-   - Mostrar ao usuário o que corrigir: adicionar texto/PDF, reduzir fonte grande, tentar novamente, ou verificar créditos.
+Preview lateral continua funcionando em todos os modos e atualiza em tempo real.
 
-6. **Validação rápida**
-   - Testar o fluxo mínimo: colar texto → Gerar por IA → Inserir/Salvar → confirmar que o conteúdo fica persistido.
-   - Testar seleção de PDF já existente como fonte do orquestrador, verificando feedback visual e geração.
+Ao alternar entre abas, o conteúdo é sincronizado: editar no Visual atualiza o HTML; editar o HTML e voltar ao Visual re-renderiza; ligar/desligar seções aplica tanto no Visual quanto no HTML.
+
+## Como as seções são detectadas
+
+O HTML gerado pela IA será marcado com `<section data-section="hero">…</section>`, `data-section="benefits"`, `data-section="cta"`, `data-section="social-proof"`, `data-section="footer"`, etc. O parser lê essas marcações para montar a lista de toggles. Seções sem marcação viram uma única seção "conteúdo" (não removível). O prompt do `smart-ops-generate-email` será ajustado para sempre emitir `data-section` nos blocos principais.
+
+## Detalhes técnicos
+
+- Biblioteca WYSIWYG: **TipTap** (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-text-align`, `@tiptap/extension-color`) — leve, headless, integra com Tailwind e permite HTML in/out fiel. Já compatível com a stack.
+- Novo componente `src/components/smartops/EmailRichEditor.tsx` recebe `value`, `onChange`, `sections`, `onSectionsChange`.
+- Novo utilitário `src/components/smartops/emailSections.ts`:
+  - `parseSections(html)` → `Array<{ id, key, label, enabled, order, html }>`
+  - `serializeSections(sections, wrapperHtml)` → HTML final preservando `<head>`, estilos e wrapper `<body>`.
+- Wizard (`EmailCampaignWizard.tsx` linhas 573–586): substituir o grid HTML/Preview por `<Tabs>` (shadcn) com `Visual | HTML | Seções` + coluna de preview mantida. Estado local `sections` derivado de `html` no primeiro parse; edições no Visual/HTML re-parseiam para manter a lista atualizada.
+- Regeneração por IA: prompt em `supabase/functions/smart-ops-generate-email/index.ts` recebe instrução explícita para envolver blocos em `<section data-section="…">` com `label` textual (`data-section-label="Benefícios"`) usada na aba Seções.
+- Preview (`previewHtml`) passa a usar o HTML serializado a partir das seções ativas, não o textarea bruto.
+- Sanitização mantida: continua exigindo `<body>`, sem `<script>`.
+
+## Fora do escopo
+
+- Fluxos de campanha SMS/WhatsApp (só email).
+- Editor de sequências (`EmailSequenceBuilder`) — se você quiser lá também, incluímos numa iteração seguinte.
+- Upload de imagem no editor (por ora só URL); podemos plugar Supabase Storage depois.
+
+## Validação
+
+- Gerar email → alternar Visual/HTML/Seções sem perda de conteúdo.
+- Desligar "Prova social" → some do preview e do HTML enviado no teste.
+- Editar título no Visual (negrito + link) → HTML reflete; preview atualiza.
+- Enviar teste (`handleTest`) usa o HTML final com seções aplicadas.
