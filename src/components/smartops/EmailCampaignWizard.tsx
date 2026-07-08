@@ -275,7 +275,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         body: {
           campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
           description, from_name: fromName,
-          subject, preheader, html,
+          subject, preheader, html: effectiveHtml || html,
           filters,
           cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
           test_email: testEmail,
@@ -300,7 +300,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         body: {
           campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
           description, from_name: fromName,
-          subject, preheader, html, filters,
+          subject, preheader, html: effectiveHtml || html, filters,
           cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
           scheduled_at: dispatchMode === "scheduled" ? new Date(scheduledAt).toISOString() : undefined,
         },
