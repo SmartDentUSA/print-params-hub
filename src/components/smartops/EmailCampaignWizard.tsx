@@ -517,12 +517,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 {useLandingPage && (
                   <Badge variant="secondary" className="text-[10px]">
                     {emailSource === "landing_page_ai"
-                      ? "Template da LP + tom IA"
+                      ? "4 seções (Hero · Oferta · Condições · CTA) + tom IA"
                       : emailSource === "landing_page_verbatim"
-                      ? "Template da LP (copy original)"
+                      ? "4 seções (Hero · Oferta · Condições · CTA)"
                       : emailSource === "catalog_dossier"
                       ? "Fallback: dossiê do catálogo"
-                      : "Template visual da LP"}
+                      : "E-mail padrão: 4 seções da LP"}
                   </Badge>
                 )}
               </div>
@@ -539,7 +539,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               <span className="flex items-center gap-2">
                 2. Revisar & Ajustar
                 {emailSource?.startsWith("landing_page") && (
-                  <Badge variant="secondary" className="text-[10px]">Template visual da LP</Badge>
+                  <Badge variant="secondary" className="text-[10px]">4 seções: Hero · Oferta · Condições · CTA</Badge>
                 )}
                 {emailSource === "catalog_dossier" && (
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
