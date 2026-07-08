@@ -112,7 +112,17 @@ export type LPContent = {
     support?: { title: string; items: string[] };
   };
   benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string; media?: LPMedia }[] };
-  testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
+  testimonials?: {
+    title?: string;
+    items: {
+      quote: string;
+      author: string;
+      role?: string;
+      avatar?: LPMedia;
+      instagram_url?: string;
+      facebook_url?: string;
+    }[];
+  };
   comparison?: {
     title?: string;
     subtitle?: string;
