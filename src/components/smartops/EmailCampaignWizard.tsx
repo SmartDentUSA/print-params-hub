@@ -490,6 +490,22 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 {generating ? "Gerando com IA..." : "Gerar email com IA →"}
               </Button>
             </div>
+            {ctaPrincipal?.tipo === "landing" && (
+              <div className="flex items-center justify-end gap-3 -mt-2 text-xs">
+                <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useLandingPage}
+                    onChange={e => setUseLandingPage(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Usar a Landing Page do produto como base visual e de copy
+                </label>
+                {useLandingPage && (
+                  <Badge variant="secondary" className="text-[10px]">Copy espelhada da LP</Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
