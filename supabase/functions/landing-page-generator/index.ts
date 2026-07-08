@@ -196,11 +196,20 @@ FORMULÁRIO ALVO: "${form.name}" — finalidade ${form.form_purpose} — slug ${
 function summarizePlaybook(raw: string): { summary: string; parsed: any } | null {
   try {
     const p = JSON.parse(raw);
+    return summarizePlaybookObject(p);
+  } catch {
+    return null;
+  }
+}
+
+function summarizePlaybookObject(p: any): { summary: string; parsed: any } {
     const bi = p?.basic_info ?? {};
     const md = p?.marketing_data ?? {};
     const specs = Array.isArray(p?.technical_specs) ? p.technical_specs : [];
     const vars = Array.isArray(p?.product_variations) ? p.product_variations : [];
     const seo = p?.seo_data ?? {};
+    const cmp = Array.isArray(p?.competitor_comparison) ? p.competitor_comparison : [];
+    const clinical = Array.isArray(p?.clinical_indications) ? p.clinical_indications : [];
     const lines: string[] = [];
     lines.push(`Produto: ${bi.name ?? "(sem nome)"}`);
     if (bi.category || bi.subcategory) lines.push(`Categoria: ${[bi.category, bi.subcategory].filter(Boolean).join(" / ")}`);
@@ -217,6 +226,13 @@ function summarizePlaybook(raw: string): { summary: string; parsed: any } | null
       lines.push(`\nEspecificações técnicas (use como "modules.items" — name=label, application=value):`);
       for (const s of specs) lines.push(`- ${s?.label ?? ""}: ${s?.value ?? ""}`);
     }
+    if (clinical.length) {
+      lines.push(`\nIndicações clínicas: ${clinical.join(" | ")}`);
+    }
+    if (cmp.length) {
+      lines.push(`\nComparativo com concorrentes (use como seção "comparison" — columns=cabeçalhos, rows=linhas):`);
+      for (const row of cmp) lines.push(`- ${typeof row === "string" ? row : JSON.stringify(row)}`);
+    }
     if (vars.length) {
       lines.push(`\nVariações do produto:`);
       for (const v of vars) lines.push(`- ${JSON.stringify(v)}`);
@@ -225,21 +241,18 @@ function summarizePlaybook(raw: string): { summary: string; parsed: any } | null
     if (seo.seo_title) lines.push(`SEO title: ${seo.seo_title}`);
     if (seo.seo_description) lines.push(`SEO description: ${seo.seo_description}`);
     return { summary: lines.join("\n"), parsed: p };
-  } catch {
-    return null;
-  }
 }
 
-function buildUserPrompt(mode: "ai" | "briefing" | "playbook", input: string) {
+function buildUserPrompt(mode: "ai" | "briefing" | "playbook" | "rag", input: string) {
   if (mode === "briefing") {
     return `MODO: BRIEFING (fidelidade total).\n\nProduza o JSON de conteúdo baseado FIELMENTE no briefing abaixo — respeitando preços, ofertas, módulos e textos citados. Não invente nada que não esteja no briefing.\n\n=== BRIEFING ===\n${input}\n=== FIM DO BRIEFING ===`;
   }
-  if (mode === "playbook") {
+  if (mode === "playbook" || mode === "rag") {
     const s = summarizePlaybook(input);
     if (!s) {
       return `MODO: PLAYBOOK.\n\nO JSON recebido é inválido — trate como briefing textual literal:\n\n${input}`;
     }
-    return `MODO: PLAYBOOK (fidelidade máxima ao produto real).
+    return `MODO: ${mode === "rag" ? "RAG" : "PLAYBOOK"} (fidelidade máxima ao produto real do catálogo).
 
 Você recebe o AI Playbook estruturado de um produto real. Preencha o JSON de conteúdo da landing page USANDO EXCLUSIVAMENTE os dados abaixo. Regras:
 
@@ -251,6 +264,7 @@ Você recebe o AI Playbook estruturado de um produto real. Preencha o JSON de co
 - howItWorks: 3 passos coerentes com o produto (ex.: escaneia → envia ao slicer → imprime), extraídos do pitch/specs.
 - Se o produto NÃO for exocad/DentalCAD/RMS, OMITA seções regionalRules e implementation (Smart Dent-genérico).
 - faq (5-8) baseado em objeções típicas do pitch e specs. NUNCA use as 25 FAQs canônicas de exocad se o produto não for exocad.
+ - Se houver "Comparativo com concorrentes", preencha a seção "comparison" com columns=["Recurso", "<nome do produto>", "Concorrente A", ...] e rows=[{cells:[...]}].
 - finalCta coerente com o tom do sales pitch.
 - legal: uma linha curta institucional Smart Dent.
 
@@ -273,13 +287,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { form_id, mode, input } = body ?? {};
+    const { form_id, mode } = body ?? {};
+    let { input } = body ?? {};
     if (
       !form_id ||
-      (mode !== "ai" && mode !== "briefing" && mode !== "playbook") ||
-      typeof input !== "string" ||
-      !input.trim()
+      (mode !== "ai" && mode !== "briefing" && mode !== "playbook" && mode !== "rag")
     ) {
+      return new Response(JSON.stringify({ error: "invalid_input" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (mode !== "rag" && (typeof input !== "string" || !input.trim())) {
       return new Response(JSON.stringify({ error: "invalid_input" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -289,7 +308,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: form, error: formErr } = await admin
       .from("smartops_forms")
-      .select("id,name,slug,form_purpose,title,subtitle")
+      .select("id,name,slug,form_purpose,title,subtitle,product_catalog_id")
       .eq("id", form_id)
       .maybeSingle();
 
@@ -300,10 +319,69 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (mode === "rag") {
+      const pcId = (form as any).product_catalog_id;
+      if (!pcId) {
+        return new Response(JSON.stringify({ error: "no_product_linked" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: sysA } = await admin
+        .from("system_a_catalog")
+        .select("id,name,description,price,promo_price,currency,product_category,product_subcategory,technical_specs,clinical_indications,keywords,image_url,external_id")
+        .eq("id", pcId)
+        .maybeSingle();
+      if (!sysA) {
+        return new Response(JSON.stringify({ error: "product_not_found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: pc } = await admin
+        .from("products_catalog")
+        .select("product_id,name,description,sales_pitch,benefits,features,target_audience,applications,faq,competitor_comparison,technical_specifications")
+        .eq("system_a_product_id", (sysA as any).id)
+        .maybeSingle();
+
+      const merged = {
+        product_id: (sysA as any).id,
+        basic_info: {
+          name: (pc as any)?.name || (sysA as any).name,
+          description: (pc as any)?.description || (sysA as any).description,
+          category: (sysA as any).product_category,
+          subcategory: (sysA as any).product_subcategory,
+          price: (sysA as any).price,
+          promo_price: (sysA as any).promo_price,
+          currency: (sysA as any).currency ?? "BRL",
+        },
+        marketing_data: {
+          sales_pitch: (pc as any)?.sales_pitch ?? "",
+          benefits: (pc as any)?.benefits ?? [],
+          features: (pc as any)?.features ?? [],
+          target_audience: (pc as any)?.target_audience ?? [],
+          unique_selling_points: (pc as any)?.features ?? [],
+        },
+        technical_specs: Array.isArray((sysA as any).technical_specs)
+          ? (sysA as any).technical_specs
+          : Array.isArray((pc as any)?.technical_specifications)
+          ? (pc as any).technical_specifications
+          : [],
+        clinical_indications: (sysA as any).clinical_indications ?? [],
+        competitor_comparison: (pc as any)?.competitor_comparison ?? [],
+        applications: (pc as any)?.applications ?? [],
+        faq_seed: (pc as any)?.faq ?? [],
+        seo_data: {
+          primary_keywords: (sysA as any).keywords ?? [],
+        },
+      };
+      input = JSON.stringify(merged);
+    }
+
     // Cascade: GPT-5.5 → GPT-5.4 → Gemini 3.1 Pro → Gemini 3 Flash. Todos com JSON mode.
     const messages = [
       { role: "system", content: buildSystemPrompt(form) },
-      { role: "user", content: buildUserPrompt(mode, input) },
+      { role: "user", content: buildUserPrompt(mode, input as string) },
     ];
     const callModel = async (model: string, opts: { priority?: boolean } = {}) => {
       const body: Record<string, unknown> = {
