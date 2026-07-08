@@ -270,7 +270,7 @@ function buildLpEmailHtml(opts: {
 
   const ctaBtn = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 0 auto;">
-      <tr><td align="center" style="border-radius:12px;background:${grad};">
+      <tr><td align="center" bgcolor="${BRAND.purple}" style="border-radius:12px;background:${BRAND.purple};background:${grad};">
         <a href="${esc(ctaPrimary.url)}" style="display:inline-block;padding:16px 32px;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:15px;letter-spacing:0.3px;color:#ffffff;text-decoration:none;border-radius:12px;">
           ${esc(ctaPrimary.label)} →
         </a>
