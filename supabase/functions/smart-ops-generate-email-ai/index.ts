@@ -414,11 +414,48 @@ Deno.serve(async (req) => {
 
     // ── Load Landing Page dossier (primary copy + visual source of truth) ──
     const lp = use_landing_page ? await loadLpDossier(supabase, cta_principal, produto_id) : null;
+    console.log("[generate-email-ai] LP branch selected:", lp ? "YES" : "NO",
+      "regenerate=", regenerate, "cta_url=", cta_principal?.url ? "yes" : "no");
+
+    // Helper: build the branded email using LP content verbatim (no LLM copy).
+    const buildVerbatim = (lpData: LPDossier, subj: string) => {
+      const heroImage = lpData.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
+      const headlineVerbatim = lpData.hero.headline_parts?.length
+        ? lpData.hero.headline_parts.map(p =>
+            p.highlight ? `<span class="hl">${esc(p.text)}</span>` : esc(p.text)
+          ).join("")
+        : esc(lpData.hero.headline || produtoCtx?.name || "Smart Dent");
+      const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
+      return buildLpEmailHtml({
+        subject: subj,
+        preheader: stripPrices(lpData.hero.sub || ""),
+        heroImageUrl: heroImage,
+        eyebrow: lpData.hero.eyebrow || "",
+        headlineHtml: headlineVerbatim,
+        sub: stripPrices(lpData.hero.sub || ""),
+        bullets: (lpData.hero.bullets || []).map(b => stripPrices(b)),
+        trust: lpData.hero.trust || [],
+        positioning: lpData.positioning ? {
+          eyebrow: lpData.positioning.eyebrow,
+          headline: stripPrices(lpData.positioning.headline || ""),
+          body: stripPrices(lpData.positioning.body || ""),
+        } : undefined,
+        howItWorks: (lpData.how_it_works || []).map(h => ({
+          title: stripPrices(h.title), desc: stripPrices(h.desc),
+        })),
+        ctaPrimary: { label: ctaLabel(cta_principal!), url: cta_principal!.url! },
+        ctaSecondary: secondary ? { label: ctaLabel(secondary) || "Ver detalhes", url: secondary.url! } : null,
+        resellerBadge: lpData.reseller_badge,
+      });
+    };
 
     // If we have an LP, take the deterministic-assembly path:
     // ask the LLM ONLY for the copy fields, then render the branded skeleton server-side.
+    // If the LLM fails, we DO NOT fall back to the legacy prompt — we render the LP verbatim
+    // so the email always keeps the LP visual identity.
     if (lp && cta_principal?.url && regenerate === "all") {
       const heroImage = lp.hero_image_url || (produtoCtx?.image_url as string | undefined) || null;
+      console.log("[generate-email-ai] LP branch selected id=", (lp as any).id || "?", "hero_image=", heroImage || "none");
 
       const lpBrief = {
         hero: {
@@ -501,16 +538,37 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
         }),
       });
 
+      const doVerbatimReturn = (reason: string) => {
+        console.warn("[generate-email-ai] fallback_to_lp_verbatim reason=", reason);
+        const html = buildVerbatim(lp, produtoCtx?.name || produto || "Smart Dent");
+        return new Response(JSON.stringify({
+          success: true,
+          subject: (produtoCtx?.name || "Smart Dent").slice(0, 90),
+          preheader: stripPrices(lp.hero.sub || "").slice(0, 130),
+          cta_button_label: ctaLabel(cta_principal!) || "Saiba mais",
+          html_body: html,
+          plain_text: "",
+          produto_context: produtoCtx,
+          source: "landing_page_verbatim",
+          fallback_reason: reason,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      };
+
       if (!copyRes.ok) {
         const errTxt = await copyRes.text();
         console.error("[generate-email-ai/lp] gateway error", copyRes.status, errTxt);
-        // Fall through to the legacy dossier path below.
-      } else {
+        return doVerbatimReturn(`gateway_${copyRes.status}`);
+      }
+      {
         const aiJson = await copyRes.json();
         const content = aiJson.choices?.[0]?.message?.content || "{}";
         let parsed: any = {};
         try { parsed = JSON.parse(content); }
         catch { const m = content.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; }
+
+        if (!parsed || !parsed.headline_html) {
+          return doVerbatimReturn("empty_llm_json");
+        }
 
         const bulletsClean = Array.isArray(parsed.bullets)
           ? parsed.bullets.map((b: any) => stripPrices(String(b))).filter(Boolean).slice(0, 5)
@@ -534,12 +592,19 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
         const ctaBtnLabel = String(parsed.cta_button_label || ctaLabel(cta_principal) || "Saiba mais").slice(0, 40);
 
         const secondary = (ctas_secundarios || []).find(c => !!c.url) || null;
+
+        // Sanitize headline_html: allow only <span class="hl">…</span>. Strip anything else.
+        const rawHeadline = stripPrices(String(parsed.headline_html || lp.hero.headline || ""));
+        const safeHeadline = rawHeadline
+          .replace(/<(?!\/?span\b|\/?SPAN\b)[^>]*>/g, "")
+          .replace(/<span(?![^>]*class=["']?hl)[^>]*>/gi, "");
+
         const html = buildLpEmailHtml({
           subject: String(parsed.subject || produtoCtx?.name || "Smart Dent"),
           preheader: stripPrices(String(parsed.preheader || "")),
           heroImageUrl: heroImage,
           eyebrow: stripPrices(String(parsed.eyebrow || lp.hero.eyebrow || "")),
-          headlineHtml: stripPrices(String(parsed.headline_html || lp.hero.headline || "")),
+          headlineHtml: safeHeadline,
           sub: stripPrices(String(parsed.sub || "")),
           bullets: bulletsClean,
           trust: lp.hero.trust || [],
@@ -550,6 +615,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           resellerBadge: lp.reseller_badge,
         });
 
+        console.log("[generate-email-ai] LP branch OK — source=landing_page_ai");
         return new Response(JSON.stringify({
           success: true,
           subject: String(parsed.subject || "").slice(0, 90),
@@ -558,7 +624,7 @@ Gere o JSON agora. NÃO invente preços. NÃO invente seções.`;
           html_body: html,
           plain_text: stripPrices(String(parsed.plain_text || "")),
           produto_context: produtoCtx,
-          source: "landing_page",
+          source: "landing_page_ai",
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
