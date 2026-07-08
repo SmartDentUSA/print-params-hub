@@ -450,6 +450,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
 
           <TabsContent value="edit" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
             {content ? (
+              <LPMediaFormIdContext.Provider value={form?.id ?? "draft"}>
               <div className="h-full min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] overflow-hidden">
                 <EditorSidebar
                   content={content}
@@ -459,6 +460,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
                 />
                 <LivePreview content={content} heroImage={heroImage} />
               </div>
+              </LPMediaFormIdContext.Provider>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
                 Gere primeiro na aba "Gerar por IA" ou "Briefing".
