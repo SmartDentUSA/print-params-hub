@@ -754,7 +754,14 @@ Receba o texto bruto abaixo e:
     
     try {
       // Usar nova edge function com cache
-      const documentType = doc.product_id ? 'catalog' : 'resin';
+      // Fonte da verdade: source_type vindo do hook useAllDocuments
+      // (product_id pode ser null em catálogo, e resina não tem product_id)
+      const documentType: 'resin' | 'catalog' =
+        doc.source_type === 'resin' || doc.source_type === 'catalog'
+          ? doc.source_type
+          : doc.resin_id
+            ? 'resin'
+            : 'catalog';
       
       setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Extraindo texto (pode usar cache)...' }));
       
