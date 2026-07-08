@@ -600,8 +600,50 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               <div>
-                <Label className="text-xs">HTML</Label>
-                <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
+                <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as typeof editorTab)}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="visual" className="text-xs gap-1"><Type className="w-3 h-3" /> Visual</TabsTrigger>
+                    <TabsTrigger value="html" className="text-xs gap-1"><Code2 className="w-3 h-3" /> HTML</TabsTrigger>
+                    <TabsTrigger value="sections" className="text-xs gap-1">
+                      <LayoutList className="w-3 h-3" /> Seções
+                      {sections.filter(s => s.removable).length > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                          {sections.filter(s => s.enabled && s.removable).length}/{sections.filter(s => s.removable).length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="visual" className="mt-2">
+                    <EmailRichEditor value={effectiveHtml || html} onChange={setHtml} />
+                  </TabsContent>
+                  <TabsContent value="html" className="mt-2">
+                    <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
+                  </TabsContent>
+                  <TabsContent value="sections" className="mt-2">
+                    {sections.length === 0 && (
+                      <p className="text-xs text-muted-foreground p-3">Gere o email para ver as seções.</p>
+                    )}
+                    {sections.length > 0 && sections.every(s => !s.removable) && (
+                      <div className="text-xs text-muted-foreground p-3 border rounded bg-muted/30">
+                        Este email não tem seções marcadas. Regere para que a IA divida o conteúdo em blocos (hero, benefícios, CTA, prova social, rodapé) que você pode ligar/desligar aqui.
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {sections.filter(s => s.removable).map((s) => (
+                        <div key={s.id} className="flex items-center justify-between border rounded px-3 py-2 bg-background">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{s.label}</span>
+                            <span className="text-[11px] text-muted-foreground">{s.key}</span>
+                          </div>
+                          <Switch
+                            checked={s.enabled}
+                            onCheckedChange={() => setSections(prev => toggleSection(prev, s.id))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
               {showPreview && (
                 <div>
