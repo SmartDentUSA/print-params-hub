@@ -193,9 +193,70 @@ ${CANONICAL_FAQS}
 FORMULÁRIO ALVO: "${form.name}" — finalidade ${form.form_purpose} — slug ${form.slug}.`;
 }
 
-function buildUserPrompt(mode: "ai" | "briefing", input: string) {
+function summarizePlaybook(raw: string): { summary: string; parsed: any } | null {
+  try {
+    const p = JSON.parse(raw);
+    const bi = p?.basic_info ?? {};
+    const md = p?.marketing_data ?? {};
+    const specs = Array.isArray(p?.technical_specs) ? p.technical_specs : [];
+    const vars = Array.isArray(p?.product_variations) ? p.product_variations : [];
+    const seo = p?.seo_data ?? {};
+    const lines: string[] = [];
+    lines.push(`Produto: ${bi.name ?? "(sem nome)"}`);
+    if (bi.category || bi.subcategory) lines.push(`Categoria: ${[bi.category, bi.subcategory].filter(Boolean).join(" / ")}`);
+    if (bi.brand) lines.push(`Marca: ${bi.brand}`);
+    if (bi.price) lines.push(`Preço cheio: ${bi.currency ?? "BRL"} ${bi.price}`);
+    if (bi.promo_price) lines.push(`Preço promocional: ${bi.currency ?? "BRL"} ${bi.promo_price}`);
+    if (bi.description) lines.push(`\nDescrição oficial:\n${bi.description}`);
+    if (md.sales_pitch) lines.push(`\nSales pitch (base editorial — respeite tom e argumentos):\n${md.sales_pitch}`);
+    if (Array.isArray(md.benefits) && md.benefits.length) lines.push(`\nBenefícios: ${md.benefits.join(" | ")}`);
+    if (Array.isArray(md.features) && md.features.length) lines.push(`\nFeatures: ${md.features.join(" | ")}`);
+    if (Array.isArray(md.unique_selling_points) && md.unique_selling_points.length) lines.push(`\nDiferenciais (USPs): ${md.unique_selling_points.join(" | ")}`);
+    if (Array.isArray(md.target_audience) && md.target_audience.length) lines.push(`\nPúblico-alvo: ${md.target_audience.join(" | ")}`);
+    if (specs.length) {
+      lines.push(`\nEspecificações técnicas (use como "modules.items" — name=label, application=value):`);
+      for (const s of specs) lines.push(`- ${s?.label ?? ""}: ${s?.value ?? ""}`);
+    }
+    if (vars.length) {
+      lines.push(`\nVariações do produto:`);
+      for (const v of vars) lines.push(`- ${JSON.stringify(v)}`);
+    }
+    if (Array.isArray(seo.primary_keywords) && seo.primary_keywords.length) lines.push(`\nKeywords: ${seo.primary_keywords.join(", ")}`);
+    if (seo.seo_title) lines.push(`SEO title: ${seo.seo_title}`);
+    if (seo.seo_description) lines.push(`SEO description: ${seo.seo_description}`);
+    return { summary: lines.join("\n"), parsed: p };
+  } catch {
+    return null;
+  }
+}
+
+function buildUserPrompt(mode: "ai" | "briefing" | "playbook", input: string) {
   if (mode === "briefing") {
     return `MODO: BRIEFING (fidelidade total).\n\nProduza o JSON de conteúdo baseado FIELMENTE no briefing abaixo — respeitando preços, ofertas, módulos e textos citados. Não invente nada que não esteja no briefing.\n\n=== BRIEFING ===\n${input}\n=== FIM DO BRIEFING ===`;
+  }
+  if (mode === "playbook") {
+    const s = summarizePlaybook(input);
+    if (!s) {
+      return `MODO: PLAYBOOK.\n\nO JSON recebido é inválido — trate como briefing textual literal:\n\n${input}`;
+    }
+    return `MODO: PLAYBOOK (fidelidade máxima ao produto real).
+
+Você recebe o AI Playbook estruturado de um produto real. Preencha o JSON de conteúdo da landing page USANDO EXCLUSIVAMENTE os dados abaixo. Regras:
+
+- Use o nome oficial do produto na headline/hero.
+- Use o "Sales pitch" como base editorial do hero.sub, positioning.body e das descrições de benefícios — respeite tom, argumentos e vocabulário (pode encurtar, nunca inventar).
+- Se houver "Preço cheio" e "Preço promocional", monte hero.pricePill (label="De R$ X por", value="R$ Y") e positioning.strikePrice / highlightPrice; senão OMITA priceLabel/pricePill.
+- benefits.items (6) devem sair dos USPs / benefícios / features / sales pitch — nada inventado.
+- modules.items DEVEM ser as especificações técnicas (name=label, application=value). NÃO use os módulos canônicos de exocad quando o produto não for exocad/DentalCAD.
+- howItWorks: 3 passos coerentes com o produto (ex.: escaneia → envia ao slicer → imprime), extraídos do pitch/specs.
+- Se o produto NÃO for exocad/DentalCAD/RMS, OMITA seções regionalRules e implementation (Smart Dent-genérico).
+- faq (5-8) baseado em objeções típicas do pitch e specs. NUNCA use as 25 FAQs canônicas de exocad se o produto não for exocad.
+- finalCta coerente com o tom do sales pitch.
+- legal: uma linha curta institucional Smart Dent.
+
+=== PLAYBOOK RESUMIDO ===
+${s.summary}
+=== FIM DO PLAYBOOK ===`;
   }
   return `MODO: IA (expansão criativa).\n\nA ideia central da landing page é:\n\n${input}\n\nProduza o JSON de conteúdo com hero envolvente, prova social, benefícios e FAQ. NÃO invente preços — se não houver preço na ideia, omita priceLabel.`;
 }
@@ -213,7 +274,12 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { form_id, mode, input } = body ?? {};
-    if (!form_id || (mode !== "ai" && mode !== "briefing") || typeof input !== "string" || !input.trim()) {
+    if (
+      !form_id ||
+      (mode !== "ai" && mode !== "briefing" && mode !== "playbook") ||
+      typeof input !== "string" ||
+      !input.trim()
+    ) {
       return new Response(JSON.stringify({ error: "invalid_input" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
