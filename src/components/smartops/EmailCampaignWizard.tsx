@@ -14,6 +14,7 @@ import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { EmailRichEditor } from "./EmailRichEditor";
+import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 
 type CtaType = "landing" | "form" | "custom";
