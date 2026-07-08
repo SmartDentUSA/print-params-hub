@@ -310,144 +310,258 @@ async function loadLpDossier(
   }
 }
 
-// ── Deterministic Gmail-safe skeleton mirroring PremiumLandingTemplate ──
+// ── Deterministic Gmail-safe clone of PremiumLandingTemplate ──
 function buildLpEmailHtml(opts: {
   subject: string;
   preheader: string;
   heroImageUrl?: string | null;
+  logoUrl?: string | null;
+  brandName?: string;
+  theme?: LPThemeKey;
   eyebrow?: string;
+  badge?: string;
   headlineHtml: string;             // may include <span class="hl">…</span>
   sub?: string;
   bullets?: string[];
   trust?: string[];
   positioning?: { eyebrow?: string; headline?: string; body?: string };
+  howTitle?: string;
   howItWorks?: { title: string; desc: string }[];
+  benefits?: { title?: string; items: { title: string; desc: string }[] };
+  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
+  implementation?: LPDossier["implementation"];
+  finalCta?: { headline?: string; sub?: string; cta?: string };
   ctaPrimary: { label: string; url: string };
   ctaSecondary?: { label: string; url: string } | null;
   resellerBadge?: string;
 }): string {
   const {
-    preheader, heroImageUrl, eyebrow, headlineHtml, sub, bullets, trust,
-    positioning, howItWorks, ctaPrimary, ctaSecondary, resellerBadge,
+    preheader, heroImageUrl, logoUrl, brandName = "Smart Dent", theme, eyebrow, badge,
+    headlineHtml, sub, bullets, trust, positioning, howTitle, howItWorks, benefits,
+    modules, implementation, finalCta, ctaPrimary, ctaSecondary, resellerBadge,
   } = opts;
 
-  const grad = `linear-gradient(90deg, ${BRAND.purple} 0%, ${BRAND.orange} 100%)`;
+  const t = getTheme(theme);
+  const grad = `linear-gradient(135deg, ${t.brand} 0%, ${t.brand2} 100%)`;
+  const softGrad = `linear-gradient(180deg, ${t.bgSoft} 0%, ${t.soft} 100%)`;
 
   const hl = (h: string) => h.replace(
     /<span class="hl">([\s\S]*?)<\/span>/g,
-    `<span style="background:${grad};-webkit-background-clip:text;background-clip:text;color:transparent;">$1</span>`,
+    `<span style="color:${t.brand};">$1</span>`,
   );
 
+  const pill = (txt: string) => `<span style="display:inline-block;border:1px solid ${t.orange}33;background:#ffffffcc;border-radius:999px;padding:7px 14px;font-family:Inter,Arial,sans-serif;font-size:11px;line-height:1;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:${t.orange};">${esc(txt)}</span>`;
+
+  const primaryButton = (label: string, url: string) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-table;margin:0 10px 10px 0;vertical-align:top;">
+      <tr><td bgcolor="${t.brand}" style="border-radius:999px;background:${t.brand};background:${grad};box-shadow:0 12px 28px rgba(96,88,130,0.24);">
+        <a href="${esc(url)}" style="display:inline-block;padding:15px 24px;font-family:Inter,Arial,sans-serif;font-weight:800;font-size:14px;line-height:18px;color:#ffffff;text-decoration:none;border-radius:999px;">${esc(label)} &nbsp;→</a>
+      </td></tr>
+    </table>`;
+
+  const secondaryButton = ctaSecondary ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-table;margin:0 0 10px 0;vertical-align:top;">
+      <tr><td bgcolor="#ffffff" style="border-radius:999px;background:#ffffff;border:1px solid ${t.border};">
+        <a href="${esc(ctaSecondary.url)}" style="display:inline-block;padding:14px 22px;font-family:Inter,Arial,sans-serif;font-weight:800;font-size:13px;line-height:18px;color:${t.brand};text-decoration:none;border-radius:999px;">${esc(ctaSecondary.label)}</a>
+      </td></tr>
+    </table>` : "";
+
   const bulletsHtml = (bullets && bullets.length)
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0 4px 0;">${
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:18px 0 4px 0;">${
         bullets.map(b => `
-          <tr><td valign="top" style="padding:6px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:${BRAND.inkSoft};">
-            <span style="display:inline-block;width:8px;height:8px;background:${BRAND.purple};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(b)}
+          <tr><td valign="top" style="padding:6px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:${t.textSoft};">
+            <span style="display:inline-block;width:8px;height:8px;background:${t.orange};border-radius:50%;margin-right:10px;vertical-align:middle;"></span>${esc(b)}
           </td></tr>`).join("")
       }</table>`
     : "";
 
   const trustHtml = (trust && trust.length)
-    ? `<div style="margin:14px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:13px;color:${BRAND.muted};">
-         ${trust.map(t => `<span style="display:inline-block;margin:0 14px 6px 0;"><span style="color:${BRAND.purple};font-weight:700;">✓</span> ${esc(t)}</span>`).join("")}
+    ? `<div style="margin:14px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:12px;color:${t.textSoft};">
+         ${trust.map(item => `<span style="display:inline-block;margin:0 14px 6px 0;"><span style="color:${t.brand};font-weight:900;">✓</span> ${esc(item)}</span>`).join("")}
        </div>`
     : "";
 
   const howHtml = (howItWorks && howItWorks.length)
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0 0 0;">
-         ${howItWorks.map((it, i) => `
-           <tr><td style="padding:10px 0;">
-             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-               <tr>
-                 <td width="42" valign="top" style="padding-right:14px;">
-                   <div style="width:36px;height:36px;border-radius:50%;background:${grad};color:#fff;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:14px;text-align:center;line-height:36px;">${String(i+1).padStart(2,"0")}</div>
-                 </td>
-                 <td valign="top">
-                   <div style="font-family:Manrope,Arial,sans-serif;font-weight:700;font-size:16px;color:${BRAND.ink};margin-bottom:4px;">${esc(it.title)}</div>
-                   <div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${BRAND.inkSoft};">${esc(it.desc)}</div>
-                 </td>
-               </tr>
-             </table>
-           </td></tr>`).join("")}
-       </table>`
+    ? `<tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+         ${howTitle ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(howTitle)}</h2>` : ""}
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>${howItWorks.map((it, i) => `
+             <td valign="top" width="33.33%" style="padding:0 6px 14px 6px;">
+               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.bgSoft};border:1px solid ${t.border};border-radius:18px;">
+                 <tr><td style="padding:22px 18px;">
+                   <div style="width:44px;height:44px;border-radius:13px;background:${t.brand};background:${grad};font-family:Arial Black,Inter,Arial,sans-serif;font-size:16px;line-height:44px;text-align:center;color:#ffffff;margin:0 0 16px 0;">${String(i+1).padStart(2,"0")}</div>
+                   <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:17px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(it.title)}</div>
+                   <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(it.desc)}</div>
+                 </td></tr>
+               </table>
+             </td>`).join("")}</tr>
+         </table>
+       </td></tr>`
     : "";
 
   const positioningHtml = positioning && (positioning.headline || positioning.body)
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0 0 0;">
-         <tr><td style="background:${BRAND.bgSoft};border-radius:16px;padding:24px 26px;">
-           ${positioning.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${BRAND.purple};font-weight:700;margin-bottom:8px;">${esc(positioning.eyebrow)}</div>` : ""}
-           ${positioning.headline ? `<div style="font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:20px;line-height:1.3;color:${BRAND.ink};margin-bottom:8px;">${esc(positioning.headline)}</div>` : ""}
-           ${positioning.body ? `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:${BRAND.inkSoft};">${esc(positioning.body)}</div>` : ""}
-         </td></tr>
-       </table>`
+    ? `<tr><td style="padding:28px 28px 0 28px;background:#ffffff;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:linear-gradient(135deg,#ffffff 0%,${t.orangeSoft} 100%);border:1px solid ${t.orange}33;border-radius:24px;box-shadow:0 18px 44px rgba(96,88,130,0.10);">
+           <tr>
+             <td width="72" valign="top" style="padding:28px 0 28px 28px;">
+               <div style="width:56px;height:56px;border-radius:18px;background:${t.orange};font-family:Arial,sans-serif;font-weight:900;font-size:24px;line-height:56px;text-align:center;color:#ffffff;">↗</div>
+             </td>
+             <td valign="top" style="padding:28px 28px 28px 18px;">
+               ${positioning.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:${t.orange};font-weight:900;margin-bottom:9px;">${esc(positioning.eyebrow)}</div>` : ""}
+               ${positioning.headline ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:25px;line-height:1.18;color:${t.text};margin-bottom:10px;letter-spacing:0;">${esc(positioning.headline)}</div>` : ""}
+               ${positioning.body ? `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(positioning.body)}</div>` : ""}
+             </td>
+           </tr>
+         </table>
+       </td></tr>`
     : "";
 
   const heroImgHtml = heroImageUrl
-    ? `<div style="margin:22px 0 6px 0;text-align:center;"><img src="${esc(heroImageUrl)}" alt="Produto" style="max-width:100%;height:auto;border-radius:12px;box-shadow:0 12px 28px rgba(124,58,237,0.12);" /></div>`
+    ? `<img src="${esc(heroImageUrl)}" alt="Produto" width="300" style="display:block;width:100%;max-width:300px;height:auto;border-radius:18px;box-shadow:0 28px 60px rgba(66,73,92,0.18);" />`
     : "";
 
   const resellerHtml = resellerBadge
-    ? `<div style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${BRAND.purple};font-weight:700;background:${BRAND.bgSoft};border:1px solid ${BRAND.border};border-radius:999px;padding:6px 12px;">${esc(resellerBadge)}</div>`
+    ? `<span style="display:inline-block;font-family:Inter,Arial,sans-serif;font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:${t.orange};font-weight:900;background:${t.orangeSoft};border:1px solid ${t.orange}33;border-radius:999px;padding:6px 10px;vertical-align:middle;">${esc(resellerBadge)}</span>`
     : "";
 
-  const ctaBtn = `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 0 auto;">
-      <tr><td align="center" bgcolor="${BRAND.purple}" style="border-radius:12px;background:${BRAND.purple};background:${grad};">
-        <a href="${esc(ctaPrimary.url)}" style="display:inline-block;padding:16px 32px;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:15px;letter-spacing:0.3px;color:#ffffff;text-decoration:none;border-radius:12px;">
-          ${esc(ctaPrimary.label)} →
-        </a>
-      </td></tr>
-    </table>`;
+  const benefitsHtml = benefits?.items?.length ? `
+    <tr><td style="padding:34px 28px 8px 28px;background:#ffffff;">
+      ${benefits.title ? `<h2 style="margin:0 0 22px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:30px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(benefits.title)}</h2>` : ""}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        ${benefits.items.slice(0, 6).reduce((rows, item, i) => {
+          if (i % 2 === 0) rows.push(benefits.items.slice(i, i + 2));
+          return rows;
+        }, [] as { title: string; desc: string }[][]).map(row => `<tr>${row.map(item => `
+          <td valign="top" width="50%" style="padding:0 7px 14px 7px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:18px;">
+              <tr><td style="padding:20px 18px;">
+                <div style="width:42px;height:42px;border-radius:13px;background:${t.orangeSoft};font-size:20px;line-height:42px;text-align:center;color:${t.orange};font-weight:900;margin-bottom:14px;">✓</div>
+                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:16px;line-height:1.28;color:${t.text};margin-bottom:8px;">${esc(item.title)}</div>
+                <div style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.55;color:${t.textSoft};">${esc(item.desc)}</div>
+              </td></tr>
+            </table>
+          </td>`).join("")}${row.length === 1 ? `<td width="50%" style="padding:0 7px 14px 7px;"></td>` : ""}</tr>`).join("")}
+      </table>
+    </td></tr>` : "";
 
-  const secondaryHtml = ctaSecondary
-    ? `<div style="margin:18px 0 0 0;text-align:center;font-family:Inter,Arial,sans-serif;font-size:13px;color:${BRAND.muted};">
-         Ou <a href="${esc(ctaSecondary.url)}" style="color:${BRAND.purple};font-weight:600;text-decoration:underline;">${esc(ctaSecondary.label)}</a>
-       </div>`
-    : "";
+  const modulesHtml = modules?.items?.length ? `
+    <tr><td style="padding:34px 28px;background:${t.bgSoft};">
+      ${modules.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.6px;text-transform:uppercase;color:${t.textSoft};font-weight:900;margin-bottom:10px;">${esc(modules.eyebrow)}</div>` : ""}
+      ${modules.title ? `<h2 style="margin:0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:33px;line-height:1.08;color:${t.text};letter-spacing:0;">${esc(modules.title)}</h2>` : ""}
+      ${modules.subtitle ? `<p style="margin:14px 0 24px 0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(modules.subtitle)}</p>` : ""}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        ${modules.items.slice(0, 9).reduce((rows, item, i) => {
+          if (i % 3 === 0) rows.push(modules.items.slice(i, i + 3));
+          return rows;
+        }, [] as { name: string; application: string }[][]).map(row => `<tr>${row.map(item => `
+          <td valign="top" width="33.33%" style="padding:0 5px 10px 5px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:14px;">
+              <tr><td style="padding:15px 13px;">
+                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:13px;line-height:1.25;color:${t.text};margin-bottom:5px;">${esc(item.name)}</div>
+                <div style="font-family:Inter,Arial,sans-serif;font-size:11px;line-height:1.45;color:${t.textSoft};">${esc(item.application)}</div>
+              </td></tr>
+            </table>
+          </td>`).join("")}${row.length < 3 ? Array.from({ length: 3 - row.length }).map(() => `<td width="33.33%" style="padding:0 5px 10px 5px;"></td>`).join("") : ""}</tr>`).join("")}
+      </table>
+      ${modules.items.length > 9 ? `<div style="margin-top:10px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">+ ${modules.items.length - 9} módulos adicionais descritos na landing page.</div>` : ""}
+    </td></tr>` : "";
+
+  const implementationCards = implementation ? [
+    implementation.activation ? { title: implementation.activation.title, body: implementation.activation.items.join(" • "), tone: t.orangeSoft, icon: "↗" } : null,
+    implementation.training ? { title: implementation.training.title, body: implementation.training.body, tone: t.soft, icon: "◎" } : null,
+    implementation.support ? { title: implementation.support.title, body: implementation.support.items.join(" • "), tone: t.orangeSoft, icon: "✓" } : null,
+  ].filter(Boolean) as { title: string; body: string; tone: string; icon: string }[] : [];
+
+  const implementationHtml = implementationCards.length ? `
+    <tr><td style="padding:34px 28px;background:${t.soft};">
+      ${implementation?.title ? `<h2 style="margin:0 0 10px 0;text-align:center;font-family:Arial Black,Inter,Arial,sans-serif;font-size:29px;line-height:1.15;color:${t.text};letter-spacing:0;">${esc(implementation.title)}</h2>` : ""}
+      ${implementation?.subtitle ? `<p style="margin:0 auto 24px auto;max-width:500px;text-align:center;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.55;color:${t.textSoft};">${esc(implementation.subtitle)}</p>` : ""}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>${implementationCards.slice(0, 3).map(card => `
+          <td valign="top" width="33.33%" style="padding:0 6px 12px 6px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border:1px solid ${t.border};border-radius:16px;">
+              <tr><td style="padding:18px 15px;">
+                <div style="width:40px;height:40px;border-radius:12px;background:${card.tone};font-family:Arial,sans-serif;font-weight:900;font-size:18px;line-height:40px;text-align:center;color:${t.brand};margin-bottom:12px;">${card.icon}</div>
+                <div style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:15px;line-height:1.25;color:${t.text};margin-bottom:8px;">${esc(card.title)}</div>
+                <div style="font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:${t.textSoft};">${esc(card.body)}</div>
+              </td></tr>
+            </table>
+          </td>`).join("")}</tr>
+      </table>
+    </td></tr>` : "";
+
+  const finalCtaHtml = `
+    <tr><td style="padding:34px 28px;background:#ffffff;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.brand};background:${grad};border-radius:24px;">
+        <tr><td align="center" style="padding:34px 28px;">
+          <div style="font-family:Arial Black,Inter,Arial,sans-serif;font-size:28px;line-height:1.15;color:#ffffff;letter-spacing:0;margin-bottom:10px;">${esc(finalCta?.headline || opts.subject || "Ative seu fluxo digital")}</div>
+          ${finalCta?.sub ? `<div style="max-width:500px;margin:0 auto 22px auto;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#ffffff;opacity:.92;">${esc(finalCta.sub)}</div>` : ""}
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr><td bgcolor="#ffffff" style="border-radius:999px;background:#ffffff;">
+              <a href="${esc(ctaPrimary.url)}" style="display:inline-block;padding:15px 25px;font-family:Inter,Arial,sans-serif;font-weight:900;font-size:14px;line-height:18px;color:${t.brand};text-decoration:none;border-radius:999px;">${esc(finalCta?.cta || ctaPrimary.label)} &nbsp;→</a>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>`;
 
   return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${esc(opts.subject)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+@media only screen and (max-width: 640px) {
+  .lp-shell { width: 100% !important; }
+  .lp-hero-col { display:block !important; width:100% !important; }
+  .lp-hero-copy { padding-right:0 !important; }
+}
+</style>
 </head>
-<body style="margin:0;padding:0;background:#F7F5FB;font-family:Inter,Arial,sans-serif;color:${BRAND.ink};">
+<body style="margin:0;padding:0;background:${t.soft};font-family:Inter,Arial,sans-serif;color:${t.text};">
   <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">${esc(preheader)}</span>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F7F5FB;">
-    <tr><td align="center" style="padding:28px 12px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:20px;box-shadow:0 20px 48px rgba(27,16,48,0.08);overflow:hidden;">
-        <tr><td style="padding:22px 28px 0 28px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${t.soft};">
+    <tr><td align="center" style="padding:0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="680" class="lp-shell" style="width:680px;max-width:680px;background:#ffffff;overflow:hidden;">
+        <tr><td style="padding:18px 28px;background:#ffffff;border-bottom:1px solid ${t.border};">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
             <tr>
-              <td style="font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:16px;color:${BRAND.ink};">Smart Dent <span style="color:${BRAND.purple};">| Fluxo Digital</span></td>
-              <td align="right">${resellerHtml}</td>
+              <td style="font-family:Inter,Arial,sans-serif;font-weight:900;font-size:16px;color:${t.text};">
+                ${logoUrl ? `<img src="${esc(logoUrl)}" alt="${esc(brandName)}" height="28" style="display:block;max-height:28px;width:auto;" />` : `${esc(brandName)} <span style="color:${t.brand};">| Fluxo Digital</span>`}
+              </td>
+              <td align="right" style="white-space:nowrap;">${resellerHtml}</td>
             </tr>
           </table>
         </td></tr>
 
-        <tr><td style="padding:24px 28px 8px 28px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:linear-gradient(180deg, ${BRAND.bgHero} 0%, #FFFFFF 100%);border:1px solid ${BRAND.border};border-radius:16px;">
-            <tr><td style="padding:28px 26px 22px 26px;">
-              ${eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${BRAND.purple};font-weight:700;margin-bottom:10px;">${esc(eyebrow)}</div>` : ""}
-              <h1 style="margin:0;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:30px;line-height:1.18;color:${BRAND.ink};">${hl(headlineHtml)}</h1>
-              ${sub ? `<p style="margin:14px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:1.55;color:${BRAND.inkSoft};">${esc(sub)}</p>` : ""}
-              ${heroImgHtml}
-              ${bulletsHtml}
-              ${trustHtml}
-              ${ctaBtn}
-              ${secondaryHtml}
-            </td></tr>
+        <tr><td style="padding:52px 28px 44px 28px;background:${t.bgSoft};background:${softGrad};">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td class="lp-hero-col lp-hero-copy" valign="middle" width="55%" style="padding-right:24px;">
+                ${badge ? pill(badge) : ""}
+                ${eyebrow ? `<div style="margin-top:18px;font-family:Inter,Arial,sans-serif;font-size:12px;letter-spacing:1.9px;text-transform:uppercase;color:${t.orange};font-weight:900;">${esc(eyebrow)}</div>` : ""}
+                <h1 style="margin:18px 0 0 0;font-family:Arial Black,Inter,Arial,sans-serif;font-size:42px;line-height:1.05;color:${t.text};letter-spacing:0;font-weight:900;">${hl(headlineHtml)}</h1>
+                ${sub ? `<p style="margin:22px 0 0 0;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:1.62;color:${t.textSoft};">${esc(sub)}</p>` : ""}
+                <div style="margin:22px 0 0 0;">${primaryButton(ctaPrimary.label, ctaPrimary.url)}${secondaryButton}</div>
+                ${trustHtml || bulletsHtml}
+              </td>
+              <td class="lp-hero-col" valign="middle" width="45%" align="center" style="padding-top:8px;">
+                ${heroImgHtml || `<div style="width:100%;max-width:300px;height:210px;border-radius:18px;background:${t.soft};border:1px solid ${t.border};"></div>`}
+                ${(resellerBadge || opts.brandName) ? `<div style="display:inline-block;margin-top:-18px;background:#ffffff;border-radius:999px;padding:10px 16px;border:1px solid ${t.border};box-shadow:0 18px 40px rgba(66,73,92,.12);font-family:Inter,Arial,sans-serif;font-weight:900;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:${t.orange};">${esc(resellerBadge || opts.brandName || "Smart Dent")}</div>` : ""}
+              </td>
+            </tr>
           </table>
         </td></tr>
 
-        <tr><td style="padding:8px 28px 28px 28px;">
-          ${positioningHtml}
-          ${howHtml}
-        </td></tr>
+        ${positioningHtml}
+        ${howHtml}
+        ${benefitsHtml}
+        ${modulesHtml}
+        ${implementationHtml}
+        ${finalCtaHtml}
 
-        <tr><td style="padding:0 28px 28px 28px;">
-          <div style="border-top:1px solid ${BRAND.border};padding-top:18px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${BRAND.muted};text-align:center;">
+        <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
+          <div style="border-top:1px solid ${t.border};padding-top:18px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};text-align:center;">
             Enviado por <strong style="color:${BRAND.ink};">Smart Dent | Fluxo Digital</strong> para {{nome}}.<br/>
             Consultoria e revenda oficial em odontologia digital.
           </div>
