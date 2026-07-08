@@ -285,6 +285,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             <TabsList>
               <TabsTrigger value="ai" className="gap-1"><Sparkles className="w-3.5 h-3.5" /> Gerar por IA</TabsTrigger>
               <TabsTrigger value="briefing" className="gap-1"><FileText className="w-3.5 h-3.5" /> Briefing</TabsTrigger>
+              <TabsTrigger value="playbook" className="gap-1"><Package className="w-3.5 h-3.5" /> Playbook do Produto</TabsTrigger>
               <TabsTrigger value="edit" className="gap-1" disabled={!content}>
                 <Pencil className="w-3.5 h-3.5" /> Editar & publicar
               </TabsTrigger>
@@ -350,6 +351,46 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
               mono
               preview={<LivePreview content={previewContent} heroImage={heroImage} />}
               hint="Modo fiel: a IA usa APENAS o conteúdo colado. Sem invenção de preço ou promessa."
+            />
+          </TabsContent>
+
+          <TabsContent value="playbook" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+            <GenerateLayout
+              inputLabel="JSON do AI Playbook do produto"
+              placeholder='Cole aqui o JSON completo do playbook do produto (basic_info, marketing_data.sales_pitch, technical_specs, product_variations…) ou use "Carregar .json" acima.'
+              value={playbook}
+              onChange={setPlaybook}
+              onGenerate={handleGenerate}
+              generating={generating}
+              loading={loading}
+              hasContent={!!content}
+              mono
+              preview={<LivePreview content={previewContent} heroImage={heroImage} />}
+              hint="Modo fidelidade máxima: nome, descrição, sales pitch, preço, promo e specs técnicas são extraídos direto do playbook."
+              extraHeader={
+                <label className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border bg-white cursor-pointer hover:border-primary hover:text-primary transition">
+                  <Upload className="w-3.5 h-3.5" /> Carregar .json
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        JSON.parse(text);
+                        setPlaybook(text);
+                        toast.success(`Playbook carregado (${file.name})`);
+                      } catch {
+                        toast.error("Arquivo não é um JSON válido");
+                      } finally {
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                </label>
+              }
             />
           </TabsContent>
 
