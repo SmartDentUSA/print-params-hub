@@ -24,17 +24,59 @@ interface Body {
   use_landing_page?: boolean;
 }
 
-// ── Smart Dent LP palette (mirrors PremiumLandingTemplate) ──
-const BRAND = {
-  purple: "#7C3AED",
-  orange: "#F97316",
-  ink: "#1B1030",
-  inkSoft: "#4A4458",
-  muted: "#6B6478",
-  bgSoft: "#F4EEFB",
-  bgHero: "#FAF7FF",
-  border: "#EEE7FA",
+// ── Smart Dent LP palettes (mirrors PremiumLandingTemplate) ──
+type LPThemeKey = "exocad-purple" | "navy-gold" | "emerald-cream" | "coral-slate" | "charcoal-ember" | "ocean-deep";
+
+type LPThemeTokens = {
+  brand: string;
+  brandDark: string;
+  brand2: string;
+  text: string;
+  textSoft: string;
+  border: string;
+  soft: string;
+  bgSoft: string;
+  orange: string;
+  orangeSoft: string;
 };
+
+const LP_THEMES: Record<LPThemeKey, LPThemeTokens> = {
+  "exocad-purple": {
+    brand: "#605882", brandDark: "#4d466b", brand2: "#8B82A8",
+    text: "#42495C", textSoft: "#5A5670", border: "#EFEBF4",
+    soft: "#F3F0F8", bgSoft: "#FBFAFD", orange: "#DF7344", orangeSoft: "#FFF6F1",
+  },
+  "navy-gold": {
+    brand: "#1E3A5F", brandDark: "#0F1B3D", brand2: "#3B6FA0",
+    text: "#0F1B3D", textSoft: "#4A5A72", border: "#DCE3EE",
+    soft: "#E8EDF3", bgSoft: "#F5F7FB", orange: "#C9A84C", orangeSoft: "#FBF6E4",
+  },
+  "emerald-cream": {
+    brand: "#0D7A5F", brandDark: "#064E3B", brand2: "#10B981",
+    text: "#064E3B", textSoft: "#3F6B5C", border: "#D4EBE0",
+    soft: "#E6F5EF", bgSoft: "#F5FDF9", orange: "#C9A84C", orangeSoft: "#FBF6E4",
+  },
+  "coral-slate": {
+    brand: "#574B90", brandDark: "#3E356A", brand2: "#8A7EC4",
+    text: "#2D2D5F", textSoft: "#605D80", border: "#E5DEEB",
+    soft: "#F3EEF6", bgSoft: "#FBFAFF", orange: "#FF6B6B", orangeSoft: "#FFF0F0",
+  },
+  "charcoal-ember": {
+    brand: "#2D2D2D", brandDark: "#1A1A1A", brand2: "#4A4A4A",
+    text: "#1A1A1A", textSoft: "#525252", border: "#E5E4E3",
+    soft: "#EDECEB", bgSoft: "#FAFAFA", orange: "#E85D3A", orangeSoft: "#FFF1EC",
+  },
+  "ocean-deep": {
+    brand: "#1A4A6E", brandDark: "#0C2340", brand2: "#2D8A9E",
+    text: "#0C2340", textSoft: "#3F5A76", border: "#D0E1EC",
+    soft: "#DEEEF4", bgSoft: "#F4F9FB", orange: "#5CBDB9", orangeSoft: "#E6F6F5",
+  },
+};
+
+function getTheme(theme?: unknown): LPThemeTokens {
+  const key = typeof theme === "string" && theme in LP_THEMES ? theme as LPThemeKey : "exocad-purple";
+  return LP_THEMES[key];
+}
 
 function esc(s: unknown): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -62,8 +104,11 @@ function cleanLpText(v: unknown): string {
 
 type LPDossier = {
   hero_image_url?: string | null;
+  logo_url?: string | null;
+  theme?: LPThemeKey;
   brand_name?: string;
   reseller_badge?: string;
+  nav_cta?: string;
   hero: {
     eyebrow?: string;
     badge?: string;
@@ -72,10 +117,23 @@ type LPDossier = {
     sub?: string;
     bullets?: string[];
     trust?: string[];
+    primary_cta?: string;
+    secondary_cta?: string;
+    product_card_caption?: string;
   };
   positioning?: { eyebrow?: string; headline?: string; body?: string };
+  benefits?: { title?: string; items: { title: string; desc: string }[] };
   how_it_works?: { title: string; desc: string }[];
-  benefits?: { title: string; desc: string }[];
+  how_title?: string;
+  modules?: { eyebrow?: string; title?: string; subtitle?: string; items: { name: string; application: string }[]; footnote?: string };
+  implementation?: {
+    title?: string;
+    subtitle?: string;
+    activation?: { title: string; items: string[] };
+    training?: { title: string; body: string };
+    support?: { title: string; items: string[] };
+  };
+  final_cta?: { headline?: string; sub?: string; cta?: string };
   trust_bar?: string[];
 };
 
