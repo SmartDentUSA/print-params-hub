@@ -22,11 +22,28 @@ export type BenefitIcon =
 
 export type TrustIcon = "shield" | "headphones" | "infinity" | "check" | "clock";
 
+export type LPMedia = { url: string; type?: "image" | "video"; alt?: string };
+
+export type LPSectionKey =
+  | "positioning"
+  | "howItWorks"
+  | "price"
+  | "conditions"
+  | "modules"
+  | "regionalRules"
+  | "implementation"
+  | "benefits"
+  | "comparison"
+  | "testimonials"
+  | "faq"
+  | "finalCta";
+
 export type LPContent = {
   brandName?: string;
   logoUrl?: string;
   theme?: LPThemeKey;
   resellerBadge?: string;
+  sectionsEnabled?: Partial<Record<LPSectionKey, boolean>>;
   nav?: { items: { label: string; anchor?: string }[]; cta?: string };
   trustBar?: string[];
   hero: {
@@ -50,7 +67,7 @@ export type LPContent = {
     highlightPrice?: string;
     body?: string;
   };
-  howItWorks?: { title?: string; items: { title: string; desc: string }[] };
+  howItWorks?: { title?: string; items: { title: string; desc: string; media?: LPMedia }[] };
   price?: {
     ribbon?: string;
     title: string;
@@ -78,7 +95,7 @@ export type LPContent = {
     eyebrow?: string;
     title?: string;
     subtitle?: string;
-    items: { name: string; application: string }[];
+    items: { name: string; application: string; media?: LPMedia }[];
     footnote?: string;
   };
   regionalRules?: {
@@ -94,8 +111,15 @@ export type LPContent = {
     training?: { title: string; body: string };
     support?: { title: string; items: string[] };
   };
-  benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string }[] };
+  benefits?: { title?: string; items: { icon: BenefitIcon; title: string; desc: string; media?: LPMedia }[] };
   testimonials?: { title?: string; items: { quote: string; author: string; role?: string }[] };
+  comparison?: {
+    title?: string;
+    subtitle?: string;
+    columns: string[];
+    rows: { cells: string[] }[];
+    footnote?: string;
+  };
   faq?: { title?: string; items: { q: string; a: string }[] };
   finalCta?: { headline: string; sub?: string; cta: string };
   legal?: string;
