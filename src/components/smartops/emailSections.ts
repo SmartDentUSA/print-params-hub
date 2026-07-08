@@ -90,13 +90,14 @@ export function serializeSections(originalHtml: string, sections: EmailSection[]
   const { head, bodyOpen, body, bodyClose } = extractBody(originalHtml);
   if (sections.length === 1 && !sections[0].removable) {
     // Single content section — the visual/HTML editor already owns the body.
-    return `${head}${bodyOpen}${sections[0].html}${bodyClose}`;
+    return sections[0].enabled ? originalHtml : `${head}${bodyOpen}${bodyClose}`;
   }
-  const enabledMap = new Map(sections.map((s) => [s.html, s.enabled] as const));
   const regex = /<section\b[^>]*\bdata-section=["'][^"']+["'][^>]*>[\s\S]*?<\/section>/gi;
+  let i = 0;
   const newBody = body.replace(regex, (m) => {
-    const enabled = enabledMap.get(m);
-    return enabled === false ? "" : m;
+    const s = sections[i++];
+    if (!s) return m;
+    return s.enabled === false ? "" : m;
   });
   return `${head}${bodyOpen}${newBody}${bodyClose}`;
 }
