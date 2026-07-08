@@ -1,62 +1,54 @@
-## Plano: fazer o e-mail ficar visualmente igual à Landing Page DentalCAD
+## Padronizar o e-mail em 4 seções fixas espelhadas da LP
 
-### Objetivo
-Gerar o e-mail de campanha do produto **“Ativação DentalCAD Ultimate Lab Bundle - RMS — SOFTWARES”** usando a Landing Page como fonte visual e de conteúdo, não apenas como inspiração de copy.
+O e-mail gerado sempre terá exatamente **4 seções**, na ordem abaixo, com conteúdo copiado literalmente da Landing Page (sem reescrita de IA no layout, sem blocos extras como "Como funciona", "Módulos", "Benefícios" etc.).
 
-### Problema atual
-O e-mail ainda está sendo montado por um template genérico de 600px com “card branco”, paleta roxa genérica `#7C3AED`, poucos blocos e sem a mesma estrutura visual da LP. A LP real usa outro design: tons `#605882 / #DF7344 / #42495C`, hero editorial em duas colunas, imagem grande do produto, badge, CTA pill, trust row, banner de oportunidade, cards “Como funciona”, benefícios e módulos.
+### Estrutura fixa
 
-### O que vou alterar
+**Seção 1 — Hero com imagem (verbatim da LP)**
+- Badge (ex.: "LICENÇA OFICIAL - RMS PARA O BRASIL")
+- Eyebrow (ex.: "PRÉ-LANÇAMENTO")
+- Headline principal em display grande, exatamente como na LP (com destaque colorido em `<span class="hl">` quando existir)
+- Subheadline curta, exatamente como na LP
+- CTA primário + CTA secundário (mesmos textos da LP)
+- Trust row (ícones/textos curtos da LP, ex.: "Licença Oficial exocad", "Casos Ilimitados", "Suporte Smart Dent")
+- Imagem hero da LP (produto/campanha) à direita/abaixo em fallback mobile
+- Nada é reescrito por IA nesta seção
 
-1. **Trocar o template de e-mail LP por um “clone email-safe” da `PremiumLandingTemplate`**
-   - Recriar no HTML de e-mail os mesmos blocos visuais principais da LP:
-     - header Smart Dent + badge “Revendedor Oficial exocad”
-     - hero com badge, eyebrow, headline grande, subheadline, CTAs e trust row
-     - imagem hero grande à direita/no topo, com sombra e bordas iguais à LP
-     - bloco “Oportunidade histórica / posicionamento” com fundo suave e destaque
-     - seção “Como funciona” em 3 cards numerados
-     - seção “Por que escolher”/benefícios em cards
-     - seção “Módulos” para o Ultimate Lab Bundle, quando existir no conteúdo da LP
-     - CTA final
-   - Manter HTML compatível com Gmail/Outlook: tabelas, estilos inline, largura 640–680px, fallback de cores.
+**Seção 2 — Oferta / Posicionamento**
+- Bloco de fundo suave (tom claro do tema da LP)
+- Título curto de posicionamento vindo da LP (ex.: "Oportunidade histórica da exocad no Brasil")
+- 2–4 parágrafos curtos vindos direto do bloco de posicionamento da LP
+- Sem preços, sem valores numéricos comerciais (sanitizador `stripPrices` continua ativo)
 
-2. **Usar as cores reais do tema da LP**
-   - Em vez de paleta fixa roxa/laranja genérica, ler `content.theme` e mapear para os tokens da LP (`LP_THEMES`).
-   - Para esta LP, aplicar `exocad-purple`: `#605882`, `#DF7344`, `#42495C`, `#F3F0F8`, `#FBFAFD`.
+**Seção 3 — Condições**
+- Título "Condições" (ou o rótulo equivalente da LP)
+- Lista das condições comerciais da LP (ativação, recorrência, treinamento, suporte, licenciamento), em bullets curtos
+- Valores em R$ são removidos/parafraseados para "recorrência mensal", "ativação inclusa" etc. (mantendo a política de "sem preços em e-mail IA")
+- Sem cards decorativos extras
 
-3. **Carregar o conteúdo completo da Landing Page**
-   - Expandir `loadLpDossier` para trazer também:
-     - `modules`
-     - `benefits`
-     - `implementation`
-     - `conditions`/`price` apenas como fonte textual sanitizada
-     - `theme`, `brandName`, `logoUrl`, `nav.cta`, `finalCta`
-   - Continuar obedecendo a regra: **não inserir preços/valores no e-mail gerado por IA**. Valores da LP serão removidos automaticamente antes do envio.
+**Seção 4 — CTA final**
+- Banner com fundo escuro/gradiente do tema da LP
+- Headline curta de fechamento (verbatim da LP `finalCta.title` quando existir, senão headline principal encurtada)
+- Um único botão CTA (mesmo texto da LP `nav.cta` / `finalCta.button`)
+- Linha de assinatura simples "Smart Dent | Fluxo Digital" + link/telefone da LP
 
-4. **Parar de deixar a IA redesenhar o layout**
-   - A IA só ajustará textos curtos ao “Tom da mensagem”.
-   - O layout será determinístico e sempre igual ao padrão da LP.
-   - Se a IA falhar, o sistema usará a copy original da LP sanitizada, mas mantendo o mesmo layout premium.
+### O que muda no código
 
-5. **Melhorar o preview no Wizard**
-   - Exibir um indicador claro quando o e-mail estiver usando o template clonado da LP.
-   - Se por algum motivo cair no fallback do catálogo, mostrar aviso explícito para não parecer que a LP foi usada.
-
-6. **Validar especificamente com a LP DentalCAD RMS**
-   - Conferir que o HTML gerado contém os blocos esperados e a mesma identidade visual da página:
-     - headline “Exocad oficial…”
-     - imagem hero do bundle
-     - badge oficial
-     - seção “Como funciona a assinatura RMS”
-     - benefícios/módulos quando disponíveis
-     - cores exocad-purple
-
-### Arquivos envolvidos
 - `supabase/functions/smart-ops-generate-email-ai/index.ts`
-- `src/components/smartops/EmailCampaignWizard.tsx` (somente ajustes de status/preview, se necessário)
+  - Reescrever `buildLpEmailHtml` para renderizar **somente** essas 4 seções, nessa ordem, ignorando `modules`, `benefits`, `implementation`, "como funciona", "por que escolher".
+  - `loadLpDossier` passa a extrair apenas: `hero {badge, eyebrow, headline, subheadline, ctaPrimary, ctaSecondary, trustRow, heroImage}`, `positioning {title, paragraphs}`, `conditions {title, items}`, `finalCta {title, button, footerLine}`, `theme`, `logoUrl`, `brandName`.
+  - IA continua desligada para layout; ela só pode ajustar micro-tom em textos curtos (opcional) — se falhar, usa verbatim.
+  - `stripPrices` reforçado para a Seção 3 (Condições).
+  - Resposta continua expondo `source: "landing_page_verbatim" | "landing_page_ai" | "catalog_dossier"`.
+
+- `src/components/smartops/EmailCampaignWizard.tsx`
+  - Badge do preview atualizado para: "E-mail padrão 4 seções (Hero · Oferta · Condições · CTA)".
+  - Sem outras mudanças de UX.
 
 ### Fora do escopo
-- Não vou alterar envio Gmail.
-- Não vou alterar a Landing Page publicada.
-- Não vou criar preços no e-mail gerado por IA.
-- Não vou mexer em banco/migrations.
+
+- Não altero a Landing Page.
+- Não altero envio Gmail / SMS / config.toml.
+- Não crio migrations.
+- Não coloco preços no e-mail gerado por IA.
+- Removo do e-mail (não da LP) blocos "Como funciona", "Módulos" e "Benefícios" — eles não fazem parte das 4 seções pedidas.
