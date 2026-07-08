@@ -821,6 +821,18 @@ function ContentEditor({
         />
       </Section>
 
+      <Section title="O que os dentistas dizem" anchorId="sec-depoimentos" toggle={{ enabled: isOn("testimonials"), onChange: toggleSection("testimonials") }}>
+        <TextField
+          label="Título"
+          value={content.testimonials?.title ?? ""}
+          onChange={(v) => patch({ testimonials: { ...(content.testimonials ?? { items: [] }), title: v } })}
+        />
+        <TestimonialsEditor
+          items={content.testimonials?.items ?? []}
+          onChange={(items) => patch({ testimonials: { ...(content.testimonials ?? {}), items } })}
+        />
+      </Section>
+
       <Section title="CTA final" anchorId="sec-cta-final" toggle={{ enabled: isOn("finalCta"), onChange: toggleSection("finalCta") }}>
         <TextField label="Headline" value={content.finalCta?.headline ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { cta: "" }), headline: v } })} multiline />
         <TextField label="Subheadline" value={content.finalCta?.sub ?? ""} onChange={(v) => patch({ finalCta: { ...(content.finalCta ?? { headline: "", cta: "" }), sub: v } })} multiline />
