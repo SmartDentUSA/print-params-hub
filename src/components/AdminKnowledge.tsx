@@ -755,7 +755,8 @@ Receba o texto bruto abaixo e:
       
       setFormData(prev => ({ ...prev, ...updates }));
 
-      await saveContentToDatabase(updates, { closeModal: false });
+      const saved = await saveContentToDatabase(updates, { closeModal: false, successToast: false });
+      if (!saved) return;
       
       toast({
         title: editingContent?.id ? '✅ Conteúdo atualizado!' : '✅ Conteúdo criado e salvo!',
