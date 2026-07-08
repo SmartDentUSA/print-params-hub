@@ -614,6 +614,10 @@ function ContentEditor({
   onHeroImageChange: (v: string) => void;
 }) {
   const patch = (p: Partial<LPContent>) => onChange({ ...content, ...p });
+  const sectionsEnabled = content.sectionsEnabled ?? {};
+  const isOn = (k: LPSectionKey) => sectionsEnabled[k] !== false;
+  const toggleSection = (k: LPSectionKey) => (v: boolean) =>
+    patch({ sectionsEnabled: { ...sectionsEnabled, [k]: v } });
 
   return (
     <>
