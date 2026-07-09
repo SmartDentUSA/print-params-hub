@@ -521,6 +521,13 @@ export type Database = {
             foreignKeyName: "agent_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -977,6 +984,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astron_member_access_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "astron_member_access_lead_id_fkey"
@@ -2239,6 +2253,13 @@ export type Database = {
             foreignKeyName: "campaign_send_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -2835,6 +2856,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_listings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "classified_listings_lead_id_fkey"
@@ -3766,6 +3794,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -3929,6 +3964,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deal_status_history_lead_id_fkey"
@@ -4112,6 +4154,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "dealers_lead_id_fkey"
@@ -4400,6 +4449,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deals_lead_id_fkey"
@@ -5153,6 +5209,13 @@ export type Database = {
             foreignKeyName: "enrichment_safety_queue_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "enrichment_safety_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -5772,6 +5835,13 @@ export type Database = {
             foreignKeyName: "interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -5962,6 +6032,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "involve_me_sync_control_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "involve_me_sync_control_lead_id_fkey"
@@ -6880,6 +6957,13 @@ export type Database = {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -7091,6 +7175,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_cart_history_lead_id_fkey"
@@ -7315,6 +7406,13 @@ export type Database = {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -7532,6 +7630,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_course_progress_lead_id_fkey"
@@ -7792,6 +7897,13 @@ export type Database = {
             foreignKeyName: "lead_form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -8017,6 +8129,13 @@ export type Database = {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -8102,6 +8221,13 @@ export type Database = {
             columns: ["product_key"]
             isOneToOne: false
             referencedRelation: "product_taxonomy"
+            referencedColumns: ["product_key"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_product_key_fkey"
+            columns: ["product_key"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
             referencedColumns: ["product_key"]
           },
         ]
@@ -8223,6 +8349,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_page_views_lead_id_fkey"
@@ -8465,6 +8598,13 @@ export type Database = {
             foreignKeyName: "lead_product_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -8702,6 +8842,13 @@ export type Database = {
             foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -8901,6 +9048,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_state_events_lead_id_fkey"
@@ -10838,6 +10992,13 @@ export type Database = {
             foreignKeyName: "lia_attendances_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -11126,6 +11287,13 @@ export type Database = {
             foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: true
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -11404,6 +11572,13 @@ export type Database = {
             foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
             columns: ["attendance_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -11654,6 +11829,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "message_logs_lead_id_fkey"
@@ -12178,6 +12360,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -12394,6 +12583,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "omie_notas_servico_lead_id_fkey"
@@ -12621,6 +12817,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
@@ -13022,6 +13225,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "online_courses_producer_lead_id_fkey"
@@ -13674,6 +13884,13 @@ export type Database = {
             foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -13935,6 +14152,13 @@ export type Database = {
             foreignKeyName: "piperun_webhook_events_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "piperun_webhook_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -14113,6 +14337,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_plan_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "platform_plan_log_lead_id_fkey"
@@ -14356,6 +14587,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_subscriptions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "platform_subscriptions_lead_id_fkey"
@@ -14845,6 +15083,13 @@ export type Database = {
             foreignKeyName: "promotion_usage_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "promotion_usage_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -15018,6 +15263,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
@@ -15348,6 +15600,13 @@ export type Database = {
             foreignKeyName: "reactivation_sequences_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "reactivation_sequences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -15550,6 +15809,13 @@ export type Database = {
             foreignKeyName: "referrals_referred_id_fkey"
             columns: ["referred_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -15685,6 +15951,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "referrals_referrer_id_fkey"
@@ -16774,6 +17047,13 @@ export type Database = {
             foreignKeyName: "short_links_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "short_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -17193,6 +17473,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
@@ -17846,6 +18133,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
@@ -18523,6 +18817,13 @@ export type Database = {
             foreignKeyName: "smartpoints_ledger_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartpoints_ledger_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -18748,6 +19049,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "social_contacts_lead_id_fkey"
@@ -19620,6 +19928,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "social_sessions_lead_id_fkey"
@@ -20869,6 +21184,13 @@ export type Database = {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -21137,6 +21459,13 @@ export type Database = {
             foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -21329,6 +21658,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
@@ -21816,6 +22152,13 @@ export type Database = {
             foreignKeyName: "upsell_predictions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -22282,6 +22625,13 @@ export type Database = {
             foreignKeyName: "wa_followup_queue_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -22553,6 +22903,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "wa_group_members_lead_id_fkey"
@@ -23167,6 +23524,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "whatsapp_inbox_lead_id_fkey"
@@ -23916,6 +24280,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -24136,6 +24507,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
@@ -24481,6 +24859,13 @@ export type Database = {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -24632,6 +25017,16 @@ export type Database = {
           volume_mensal_pecas?: string | null
           wa_total_messages?: number | null
           whatsapp_lid?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_stage_purchases: {
+        Row: {
+          is_competitor: boolean | null
+          lead_id: string | null
+          product_key: string | null
+          subcategory: string | null
+          workflow_stage: string | null
         }
         Relationships: []
       }
@@ -24825,6 +25220,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
@@ -24991,6 +25393,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
@@ -25982,6 +26391,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
@@ -27419,6 +27835,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_pipeline"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lia_attendances_merged_into_fkey"
