@@ -685,10 +685,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
                 )}
               </span>
-              <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
-                <Eye className="w-4 h-4 mr-1" />
-                {showPreview ? "Ocultar preview" : "Ver preview"}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setEditorExpanded(true)}>
+                  <Maximize2 className="w-4 h-4 mr-1" /> Expandir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
+                  <Eye className="w-4 h-4 mr-1" />
+                  {showPreview ? "Ocultar preview" : "Ver preview"}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
