@@ -48,16 +48,40 @@ function extractBody(html: string): { head: string; bodyOpen: string; body: stri
 
 // ── Heurística: quando o HTML não tem <section data-section>, tentamos
 // detectar blocos automaticamente varrendo o container principal do body.
+function clean(str: string): string {
+  return str.replace(/\s+/g, " ").trim();
+}
+
+function truncate(str: string, max = 60): string {
+  const s = clean(str);
+  return s.length > max ? s.slice(0, max).trimEnd() + "…" : s;
+}
+
 function labelFor(el: Element, i: number): string {
-  const txt = (el.textContent || "").toLowerCase();
-  if (/©|cancelar inscri|descadastr|unsubscribe|todos os direitos|rodap[eé]/.test(txt)) return "Rodapé";
-  if (/depoimento|clientes? diz|⭐|★|estrelas?/.test(txt)) return "Prova social";
-  if (/r\$\s*\d/.test(txt) || /(bundle|assinatura|mensalidade|parcel|desconto|oferta exclusiva)/.test(txt)) return "Preço / Oferta";
-  if (/revendedor oficial|oportunidade|exclusivo|lan[çc]amento|novidade/.test(txt) && i <= 1) return "Hero / Abertura";
+  // 1) Primeiro heading real do bloco.
+  const heading = el.querySelector("h1,h2,h3");
+  const hText = heading ? clean(heading.textContent || "") : "";
+  if (hText.length >= 3) return truncate(hText);
+
+  // 2) Primeiro <strong>/<b> significativo.
+  const strong = el.querySelector("strong,b");
+  const sText = strong ? clean(strong.textContent || "") : "";
+  if (sText.length >= 4) return truncate(sText);
+
+  // 3) Primeira linha significativa de texto (ignorando rodapé boilerplate).
+  const raw = clean(el.textContent || "");
+  const lower = raw.toLowerCase();
+  const isFooter = /©|cancelar inscri|descadastr|unsubscribe|todos os direitos|rodap[eé]/.test(lower);
+  if (isFooter) return "Rodapé";
+  if (raw.length >= 3) return truncate(raw);
+
+  // 4) Fallbacks por categoria (quando não há texto legível — ex.: bloco só com imagem/CTA).
+  if (/depoimento|clientes? diz|⭐|★|estrelas?/.test(lower)) return "Prova social";
   const anchors = el.querySelectorAll("a[href]");
-  if (anchors.length >= 1 && txt.length < 240 && txt.length > 0) return "Chamada para ação";
-  if (/benef[ií]cio|vantagem|✓|✔|inclui|recurso/.test(txt) || el.querySelector("ul,ol")) return "Benefícios";
-  if (i === 0 && (el.querySelector("h1,h2") || el.querySelector("img"))) return "Hero / Abertura";
+  if (anchors.length >= 1) return "Chamada para ação";
+  if (el.querySelector("img") && i === 0) return "Hero / Abertura";
+
+  // 5) Último recurso.
   return `Bloco ${i + 1}`;
 }
 
