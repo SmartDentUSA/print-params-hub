@@ -364,16 +364,17 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="visual" className="mt-2">
-                {/<table[\s>]|style\s*=\s*"/i.test(html) ? (
-                  <>
-                    <div className="text-[11px] text-muted-foreground mb-2 p-2 border rounded bg-muted/20">
-                      Este email usa layout HTML complexo (tabelas / estilos inline). Edite o código à esquerda — o preview atualiza automaticamente e todo o estilo é preservado.
-                    </div>
-                    <EmailHtmlEditor value={html} onChange={setHtml} expanded={expanded} />
-                  </>
-                ) : (
-                  <EmailRichEditor value={html} onChange={setHtml} />
+                {/<table[\s>]|style\s*=\s*"/i.test(html) && (
+                  <div className="text-[11px] text-muted-foreground mb-2 p-2 border rounded bg-muted/20">
+                    Este email usa layout HTML complexo (tabelas / estilos inline). Para editar o código, use a aba <strong>HTML</strong> ao lado — o preview abaixo atualiza automaticamente.
+                  </div>
                 )}
+                <iframe
+                  title="Preview do email"
+                  srcDoc={html}
+                  sandbox="allow-same-origin"
+                  className={`w-full border rounded-md bg-white ${expanded ? "h-[calc(100vh-260px)] min-h-[500px]" : "h-[600px]"}`}
+                />
                 {sections.some(s => s.removable && !s.enabled) && (
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.

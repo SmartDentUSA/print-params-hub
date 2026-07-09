@@ -1,36 +1,34 @@
-## Diagnóstico
+## Problema
 
-O container pai em `SmartOpsCampaigns.tsx` (linha 1191) usa `max-w-3xl` (~768px), o que espreme todo o wizard "Criar Campanha", incluindo o passo 2 do `EmailCampaignWizard`. Por isso o editor+preview ficam estreitos, mesmo com o card interno em `w-full`.
+Na aba **Visual** do editor de email (Passo 2), quando o HTML contém `<table>` ou `style="…"` (praticamente todos os emails gerados), o componente renderiza o `EmailHtmlEditor` — que é um **editor de código + preview lado a lado**. Resultado: o usuário vê código HTML na aba "Visual", o que contradiz o nome da aba.
 
-A tentativa anterior de "furar" o layout com `-ml-[49vw] w-screen` funcionava visualmente mas cobria a sidebar do admin. A solução correta é afrouxar o container apenas no passo em que o wizard de email aparece.
+A aba **HTML** ao lado já cumpre esse papel (textarea de código puro).
 
-## Mudança
+## Solução
 
-**`src/components/SmartOpsCampaigns.tsx`** (apenas 1 linha)
+Fazer a aba **Visual** mostrar **apenas o preview do email** (iframe `srcDoc`), sem código. O código continua disponível na aba **HTML** (que já existe) para edição avançada.
 
-Trocar:
-```tsx
-<div className="space-y-6 max-w-3xl">
-```
-por algo condicional ao passo atual (o `step` local desse componente — 1=Conteúdo, 2=Segmentação, 3=Revisar):
-```tsx
-<div className={`space-y-6 ${step === 3 ? "max-w-none" : "max-w-3xl"}`}>
-```
+### Mudanças
 
-Isso libera a largura total (dentro do `<main>` do admin, que já tem padding) exclusivamente no passo "Revisar", onde o `EmailCampaignWizard` renderiza. Passos 1 e 2 continuam com a largura confortável de leitura atual.
+**`src/components/smartops/EmailCampaignWizard.tsx`** — no `<TabsContent value="visual">`:
+- Remover o bloco condicional `EmailHtmlEditor` / `EmailRichEditor`.
+- Renderizar somente o preview em `<iframe srcDoc={html}>` (mesma altura expansível: `h-[calc(100vh-260px)] min-h-[500px]` quando `expanded`, senão `h-[600px]`).
+- Manter a nota de "Seções desligadas continuam visíveis aqui…" abaixo do preview.
+- Manter o aviso "Este email usa layout HTML complexo — edite na aba HTML" apenas quando o HTML for complexo (com tabelas/estilos inline), como orientação.
 
-**`src/components/smartops/EmailCampaignWizard.tsx`** — sem novas mudanças. O card do passo 2 já está em `w-full` e vai preencher naturalmente o espaço liberado.
+**`src/components/smartops/EmailHtmlEditor.tsx`** — sem mudanças (segue sendo usado se um dia quisermos re-habilitar edição inline; hoje fica ocioso).
 
-## Fora de escopo
+**Aba HTML** — sem mudanças. Textarea de código puro (fonte de verdade).
 
-- Modal "Expandir" (segue igual).
-- Estrutura interna do editor/preview.
-- Outras abas (Biblioteca, Rascunhos, Histórico, Grupos WA).
-- Sidebar do admin (não é tocada — o fix é interno ao `<main>`).
+**Aba Seções** — sem mudanças.
 
-## Validação
+### Fora de escopo
 
-1. `/admin?sub=criar&tab=campanhas` → passo 1 e 2 continuam com largura atual (não estica).
-2. Avançar até passo 3 (Revisar) → wizard e o passo 2 interno "Revisar & Ajustar" ocupam toda a largura disponível do `<main>`, editor e preview ~50% cada.
-3. Sidebar do admin permanece visível e clicável.
-4. Botão "Expandir" continua abrindo o modal fullscreen.
+- Rich text editor WYSIWYG real sobre HTML de tabela (arriscado quebrar layout de email).
+- Modal "Expandir" (continua funcionando).
+- Passo 1, 3, e demais abas do SmartOpsCampaigns.
+- Layout de largura do wizard (mantido como está).
+
+### Validação
+
+`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Visual** mostra somente o email renderizado (sem código). Aba **HTML** mostra o textarea de código. Botão "Expandir" continua funcionando. Preview atualiza ao editar o HTML.
