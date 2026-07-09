@@ -879,6 +879,36 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           />
         </div>
       )}
+
+      <Dialog open={editorExpanded} onOpenChange={setEditorExpanded}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                Revisar & Ajustar — Tela expandida
+                {emailSource?.startsWith("landing_page") && (
+                  <Badge variant="secondary" className="text-[10px]">Espelho fiel da Landing Page</Badge>
+                )}
+                {emailSource === "catalog_dossier" && (
+                  <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
+                )}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
+                  <Eye className="w-4 h-4 mr-1" />
+                  {showPreview ? "Ocultar preview" : "Ver preview"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditorExpanded(false)}>
+                  <Minimize2 className="w-4 h-4 mr-1" /> Reduzir
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4">
+            {renderEditorArea(true)}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
