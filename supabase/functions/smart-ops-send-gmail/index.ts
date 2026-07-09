@@ -45,6 +45,76 @@ function firstName(n?: string | null) {
   return String(n).trim().split(/\s+/)[0] || "";
 }
 
+// Mirror of `applyFiltersToQuery` in src/components/SmartOpsCampaigns.tsx.
+// Keep both in sync — server-side audience MUST equal the UI count.
+function applyCampaignFilters(q: any, f: Record<string, any>): any {
+  if (!f) return q;
+  if (f.produto_interesse) {
+    const safe = String(f.produto_interesse).replace(/,/g, " ");
+    q = q.or(`produto_interesse.ilike.%${safe}%,produto_interesse_auto.ilike.%${safe}%`);
+  }
+  if (f.temperatura_lead != null) q = q.eq("temperatura_lead", f.temperatura_lead);
+  if (f.piperun_stage_name) q = q.eq("piperun_stage_name", f.piperun_stage_name);
+  if (f.especialidade) q = q.eq("especialidade", f.especialidade);
+  if (f.area_atuacao) q = q.eq("area_atuacao", f.area_atuacao);
+  if (f.uf) q = q.eq("uf", f.uf);
+  if (f.proprietario_lead_crm) q = q.eq("proprietario_lead_crm", f.proprietario_lead_crm);
+  if (f.real_status) q = q.eq("real_status", f.real_status);
+  if (f.tem_scanner === "yes") q = q.eq("tem_scanner", true);
+  if (f.tem_scanner === "no")  q = q.or("tem_scanner.is.null,tem_scanner.eq.false");
+  if (f.tem_printer === "yes") q = q.eq("tem_impressora", true);
+  if (f.tem_printer === "no")  q = q.or("tem_impressora.is.null,tem_impressora.eq.false");
+  if (f.recencia_dias != null) {
+    const since = new Date(Date.now() - Number(f.recencia_dias) * 86400000).toISOString();
+    q = q.gte("updated_at", since);
+  }
+  if (f.cliente_filter === "clientes") q = q.gt("total_deals_all", 0);
+  if (f.cliente_filter === "leads")    q = q.or("total_deals_all.is.null,total_deals_all.eq.0");
+  if (f.piperun_pipeline_name)     q = q.eq("piperun_pipeline_name", f.piperun_pipeline_name);
+  if (f.origem_primeiro_contato)   q = q.eq("origem_primeiro_contato", f.origem_primeiro_contato);
+  if (f.piperun_status)            q = q.eq("piperun_status", f.piperun_status);
+  if (f.prazo_compra)              q = q.eq("prazo_compra", f.prazo_compra);
+  if (f.tipo_local)                q = q.eq("tipo_local", f.tipo_local);
+  if (f.cidade)                    q = q.ilike("cidade", `%${String(f.cidade).replace(/,/g, " ")}%`);
+  if (f.form_name)                 q = q.eq("form_name", f.form_name);
+  if (f.utm_campaign)              q = q.ilike("utm_campaign", `%${String(f.utm_campaign).replace(/,/g, " ")}%`);
+  if (f.marca_scanner) {
+    const safe = String(f.marca_scanner).replace(/,/g, " ");
+    q = q.or(`scanner_marca.ilike.%${safe}%,equip_scanner.ilike.%${safe}%`);
+  }
+  if (f.marca_impressora) {
+    const safe = String(f.marca_impressora).replace(/,/g, " ");
+    q = q.or(`equip_impressora.ilike.%${safe}%,impressora_modelo.ilike.%${safe}%`);
+  }
+  if (f.tem_fresadora === "yes") q = q.not("equip_fresadora", "is", null);
+  if (f.tem_fresadora === "no")  q = q.is("equip_fresadora", null);
+  if (f.tem_cad === "yes") q = q.or("equip_cad.not.is.null,software_cad.not.is.null");
+  if (f.tem_cad === "no")  q = q.is("equip_cad", null).is("software_cad", null);
+  const ynBool = (col: string, v: string) => v === "yes"
+    ? (qq: any) => qq.eq(col, true)
+    : (qq: any) => qq.or(`${col}.is.null,${col}.eq.false`);
+  if (f.imprime_modelos)    q = ynBool("imprime_modelos",    f.imprime_modelos)(q);
+  if (f.imprime_placas)     q = ynBool("imprime_placas",     f.imprime_placas)(q);
+  if (f.imprime_guias)      q = ynBool("imprime_guias",      f.imprime_guias)(q);
+  if (f.imprime_resinas_ld) q = ynBool("imprime_resinas_ld", f.imprime_resinas_ld)(q);
+  if (f.reuniao_agendada)   q = ynBool("reuniao_agendada",   f.reuniao_agendada)(q);
+  if (f.omie_inadimplente)  q = ynBool("omie_inadimplente",  f.omie_inadimplente)(q);
+  if (f.recompra_alert)     q = ynBool("recompra_alert",     f.recompra_alert)(q);
+  if (f.sdr_completo)       q = ynBool("sdr_completo",       f.sdr_completo)(q);
+  if (f.tem_email === "yes")     q = q.not("email", "is", null);
+  if (f.tem_email === "no")      q = q.is("email", null);
+  if (f.tem_telefone === "yes")  q = q.not("telefone_normalized", "is", null);
+  if (f.tem_telefone === "no")   q = q.is("telefone_normalized", null);
+  if (f.aceita_contato === "yes") q = q.or("do_not_contact.is.null,do_not_contact.eq.false");
+  if (f.aceita_contato === "no")  q = q.eq("do_not_contact", true);
+  if (f.ltv_min != null)   q = q.gte("ltv_total", Number(f.ltv_min));
+  if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
+  // Legacy shortcuts (kept for backward compat with older callers)
+  if (f.etapa_funil)  q = q.eq("etapa_funil", f.etapa_funil);
+  if (f.temperatura && f.temperatura_lead == null) q = q.eq("temperatura", f.temperatura);
+  return q;
+}
+
 function randomCode(len = 8) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let s = ""; for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
