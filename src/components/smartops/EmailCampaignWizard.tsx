@@ -672,7 +672,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
       {/* ────── Step 2: Revisar & Ajustar ────── */}
       {step === 2 && (
-        <Card>
+        <Card className="relative left-1/2 right-1/2 -ml-[49vw] -mr-[49vw] w-screen rounded-none border-x-0">
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
               <span className="flex items-center gap-2">
