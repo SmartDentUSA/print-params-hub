@@ -83,6 +83,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   // ── Section toggles ──
   const [sections, setSections] = useState<EmailSection[]>([]);
   const [editorTab, setEditorTab] = useState<"visual" | "html" | "sections">("visual");
+  const [editorExpanded, setEditorExpanded] = useState(false);
 
   // Re-parse sections whenever the HTML changes, preserving enabled state by key+ordinal.
   useEffect(() => {
