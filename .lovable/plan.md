@@ -1,29 +1,62 @@
-## Problema
+## Alinhar o editor de email ao editor de landing page
 
-O detector automático em `emailSections.ts` está encontrando **25 itens de FAQ** (perguntas individuais) em vez das grandes seções do email (hero, oferta, benefícios, bloco de FAQ inteiro, rodapé). A BFS atual escolhe o container com **mais** filhos de conteúdo — e um `<ul>` de FAQ com 25 `<li>` sempre vence contra o wrapper de nível superior com 4-6 blocos.
+O editor de LP tem uma **lista fixa e semântica** de seções (Hero, Como funciona, Oferta, Condições, Módulos, Uso, Implantação, O que a Smart Dent entrega, Comparativo, FAQ, CTA final, Rodapé) — definida em `LandingPageBuilderModal.tsx` linha 539-553 — cada uma editável e ligável/desligável individualmente. Zero heurística.
 
-## Fix (`src/components/smartops/emailSections.ts` → `parseAuto`)
+O editor de email hoje **tenta adivinhar** as seções via DOM/regex depois do HTML gerado. Falha: pega 25 FAQs em vez do bloco "FAQ".
 
-Trocar o critério de "mais filhos" por "**mais próximo do topo, dentro de uma faixa saudável de blocos**":
+## Fix: gerar o HTML já anotado com marcadores de seção
 
-1. Definir faixa alvo: `MIN_KIDS = 2`, `MAX_KIDS = 12` (emails reais raramente têm >12 seções de topo).
-2. Na BFS, considerar como candidato apenas containers com `kids.length` em `[MIN_KIDS, MAX_KIDS]`.
-3. Entre candidatos, escolher:
-   - **menor profundidade** primeiro (mais perto do topo do body);
-   - em empate, o com **mais** filhos.
-4. Se nenhum container ficar na faixa (ex.: email é uma coluna única), cair no fallback atual: seção única "Conteúdo" não removível.
+### 1. `supabase/functions/smart-ops-generate-email-ai/index.ts` (função `renderEmail`)
 
-Isso garante que o FAQ inteiro apareça como **um único bloco** ("Bloco FAQ" ou nomeado pelo heading `Perguntas frequentes`), não 25 blocos.
+Adicionar helper local:
+```ts
+const wrapSec = (key: string, label: string, tr: string) =>
+  tr ? `<!--SD_SEC_START key="${key}" label="${label}"-->${tr}<!--SD_SEC_END-->` : "";
+```
+
+Envolver cada `<tr>…</tr>` de bloco (usar comentários HTML, pois `<section>` quebra `<table>`), usando **exatamente** os mesmos rótulos do LP builder:
+
+| key             | label                        |
+| --------------- | ---------------------------- |
+| hero            | Hero                         |
+| positioning     | Oferta / Posicionamento      |
+| how-it-works    | Como funciona                |
+| price           | Oferta / Preço               |
+| conditions      | Condições                    |
+| modules         | Módulos                      |
+| regional-rules  | Uso da licença               |
+| implementation  | Implantação                  |
+| benefits        | O que a Smart Dent entrega   |
+| testimonials    | Depoimentos                  |
+| faq             | FAQ                          |
+| final-cta       | CTA final                    |
+| footer          | Rodapé                       |
+
+O bloco Hero (linhas 735-752) e o rodapé (766-771) também são envolvidos. Cabeçalho (logo/reseller badge) fica **fora** dos marcadores (não é toggleável, como no LP).
+
+### 2. `src/components/smartops/emailSections.ts`
+
+- Nova função `parseMarkerSections(html)` que varre pares `<!--SD_SEC_START key="…" label="…"-->…<!--SD_SEC_END-->` e retorna um `EmailSection[]` com `id: "{key}-{i}"`, `key`, `label` do próprio marcador, `html: match completo (incluindo marcadores)`, `removable: true`, `auto: false`.
+- Em `parseSections`, **antes** de tentar `<section data-section=…>` e antes do `parseAuto`, chamar `parseMarkerSections`; se encontrar ≥ 1, retornar essa lista.
+- Nova `serializeMarkerSections(originalHtml, sections)` que remove os pares desligados via regex `<!--SD_SEC_START key="{key}"…-->[\s\S]*?<!--SD_SEC_END-->` — preservando a ordem original do HTML e o resto intocado.
+- Em `serializeSections`, se o HTML contiver `SD_SEC_START`, delegar para `serializeMarkerSections`.
+- Remover o aviso "Rótulos são aproximações" quando as seções vierem de marcadores (não são automáticas).
+
+### 3. Comportamento resultante
+
+- Emails **novos** gerados por `smart-ops-generate-email-ai` já vêm com os 13 blocos rotulados exatamente como no LP builder.
+- Emails **antigos** (sem marcadores) continuam caindo no heurístico atual — retrocompatível.
+- Desligar/ligar reflete no preview Visual e no envio (já está funcionando via `effectiveHtml`).
 
 ## Fora de escopo
 
-- Detectar sub-seções dentro do FAQ (usuário quer o oposto: agrupar).
-- Aba Visual / HTML / preview / envio.
-- Passos 1 e 3.
+- Alterar o editor de LP.
+- Adicionar reorder/rename manual de seções (LP também não tem).
+- Migrar emails antigos.
+- Alterar `smart-ops-generate-email` (variante sem AI) — se existir, cai no fallback antigo.
 
 ## Validação
 
-`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Seções** no email do Ultimate Bundle:
-- 4-8 blocos listados (Hero, Oferta, Benefícios/Diferenciais, FAQ, Rodapé etc.), não 25.
-- Rótulos usam o heading real de cada bloco (já implementado).
-- Desmarcar um bloco remove todo o grupo do preview.
+- Regerar um email → aba Seções mostra exatamente: Hero, Como funciona, Oferta / Preço, Condições, Módulos, Uso da licença, Implantação, O que a Smart Dent entrega, Depoimentos (se houver), FAQ, CTA final, Rodapé — mesmos rótulos do LP.
+- Desligar "FAQ" → o bloco inteiro (com todos os 25 QAs) some do preview Visual e do email de teste.
+- Reativar → volta.
