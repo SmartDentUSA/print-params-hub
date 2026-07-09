@@ -429,6 +429,10 @@ function buildLpEmailHtml(opts: {
   const grad = `linear-gradient(135deg, ${t.brand} 0%, ${t.brand2} 100%)`;
   const softGrad = `linear-gradient(180deg, ${t.bgSoft} 0%, ${t.soft} 100%)`;
 
+  // Section markers aligned with the LP builder (LandingPageBuilderModal EDITOR_SECTIONS).
+  const sec = (key: string, label: string, tr: string) =>
+    tr ? `<!--SD_SEC_START key="${key}" label="${label}"-->${tr}<!--SD_SEC_END-->` : "";
+
   const hl = (h: string) => h.replace(
     /<span class="hl">([\s\S]*?)<\/span>/g,
     `<span style="color:${t.brand};">$1</span>`,
@@ -751,24 +755,24 @@ function buildLpEmailHtml(opts: {
           </table>
         </td></tr>
 
-        ${positioningHtml}
-        ${howItWorksHtml}
-        ${priceHtml}
-        ${conditionsHtml}
-        ${modulesHtml}
-        ${regionalRulesHtml}
-        ${implementationHtml}
-        ${benefitsHtml}
-        ${testimonialsHtml}
-        ${faqHtml}
-        ${finalCtaHtml}
+        ${sec("positioning", "Oferta / Posicionamento", positioningHtml)}
+        ${sec("how-it-works", "Como funciona", howItWorksHtml)}
+        ${sec("price", "Oferta / Preço", priceHtml)}
+        ${sec("conditions", "Condições", conditionsHtml)}
+        ${sec("modules", "Módulos", modulesHtml)}
+        ${sec("regional-rules", "Uso da licença", regionalRulesHtml)}
+        ${sec("implementation", "Implantação", implementationHtml)}
+        ${sec("benefits", "O que a Smart Dent entrega", benefitsHtml)}
+        ${sec("testimonials", "Depoimentos", testimonialsHtml)}
+        ${sec("faq", "FAQ", faqHtml)}
+        ${sec("final-cta", "CTA final", finalCtaHtml)}
 
-        <tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
+        ${sec("footer", "Rodapé", `<tr><td style="padding:0 28px 28px 28px;background:#ffffff;">
           <div style="border-top:1px solid ${t.border};padding-top:18px;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.55;color:${t.textSoft};text-align:center;">
             Enviado por <strong style="color:${t.text};">Smart Dent | Fluxo Digital</strong> para {{nome}}.<br/>
             Consultoria e revenda oficial em odontologia digital.
           </div>
-        </td></tr>
+        </td></tr>`)}
       </table>
     </td></tr>
   </table>
