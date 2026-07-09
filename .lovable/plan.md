@@ -1,30 +1,36 @@
-## Objetivo
+## Diagnóstico
 
-Expandir o passo 2 do wizard "Criar Campanha" para usar toda a largura da tela, removendo o container estreito que hoje espreme editor e preview em ~600px cada.
+O container pai em `SmartOpsCampaigns.tsx` (linha 1191) usa `max-w-3xl` (~768px), o que espreme todo o wizard "Criar Campanha", incluindo o passo 2 do `EmailCampaignWizard`. Por isso o editor+preview ficam estreitos, mesmo com o card interno em `w-full`.
 
-## Mudanças
+A tentativa anterior de "furar" o layout com `-ml-[49vw] w-screen` funcionava visualmente mas cobria a sidebar do admin. A solução correta é afrouxar o container apenas no passo em que o wizard de email aparece.
 
-**`src/components/smartops/EmailCampaignWizard.tsx`**
+## Mudança
 
-1. No wrapper do passo 2 (Revisar & Ajustar), remover as classes que limitam largura (`max-w-*`, `container`, etc.) e passar o card para `w-full`.
-2. Ajustar o layout do card para grid de 2 colunas em telas largas (`lg:grid-cols-2 gap-6`), com editor à esquerda e preview à direita ocupando cada coluna ~50% da viewport.
-3. Aumentar altura padrão do editor/preview quando não expandido: passar de `600px` para `h-[calc(100vh-320px)]` (mínimo 560px), acompanhando a expansão horizontal.
-4. Manter o botão "Expandir" (modal 95vw × 90vh) intacto para uso pontual.
+**`src/components/SmartOpsCampaigns.tsx`** (apenas 1 linha)
 
-**`src/components/smartops/EmailHtmlEditor.tsx`**
+Trocar:
+```tsx
+<div className="space-y-6 max-w-3xl">
+```
+por algo condicional ao passo atual (o `step` local desse componente — 1=Conteúdo, 2=Segmentação, 3=Revisar):
+```tsx
+<div className={`space-y-6 ${step === 3 ? "max-w-none" : "max-w-3xl"}`}>
+```
 
-- Ajustar o valor default de altura para bater com o novo layout (`h-[calc(100vh-320px)]`, min 560px).
-- Sem mudança de props/API.
+Isso libera a largura total (dentro do `<main>` do admin, que já tem padding) exclusivamente no passo "Revisar", onde o `EmailCampaignWizard` renderiza. Passos 1 e 2 continuam com a largura confortável de leitura atual.
+
+**`src/components/smartops/EmailCampaignWizard.tsx`** — sem novas mudanças. O card do passo 2 já está em `w-full` e vai preencher naturalmente o espaço liberado.
 
 ## Fora de escopo
 
-- Passos 1 e 3 do wizard (mantêm largura atual).
-- `EmailRichEditor`, `emailSections.ts`, backend.
-- Lógica de envio, preview de landing page, geração de HTML.
+- Modal "Expandir" (segue igual).
+- Estrutura interna do editor/preview.
+- Outras abas (Biblioteca, Rascunhos, Histórico, Grupos WA).
+- Sidebar do admin (não é tocada — o fix é interno ao `<main>`).
 
 ## Validação
 
-- Abrir `/admin?sub=criar&tab=campanhas`, avançar ao passo 2 com email HTML complexo.
-- Confirmar que editor e preview agora ocupam cada um ~50% da largura da viewport (sem coluna estreita).
-- Confirmar que o botão "Expandir" ainda abre o modal fullscreen.
-- Build + typecheck limpos.
+1. `/admin?sub=criar&tab=campanhas` → passo 1 e 2 continuam com largura atual (não estica).
+2. Avançar até passo 3 (Revisar) → wizard e o passo 2 interno "Revisar & Ajustar" ocupam toda a largura disponível do `<main>`, editor e preview ~50% cada.
+3. Sidebar do admin permanece visível e clicável.
+4. Botão "Expandir" continua abrindo o modal fullscreen.
