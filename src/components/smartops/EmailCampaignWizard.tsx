@@ -371,7 +371,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 )}
                 <iframe
                   title="Preview do email"
-                  srcDoc={html}
+                  srcDoc={effectiveHtml || html}
                   sandbox="allow-same-origin"
                   className={`w-full border rounded-md bg-white ${expanded ? "h-[calc(100vh-260px)] min-h-[500px]" : "h-[600px]"}`}
                 />
