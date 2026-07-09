@@ -327,9 +327,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const renderEditorArea = (expanded = false) => {
     const previewHeightClass = expanded
       ? "h-[calc(100vh-260px)] min-h-[500px]"
-      : emailSource?.startsWith("landing_page")
-        ? "h-[640px]"
-        : "h-[600px]";
+      : "h-[calc(100vh-340px)] min-h-[560px]";
     return (
       <div className="space-y-3">
         {htmlWarning && (
