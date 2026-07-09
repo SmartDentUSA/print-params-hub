@@ -1,34 +1,36 @@
-## Problema
+## Dois problemas na aba "Seções" do Passo 2
 
-Na aba **Visual** do editor de email (Passo 2), quando o HTML contém `<table>` ou `style="…"` (praticamente todos os emails gerados), o componente renderiza o `EmailHtmlEditor` — que é um **editor de código + preview lado a lado**. Resultado: o usuário vê código HTML na aba "Visual", o que contradiz o nome da aba.
+### 1. Rótulos não batem com o conteúdo real do email
 
-A aba **HTML** ao lado já cumpre esse papel (textarea de código puro).
+Hoje `labelFor` em `emailSections.ts` classifica cada bloco por heurística de categoria (`"Preço / Oferta"`, `"Benefícios"`, `"Bloco N"`). O usuário quer ver os títulos **reais** do email (ex.: `Exocad oficial e completo com treinamento e I.A. todo mês.`, `PRÉ-LANÇAMENTO`, `DentalCAD Ultimate Lab Bundle`).
 
-## Solução
+**Fix (`src/components/smartops/emailSections.ts` → `labelFor`):**
+- Nova ordem de prioridade:
+  1. Texto do primeiro `<h1>/<h2>/<h3>` do bloco (trim, colapsa espaços, corta a 60 chars).
+  2. Texto do primeiro `<strong>`/`<b>` significativo (≥ 4 chars).
+  3. Primeira linha de texto significativa (`textContent`, primeiros 60 chars, ignorando `©`/rodapé boilerplate).
+  4. Fallbacks atuais (Rodapé, Prova social, CTA) só se nada acima existir.
+  5. Último recurso: `Bloco N`.
+- Todas as strings finais passam por `.replace(/\s+/g," ").trim()` e `slice(0,60)` (+ `…` se cortou).
 
-Fazer a aba **Visual** mostrar **apenas o preview do email** (iframe `srcDoc`), sem código. O código continua disponível na aba **HTML** (que já existe) para edição avançada.
+### 2. Desmarcar a seção não remove do email/preview
 
-### Mudanças
+Depois da última mudança, o preview da aba **Visual** virou `<iframe srcDoc={html}>` (HTML cru), ignorando as seções desligadas. O `effectiveHtml` (que já aplica `serializeSections`) segue sendo usado no envio/teste, mas o preview visual mostra o HTML sem filtro — dando a impressão de que "não sai".
 
-**`src/components/smartops/EmailCampaignWizard.tsx`** — no `<TabsContent value="visual">`:
-- Remover o bloco condicional `EmailHtmlEditor` / `EmailRichEditor`.
-- Renderizar somente o preview em `<iframe srcDoc={html}>` (mesma altura expansível: `h-[calc(100vh-260px)] min-h-[500px]` quando `expanded`, senão `h-[600px]`).
-- Manter a nota de "Seções desligadas continuam visíveis aqui…" abaixo do preview.
-- Manter o aviso "Este email usa layout HTML complexo — edite na aba HTML" apenas quando o HTML for complexo (com tabelas/estilos inline), como orientação.
-
-**`src/components/smartops/EmailHtmlEditor.tsx`** — sem mudanças (segue sendo usado se um dia quisermos re-habilitar edição inline; hoje fica ocioso).
-
-**Aba HTML** — sem mudanças. Textarea de código puro (fonte de verdade).
-
-**Aba Seções** — sem mudanças.
+**Fix (`src/components/smartops/EmailCampaignWizard.tsx`):**
+- Trocar `srcDoc={html}` por `srcDoc={effectiveHtml || html}` no iframe da aba Visual.
+- Nenhuma outra mudança de lógica: `serializeSections` já remove blocos desligados no ramo `auto` (linhas 186-194 de `emailSections.ts`), e o `effectiveHtml` já é o que vai para `test_email` / envio real.
 
 ### Fora de escopo
 
-- Rich text editor WYSIWYG real sobre HTML de tabela (arriscado quebrar layout de email).
-- Modal "Expandir" (continua funcionando).
-- Passo 1, 3, e demais abas do SmartOpsCampaigns.
-- Layout de largura do wizard (mantido como está).
+- Aba HTML (segue mostrando o HTML original, fonte de verdade da edição).
+- Aba Preview lateral (já usa `previewHtml = effectiveHtml`).
+- Passo 1 e Passo 3.
+- Ordenar/renomear seções manualmente.
 
 ### Validação
 
-`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Visual** mostra somente o email renderizado (sem código). Aba **HTML** mostra o textarea de código. Botão "Expandir" continua funcionando. Preview atualiza ao editar o HTML.
+`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Seções**:
+- Cada linha mostra o título real do bloco (ex.: `Exocad oficial e completo…`, `DentalCAD Ultimate Lab Bundle`, `Revendedor Oficial exocad`).
+- Desmarcar qualquer switch faz o bloco sumir imediatamente do preview na aba Visual e do email de teste.
+- Reativar traz de volta.
