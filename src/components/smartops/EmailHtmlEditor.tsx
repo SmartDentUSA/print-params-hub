@@ -35,7 +35,7 @@ export function EmailHtmlEditor({ value, onChange, expanded }: Props) {
 
   const heightClass = expanded
     ? "h-[calc(100vh-260px)] min-h-[500px]"
-    : "h-[600px]";
+    : "h-[calc(100vh-340px)] min-h-[560px]";
 
   return (
     <div className="grid gap-2 lg:grid-cols-2">

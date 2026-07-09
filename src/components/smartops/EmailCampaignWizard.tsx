@@ -327,9 +327,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const renderEditorArea = (expanded = false) => {
     const previewHeightClass = expanded
       ? "h-[calc(100vh-260px)] min-h-[500px]"
-      : emailSource?.startsWith("landing_page")
-        ? "h-[640px]"
-        : "h-[600px]";
+      : "h-[calc(100vh-340px)] min-h-[560px]";
     return (
       <div className="space-y-3">
         {htmlWarning && (
@@ -674,7 +672,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
       {/* ────── Step 2: Revisar & Ajustar ────── */}
       {step === 2 && (
-        <Card>
+        <Card className="relative left-1/2 right-1/2 -ml-[49vw] -mr-[49vw] w-screen rounded-none border-x-0">
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
               <span className="flex items-center gap-2">
