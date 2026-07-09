@@ -409,18 +409,24 @@ Deno.serve(async (req) => {
       .not("email", "is", null)
       .neq("email", "")
       .limit(5000);
-    if (filters.uf) q = q.eq("uf", filters.uf);
-    if (filters.etapa_funil) q = q.eq("etapa_funil", filters.etapa_funil);
-    if (filters.produto_interesse) q = q.eq("produto_interesse", filters.produto_interesse);
-    if (filters.temperatura) q = q.eq("temperatura", filters.temperatura);
+    q = applyCampaignFilters(q, filters || {});
     const { data: leadsData, error: leadsErr } = await q;
     if (leadsErr) throw leadsErr;
     const leads = (leadsData || []).filter((l: any) => String(l.email || "").trim());
+    console.log("[send-gmail] enqueue filters=", JSON.stringify(filters || {}), "audience=", leads.length);
 
     if (dry_run) {
       return new Response(JSON.stringify({ ok: true, dry_run: true, audience: leads.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (leads.length === 0) {
+      return new Response(JSON.stringify({
+        ok: false, error: "audience_empty",
+        message: "Nenhum lead corresponde aos filtros selecionados.",
+        audience: 0,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const isFutureSchedule = scheduled_at && new Date(scheduled_at).getTime() > Date.now();
