@@ -1188,7 +1188,7 @@ function CreateCampaign({
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className={`space-y-6 ${step === 3 ? "max-w-none" : "max-w-3xl"}`}>
       {/* Steps indicator */}
       <div className="flex items-center gap-2">
         {[1, 2, 3].map(s => (
