@@ -105,19 +105,21 @@ function parseAuto(bodyHtml: string): EmailSection[] | null {
     const root = doc.getElementById("__sd_root") as HTMLElement | null;
     if (!root) return null;
 
-    // BFS até profundidade 10 procurando o descendente com MAIS filhos "de conteúdo".
-    // Preferimos ≥3; se nada satisfaz, aceitamos o melhor com ≥2.
+    // BFS: escolher o container mais próximo do topo com uma faixa saudável
+    // de blocos (2..12). Isso evita descer até listas de FAQ com 25 <li>.
+    const MIN_KIDS = 2;
+    const MAX_KIDS = 12;
     const drillable = new Set(["DIV", "TABLE", "TBODY", "TR", "TD", "CENTER", "MAIN", "ARTICLE", "SECTION"]);
     let best: { el: HTMLElement; children: Element[]; depth: number } | null = null;
     const queue: Array<{ el: HTMLElement; depth: number }> = [{ el: root, depth: 0 }];
     while (queue.length) {
       const { el, depth } = queue.shift()!;
       const kids = contentChildren(el);
-      if (kids.length >= 2) {
+      if (kids.length >= MIN_KIDS && kids.length <= MAX_KIDS) {
         if (
           !best ||
-          kids.length > best.children.length ||
-          (kids.length === best.children.length && depth > best.depth)
+          depth < best.depth ||
+          (depth === best.depth && kids.length > best.children.length)
         ) {
           best = { el, children: kids, depth };
         }

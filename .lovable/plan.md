@@ -1,36 +1,29 @@
-## Dois problemas na aba "Seções" do Passo 2
+## Problema
 
-### 1. Rótulos não batem com o conteúdo real do email
+O detector automático em `emailSections.ts` está encontrando **25 itens de FAQ** (perguntas individuais) em vez das grandes seções do email (hero, oferta, benefícios, bloco de FAQ inteiro, rodapé). A BFS atual escolhe o container com **mais** filhos de conteúdo — e um `<ul>` de FAQ com 25 `<li>` sempre vence contra o wrapper de nível superior com 4-6 blocos.
 
-Hoje `labelFor` em `emailSections.ts` classifica cada bloco por heurística de categoria (`"Preço / Oferta"`, `"Benefícios"`, `"Bloco N"`). O usuário quer ver os títulos **reais** do email (ex.: `Exocad oficial e completo com treinamento e I.A. todo mês.`, `PRÉ-LANÇAMENTO`, `DentalCAD Ultimate Lab Bundle`).
+## Fix (`src/components/smartops/emailSections.ts` → `parseAuto`)
 
-**Fix (`src/components/smartops/emailSections.ts` → `labelFor`):**
-- Nova ordem de prioridade:
-  1. Texto do primeiro `<h1>/<h2>/<h3>` do bloco (trim, colapsa espaços, corta a 60 chars).
-  2. Texto do primeiro `<strong>`/`<b>` significativo (≥ 4 chars).
-  3. Primeira linha de texto significativa (`textContent`, primeiros 60 chars, ignorando `©`/rodapé boilerplate).
-  4. Fallbacks atuais (Rodapé, Prova social, CTA) só se nada acima existir.
-  5. Último recurso: `Bloco N`.
-- Todas as strings finais passam por `.replace(/\s+/g," ").trim()` e `slice(0,60)` (+ `…` se cortou).
+Trocar o critério de "mais filhos" por "**mais próximo do topo, dentro de uma faixa saudável de blocos**":
 
-### 2. Desmarcar a seção não remove do email/preview
+1. Definir faixa alvo: `MIN_KIDS = 2`, `MAX_KIDS = 12` (emails reais raramente têm >12 seções de topo).
+2. Na BFS, considerar como candidato apenas containers com `kids.length` em `[MIN_KIDS, MAX_KIDS]`.
+3. Entre candidatos, escolher:
+   - **menor profundidade** primeiro (mais perto do topo do body);
+   - em empate, o com **mais** filhos.
+4. Se nenhum container ficar na faixa (ex.: email é uma coluna única), cair no fallback atual: seção única "Conteúdo" não removível.
 
-Depois da última mudança, o preview da aba **Visual** virou `<iframe srcDoc={html}>` (HTML cru), ignorando as seções desligadas. O `effectiveHtml` (que já aplica `serializeSections`) segue sendo usado no envio/teste, mas o preview visual mostra o HTML sem filtro — dando a impressão de que "não sai".
+Isso garante que o FAQ inteiro apareça como **um único bloco** ("Bloco FAQ" ou nomeado pelo heading `Perguntas frequentes`), não 25 blocos.
 
-**Fix (`src/components/smartops/EmailCampaignWizard.tsx`):**
-- Trocar `srcDoc={html}` por `srcDoc={effectiveHtml || html}` no iframe da aba Visual.
-- Nenhuma outra mudança de lógica: `serializeSections` já remove blocos desligados no ramo `auto` (linhas 186-194 de `emailSections.ts`), e o `effectiveHtml` já é o que vai para `test_email` / envio real.
+## Fora de escopo
 
-### Fora de escopo
+- Detectar sub-seções dentro do FAQ (usuário quer o oposto: agrupar).
+- Aba Visual / HTML / preview / envio.
+- Passos 1 e 3.
 
-- Aba HTML (segue mostrando o HTML original, fonte de verdade da edição).
-- Aba Preview lateral (já usa `previewHtml = effectiveHtml`).
-- Passo 1 e Passo 3.
-- Ordenar/renomear seções manualmente.
+## Validação
 
-### Validação
-
-`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Seções**:
-- Cada linha mostra o título real do bloco (ex.: `Exocad oficial e completo…`, `DentalCAD Ultimate Lab Bundle`, `Revendedor Oficial exocad`).
-- Desmarcar qualquer switch faz o bloco sumir imediatamente do preview na aba Visual e do email de teste.
-- Reativar traz de volta.
+`/admin?sub=criar&tab=campanhas` → Passo 2 → aba **Seções** no email do Ultimate Bundle:
+- 4-8 blocos listados (Hero, Oferta, Benefícios/Diferenciais, FAQ, Rodapé etc.), não 25.
+- Rótulos usam o heading real de cada bloco (já implementado).
+- Desmarcar um bloco remove todo o grupo do preview.
