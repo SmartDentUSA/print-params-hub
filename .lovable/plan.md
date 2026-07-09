@@ -1,62 +1,60 @@
-## Alinhar o editor de email ao editor de landing page
+## Diagnóstico
 
-O editor de LP tem uma **lista fixa e semântica** de seções (Hero, Como funciona, Oferta, Condições, Módulos, Uso, Implantação, O que a Smart Dent entrega, Comparativo, FAQ, CTA final, Rodapé) — definida em `LandingPageBuilderModal.tsx` linha 539-553 — cada uma editável e ligável/desligável individualmente. Zero heurística.
+O botão **"Enfileirar 136 leads"** (Central de Campanhas → Wizard de Email) chama a edge function `smart-ops-send-gmail` no modo *enqueue*. A UI mostra **136 leads** porque o `SmartOpsCampaigns.tsx` calcula esse número usando `applyFiltersToQuery` (~35 filtros ricos: `piperun_stage_name`, `temperatura_lead`, `recencia_dias`, `score_min`, `real_status`, `marca_scanner`, `imprime_modelos`, etc.).
 
-O editor de email hoje **tenta adivinhar** as seções via DOM/regex depois do HTML gerado. Falha: pega 25 FAQs em vez do bloco "FAQ".
+Já a edge function só entende **4 filtros**: `uf`, `etapa_funil`, `produto_interesse`, `temperatura`. Todos os demais são **silenciosamente ignorados**.
 
-## Fix: gerar o HTML já anotado com marcadores de seção
+Consequência: a query da função retorna um universo muito maior (limitado em `.limit(5000)`), tentando montar `campaign_send_log` para milhares de leads em vez de 136. Isso:
 
-### 1. `supabase/functions/smart-ops-generate-email-ai/index.ts` (função `renderEmail`)
+1. Distorce a fila (audience salvo em `campaigns.audience_count` não bate com o que o usuário viu).
+2. Estoura o tempo de execução no `bulk insert` × 10 chunks, retornando `500` como *"Edge Function returned a non-2xx status code"*.
 
-Adicionar helper local:
+Além disso, o `edge_function_logs` de `smart-ops-send-gmail` está vazio recentemente, reforçando que a função está caindo antes de chegar ao insert final.
+
+## Fix
+
+**Alinhar o filtro do servidor com o do cliente** — sem tocar em lógica de negócio nem no wizard.
+
+### 1. `supabase/functions/smart-ops-send-gmail/index.ts`
+
+Substituir o bloco atual (linhas ~336–348):
+
 ```ts
-const wrapSec = (key: string, label: string, tr: string) =>
-  tr ? `<!--SD_SEC_START key="${key}" label="${label}"-->${tr}<!--SD_SEC_END-->` : "";
+let q = supabase.from("lia_attendances")
+  .select("id, nome, email, responsavel_id")
+  .is("merged_into", null)
+  .not("email", "is", null)
+  .neq("email", "")
+  .limit(5000);
+if (filters.uf) q = q.eq("uf", filters.uf);
+if (filters.etapa_funil) q = q.eq("etapa_funil", filters.etapa_funil);
+if (filters.produto_interesse) q = q.eq("produto_interesse", filters.produto_interesse);
+if (filters.temperatura) q = q.eq("temperatura", filters.temperatura);
 ```
 
-Envolver cada `<tr>…</tr>` de bloco (usar comentários HTML, pois `<section>` quebra `<table>`), usando **exatamente** os mesmos rótulos do LP builder:
+Por uma função `applyCampaignFilters(q, filters)` que reproduz **exatamente** o `applyFiltersToQuery` do `SmartOpsCampaigns.tsx` (linhas 636–702) — mesmos operadores `or/eq/ilike/is/not.is/gte`, mesma normalização de vírgulas, mesmo tratamento `yes/no`.
 
-| key             | label                        |
-| --------------- | ---------------------------- |
-| hero            | Hero                         |
-| positioning     | Oferta / Posicionamento      |
-| how-it-works    | Como funciona                |
-| price           | Oferta / Preço               |
-| conditions      | Condições                    |
-| modules         | Módulos                      |
-| regional-rules  | Uso da licença               |
-| implementation  | Implantação                  |
-| benefits        | O que a Smart Dent entrega   |
-| testimonials    | Depoimentos                  |
-| faq             | FAQ                          |
-| final-cta       | CTA final                    |
-| footer          | Rodapé                       |
+Manter os guards básicos (`merged_into IS NULL`, `email NOT NULL`, `email <> ''`) e o `.limit(5000)` como safety net.
 
-O bloco Hero (linhas 735-752) e o rodapé (766-771) também são envolvidos. Cabeçalho (logo/reseller badge) fica **fora** dos marcadores (não é toggleável, como no LP).
+### 2. Log de instrumentação
 
-### 2. `src/components/smartops/emailSections.ts`
+Adicionar `console.log("[send-gmail] enqueue filters=", filters, "audience=", leads.length)` antes do `insert` para facilitar diagnóstico se algo escapar.
 
-- Nova função `parseMarkerSections(html)` que varre pares `<!--SD_SEC_START key="…" label="…"-->…<!--SD_SEC_END-->` e retorna um `EmailSection[]` com `id: "{key}-{i}"`, `key`, `label` do próprio marcador, `html: match completo (incluindo marcadores)`, `removable: true`, `auto: false`.
-- Em `parseSections`, **antes** de tentar `<section data-section=…>` e antes do `parseAuto`, chamar `parseMarkerSections`; se encontrar ≥ 1, retornar essa lista.
-- Nova `serializeMarkerSections(originalHtml, sections)` que remove os pares desligados via regex `<!--SD_SEC_START key="{key}"…-->[\s\S]*?<!--SD_SEC_END-->` — preservando a ordem original do HTML e o resto intocado.
-- Em `serializeSections`, se o HTML contiver `SD_SEC_START`, delegar para `serializeMarkerSections`.
-- Remover o aviso "Rótulos são aproximações" quando as seções vierem de marcadores (não são automáticas).
+### 3. Guardrail de sanidade
 
-### 3. Comportamento resultante
+Se `leads.length === 0` retornar `{ ok: false, error: "audience_empty" }` com HTTP 200 (não 500), para o front conseguir mostrar mensagem clara.
 
-- Emails **novos** gerados por `smart-ops-generate-email-ai` já vêm com os 13 blocos rotulados exatamente como no LP builder.
-- Emails **antigos** (sem marcadores) continuam caindo no heurístico atual — retrocompatível.
-- Desligar/ligar reflete no preview Visual e no envio (já está funcionando via `effectiveHtml`).
+### O que **NÃO** muda
 
-## Fora de escopo
+- Wizard `EmailCampaignWizard.tsx`: nenhuma alteração.
+- Fluxo de envio (`smart-ops-email-scheduler-tick` + `sendOne`): intacto.
+- Schema DB: nenhuma migration.
+- Segmentações salvas: continuam usando os mesmos filtros.
 
-- Alterar o editor de LP.
-- Adicionar reorder/rename manual de seções (LP também não tem).
-- Migrar emails antigos.
-- Alterar `smart-ops-generate-email` (variante sem AI) — se existir, cai no fallback antigo.
+## Deploy
 
-## Validação
+Chamar `supabase--deploy_edge_functions` com `["smart-ops-send-gmail"]` após a edição.
 
-- Regerar um email → aba Seções mostra exatamente: Hero, Como funciona, Oferta / Preço, Condições, Módulos, Uso da licença, Implantação, O que a Smart Dent entrega, Depoimentos (se houver), FAQ, CTA final, Rodapé — mesmos rótulos do LP.
-- Desligar "FAQ" → o bloco inteiro (com todos os 25 QAs) some do preview Visual e do email de teste.
-- Reativar → volta.
+## Verificação
+
+Após o deploy, o usuário refaz o fluxo com os mesmos filtros: a resposta deve dizer `audience: 136` e o `campaign_send_log` deve ter exatamente 136 linhas *queued*.
