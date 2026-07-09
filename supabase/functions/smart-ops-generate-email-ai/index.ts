@@ -736,7 +736,7 @@ function buildLpEmailHtml(opts: {
           </table>
         </td></tr>
 
-        <tr><td style="padding:52px 28px 44px 28px;background:${t.bgSoft};background:${softGrad};">
+        ${sec("hero", "Hero", `<tr><td style="padding:52px 28px 44px 28px;background:${t.bgSoft};background:${softGrad};">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
             <tr>
               <td class="lp-hero-col lp-hero-copy" valign="middle" width="55%" style="padding-right:24px;">
@@ -753,7 +753,7 @@ function buildLpEmailHtml(opts: {
               </td>
             </tr>
           </table>
-        </td></tr>
+        </td></tr>`)}
 
         ${sec("positioning", "Oferta / Posicionamento", positioningHtml)}
         ${sec("how-it-works", "Como funciona", howItWorksHtml)}
