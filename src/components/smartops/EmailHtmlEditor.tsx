@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface Props {
   value: string;
   onChange: (html: string) => void;
+  expanded?: boolean;
 }
 
 /**
@@ -11,7 +12,7 @@ interface Props {
  * Nunca reparseia o HTML — o valor do textarea é a fonte de verdade.
  * Preview em <iframe srcDoc> preserva 100% do layout.
  */
-export function EmailHtmlEditor({ value, onChange }: Props) {
+export function EmailHtmlEditor({ value, onChange, expanded }: Props) {
   const [draft, setDraft] = useState(value);
   const [preview, setPreview] = useState(value);
   const timer = useRef<number | null>(null);
@@ -32,6 +33,10 @@ export function EmailHtmlEditor({ value, onChange }: Props) {
     timer.current = window.setTimeout(() => setPreview(next), 300);
   };
 
+  const heightClass = expanded
+    ? "h-[calc(100vh-260px)] min-h-[500px]"
+    : "h-[600px]";
+
   return (
     <div className="grid gap-2 lg:grid-cols-2">
       <div className="flex flex-col">
@@ -41,7 +46,7 @@ export function EmailHtmlEditor({ value, onChange }: Props) {
         <Textarea
           value={draft}
           onChange={(e) => handleChange(e.target.value)}
-          className="font-mono text-xs h-[500px] resize-none"
+          className={`font-mono text-xs resize-none ${heightClass}`}
           spellCheck={false}
         />
       </div>
@@ -51,7 +56,7 @@ export function EmailHtmlEditor({ value, onChange }: Props) {
           title="Preview do email"
           srcDoc={preview}
           sandbox="allow-same-origin"
-          className="w-full h-[500px] border rounded-md bg-white"
+          className={`w-full border rounded-md bg-white ${heightClass}`}
         />
       </div>
     </div>

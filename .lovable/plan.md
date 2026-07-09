@@ -1,51 +1,52 @@
 ## Problema
+No passo "Revisar & Ajustar" do EmailCampaignWizard, a área útil do editor é pequena:
+- O `EmailHtmlEditor` tem altura fixa de `500px`.
+- O preview lateral usa `h-96` (384px) ou `h-[640px]` em casos específicos.
+- Tudo fica dentro do `Card` padrão da página, limitado pela largura do container.
 
-O `EmailRichEditor` (TipTap) só entende um conjunto pequeno de nós: parágrafo, heading, lista, link, imagem, alinhamento, cor. Emails HTML reais vêm com `<table>`, `<td>`, `style="..."`, `<font>`, `<center>`, `<div bgcolor>` etc. Ao carregar no editor, o TipTap **descarta tudo que não conhece** e reserializa como texto/paragrafos — por isso o email "vira texto puro" após qualquer edição.
+Resultado: o usuário não consegue "expandir" a tela para ver/editar o email confortavelmente, especialmente emails longos com tabelas.
 
-Não dá para consertar isso com mais extensões do TipTap: WYSIWYG de email HTML é um problema diferente de edição de artigo. A saída é **não usar TipTap para o corpo bruto do email**.
+## Solução
+Adicionar um **modo expandido** ao passo 2, abrindo o editor + preview em um **Dialog quase tela cheia** (`95vw` × `90vh`), com altura dinâmica do editor aproveitando o espaço vertical disponível.
 
-## Plano
+### 1. Ajustar `EmailHtmlEditor.tsx`
+- Aceitar prop opcional `expanded?: boolean` (ou `heightClass?: string`).
+- Quando `expanded=true`, usar altura dinâmica baseada na viewport, ex.: `h-[calc(100vh-220px)]` (min `500px`).
+- Quando `expanded=false`, manter `h-[500px]` como hoje ou levemente maior (`h-[600px]`).
+- Preservar comportamento de debounce e sync externo.
 
-### 1. Trocar a aba "Visual" por um editor seguro para HTML de email
-- Remover o `EmailRichEditor` do fluxo do corpo principal do email.
-- Substituir por um editor de duas colunas:
-  - **Esquerda:** `<textarea>` com o HTML bruto (fonte de verdade), mono, syntax simples.
-  - **Direita:** preview ao vivo em `<iframe srcDoc={html}>` com sandbox, atualizando com debounce (~300ms).
-- Isso garante 100% de preservação de tabelas, estilos inline, media queries, etc. — o HTML nunca é reparseado por um editor rich text.
+### 2. Ajustar o preview lateral em `EmailCampaignWizard.tsx`
+- O container do preview (`iframe`) deve acompanhar a altura do editor.
+- Usar a mesma classe de altura dinâmica quando estiver expandido.
 
-### 2. Manter edições rápidas sem quebrar layout
-Na aba Visual, oferecer ações que operam no HTML sem re-serializar:
-- **Substituir texto** (find & replace com preview).
-- **Editar assunto / pré-header** (campos separados, já existem).
-- **Toggle de seções** (aba Seções — já funciona, continua igual).
-- **Regerar bloco com IA** (opcional, fora deste plano).
+### 3. Adicionar botão "Expandir editor" no passo 2
+- No cabeçalho do card "2. Revisar & Ajustar", ao lado do botão "Ocultar preview", adicionar:
+  - Ícone `Maximize2` (ou similar do lucide-react) com label "Expandir".
+- Ao clicar, abrir um `Dialog` (`src/components/ui/dialog.tsx`) com:
+  - `className="max-w-[95vw] w-[95vw] h-[90vh] p-0"` (conteúdo sem padding para aproveitar espaço).
+  - Header interno com título, botão "Ocultar preview" e botão "Fechar".
+  - Corpo renderizando o mesmo conteúdo do passo 2 (assunto, preheader, abas Visual/HTML/Seções, preview lateral).
+- Fechar o modal mantém o estado editado (o `html`, `subject`, `sections` etc. são os mesmos estados do componente pai).
 
-### 3. Onde o TipTap pode continuar
-`EmailRichEditor.tsx` permanece no projeto, mas só é usado quando o conteúdo é **gerado do zero pelo wizard** (template controlado que o TipTap consegue round-tripar). Para HTML importado/gerado por IA com tabelas, usar o editor de código+preview.
+### 4. Comportamento no modal expandido
+- As abas Visual/HTML/Seções continuam funcionando normalmente.
+- O `EmailHtmlEditor` dentro do modal usa altura expandida.
+- O preview lateral também ocupa altura expandida.
+- O botão "Fechar" (X) no header fecha o modal e volta ao card normal.
 
-Decisão simples via prop: `mode: "rich" | "html"`. Default para emails vindos da IA = `"html"`.
-
-### 4. Aviso na UI
-Banner discreto na aba Visual quando `mode="html"`:
-> "Este email usa layout HTML complexo. Edite o código à esquerda; o preview atualiza automaticamente. Alterações preservam todo o estilo original."
-
-## Detalhes técnicos
-
-- Novo componente `src/components/smartops/EmailHtmlEditor.tsx`:
-  - `props: { value: string; onChange: (html:string)=>void }`.
-  - `<textarea>` controlado + `<iframe srcDoc>` com `sandbox="allow-same-origin"` (sem `allow-scripts`).
-  - Debounce no `onChange` do textarea para não redesenhar o iframe a cada tecla.
-- Em `EmailCampaignWizard.tsx`:
-  - Detectar se o HTML tem `<table` ou `style=` inline → usar `EmailHtmlEditor`.
-  - Caso contrário (conteúdo simples) → manter `EmailRichEditor`.
-- Nenhuma mudança em `emailSections.ts`, backend, ou template da IA.
+### 5. Ajuste de altura padrão (fora do modal)
+- Aumentar levemente a altura padrão do editor de `500px` para `600px` e do preview para `h-[600px]` para melhorar a experiência mesmo sem expandir.
 
 ## Fora do escopo
-- Editor WYSIWYG real de email (MJML/Unlayer-like) — grande refactor, não pedido.
-- Edição visual bloco a bloco.
+- Não alterar a lógica de parsing/serialização de seções (`emailSections.ts`).
+- Não alterar o backend de envio de email.
+- Não alterar o `EmailRichEditor` (continua usado para HTML simples).
 
 ## Validação
-1. Abrir um email gerado pela IA com tabelas → aba Visual mostra código + preview lado a lado; preview renderiza igual ao "Preview" final.
-2. Editar uma palavra no textarea → preview atualiza em ~300ms mantendo layout.
-3. Enviar teste → email chega com estilo intacto.
-4. Aba Seções continua funcionando (toggle liga/desliga blocos).
+1. Abrir passo 2 de uma campanha com email gerado pela IA.
+2. Clicar em "Expandir editor" → modal ocupa quase toda a tela.
+3. Confirmar que o textarea e o preview têm altura aumentada (praticamente até o fim do modal).
+4. Editar o HTML no textarea → preview atualiza em ~300ms.
+5. Alternar abas Visual/HTML/Seções dentro do modal → funciona normalmente.
+6. Fechar o modal → estado preservado no card normal.
+7. Enviar teste → email continua com estilo intacto.

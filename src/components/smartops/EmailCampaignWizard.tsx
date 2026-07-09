@@ -9,13 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus, Code2, LayoutList, Type } from "lucide-react";
+import { Sparkles, Send, Mail, X, Eye, RefreshCw, CheckCircle2, Clock, Search, ArrowLeft, ArrowRight, ListPlus, Code2, LayoutList, Type, Maximize2, Minimize2 } from "lucide-react";
 import { EmailSequenceBuilder } from "./EmailSequenceBuilder";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { EmailRichEditor } from "./EmailRichEditor";
 import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type CtaType = "landing" | "form" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
@@ -82,6 +83,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   // ── Section toggles ──
   const [sections, setSections] = useState<EmailSection[]>([]);
   const [editorTab, setEditorTab] = useState<"visual" | "html" | "sections">("visual");
+  const [editorExpanded, setEditorExpanded] = useState(false);
 
   // Re-parse sections whenever the HTML changes, preserving enabled state by key+ordinal.
   useEffect(() => {
@@ -321,6 +323,116 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     .split("{{nome}}").join("Dr. João")
     .split("{{primeiro_nome}}").join("Dr. João")
     .split("{{vendedor_nome}}").join(fromName);
+
+  const renderEditorArea = (expanded = false) => {
+    const previewHeightClass = expanded
+      ? "h-[calc(100vh-260px)] min-h-[500px]"
+      : emailSource?.startsWith("landing_page")
+        ? "h-[640px]"
+        : "h-[600px]";
+    return (
+      <div className="space-y-3">
+        {htmlWarning && (
+          <div className="text-xs bg-yellow-100 text-yellow-900 border border-yellow-300 rounded px-3 py-2">
+            ⚠️ {htmlWarning}
+          </div>
+        )}
+        <div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Assunto</Label>
+            <Button size="sm" variant="ghost" onClick={() => handleGenerate("subject")} disabled={generating}>
+              <RefreshCw className="w-3 h-3 mr-1" /> Regerar assunto
+            </Button>
+          </div>
+          <Input value={subject} onChange={e => setSubject(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Preheader (linha de pré-visualização na inbox)</Label>
+          <Input value={preheader} onChange={e => setPreheader(e.target.value)} />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div>
+            <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as typeof editorTab)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="visual" className="text-xs gap-1"><Type className="w-3 h-3" /> Visual</TabsTrigger>
+                <TabsTrigger value="html" className="text-xs gap-1"><Code2 className="w-3 h-3" /> HTML</TabsTrigger>
+                <TabsTrigger value="sections" className="text-xs gap-1">
+                  <LayoutList className="w-3 h-3" /> Seções
+                  {sections.filter(s => s.removable).length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                      {sections.filter(s => s.enabled && s.removable).length}/{sections.filter(s => s.removable).length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="visual" className="mt-2">
+                {/<table[\s>]|style\s*=\s*"/i.test(html) ? (
+                  <>
+                    <div className="text-[11px] text-muted-foreground mb-2 p-2 border rounded bg-muted/20">
+                      Este email usa layout HTML complexo (tabelas / estilos inline). Edite o código à esquerda — o preview atualiza automaticamente e todo o estilo é preservado.
+                    </div>
+                    <EmailHtmlEditor value={html} onChange={setHtml} expanded={expanded} />
+                  </>
+                ) : (
+                  <EmailRichEditor value={html} onChange={setHtml} />
+                )}
+                {sections.some(s => s.removable && !s.enabled) && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.
+                  </p>
+                )}
+              </TabsContent>
+              <TabsContent value="html" className="mt-2">
+                <Textarea value={html} onChange={e => setHtml(e.target.value)} className={`font-mono text-xs ${expanded ? "h-[calc(100vh-260px)] min-h-[500px]" : "h-[600px]"}`} />
+              </TabsContent>
+              <TabsContent value="sections" className="mt-2">
+                {sections.length === 0 && (
+                  <p className="text-xs text-muted-foreground p-3">Gere o email para ver as seções.</p>
+                )}
+                {sections.length > 0 && sections.every(s => !s.removable) && (
+                  <div className="text-xs text-muted-foreground p-3 border rounded bg-muted/30">
+                    Este email tem um único bloco de conteúdo. Não foi possível detectar seções automaticamente — regere para que a IA gere blocos separados (hero, benefícios, CTA, prova social, rodapé).
+                  </div>
+                )}
+                {sections.some(s => s.auto) && (
+                  <div className="text-xs text-muted-foreground p-2 mb-2 border rounded bg-muted/20">
+                    Seções detectadas automaticamente. Rótulos são aproximações — regere o email para rótulos mais precisos.
+                  </div>
+                )}
+                {sections.filter(s => s.removable).length > 0 && sections.filter(s => s.removable).every(s => !s.enabled) && (
+                  <div className="text-xs text-amber-800 p-2 mb-2 border border-amber-300 rounded bg-amber-50">
+                    Todas as seções estão desativadas — o email será enviado vazio. Reative pelo menos uma.
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {sections.filter(s => s.removable).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between border rounded px-3 py-2 bg-background">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{s.label}</span>
+                        <span className="text-[11px] text-muted-foreground">{s.key}</span>
+                      </div>
+                      <Switch
+                        checked={s.enabled}
+                        onCheckedChange={() => setSections(prev => toggleSection(prev, s.id))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+          {showPreview && (
+            <div className="flex flex-col">
+              <Label className="text-xs">Preview</Label>
+              <div className={`border rounded bg-white overflow-hidden ${previewHeightClass}`}>
+                <iframe srcDoc={previewHtml} title="preview" className="w-full h-full" sandbox="" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Poll global queue status while on step 4
   useEffect(() => {
@@ -574,111 +686,19 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
                 )}
               </span>
-              <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
-                <Eye className="w-4 h-4 mr-1" />
-                {showPreview ? "Ocultar preview" : "Ver preview"}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setEditorExpanded(true)}>
+                  <Maximize2 className="w-4 h-4 mr-1" /> Expandir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
+                  <Eye className="w-4 h-4 mr-1" />
+                  {showPreview ? "Ocultar preview" : "Ver preview"}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {htmlWarning && (
-              <div className="text-xs bg-yellow-100 text-yellow-900 border border-yellow-300 rounded px-3 py-2">
-                ⚠️ {htmlWarning}
-              </div>
-            )}
-            <div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Assunto</Label>
-                <Button size="sm" variant="ghost" onClick={() => handleGenerate("subject")} disabled={generating}>
-                  <RefreshCw className="w-3 h-3 mr-1" /> Regerar assunto
-                </Button>
-              </div>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Preheader (linha de pré-visualização na inbox)</Label>
-              <Input value={preheader} onChange={e => setPreheader(e.target.value)} />
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div>
-                <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as typeof editorTab)}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="visual" className="text-xs gap-1"><Type className="w-3 h-3" /> Visual</TabsTrigger>
-                    <TabsTrigger value="html" className="text-xs gap-1"><Code2 className="w-3 h-3" /> HTML</TabsTrigger>
-                    <TabsTrigger value="sections" className="text-xs gap-1">
-                      <LayoutList className="w-3 h-3" /> Seções
-                      {sections.filter(s => s.removable).length > 0 && (
-                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
-                          {sections.filter(s => s.enabled && s.removable).length}/{sections.filter(s => s.removable).length}
-                        </Badge>
-                      )}
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="visual" className="mt-2">
-                    {/<table[\s>]|style\s*=\s*"/i.test(html) ? (
-                      <>
-                        <div className="text-[11px] text-muted-foreground mb-2 p-2 border rounded bg-muted/20">
-                          Este email usa layout HTML complexo (tabelas / estilos inline). Edite o código à esquerda — o preview atualiza automaticamente e todo o estilo é preservado.
-                        </div>
-                        <EmailHtmlEditor value={html} onChange={setHtml} />
-                      </>
-                    ) : (
-                      <EmailRichEditor value={html} onChange={setHtml} />
-                    )}
-                    {sections.some(s => s.removable && !s.enabled) && (
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        Seções desligadas continuam visíveis aqui, mas são removidas do preview e do envio.
-                      </p>
-                    )}
-                  </TabsContent>
-                  <TabsContent value="html" className="mt-2">
-                    <Textarea value={html} onChange={e => setHtml(e.target.value)} className="font-mono text-xs h-96" />
-                  </TabsContent>
-                  <TabsContent value="sections" className="mt-2">
-                    {sections.length === 0 && (
-                      <p className="text-xs text-muted-foreground p-3">Gere o email para ver as seções.</p>
-                    )}
-                    {sections.length > 0 && sections.every(s => !s.removable) && (
-                      <div className="text-xs text-muted-foreground p-3 border rounded bg-muted/30">
-                        Este email tem um único bloco de conteúdo. Não foi possível detectar seções automaticamente — regere para que a IA gere blocos separados (hero, benefícios, CTA, prova social, rodapé).
-                      </div>
-                    )}
-                    {sections.some(s => s.auto) && (
-                      <div className="text-xs text-muted-foreground p-2 mb-2 border rounded bg-muted/20">
-                        Seções detectadas automaticamente. Rótulos são aproximações — regere o email para rótulos mais precisos.
-                      </div>
-                    )}
-                    {sections.filter(s => s.removable).length > 0 && sections.filter(s => s.removable).every(s => !s.enabled) && (
-                      <div className="text-xs text-amber-800 p-2 mb-2 border border-amber-300 rounded bg-amber-50">
-                        Todas as seções estão desativadas — o email será enviado vazio. Reative pelo menos uma.
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      {sections.filter(s => s.removable).map((s) => (
-                        <div key={s.id} className="flex items-center justify-between border rounded px-3 py-2 bg-background">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{s.label}</span>
-                            <span className="text-[11px] text-muted-foreground">{s.key}</span>
-                          </div>
-                          <Switch
-                            checked={s.enabled}
-                            onCheckedChange={() => setSections(prev => toggleSection(prev, s.id))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-              {showPreview && (
-                <div>
-                  <Label className="text-xs">Preview</Label>
-                  <div className={`border rounded bg-white overflow-hidden ${emailSource?.startsWith("landing_page") ? "h-[640px]" : "h-96"}`}>
-                    <iframe srcDoc={previewHtml} title="preview" className="w-full h-full" sandbox="" />
-                  </div>
-                </div>
-              )}
-            </div>
+            {renderEditorArea(false)}
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
               <Button onClick={() => setStep(3)} disabled={!subject || !html}>
@@ -860,6 +880,36 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           />
         </div>
       )}
+
+      <Dialog open={editorExpanded} onOpenChange={setEditorExpanded}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                Revisar & Ajustar — Tela expandida
+                {emailSource?.startsWith("landing_page") && (
+                  <Badge variant="secondary" className="text-[10px]">Espelho fiel da Landing Page</Badge>
+                )}
+                {emailSource === "catalog_dossier" && (
+                  <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
+                )}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setShowPreview(s => !s)}>
+                  <Eye className="w-4 h-4 mr-1" />
+                  {showPreview ? "Ocultar preview" : "Ver preview"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditorExpanded(false)}>
+                  <Minimize2 className="w-4 h-4 mr-1" /> Reduzir
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4">
+            {renderEditorArea(true)}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
