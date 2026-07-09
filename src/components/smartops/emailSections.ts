@@ -164,6 +164,11 @@ function parseAuto(bodyHtml: string): EmailSection[] | null {
 export function parseSections(html: string): EmailSection[] {
   if (!html) return [];
   const { body } = extractBody(html);
+
+  // 1) Preferred: HTML-comment markers emitted by renderEmail (LP-aligned).
+  const marker = parseMarkerSections(body);
+  if (marker.length > 0) return marker;
+
   const regex = /<section\b[^>]*\bdata-section=["']([^"']+)["'][^>]*>([\s\S]*?)<\/section>/gi;
   const sections: EmailSection[] = [];
   let idx = 0;
@@ -199,10 +204,55 @@ export function parseSections(html: string): EmailSection[] {
   return sections;
 }
 
+// Marker-based parser. Blocks look like:
+//   <!--SD_SEC_START key="hero" label="Hero"-->…<!--SD_SEC_END-->
+const MARKER_RE = /<!--\s*SD_SEC_START\s+key="([^"]+)"\s+label="([^"]+)"\s*-->([\s\S]*?)<!--\s*SD_SEC_END\s*-->/g;
+
+function parseMarkerSections(body: string): EmailSection[] {
+  const out: EmailSection[] = [];
+  let m: RegExpExecArray | null;
+  let i = 0;
+  MARKER_RE.lastIndex = 0;
+  while ((m = MARKER_RE.exec(body)) !== null) {
+    const key = m[1];
+    const label = m[2];
+    out.push({
+      id: `${key}-${i++}`,
+      key,
+      label,
+      enabled: true,
+      html: m[0],
+      removable: true,
+    });
+  }
+  return out;
+}
+
+function serializeMarkerSections(originalHtml: string, sections: EmailSection[]): string {
+  const disabled = new Set(sections.filter((s) => s.enabled === false).map((s) => s.id));
+  const enabledKeys = new Map<string, boolean[]>();
+  for (const s of sections) {
+    const arr = enabledKeys.get(s.key) ?? [];
+    arr.push(s.enabled !== false);
+    enabledKeys.set(s.key, arr);
+  }
+  const cursors = new Map<string, number>();
+  return originalHtml.replace(MARKER_RE, (full, key: string) => {
+    const idx = cursors.get(key) ?? 0;
+    cursors.set(key, idx + 1);
+    const flags = enabledKeys.get(key);
+    const enabled = flags ? flags[idx] : true;
+    return enabled === false ? "" : full;
+  });
+}
+
 /**
  * Rebuilds the full HTML with only enabled sections, preserving <head>, <body> wrapper and non-section content.
  */
 export function serializeSections(originalHtml: string, sections: EmailSection[]): string {
+  if (/SD_SEC_START/.test(originalHtml)) {
+    return serializeMarkerSections(originalHtml, sections);
+  }
   const { head, bodyOpen, body, bodyClose } = extractBody(originalHtml);
   if (sections.length === 1 && !sections[0].removable) {
     // Single content section — the visual/HTML editor already owns the body.
