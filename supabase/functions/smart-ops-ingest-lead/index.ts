@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
 import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
-import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
+import { validateLeadIdentity, logRejectedLead, sanitizeDisplayName } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
@@ -417,8 +417,14 @@ Deno.serve(async (req) => {
     }
 
     // --- Extract fields with EXPLICIT keys (avoid form_name collision) ---
-    const nome = payload.nome || payload.full_name || payload.name || payload.user_name ||
+    const nomeRaw = payload.nome || payload.full_name || payload.name || payload.user_name ||
       [payload.first_name, payload.last_name].filter(Boolean).join(" ").trim() || "Sem nome";
+    // Meta Lead Ads pode entregar nomes escritos com fontes decorativas
+    // (Mathematical Alphanumeric Symbols, U+1D400–U+1D7FF). Convertemos
+    // para ASCII antes de qualquer uso para que:
+    //   1. o identity guard não rejeite o lead;
+    //   2. o card/CRM salvem o nome legível.
+    const nome = sanitizeDisplayName(nomeRaw) || "Sem nome";
 
     const emailRaw = extractField(payload, "email", "user_email") || "";
     let email = emailRaw.toLowerCase().trim();
@@ -1187,6 +1193,29 @@ Deno.serve(async (req) => {
             .limit(1)
             .maybeSingle();
           allowCommercialReactivation = !knownIds.has(String(dedupeId || "")) && !knownInHistory && !priorConversion?.id;
+          // Instrumentation: keep a per-decision trace so we can quantify
+          // how many `existing_lead_no_new_conversion_cdp_only` blocks are
+          // legitimate redeliveries vs. new-form false positives.
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "info",
+              error_type: "reactivation_gate_evaluation",
+              lead_id: existingLead.id,
+              lead_email: existingLead.email,
+              details: {
+                allow_commercial_reactivation: allowCommercialReactivation,
+                dedupe_id: dedupeId ? String(dedupeId) : null,
+                known_via_previous_ids: knownIds.has(String(dedupeId || "")),
+                known_in_history: knownInHistory,
+                prior_conversion_id: priorConversion?.id ?? null,
+                conversion_key: conversionKey,
+                form_name: formName,
+                source,
+                canonical_pipeline_id: (existingLead as Record<string, unknown>).piperun_pipeline_id ?? null,
+              },
+            });
+          } catch {}
         } catch (e) {
           console.warn("[ingest-lead] conversion-key check failed — fail-closed:", e);
           allowCommercialReactivation = false;
