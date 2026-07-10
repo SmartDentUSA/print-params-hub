@@ -84,6 +84,19 @@ function esc(s: unknown): string {
   }[c] as string));
 }
 
+// Replace the literal "{strike}" token used in LP positioning headlines/bodies
+// with an inline strike-through span containing the anchor price. Mirrors
+// PremiumLandingTemplate. If no strike price is provided, the token is removed.
+function renderHeadlineWithStrike(text: string, strikePrice: string | undefined, t: LPThemeTokens): string {
+  const raw = String(text ?? "");
+  if (!raw.includes("{strike}")) return esc(raw);
+  const price = String(strikePrice ?? "").trim();
+  const parts = raw.split("{strike}");
+  if (!price) return parts.map(esc).join("");
+  const strikeSpan = `<span style="text-decoration:line-through;color:${t.textSoft};font-weight:800;opacity:0.75;">${esc(price)}</span>`;
+  return parts.map(esc).join(strikeSpan);
+}
+
 // Verbatim mirror: no price stripping. The email must match the Landing Page 1:1,
 // including commercial values, discounts and percentages exactly as published.
 function stripPrices(s: string): string {
