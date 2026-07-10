@@ -1193,6 +1193,29 @@ Deno.serve(async (req) => {
             .limit(1)
             .maybeSingle();
           allowCommercialReactivation = !knownIds.has(String(dedupeId || "")) && !knownInHistory && !priorConversion?.id;
+          // Instrumentation: keep a per-decision trace so we can quantify
+          // how many `existing_lead_no_new_conversion_cdp_only` blocks are
+          // legitimate redeliveries vs. new-form false positives.
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "info",
+              error_type: "reactivation_gate_evaluation",
+              lead_id: existingLead.id,
+              lead_email: existingLead.email,
+              details: {
+                allow_commercial_reactivation: allowCommercialReactivation,
+                dedupe_id: dedupeId ? String(dedupeId) : null,
+                known_via_previous_ids: knownIds.has(String(dedupeId || "")),
+                known_in_history: knownInHistory,
+                prior_conversion_id: priorConversion?.id ?? null,
+                conversion_key: conversionKey,
+                form_name: formName,
+                source,
+                canonical_pipeline_id: (existingLead as Record<string, unknown>).piperun_pipeline_id ?? null,
+              },
+            });
+          } catch {}
         } catch (e) {
           console.warn("[ingest-lead] conversion-key check failed — fail-closed:", e);
           allowCommercialReactivation = false;
