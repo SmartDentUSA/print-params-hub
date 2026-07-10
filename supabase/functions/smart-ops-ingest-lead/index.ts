@@ -1374,6 +1374,60 @@ Deno.serve(async (req) => {
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
 
+      // ── ESTAGNADOS → VENDAS REACTIVATION ESCAPE HATCH (rota enrichment_merge) ──
+      // Espelha o bloco da rota A (deferredRedeliveryCanonicalId): se o lead
+      // canônico está no Funil Estagnados (72938) e chegou uma nova submissão
+      // real (formName + conversionKey), aciona lia-assign com
+      // sdr_captacao_reativacao. lia-assign aplica Golden Rule antes de tocar
+      // qualquer deal — Vendas (18784) e CS (83896/102893/104500) permanecem
+      // intocáveis.
+      try {
+        const canonPipelineId = Number((existingLead as Record<string, unknown>).piperun_pipeline_id ?? 0);
+        if (canonPipelineId === 72938 && formName && conversionKey) {
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-ingest-lead",
+              severity: "info",
+              error_type: "estagnados_reactivation_triggered",
+              lead_id: existingLead.id,
+              lead_email: existingLead.email || email,
+              details: {
+                form_name: formName,
+                new_leadgen_id: dedupeId ? String(dedupeId) : null,
+                canonical_pipeline_id: canonPipelineId,
+                conversion_key: conversionKey,
+                via: "enrichment_merge",
+              },
+            });
+          } catch {}
+          try {
+            const { data: reactData, error: reactErr } = await supabase.functions.invoke(
+              "smart-ops-lia-assign",
+              {
+                body: {
+                  lead_id: existingLead.id,
+                  trigger: "sdr_captacao_reativacao",
+                  new_conversion_confirmed: true,
+                  conversion_key: conversionKey,
+                  form_name: formName,
+                  source,
+                  force: true,
+                },
+              },
+            );
+            if (reactErr) {
+              console.warn("[ingest-lead] estagnados reactivation (enrichment_merge) invoke error:", reactErr);
+            } else {
+              console.log("[ingest-lead] estagnados reactivation (enrichment_merge) invoked:", reactData);
+            }
+          } catch (e) {
+            console.warn("[ingest-lead] estagnados reactivation (enrichment_merge) failed:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] estagnados escape hatch (enrichment_merge) crashed:", e);
+      }
+
       // Existing leads are CDP-only by default. Do NOT post PipeRun notes for
       // Meta/form re-delivery; notes are only allowed for a confirmed new
       // commercial conversion key.

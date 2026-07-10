@@ -21,4 +21,11 @@ Todos os outros pipelines (CS, Ganhos, Treinamento, E-book, Distribuidor) mantê
 
 **Why:** Renan Balsanelli (deal 46234182) preencheu novo formulário mas caiu em CDP-only porque o guard `existing_lead_no_new_conversion_cdp_only` no lia-assign bloqueava sem `new_conversion_confirmed=true`, e o ingest curto-circuitava o redelivery antes de sinalizar nova conversão.
 
-**How to apply:** Ao adicionar novos pipelines "reativáveis" (ex.: E-book → Vendas), estender o check `canonPipelineId === 72938` para `[72938, <novo_id>].includes(...)` no bloco `deferredRedeliveryCanonicalId` de `smart-ops-ingest-lead/index.ts`.
+**Cobertura em ambas as rotas de dedupe (crítico):** o escape hatch está implementado em DOIS blocos de `smart-ops-ingest-lead/index.ts` porque o ingest tem duas rotas de dedupe distintas:
+
+1. **Rota A — early dedupe (`deferredRedeliveryCanonicalId`)**: dispara quando `platform_lead_id`/leadgen bate na dedupe universal (hard/family). Bloco no ~L641.
+2. **Rota B — enrichment merge (`lead_enrichment_merge`)**: dispara quando o lead é encontrado por identity match (email/telefone) mais tarde no fluxo, especialmente quando o email da nova submissão difere do canônico. Bloco após o update de merge (~L1375).
+
+Se adicionar novos pipelines reativáveis, atualizar `canonPipelineId === 72938` para `[72938, <novo_id>].includes(...)` nos DOIS blocos. Sem espelhar na rota B, leads em Estagnados que preenchem novo lead ad ficam presos em CDP-only (caso Marcelo Correa / Renan Balsanelli 10/07/2026).
+
+**How to apply:** Ao adicionar novos pipelines "reativáveis", estender o check nos dois blocos acima.
