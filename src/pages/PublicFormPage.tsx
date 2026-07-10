@@ -60,10 +60,19 @@ interface SubmittedScreenProps {
 function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
   const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
   const isWhatsApp = redirectUrl?.includes("whatsapp.com") || redirectUrl?.startsWith("whatsapp://");
+  const inIframe = typeof window !== "undefined" && window.self !== window.top;
 
   useEffect(() => {
     if (!redirectUrl) return;
     const t1 = setTimeout(() => {
+      try {
+        if (inIframe && window.top) {
+          window.top.location.href = redirectUrl;
+          return;
+        }
+      } catch {
+        // cross-origin top — fallback below
+      }
       window.location.href = redirectUrl;
     }, 800);
     const t2 = setTimeout(() => {
@@ -73,7 +82,7 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [redirectUrl]);
+  }, [redirectUrl, inIframe]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-surface text-foreground">
@@ -90,7 +99,11 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
             className="w-full h-12 text-base text-primary-foreground"
             style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
           >
-            <a href={redirectUrl} target={isWhatsApp ? undefined : "_blank"} rel="noopener noreferrer">
+            <a
+              href={redirectUrl}
+              target={inIframe ? "_top" : isWhatsApp ? undefined : "_blank"}
+              rel="noopener noreferrer"
+            >
               {isWhatsApp ? "Entrar no grupo de WhatsApp" : "Continuar"}
             </a>
           </Button>
