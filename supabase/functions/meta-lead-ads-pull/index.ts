@@ -219,15 +219,42 @@ Deno.serve(async (req) => {
             origem: "meta_lead_ads_pull",
           };
 
-          const ir = await fetch(ingestUrl, {
-            method: "POST",
-            headers: ingestHeaders,
-            body: JSON.stringify(payload),
-          });
-          if (ir.ok) forwarded++; else skipped++;
+          // Retry once on Supabase edge runtime RateLimitError (not Meta BUC).
+          // The runtime throws this when parallel/internal fetches hit its trace ceiling.
+          let ir: Response | null = null;
+          let attempts = 0;
+          while (attempts < 2) {
+            attempts++;
+            try {
+              ir = await fetch(ingestUrl, {
+                method: "POST",
+                headers: ingestHeaders,
+                body: JSON.stringify(payload),
+              });
+              break;
+            } catch (fetchErr) {
+              const msg = String(fetchErr);
+              if (attempts < 2 && /RateLimitError|Rate limit exceeded/i.test(msg)) {
+                const retryMatch = msg.match(/Retry after (\d+)ms/i);
+                const waitMs = Math.min(retryMatch ? parseInt(retryMatch[1], 10) : 25_000, 28_000);
+                await log(supabase, "error", "meta_pull_runtime_rate_limit", {
+                  form_id: formId, retry_ms: waitMs, attempt: attempts, error: msg.slice(0, 300),
+                });
+                await new Promise((r) => setTimeout(r, waitMs));
+                continue;
+              }
+              throw fetchErr;
+            }
+          }
+          if (ir?.ok) forwarded++; else skipped++;
         } catch (e) {
           skipped++;
           console.warn(`[${FN}] forward failed`, e);
+          const msg = String(e);
+          if (/RateLimitError|Rate limit exceeded/i.test(msg)) {
+            // Runtime rate-limit is amplifying — back off 2min so cron ticks don't pile on
+            await setBackoff(supabase, 2, "runtime_rate_limit_persistent");
+          }
         }
       }
 
