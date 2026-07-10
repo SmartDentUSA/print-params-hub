@@ -638,9 +638,67 @@ Deno.serve(async (req) => {
               },
             });
           } catch {}
-          // GOLDEN RULE: re-entrega Meta NUNCA invoca lia-assign nem toca PipeRun.
-          // Apenas enriquece CDP internamente. Auditoria fica em system_health_logs +
-          // lead_activity_log abaixo (se houver campos novos).
+          // ── ESTAGNADOS → VENDAS REACTIVATION ESCAPE HATCH ──
+          // Regra do usuário: se o lead está em Funil Estagnados (72938) e
+          // preenche um NOVO formulário (novo leadgen_id), fechar o deal
+          // Estagnados e abrir novo em Vendas. Vendas (18784) e CS
+          // (83896/102893/Ganhos) permanecem intocáveis — lia-assign +
+          // golden-rule-guard aplicam Golden Rule ao re-checar deals reais
+          // no PipeRun antes de qualquer ação.
+          const canonPipelineId = Number((canon as Record<string, unknown>).piperun_pipeline_id ?? 0);
+          const isEstagnadosCanonical = canonPipelineId === 72938;
+          if (isEstagnadosCanonical && formName && conversionKey) {
+            try {
+              await supabase.from("system_health_logs").insert({
+                function_name: "smart-ops-ingest-lead",
+                severity: "info",
+                error_type: "estagnados_reactivation_triggered",
+                lead_id: canon.id,
+                lead_email: canon.email || email,
+                details: {
+                  form_name: formName,
+                  new_leadgen_id: dedupeId ? String(dedupeId) : null,
+                  canonical_pipeline_id: canonPipelineId,
+                  conversion_key: conversionKey,
+                  dedupe_via: deferredRedeliveryVia,
+                },
+              });
+            } catch {}
+            try {
+              const { data: reactData, error: reactErr } = await supabase.functions.invoke(
+                "smart-ops-lia-assign",
+                {
+                  body: {
+                    lead_id: canon.id,
+                    trigger: "sdr_captacao_reativacao",
+                    new_conversion_confirmed: true,
+                    conversion_key: conversionKey,
+                    form_name: formName,
+                    source,
+                    force: true,
+                  },
+                },
+              );
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  redelivery_reactivation: true,
+                  lead_id: canon.id,
+                  dedupe_id: dedupeId ? String(dedupeId) : null,
+                  dedupe_via: deferredRedeliveryVia,
+                  incremental_enrichment: enrichedFields,
+                  deal_route_result: reactData ?? null,
+                  deal_route_error: reactErr ? String(reactErr.message || reactErr) : null,
+                  reason: "estagnados_new_form_reactivation",
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            } catch (e) {
+              console.warn("[ingest-lead] estagnados reactivation invoke failed (fall-through to CDP-only):", e);
+            }
+          }
+          // GOLDEN RULE: re-entrega Meta em Vendas/CS/qualquer outro funil
+          // NUNCA invoca lia-assign nem toca PipeRun. Apenas enriquece CDP.
           try {
             await supabase.from("lead_activity_log").insert({
               lead_id: canon.id,
