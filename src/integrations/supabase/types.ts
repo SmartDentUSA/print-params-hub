@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      _check_leads_0710: {
+        Row: {
+          criado_em: string | null
+          email: string | null
+          formulario: string | null
+          nome: string | null
+          phone10: string | null
+        }
+        Insert: {
+          criado_em?: string | null
+          email?: string | null
+          formulario?: string | null
+          nome?: string | null
+          phone10?: string | null
+        }
+        Update: {
+          criado_em?: string | null
+          email?: string | null
+          formulario?: string | null
+          nome?: string | null
+          phone10?: string | null
+        }
+        Relationships: []
+      }
       _csv_leads_check: {
         Row: {
           email: string | null
