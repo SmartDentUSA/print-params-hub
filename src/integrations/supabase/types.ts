@@ -28159,6 +28159,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_next_meta_pull_form: {
+        Args: never
+        Returns: {
+          fallback_used: boolean
+          form_id: string
+          idx: number
+          total: number
+        }[]
+      }
       claim_pending_kb_docs: {
         Args: { p_limit?: number }
         Returns: {
