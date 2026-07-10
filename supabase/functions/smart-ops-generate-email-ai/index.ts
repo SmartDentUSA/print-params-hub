@@ -84,6 +84,19 @@ function esc(s: unknown): string {
   }[c] as string));
 }
 
+// Replace the literal "{strike}" token used in LP positioning headlines/bodies
+// with an inline strike-through span containing the anchor price. Mirrors
+// PremiumLandingTemplate. If no strike price is provided, the token is removed.
+function renderHeadlineWithStrike(text: string, strikePrice: string | undefined, t: LPThemeTokens): string {
+  const raw = String(text ?? "");
+  if (!raw.includes("{strike}")) return esc(raw);
+  const price = String(strikePrice ?? "").trim();
+  const parts = raw.split("{strike}");
+  if (!price) return parts.map(esc).join("");
+  const strikeSpan = `<span style="text-decoration:line-through;color:${t.textSoft};font-weight:800;opacity:0.75;">${esc(price)}</span>`;
+  return parts.map(esc).join(strikeSpan);
+}
+
 // Verbatim mirror: no price stripping. The email must match the Landing Page 1:1,
 // including commercial values, discounts and percentages exactly as published.
 function stripPrices(s: string): string {
@@ -120,7 +133,7 @@ type LPDossier = {
     secondary_cta?: string;
     product_card_caption?: string;
   };
-  positioning?: { eyebrow?: string; headline?: string; body?: string };
+  positioning?: { eyebrow?: string; headline?: string; body?: string; strikePrice?: string; highlightPrice?: string };
   howItWorks?: { title?: string; items: { title: string; desc: string }[] };
   price?: { ribbon?: string; title?: string; priceLabel?: string; priceNote?: string; includes: string[]; cta?: string; footnote?: string };
   conditions?: {
@@ -366,6 +379,8 @@ async function loadLpDossier(
         eyebrow: cleanLpText(c.positioning.eyebrow),
         headline: cleanPriceHeavyText(c.positioning.headline) || "DentalCAD Ultimate Lab Bundle com ativação, implantação, treinamento e suporte Smart Dent.",
         body: cleanPriceHeavyText(c.positioning.body) || "Uma oportunidade para estruturar o fluxo CAD com licença oficial, configuração orientada e acompanhamento especializado.",
+        strikePrice: cleanLpText(c.positioning.strikePrice),
+        highlightPrice: cleanLpText(c.positioning.highlightPrice),
       } : undefined,
       howItWorks,
       price,
@@ -403,7 +418,7 @@ function buildLpEmailHtml(opts: {
   sub?: string;
   bullets?: string[];
   trust?: string[];
-  positioning?: { eyebrow?: string; headline?: string; body?: string };
+  positioning?: { eyebrow?: string; headline?: string; body?: string; strikePrice?: string; highlightPrice?: string };
   howItWorks?: LPDossier["howItWorks"];
   price?: LPDossier["price"];
   conditions?: LPDossier["conditions"];
@@ -502,8 +517,8 @@ function buildLpEmailHtml(opts: {
              </td>
              <td valign="top" style="padding:28px 28px 28px 18px;">
                ${positioning.eyebrow ? `<div style="font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:${t.orange};font-weight:900;margin-bottom:9px;">${esc(positioning.eyebrow)}</div>` : ""}
-               ${positioning.headline ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:25px;line-height:1.18;color:${t.text};margin-bottom:10px;letter-spacing:0;">${esc(positioning.headline)}</div>` : ""}
-               ${positioning.body ? `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${esc(positioning.body)}</div>` : ""}
+               ${positioning.headline ? `<div style="font-family:Arial Black,Inter,Arial,sans-serif;font-weight:900;font-size:25px;line-height:1.18;color:${t.text};margin-bottom:10px;letter-spacing:0;">${renderHeadlineWithStrike(positioning.headline, positioning.strikePrice, t)}</div>` : ""}
+               ${positioning.body ? `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.62;color:${t.textSoft};">${renderHeadlineWithStrike(positioning.body, positioning.strikePrice, t)}</div>` : ""}
              </td>
            </tr>
          </table>
@@ -886,6 +901,8 @@ Deno.serve(async (req) => {
           eyebrow: lpData.positioning.eyebrow,
           headline: lpData.positioning.headline || "",
           body: lpData.positioning.body || "",
+          strikePrice: lpData.positioning.strikePrice || "",
+          highlightPrice: lpData.positioning.highlightPrice || "",
         } : undefined,
         howItWorks: lpData.howItWorks,
         price: lpData.price,
