@@ -33,6 +33,7 @@ Deno.serve(async (req) => {
   const dryRun = url.searchParams.get("dry_run") === "1";
   const limit = Math.max(1, Math.min(2000, Number(url.searchParams.get("limit") || "500")));
   const concurrency = Math.max(1, Math.min(6, Number(url.searchParams.get("concurrency") || "3")));
+  const fireAndForget = url.searchParams.get("async") === "1";
 
   const startedAt = Date.now();
 
@@ -148,7 +149,7 @@ Deno.serve(async (req) => {
 
   const runOne = async (item: { email: string; lead_id: string }) => {
     try {
-      const res = await fetch(invokeUrl, {
+      const call = fetch(invokeUrl, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
@@ -164,8 +165,15 @@ Deno.serve(async (req) => {
           trigger: "csv_vendas_backfill",
         }),
       });
-      const bodyTxt = await res.text().catch(() => "");
-      results.push({ email: item.email, lead_id: item.lead_id, status: res.status, ok: res.ok, body: bodyTxt.slice(0, 300) });
+      if (fireAndForget) {
+        // Do not await — schedule and move on. Best-effort catch.
+        call.catch((e) => console.warn("[backfill async] fire-and-forget err:", (e as Error).message));
+        results.push({ email: item.email, lead_id: item.lead_id, status: 202, ok: true, body: "queued" });
+      } else {
+        const res = await call;
+        const bodyTxt = await res.text().catch(() => "");
+        results.push({ email: item.email, lead_id: item.lead_id, status: res.status, ok: res.ok, body: bodyTxt.slice(0, 300) });
+      }
     } catch (e) {
       results.push({ email: item.email, lead_id: item.lead_id, status: 0, ok: false, body: (e as Error).message });
     }
