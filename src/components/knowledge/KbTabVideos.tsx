@@ -58,10 +58,13 @@ export default function KbTabVideos({ onOpen }: Props) {
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
+          const isDepoimentos = chip === 'ff524477-c553-4518-868e-8435e16a5c57';
           const sorted = ((data || []) as any[]).slice().sort((a, b) => {
-            const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
-            const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
-            if (vb !== va) return vb - va;
+            if (!isDepoimentos) {
+              const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
+              const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
+              if (vb !== va) return vb - va;
+            }
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           });
           setRows(sorted as any);
