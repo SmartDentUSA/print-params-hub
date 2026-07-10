@@ -528,6 +528,34 @@ Deno.serve(async (req) => {
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
+    // ─── TEST PIPELINE GUARD ───
+    // Pipelines de teste no PipeRun (ex: "Tulip-Teste-Nv-Automação", id=83813)
+    // não devem disparar criação de lead, notificação de vendedor, nem
+    // qualquer side-effect produtivo. Skip com 200 antes de qualquer query.
+    const TEST_PIPELINES = new Set<number>([PIPELINES.TULIP_TESTE]);
+    if (ids.pipelineId && TEST_PIPELINES.has(ids.pipelineId)) {
+      console.log(`[piperun-webhook] Skipping deal=${dealId} — test pipeline ${ids.pipelineId} (${PIPELINE_NAMES[ids.pipelineId] || "unknown"})`);
+      try {
+        await supabase.from("piperun_webhook_events").insert({
+          deal_id: dealId,
+          lead_id: null,
+          event_action: (deal.action as string) || null,
+          stage_id: ids.stageId || null,
+          stage_name: ids.stageName,
+          pipeline_id: ids.pipelineId,
+          owner_id: ids.ownerId || null,
+          raw_payload: rawPayloadForAudit,
+          hydrated,
+          outcome: "skipped_test_pipeline",
+          error: null,
+        });
+      } catch (_) { /* audit best-effort */ }
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "test_pipeline", pipeline_id: ids.pipelineId, deal_id: dealId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Fallback adicional: GET /deals/{id} muitas vezes NÃO retorna
     // company.contact_emails/contact_phones mesmo com `with[]`. Quando faltar
     // email/telefone do contato e tivermos companyId, buscamos diretamente
