@@ -1,5 +1,5 @@
 // Meta Lead Ads — serialized round-robin pull
-// One form per invocation. Cron every 5min => each form polled every N*5min.
+// One form per invocation. Cron every minute => each configured form is polled every ~4min.
 // Reads X-Business-Use-Case-Usage for adaptive backoff.
 // Cursor claim uses FOR UPDATE SKIP LOCKED (via RPC claim_next_meta_pull_form).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
   }
 
   const sinceEpoch = Math.floor((Date.now() - sinceMinutes * 60_000) / 1000);
+  const sinceMs = sinceEpoch * 1000;
   const url = `${GRAPH}/${formId}/leads?fields=id,form_id,ad_id,adset_id,campaign_id,created_time,field_data,platform&filtering=[{"field":"time_created","operator":"GREATER_THAN","value":${sinceEpoch}}]&limit=50&access_token=${META_TOKEN}`;
 
   let leadsFetched = 0;
@@ -194,7 +195,14 @@ Deno.serve(async (req) => {
       }
 
       const body = await res.json();
-      const leads = Array.isArray(body?.data) ? body.data : [];
+      const fetchedLeads = Array.isArray(body?.data) ? body.data : [];
+      // Meta's filtering parameter has intermittently returned old records. Filter
+      // locally before invoking ingest; forwarding hundreds of old leads exhausted
+      // the Edge Runtime trace quota and prevented the newest leads from arriving.
+      const leads = fetchedLeads.filter((lead: { created_time?: string }) => {
+        const createdMs = Date.parse(String(lead?.created_time || ""));
+        return Number.isFinite(createdMs) && createdMs >= sinceMs;
+      });
       leadsFetched += leads.length;
 
       for (const lead of leads) {
@@ -207,7 +215,8 @@ Deno.serve(async (req) => {
             source: "meta_lead_ads",
             platform_lead_id: String(lead.id),
             platform_form_id: String(lead.form_id || formId),
-            form_name: null,
+            form_name: `Meta Ads — Form ${String(lead.form_id || formId)}`,
+            form_purpose: "sdr_captacao",
             name: fieldMap.full_name || fieldMap.name || fieldMap.nome || null,
             email: fieldMap.email || null,
             phone: fieldMap.phone_number || fieldMap.phone || fieldMap.telefone || null,
@@ -219,33 +228,11 @@ Deno.serve(async (req) => {
             origem: "meta_lead_ads_pull",
           };
 
-          // Retry once on Supabase edge runtime RateLimitError (not Meta BUC).
-          // The runtime throws this when parallel/internal fetches hit its trace ceiling.
-          let ir: Response | null = null;
-          let attempts = 0;
-          while (attempts < 2) {
-            attempts++;
-            try {
-              ir = await fetch(ingestUrl, {
-                method: "POST",
-                headers: ingestHeaders,
-                body: JSON.stringify(payload),
-              });
-              break;
-            } catch (fetchErr) {
-              const msg = String(fetchErr);
-              if (attempts < 2 && /RateLimitError|Rate limit exceeded/i.test(msg)) {
-                const retryMatch = msg.match(/Retry after (\d+)ms/i);
-                const waitMs = Math.min(retryMatch ? parseInt(retryMatch[1], 10) : 25_000, 28_000);
-                await log(supabase, "error", "meta_pull_runtime_rate_limit", {
-                  form_id: formId, retry_ms: waitMs, attempt: attempts, error: msg.slice(0, 300),
-                });
-                await new Promise((r) => setTimeout(r, waitMs));
-                continue;
-              }
-              throw fetchErr;
-            }
-          }
+          const ir = await fetch(ingestUrl, {
+            method: "POST",
+            headers: ingestHeaders,
+            body: JSON.stringify(payload),
+          });
           if (ir?.ok) forwarded++; else skipped++;
         } catch (e) {
           skipped++;
