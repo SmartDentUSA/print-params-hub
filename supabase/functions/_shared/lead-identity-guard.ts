@@ -38,6 +38,51 @@ const PLACEHOLDER_NAME_PATTERNS: RegExp[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/**
+ * Normalize decorative Unicode letters (Mathematical Alphanumeric Symbols
+ * U+1D400–U+1D7FF, fullwidth, enclosed) to plain ASCII A–Z/a–z so
+ * `𝙕𝙖𝙝𝙣3𝘿 𝘿𝙚𝙣𝙩𝙖𝙡 𝙇𝙖𝙗` becomes `Zahn3D Dental Lab`.
+ *
+ * Meta Lead Ads often carries names typed with these stylized glyphs
+ * (labs use fancy fonts on their Instagram profiles) and the previous
+ * regex `/[^A-Za-zÀ-ÿ]/g` treated them as non-letters, blocking the lead
+ * from being ingested.
+ */
+export function normalizeStyledLetters(input: string | null | undefined): string {
+  if (!input) return "";
+  const s = String(input).normalize("NFKC");
+  let out = "";
+  for (const ch of s) {
+    const cp = ch.codePointAt(0) ?? 0;
+    // Mathematical Alphanumeric Symbols block: U+1D400..U+1D7FF
+    if (cp >= 0x1d400 && cp <= 0x1d7ff) {
+      const offset = cp - 0x1d400;
+      // The block is arranged in 52-glyph rows (26 upper + 26 lower).
+      // Mapping via modulo yields the correct ASCII letter for every style
+      // (bold, italic, script, fraktur, double-struck, sans-serif, mono, …).
+      const mod = offset % 52;
+      if (mod < 26) {
+        out += String.fromCharCode(65 + mod); // A-Z
+      } else {
+        out += String.fromCharCode(97 + (mod - 26)); // a-z
+      }
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Public helper: return a display-safe version of a name, converting
+ * decorative glyphs and collapsing whitespace. Non-letters (digits,
+ * spaces, punctuation) are preserved.
+ */
+export function sanitizeDisplayName(input: string | null | undefined): string {
+  const normalized = normalizeStyledLetters(input);
+  return normalized.replace(/\s+/g, " ").trim();
+}
+
 export type IdentityCheck = {
   ok: boolean;
   missing: string[];
@@ -56,7 +101,7 @@ export function isFakeEmail(email: string | null | undefined): boolean {
 
 export function isFakeName(name: string | null | undefined): boolean {
   if (!name) return true;
-  const n = String(name).trim();
+  const n = normalizeStyledLetters(name).trim();
   if (n.length < 2) return true;
   // precisa ter ao menos 2 letras (alfa)
   const alpha = n.replace(/[^A-Za-zÀ-ÿ]/g, "");
