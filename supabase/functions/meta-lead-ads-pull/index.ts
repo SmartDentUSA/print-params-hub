@@ -226,7 +226,6 @@ Deno.serve(async (req) => {
             platform_campaign_id: lead.campaign_id || null,
             meta_platform: lead.platform || "facebook",
             raw_field_data: fieldData,
-            origem: "meta_lead_ads_pull",
           };
 
           const ir = await fetch(ingestUrl, {
