@@ -220,12 +220,12 @@ Deno.serve(async (req) => {
             name: fieldMap.full_name || fieldMap.name || fieldMap.nome || null,
             email: fieldMap.email || null,
             phone: fieldMap.phone_number || fieldMap.phone || fieldMap.telefone || null,
-            created_time: lead.created_time,
-            ad_id: lead.ad_id || null,
-            adset_id: lead.adset_id || null,
-            campaign_id: lead.campaign_id || null,
+            meta_created_time: lead.created_time,
+            platform_ad_id: lead.ad_id || null,
+            platform_adgroup_id: lead.adset_id || null,
+            platform_campaign_id: lead.campaign_id || null,
+            meta_platform: lead.platform || "facebook",
             raw_field_data: fieldData,
-            origem: "meta_lead_ads_pull",
           };
 
           const ir = await fetch(ingestUrl, {
