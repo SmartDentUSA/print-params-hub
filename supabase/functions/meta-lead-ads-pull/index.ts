@@ -169,6 +169,26 @@ Deno.serve(async (req) => {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
   };
+  const campaignNameCache = new Map<string, string | null>();
+
+  const getCampaignName = async (campaignId: string | null): Promise<string | null> => {
+    if (!campaignId) return null;
+    if (campaignNameCache.has(campaignId)) return campaignNameCache.get(campaignId) ?? null;
+    try {
+      const campaignRes = await fetch(
+        `${GRAPH}/${campaignId}?fields=name&access_token=${META_TOKEN}`,
+      );
+      const campaignData = campaignRes.ok ? await campaignRes.json() : null;
+      const campaignName = typeof campaignData?.name === "string" && campaignData.name.trim()
+        ? campaignData.name.trim()
+        : null;
+      campaignNameCache.set(campaignId, campaignName);
+      return campaignName;
+    } catch {
+      campaignNameCache.set(campaignId, null);
+      return null;
+    }
+  };
 
   try {
     while (nextUrl && pageCount < MAX_PAGES && Date.now() - startedAt < TIMEOUT_MS) {
@@ -210,12 +230,22 @@ Deno.serve(async (req) => {
           const fieldData: Array<{ name: string; values: string[] }> = lead.field_data || [];
           const fieldMap: Record<string, string> = {};
           for (const f of fieldData) fieldMap[String(f.name || "").toLowerCase()] = (f.values || [])[0] || "";
+          const campaignId = lead.campaign_id ? String(lead.campaign_id) : null;
+          const campaignName = await getCampaignName(campaignId);
+          const originLabel = campaignName
+            ? `Meta Ads — ${campaignName}`
+            : `Meta Ads — Form ${String(lead.form_id || formId)}`;
 
           const payload = {
             source: "meta_lead_ads",
             platform_lead_id: String(lead.id),
             platform_form_id: String(lead.form_id || formId),
-            form_name: `Meta Ads — Form ${String(lead.form_id || formId)}`,
+            // PipeRun origin identifier follows the real campaign, matching the webhook path.
+            form_name: originLabel,
+            origem_campanha: originLabel,
+            utm_source: lead.platform || "facebook",
+            utm_medium: "paid",
+            utm_campaign: campaignName || campaignId,
             form_purpose: "sdr_captacao",
             name: fieldMap.full_name || fieldMap.name || fieldMap.nome || null,
             email: fieldMap.email || null,
@@ -223,7 +253,7 @@ Deno.serve(async (req) => {
             meta_created_time: lead.created_time,
             platform_ad_id: lead.ad_id || null,
             platform_adgroup_id: lead.adset_id || null,
-            platform_campaign_id: lead.campaign_id || null,
+            platform_campaign_id: campaignId,
             meta_platform: lead.platform || "facebook",
             raw_field_data: fieldData,
           };
