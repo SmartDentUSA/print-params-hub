@@ -236,6 +236,19 @@ Deno.serve(async (req) => {
             ? `Meta Ads — ${campaignName}`
             : `Meta Ads — Form ${String(lead.form_id || formId)}`;
 
+          // Product of interest — same cascade as smart-ops-meta-lead-webhook:
+          // direct form answer → keyword inference across field values → campaign name.
+          const KEYWORDS_RE = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
+          const directProduct = fieldMap.produto || fieldMap.produto_de_interesse || fieldMap.produto_interesse
+            || fieldMap.equipamento || fieldMap.interesse || fieldMap.solucao || null;
+          const allFieldValues = Object.values(fieldMap).join(" ");
+          const inferredMatches = allFieldValues.match(KEYWORDS_RE);
+          const inferredProduct = inferredMatches?.length
+            ? [...new Set(inferredMatches.map((m) => m.toLowerCase()))].join(", ")
+            : null;
+          const campaignProduct = campaignName?.match(KEYWORDS_RE)?.[0]?.toLowerCase() || null;
+          const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
+
           const payload = {
             source: "meta_lead_ads",
             platform_lead_id: String(lead.id),
@@ -250,6 +263,8 @@ Deno.serve(async (req) => {
             name: fieldMap.full_name || fieldMap.name || fieldMap.nome || null,
             email: fieldMap.email || null,
             phone: fieldMap.phone_number || fieldMap.phone || fieldMap.telefone || null,
+            produto_interesse: produtoInteresse,
+            produto_interesse_auto: inferredProduct || campaignProduct || null,
             meta_created_time: lead.created_time,
             platform_ad_id: lead.ad_id || null,
             platform_adgroup_id: lead.adset_id || null,
