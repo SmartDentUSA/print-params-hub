@@ -151,6 +151,7 @@ export function SmartOpsStripePayments() {
   const [statusFilter, setStatusFilter] = useState<"all" | "ativa" | "vencida" | "cancelada" | "trial">("all");
   const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [invoicePaidByLead, setInvoicePaidByLead] = useState<Map<string, number>>(new Map());
 
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
@@ -159,7 +160,7 @@ export function SmartOpsStripePayments() {
         supabase
           .from("stripe_payment_units")
           .select("*")
-          .order("paid_at", { ascending: false })
+          .order("paid_at", { ascending: true })
           .limit(2000),
         supabase
           .from("stripe_subscriptions")
@@ -214,6 +215,23 @@ export function SmartOpsStripePayments() {
           dealOwnerByLead.set(d.lead_id, d.owner_name);
         }
       }
+
+      // Aggregate paid invoices from lead_activity_log for the mensalidades KPI
+      const invoicePaid = new Map<string, number>();
+      if (leadIds.length) {
+        const { data: invRows } = await supabase
+          .from("lead_activity_log")
+          .select("lead_id, value_numeric")
+          .in("lead_id", leadIds)
+          .eq("event_type", "stripe_invoice_paid");
+        for (const r of (invRows as any[]) ?? []) {
+          if (!r?.lead_id) continue;
+          const v = Number(r.value_numeric ?? 0);
+          if (!isFinite(v)) continue;
+          invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
+        }
+      }
+      setInvoicePaidByLead(invoicePaid);
 
       // Subscriptions map by customer
       const subByCustomer = new Map<string, Subscription>();
@@ -318,6 +336,62 @@ export function SmartOpsStripePayments() {
   }
 
   const total = filtered.reduce((s, r) => s + (r.valor || 0), 0);
+
+  const isDoneStatus = (s: string | null | undefined) => {
+    const l = (s || "").toLowerCase();
+    return l === "paga" || l === "ativa" || l.includes("conclu");
+  };
+  const isPendingActivation = (s: string | null | undefined) => {
+    const l = (s || "").toLowerCase();
+    if (!l) return true;
+    return l.includes("vence") || l.includes("agend") || l.includes("andament") || l === "a vencer";
+  };
+  const isFailedStatus = (s: string | null | undefined) => {
+    const l = (s || "").toLowerCase();
+    return l.includes("vencid") || l === "cancelada" || l === "bloqueada";
+  };
+
+  const kpis = useMemo(() => {
+    const totalUnits = filtered.length;
+    const faturamento = total;
+    const tickets = new Set<string>();
+    let ativacoesPagas = 0;
+    let subsAtivas = 0;
+    let subsFalhas = 0;
+    let preAtivPend = 0;
+    let ativPend = 0;
+    let semDongle = 0;
+    for (const r of filtered) {
+      const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
+      if (ativDone) ativacoesPagas += r.valor || 0;
+      if (!ativDone) ativPend += 1;
+      if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
+      const ss = (r.subscription_status || "").toLowerCase();
+      if (ss === "active" || ss === "trialing") subsAtivas += 1;
+      if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
+      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
+    }
+    // mensalidades pagas: soma via lead_activity_log (invoice_paid). Deduzimos a ativação
+    // inicial (checkout) que já entra em "Faturamento total" para evitar dupla contagem.
+    let mensalidadesPagas = 0;
+    const leadsInView = new Set<string>();
+    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
+    for (const lid of leadsInView) mensalidadesPagas += invoicePaidByLead.get(lid) ?? 0;
+    const ticketMedio = groups.length > 0 ? faturamento / groups.length : 0;
+    return {
+      pagamentos: groups.length,
+      unidades: totalUnits,
+      faturamento,
+      ticketMedio,
+      ativacoesPagas,
+      mensalidadesPagas,
+      subsAtivas,
+      subsFalhas,
+      preAtivPend,
+      ativPend,
+      semDongle,
+    };
+  }, [filtered, groups, total, invoicePaidByLead]);
 
   // Group rows by checkout so multi-unit purchases render as a single card
   // (shared client/product/seller cells) with one sub-row per unit for the
