@@ -56,7 +56,7 @@ export interface TurmaComVagas extends Turma {
   end_time?: string;
   total_days?: number;
   course_title?: string;
-  modality?: 'presencial' | 'online_ao_vivo' | 'online';
+  modality?: 'presencial' | 'online_ao_vivo' | 'online' | 'acesso_remoto';
   instructor_name?: string;
   location?: string;
   meeting_link?: string;
@@ -69,8 +69,8 @@ export interface SmartopsCourse {
   title: string;
   slug: string;
   description?: string;
-  modality: 'presencial' | 'online_ao_vivo' | 'online';
-  category?: 'treinamento' | 'imersao' | 'workshop' | 'webinar';
+  modality: 'presencial' | 'online_ao_vivo' | 'online' | 'acesso_remoto';
+  category?: 'treinamento' | 'imersao' | 'workshop' | 'webinar' | 'avaliacao_pre_instalacao' | 'ativacao_software';
   instructor_name?: string;
   cover_image_url?: string;
   max_capacity: number;
