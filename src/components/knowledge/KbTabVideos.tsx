@@ -44,7 +44,7 @@ export default function KbTabVideos({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (!term && chip !== 'all') query = query.eq('category_id', chip);
@@ -74,17 +74,30 @@ export default function KbTabVideos({ onOpen }: Props) {
               .filter((r: any) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
               .slice(0, RECENT_COUNT);
             const recentIds = new Set(recent.map((r: any) => r.id));
+            const byUpdatedDesc = (a: any, b: any) =>
+              new Date(b.updated_at ?? b.created_at).getTime() -
+              new Date(a.updated_at ?? a.created_at).getTime();
+            const afterRecent = dateSorted.filter((r: any) => !recentIds.has(r.id));
+            const updatedRecent = afterRecent
+              .filter((r: any) => {
+                const u = new Date(r.updated_at ?? r.created_at).getTime();
+                const c = new Date(r.created_at).getTime();
+                return now - u <= THIRTY_DAYS_MS && now - c > THIRTY_DAYS_MS;
+              })
+              .sort(byUpdatedDesc)
+              .slice(0, RECENT_COUNT);
+            const updatedIds = new Set(updatedRecent.map((r: any) => r.id));
             const byViewsDesc = (a: any, b: any) => {
               const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
               const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
               if (vb !== va) return vb - va;
               return byDateDesc(a, b);
             };
-            const remaining = dateSorted.filter((r: any) => !recentIds.has(r.id));
+            const remaining = afterRecent.filter((r: any) => !updatedIds.has(r.id));
             const topViewed = remaining.slice().sort(byViewsDesc).slice(0, RECENT_COUNT);
             const topViewedIds = new Set(topViewed.map((r: any) => r.id));
             const rest = remaining.filter((r: any) => !topViewedIds.has(r.id));
-            sorted = [...recent, ...topViewed, ...rest];
+            sorted = [...recent, ...updatedRecent, ...topViewed, ...rest];
           }
           setRows(sorted as any);
         }
