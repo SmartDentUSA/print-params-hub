@@ -9,13 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-interface StripeEvent {
+interface PaymentUnit {
   id: string;
   lead_id: string | null;
-  event_type: string;
-  event_timestamp: string;
-  value_numeric: number | null;
-  event_data: Record<string, any> | null;
+  stripe_event_id: string | null;
+  stripe_checkout_id: string | null;
+  stripe_customer_id: string | null;
+  unit_index: number;
+  unit_total: number | null;
+  product_name: string | null;
+  paid_at: string | null;
+  id_dongle: string | null;
+  stripe_seller_id: string | null;
+  pre_ativacao_data: string | null;
+  pre_ativacao_status: string | null;
+  ativacao_data: string | null;
+  ativacao_status: string | null;
+  mensalidade_data: string | null;
+  mensalidade_status: string | null;
 }
 
 interface Subscription {
@@ -35,16 +46,6 @@ interface LeadRow {
   nome: string | null;
   email: string | null;
   telefone_normalized: string | null;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  stripe_seller_id: string | null;
-  stripe_first_payment_at: string | null;
-  pre_ativacao_at: string | null;
-  pre_ativacao_status: string | null;
-  ativacao_at: string | null;
-  ativacao_status: string | null;
-  mensalidade_first_due: string | null;
-  mensalidade_status: string | null;
 }
 
 interface Vendedor {
@@ -56,7 +57,10 @@ interface Vendedor {
 
 interface Row {
   key: string;
+  unit_id: string;
   lead_id: string | null;
+  unit_index: number;
+  unit_count: number;
   nome: string;
   email: string;
   telefone: string;
@@ -65,6 +69,7 @@ interface Row {
   valor: number;
   vendedor: string;
   stripe_seller_id: string | null;
+  id_dongle: string | null;
   pre_ativacao_at: string | null;
   pre_ativacao_status: string | null;
   ativacao_at: string | null;
