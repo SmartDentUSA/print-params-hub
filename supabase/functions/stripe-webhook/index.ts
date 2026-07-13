@@ -245,6 +245,48 @@ Deno.serve(async (req) => {
       .eq("event_id", event.id);
   }
 
+  // Expand into stripe_payment_units (one row per dongle unit) on checkout.completed
+  if (event.type === "checkout.session.completed") {
+    try {
+      let lineItems: any[] = [];
+      const sessionId = stripeObjectId;
+      if (sessionId) {
+        const li = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 100 });
+        lineItems = li?.data ?? [];
+      }
+      // Build unit rows
+      const units: Array<{ product_name: string | null; unit_total: number | null }> = [];
+      for (const li of lineItems) {
+        const qty = Number(li?.quantity ?? 1) || 1;
+        const unitCents = typeof li?.price?.unit_amount === "number"
+          ? li.price.unit_amount
+          : (typeof li?.amount_total === "number" && qty > 0 ? Math.round(li.amount_total / qty) : null);
+        const unitTotal = unitCents != null ? Number((unitCents / 100).toFixed(2)) : (amount && qty > 0 ? Number((amount / qty).toFixed(2)) : null);
+        const name = li?.description ?? li?.price?.nickname ?? null;
+        for (let i = 0; i < qty; i++) units.push({ product_name: name, unit_total: unitTotal });
+      }
+      if (units.length === 0) {
+        units.push({ product_name: products?.[0]?.name ?? null, unit_total: amount });
+      }
+      const rows = units.map((u, idx) => ({
+        lead_id: leadId,
+        stripe_event_id: event.id,
+        stripe_checkout_id: stripeObjectId,
+        stripe_customer_id: customer.stripe_customer_id,
+        unit_index: idx + 1,
+        unit_total: u.unit_total,
+        product_name: u.product_name,
+        paid_at: new Date(event.created * 1000).toISOString(),
+      }));
+      const { error: unitsErr } = await supabase
+        .from("stripe_payment_units")
+        .upsert(rows, { onConflict: "stripe_checkout_id,unit_index", ignoreDuplicates: true });
+      if (unitsErr) console.error("[stripe-webhook] payment_units upsert error:", unitsErr);
+    } catch (e) {
+      console.error("[stripe-webhook] payment_units expand error:", (e as Error).message);
+    }
+  }
+
   return new Response(JSON.stringify({ ok: true, lead_id: leadId, event_type: mapping.event_type }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
