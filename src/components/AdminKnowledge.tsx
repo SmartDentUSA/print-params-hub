@@ -994,6 +994,8 @@ Receba o texto bruto abaixo e:
       recommended_products: content.recommended_products || [],
       content_image_url: (content as any).content_image_url || '',
       content_image_alt: (content as any).content_image_alt || '',
+      hero_audio_url: (content as any).hero_audio_url || '',
+      hero_audio_label: (content as any).hero_audio_label || '',
       aiPromptTemplate: (content as any).ai_prompt_template || '',
       selected_pdf_ids_pt: content.selected_pdf_ids_pt || [],
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
