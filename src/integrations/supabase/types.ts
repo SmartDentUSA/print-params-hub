@@ -6377,6 +6377,8 @@ export type Database = {
           geo_city: string | null
           geo_state: string | null
           geo_state_code: string | null
+          hero_audio_label: string | null
+          hero_audio_url: string | null
           icon_color: string | null
           id: string
           is_medical_device: boolean | null
@@ -6440,6 +6442,8 @@ export type Database = {
           geo_city?: string | null
           geo_state?: string | null
           geo_state_code?: string | null
+          hero_audio_label?: string | null
+          hero_audio_url?: string | null
           icon_color?: string | null
           id?: string
           is_medical_device?: boolean | null
@@ -6503,6 +6507,8 @@ export type Database = {
           geo_city?: string | null
           geo_state?: string | null
           geo_state_code?: string | null
+          hero_audio_label?: string | null
+          hero_audio_url?: string | null
           icon_color?: string | null
           id?: string
           is_medical_device?: boolean | null
