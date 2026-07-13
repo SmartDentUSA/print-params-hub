@@ -4091,7 +4091,12 @@ Deno.serve(async (req) => {
     }
 
     // Set pipeline/stage based on flow
-    if (flowType === "preserve_vendas" && vendaDeal) {
+    if (flowType === "golden_rule_won_frozen") {
+      // Lead congelado por deal ganho recente: NÃO sobrescrever funil/etapa —
+      // o card deve continuar refletindo o estado pós-ganho (CS Onboarding
+      // será propagado pelo piperun-webhook quando aplicável). Owner também
+      // não muda: assignedOwnerName já é o vendedor que ganhou.
+    } else if (flowType === "preserve_vendas" && vendaDeal) {
       // Use the deal's ACTUAL pipeline/stage (read from PipeRun, don't invent)
       updateFields.funil_entrada_crm = PIPELINE_NAMES[Number(vendaDeal.pipeline_id)] || "Funil de vendas";
       updateFields.ultima_etapa_comercial = STAGE_TO_ETAPA[Number(vendaDeal.stage_id)] || "sem_contato";
