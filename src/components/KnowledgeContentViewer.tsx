@@ -496,6 +496,14 @@ ${processedHTML}
               createdAt={content.created_at} 
               updatedAt={content.updated_at} 
             />
+            {(content as any).hero_audio_url && (
+              <div className="mt-4">
+                <KnowledgeAudioPlayer
+                  url={(content as any).hero_audio_url}
+                  label={(content as any).hero_audio_label}
+                />
+              </div>
+            )}
           </div>
         </header>
       )}
