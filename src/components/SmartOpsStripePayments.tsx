@@ -420,7 +420,6 @@ export function SmartOpsStripePayments() {
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
-          <Badge variant="outline" className="ml-2">{groups.length} pagamentos · {filtered.length} unidades · {fmtBRL(total)}</Badge>
         </div>
         <div className="flex-1" />
         <div className="relative">
@@ -447,6 +446,27 @@ export function SmartOpsStripePayments() {
           <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {[
+          { label: "Pagamentos", value: String(kpis.pagamentos), tone: "text-foreground" },
+          { label: "Unidades vendidas", value: String(kpis.unidades), tone: "text-foreground" },
+          { label: "Faturamento total", value: fmtBRL(kpis.faturamento), tone: "text-primary" },
+          { label: "Ticket médio", value: fmtBRL(kpis.ticketMedio), tone: "text-foreground" },
+          { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-emerald-400" },
+          { label: "Mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
+          { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
+          { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
+          { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-amber-400" },
+          { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-amber-400" },
+          { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-amber-400" },
+        ].map(k => (
+          <Card key={k.label} className="p-3">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
+            <div className={`text-lg font-semibold ${k.tone}`}>{k.value}</div>
+          </Card>
+        ))}
       </div>
 
       <Card className="overflow-hidden">
