@@ -634,6 +634,18 @@ export function SmartOpsStripePayments() {
                   </td>
                   ) : null}
                   <td className="p-2">
+                    <input
+                      type="text"
+                      defaultValue={r.id_smartdent ?? ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if ((v || null) !== (r.id_smartdent ?? null)) updateUnit(r.unit_id, { id_smartdent: v || null } as any);
+                      }}
+                      placeholder="—"
+                      className="h-7 rounded border border-border bg-background px-1 text-xs w-28"
+                    />
+                  </td>
+                  <td className="p-2">
                     {span > 1 && (
                       <div className="text-[10px] text-muted-foreground mb-1">Unid. {r.unit_index}/{span}</div>
                     )}
