@@ -371,19 +371,19 @@ export function SmartOpsStripePayments() {
 
   const kpis = useMemo(() => {
     let ativacoesPagas = 0;
-    let mensalidadesPagas = 0;
     let subsAtivas = 0;
     let subsFalhas = 0;
     let preAtivPend = 0;
     let ativPend = 0;
     let semDongle = 0;
+    let ativas = 0;
     for (const r of filtered) {
       const prod = (r.produto || "").toLowerCase();
       const isMensalidade = prod.includes("assinatura") || prod.includes("mensal") || prod.includes("recorren");
       const isAtivacao = prod.includes("ativa") || prod.includes("implanta") || prod.includes("bundle") || prod.includes("setup");
-      if (isMensalidade) mensalidadesPagas += r.valor || 0;
-      else if (isAtivacao) ativacoesPagas += r.valor || 0;
+      if (!isMensalidade && isAtivacao) ativacoesPagas += r.valor || 0;
       const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
+      if (ativDone) ativas += 1;
       if (!ativDone) ativPend += 1;
       if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
       const ss = (r.subscription_status || "").toLowerCase();
@@ -391,21 +391,34 @@ export function SmartOpsStripePayments() {
       if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
       if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
     }
+    // Mensalidades — de lead_activity_log (stripe_invoice_paid), restrito aos leads em filtered
+    const leadsInView = new Set<string>();
+    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
+    let mensalidadesPagas = 0;
+    let primeirasMensalidadesClientes = 0;
+    for (const lid of leadsInView) {
+      const v = invoicePaidByLead.get(lid) ?? 0;
+      if (v > 0) {
+        mensalidadesPagas += v;
+        primeirasMensalidadesClientes += 1;
+      }
+    }
     const ticketMedio = groups.length > 0 ? total / groups.length : 0;
     return {
       pagamentos: groups.length,
       unidades: filtered.length,
-      faturamento: total,
       ticketMedio,
       ativacoesPagas,
       mensalidadesPagas,
+      primeirasMensalidadesClientes,
       subsAtivas,
       subsFalhas,
       preAtivPend,
       ativPend,
       semDongle,
+      ativas,
     };
-  }, [filtered, groups, total]);
+  }, [filtered, groups, total, invoicePaidByLead]);
 
   if (loading) {
     return (
@@ -449,25 +462,50 @@ export function SmartOpsStripePayments() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-        {[
-          { label: "Pagamentos", value: String(kpis.pagamentos), tone: "text-foreground" },
-          { label: "Unidades vendidas", value: String(kpis.unidades), tone: "text-foreground" },
-          { label: "Faturamento total", value: fmtBRL(kpis.faturamento), tone: "text-primary" },
-          { label: "Ticket médio", value: fmtBRL(kpis.ticketMedio), tone: "text-foreground" },
-          { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-emerald-400" },
-          { label: "Mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
-          { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
-          { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
-          { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-amber-400" },
-          { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-amber-400" },
-          { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-amber-400" },
-        ].map(k => (
-          <Card key={k.label} className="p-3">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
-            <div className={`text-lg font-semibold ${k.tone}`}>{k.value}</div>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Ativações</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[
+              { label: "Pagamentos", value: String(kpis.pagamentos), tone: "text-foreground" },
+              { label: "Unidades vendidas", value: String(kpis.unidades), tone: "text-foreground" },
+              { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-emerald-400" },
+              { label: "Ticket médio", value: fmtBRL(kpis.ticketMedio), tone: "text-foreground" },
+              { label: "Ativas", value: String(kpis.ativas), tone: "text-emerald-400" },
+              { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-amber-400" },
+              { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-amber-400" },
+              { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-amber-400" },
+            ].map(k => (
+              <div key={k.label} className="rounded-md border border-border bg-background/40 p-2">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
+                <div className={`text-lg font-semibold ${k.tone}`}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Mensalidades</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[
+              { label: "Primeira mensalidade (clientes)", value: String(kpis.primeirasMensalidadesClientes), tone: "text-emerald-400" },
+              { label: "Total mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
+              { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
+              { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
+            ].map(k => (
+              <div key={k.label} className="rounded-md border border-border bg-background/40 p-2">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
+                <div className={`text-lg font-semibold ${k.tone}`}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
 
       <Card className="overflow-hidden">
