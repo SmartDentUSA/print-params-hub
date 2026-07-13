@@ -66,9 +66,19 @@ export default function KbTabArtigos({ onOpen }: Props) {
         if (error) { console.error(error); setRows([]); }
         else {
           const filtered = (data || []).filter((r: any) => !videoIds.has(r.id));
-          const sorted = filtered.slice().sort((a: any, b: any) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
+          const byDateDesc = (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
+          const dateSorted = filtered.slice().sort(byDateDesc);
+          const RECENT_COUNT = 10;
+          const recent = dateSorted.slice(0, RECENT_COUNT);
+          const rest = dateSorted.slice(RECENT_COUNT).sort((a: any, b: any) => {
+            const va = a?.view_count ?? 0;
+            const vb = b?.view_count ?? 0;
+            if (vb !== va) return vb - va;
+            return byDateDesc(a, b);
+          });
+          const sorted = [...recent, ...rest];
           setRows(sorted as any);
         }
         setLoading(false);
