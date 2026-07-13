@@ -319,6 +319,29 @@ export function SmartOpsStripePayments() {
 
   const total = filtered.reduce((s, r) => s + (r.valor || 0), 0);
 
+  // Group rows by checkout so multi-unit purchases render as a single card
+  // (shared client/product/seller cells) with one sub-row per unit for the
+  // per-unit fields (ID Dongle, pré-ativação, ativação, mensalidade).
+  const groups = useMemo(() => {
+    const map = new Map<string, Row[]>();
+    for (const r of filtered) {
+      const gk = r.unit_id && r.unit_count > 1
+        ? `co:${r.key.split(":")[0]}` // fallback
+        : r.key;
+      // Prefer grouping by unit_count>1 using a stable key from unit itself
+      const key = r.unit_count > 1
+        ? `${r.lead_id ?? "nolead"}|${r.payment_at}|${r.produto}|${r.valor}`
+        : r.key;
+      const arr = map.get(key) ?? [];
+      arr.push(r);
+      map.set(key, arr);
+    }
+    // sort units inside each group
+    for (const arr of map.values()) arr.sort((a, b) => a.unit_index - b.unit_index);
+    // return groups ordered by first row's payment date (already sorted desc in filtered)
+    return Array.from(map.entries()).map(([k, units]) => ({ key: k, units }));
+  }, [filtered]);
+
   if (loading) {
     return (
       <div className="io-dark min-h-[400px] flex items-center justify-center">
@@ -333,7 +356,7 @@ export function SmartOpsStripePayments() {
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
-          <Badge variant="outline" className="ml-2">{filtered.length} pagamentos · {fmtBRL(total)}</Badge>
+          <Badge variant="outline" className="ml-2">{groups.length} pagamentos · {filtered.length} unidades · {fmtBRL(total)}</Badge>
         </div>
         <div className="flex-1" />
         <div className="relative">
@@ -386,18 +409,31 @@ export function SmartOpsStripePayments() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r, i) => (
-                <tr key={r.key} className="border-t border-border hover:bg-muted/20">
-                  <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
-                    {i + 1}{r.unit_count > 1 ? ` (${r.unit_index}/${r.unit_count})` : ""}
-                  </td>
-                  <td className="p-2 font-medium">{r.nome}</td>
-                  <td className="p-2 text-muted-foreground">{r.email || "—"}</td>
-                  <td className="p-2 text-muted-foreground">{r.telefone || "—"}</td>
-                  <td className="p-2 whitespace-nowrap">{fmtDateTime(r.payment_at)}</td>
-                  <td className="p-2 text-xs">{productLabel(r.produto)}</td>
-                  <td className="p-2 text-right whitespace-nowrap">{fmtBRL(r.valor)}</td>
-                  <td className="p-2">
+              {groups.map((g, gi) => g.units.map((r, ui) => {
+                const isFirst = ui === 0;
+                const span = g.units.length;
+                return (
+                <tr key={r.key} className={`hover:bg-muted/20 ${isFirst ? "border-t-2 border-border" : "border-t border-dashed border-border/50"}`}>
+                  {isFirst && (
+                    <td rowSpan={span} className="p-2 text-xs text-muted-foreground whitespace-nowrap align-top">
+                      {gi + 1}{span > 1 ? ` · ${span} unid.` : ""}
+                    </td>
+                  )}
+                  {isFirst && <td rowSpan={span} className="p-2 font-medium align-top">{r.nome}</td>}
+                  {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.email || "—"}</td>}
+                  {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.telefone || "—"}</td>}
+                  {isFirst && <td rowSpan={span} className="p-2 whitespace-nowrap align-top">{fmtDateTime(r.payment_at)}</td>}
+                  {isFirst && <td rowSpan={span} className="p-2 text-xs align-top">{productLabel(r.produto)}</td>}
+                  {isFirst && (
+                    <td rowSpan={span} className="p-2 text-right whitespace-nowrap align-top">
+                      {fmtBRL(g.units.reduce((s, u) => s + (u.valor || 0), 0))}
+                      {span > 1 && (
+                        <div className="text-[10px] text-muted-foreground">{span}× {fmtBRL(r.valor)}</div>
+                      )}
+                    </td>
+                  )}
+                  {isFirst ? (
+                  <td rowSpan={span} className="p-2 align-top">
                     <select
                       value={r.stripe_seller_id ?? ""}
                       onChange={e => updateUnit(r.unit_id, { stripe_seller_id: e.target.value || null })}
@@ -409,7 +445,11 @@ export function SmartOpsStripePayments() {
                       ))}
                     </select>
                   </td>
+                  ) : null}
                   <td className="p-2">
+                    {span > 1 && (
+                      <div className="text-[10px] text-muted-foreground mb-1">Unid. {r.unit_index}/{span}</div>
+                    )}
                     <input
                       type="text"
                       defaultValue={r.id_dongle ?? ""}
@@ -485,7 +525,7 @@ export function SmartOpsStripePayments() {
                     )}
                   </td>
                   <td className="p-2">
-                    {r.lead_id && (
+                    {isFirst && r.lead_id && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -497,8 +537,9 @@ export function SmartOpsStripePayments() {
                     )}
                   </td>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
+                );
+              }))}
+              {groups.length === 0 && (
                 <tr>
                   <td colSpan={16} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
