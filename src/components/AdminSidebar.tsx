@@ -4,7 +4,7 @@ import {
   Wrench, BarChart3, Users, Settings, LogOut, ArrowLeft,
   Zap, LayoutDashboard, Contact, UsersRound, Bot, MessageSquare,
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
-  Video, ChevronDown, GraduationCap, Map, Megaphone, Printer
+  Video, ChevronDown, GraduationCap, Map, Megaphone, Printer, CreditCard
 } from "lucide-react";
 import { CalendarDays } from "lucide-react";
 import { Truck } from "lucide-react";
@@ -100,6 +100,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-eventos", title: "Eventos", icon: CalendarDays },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
       { id: "so-rayshape", title: "Rayshape", icon: Printer },
+      { id: "so-stripe", title: "Stripe / Pagamentos", icon: CreditCard },
     ],
   },
   {
