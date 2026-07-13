@@ -356,7 +356,7 @@ export function SmartOpsStripePayments() {
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
-          <Badge variant="outline" className="ml-2">{filtered.length} pagamentos · {fmtBRL(total)}</Badge>
+          <Badge variant="outline" className="ml-2">{groups.length} pagamentos · {filtered.length} unidades · {fmtBRL(total)}</Badge>
         </div>
         <div className="flex-1" />
         <div className="relative">
