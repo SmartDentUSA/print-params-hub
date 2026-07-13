@@ -9,13 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-interface StripeEvent {
+interface PaymentUnit {
   id: string;
   lead_id: string | null;
-  event_type: string;
-  event_timestamp: string;
-  value_numeric: number | null;
-  event_data: Record<string, any> | null;
+  stripe_event_id: string | null;
+  stripe_checkout_id: string | null;
+  stripe_customer_id: string | null;
+  unit_index: number;
+  unit_total: number | null;
+  product_name: string | null;
+  paid_at: string | null;
+  id_dongle: string | null;
+  stripe_seller_id: string | null;
+  pre_ativacao_data: string | null;
+  pre_ativacao_status: string | null;
+  ativacao_data: string | null;
+  ativacao_status: string | null;
+  mensalidade_data: string | null;
+  mensalidade_status: string | null;
 }
 
 interface Subscription {
@@ -35,16 +46,6 @@ interface LeadRow {
   nome: string | null;
   email: string | null;
   telefone_normalized: string | null;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  stripe_seller_id: string | null;
-  stripe_first_payment_at: string | null;
-  pre_ativacao_at: string | null;
-  pre_ativacao_status: string | null;
-  ativacao_at: string | null;
-  ativacao_status: string | null;
-  mensalidade_first_due: string | null;
-  mensalidade_status: string | null;
 }
 
 interface Vendedor {
@@ -56,7 +57,10 @@ interface Vendedor {
 
 interface Row {
   key: string;
+  unit_id: string;
   lead_id: string | null;
+  unit_index: number;
+  unit_count: number;
   nome: string;
   email: string;
   telefone: string;
@@ -65,6 +69,7 @@ interface Row {
   valor: number;
   vendedor: string;
   stripe_seller_id: string | null;
+  id_dongle: string | null;
   pre_ativacao_at: string | null;
   pre_ativacao_status: string | null;
   ativacao_at: string | null;
@@ -150,14 +155,12 @@ export function SmartOpsStripePayments() {
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
     try {
-      const [evtRes, subRes, vendRes] = await Promise.all([
+      const [unitsRes, subRes, vendRes] = await Promise.all([
         supabase
-          .from("lead_activity_log")
-          .select("id, lead_id, event_type, event_timestamp, value_numeric, event_data")
-          .eq("source_channel", "stripe")
-          .eq("event_type", "stripe_checkout_completed")
-          .order("event_timestamp", { ascending: false })
-          .limit(500),
+          .from("stripe_payment_units")
+          .select("*")
+          .order("paid_at", { ascending: false })
+          .limit(2000),
         supabase
           .from("stripe_subscriptions")
           .select("stripe_customer_id, stripe_subscription_id, lead_id, status, product, current_period_end, cancel_at_period_end, canceled_at, created_at")
@@ -170,32 +173,27 @@ export function SmartOpsStripePayments() {
           .order("nome_omie"),
       ]);
 
-      if (evtRes.error) throw evtRes.error;
+      if (unitsRes.error) throw unitsRes.error;
       if (subRes.error) throw subRes.error;
       if (vendRes.error) throw vendRes.error;
 
-      const events = (evtRes.data as StripeEvent[]) ?? [];
+      const units = (unitsRes.data as PaymentUnit[]) ?? [];
       const subs = (subRes.data as Subscription[]) ?? [];
       setVendedores((vendRes.data as Vendedor[]) ?? []);
 
-      // Dedupe events by (stripe_customer_id, minute)
-      const seen = new Set<string>();
-      const dedup: StripeEvent[] = [];
-      for (const e of events) {
-        const cust = (e.event_data as any)?.stripe_customer_id ?? "";
-        const minute = e.event_timestamp?.slice(0, 16) ?? "";
-        const k = `${cust}|${minute}`;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        dedup.push(e);
+      // Count units per checkout for the "(1/N)" label
+      const unitCountByCheckout = new Map<string, number>();
+      for (const u of units) {
+        const k = u.stripe_checkout_id ?? u.id;
+        unitCountByCheckout.set(k, (unitCountByCheckout.get(k) ?? 0) + 1);
       }
 
-      const leadIds = Array.from(new Set(dedup.map(e => e.lead_id).filter(Boolean))) as string[];
+      const leadIds = Array.from(new Set(units.map(u => u.lead_id).filter(Boolean))) as string[];
 
       const leadsRes = leadIds.length
         ? await supabase
             .from("lia_attendances")
-            .select("id, nome, email, telefone_normalized, stripe_customer_id, stripe_subscription_id, stripe_seller_id, stripe_first_payment_at, pre_ativacao_at, pre_ativacao_status, ativacao_at, ativacao_status, mensalidade_first_due, mensalidade_status")
+            .select("id, nome, email, telefone_normalized")
             .in("id", leadIds)
         : { data: [] as LeadRow[], error: null };
       if ((leadsRes as any).error) throw (leadsRes as any).error;
@@ -230,35 +228,35 @@ export function SmartOpsStripePayments() {
         vendMap.set(v.codigo, v.nome_omie || v.nome_piperun || v.codigo);
       }
 
-      const built: Row[] = dedup.map(e => {
-        const data = (e.event_data as any) ?? {};
-        const cust = data.stripe_customer_id ?? "";
-        const lead = e.lead_id ? leadMap.get(e.lead_id) : undefined;
-        const sub = cust ? subByCustomer.get(cust) : undefined;
-        const sellerCode = lead?.stripe_seller_id ?? null;
+      const built: Row[] = units.map(u => {
+        const lead = u.lead_id ? leadMap.get(u.lead_id) : undefined;
+        const sub = u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined;
+        const sellerCode = u.stripe_seller_id ?? null;
         const vendedorLabel = sellerCode
           ? vendMap.get(sellerCode) || sellerCode
-          : (e.lead_id ? dealOwnerByLead.get(e.lead_id) : "") || "";
+          : (u.lead_id ? dealOwnerByLead.get(u.lead_id) : "") || "";
+        const cKey = u.stripe_checkout_id ?? u.id;
         return {
-          key: e.id,
-          lead_id: e.lead_id,
-          nome: lead?.nome || data.customer_name || data.name || "—",
-          email: lead?.email || data.customer_email || data.email || "",
-          telefone: lead?.telefone_normalized || data.customer_phone || data.phone || "",
-          payment_at: e.event_timestamp,
-          produto: data.product || sub?.product || "—",
-          valor: Number(e.value_numeric ?? 0),
+          key: u.id,
+          unit_id: u.id,
+          lead_id: u.lead_id,
+          unit_index: u.unit_index,
+          unit_count: unitCountByCheckout.get(cKey) ?? 1,
+          nome: lead?.nome || "—",
+          email: lead?.email || "",
+          telefone: lead?.telefone_normalized || "",
+          payment_at: u.paid_at ?? "",
+          produto: u.product_name || sub?.product || "—",
+          valor: Number(u.unit_total ?? 0),
           vendedor: vendedorLabel,
           stripe_seller_id: sellerCode,
-          pre_ativacao_at: lead?.pre_ativacao_at ?? null,
-          pre_ativacao_status: lead?.pre_ativacao_status ?? null,
-          ativacao_at: lead?.ativacao_at ?? null,
-          ativacao_status: lead?.ativacao_status ?? null,
-          mensalidade_first_due: lead?.mensalidade_first_due ?? null,
-          mensalidade_status:
-            lead?.mensalidade_status ||
-            deriveMensalidadeLabel(sub ?? null) ||
-            null,
+          id_dongle: u.id_dongle ?? null,
+          pre_ativacao_at: u.pre_ativacao_data,
+          pre_ativacao_status: u.pre_ativacao_status,
+          ativacao_at: u.ativacao_data,
+          ativacao_status: u.ativacao_status,
+          mensalidade_first_due: u.mensalidade_data,
+          mensalidade_status: u.mensalidade_status || deriveMensalidadeLabel(sub ?? null) || null,
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
@@ -297,13 +295,25 @@ export function SmartOpsStripePayments() {
     });
   }, [rows, search, statusFilter]);
 
-  async function updateLeadField(leadId: string, patch: Partial<LeadRow>) {
-    const { error } = await supabase.from("lia_attendances").update(patch).eq("id", leadId);
+  async function updateUnit(unitId: string, patch: Partial<PaymentUnit>) {
+    const { error } = await supabase.from("stripe_payment_units").update(patch).eq("id", unitId);
     if (error) {
       toast({ title: "Falha ao salvar", description: error.message, variant: "destructive" });
       return false;
     }
-    setRows(prev => prev.map(r => (r.lead_id === leadId ? { ...r, ...patch } as Row : r)));
+    setRows(prev => prev.map(r => {
+      if (r.unit_id !== unitId) return r;
+      const next: any = { ...r };
+      if ("stripe_seller_id" in patch) next.stripe_seller_id = patch.stripe_seller_id ?? null;
+      if ("id_dongle" in patch) next.id_dongle = patch.id_dongle ?? null;
+      if ("pre_ativacao_data" in patch) next.pre_ativacao_at = patch.pre_ativacao_data ?? null;
+      if ("pre_ativacao_status" in patch) next.pre_ativacao_status = patch.pre_ativacao_status ?? null;
+      if ("ativacao_data" in patch) next.ativacao_at = patch.ativacao_data ?? null;
+      if ("ativacao_status" in patch) next.ativacao_status = patch.ativacao_status ?? null;
+      if ("mensalidade_data" in patch) next.mensalidade_first_due = patch.mensalidade_data ?? null;
+      if ("mensalidade_status" in patch) next.mensalidade_status = patch.mensalidade_status ?? null;
+      return next;
+    }));
     return true;
   }
 
@@ -357,6 +367,7 @@ export function SmartOpsStripePayments() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="text-left p-2">#</th>
                 <th className="text-left p-2">Cliente</th>
                 <th className="text-left p-2">E-mail</th>
                 <th className="text-left p-2">Celular</th>
@@ -364,6 +375,7 @@ export function SmartOpsStripePayments() {
                 <th className="text-left p-2">Produto</th>
                 <th className="text-right p-2">Valor</th>
                 <th className="text-left p-2">Vendedor</th>
+                <th className="text-left p-2">ID Dongle</th>
                 <th className="text-left p-2">Pré-ativação</th>
                 <th className="text-left p-2">Status Pré</th>
                 <th className="text-left p-2">Ativação</th>
@@ -374,8 +386,11 @@ export function SmartOpsStripePayments() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => (
+              {filtered.map((r, i) => (
                 <tr key={r.key} className="border-t border-border hover:bg-muted/20">
+                  <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
+                    {i + 1}{r.unit_count > 1 ? ` (${r.unit_index}/${r.unit_count})` : ""}
+                  </td>
                   <td className="p-2 font-medium">{r.nome}</td>
                   <td className="p-2 text-muted-foreground">{r.email || "—"}</td>
                   <td className="p-2 text-muted-foreground">{r.telefone || "—"}</td>
@@ -383,35 +398,41 @@ export function SmartOpsStripePayments() {
                   <td className="p-2 text-xs">{productLabel(r.produto)}</td>
                   <td className="p-2 text-right whitespace-nowrap">{fmtBRL(r.valor)}</td>
                   <td className="p-2">
-                    {r.lead_id ? (
-                      <select
-                        value={r.stripe_seller_id ?? ""}
-                        onChange={e => updateLeadField(r.lead_id!, { stripe_seller_id: e.target.value || null } as any)}
-                        className="h-7 rounded border border-border bg-background px-1 text-xs min-w-[140px]"
-                      >
-                        <option value="">— {r.vendedor || "Sem vendedor"}</option>
-                        {vendedores.map(v => (
-                          <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{r.vendedor || "—"}</span>
-                    )}
+                    <select
+                      value={r.stripe_seller_id ?? ""}
+                      onChange={e => updateUnit(r.unit_id, { stripe_seller_id: e.target.value || null })}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs min-w-[140px]"
+                    >
+                      <option value="">— {r.vendedor || "Sem vendedor"}</option>
+                      {vendedores.map(v => (
+                        <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="text"
+                      defaultValue={r.id_dongle ?? ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if ((v || null) !== (r.id_dongle ?? null)) updateUnit(r.unit_id, { id_dongle: v || null });
+                      }}
+                      placeholder="—"
+                      className="h-7 rounded border border-border bg-background px-1 text-xs w-32"
+                    />
                   </td>
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.pre_ativacao_at ? r.pre_ativacao_at.slice(0, 10) : ""}
-                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { pre_ativacao_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.pre_ativacao_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { pre_ativacao_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">—</option>
@@ -424,17 +445,15 @@ export function SmartOpsStripePayments() {
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.ativacao_at ? r.ativacao_at.slice(0, 10) : ""}
-                      onChange={e => updateLeadField(r.lead_id!, { ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { ativacao_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.ativacao_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { ativacao_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { ativacao_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">—</option>
@@ -447,17 +466,15 @@ export function SmartOpsStripePayments() {
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.mensalidade_first_due ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_first_due: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { mensalidade_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.mensalidade_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { mensalidade_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || "Sem assinatura"}</option>
@@ -483,7 +500,7 @@ export function SmartOpsStripePayments() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={16} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
                   </td>
                 </tr>

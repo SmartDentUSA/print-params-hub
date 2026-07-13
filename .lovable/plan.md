@@ -1,81 +1,53 @@
-## Regra de Ouro — Ganho é Intocável
+## Objetivo
+Exibir 1 linha por unidade comprada no Stripe/Pagamentos. José Antonio (2 dongles) deve virar 2 linhas independentes, cada uma com seu próprio ID Dongle, pré-ativação, ativação e mensalidade.
 
-**Problema observado hoje:** 5 leads com deal marcado "Ganho" hoje voltaram a ter deal aberto no Funil de Vendas e/ou trocaram de vendedor (ex.: Guilherme Soares, Leonardo Joris, Marcelo Kuhnen, Renailda de Lima, EMILEINE ZAMARIOLLI).
+## Mudanças
 
-**Regra a implementar (invariante do sistema):**
+### 1. Nova tabela `stripe_payment_units` (migration)
+Uma linha por unidade de dongle vendida.
 
-> Se o lead tem **qualquer deal VENDAS ganho nos últimos 30 dias**, ele está **CONGELADO**:
-> 1. **Não** pode ser criado novo deal no Funil de Vendas (pipeline 18784) para esse lead.
-> 2. **Não** pode ter `proprietario` alterado — o vendedor que ganhou permanece dono do card.
-> 3. O único movimento permitido é encaminhamento para **CS Onboarding** (pipeline de pós-venda).
+Colunas:
+- `id uuid pk`
+- `lead_id uuid → lia_attendances`
+- `stripe_event_id text` (referência ao `lead_activity_log` original)
+- `stripe_checkout_id text`
+- `stripe_customer_id text`
+- `unit_index int` (1..N)
+- `unit_total numeric` (valor rateado da unidade)
+- `product_name text`
+- `paid_at timestamptz`
+- `id_dongle text`
+- `stripe_seller_id text` (vendedor por unidade)
+- `pre_ativacao_data date`, `pre_ativacao_status text`
+- `ativacao_data date`, `ativacao_status text`
+- `mensalidade_data date`, `mensalidade_status text`
+- `created_at`, `updated_at` + trigger
+- Unique `(stripe_checkout_id, unit_index)`
+- GRANTs (authenticated / service_role) + RLS + policies + trigger `updated_at`
 
----
+### 2. Backfill (mesma migration)
+Para cada `stripe_checkout_completed` em `lead_activity_log`:
+- Ler `quantity` do payload (default 1)
+- Inserir N linhas em `stripe_payment_units`
+- Unidade 1 herda `id_dongle`, `stripe_seller_id`, `pre_ativacao_*`, `ativacao_*`, `mensalidade_*` de `lia_attendances`; unidades 2..N ficam vazias
 
-### Mudanças em `smart-ops-lia-assign/index.ts`
+Resultado esperado: José Antonio passa a ter 2 linhas.
 
-**1. Guarda universal `assertGoldenRuleWon` (nova função)**
-- Executada no topo de todo caminho que possa criar deal ou reatribuir vendedor (`createNewDeal`, `assignSeller`, ramo Estagnados, ramo redelivery Meta, ramo webhook PipeRun).
-- Consulta `deals` do lead onde `pipeline_id = 18784` AND `status = 'won'` AND `won_at >= now() - 30 days`.
-- Se existir:
-  - Bloqueia `createNewDeal` → retorna `{ blocked: 'golden_rule_won_frozen', preservedDealId, preservedOwner }`.
-  - Bloqueia mudança de `proprietario` no `lia_attendances` (sanitiza `updateFields` removendo `proprietario`, `owner_id`, `piperun_owner_id`, `equipe`).
-  - Permite apenas atualização de campos custom/enrichment e transição para CS Onboarding.
+### 3. Edge function `stripe-webhook`
+No `checkout.session.completed`:
+- Expandir line items via Stripe API
+- Para cada item com `quantity=N`, inserir N linhas em `stripe_payment_units` (idempotente por `stripe_checkout_id + unit_index`)
 
-**2. Selar ramo "Estagnados" (linha ~3386)**
-- Antes do `createNewDeal` no branch de reativação, chamar `assertGoldenRuleWon`.
-- Se bloqueado: **não fecha** o deal Estagnados, registra `system_health_logs` com `event='estagnado_bloqueado_regra_ouro'` e retorna.
+### 4. UI `SmartOpsStripePayments.tsx`
+- Query passa a ler `stripe_payment_units` + join `lia_attendances` (nome/email/telefone) + `omie_vendedores` + `stripe_subscriptions` (dado compartilhado por customer)
+- Colunas: **#** → Cliente → E-mail → Celular → Data → Produto → Valor (unit_total) → Vendedor → **ID Dongle** → Pré-Ativação → Status Pré → Ativação → Status Ativação → 1ª Mensalidade → Status Mensalidade → link
+- `#` mostra "3 (1/2)", "4 (2/2)" para multi-unidade
+- Todos os `onBlur/onChange` gravam em `stripe_payment_units` pelo `unit.id` (não mais em `lia_attendances`)
+- `ID Dongle` é `<input type="text">` editável
 
-**3. Selar redelivery Meta / re-entry por form**
-- Em `handleRedeliveryDealRoute` e no fluxo de commercial-intent, aplicar mesma guarda antes de criar deal VENDAS.
-- Redelivery só pode criar deal se **não** houver ganho recente; caso contrário, apenas anexa nota ao deal ganho existente.
+## Fora de escopo
+- Sem alterações em Omie, PipeRun, LIA, RLS de `lia_attendances`
+- Colunas legadas em `lia_attendances` (`id_dongle`, `pre_ativacao_*`, etc.) permanecem — não são mais lidas por essa tela
 
-**4. Sanitizar `updateFields` para proprietário**
-- Nova função `stripOwnerFieldsIfFrozen(fields, leadId)`: se lead está congelado pela regra de ouro, remove qualquer chave relacionada a ownership antes do `.update(lia_attendances)`.
-- Aplicada em todos os `updatePersonFields`/`updateLeadCard` do arquivo.
-
-**5. Roteamento pós-ganho → CS Onboarding**
-- Quando webhook PipeRun reporta `status=won` em pipeline VENDAS, disparar (se ainda não existir) criação de deal em CS Onboarding com **mesmo proprietário** do deal ganho. Nada mais muda no card.
-
----
-
-### Instrumentação
-
-Novos eventos em `system_health_logs.event_type`:
-- `golden_rule_won_frozen_block_create` — tentativa de novo deal VENDAS bloqueada
-- `golden_rule_won_frozen_block_owner_change` — tentativa de trocar vendedor bloqueada
-- `golden_rule_won_routed_to_onboarding` — encaminhamento correto para CS
-
-Payload: `{ lead_id, piperun_id, preserved_deal_id, preserved_owner, attempted_action, source_branch }`.
-
----
-
-### Correção retroativa (hoje)
-
-Para os 5 leads divergentes identificados:
-- Guilherme Soares (deal 51371591 aberto) → fechar como duplicado, restaurar Lucas Silva
-- Leonardo Joris (deal 61792777 com Thiago) → fechar, restaurar Adriano
-- EMILEINE ZAMARIOLLI (card com Daniele) → restaurar Janaina
-- Marcelo Kuhnen (deal 40774540 com Lucas) → fechar, restaurar Paulo Sérgio
-- Renailda de Lima (deal 58482625 com Evandro) → fechar, restaurar Paulo Sérgio
-
-Executado via `supabase--insert` (UPDATE em `lia_attendances` e `deals`) após aprovação.
-
----
-
-### Memória
-
-Atualizar `mem://architecture/golden-rule-primary-flow` com:
-- Ganho VENDAS = estado CONGELADO por 30 dias
-- Único destino permitido: CS Onboarding
-- `proprietario` imutável enquanto congelado
-- Aplicado em todos os ramos: primary, redelivery, estagnados, webhook PipeRun
-
----
-
-### Arquivos afetados
-
-- `supabase/functions/smart-ops-lia-assign/index.ts` — nova guarda + selagem dos 3 ramos + sanitizador owner
-- `supabase/functions/piperun-webhook/index.ts` — roteamento won→onboarding
-- `supabase/functions/_shared/commercial-intent.ts` — integração com guarda
-- `mem://architecture/golden-rule-primary-flow.md` — atualização de regras
-- Dados: correção dos 5 leads de hoje
+## Verificação
+Após deploy: José Antonio deve aparecer como 2 linhas, ambas com Janaina Santos como vendedora padrão, campos de dongle/ativação independentes.
