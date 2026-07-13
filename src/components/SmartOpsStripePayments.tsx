@@ -151,6 +151,7 @@ export function SmartOpsStripePayments() {
   const [statusFilter, setStatusFilter] = useState<"all" | "ativa" | "vencida" | "cancelada" | "trial">("all");
   const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [invoicePaidByLead, setInvoicePaidByLead] = useState<Map<string, number>>(new Map());
 
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
@@ -159,7 +160,7 @@ export function SmartOpsStripePayments() {
         supabase
           .from("stripe_payment_units")
           .select("*")
-          .order("paid_at", { ascending: false })
+          .order("paid_at", { ascending: true })
           .limit(2000),
         supabase
           .from("stripe_subscriptions")
@@ -214,6 +215,23 @@ export function SmartOpsStripePayments() {
           dealOwnerByLead.set(d.lead_id, d.owner_name);
         }
       }
+
+      // Aggregate paid invoices from lead_activity_log for the mensalidades KPI
+      const invoicePaid = new Map<string, number>();
+      if (leadIds.length) {
+        const { data: invRows } = await supabase
+          .from("lead_activity_log")
+          .select("lead_id, value_numeric")
+          .in("lead_id", leadIds)
+          .eq("event_type", "stripe_invoice_paid");
+        for (const r of (invRows as any[]) ?? []) {
+          if (!r?.lead_id) continue;
+          const v = Number(r.value_numeric ?? 0);
+          if (!isFinite(v)) continue;
+          invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
+        }
+      }
+      setInvoicePaidByLead(invoicePaid);
 
       // Subscriptions map by customer
       const subByCustomer = new Map<string, Subscription>();
@@ -342,6 +360,52 @@ export function SmartOpsStripePayments() {
     return Array.from(map.entries()).map(([k, units]) => ({ key: k, units }));
   }, [filtered]);
 
+  const isDoneStatus = (s: string | null | undefined) => {
+    const l = (s || "").toLowerCase();
+    return l === "paga" || l === "ativa" || l.includes("conclu");
+  };
+  const isFailedStatus = (s: string | null | undefined) => {
+    const l = (s || "").toLowerCase();
+    return l.includes("vencid") || l === "cancelada" || l === "bloqueada";
+  };
+
+  const kpis = useMemo(() => {
+    let ativacoesPagas = 0;
+    let subsAtivas = 0;
+    let subsFalhas = 0;
+    let preAtivPend = 0;
+    let ativPend = 0;
+    let semDongle = 0;
+    for (const r of filtered) {
+      const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
+      if (ativDone) ativacoesPagas += r.valor || 0;
+      else ativPend += 1;
+      if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
+      const ss = (r.subscription_status || "").toLowerCase();
+      if (ss === "active" || ss === "trialing") subsAtivas += 1;
+      if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
+      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
+    }
+    const leadsInView = new Set<string>();
+    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
+    let mensalidadesPagas = 0;
+    for (const lid of leadsInView) mensalidadesPagas += invoicePaidByLead.get(lid) ?? 0;
+    const ticketMedio = groups.length > 0 ? total / groups.length : 0;
+    return {
+      pagamentos: groups.length,
+      unidades: filtered.length,
+      faturamento: total,
+      ticketMedio,
+      ativacoesPagas,
+      mensalidadesPagas,
+      subsAtivas,
+      subsFalhas,
+      preAtivPend,
+      ativPend,
+      semDongle,
+    };
+  }, [filtered, groups, total, invoicePaidByLead]);
+
   if (loading) {
     return (
       <div className="io-dark min-h-[400px] flex items-center justify-center">
@@ -356,7 +420,6 @@ export function SmartOpsStripePayments() {
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
-          <Badge variant="outline" className="ml-2">{groups.length} pagamentos · {filtered.length} unidades · {fmtBRL(total)}</Badge>
         </div>
         <div className="flex-1" />
         <div className="relative">
@@ -383,6 +446,27 @@ export function SmartOpsStripePayments() {
           <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {[
+          { label: "Pagamentos", value: String(kpis.pagamentos), tone: "text-foreground" },
+          { label: "Unidades vendidas", value: String(kpis.unidades), tone: "text-foreground" },
+          { label: "Faturamento total", value: fmtBRL(kpis.faturamento), tone: "text-primary" },
+          { label: "Ticket médio", value: fmtBRL(kpis.ticketMedio), tone: "text-foreground" },
+          { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-emerald-400" },
+          { label: "Mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
+          { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
+          { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
+          { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-amber-400" },
+          { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-amber-400" },
+          { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-amber-400" },
+        ].map(k => (
+          <Card key={k.label} className="p-3">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
+            <div className={`text-lg font-semibold ${k.tone}`}>{k.value}</div>
+          </Card>
+        ))}
       </div>
 
       <Card className="overflow-hidden">
