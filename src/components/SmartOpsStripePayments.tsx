@@ -155,14 +155,12 @@ export function SmartOpsStripePayments() {
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
     try {
-      const [evtRes, subRes, vendRes] = await Promise.all([
+      const [unitsRes, subRes, vendRes] = await Promise.all([
         supabase
-          .from("lead_activity_log")
-          .select("id, lead_id, event_type, event_timestamp, value_numeric, event_data")
-          .eq("source_channel", "stripe")
-          .eq("event_type", "stripe_checkout_completed")
-          .order("event_timestamp", { ascending: false })
-          .limit(500),
+          .from("stripe_payment_units")
+          .select("*")
+          .order("paid_at", { ascending: false })
+          .limit(2000),
         supabase
           .from("stripe_subscriptions")
           .select("stripe_customer_id, stripe_subscription_id, lead_id, status, product, current_period_end, cancel_at_period_end, canceled_at, created_at")
@@ -175,32 +173,27 @@ export function SmartOpsStripePayments() {
           .order("nome_omie"),
       ]);
 
-      if (evtRes.error) throw evtRes.error;
+      if (unitsRes.error) throw unitsRes.error;
       if (subRes.error) throw subRes.error;
       if (vendRes.error) throw vendRes.error;
 
-      const events = (evtRes.data as StripeEvent[]) ?? [];
+      const units = (unitsRes.data as PaymentUnit[]) ?? [];
       const subs = (subRes.data as Subscription[]) ?? [];
       setVendedores((vendRes.data as Vendedor[]) ?? []);
 
-      // Dedupe events by (stripe_customer_id, minute)
-      const seen = new Set<string>();
-      const dedup: StripeEvent[] = [];
-      for (const e of events) {
-        const cust = (e.event_data as any)?.stripe_customer_id ?? "";
-        const minute = e.event_timestamp?.slice(0, 16) ?? "";
-        const k = `${cust}|${minute}`;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        dedup.push(e);
+      // Count units per checkout for the "(1/N)" label
+      const unitCountByCheckout = new Map<string, number>();
+      for (const u of units) {
+        const k = u.stripe_checkout_id ?? u.id;
+        unitCountByCheckout.set(k, (unitCountByCheckout.get(k) ?? 0) + 1);
       }
 
-      const leadIds = Array.from(new Set(dedup.map(e => e.lead_id).filter(Boolean))) as string[];
+      const leadIds = Array.from(new Set(units.map(u => u.lead_id).filter(Boolean))) as string[];
 
       const leadsRes = leadIds.length
         ? await supabase
             .from("lia_attendances")
-            .select("id, nome, email, telefone_normalized, stripe_customer_id, stripe_subscription_id, stripe_seller_id, stripe_first_payment_at, pre_ativacao_at, pre_ativacao_status, ativacao_at, ativacao_status, mensalidade_first_due, mensalidade_status")
+            .select("id, nome, email, telefone_normalized")
             .in("id", leadIds)
         : { data: [] as LeadRow[], error: null };
       if ((leadsRes as any).error) throw (leadsRes as any).error;
@@ -235,35 +228,35 @@ export function SmartOpsStripePayments() {
         vendMap.set(v.codigo, v.nome_omie || v.nome_piperun || v.codigo);
       }
 
-      const built: Row[] = dedup.map(e => {
-        const data = (e.event_data as any) ?? {};
-        const cust = data.stripe_customer_id ?? "";
-        const lead = e.lead_id ? leadMap.get(e.lead_id) : undefined;
-        const sub = cust ? subByCustomer.get(cust) : undefined;
-        const sellerCode = lead?.stripe_seller_id ?? null;
+      const built: Row[] = units.map(u => {
+        const lead = u.lead_id ? leadMap.get(u.lead_id) : undefined;
+        const sub = u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined;
+        const sellerCode = u.stripe_seller_id ?? null;
         const vendedorLabel = sellerCode
           ? vendMap.get(sellerCode) || sellerCode
-          : (e.lead_id ? dealOwnerByLead.get(e.lead_id) : "") || "";
+          : (u.lead_id ? dealOwnerByLead.get(u.lead_id) : "") || "";
+        const cKey = u.stripe_checkout_id ?? u.id;
         return {
-          key: e.id,
-          lead_id: e.lead_id,
-          nome: lead?.nome || data.customer_name || data.name || "—",
-          email: lead?.email || data.customer_email || data.email || "",
-          telefone: lead?.telefone_normalized || data.customer_phone || data.phone || "",
-          payment_at: e.event_timestamp,
-          produto: data.product || sub?.product || "—",
-          valor: Number(e.value_numeric ?? 0),
+          key: u.id,
+          unit_id: u.id,
+          lead_id: u.lead_id,
+          unit_index: u.unit_index,
+          unit_count: unitCountByCheckout.get(cKey) ?? 1,
+          nome: lead?.nome || "—",
+          email: lead?.email || "",
+          telefone: lead?.telefone_normalized || "",
+          payment_at: u.paid_at ?? "",
+          produto: u.product_name || sub?.product || "—",
+          valor: Number(u.unit_total ?? 0),
           vendedor: vendedorLabel,
           stripe_seller_id: sellerCode,
-          pre_ativacao_at: lead?.pre_ativacao_at ?? null,
-          pre_ativacao_status: lead?.pre_ativacao_status ?? null,
-          ativacao_at: lead?.ativacao_at ?? null,
-          ativacao_status: lead?.ativacao_status ?? null,
-          mensalidade_first_due: lead?.mensalidade_first_due ?? null,
-          mensalidade_status:
-            lead?.mensalidade_status ||
-            deriveMensalidadeLabel(sub ?? null) ||
-            null,
+          id_dongle: u.id_dongle ?? null,
+          pre_ativacao_at: u.pre_ativacao_data,
+          pre_ativacao_status: u.pre_ativacao_status,
+          ativacao_at: u.ativacao_data,
+          ativacao_status: u.ativacao_status,
+          mensalidade_first_due: u.mensalidade_data,
+          mensalidade_status: u.mensalidade_status || deriveMensalidadeLabel(sub ?? null) || null,
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
