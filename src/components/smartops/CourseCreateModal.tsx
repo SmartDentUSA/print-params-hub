@@ -74,6 +74,7 @@ const MODALITIES = [
   { value: "presencial", label: "Presencial" },
   { value: "online_ao_vivo", label: "Online ao Vivo" },
   { value: "online", label: "Online" },
+  { value: "acesso_remoto", label: "Acesso Remoto" },
 ] as const;
 
 const CATEGORIES = [
@@ -81,6 +82,8 @@ const CATEGORIES = [
   { value: "imersao", label: "Imersão" },
   { value: "workshop", label: "Workshop" },
   { value: "webinar", label: "Webinar" },
+  { value: "avaliacao_pre_instalacao", label: "Avaliação pré-instalação" },
+  { value: "ativacao_software", label: "Ativação de Software" },
 ] as const;
 
 // ─── Recurrence preview ───
@@ -295,7 +298,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [enrolledSessionsCount, setEnrolledSessionsCount] = useState(0);
   const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
 
-  const isOnline = modality === 'online' || modality === 'online_ao_vivo';
+  const isOnline = modality === 'online' || modality === 'online_ao_vivo' || modality === 'acesso_remoto';
   const isOnlineAoVivo = modality === 'online_ao_vivo';
 
   // Turmas
@@ -673,7 +676,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
-        public_enrollment_enabled: ['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality)
+        public_enrollment_enabled: ['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar'].includes(modality)
           ? publicEnrollmentEnabled
           : false,
         active: true,
@@ -979,7 +982,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 </div>
               </div>
 
-              {['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality) && (
+              {['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar'].includes(modality) && (
                 <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Switch

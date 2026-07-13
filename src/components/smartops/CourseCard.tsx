@@ -29,6 +29,7 @@ const MODALITY_LABEL: Record<string, string> = {
   online: "Online",
   hibrido: "Híbrido",
   gravado: "Gravado",
+  acesso_remoto: "Acesso Remoto",
 };
 
 interface Props {
