@@ -59,14 +59,24 @@ export default function KbTabVideos({ onOpen }: Props) {
         if (error) { console.error(error); setRows([]); }
         else {
           const isDepoimentos = chip === 'ff524477-c553-4518-868e-8435e16a5c57';
-          const sorted = ((data || []) as any[]).slice().sort((a, b) => {
-            if (!isDepoimentos) {
+          const byDateDesc = (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
+          let sorted: any[];
+          if (isDepoimentos) {
+            sorted = ((data || []) as any[]).slice().sort(byDateDesc);
+          } else {
+            const dateSorted = ((data || []) as any[]).slice().sort(byDateDesc);
+            const RECENT_COUNT = 10;
+            const recent = dateSorted.slice(0, RECENT_COUNT);
+            const rest = dateSorted.slice(RECENT_COUNT).sort((a, b) => {
               const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
               const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
               if (vb !== va) return vb - va;
-            }
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          });
+              return byDateDesc(a, b);
+            });
+            sorted = [...recent, ...rest];
+          }
           setRows(sorted as any);
         }
         setLoading(false);
