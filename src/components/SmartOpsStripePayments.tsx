@@ -1,0 +1,489 @@
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
+import "@/styles/intelligence-dark.css";
+import { CreditCard, Search, RefreshCw, Loader2, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+
+interface StripeEvent {
+  id: string;
+  lead_id: string | null;
+  event_type: string;
+  event_timestamp: string;
+  value_numeric: number | null;
+  event_data: Record<string, any> | null;
+}
+
+interface Subscription {
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  lead_id: string | null;
+  status: string | null;
+  product: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+  canceled_at: string | null;
+  created_at: string;
+}
+
+interface LeadRow {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  telefone_normalized: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_seller_id: string | null;
+  stripe_first_payment_at: string | null;
+  pre_ativacao_at: string | null;
+  pre_ativacao_status: string | null;
+  ativacao_at: string | null;
+  ativacao_status: string | null;
+  mensalidade_first_due: string | null;
+  mensalidade_status: string | null;
+}
+
+interface Vendedor {
+  codigo: string;
+  nome_omie: string | null;
+  nome_piperun: string | null;
+  ativo: boolean | null;
+}
+
+interface Row {
+  key: string;
+  lead_id: string | null;
+  nome: string;
+  email: string;
+  telefone: string;
+  payment_at: string; // ISO
+  produto: string;
+  valor: number;
+  vendedor: string;
+  stripe_seller_id: string | null;
+  pre_ativacao_at: string | null;
+  pre_ativacao_status: string | null;
+  ativacao_at: string | null;
+  ativacao_status: string | null;
+  mensalidade_first_due: string | null;
+  mensalidade_status: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+}
+
+const fmtBRL = (v: number) =>
+  (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
+
+const fmtDateTime = (iso: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
+const fmtDate = (iso: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR");
+};
+
+const PRE_STATUSES = ["Pendente", "Agendada", "Concluída", "Bloqueada"];
+const ATIV_STATUSES = ["Pendente", "Em andamento", "Concluída", "Cancelada"];
+const MENS_STATUSES = ["A vencer", "Paga", "Vencida", "Cancelada", "Trial"];
+
+function deriveMensalidadeLabel(sub: { status: string | null; current_period_end: string | null; cancel_at_period_end: boolean | null } | null): string | null {
+  if (!sub || !sub.status) return null;
+  const s = sub.status.toLowerCase();
+  if (s === "trialing") return "Trial";
+  if (s === "canceled" || s === "unpaid" || sub.cancel_at_period_end) {
+    return s === "canceled" ? "Cancelada" : "Vencida";
+  }
+  if (s === "past_due") return "Vencida";
+  if (s === "active" && sub.current_period_end) {
+    const days = Math.round((new Date(sub.current_period_end).getTime() - Date.now()) / 86400000);
+    if (days < 0) return "Vencida";
+    if (days <= 7) return `Vence em ${days}d`;
+    return "Ativa";
+  }
+  if (s === "active") return "Ativa";
+  return sub.status;
+}
+
+function statusColor(s: string | null): string {
+  if (!s) return "bg-slate-500/10 text-slate-400 border-slate-500/30";
+  const l = s.toLowerCase();
+  if (l.includes("conclu") || l === "paga" || l === "ativa") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+  if (l.includes("vencid") || l === "cancelada" || l === "bloqueada") return "bg-red-500/10 text-red-400 border-red-500/30";
+  if (l.includes("vence") || l === "a vencer" || l === "agendada" || l === "em andamento") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  if (l === "trial") return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+  return "bg-slate-500/10 text-slate-400 border-slate-500/30";
+}
+
+export function SmartOpsStripePayments() {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "ativa" | "vencida" | "cancelada" | "trial">("all");
+  const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+
+  const load = useCallback(async (silent = false) => {
+    silent ? setRefreshing(true) : setLoading(true);
+    try {
+      const [evtRes, subRes, vendRes] = await Promise.all([
+        supabase
+          .from("lead_activity_log")
+          .select("id, lead_id, event_type, event_timestamp, value_numeric, event_data")
+          .eq("source_channel", "stripe")
+          .eq("event_type", "stripe_checkout_completed")
+          .order("event_timestamp", { ascending: false })
+          .limit(500),
+        supabase
+          .from("stripe_subscriptions")
+          .select("stripe_customer_id, stripe_subscription_id, lead_id, status, product, current_period_end, cancel_at_period_end, canceled_at, created_at")
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("omie_vendedores")
+          .select("codigo, nome_omie, nome_piperun, ativo")
+          .eq("ativo", true)
+          .order("nome_omie"),
+      ]);
+
+      if (evtRes.error) throw evtRes.error;
+      if (subRes.error) throw subRes.error;
+      if (vendRes.error) throw vendRes.error;
+
+      const events = (evtRes.data as StripeEvent[]) ?? [];
+      const subs = (subRes.data as Subscription[]) ?? [];
+      setVendedores((vendRes.data as Vendedor[]) ?? []);
+
+      // Dedupe events by (stripe_customer_id, minute)
+      const seen = new Set<string>();
+      const dedup: StripeEvent[] = [];
+      for (const e of events) {
+        const cust = (e.event_data as any)?.stripe_customer_id ?? "";
+        const minute = e.event_timestamp?.slice(0, 16) ?? "";
+        const k = `${cust}|${minute}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        dedup.push(e);
+      }
+
+      const leadIds = Array.from(new Set(dedup.map(e => e.lead_id).filter(Boolean))) as string[];
+
+      const leadsRes = leadIds.length
+        ? await supabase
+            .from("lia_attendances")
+            .select("id, nome, email, telefone_normalized, stripe_customer_id, stripe_subscription_id, stripe_seller_id, stripe_first_payment_at, pre_ativacao_at, pre_ativacao_status, ativacao_at, ativacao_status, mensalidade_first_due, mensalidade_status")
+            .in("id", leadIds)
+        : { data: [] as LeadRow[], error: null };
+      if ((leadsRes as any).error) throw (leadsRes as any).error;
+      const leadMap = new Map<string, LeadRow>();
+      for (const l of ((leadsRes as any).data as LeadRow[]) ?? []) leadMap.set(l.id, l);
+
+      // Deal fallback for seller
+      const dealsRes = leadIds.length
+        ? await supabase
+            .from("deals")
+            .select("lead_id, owner_name, updated_at")
+            .in("lead_id", leadIds)
+            .order("updated_at", { ascending: false })
+        : { data: [] as any[], error: null };
+      const dealOwnerByLead = new Map<string, string>();
+      for (const d of ((dealsRes as any).data as any[]) ?? []) {
+        if (d.lead_id && d.owner_name && !dealOwnerByLead.has(d.lead_id)) {
+          dealOwnerByLead.set(d.lead_id, d.owner_name);
+        }
+      }
+
+      // Subscriptions map by customer
+      const subByCustomer = new Map<string, Subscription>();
+      for (const s of subs) {
+        if (s.stripe_customer_id && !subByCustomer.has(s.stripe_customer_id)) {
+          subByCustomer.set(s.stripe_customer_id, s);
+        }
+      }
+
+      const vendMap = new Map<string, string>();
+      for (const v of (vendRes.data as Vendedor[]) ?? []) {
+        vendMap.set(v.codigo, v.nome_omie || v.nome_piperun || v.codigo);
+      }
+
+      const built: Row[] = dedup.map(e => {
+        const data = (e.event_data as any) ?? {};
+        const cust = data.stripe_customer_id ?? "";
+        const lead = e.lead_id ? leadMap.get(e.lead_id) : undefined;
+        const sub = cust ? subByCustomer.get(cust) : undefined;
+        const sellerCode = lead?.stripe_seller_id ?? null;
+        const vendedorLabel = sellerCode
+          ? vendMap.get(sellerCode) || sellerCode
+          : (e.lead_id ? dealOwnerByLead.get(e.lead_id) : "") || "";
+        return {
+          key: e.id,
+          lead_id: e.lead_id,
+          nome: lead?.nome || data.customer_name || data.name || "—",
+          email: lead?.email || data.customer_email || data.email || "",
+          telefone: lead?.telefone_normalized || data.customer_phone || data.phone || "",
+          payment_at: e.event_timestamp,
+          produto: data.product || sub?.product || "—",
+          valor: Number(e.value_numeric ?? 0),
+          vendedor: vendedorLabel,
+          stripe_seller_id: sellerCode,
+          pre_ativacao_at: lead?.pre_ativacao_at ?? null,
+          pre_ativacao_status: lead?.pre_ativacao_status ?? null,
+          ativacao_at: lead?.ativacao_at ?? null,
+          ativacao_status: lead?.ativacao_status ?? null,
+          mensalidade_first_due: lead?.mensalidade_first_due ?? null,
+          mensalidade_status:
+            lead?.mensalidade_status ||
+            deriveMensalidadeLabel(sub ?? null) ||
+            null,
+          subscription_status: sub?.status ?? null,
+          current_period_end: sub?.current_period_end ?? null,
+          cancel_at_period_end: sub?.cancel_at_period_end ?? null,
+        };
+      });
+
+      setRows(built);
+    } catch (err: any) {
+      console.error("[SmartOpsStripePayments] load error", err);
+      toast({ title: "Erro ao carregar pagamentos", description: err?.message ?? String(err), variant: "destructive" });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => {
+      if (statusFilter !== "all") {
+        const s = (r.mensalidade_status || "").toLowerCase();
+        if (statusFilter === "ativa" && !(s === "ativa" || s.startsWith("vence em"))) return false;
+        if (statusFilter === "vencida" && !s.includes("vencid")) return false;
+        if (statusFilter === "cancelada" && s !== "cancelada") return false;
+        if (statusFilter === "trial" && s !== "trial") return false;
+      }
+      if (!q) return true;
+      return (
+        r.nome.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.telefone.toLowerCase().includes(q) ||
+        r.produto.toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search, statusFilter]);
+
+  async function updateLeadField(leadId: string, patch: Partial<LeadRow>) {
+    const { error } = await supabase.from("lia_attendances").update(patch).eq("id", leadId);
+    if (error) {
+      toast({ title: "Falha ao salvar", description: error.message, variant: "destructive" });
+      return false;
+    }
+    setRows(prev => prev.map(r => (r.lead_id === leadId ? { ...r, ...patch } as Row : r)));
+    return true;
+  }
+
+  const total = filtered.reduce((s, r) => s + (r.valor || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="io-dark min-h-[400px] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="io-dark p-4 md:p-6 space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <CreditCard className="w-5 h-5 text-primary" />
+          <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
+          <Badge variant="outline" className="ml-2">{filtered.length} pagamentos · {fmtBRL(total)}</Badge>
+        </div>
+        <div className="flex-1" />
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar nome, e-mail, telefone…"
+            className="pl-8 w-72"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as any)}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="all">Todos os status</option>
+          <option value="ativa">Ativa</option>
+          <option value="vencida">Vencida</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="trial">Trial</option>
+        </select>
+        <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+          Atualizar
+        </Button>
+      </div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="text-left p-2">Cliente</th>
+                <th className="text-left p-2">E-mail</th>
+                <th className="text-left p-2">Celular</th>
+                <th className="text-left p-2">Data pagamento</th>
+                <th className="text-left p-2">Produto</th>
+                <th className="text-right p-2">Valor</th>
+                <th className="text-left p-2">Vendedor</th>
+                <th className="text-left p-2">Pré-ativação</th>
+                <th className="text-left p-2">Status Pré</th>
+                <th className="text-left p-2">Ativação</th>
+                <th className="text-left p-2">Status Ativação</th>
+                <th className="text-left p-2">1ª Mensalidade</th>
+                <th className="text-left p-2">Status Mensalidade</th>
+                <th className="p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.key} className="border-t border-border hover:bg-muted/20">
+                  <td className="p-2 font-medium">{r.nome}</td>
+                  <td className="p-2 text-muted-foreground">{r.email || "—"}</td>
+                  <td className="p-2 text-muted-foreground">{r.telefone || "—"}</td>
+                  <td className="p-2 whitespace-nowrap">{fmtDateTime(r.payment_at)}</td>
+                  <td className="p-2 text-xs">{r.produto}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{fmtBRL(r.valor)}</td>
+                  <td className="p-2">
+                    {r.lead_id ? (
+                      <select
+                        value={r.stripe_seller_id ?? ""}
+                        onChange={e => updateLeadField(r.lead_id!, { stripe_seller_id: e.target.value || null } as any)}
+                        className="h-7 rounded border border-border bg-background px-1 text-xs min-w-[140px]"
+                      >
+                        <option value="">— {r.vendedor || "Sem vendedor"}</option>
+                        {vendedores.map(v => (
+                          <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{r.vendedor || "—"}</span>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="date"
+                      disabled={!r.lead_id}
+                      value={r.pre_ativacao_at ? r.pre_ativacao_at.slice(0, 10) : ""}
+                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <select
+                      disabled={!r.lead_id}
+                      value={r.pre_ativacao_status ?? ""}
+                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_status: e.target.value || null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    >
+                      <option value="">—</option>
+                      {PRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {r.pre_ativacao_status && (
+                      <div className="mt-1"><Badge variant="outline" className={statusColor(r.pre_ativacao_status)}>{r.pre_ativacao_status}</Badge></div>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="date"
+                      disabled={!r.lead_id}
+                      value={r.ativacao_at ? r.ativacao_at.slice(0, 10) : ""}
+                      onChange={e => updateLeadField(r.lead_id!, { ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <select
+                      disabled={!r.lead_id}
+                      value={r.ativacao_status ?? ""}
+                      onChange={e => updateLeadField(r.lead_id!, { ativacao_status: e.target.value || null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    >
+                      <option value="">—</option>
+                      {ATIV_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {r.ativacao_status && (
+                      <div className="mt-1"><Badge variant="outline" className={statusColor(r.ativacao_status)}>{r.ativacao_status}</Badge></div>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="date"
+                      disabled={!r.lead_id}
+                      value={r.mensalidade_first_due ?? ""}
+                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_first_due: e.target.value || null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <select
+                      disabled={!r.lead_id}
+                      value={r.mensalidade_status ?? ""}
+                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_status: e.target.value || null } as any)}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    >
+                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || "Sem assinatura"}</option>
+                      {MENS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {r.mensalidade_status && (
+                      <div className="mt-1"><Badge variant="outline" className={statusColor(r.mensalidade_status)}>{r.mensalidade_status}</Badge></div>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {r.lead_id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedLead({ id: r.lead_id!, nome: r.nome })}
+                        title="Abrir lead"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">
+                    Nenhum pagamento encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {selectedLead && (
+        <LeadDetailPanel lead={selectedLead} onClose={() => setSelectedLead(null)} />
+      )}
+    </div>
+  );
+}
