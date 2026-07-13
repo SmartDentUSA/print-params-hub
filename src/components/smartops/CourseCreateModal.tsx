@@ -74,6 +74,7 @@ const MODALITIES = [
   { value: "presencial", label: "Presencial" },
   { value: "online_ao_vivo", label: "Online ao Vivo" },
   { value: "online", label: "Online" },
+  { value: "acesso_remoto", label: "Acesso Remoto" },
 ] as const;
 
 const CATEGORIES = [
@@ -81,6 +82,8 @@ const CATEGORIES = [
   { value: "imersao", label: "Imersão" },
   { value: "workshop", label: "Workshop" },
   { value: "webinar", label: "Webinar" },
+  { value: "avaliacao_pre_instalacao", label: "Avaliação pré-instalação" },
+  { value: "ativacao_software", label: "Ativação de Software" },
 ] as const;
 
 // ─── Recurrence preview ───
