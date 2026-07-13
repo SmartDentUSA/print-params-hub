@@ -91,7 +91,10 @@ export default function KbTabVideos({ onOpen }: Props) {
     id: r.id,
     title: (language === 'en' && r.title_en) || (language === 'es' && r.title_es) || r.title,
     excerpt: (language === 'en' && r.excerpt_en) || (language === 'es' && r.excerpt_es) || r.excerpt,
-    imageUrl: r.knowledge_videos?.[0]?.thumbnail_url || r.og_image_url || null,
+    // Prioriza a Hero inserida pelo usuário (og_image_url) sobre o thumbnail
+    // auto-gerado pelo Panda — em vídeos recém-criados o Panda devolve um
+    // placeholder preto/vazio, o que fazia o card aparecer sem imagem.
+    imageUrl: r.og_image_url || r.knowledge_videos?.[0]?.thumbnail_url || null,
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
