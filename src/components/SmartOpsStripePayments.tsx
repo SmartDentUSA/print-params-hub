@@ -221,11 +221,16 @@ export function SmartOpsStripePayments() {
       if (leadIds.length) {
         const { data: invRows } = await supabase
           .from("lead_activity_log")
-          .select("lead_id, value_numeric")
+          .select("lead_id, value_numeric, event_data")
           .in("lead_id", leadIds)
           .eq("event_type", "stripe_invoice_paid");
         for (const r of (invRows as any[]) ?? []) {
           if (!r?.lead_id) continue;
+          const ed = r.event_data ?? {};
+          const isSubscription =
+            !!ed.stripe_subscription_id ||
+            String(ed.mode ?? "").toLowerCase() === "subscription";
+          if (!isSubscription) continue;
           const v = Number(r.value_numeric ?? 0);
           if (!isFinite(v)) continue;
           invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
