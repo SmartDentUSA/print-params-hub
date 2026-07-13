@@ -371,25 +371,26 @@ export function SmartOpsStripePayments() {
 
   const kpis = useMemo(() => {
     let ativacoesPagas = 0;
+    let mensalidadesPagas = 0;
     let subsAtivas = 0;
     let subsFalhas = 0;
     let preAtivPend = 0;
     let ativPend = 0;
     let semDongle = 0;
     for (const r of filtered) {
+      const prod = (r.produto || "").toLowerCase();
+      const isMensalidade = prod.includes("assinatura") || prod.includes("mensal") || prod.includes("recorren");
+      const isAtivacao = prod.includes("ativa") || prod.includes("implanta") || prod.includes("bundle") || prod.includes("setup");
+      if (isMensalidade) mensalidadesPagas += r.valor || 0;
+      else if (isAtivacao) ativacoesPagas += r.valor || 0;
       const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
-      if (ativDone) ativacoesPagas += r.valor || 0;
-      else ativPend += 1;
+      if (!ativDone) ativPend += 1;
       if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
       const ss = (r.subscription_status || "").toLowerCase();
       if (ss === "active" || ss === "trialing") subsAtivas += 1;
       if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
       if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
     }
-    const leadsInView = new Set<string>();
-    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
-    let mensalidadesPagas = 0;
-    for (const lid of leadsInView) mensalidadesPagas += invoicePaidByLead.get(lid) ?? 0;
     const ticketMedio = groups.length > 0 ? total / groups.length : 0;
     return {
       pagamentos: groups.length,
@@ -404,7 +405,7 @@ export function SmartOpsStripePayments() {
       ativPend,
       semDongle,
     };
-  }, [filtered, groups, total, invoicePaidByLead]);
+  }, [filtered, groups, total]);
 
   if (loading) {
     return (
