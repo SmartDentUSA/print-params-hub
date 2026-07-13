@@ -1,36 +1,33 @@
 ## Objetivo
-1. Ordenar a lista de pagamentos do **mais antigo → mais novo**.
-2. Adicionar **dashboard consolidado** no cabeçalho de Stripe / Pagamentos, incluindo os valores de ativações pagas e mensalidades pagas.
+Separar o dashboard de KPIs em dois blocos: **Ativações** e **Mensalidades**, com métricas específicas em cada.
 
-## Mudanças em `src/components/SmartOpsStripePayments.tsx`
+## Mudança em `src/components/SmartOpsStripePayments.tsx`
 
-### 1. Ordenação
-- Trocar `.order("paid_at", { ascending: false })` para `ascending: true` para exibir do mais antigo ao mais novo.
+Layout: `grid grid-cols-1 lg:grid-cols-2 gap-3`. Cada bloco é um `Card` com título e grid interna `grid-cols-2 md:grid-cols-4 gap-2` de sub-cards (label xs muted + valor lg bold, tokens de cor já usados).
 
-### 2. Dashboard consolidado (KPIs)
-Substituir a `Badge` única do topo por uma grid de cards de KPI calculada via `useMemo` sobre `filtered`/`groups`.
+### Bloco Ativações
+- **Pagamentos** — nº de checkouts (grupos)
+- **Unidades vendidas** — nº de linhas
+- **Ativações pagas (R$)** — soma `unit_total` das linhas cujo produto é ativação/bundle/implantação/setup
+- **Ticket médio** — Ativações pagas / Pagamentos
+- **Pré-ativações pendentes** — sem `pre_ativacao_data` e status não concluído
+- **Ativações pendentes** — sem `ativacao_data` e status não concluído
+- **Dongles sem ID** — `id_dongle` vazio
+- **Ativas** — nº de unidades com `ativacao_status` concluída/paga OU `ativacao_data` preenchida
 
-Cards (em ordem):
+### Bloco Mensalidades
+- **Primeira mensalidade (status)** — nº de clientes (leads distintos) que já pagaram ao menos uma fatura de assinatura no Stripe. Fonte: `lead_activity_log` onde `event_type = 'stripe_invoice_paid'` (agrupado por `lead_id`).
+- **Total de primeiras mensalidades (R$)** — soma `value_numeric` de TODOS os `stripe_invoice_paid` dos leads no filtro (primeira até a última paga). Fonte: `lead_activity_log`.
+- **Assinaturas ativas** — unidades com `subscription_status` = active/trialing
+- **Vencidas / Canceladas** — unidades com status vencida/cancelada/past_due/unpaid
 
-- **Pagamentos** — `groups.length`
-- **Unidades vendidas** — `filtered.length`
-- **Faturamento total** — soma de `unit_total` (Ativação inicial paga na Stripe)
-- **Ticket médio** — total / groups.length
-- **Valor de ativações pagas** — soma de `unit_total` das unidades com `ativacao_status` = concluída/paga (ou `ativacao_data` preenchida quando não houver status). Representa o quanto já foi efetivamente ativado.
-- **Valor de mensalidades pagas** — soma dos valores de mensalidade paga. Fonte:
-  - Preferência: soma de `stripe_subscriptions` (invoices pagas), agregado por `stripe_customer_id` das unidades listadas.
-  - Fallback: contagem × valor de mensalidade quando `mensalidade_status` = paga/ativa e existir valor base na assinatura.
-  - Confirmo qual campo em `stripe_subscriptions` guarda o total pago (ex.: `amount_paid_total` / soma de invoices) na hora da implementação; se não houver campo consolidado, mostro placeholder com `—` e abro TODO em vez de exibir número incorreto.
-- **Assinaturas ativas** — unidades com `subscription_status` ativa/trial
-- **Vencidas / Canceladas** — unidades com status vencida/cancelada/bloqueada
-- **Pré-ativações pendentes** — unidades sem `pre_ativacao_data` ou status ≠ concluída
-- **Ativações pendentes** — unidades sem `ativacao_data` ou status ≠ concluída
-- **Dongles sem ID** — unidades com `id_dongle` vazio
-
-Layout: `grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2`. Cada card: label (xs, muted) + valor (lg, bold). Cores via tokens já usados no arquivo (`text-primary`, `text-emerald-400`, `text-amber-400`, `text-red-400`) — sem cores hardcoded fora do padrão.
-
-A linha de filtros (busca / status / atualizar) fica acima da grid de KPIs; a badge antiga é removida.
+### Ajuste em `kpis`
+- Reintroduzir agregação `invoicePaidByLead` (já existente) para calcular:
+  - `primeirasMensalidadesClientes` = tamanho do set de `lead_id` com valor > 0 em `invoicePaidByLead`
+  - `mensalidadesPagas` (R$) = soma sobre `invoicePaidByLead` restrita aos leads presentes no filtro
+- Remover a categorização por nome de produto para "mensalidades pagas" (fica só para exibição de produto, não para KPI).
+- Adicionar contagem `ativas` (concluídas).
 
 ## Fora de escopo
-- Sem mudanças em banco, webhook ou lógica de gravação.
-- Sem novas colunas na tabela.
+- Sem mudanças no webhook, no banco, ou na tabela abaixo.
+- Sem novos filtros.
