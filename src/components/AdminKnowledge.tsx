@@ -3923,6 +3923,28 @@ Receba o texto bruto abaixo e:
                   </p>
                 </div>
 
+                {/* Áudio explicativo do produto (opcional) */}
+                <div className="space-y-2 rounded-md border border-dashed border-primary/30 bg-primary/5 p-3">
+                  <Label className="text-sm font-semibold">🎙️ Áudio explicativo do produto (opcional)</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Resumo narrado em MP3 exibido como player animado no topo do artigo publicado.
+                  </p>
+                  <HeroAudioUpload
+                    value={formData.hero_audio_url}
+                    onChange={(url) => setFormData({ ...formData, hero_audio_url: url })}
+                  />
+                  {formData.hero_audio_url && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Rótulo do player</Label>
+                      <Input
+                        placeholder="Ex.: Ouvir resumo do produto"
+                        value={formData.hero_audio_label}
+                        onChange={(e) => setFormData({ ...formData, hero_audio_label: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3">
                   <Label>Imagem OG (Open Graph) - Redes Sociais <span className="text-muted-foreground">(Opcional)</span></Label>
                   <Input 
