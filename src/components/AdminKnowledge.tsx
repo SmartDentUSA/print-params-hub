@@ -1181,6 +1181,8 @@ Receba o texto bruto abaixo e:
         content_image_url: effectiveFormData.content_image_url,
         content_image_alt: effectiveFormData.content_image_alt,
         canva_template_url: effectiveFormData.canva_template_url,
+        hero_audio_url: effectiveFormData.hero_audio_url || null,
+        hero_audio_label: effectiveFormData.hero_audio_label || null,
         file_url: effectiveFormData.file_url,
         file_name: effectiveFormData.file_name,
         author_id: effectiveFormData.author_id,
