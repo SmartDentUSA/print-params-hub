@@ -132,6 +132,7 @@ export const MODALITY_CONFIG = {
   presencial:     { label: 'Presencial',     badge: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
   online_ao_vivo: { label: 'Online ao Vivo', badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
   online:         { label: 'Online',         badge: 'bg-red-700 text-black dark:bg-red-800 dark:text-black' },
+  acesso_remoto:  { label: 'Acesso Remoto',  badge: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300' },
 } as const;
 
 export const STATUS_CONFIG = {
