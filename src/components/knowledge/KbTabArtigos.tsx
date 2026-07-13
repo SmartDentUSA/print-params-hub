@@ -71,14 +71,23 @@ export default function KbTabArtigos({ onOpen }: Props) {
 
           const dateSorted = filtered.slice().sort(byDateDesc);
           const RECENT_COUNT = 10;
-          const recent = dateSorted.slice(0, RECENT_COUNT);
-          const rest = dateSorted.slice(RECENT_COUNT).sort((a: any, b: any) => {
+          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          const recent = dateSorted
+            .filter((r: any) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
+            .slice(0, RECENT_COUNT);
+          const recentIds = new Set(recent.map((r: any) => r.id));
+          const byViewsDesc = (a: any, b: any) => {
             const va = a?.view_count ?? 0;
             const vb = b?.view_count ?? 0;
             if (vb !== va) return vb - va;
             return byDateDesc(a, b);
-          });
-          const sorted = [...recent, ...rest];
+          };
+          const remaining = dateSorted.filter((r: any) => !recentIds.has(r.id));
+          const topViewed = remaining.slice().sort(byViewsDesc).slice(0, RECENT_COUNT);
+          const topViewedIds = new Set(topViewed.map((r: any) => r.id));
+          const rest = remaining.filter((r: any) => !topViewedIds.has(r.id));
+          const sorted = [...recent, ...topViewed, ...rest];
           setRows(sorted as any);
         }
         setLoading(false);
