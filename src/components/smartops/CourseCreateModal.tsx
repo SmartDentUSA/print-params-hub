@@ -982,7 +982,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 </div>
               </div>
 
-              {['online', 'online_ao_vivo', 'workshop', 'webinar'].includes(modality) && (
+              {['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar'].includes(modality) && (
                 <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Switch
