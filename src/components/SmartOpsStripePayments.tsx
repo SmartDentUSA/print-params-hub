@@ -152,6 +152,7 @@ export function SmartOpsStripePayments() {
   const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoicePaidByLead, setInvoicePaidByLead] = useState<Map<string, number>>(new Map());
+  const [firstSubInvoiceByLead, setFirstSubInvoiceByLead] = useState<Map<string, Date>>(new Map());
 
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
@@ -218,10 +219,11 @@ export function SmartOpsStripePayments() {
 
       // Aggregate paid invoices from lead_activity_log for the mensalidades KPI
       const invoicePaid = new Map<string, number>();
+      const firstSubInvoice = new Map<string, Date>();
       if (leadIds.length) {
         const { data: invRows } = await supabase
           .from("lead_activity_log")
-          .select("lead_id, value_numeric, event_data")
+          .select("lead_id, value_numeric, event_data, event_timestamp")
           .in("lead_id", leadIds)
           .eq("event_type", "stripe_invoice_paid");
         for (const r of (invRows as any[]) ?? []) {
@@ -232,11 +234,22 @@ export function SmartOpsStripePayments() {
             String(ed.mode ?? "").toLowerCase() === "subscription";
           if (!isSubscription) continue;
           const v = Number(r.value_numeric ?? 0);
-          if (!isFinite(v)) continue;
-          invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
+          if (isFinite(v)) {
+            invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
+          }
+          if (r.event_timestamp) {
+            const d = new Date(r.event_timestamp);
+            if (!isNaN(d.getTime())) {
+              const prev = firstSubInvoice.get(r.lead_id);
+              if (!prev || d.getTime() < prev.getTime()) {
+                firstSubInvoice.set(r.lead_id, d);
+              }
+            }
+          }
         }
       }
       setInvoicePaidByLead(invoicePaid);
+      setFirstSubInvoiceByLead(firstSubInvoice);
 
       // Subscriptions map by customer
       const subByCustomer = new Map<string, Subscription>();
@@ -382,6 +395,12 @@ export function SmartOpsStripePayments() {
     let ativPend = 0;
     let semDongle = 0;
     let ativas = 0;
+    let mens0a10 = 0;
+    let mens11a20 = 0;
+    let mens21a30 = 0;
+    let mensNaoPaga = 0;
+    const now = Date.now();
+    const DAY = 86400000;
     for (const r of filtered) {
       const prod = (r.produto || "").toLowerCase();
       const isMensalidade = prod.includes("assinatura") || prod.includes("mensal") || prod.includes("recorren");
@@ -395,6 +414,21 @@ export function SmartOpsStripePayments() {
       if (ss === "active" || ss === "trialing") subsAtivas += 1;
       if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
       if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
+
+      // Aging da primeira mensalidade (só unidades ativadas)
+      if (ativDone && r.lead_id) {
+        const first = firstSubInvoiceByLead.get(r.lead_id);
+        if (first) {
+          const diff = Math.floor((now - first.getTime()) / DAY);
+          if (diff >= 0 && diff <= 10) mens0a10 += 1;
+          else if (diff <= 20) mens11a20 += 1;
+          else if (diff <= 30) mens21a30 += 1;
+          else if (diff > 30) mensNaoPaga += 1;
+        } else if (r.ativacao_at) {
+          const at = new Date(r.ativacao_at).getTime();
+          if (isFinite(at) && (now - at) > 30 * DAY) mensNaoPaga += 1;
+        }
+      }
     }
     // Mensalidades — de lead_activity_log (stripe_invoice_paid), restrito aos leads em filtered
     const leadsInView = new Set<string>();
@@ -422,8 +456,12 @@ export function SmartOpsStripePayments() {
       ativPend,
       semDongle,
       ativas,
+      mens0a10,
+      mens11a20,
+      mens21a30,
+      mensNaoPaga,
     };
-  }, [filtered, groups, total, invoicePaidByLead]);
+  }, [filtered, groups, total, invoicePaidByLead, firstSubInvoiceByLead]);
 
   if (loading) {
     return (
@@ -503,6 +541,10 @@ export function SmartOpsStripePayments() {
               { label: "Total mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
               { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
               { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
+              { label: "0–10 dias", value: String(kpis.mens0a10), tone: "text-emerald-400" },
+              { label: "11–20 dias", value: String(kpis.mens11a20), tone: "text-amber-400" },
+              { label: "21–30 dias", value: String(kpis.mens21a30), tone: "text-amber-400" },
+              { label: "> 30 dias — Não paga", value: String(kpis.mensNaoPaga), tone: "text-destructive" },
             ].map(k => (
               <div key={k.label} className="rounded-md border border-border bg-background/40 p-2">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
