@@ -14,6 +14,7 @@ import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
 import { ImageUpload } from '@/components/ImageUpload';
+import HeroAudioUpload from '@/components/smartops/HeroAudioUpload';
 import { PDFTranscription } from '@/components/PDFTranscription';
 import { Badge } from '@/components/ui/badge';
 import { VideoSelector } from '@/components/VideoSelector';
@@ -179,6 +180,8 @@ Receba o texto bruto abaixo e:
     content_image_url: '',
     content_image_alt: '',
     canva_template_url: '',
+    hero_audio_url: '',
+    hero_audio_label: '',
     author_id: null as string | null,
     keywords: [] as string[],
     faqs: [] as Array<{ question: string; answer: string }>,
@@ -992,6 +995,8 @@ Receba o texto bruto abaixo e:
       recommended_products: content.recommended_products || [],
       content_image_url: (content as any).content_image_url || '',
       content_image_alt: (content as any).content_image_alt || '',
+      hero_audio_url: (content as any).hero_audio_url || '',
+      hero_audio_label: (content as any).hero_audio_label || '',
       aiPromptTemplate: (content as any).ai_prompt_template || '',
       selected_pdf_ids_pt: content.selected_pdf_ids_pt || [],
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
@@ -1052,6 +1057,8 @@ Receba o texto bruto abaixo e:
       content_image_url: '',
       content_image_alt: '',
       canva_template_url: '',
+      hero_audio_url: '',
+      hero_audio_label: '',
       author_id: null,
       keywords: [],
       faqs: [],
@@ -1175,6 +1182,8 @@ Receba o texto bruto abaixo e:
         content_image_url: effectiveFormData.content_image_url,
         content_image_alt: effectiveFormData.content_image_alt,
         canva_template_url: effectiveFormData.canva_template_url,
+        hero_audio_url: effectiveFormData.hero_audio_url || null,
+        hero_audio_label: effectiveFormData.hero_audio_label || null,
         file_url: effectiveFormData.file_url,
         file_name: effectiveFormData.file_name,
         author_id: effectiveFormData.author_id,
@@ -3912,6 +3921,28 @@ Receba o texto bruto abaixo e:
                     Imagem principal exibida nos cards e no topo do artigo.
                     <strong> Será usada automaticamente como OG Image se você não enviar uma específica.</strong>
                   </p>
+                </div>
+
+                {/* Áudio explicativo do produto (opcional) */}
+                <div className="space-y-2 rounded-md border border-dashed border-primary/30 bg-primary/5 p-3">
+                  <Label className="text-sm font-semibold">🎙️ Áudio explicativo do produto (opcional)</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Resumo narrado em MP3 exibido como player animado no topo do artigo publicado.
+                  </p>
+                  <HeroAudioUpload
+                    value={formData.hero_audio_url}
+                    onChange={(url) => setFormData({ ...formData, hero_audio_url: url })}
+                  />
+                  {formData.hero_audio_url && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Rótulo do player</Label>
+                      <Input
+                        placeholder="Ex.: Ouvir resumo do produto"
+                        value={formData.hero_audio_label}
+                        onChange={(e) => setFormData({ ...formData, hero_audio_label: e.target.value })}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">

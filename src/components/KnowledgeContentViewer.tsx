@@ -25,6 +25,7 @@ import { ArticleSummary } from '@/components/ArticleSummary';
 import { ArticleMeta } from '@/components/ArticleMeta';
 import { VeredictBox } from '@/components/VeredictBox';
 import { VideoGateOverlay } from '@/components/VideoGateOverlay';
+import { KnowledgeAudioPlayer } from '@/components/knowledge/KnowledgeAudioPlayer';
 
 const linkLabels: Record<string, { document: string; store: string; video: string; study: string; fallback: string }> = {
   pt: { document: 'Ver Documento', store: 'Ver na Loja', video: 'Assistir Vídeo', study: 'Ver Estudo (PubMed)', fallback: 'Ver Link' },
@@ -495,6 +496,14 @@ ${processedHTML}
               createdAt={content.created_at} 
               updatedAt={content.updated_at} 
             />
+            {(content as any).hero_audio_url && (
+              <div className="mt-4">
+                <KnowledgeAudioPlayer
+                  url={(content as any).hero_audio_url}
+                  label={(content as any).hero_audio_label}
+                />
+              </div>
+            )}
           </div>
         </header>
       )}
