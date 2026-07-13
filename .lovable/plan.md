@@ -1,44 +1,25 @@
 ## Objetivo
-Adicionar aging da primeira mensalidade no bloco **Mensalidades** de `src/components/SmartOpsStripePayments.tsx`, com 4 faixas:
+Na tabela do dashboard **Smart Ops › Stripe Payments** (`src/components/SmartOpsStripePayments.tsx`):
 
-- **0–10 dias**
-- **11–20 dias**
-- **21–30 dias**
-- **> 30 dias → Primeira mensalidade não paga**
+1. A coluna atual **"ID Smart Dent"** (que hoje mostra os 8 primeiros dígitos de `lead_id`) passa a se chamar **"ID Sistema"** — comportamento inalterado (clique copia o UUID completo).
+2. Criar uma nova coluna **"ID Smart Dent"** — campo de texto editável preenchido pelo usuário, persistido em `stripe_payment_units.id_smartdent`.
 
-Só entram unidades já **ativadas** (`isDoneStatus(ativacao_status) || ativacao_at`). A contagem parte da data da **primeira invoice de assinatura** paga (`stripe_invoice_paid` com `stripe_subscription_id` ou `mode='subscription'`).
+## Alterações
 
-Para o bucket ">30 / não paga", a base é o tempo desde a `ativacao_at` quando **não** há invoice de assinatura registrada, OU quando a diferença desde a primeira mensalidade paga já ultrapassou 30 dias sem nova cobrança recente — regra final:
+### 1. Migration
+Adicionar coluna em `stripe_payment_units`:
+```sql
+ALTER TABLE public.stripe_payment_units
+  ADD COLUMN IF NOT EXISTS id_smartdent TEXT NULL;
+```
 
-- Se **não existe** `firstSubInvoiceByLead` para o lead → conta como "não paga" apenas se `(now - ativacao_at) > 30 dias`.
-- Se **existe** primeira mensalidade e `diffDays ≤ 10` → 0–10.
-- `11 ≤ diffDays ≤ 20` → 11–20.
-- `21 ≤ diffDays ≤ 30` → 21–30.
-- `diffDays > 30` → não paga (assumindo ciclo mensal vencido sem nova invoice).
-
-## Alterações em `SmartOpsStripePayments.tsx`
-
-### Fetch (~linha 220)
-- Incluir `event_timestamp` e `event_data` no `select` de `lead_activity_log` (event_data já pode estar; garantir).
-- Filtrar apenas invoices de assinatura (`stripe_subscription_id` presente OU `mode='subscription'`).
-- Construir novo mapa `firstSubInvoiceByLead: Map<lead_id, Date>` com a **menor** data por lead. Guardar em `useState`.
-
-### `useMemo` de KPIs (~linha 385)
-Adicionar contadores `mens0a10`, `mens11a20`, `mens21a30`, `mensNaoPaga`. Para cada row de `filtered`:
-1. Ignora se não estiver ativa.
-2. `first = firstSubInvoiceByLead.get(lead_id)`.
-3. Se `first`:
-   - `diff = floor((now - first)/86400000)`
-   - `diff ≤ 10` → mens0a10; `11–20` → mens11a20; `21–30` → mens21a30; `> 30` → mensNaoPaga.
-4. Se `!first` e `ativacao_at` e `(now - ativacao_at) > 30 dias` → mensNaoPaga.
-
-### UI
-No `Card` "Mensalidades", ampliar a grid interna para `grid-cols-2 md:grid-cols-4` (linha adicional se necessário) e acrescentar mini-cards:
-- **0–10 dias**
-- **11–20 dias**
-- **21–30 dias**
-- **> 30 dias — Não paga** (destacar com token de alerta, ex.: `text-destructive`)
+### 2. `SmartOpsStripePayments.tsx`
+- **Interfaces `Unit` e `Row`:** adicionar `id_smartdent: string | null`.
+- **Select do fetch de `stripe_payment_units`:** incluir `id_smartdent`.
+- **Montagem do `Row`:** propagar `id_smartdent: u.id_smartdent ?? null`.
+- **Header (linha 571):** renomear `"ID Smart Dent"` → `"ID Sistema"` e adicionar nova `<th>ID Smart Dent</th>` logo após.
+- **Body:** manter a célula atual (com `r.lead_id`) sob "ID Sistema"; adicionar nova célula (uma por unidade, não `rowSpan`) com `<input type="text" defaultValue={r.id_smartdent ?? ""} onBlur={...} />` chamando `updateUnit(r.unit_id, { id_smartdent: v || null })`.
 
 ## Fora de escopo
-- Sem migration, sem webhook, sem mudanças no bloco Ativações ou em `stripe_payment_units`.
-- ID Smart Dent segue como plano separado.
+- Sem mudanças em KPIs, webhooks, Ativações ou lógica de mensalidades.
+- Sem validação de formato do ID Smart Dent (texto livre).
