@@ -14,6 +14,7 @@ import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
 import { ImageUpload } from '@/components/ImageUpload';
+import HeroAudioUpload from '@/components/smartops/HeroAudioUpload';
 import { PDFTranscription } from '@/components/PDFTranscription';
 import { Badge } from '@/components/ui/badge';
 import { VideoSelector } from '@/components/VideoSelector';
