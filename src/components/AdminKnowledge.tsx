@@ -179,6 +179,8 @@ Receba o texto bruto abaixo e:
     content_image_url: '',
     content_image_alt: '',
     canva_template_url: '',
+    hero_audio_url: '',
+    hero_audio_label: '',
     author_id: null as string | null,
     keywords: [] as string[],
     faqs: [] as Array<{ question: string; answer: string }>,
