@@ -20247,6 +20247,7 @@ export type Database = {
           created_at: string
           id: string
           id_dongle: string | null
+          id_smartdent: string | null
           lead_id: string | null
           mensalidade_data: string | null
           mensalidade_status: string | null
@@ -20268,6 +20269,7 @@ export type Database = {
           created_at?: string
           id?: string
           id_dongle?: string | null
+          id_smartdent?: string | null
           lead_id?: string | null
           mensalidade_data?: string | null
           mensalidade_status?: string | null
@@ -20289,6 +20291,7 @@ export type Database = {
           created_at?: string
           id?: string
           id_dongle?: string | null
+          id_smartdent?: string | null
           lead_id?: string | null
           mensalidade_data?: string | null
           mensalidade_status?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.stripe_payment_units ADD COLUMN IF NOT EXISTS id_smartdent TEXT NULL;
