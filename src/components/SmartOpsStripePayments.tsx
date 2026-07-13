@@ -21,6 +21,7 @@ interface PaymentUnit {
   paid_at: string | null;
   id_dongle: string | null;
   stripe_seller_id: string | null;
+  id_smartdent: string | null;
   pre_ativacao_data: string | null;
   pre_ativacao_status: string | null;
   ativacao_data: string | null;
@@ -70,6 +71,7 @@ interface Row {
   vendedor: string;
   stripe_seller_id: string | null;
   id_dongle: string | null;
+  id_smartdent: string | null;
   pre_ativacao_at: string | null;
   pre_ativacao_status: string | null;
   ativacao_at: string | null;
@@ -287,6 +289,7 @@ export function SmartOpsStripePayments() {
           vendedor: vendedorLabel,
           stripe_seller_id: sellerCode,
           id_dongle: u.id_dongle ?? null,
+          id_smartdent: (u as any).id_smartdent ?? null,
           pre_ativacao_at: u.pre_ativacao_data,
           pre_ativacao_status: u.pre_ativacao_status,
           ativacao_at: u.ativacao_data,
@@ -342,6 +345,7 @@ export function SmartOpsStripePayments() {
       const next: any = { ...r };
       if ("stripe_seller_id" in patch) next.stripe_seller_id = patch.stripe_seller_id ?? null;
       if ("id_dongle" in patch) next.id_dongle = patch.id_dongle ?? null;
+      if ("id_smartdent" in patch) next.id_smartdent = (patch as any).id_smartdent ?? null;
       if ("pre_ativacao_data" in patch) next.pre_ativacao_at = patch.pre_ativacao_data ?? null;
       if ("pre_ativacao_status" in patch) next.pre_ativacao_status = patch.pre_ativacao_status ?? null;
       if ("ativacao_data" in patch) next.ativacao_at = patch.ativacao_data ?? null;
@@ -568,6 +572,7 @@ export function SmartOpsStripePayments() {
                 <th className="text-left p-2">Produto</th>
                 <th className="text-right p-2">Valor</th>
                 <th className="text-left p-2">Vendedor</th>
+                <th className="text-left p-2">ID Sistema</th>
                 <th className="text-left p-2">ID Smart Dent</th>
                 <th className="text-left p-2">ID Dongle</th>
                 <th className="text-left p-2">Pré-ativação</th>
