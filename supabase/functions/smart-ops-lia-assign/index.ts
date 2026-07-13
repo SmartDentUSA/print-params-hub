@@ -3331,8 +3331,149 @@ Deno.serve(async (req) => {
         piperunId = null;
       }
 
+      // ─── GOLDEN RULE — GANHO INTOCÁVEL (jul/2026) ─────────────────────
+      // Se o lead teve QUALQUER deal VENDAS marcado como GANHO nos últimos
+      // 30 dias, o card está CONGELADO:
+      //   • NÃO cria novo deal VENDAS (nem por Estagnados, nem por form
+      //     re-delivery, nem pelo main "else").
+      //   • NÃO troca o proprietário — o vendedor que ganhou continua dono.
+      //   • Se aparecer deal VENDAS aberto duplicado (criado depois do
+      //     ganho por qualquer caminho), fecha ele como "Perdido — deal
+      //     duplicado (regra de ouro: ganho intocável)".
+      //   • Único destino permitido pós-ganho: CS Onboarding, tratado no
+      //     piperun-webhook após status=won.
+      let wonFrozen = false;
+      if (force_new_deal !== true) {
+        const WON_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+        const recentWonVendas = wonDeals
+          .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
+          .filter((d) => {
+            const ts = new Date(String(d.updated_at ?? d.created_at ?? "")).getTime();
+            return Number.isFinite(ts) && (Date.now() - ts) <= WON_WINDOW_MS;
+          })
+          .sort((a, b) =>
+            new Date(String(b.updated_at ?? b.created_at ?? "")).getTime() -
+            new Date(String(a.updated_at ?? a.created_at ?? "")).getTime(),
+          )[0];
+
+        if (recentWonVendas) {
+          wonFrozen = true;
+          piperunId = String(recentWonVendas.id);
+          flowType = "golden_rule_won_frozen";
+
+          // Preserva owner do deal ganho como fonte da verdade.
+          const wonOwnerId = Number(recentWonVendas.owner_id) || 0;
+          if (wonOwnerId) {
+            assignedOwnerId = wonOwnerId;
+            const wonOwnerInfo = PIPERUN_USERS[wonOwnerId];
+            if (wonOwnerInfo?.name) assignedOwnerName = wonOwnerInfo.name;
+            try {
+              const { data: wonTm } = await supabase
+                .from("team_members")
+                .select("id")
+                .eq("piperun_owner_id", wonOwnerId)
+                .eq("ativo", true)
+                .maybeSingle();
+              if (wonTm) assignedTeamMemberId = wonTm.id;
+            } catch {}
+          }
+
+          // Fecha qualquer VENDAS aberto duplicado criado após o ganho.
+          if (vendaDeal && Number(vendaDeal.id) !== Number(recentWonVendas.id)) {
+            try {
+              const lostReasonId = await resolveLostReasonId(PIPERUN_API_KEY);
+              const wonAtStr = new Date(
+                String(recentWonVendas.updated_at ?? recentWonVendas.created_at ?? ""),
+              ).toLocaleDateString("pt-BR");
+              await closeDealAsLost(
+                PIPERUN_API_KEY,
+                Number(vendaDeal.id),
+                lostReasonId,
+                `🔒 [Dra. L.I.A.] Deal duplicado fechado — cliente já ganho no deal ${recentWonVendas.id} por ${assignedOwnerName} em ${wonAtStr}. Regra de ouro: ganho é intocável.`,
+              );
+              console.log(
+                `[lia-assign] GOLDEN RULE WON: closed duplicate VENDAS deal ${vendaDeal.id} — won deal ${recentWonVendas.id} preserved (owner=${assignedOwnerName})`,
+              );
+            } catch (e) {
+              console.warn("[lia-assign] GOLDEN RULE WON: failed to close duplicate:", e);
+            }
+          }
+
+          // Enriquecimento apenas de custom fields no deal ganho, sem
+          // trocar owner nem stage.
+          try {
+            await updateExistingDeal(
+              PIPERUN_API_KEY,
+              Number(recentWonVendas.id),
+              null,
+              customFields,
+              lead as Record<string, unknown>,
+              companyId,
+              supabase,
+              inputFormResponses,
+            );
+          } catch (e) {
+            console.warn("[lia-assign] GOLDEN RULE WON enrichment failed:", e);
+          }
+
+          try {
+            await supabase.from("system_health_logs").insert({
+              function_name: "smart-ops-lia-assign",
+              severity: "info",
+              error_type: "golden_rule_won_frozen",
+              lead_id: lead.id,
+              lead_email: leadEmail,
+              details: {
+                preserved_won_deal_id: String(recentWonVendas.id),
+                preserved_owner: assignedOwnerName,
+                preserved_owner_id: assignedOwnerId,
+                closed_duplicate_id:
+                  vendaDeal && Number(vendaDeal.id) !== Number(recentWonVendas.id)
+                    ? String(vendaDeal.id)
+                    : null,
+                estagnados_open_id: estagnDeal ? String(estagnDeal.id) : null,
+                won_at: recentWonVendas.updated_at ?? recentWonVendas.created_at,
+                person_id: personId,
+                form_name: lead.form_name,
+                source: lead.source,
+              },
+            });
+          } catch {}
+          try {
+            await supabase.from("lead_activity_log").insert({
+              lead_id: lead.id,
+              event_type: "golden_rule_won_frozen",
+              entity_type: "deal",
+              entity_id: String(recentWonVendas.id),
+              entity_name: "Regra de Ouro (Ganho intocável) — preservado",
+              event_data: {
+                won_deal_id: String(recentWonVendas.id),
+                won_owner: assignedOwnerName,
+                won_owner_id: assignedOwnerId,
+                won_at: recentWonVendas.updated_at ?? recentWonVendas.created_at,
+                closed_duplicate_id:
+                  vendaDeal && Number(vendaDeal.id) !== Number(recentWonVendas.id)
+                    ? String(vendaDeal.id)
+                    : null,
+                estagnados_open_id: estagnDeal ? String(estagnDeal.id) : null,
+                form_name: lead.form_name,
+                source: lead.source,
+              },
+              source_channel: "form",
+              event_timestamp: new Date().toISOString(),
+            });
+          } catch {}
+
+          console.log(
+            `[lia-assign] GOLDEN RULE WON FROZEN: lead ${lead.id} preserved won deal ${recentWonVendas.id}, owner ${assignedOwnerName} — skipping vendaDeal/estagnDeal/new_deal branches`,
+          );
+        }
+      }
+
       // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
-      if (vendaDeal) {
+      if (wonFrozen) {
+        // Já tratado pelo bloco acima. Nada mais a fazer no decision tree.
+      } else if (vendaDeal) {
         piperunId = String(vendaDeal.id);
         flowType = "preserve_vendas";
 
