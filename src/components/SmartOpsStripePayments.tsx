@@ -295,13 +295,25 @@ export function SmartOpsStripePayments() {
     });
   }, [rows, search, statusFilter]);
 
-  async function updateLeadField(leadId: string, patch: Partial<LeadRow>) {
-    const { error } = await supabase.from("lia_attendances").update(patch).eq("id", leadId);
+  async function updateUnit(unitId: string, patch: Partial<PaymentUnit>) {
+    const { error } = await supabase.from("stripe_payment_units").update(patch).eq("id", unitId);
     if (error) {
       toast({ title: "Falha ao salvar", description: error.message, variant: "destructive" });
       return false;
     }
-    setRows(prev => prev.map(r => (r.lead_id === leadId ? { ...r, ...patch } as Row : r)));
+    setRows(prev => prev.map(r => {
+      if (r.unit_id !== unitId) return r;
+      const next: any = { ...r };
+      if ("stripe_seller_id" in patch) next.stripe_seller_id = patch.stripe_seller_id ?? null;
+      if ("id_dongle" in patch) next.id_dongle = patch.id_dongle ?? null;
+      if ("pre_ativacao_data" in patch) next.pre_ativacao_at = patch.pre_ativacao_data ?? null;
+      if ("pre_ativacao_status" in patch) next.pre_ativacao_status = patch.pre_ativacao_status ?? null;
+      if ("ativacao_data" in patch) next.ativacao_at = patch.ativacao_data ?? null;
+      if ("ativacao_status" in patch) next.ativacao_status = patch.ativacao_status ?? null;
+      if ("mensalidade_data" in patch) next.mensalidade_first_due = patch.mensalidade_data ?? null;
+      if ("mensalidade_status" in patch) next.mensalidade_status = patch.mensalidade_status ?? null;
+      return next;
+    }));
     return true;
   }
 
