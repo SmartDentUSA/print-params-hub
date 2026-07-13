@@ -97,6 +97,18 @@ const PRE_STATUSES = ["Pendente", "Agendada", "Concluída", "Bloqueada"];
 const ATIV_STATUSES = ["Pendente", "Em andamento", "Concluída", "Cancelada"];
 const MENS_STATUSES = ["A vencer", "Paga", "Vencida", "Cancelada", "Trial"];
 
+const PRODUCT_LABELS: Record<string, string> = {
+  ativacao_dentalcad_ultimate_lab_bundle_rms: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
+  ativacao_exocad_dentalcad_ia: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
+  exocad_ultimate_bundle_rms: "Exocad Ultimate Bundle (RMS)",
+  mensalidade_dentalcad_ultimate_lab_bundle_rms: "Mensalidade DentalCAD Ultimate Lab Bundle - RMS",
+};
+
+function productLabel(slug: string | null | undefined): string {
+  if (!slug) return "—";
+  return PRODUCT_LABELS[slug] || slug;
+}
+
 function deriveMensalidadeLabel(sub: { status: string | null; current_period_end: string | null; cancel_at_period_end: boolean | null } | null): string | null {
   if (!sub || !sub.status) return null;
   const s = sub.status.toLowerCase();
@@ -368,7 +380,7 @@ export function SmartOpsStripePayments() {
                   <td className="p-2 text-muted-foreground">{r.email || "—"}</td>
                   <td className="p-2 text-muted-foreground">{r.telefone || "—"}</td>
                   <td className="p-2 whitespace-nowrap">{fmtDateTime(r.payment_at)}</td>
-                  <td className="p-2 text-xs">{r.produto}</td>
+                  <td className="p-2 text-xs">{productLabel(r.produto)}</td>
                   <td className="p-2 text-right whitespace-nowrap">{fmtBRL(r.valor)}</td>
                   <td className="p-2">
                     {r.lead_id ? (
