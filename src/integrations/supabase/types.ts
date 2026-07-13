@@ -9253,6 +9253,8 @@ export type Database = {
           astron_status: string | null
           astron_synced_at: string | null
           astron_user_id: number | null
+          ativacao_at: string | null
+          ativacao_status: string | null
           ativo_cad: boolean | null
           ativo_cad_ia: boolean | null
           ativo_cura: boolean | null
@@ -9516,6 +9518,8 @@ export type Database = {
           map_fresadora_date: string | null
           map_fresadora_marca: string | null
           map_fresadora_modelo: string | null
+          mensalidade_first_due: string | null
+          mensalidade_status: string | null
           merge_history: Json | null
           merged_at: string | null
           merged_into: string | null
@@ -9650,6 +9654,8 @@ export type Database = {
           portfolio_json: Json | null
           portfolio_updated_at: string | null
           prazo_compra: string | null
+          pre_ativacao_at: string | null
+          pre_ativacao_status: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
           primary_motivation: string | null
@@ -9753,6 +9759,8 @@ export type Database = {
           status_pos_impressao: string | null
           status_scanner: string | null
           stripe_customer_id: string | null
+          stripe_first_payment_at: string | null
+          stripe_seller_id: string | null
           stripe_subscription_id: string | null
           suporte_educacional_tickets_total: number | null
           suporte_impressora_tickets_6m: number | null
@@ -9820,6 +9828,8 @@ export type Database = {
           astron_status?: string | null
           astron_synced_at?: string | null
           astron_user_id?: number | null
+          ativacao_at?: string | null
+          ativacao_status?: string | null
           ativo_cad?: boolean | null
           ativo_cad_ia?: boolean | null
           ativo_cura?: boolean | null
@@ -10083,6 +10093,8 @@ export type Database = {
           map_fresadora_date?: string | null
           map_fresadora_marca?: string | null
           map_fresadora_modelo?: string | null
+          mensalidade_first_due?: string | null
+          mensalidade_status?: string | null
           merge_history?: Json | null
           merged_at?: string | null
           merged_into?: string | null
@@ -10217,6 +10229,8 @@ export type Database = {
           portfolio_json?: Json | null
           portfolio_updated_at?: string | null
           prazo_compra?: string | null
+          pre_ativacao_at?: string | null
+          pre_ativacao_status?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -10320,6 +10334,8 @@ export type Database = {
           status_pos_impressao?: string | null
           status_scanner?: string | null
           stripe_customer_id?: string | null
+          stripe_first_payment_at?: string | null
+          stripe_seller_id?: string | null
           stripe_subscription_id?: string | null
           suporte_educacional_tickets_total?: number | null
           suporte_impressora_tickets_6m?: number | null
@@ -10387,6 +10403,8 @@ export type Database = {
           astron_status?: string | null
           astron_synced_at?: string | null
           astron_user_id?: number | null
+          ativacao_at?: string | null
+          ativacao_status?: string | null
           ativo_cad?: boolean | null
           ativo_cad_ia?: boolean | null
           ativo_cura?: boolean | null
@@ -10650,6 +10668,8 @@ export type Database = {
           map_fresadora_date?: string | null
           map_fresadora_marca?: string | null
           map_fresadora_modelo?: string | null
+          mensalidade_first_due?: string | null
+          mensalidade_status?: string | null
           merge_history?: Json | null
           merged_at?: string | null
           merged_into?: string | null
@@ -10784,6 +10804,8 @@ export type Database = {
           portfolio_json?: Json | null
           portfolio_updated_at?: string | null
           prazo_compra?: string | null
+          pre_ativacao_at?: string | null
+          pre_ativacao_status?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -10887,6 +10909,8 @@ export type Database = {
           status_pos_impressao?: string | null
           status_scanner?: string | null
           stripe_customer_id?: string | null
+          stripe_first_payment_at?: string | null
+          stripe_seller_id?: string | null
           stripe_subscription_id?: string | null
           suporte_educacional_tickets_total?: number | null
           suporte_impressora_tickets_6m?: number | null
@@ -28986,6 +29010,8 @@ export type Database = {
           astron_status: string | null
           astron_synced_at: string | null
           astron_user_id: number | null
+          ativacao_at: string | null
+          ativacao_status: string | null
           ativo_cad: boolean | null
           ativo_cad_ia: boolean | null
           ativo_cura: boolean | null
@@ -29249,6 +29275,8 @@ export type Database = {
           map_fresadora_date: string | null
           map_fresadora_marca: string | null
           map_fresadora_modelo: string | null
+          mensalidade_first_due: string | null
+          mensalidade_status: string | null
           merge_history: Json | null
           merged_at: string | null
           merged_into: string | null
@@ -29383,6 +29411,8 @@ export type Database = {
           portfolio_json: Json | null
           portfolio_updated_at: string | null
           prazo_compra: string | null
+          pre_ativacao_at: string | null
+          pre_ativacao_status: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
           primary_motivation: string | null
@@ -29486,6 +29516,8 @@ export type Database = {
           status_pos_impressao: string | null
           status_scanner: string | null
           stripe_customer_id: string | null
+          stripe_first_payment_at: string | null
+          stripe_seller_id: string | null
           stripe_subscription_id: string | null
           suporte_educacional_tickets_total: number | null
           suporte_impressora_tickets_6m: number | null
