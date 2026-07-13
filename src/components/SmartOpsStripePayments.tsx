@@ -367,6 +367,7 @@ export function SmartOpsStripePayments() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="text-left p-2">#</th>
                 <th className="text-left p-2">Cliente</th>
                 <th className="text-left p-2">E-mail</th>
                 <th className="text-left p-2">Celular</th>
@@ -374,6 +375,7 @@ export function SmartOpsStripePayments() {
                 <th className="text-left p-2">Produto</th>
                 <th className="text-right p-2">Valor</th>
                 <th className="text-left p-2">Vendedor</th>
+                <th className="text-left p-2">ID Dongle</th>
                 <th className="text-left p-2">Pré-ativação</th>
                 <th className="text-left p-2">Status Pré</th>
                 <th className="text-left p-2">Ativação</th>
@@ -384,8 +386,11 @@ export function SmartOpsStripePayments() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => (
+              {filtered.map((r, i) => (
                 <tr key={r.key} className="border-t border-border hover:bg-muted/20">
+                  <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
+                    {i + 1}{r.unit_count > 1 ? ` (${r.unit_index}/${r.unit_count})` : ""}
+                  </td>
                   <td className="p-2 font-medium">{r.nome}</td>
                   <td className="p-2 text-muted-foreground">{r.email || "—"}</td>
                   <td className="p-2 text-muted-foreground">{r.telefone || "—"}</td>
@@ -393,35 +398,41 @@ export function SmartOpsStripePayments() {
                   <td className="p-2 text-xs">{productLabel(r.produto)}</td>
                   <td className="p-2 text-right whitespace-nowrap">{fmtBRL(r.valor)}</td>
                   <td className="p-2">
-                    {r.lead_id ? (
-                      <select
-                        value={r.stripe_seller_id ?? ""}
-                        onChange={e => updateLeadField(r.lead_id!, { stripe_seller_id: e.target.value || null } as any)}
-                        className="h-7 rounded border border-border bg-background px-1 text-xs min-w-[140px]"
-                      >
-                        <option value="">— {r.vendedor || "Sem vendedor"}</option>
-                        {vendedores.map(v => (
-                          <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{r.vendedor || "—"}</span>
-                    )}
+                    <select
+                      value={r.stripe_seller_id ?? ""}
+                      onChange={e => updateUnit(r.unit_id, { stripe_seller_id: e.target.value || null })}
+                      className="h-7 rounded border border-border bg-background px-1 text-xs min-w-[140px]"
+                    >
+                      <option value="">— {r.vendedor || "Sem vendedor"}</option>
+                      {vendedores.map(v => (
+                        <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="text"
+                      defaultValue={r.id_dongle ?? ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if ((v || null) !== (r.id_dongle ?? null)) updateUnit(r.unit_id, { id_dongle: v || null });
+                      }}
+                      placeholder="—"
+                      className="h-7 rounded border border-border bg-background px-1 text-xs w-32"
+                    />
                   </td>
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.pre_ativacao_at ? r.pre_ativacao_at.slice(0, 10) : ""}
-                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { pre_ativacao_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.pre_ativacao_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { pre_ativacao_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { pre_ativacao_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">—</option>
@@ -434,17 +445,15 @@ export function SmartOpsStripePayments() {
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.ativacao_at ? r.ativacao_at.slice(0, 10) : ""}
-                      onChange={e => updateLeadField(r.lead_id!, { ativacao_at: e.target.value ? new Date(e.target.value).toISOString() : null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { ativacao_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.ativacao_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { ativacao_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { ativacao_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">—</option>
@@ -457,17 +466,15 @@ export function SmartOpsStripePayments() {
                   <td className="p-2">
                     <input
                       type="date"
-                      disabled={!r.lead_id}
                       value={r.mensalidade_first_due ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_first_due: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { mensalidade_data: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     />
                   </td>
                   <td className="p-2">
                     <select
-                      disabled={!r.lead_id}
                       value={r.mensalidade_status ?? ""}
-                      onChange={e => updateLeadField(r.lead_id!, { mensalidade_status: e.target.value || null } as any)}
+                      onChange={e => updateUnit(r.unit_id, { mensalidade_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
                       <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || "Sem assinatura"}</option>
@@ -493,7 +500,7 @@ export function SmartOpsStripePayments() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={16} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
                   </td>
                 </tr>
