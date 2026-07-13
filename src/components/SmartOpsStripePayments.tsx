@@ -398,6 +398,7 @@ export function SmartOpsStripePayments() {
                 <th className="text-left p-2">Produto</th>
                 <th className="text-right p-2">Valor</th>
                 <th className="text-left p-2">Vendedor</th>
+                <th className="text-left p-2">ID Smart Dent</th>
                 <th className="text-left p-2">ID Dongle</th>
                 <th className="text-left p-2">Pré-ativação</th>
                 <th className="text-left p-2">Status Pré</th>
@@ -444,6 +445,17 @@ export function SmartOpsStripePayments() {
                         <option key={v.codigo} value={v.codigo}>{v.nome_omie || v.nome_piperun || v.codigo}</option>
                       ))}
                     </select>
+                  </td>
+                  ) : null}
+                  {isFirst ? (
+                  <td rowSpan={span} className="p-2 align-top">
+                    <span
+                      className="font-mono text-[10px] text-muted-foreground cursor-pointer"
+                      title={r.lead_id ?? ""}
+                      onClick={() => r.lead_id && navigator.clipboard?.writeText(r.lead_id)}
+                    >
+                      {r.lead_id ? r.lead_id.slice(0, 8) : "—"}
+                    </span>
                   </td>
                   ) : null}
                   <td className="p-2">
@@ -541,7 +553,7 @@ export function SmartOpsStripePayments() {
               }))}
               {groups.length === 0 && (
                 <tr>
-                  <td colSpan={16} className="p-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={17} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
                   </td>
                 </tr>
