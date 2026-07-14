@@ -256,13 +256,15 @@ export function DistributorForm({
   const derivedLines = useMemo(() => {
     const scope = (form.authorized_scope || {}) as AuthorizedScope;
     const acc = new Set<string>();
-    Object.entries(scope).forEach(([cat, subs]) => {
+    Object.entries(scope || {}).forEach(([cat, subs]) => {
       const subMap = linesIndex[cat] || {};
-      const list = subs && subs.length ? subs : Object.keys(subMap);
-      list.forEach((sub) => {
-        (subMap[sub] || []).forEach((l) => acc.add(l));
-        // Também inclui linhas marcadas como "__all__" da categoria
-        (subMap["__all__"] || []).forEach((l) => acc.add(l));
+      const subsArr = Array.isArray(subs) ? subs : [];
+      const list = subsArr.length ? subsArr : Object.keys(subMap);
+      (Array.isArray(list) ? list : []).forEach((sub) => {
+        const bySub = subMap[sub];
+        if (Array.isArray(bySub)) bySub.forEach((l) => acc.add(l));
+        const byAll = subMap["__all__"];
+        if (Array.isArray(byAll)) byAll.forEach((l) => acc.add(l));
       });
     });
     return Array.from(acc).sort((a, b) => a.localeCompare(b, "pt-BR"));
