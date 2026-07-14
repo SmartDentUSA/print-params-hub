@@ -931,11 +931,17 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                   </TableHeader>
                   <TableBody>
                     {(() => {
-                      // Group variations of the same product (same name + same image)
-                      // so FOTO / COD / PRODUTO render once with rowSpan across
-                      // all presentations (1000g / 500g / 250g etc.).
+                      // Group variations of the SAME catalog product so FOTO / COD /
+                      // PRODUTO render once with rowSpan across all presentations
+                      // (1000g / 500g / 250g etc.). Different catalog products
+                      // (e.g. cores diferentes do Atos, cada cor = 1 produto) NUNCA
+                      // devem ser mescladas mesmo com nome/imagem parecidos, então
+                      // usamos catalog_product_id como chave primária. Fallback para
+                      // name+image só quando o item legado não tiver id de catálogo.
                       const groupKey = (it: DealerPriceItem) =>
-                        `${(it.name || "").trim().toLowerCase()}|${it.image_url || ""}`;
+                        it.catalog_product_id
+                          ? `cid:${it.catalog_product_id}`
+                          : `nm:${(it.name || "").trim().toLowerCase()}|${it.image_url || ""}|${it.id}`;
                       // rowSpan only works when grouped rows are CONTIGUOUS.
                       // Sort rows so all variations of the same product render together,
                       // preserving the first-seen order between different products.
