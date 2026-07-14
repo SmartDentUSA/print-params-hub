@@ -456,14 +456,30 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     });
   }, [items, t, showInactive]);
 
-  const lineTotal = (it: DealerPriceItem) =>
-    Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+  const hasVariations = (it: DealerPriceItem) =>
+    Array.isArray(it.variations) && it.variations.length >= 2;
+
+  const itemBase = (it: DealerPriceItem) => {
+    if (hasVariations(it)) {
+      return it.variations!.reduce(
+        (a, v) => a + Number(v.price_base || 0) * Number(v.quantity_multiplier ?? 1),
+        0,
+      );
+    }
+    return Number(it.price_base || 0) * Number(it.quantity_multiplier ?? 1);
+  };
+  const lineTotal = (it: DealerPriceItem) => {
+    if (hasVariations(it)) {
+      return it.variations!.reduce(
+        (a, v) => a + Number(v.price_dealer || 0) * Number(v.quantity_multiplier ?? 1),
+        0,
+      );
+    }
+    return Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+  };
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce(
-      (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
-      0,
-    );
+    const subtotal = items.reduce((a, b) => a + itemBase(b), 0);
     const total = items.reduce((a, b) => a + lineTotal(b), 0);
     return { subtotal, total, discount: subtotal - total };
   }, [items]);
