@@ -1,110 +1,49 @@
+## Erro gravíssimo: lead-agregador "CTRO" concentra 486 deals de 1 empresa real
 
-# Plano de ação — corrigir leads placeholder e duplicatas na importação
+### Diagnóstico técnico
 
-## Escopo confirmado
+Lead `b5494221-…` ("CTRO", `piperun_id=61809184`) hoje aparece com **600 deals / R$2,4M / 19 vendedores diferentes** no card. A investigação mostra:
 
-**19 leads** têm `email ILIKE 'deal-%@import.placeholder'` (mascarados como NULL pelo RPC — por isso aparecem "sem e-mail" no card). São todos leads criados por um importador de Deals que não encontrou o Person real do PipeRun no momento da importação.
+- `deals` desta lead: **486 linhas**, todas apontando para **1 único** `person_id` (`87ae79d5…`) e **1 único** `company_id` (`1fc0f73f…` = **PROTESE DENTARIA ELTON HELVIG LTDA**, CNPJ 93.385.995/0001-37).
+- O `lia_attendances` correspondente tem `nome='CTRO'`, `email='e-mail não informado'`, `telefone_normalized=+5548999296564`, mas `raw_payload.latest_payload` é de **Igor Peixoto de Mello** (telefone 5582996022004, e‑mail `igor.peixoto@yahoo.com.br`), e `alternate_emails` inclui `lourivall@hotmail.com`. Ou seja, o mesmo registro acumulou identidades de pelo menos 3 pessoas distintas.
+- Existem **481 leads com nome-lixo** (`CTRO`, `CT`, `Cliente`, `Nome não informado`, etc.). Outros leads também estão inflados (ex.: `2b3d6f4c…` = "Nome não informado" com **193 deals**; `c8fc74f6…` = 94 deals; `d7f6fc7b…` = 92 deals).
 
-**1 duplicata confirmada**: `MILLIAN ONDONTOLOGIA HUMANIZADA`
-- `20ca6a5e-...` — piperun_id `53990777`, email placeholder (Deal importado)
-- `edfebe45-...` — sem piperun_id, email real `femillian@gmail.com` (lead orgânico)
-- Ambos apontam para a mesma clínica → precisam ser mesclados
+Ou seja: temos **2 problemas independentes** que se combinam para produzir o card monstruoso:
 
-Não há telefone em nenhum → dedupe por telefone não funcionou. Único sinal disponível: **nome normalizado** + **piperun_id** + **email real quando o Person do PipeRun for consultado**.
+1. **Regra de merge por chave frágil.** O merge está juntando leads distintos por `piperun_person_id`/`piperun_company_id` (ou por nome placeholder como "CTRO"), fazendo com que múltiplas pessoas físicas do mesmo CNPJ virem 1 só lead. No caso da Elton Helvig, é uma clínica com recompra real (486 pedidos em 4 anos), mas os identificadores do lead (nome, email, phone) foram sobrescritos por qualquer form novo que caiu com esse `person_id`.
+2. **Enrichment sem `origin frozen`.** `nome/email/telefone` continuam sendo sobrescritos por payloads posteriores mesmo quando divergem, produzindo o mix "CTRO + Igor + lourivall + fone SC".
 
----
+### Plano de ação
 
-## Passo 1 — Enriquecer os 19 leads com dados reais do PipeRun Person
+**Fase 1 — Congelar dano (imediato, sem tocar UI)**
+- Auditar em `lead_enrichment_audit` quais campos foram sobrescritos em `b5494221-…` e nos outros top‑ofensores (`2b3d6f4c`, `c8fc74f6`, `d7f6fc7b`, `2cf598a1`).
+- Publicar view `v_leads_suspeitos_agregacao` que sinaliza qualquer lead onde: `count(distinct deals.owner_name) > 3` E `count(distinct raw_payload.form_submissions.submitted_via_email) > 1` E (`nome` em lista de placeholders OU `email` LIKE '%placeholder%|não informado').
 
-Edge function nova: `rayshape-fix-placeholder-leads`
+**Fase 2 — Corrigir o caso Elton Helvig**
+- Restaurar identidade real do lead `b5494221-…`: pegar do PipeRun Person `#20540207` (dono do deal 61809184) e da Company `#11737184` os valores canônicos (nome pessoa, email, telefone, cidade, uf) e sobrescrever `lia_attendances`. Se a Person do PipeRun estiver vazia, promover para nome da razão social ("PROTESE DENTARIA ELTON HELVIG") e email institucional.
+- **Não** dividir os 486 deals: eles pertencem realmente a essa empresa. A agregação por CNPJ está correta; o que estava errado era o rótulo humano do card.
+- Registrar audit `source_priority=99, reason='canonical_identity_restore_from_piperun_person'`.
 
-Para cada lead com email placeholder:
-1. Buscar o `Deal` no PipeRun (`GET /deals/{piperun_deal_id}` usando `piperun_id` do lead)
-2. Extrair `person_id` do Deal
-3. `GET /persons/{person_id}` → obter `email`, `phone`, `name` reais
-4. Regravar em `lia_attendances`:
-   - `email` = email real do Person (ou NULL se não houver)
-   - `telefone_normalized` = phone normalizado (usa util `normalizeBrazilianPhone` do repo)
-   - `nome` = mantém o atual **apenas se** o do Person for genérico; senão adota o do Person
-   - **Nunca sobrescrever** `piperun_id` já existente (regra Smart Merge)
+**Fase 3 — Fechar o vazamento no enrichment (`updatePersonFields` / lia‑assign)**
+- Adicionar guard: se `raw_payload.latest_payload.email/phone/nome` **não bate** com o `piperun_person_id` atual do lead (via cache `companies`/futuro `persons`), o payload vira **novo lead** em vez de sobrescrever o existente. Regra: `piperun_id` do lead é imutável uma vez setado; email/telefone só podem ser atualizados se `alternate_emails` já contém ou se `origem_primeiro_contato` autorizar.
+- Complementa `mem://architecture/person-origin-and-company-name-detection` — hoje protege origin, mas não nome/email/phone.
 
-Fail-safe: se o Deal não tiver Person no PipeRun, apenas trocar `email` de `deal-*@import.placeholder` por `NULL`.
+**Fase 4 — Backfill dos demais leads‑agregadores**
+- Rodar Edge Function `smart-ops-lead-canonicalizer` (nova) sobre os N leads com `count(deals)>30 AND nome IN placeholders`. Para cada um: puxar Person/Company real do PipeRun via `piperun_id` e reescrever identidade.
+- Não mexer em deals; apenas re‑rotular o container.
 
-**Output esperado:** 19 leads com email/phone reais quando disponíveis; log de auditoria em `lead_enrichment_audit`.
+**Fase 5 — UI (`SmartOpsRayshape` e Lead Card)**
+- Nenhuma alteração de negócio. Apenas exibir warning no header do card quando `v_leads_suspeitos_agregacao` sinalizar o lead, para que o time comercial veja "este cartão foi corrigido em <data>".
 
-## Passo 2 — Rodar merge automático usando os novos identificadores
+### O que NÃO fazer
+- Não deletar deals — R$2,4M são reais da Elton Helvig.
+- Não fazer split automático de deals por vendedor: 19 vendedores é normal em 4 anos de conta B2B.
+- Não tocar em `fn_rayshape_owners` (agora está correto ao mostrar 1 dono para 1 CNPJ).
 
-Depois do Passo 1, alguns dos 19 leads passam a ter `email`/`telefone_normalized` que já existem em outro lead (o "orgânico"). Aí sim o merge por telefone/email funciona:
+### Detalhes técnicos (para revisão)
+- Tabelas: `lia_attendances`, `deals`, `companies`, `lead_enrichment_audit`.
+- Edge functions envolvidas: `smart-ops-lia-assign` (guard novo), `piperun-webhook` (guard novo), `smart-ops-lead-canonicalizer` (nova).
+- Migrations: 1 view + 1 índice em `deals(lead_id)` (já existe? verificar) + 1 função SQL de canonicalização.
+- Nenhum breaking change no card / KPIs.
 
-Chamar a função existente `fn_merge_leads_by_identity` (ou o job `lead-merge-system` — a memória `smart-ops/lead-merge-system-v2` documenta) para cada um dos 19 leads.
-
-Para o caso já confirmado do **MILLIAN**, executar o merge manualmente na mesma passada:
-- `merged_into` do `20ca6a5e-...` (placeholder) ← aponta para `edfebe45-...` (femillian)
-- Copiar `piperun_id=53990777` do placeholder para o lead canônico (femillian está sem)
-- Copiar `printer_deal_id` (via `deals.lead_id`) — na verdade só reatribuir `deals.lead_id` do placeholder para o canônico
-
-## Passo 3 — Corrigir o importador para não gerar mais placeholders
-
-Encontrar a edge function que cria esses leads com `email = 'deal-{id}@import.placeholder'` (provavelmente `piperun-backfill-deals` ou `import-piperun-deals`). Alterar o fluxo:
-
-1. **Antes de criar** o lead placeholder, tentar buscar o Person do Deal no PipeRun.
-2. Se encontrar Person com email/phone → criar lead com esses dados (evita placeholder).
-3. Se Person existir mas sem email/phone → criar lead com `email = NULL` (não mais placeholder).
-4. Se Deal não tem Person → manter o placeholder mas registrar em `lead_enrichment_audit` como `pending_person_link`.
-
-Sem esse fix, novos Deals importados voltam a criar o mesmo problema.
-
-## Passo 4 — Validação
-
-Após Passos 1–3 rodarem:
-
-```sql
--- 1. Nenhum placeholder novo deve existir
-SELECT count(*) FROM lia_attendances
-WHERE email ILIKE 'deal-%@import.placeholder' AND merged_into IS NULL;
--- Esperado: 0 (ou só os sem Person no PipeRun)
-
--- 2. MILLIAN unificado
-SELECT id, nome, email, piperun_id, merged_into
-FROM lia_attendances WHERE nome ILIKE 'MILLIAN%';
--- Esperado: 1 canônico com piperun_id=53990777, o outro com merged_into preenchido
-
--- 3. fn_rayshape_owners não muda de tamanho
-SELECT jsonb_array_length(fn_rayshape_owners());
--- Esperado: 120 (contagem estável — merges só substituem, não removem donos)
-```
-
-E abrir o card `SmartOpsRayshape` no `/admin` para conferir que as 4 linhas antes vazias (M Veraldi, REJANE, Fabiano Rocha, MILLIAN placeholder) agora exibem e-mail real ou desaparecem por merge.
-
----
-
-## Ordem de execução e ferramentas
-
-| # | Ação | Ferramenta |
-|---|---|---|
-| 1 | Criar edge function `rayshape-fix-placeholder-leads` | code--apply_patch (build mode) |
-| 2 | Rodar a function 1× para os 19 leads | curl_edge_functions após deploy |
-| 3 | UPDATE de merge para o MILLIAN | supabase--insert |
-| 4 | Alterar importador para não gerar placeholders | code--apply_patch |
-| 5 | Validar via queries acima | supabase--read_query |
-
-**Sem migração de schema** — nenhuma coluna nova é necessária. Tudo é UPDATE em `lia_attendances` + código em edge functions.
-
-## Riscos e mitigações
-
-- **PipeRun rate limit** durante enriquecimento: processar 19 leads em série com `await sleep(300ms)` — trivial.
-- **Person do PipeRun com dados diferentes do nome atual do lead** (ex.: nome do Person é o sócio, nome do lead é razão social): manter o nome atual, só enriquecer email/phone. Evita destruir informação já correta.
-- **Merge automático mesclar dois leads legítimos que só compartilham email genérico** (`contato@...`): aplicar `fn_merge_leads_by_identity` só quando **piperun_id ou telefone** também bater; email sozinho não basta se for genérico corporativo.
-- **KPIs do card mudam de valor após merge**: possível reduzir 1–2 donos se o merge trouxer um lead que já era outro dono. Documentar delta na validação.
-
-## O que NÃO farei sem sua aprovação
-
-- Não vou alterar `fn_rayshape_owners` neste plano (é dado, não RPC).
-- Não vou apagar leads placeholder — só ajustar `email`, `nome`, `phone`, `merged_into`.
-- Não vou tocar em `deals` além de reatribuir `lead_id` no caso MILLIAN.
-
-## Decisões que preciso de você
-
-1. **Nome do lead**: quando o Person do PipeRun tiver nome diferente, mantenho o atual ou adoto o do Person? (Padrão sugerido: manter o atual.)
-2. **Leads placeholder sem Person no PipeRun**: viro `email=NULL` ou deixo como está e só sinalizo em auditoria? (Padrão sugerido: virar NULL.)
-3. Rodo o Passo 1 (enriquecimento) apenas para os 19 alvos ou expando para **todos** os leads com `email ILIKE 'deal-%@import.placeholder'` no banco (talvez tenha mais fora dos donos Rayshape)?
+Confirma que sigo por essa ordem? Posso já começar pela **Fase 2 (caso Elton Helvig)** para você validar o card corrigido antes de sair fazendo backfill dos outros 480 casos.
