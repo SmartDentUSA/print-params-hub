@@ -4082,6 +4082,214 @@ export type Database = {
           },
         ]
       }
+      dealer_price_items: {
+        Row: {
+          catalog_product_id: string | null
+          category: string | null
+          cod: string | null
+          created_at: string
+          description: string | null
+          discount_pct: number
+          gtin_ean: string | null
+          id: string
+          image_url: string | null
+          name: string
+          name_en: string | null
+          name_es: string | null
+          ncm_hs: string | null
+          price_base: number
+          price_dealer: number
+          price_list_id: string
+          sort_order: number
+          subcategory: string | null
+          unidade: string
+          updated_at: string
+          variant: string | null
+        }
+        Insert: {
+          catalog_product_id?: string | null
+          category?: string | null
+          cod?: string | null
+          created_at?: string
+          description?: string | null
+          discount_pct?: number
+          gtin_ean?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          name_en?: string | null
+          name_es?: string | null
+          ncm_hs?: string | null
+          price_base?: number
+          price_dealer?: number
+          price_list_id: string
+          sort_order?: number
+          subcategory?: string | null
+          unidade?: string
+          updated_at?: string
+          variant?: string | null
+        }
+        Update: {
+          catalog_product_id?: string | null
+          category?: string | null
+          cod?: string | null
+          created_at?: string
+          description?: string | null
+          discount_pct?: number
+          gtin_ean?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          name_en?: string | null
+          name_es?: string | null
+          ncm_hs?: string | null
+          price_base?: number
+          price_dealer?: number
+          price_list_id?: string
+          sort_order?: number
+          subcategory?: string | null
+          unidade?: string
+          updated_at?: string
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_price_items_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "dealer_price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_price_lists: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          distributor_id: string
+          exchange_rate: number | null
+          id: string
+          is_active: boolean
+          language: string
+          name: string
+          notes: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id: string
+          exchange_rate?: number | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id?: string
+          exchange_rate?: number | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_price_lists_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_proposals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          distributor_id: string
+          expires_at: string | null
+          header_data: Json
+          id: string
+          items: Json
+          language: string
+          pdf_url: string | null
+          price_list_id: string | null
+          proposal_number: string | null
+          public_slug: string | null
+          sent_at: string | null
+          status: string
+          totals: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id: string
+          expires_at?: string | null
+          header_data?: Json
+          id?: string
+          items?: Json
+          language?: string
+          pdf_url?: string | null
+          price_list_id?: string | null
+          proposal_number?: string | null
+          public_slug?: string | null
+          sent_at?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id?: string
+          expires_at?: string | null
+          header_data?: Json
+          id?: string
+          items?: Json
+          language?: string
+          pdf_url?: string | null
+          price_list_id?: string | null
+          proposal_number?: string | null
+          public_slug?: string | null
+          sent_at?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_proposals_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_proposals_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "dealer_price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dealers: {
         Row: {
           active: boolean | null
@@ -30395,6 +30603,13 @@ export type Database = {
       }
       get_vault_secret: { Args: { p_name: string }; Returns: string }
       has_panel_access: { Args: { user_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_faq_views: { Args: { _ids: string[] }; Returns: undefined }
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
