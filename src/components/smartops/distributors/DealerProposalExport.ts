@@ -449,10 +449,11 @@ export async function exportPriceTableDocx(
   });
 
   const itemRow = (it: DealerPriceItem) => {
+    const isSub = (it as any)._isSubRow === true;
     const values: string[] = [
       "", // photo
       it.cod ?? "—",
-      it.name,
+      isSub ? "" : it.name,
       it.variant ?? it.presentation ?? "—",
       it.ncm_hs ?? "—",
       it.gtin_ean ?? "—",
@@ -465,7 +466,7 @@ export async function exportPriceTableDocx(
       children: values.map((val, i) => {
         // Photo column
         if (i === 0) {
-          const entry = imgs.get(it.id);
+          const entry = isSub ? null : imgs.get(it.id);
           let children: any[] = [new Paragraph({ children: [new TextRun("")] })];
           if (entry) {
             const type = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "jpg"
