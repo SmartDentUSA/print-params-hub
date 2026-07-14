@@ -21597,6 +21597,8 @@ export type Database = {
           name_es: string | null
           ncm: string | null
           og_image_url: string | null
+          presentation: string | null
+          presentation_qty: number | null
           price: number | null
           price_eur: number | null
           price_usd: number | null
@@ -21607,6 +21609,7 @@ export type Database = {
           product_subcategory_en: string | null
           product_subcategory_es: string | null
           promo_price: number | null
+          quantity_multiplier: number | null
           rating: number | null
           review_count: number | null
           seo_title_override: string | null
@@ -21677,6 +21680,8 @@ export type Database = {
           name_es?: string | null
           ncm?: string | null
           og_image_url?: string | null
+          presentation?: string | null
+          presentation_qty?: number | null
           price?: number | null
           price_eur?: number | null
           price_usd?: number | null
@@ -21687,6 +21692,7 @@ export type Database = {
           product_subcategory_en?: string | null
           product_subcategory_es?: string | null
           promo_price?: number | null
+          quantity_multiplier?: number | null
           rating?: number | null
           review_count?: number | null
           seo_title_override?: string | null
@@ -21757,6 +21763,8 @@ export type Database = {
           name_es?: string | null
           ncm?: string | null
           og_image_url?: string | null
+          presentation?: string | null
+          presentation_qty?: number | null
           price?: number | null
           price_eur?: number | null
           price_usd?: number | null
@@ -21767,6 +21775,7 @@ export type Database = {
           product_subcategory_en?: string | null
           product_subcategory_es?: string | null
           promo_price?: number | null
+          quantity_multiplier?: number | null
           rating?: number | null
           review_count?: number | null
           seo_title_override?: string | null
