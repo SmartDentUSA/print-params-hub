@@ -350,6 +350,7 @@ export async function exportPriceTablePdf(
           if (data.section !== "body" || data.column.index !== 0) return;
           const it = sub.rows[data.row.index];
           if (!it) return;
+          if ((it as any)._isSubRow) return; // photo only on the first row of a group
           const entry = imgs.get(it.id);
           if (!entry) return;
           const pad = 2;
