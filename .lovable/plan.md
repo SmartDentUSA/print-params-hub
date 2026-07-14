@@ -1,21 +1,28 @@
-# Plano: Novas Regras de Normalização de Nome de Produto
+# Plano: 4 KPIs de Vendedor Líder por Categoria (Rayshape)
 
-Adicionar duas regras em `PRODUCT_NAME_RULES` (arquivo `src/components/SmartOpsRayshape.tsx`) para que o card **Produto principal / 2º / 3º na 1ª compra** mostre o nome oficial e agrupe variações.
+Adicionar 4 novos cards no bloco de KPIs do painel Rayshape — Donos, mostrando qual vendedor tem mais donos em cada categoria:
 
-## Regras a adicionar
+- **Vendedor líder — ⚪ Cedo**
+- **Vendedor líder — 🟡 Atenção**
+- **Vendedor líder — 🔴 Crítico**
+- **Vendedor líder — ✅ Recompra**
 
-```ts
-{ pattern: /glaze\s*on/i,                       label: "GlazeON - Splint" },
-{ pattern: /(nano\s*h[ií]brida\s*vitality|vitality)/i, label: "Resina 3D Smart Print Bio Vitality" },
-```
+Cada card exibe:
+- Nome do vendedor.
+- Contagem: `N donos`.
 
-Efeito:
-- `Glaze ON - SPLINT (APLICAÇÃO...)` → **GlazeON - Splint**
-- `Resina 3D Nano Híbrida Vitality`, `Vitality 1kg`, etc. → **Resina 3D Smart Print Bio Vitality**
-- Variações somam no mesmo bucket (contagem de leads/unidades no card).
-- Labels ficam consistentes com a seção "Unidades vendidas — pós-compra da impressora".
+Se a categoria não tiver donos, mostra `—` com opacidade reduzida.
+
+## Implementação (frontend apenas)
+
+Em `src/components/SmartOpsRayshape.tsx`:
+
+1. Dentro do `useMemo` de `kpis`, agrupar `owners` por `(category, vendor)` com um `Map<Category, Map<string, number>>`, e depois reduzir a `topVendorByCategory: Record<Category, { vendor: string; count: number } | null>`.
+   - Ignora vendors vazios / `"manual"` (não é vendedor de verdade — é fonte manual).
+   - Desempate: maior contagem; se empatar, primeiro alfabético.
+2. No grid de KPIs, adicionar os 4 cards após o card de "3º produto mais comprado na 1ª compra". Cor da borda/valor combina com o `CATEGORY_META` já existente (verde/amarelo/vermelho/cinza).
 
 ## Fora do escopo
 
-- Não mexer em RPCs ou dados no banco.
-- Não tocar em outros KPIs.
+- Não mexer em RPCs, banco ou filtros da tabela.
+- Não alterar seções de "Unidades vendidas" nem de "Produto principal na 1ª compra".
