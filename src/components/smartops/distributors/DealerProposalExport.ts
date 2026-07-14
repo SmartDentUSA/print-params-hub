@@ -2,10 +2,12 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType } from "docx";
+import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { formatMoney } from "./types";
+import { formatMoney, categoryRank } from "./types";
 import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 function fileBase(distributor: Distributor | undefined, list: DealerPriceList | null, prefix = "tabela-preco") {
   const dist = (distributor?.nome_fantasia || distributor?.razao_social || "distribuidor").replace(/\W+/g, "-").toLowerCase();
@@ -34,6 +36,49 @@ function resolveDealerId(d: Distributor | undefined): string {
   return anyD.id_dealer || anyD.dealer_code || anyD.codigo_dealer || (d?.id ? d.id.slice(0, 8).toUpperCase() : "—");
 }
 
+// ---------- Image cache: url -> { dataUrl, mime, bytes } ----------
+type ImgEntry = { dataUrl: string; mime: string; bytes: Uint8Array } | null;
+const imgCache = new Map<string, Promise<ImgEntry>>();
+
+async function loadImageEntry(rawUrl: string | null | undefined): Promise<ImgEntry> {
+  if (!rawUrl) return null;
+  const url = getStorageImageUrl(rawUrl, { width: 160, quality: 70 });
+  if (imgCache.has(url)) return imgCache.get(url)!;
+  const p = (async (): Promise<ImgEntry> => {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(url, { signal: ctrl.signal, mode: "cors" });
+      clearTimeout(to);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const mime = (blob.type || "image/png").toLowerCase();
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      return { dataUrl, mime, bytes: buf };
+    } catch {
+      return null;
+    }
+  })();
+  imgCache.set(url, p);
+  return p;
+}
+
+async function preloadImages(items: DealerPriceItem[]): Promise<Map<string, ImgEntry>> {
+  const out = new Map<string, ImgEntry>();
+  await Promise.all(items.map(async (it) => {
+    if (!it.image_url) return;
+    const entry = await loadImageEntry(it.image_url);
+    out.set(it.id, entry);
+  }));
+  return out;
+}
+
 function localeForLang(lang: string | null | undefined): string {
   const l = (lang || "pt").toLowerCase();
   if (l.startsWith("es")) return "es-ES";
@@ -54,7 +99,16 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
     if (!subEntry) { subEntry = { subcategory: sub, rows: [] }; entry.subs.push(subEntry); }
     subEntry.rows.push(it);
   }
-  return [...map.values()];
+  const groups = [...map.values()];
+  // Sort categories by CATEGORY_ORDER; within a category, sort subs by rank of "cat / sub".
+  groups.sort((a, b) => categoryRank(a.category) - categoryRank(b.category) || a.category.localeCompare(b.category));
+  for (const g of groups) {
+    g.subs.sort((a, b) =>
+      categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
+      || a.subcategory.localeCompare(b.subcategory)
+    );
+  }
+  return groups;
 }
 
 /** XLSX with a formula for Preço Dealer so it stays live in Excel. */
