@@ -326,6 +326,40 @@ export function SmartOpsRayshape() {
         </Card>
       </div>
 
+      {/* Unidades vendidas por produto (pós-impressora) */}
+      <div>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold text-foreground">Unidades vendidas — pós-compra da impressora</h3>
+          <span className="text-xs text-muted-foreground">
+            Total: {productUnits.reduce((a, p) => a + p.units, 0).toLocaleString("pt-BR")} un.
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          {[...productUnits]
+            .sort((a, b) => b.units - a.units || a.ord - b.ord)
+            .map((p) => {
+              const zero = p.units === 0;
+              return (
+                <Card key={p.product_key} className={`p-3 ${zero ? "opacity-50" : ""}`}>
+                  <div
+                    className="text-[11px] text-muted-foreground leading-tight line-clamp-2 min-h-[28px]"
+                    title={p.product_label}
+                  >
+                    {p.product_label}
+                  </div>
+                  <div className={`text-2xl font-semibold ${zero ? "text-muted-foreground" : "text-emerald-400"}`}>
+                    {p.units.toLocaleString("pt-BR")}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">un.</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {p.leads} lead{p.leads !== 1 ? "s" : ""}
+                  </div>
+                </Card>
+              );
+            })}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px]">
