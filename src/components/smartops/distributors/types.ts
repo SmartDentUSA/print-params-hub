@@ -11,6 +11,8 @@ export type Distributor = {
   owner_name?: string | null;
   owner_email?: string | null;
   active?: boolean | null;
+  preferred_currency?: string | null;
+  language_preference?: string | null;
 };
 
 export type DealerPriceList = {
@@ -47,6 +49,23 @@ export type DealerPriceItem = {
   discount_pct: number;
   price_dealer: number;
   sort_order: number;
+  presentation?: PresentationType | null;
+  quantity_multiplier?: number | null;
+};
+
+export type PresentationType = "Grs/Kg" | "Unit" | "Kit";
+export const PRESENTATION_OPTIONS: PresentationType[] = ["Grs/Kg", "Unit", "Kit"];
+
+export type DealerSnapshot = {
+  id: string;
+  distributor_id: string;
+  price_list_id: string | null;
+  label: string | null;
+  currency: string;
+  language: string;
+  items: any;
+  totals: any;
+  created_at: string;
 };
 
 export type CatalogProduct = {

@@ -21,7 +21,7 @@ export function DistributorsHub() {
   const loadDistributors = async () => {
     const { data } = await supabase
       .from("distributors" as any)
-      .select("id,razao_social,nome_fantasia,logo_url,pais,estado,cidade,buyer_name,buyer_email,owner_name,owner_email,active")
+      .select("id,razao_social,nome_fantasia,logo_url,pais,estado,cidade,buyer_name,buyer_email,owner_name,owner_email,active,preferred_currency,language_preference")
       .eq("active", true)
       .order("razao_social", { ascending: true });
     setDistributors(((data as any) || []) as Distributor[]);
