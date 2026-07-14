@@ -186,22 +186,17 @@ export function SmartOpsRayshape() {
       if (!m) continue;
       m.set(v, (m.get(v) || 0) + 1);
     }
-    const topVendorByCategory: Record<Category, { vendor: string; count: number } | null> = {
-      cedo: null, atencao: null, critico: null, recomprou: null,
+    const vendorsByCategory: Record<Category, { vendor: string; count: number }[]> = {
+      cedo: [], atencao: [], critico: [], recomprou: [],
     };
     (Object.keys(catVendors) as Category[]).forEach(cat => {
-      let best: { vendor: string; count: number } | null = null;
-      for (const [vendor, count] of catVendors[cat]) {
-        if (!best || count > best.count || (count === best.count && vendor.localeCompare(best.vendor) < 0)) {
-          best = { vendor, count };
-        }
-      }
-      topVendorByCategory[cat] = best;
+      vendorsByCategory[cat] = Array.from(catVendors[cat], ([vendor, count]) => ({ vendor, count }))
+        .sort((a, b) => b.count - a.count || a.vendor.localeCompare(b.vendor));
     });
     return {
       total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
       avgFirstDays, firstDaysCount: firstDaysArr.length,
-      topProducts, topVendorByCategory,
+      topProducts, vendorsByCategory,
       pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
     };
   }, [owners]);
@@ -384,22 +379,30 @@ export function SmartOpsRayshape() {
           );
         })}
         {(["cedo", "atencao", "critico", "recomprou"] as Category[]).map((cat) => {
-          const top = kpis.topVendorByCategory[cat];
+          const list = kpis.vendorsByCategory[cat];
           const meta = CATEGORY_META[cat];
+          const totalCat = list.reduce((a, v) => a + v.count, 0);
+          const empty = list.length === 0;
           return (
-            <Card key={`vendor-${cat}`} className={`p-4 ${top ? "" : "opacity-50"}`}>
-              <div className="text-xs text-muted-foreground">Vendedor líder — {meta.label}</div>
-              <div
-                className="text-base font-semibold text-foreground leading-tight line-clamp-2"
-                title={top?.vendor || "—"}
-              >
-                {top?.vendor || "—"}
-              </div>
-              {top ? (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {top.count} dono{top.count !== 1 ? "s" : ""}
+            <Card key={`vendor-${cat}`} className={`p-4 ${empty ? "opacity-50" : ""}`}>
+              <div className="flex items-baseline justify-between">
+                <div className="text-xs font-semibold text-foreground">{meta.label}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {totalCat} dono{totalCat !== 1 ? "s" : ""}
                 </div>
-              ) : null}
+              </div>
+              {empty ? (
+                <div className="text-base font-semibold text-foreground mt-1">—</div>
+              ) : (
+                <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1">
+                  {list.map((v) => (
+                    <li key={v.vendor} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-foreground truncate" title={v.vendor}>{v.vendor}</span>
+                      <span className="text-muted-foreground font-mono flex-shrink-0">{v.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           );
         })}
