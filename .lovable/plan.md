@@ -1,200 +1,166 @@
+# Módulo Distribuição — Tabela de Preços & Propostas
 
-# Aba "Reativação & Fluxos" — Editor completo com dropdowns dinâmicos e mapa de regras existentes
+Adicionar em **Smart Ops → Distribuição** um módulo completo de gestão de tabela de preços e geração de propostas comerciais para representantes nacionais e internacionais.
 
-Nova aba no SmartOps organizada em **5 sub-abas**:
+## Estrutura de navegação
 
-```
-[Regras LTV] [Fluxos Editor] [Ingestão de Leads] [Regras CRM] [Configurações]
-```
+A aba `Distribuição` (`SmartOpsDistributors.tsx`) hoje mostra só o cadastro. Vamos convertê-la em um layout com sub-abas:
 
-Cada campo de configuração é **dropdown/seletor dinâmico** — nunca texto livre para IDs. As duas abas centrais ("Ingestão de Leads" e "Regras CRM") descrevem e **visualizam tudo que hoje existe em código**, servindo de fonte da verdade viva.
-
----
-
-## Dropdowns dinâmicos (base compartilhada)
-
-Todos os seletores são populados por hooks que leem dados reais:
-
-| Seletor | Fonte | Hook |
-|---|---|---|
-| Pipeline PipeRun | edge `piperun-list-pipelines` | `usePiperunPipelines()` |
-| Etapa (stage) PipeRun | edge `piperun-list-stages?pipeline_id` | `usePiperunStages(pipelineId)` |
-| Motivo de perda | edge `piperun-list-loss-reasons` | `usePiperunLossReasons()` |
-| Vendedor | `team_members` where `ativo=true` | `useActiveTeamMembers()` |
-| Produto/categoria | `system_a_catalog` + `product_taxonomy` | `useCatalogProducts()`, `useProductCategories()` |
-| Origem/campanha | distinct `campaign_name`/`origem` de `lia_attendances` | `useLeadOrigins()` |
-| Formulário | `smartops_forms` where `active=true` | `useSmartOpsForms()` |
-| Fluxo | `operational_flows` | `useOperationalFlows()` |
-| Célula workflow 7×3 | constantes das 25 células | `useWorkflowCells()` |
-| Template WaLeads | `whatsapp_templates` | `useWhatsappTemplates()` |
-| Régua CS existente | `cs_automation_rules` | `useCsRules()` |
-
-Cache curto (5min) + botão "Atualizar" em cada dropdown. Todos com busca (`Command` do shadcn).
-
----
-
-## 1. Sub-aba "Regras LTV"
-
-### Tabelas
-`ltv_reactivation_rules` e `ltv_reactivation_runs` (mesmo modelo do plano anterior).
-
-### Formulário de regra — 100% com seletores
-- Nome (texto)
-- Ativo (toggle)
-- Pipeline origem (CS) — **dropdown PipeRun**
-- Pipeline destino (LTV) — **dropdown PipeRun**
-- Etapa inicial no LTV — **dropdown PipeRun stages** filtrado pelo pipeline destino
-- Pipeline LTV Perdidos — **dropdown PipeRun**
-- Motivo de perda "LTV" — **dropdown motivos**
-- Cadências — chips numéricos ([30, 60, 120] editáveis, adiciona/remove)
-- Estratégia de vendedor — **dropdown** (original / round-robin sobre team_members ativos / fixo)
-- Vendedor fixo — **dropdown team_members** (aparece se estratégia = fixo)
-- Sugestão de produto — **dropdown** (último comprado / categoria / manual)
-- Categoria manual — **dropdown categorias**
-- Produtos sugeridos — **multi-select catalog**
-- Origem tag — template com placeholder `{days}` (preview em tempo real: `#LTV-Ativo-30`)
-- Notificar vendedor — toggle
-- Template WaLeads — **dropdown whatsapp_templates**
-- Mín LTV (numérico), máx deals LTV abertos (numérico), cooldown dias (numérico)
-- Dry-run (toggle)
-
-### UI extras
-- Painel de execuções (`ltv_reactivation_runs`) filtrável por status/regra/data
-- Botão "Simular hoje" mostra quantos deals seriam criados e por qual regra
-
----
-
-## 2. Sub-aba "Fluxos Editor" (ReactFlow)
-
-Motor genérico `_shared/flow-engine.ts` com nós tipados (`trigger`, `filter`, `enrich`, `route`, `guard`, `action`, `branch`, `end`).
-
-Tabelas: `operational_flows`, `operational_flow_versions`, `operational_flow_shadow_log`.
-
-### UI
-- Canvas ReactFlow, palette de tipos, sidebar de propriedades com form auto-gerado via `@rjsf/core` + validators dos JSON Schemas em `src/lib/flows/nodeSchemas.ts`
-- **Propriedades de nó também usam dropdowns dinâmicos** — ex.: nó `action.create_deal` mostra dropdowns de pipeline/stage/vendedor; nó `route.round_robin` lista team_members ativos com checkbox por vendedor
-- Botões Salvar rascunho / Publicar / Ativar shadow / Restaurar versão / Diff / Dry-run
-- Toggle `active` por fluxo — off usa fallback hardcoded
-
-Seed de 5 flow_keys equivalentes ao comportamento atual: `ingest_lead`, `assign`, `cs_rule`, `ltv`, `form_ingest`.
-
----
-
-## 3. Sub-aba "Ingestão de Leads" — Mapa vivo do código
-
-Página **read-first, edit-second** que documenta e visualiza tudo que hoje está em código sobre entrada de leads.
-
-### Painéis
-1. **Diagrama de entrada** — ReactFlow read-only com todas as fontes atuais:
-   - Meta Lead Ads → `smart-ops-ingest-lead`
-   - Formulários SmartOps → `smart-ops-ingest-lead`
-   - SellFlux webhook → `smart-ops-ingest-lead`
-   - E-commerce (Loja Integrada) → ingestão dedicada
-   - PipeRun webhook → `piperun-webhook`
-   - Import CSV → `import-leads-csv`, `smart-ops-csv-*-backfill`
-   Cada nó clicável abre painel lateral com: função edge, tabelas envolvidas, guards aplicados, link para logs.
-
-2. **Fontes ativas** — tabela lida de `edge_function_catalog` (funções de ingestão) + toggles ativo/inativo por fonte
-
-3. **Filtros de segurança** — cartões descrevendo os filtros hoje hardcoded (email obrigatório, domínios de teste, commercial intent guard) com toggle para desativar (com confirmação de risco) — persiste em `operational_flows.ingest_lead.graph`
-
-4. **Política de merge por campo** — tabela editável mostrando cada campo relevante de `lia_attendances` com **dropdown de política** (PROTECTED / ALWAYS_UPDATE / MERGE_ARRAYS / MERGE_JSONB / ENRICHMENT_ONLY). Valores default lidos do código atual e migrados para linha em `operational_flows`
-
-5. **Identificadores canônicos** — visualização da cascata `piperun_id > email > phone` com **dropdown para reordenar prioridade**
-
-6. **Mapeamento formulário → coluna** — lista todos `smartops_form_fields` com `db_column` / `workflow_cell_target`, editável inline
-
-7. **Timeline de ingestão real** — últimos 50 eventos com badge da fonte
-
-Nada aqui é "documentação estática" — cada painel lê o schema atual + configs em `operational_flows`, então descreve o comportamento vivo.
-
----
-
-## 4. Sub-aba "Regras CRM" — Todas as regras que tocam PipeRun
-
-Similar à anterior, mas focada em CRM.
-
-### Painéis
-1. **Diagrama de saída CRM** — ReactFlow read-only com fluxos que criam/atualizam PipeRun:
-   - Person/Empresa/Deal via `smart-ops-lia-assign`
-   - Deal reactivation (LTV, retivação, SDR-Captação)
-   - Nota unificada de vendedor (`try_claim_seller_note_slot`)
-   - Webhook PipeRun de status
-   - Régua CS (`smart-ops-cs-processor`)
-2. **Golden Rule** — cartão descritivo com toggle (fixo por default, exige confirmação)
-3. **Commercial Intent Guard** — lista whitelist de sources permitidos, **dropdown** para adicionar/remover
-4. **Distribuição / Round-robin** — tabela `team_members` com peso editável + fallback "Distribuidor de Leads" configurável (dropdown)
-5. **Regras de reativação existentes** — mostra:
-   - `reactivation_rules` (mensagens D0/D3/D7)
-   - `reactivation_sequences` (histórico)
-   - `cs_automation_rules` (régua CS)
-   - `ltv_reactivation_rules` (novo)
-   Cada bloco linka para seu editor específico.
-6. **Motivos de perda / mapeamento status** — dropdowns lendo `piperun_stage_map_overrides` + edição inline
-7. **Custom fields PipeRun** — lista campos custom ativos, com dropdown para (des)ativar e mapear para coluna de `lia_attendances`
-8. **Person origin frozen** — visualização de quais campos são congelados no primeiro contato — toggle por campo
-
----
-
-## 5. Sub-aba "Configurações"
-
-Singleton `operational_settings`:
-- Pipelines default (CS, VENDAS, LTV, LTV Perdidos) — **dropdowns PipeRun**
-- Cadências default LTV — chips
-- Estratégia default de vendedor — dropdown
-- Horário do cron LTV — time picker
-- Modo de rollout — dropdown (direct / shadow) + duração shadow em dias
-- Guards não-removíveis — checkbox por guard (Golden Rule, commercial intent, person origin frozen, dedupe)
-- Estado de migração por flow_key — badge (hardcoded / shadow / active) + botão promover
-
----
-
-## Backend
-
-### Edge functions novas
-- `piperun-list-pipelines`, `piperun-list-stages`, `piperun-list-loss-reasons` — leituras cacheadas do PipeRun para dropdowns
-- `smart-ops-ltv-reactivation` (cron), `smart-ops-ltv-mark-lost` (hook)
-- `smart-ops-flow-dryrun`
-
-### Alterações
-- `smart-ops-ingest-lead`, `smart-ops-lia-assign`, `smart-ops-cs-processor` — passam a chamar `executeFlow(flow_key)` com fallback hardcoded controlado por toggle
-- Migration cria: `ltv_reactivation_rules`, `ltv_reactivation_runs`, `operational_flows`, `operational_flow_versions`, `operational_flow_shadow_log`, `operational_settings`
-
----
-
-## Frontend — arquivos a criar
-```
-src/hooks/piperun/usePiperunPipelines.ts
-src/hooks/piperun/usePiperunStages.ts
-src/hooks/piperun/usePiperunLossReasons.ts
-src/hooks/useActiveTeamMembers.ts
-src/hooks/useCatalogProducts.ts
-src/hooks/useProductCategories.ts
-src/hooks/useWhatsappTemplates.ts
-src/lib/flows/nodeSchemas.ts
-src/components/smartops/reactivation/
-  SmartOpsReactivationHub.tsx        (5 sub-tabs)
-  LtvRules.tsx / LtvRuleEditor.tsx / LtvRunsPanel.tsx
-  FlowEditor.tsx / FlowNodeProperties.tsx / FlowVersionHistory.tsx
-  IngestionMap.tsx (mapa vivo)
-  CrmRulesMap.tsx  (mapa vivo)
-  ReactivationSettings.tsx
-  common/PipelineSelect.tsx / StageSelect.tsx / SellerSelect.tsx /
-         ProductMultiSelect.tsx / TemplateSelect.tsx / OriginSelect.tsx
+```text
+Smart Ops → Distribuição
+├── Distribuidores          (o cadastro atual)
+├── Catálogo de Produtos    (grid visual com foto)
+├── Tabela de Preço         (grid editável estilo planilha)
+└── Gerar Proposta          (wizard + preview + export)
 ```
 
-### Dependências
-`reactflow`, `@rjsf/core`, `@rjsf/validator-ajv8`
+## 1. Aba "Catálogo de Produtos" (visual)
 
----
+Grid de cards com foto do produto puxando de `system_a_catalog` (name, image_url, category, subcategory, price, currency, description).
 
-## Ordem de entrega
-1. Hooks + edges de dropdowns (base compartilhada)
-2. Configurações globais (Sub-aba 5)
-3. Regras LTV completas (Sub-aba 1)
-4. Mapa "Ingestão de Leads" read-only (Sub-aba 3)
-5. Mapa "Regras CRM" read-only (Sub-aba 4)
-6. Motor de fluxos + editor (Sub-aba 2)
-7. Migração progressiva de edge functions com shadow mode
+- Filtro por Categoria / Subcategoria / busca por nome ou COD.
+- Toggle idioma (PT / EN / ES) usando os campos `name_en`, `description_en` etc.
+- Cada card: foto grande, nome, categoria, preço base, botão "Ver ficha" (abre modal com specs técnicas).
+- Botão "Adicionar à tabela de preço" (envia o item para a tabela editável do distribuidor selecionado).
 
-Confirma que essa estrutura cobre o que você quer? Se sim, sigo para build.
+## 2. Aba "Tabela de Preço" (editável)
+
+Nova tabela `public.dealer_price_lists` + `public.dealer_price_items` armazenando a tabela por distribuidor.
+
+Colunas visíveis (todas editáveis inline):
+
+| COD | Foto | Nome do produto | NCM/HS | GTIN/EAN | Variante | Descrição | Unid | Categoria | Subcategoria | Preço Tabela | % Desc. | Preço Dealer |
+
+Regras:
+- Seletor de distribuidor no topo (usa a lista de `distributors`).
+- Botão "Importar catálogo completo" popula todos os produtos ativos de `system_a_catalog` com preço base.
+- `Preço Dealer = Preço Tabela × (1 - %Desc/100)`. Editar qualquer campo recalcula os outros dois (edição do preço dealer recalcula o desconto).
+- Agrupamento por Categoria → Subcategoria (colapsáveis, com checkbox de seleção em massa).
+- Botões: Salvar, Duplicar tabela, Exportar XLSX, Exportar PDF, Exportar DOCX.
+- Autosave por linha (debounced) + versionamento (campo `version` incremental na tabela mãe).
+
+## 3. Aba "Gerar Proposta"
+
+Wizard em 3 etapas:
+
+1. **Selecionar distribuidor** → puxa dados de cadastro (empresa, razão social, contato, e-mail, país) para o cabeçalho da proposta.
+2. **Selecionar categorias e produtos** → árvore em duas colunas (categoria → subcategoria → itens) com checkbox e ajuste de quantidade.
+3. **Preview da proposta** → renderiza documento com layout do PDF anexo:
+   - Cabeçalho: logo Smart Dent, endereços BR/USA, certificações (FDA, ISO, ANSM, TrinovaBiochem), timestamp.
+   - Bloco de dados do distribuidor (empresa, razão social, comprador, e-mail, país) editável.
+   - Tabela **Price Table** com colunas: `COD | PRODUCT (foto + nome) | VARIANT | GTIN/EAN | NCM/HS | PRICE | DISCOUNT | PRICE DEALER`.
+   - Todos os campos permanecem editáveis no preview (input inline).
+   - Recalculo automático de desconto/preço dealer conforme o usuário edita.
+   - Rodapé com WWW.SMARTDENT.COM.BR.
+
+Ações do preview: **Salvar Proposta**, **Exportar PDF**, **Exportar XLSX**, **Exportar DOCX**, **Enviar por e-mail** (envia PDF anexo pelo Gmail/Resend já usado no projeto).
+
+Propostas salvas ficam em `public.dealer_proposals` e listadas com status (rascunho, enviada, aceita, expirada) e histórico de versões.
+
+## Detalhes técnicos
+
+**Backend (migração Supabase):**
+
+```sql
+-- dealer_price_lists: uma tabela de preço "vigente" por distribuidor
+CREATE TABLE public.dealer_price_lists (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  distributor_id uuid NOT NULL REFERENCES public.distributors(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  currency text NOT NULL DEFAULT 'BRL',
+  language text NOT NULL DEFAULT 'pt',
+  version int NOT NULL DEFAULT 1,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE public.dealer_price_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  price_list_id uuid NOT NULL REFERENCES public.dealer_price_lists(id) ON DELETE CASCADE,
+  catalog_product_id uuid REFERENCES public.system_a_catalog(id) ON DELETE SET NULL,
+  cod text,
+  name text NOT NULL,
+  image_url text,
+  category text,
+  subcategory text,
+  variant text,
+  ncm_hs text,
+  gtin_ean text,
+  unidade text DEFAULT 'UN',
+  description text,
+  price_base numeric(14,2) NOT NULL DEFAULT 0,
+  discount_pct numeric(6,3) NOT NULL DEFAULT 0,
+  price_dealer numeric(14,2) NOT NULL DEFAULT 0,
+  sort_order int DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE public.dealer_proposals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  distributor_id uuid NOT NULL REFERENCES public.distributors(id) ON DELETE CASCADE,
+  price_list_id uuid REFERENCES public.dealer_price_lists(id) ON DELETE SET NULL,
+  proposal_number text UNIQUE,
+  language text DEFAULT 'pt',
+  currency text DEFAULT 'BRL',
+  header_data jsonb,        -- empresa, razão social, comprador, e-mail, país
+  items jsonb NOT NULL,     -- snapshot dos itens no momento da proposta
+  totals jsonb,             -- subtotal, desconto total, total
+  status text DEFAULT 'draft',
+  pdf_url text,
+  sent_at timestamptz,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+Todas com `GRANT` para `authenticated`/`service_role`, RLS habilitada, políticas amarradas a `has_role(auth.uid(),'admin')` ou `has_role(auth.uid(),'distribuidor')` para leitura/edição só da própria tabela (via join em `distributors.owner_email`).
+
+**Frontend (novos arquivos):**
+
+```text
+src/components/smartops/distributors/
+├── DistributorsTabs.tsx           # wrapper com as 4 sub-abas
+├── DealerCatalogGrid.tsx          # aba "Catálogo de Produtos"
+├── DealerPriceTable.tsx           # aba "Tabela de Preço" (editável)
+├── DealerPriceTableRow.tsx        # linha inline-editável
+├── DealerProposalWizard.tsx       # aba "Gerar Proposta" (3 steps)
+├── DealerProposalPreview.tsx      # template visual do PDF
+├── DealerProposalExport.ts        # geradores XLSX / PDF / DOCX
+└── hooks/
+    ├── useDealerPriceList.ts
+    ├── useDealerProposals.ts
+    └── useSystemACatalog.ts
+```
+
+`SmartOpsDistributors.tsx` passa a renderizar `DistributorsTabs` com o cadastro atual como a primeira sub-aba.
+
+**Exportadores:**
+- XLSX: `xlsx` (SheetJS) já instalado — respeita as skill rules de fontes/cores e usa fórmulas para desconto e preço dealer.
+- PDF: `@react-pdf/renderer` (novo) reutilizando o mesmo template React do preview.
+- DOCX: `docx` npm package com tabela dupla-largura (colunas somando ao content width).
+
+**Permissões:**
+- Admin: acesso total.
+- Distribuidor (role criada anteriormente): vê só sua própria tabela de preço e suas propostas.
+
+## Considerações estratégicas (sugestões extras)
+
+Para tornar a ferramenta útil para representantes internacionais:
+
+1. **Multi-moeda com câmbio manual**: campo de cotação por tabela (BRL/USD/EUR) com data de referência, para propostas em qualquer moeda.
+2. **Multi-idioma da proposta**: seletor PT/EN/ES aproveitando os campos já traduzidos em `system_a_catalog`.
+3. **Kits/Bundles**: permitir salvar combos (ex.: "Kit Iniciante Distribuidor") como preset selecionável no wizard.
+4. **Regra por escopo**: usar `distributors.authorized_scope` para filtrar quais categorias aparecem para cada representante.
+5. **Histórico de versões**: cada `Salvar` da tabela cria uma revisão, permitindo comparar preços vigentes vs. anteriores.
+6. **Link público read-only** da proposta (short_link) para o distribuidor abrir sem login.
+7. **Assinatura eletrônica** (fase 2): campo "Aceite" com IP + timestamp para converter proposta em pedido.
+
+## O que NÃO muda
+
+- Cadastro atual de distribuidores (`SmartOpsDistributors.tsx`) permanece intacto, apenas movido para dentro da primeira sub-aba.
+- Papel `distribuidor` (role) e sidebar já criados continuam válidos.
+- Nenhuma alteração em `products_catalog`, `resins` ou fluxos de PipeRun/CRM — a tabela de preço é uma camada comercial nova e isolada.
