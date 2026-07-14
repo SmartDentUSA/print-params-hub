@@ -4097,9 +4097,11 @@ export type Database = {
           name_en: string | null
           name_es: string | null
           ncm_hs: string | null
+          presentation: string
           price_base: number
           price_dealer: number
           price_list_id: string
+          quantity_multiplier: number
           sort_order: number
           subcategory: string | null
           unidade: string
@@ -4120,9 +4122,11 @@ export type Database = {
           name_en?: string | null
           name_es?: string | null
           ncm_hs?: string | null
+          presentation?: string
           price_base?: number
           price_dealer?: number
           price_list_id: string
+          quantity_multiplier?: number
           sort_order?: number
           subcategory?: string | null
           unidade?: string
@@ -4143,9 +4147,11 @@ export type Database = {
           name_en?: string | null
           name_es?: string | null
           ncm_hs?: string | null
+          presentation?: string
           price_base?: number
           price_dealer?: number
           price_list_id?: string
+          quantity_multiplier?: number
           sort_order?: number
           subcategory?: string | null
           unidade?: string
@@ -4155,6 +4161,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "dealer_price_items_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "dealer_price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_price_list_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          distributor_id: string
+          id: string
+          items: Json
+          label: string | null
+          language: string
+          price_list_id: string | null
+          totals: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id: string
+          id?: string
+          items?: Json
+          label?: string | null
+          language?: string
+          price_list_id?: string | null
+          totals?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distributor_id?: string
+          id?: string
+          items?: Json
+          label?: string | null
+          language?: string
+          price_list_id?: string | null
+          totals?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_price_list_snapshots_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_price_list_snapshots_price_list_id_fkey"
             columns: ["price_list_id"]
             isOneToOne: false
             referencedRelation: "dealer_price_lists"
@@ -4951,6 +5011,7 @@ export type Database = {
           pais: string | null
           pais_bandeira: string | null
           pais_codigo: string | null
+          preferred_currency: string
           razao_social: string
           region_en: string | null
           region_es: string | null
@@ -5007,6 +5068,7 @@ export type Database = {
           pais?: string | null
           pais_bandeira?: string | null
           pais_codigo?: string | null
+          preferred_currency?: string
           razao_social: string
           region_en?: string | null
           region_es?: string | null
@@ -5063,6 +5125,7 @@ export type Database = {
           pais?: string | null
           pais_bandeira?: string | null
           pais_codigo?: string | null
+          preferred_currency?: string
           razao_social?: string
           region_en?: string | null
           region_es?: string | null
