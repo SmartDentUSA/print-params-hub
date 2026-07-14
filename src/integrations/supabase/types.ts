@@ -28853,6 +28853,15 @@ export type Database = {
         }[]
       }
       fn_rayshape_status: { Args: { p_lead_id: string }; Returns: Json }
+      fn_rayshape_vitality_shades: {
+        Args: never
+        Returns: {
+          ord: number
+          shade_key: string
+          shade_label: string
+          units: number
+        }[]
+      }
       fn_record_group_send: {
         Args: {
           p_campaign_id: string
