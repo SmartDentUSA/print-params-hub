@@ -299,6 +299,15 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
         </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Produto principal na 1ª compra</div>
+          <div className="text-base font-semibold text-foreground leading-tight line-clamp-2" title={kpis.topProduct}>
+            {kpis.topProduct}
+          </div>
+          {kpis.topProductCount ? (
+            <div className="text-xs text-muted-foreground mt-1">{kpis.topProductCount} lead{kpis.topProductCount > 1 ? "s" : ""}</div>
+          ) : null}
+        </Card>
       </div>
 
       {/* Filters */}
