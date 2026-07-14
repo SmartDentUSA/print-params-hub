@@ -414,7 +414,7 @@ export function SmartOpsRayshape() {
         <div className="flex items-baseline justify-between mb-2">
           <h3 className="text-sm font-semibold text-foreground">Unidades vendidas — pós-compra da impressora</h3>
           <span className="text-xs text-muted-foreground">
-            Total: {productUnits.reduce((a, p) => a + p.units, 0).toLocaleString("pt-BR")} un.
+            Total: {productUnits.reduce((a, p) => a + p.units, 0).toLocaleString("pt-BR")} un. · {fmtBRL(productUnits.reduce((a, p) => a + p.revenue, 0))}
           </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -433,6 +433,9 @@ export function SmartOpsRayshape() {
                   <div className={`text-2xl font-semibold ${zero ? "text-muted-foreground" : "text-emerald-400"}`}>
                     {p.units.toLocaleString("pt-BR")}
                     <span className="text-xs text-muted-foreground font-normal ml-1">un.</span>
+                  </div>
+                  <div className={`text-sm font-semibold ${zero ? "text-muted-foreground" : "text-foreground"}`}>
+                    {fmtBRL(p.revenue)}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
                     {p.leads} lead{p.leads !== 1 ? "s" : ""}
