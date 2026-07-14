@@ -1,61 +1,62 @@
 ## Objetivo
 
-1. **Blindar** o catálogo da Base de Conhecimento: seus cards vêm exclusivamente do **Painel Administrativo → Gestão de Catálogo de Produtos** (`system_a_catalog` com `active + approved + visible_in_ui`). Nada em **Distribuição — Tabelas de Preço & Propostas** pode alterar esses registros.
-2. Tornar o toggle **Ativo/Inativo** dentro da Distribuição um filtro **puramente local** (só define se o produto aparece na lista da tabela de preço daquele distribuidor).
-3. Adicionar botão **Excluir** em cada linha do **Historial de cotizaciones** (snapshots).
+1. Remover as 14 resinas duplicadas do catálogo mestre (`system_a_catalog`) — as versões inseridas pelo import `system_a_live` (18/02/2026) — mantendo os registros canônicos com CTAs/documentos já vinculados.
+2. Em **Distribuição → Distribuidores**: adicionar barra de **busca + filtros** (país, status ativo/inativo, presença de backlink) e um alternador **Lista / Grade**.
 
 ---
 
-## Mudanças
+## 1. Limpeza dos duplicados (migration de dados)
 
-### 1. Base de Conhecimento — reforçar regra (verificação, sem alteração funcional)
-Arquivo: `src/components/knowledge/KbTabCatalogo.tsx`
-- Já filtra `active=true AND approved=true AND visible_in_ui=true` em `system_a_catalog` (linhas 423‑427). Adicionar comentário `// REGRA: cards só vêm de system_a_catalog gerenciado no Painel Admin. NENHUMA escrita a partir de módulos externos (Distribuição, Propostas).` para travar a regra em revisão.
-
-### 2. Distribuição — isolar Ativo/Inativo do catálogo mestre
-Novo campo local em `dealer_price_items`:
+Estratégia: para cada `name` duplicado dentro de `RESINAS 3D`, marcar `active = false` no registro com `extra_data ? 'system_a_live' = true`. Isso preserva os IDs originais (evitando quebrar `dealer_price_items.catalog_product_id` e outras FKs) e apenas oculta o duplicado das telas (KB, DealerCatalogGrid, DealerPriceTable — todos filtram por `active/approved/visible_in_ui`).
 
 ```sql
-ALTER TABLE public.dealer_price_items
-  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+UPDATE public.system_a_catalog s
+SET active = false,
+    visible_in_ui = false,
+    updated_at = now(),
+    extra_data = COALESCE(extra_data, '{}'::jsonb)
+                 || jsonb_build_object(
+                      'deduped_at', to_jsonb(now()),
+                      'deduped_reason', 'system_a_live import duplicate'
+                    )
+WHERE s.product_category = 'RESINAS 3D'
+  AND (s.extra_data ? 'system_a_live')
+  AND EXISTS (
+    SELECT 1 FROM public.system_a_catalog s2
+    WHERE s2.id <> s.id
+      AND s2.product_category = 'RESINAS 3D'
+      AND lower(trim(s2.name)) = lower(trim(s.name))
+      AND s2.active AND s2.approved AND s2.visible_in_ui
+      AND s2.created_at < s.created_at
+  );
 ```
 
-Arquivo: `src/components/smartops/distributors/DealerPriceTable.tsx`
-- `importCatalog()` (linha 175): remover o filtro `.eq("active", true)` do `system_a_catalog` — importar **todos** os produtos aprovados. Assim, ligar/desligar um item na Distribuição não depende (nem afeta) o catálogo mestre.
-- Adicionar coluna **Ativo** com `Switch` na tabela por linha; grava só em `dealer_price_items.is_active`.
-- Adicionar filtro no topo "Mostrar inativos" (default: off) que filtra localmente `is_active=false`.
-- Confirmar que **nenhuma escrita** deste componente atinge `system_a_catalog` (grep de verificação no fim).
+Verificação pós-migration: `SELECT lower(trim(name)), COUNT(*) FROM system_a_catalog WHERE active AND approved AND visible_in_ui AND product_category='RESINAS 3D' GROUP BY 1 HAVING COUNT(*)>1` → esperado 0 linhas.
 
-Arquivo: `src/components/smartops/distributors/types.ts`
-- Adicionar `is_active: boolean` em `DealerPriceItem`.
+O guard de dedup em `KbTabCatalogo.tsx` (aplicado na rodada anterior) permanece como cinto‑e‑suspensórios.
 
-Arquivo: `src/components/smartops/distributors/DealerCatalogGrid.tsx`
-- Já é somente leitura desde a última rodada. Adicionar comentário topo do arquivo: `// READ-ONLY: nunca escrever em system_a_catalog. Fonte da verdade é o Painel Admin → Gestão de Catálogo.`
+## 2. Distribuidores — busca + filtros + view lista
 
-### 3. Historial de cotizaciones — botão excluir
-Arquivo: `src/components/smartops/distributors/DealerPriceTable.tsx` (linhas 579‑597)
-- Adicionar ao lado do botão **Restaurar** um botão **Excluir** (ícone `Trash2`) com `AlertDialog` de confirmação.
-- Handler: `deleteSnapshot(id)` → `supabase.from("dealer_price_list_snapshots").delete().eq("id", id)` → `reloadSnapshots()` → toast de sucesso.
-- Adicionar traduções (`pt/es/en`): `deleteSnapshot`, `confirmDeleteSnapshot`, `snapshotDeleted`.
+Arquivo: `src/components/smartops/SmartOpsDistributors.tsx`
 
-### 4. Verificação final
-- `rg "system_a_catalog" src/components/smartops/distributors/` — deve mostrar apenas leituras (`.select`), zero `.update/.insert/.delete/.upsert`.
-- Typecheck.
+- Adicionar 4 estados: `q` (texto), `country` (`all` | valores distintos), `status` (`all|active|inactive`), `viewMode` (`grid|list`, default `grid`).
+- Barra de filtros abaixo do header:
+  - `Input` de busca (nome fantasia, razão social, cidade, buyer_name).
+  - `Select` País — opções calculadas a partir dos `items` distintos.
+  - `Select` Status — Todos / Ativo / Inativo.
+  - `Toggle` Grade / Lista (ícones `LayoutGrid` / `List`).
+  - Contador `X de Y distribuidores`.
+- `filtered` via `useMemo` aplicando os 3 filtros.
+- Modo **Lista**: tabela compacta (Logo, Nome, País/UF, Cidade, Status, Backlink, Ações Editar/Kit/Excluir). Reutiliza `Table` do shadcn.
+- Modo **Grade**: mantém o layout atual, itera sobre `filtered`.
+
+Sem alterações em `distributors` schema, backend ou permissões.
 
 ## Fora de escopo
-- Sincronização Sistema A externa; alterações em Painel Admin; FX badge; sync com `products_catalog`.
+- Alterar `resins` / `dealer_price_items` / `products_catalog`.
+- Reativar/mesclar dados dos duplicados (só marcamos inativos; nada é apagado).
+- Novos filtros em Catálogo / Tabela de Preço / Propostas.
 
-## Diagrama
-
-```text
-Painel Admin (Gestão de Catálogo)
-        │  (única fonte de escrita)
-        ▼
-   system_a_catalog  ──►  Base de Conhecimento (read-only, filtra active+approved+visible_in_ui)
-        │
-        └─► Distribuição/Tabelas de Preço (read-only import)
-                    │
-                    ▼
-             dealer_price_items.is_active  ◄── toggle LOCAL do distribuidor
-             dealer_price_list_snapshots   ◄── histórico com botão Excluir
-```
+## Arquivos
+- Migration SQL (dedupe).
+- `src/components/smartops/SmartOpsDistributors.tsx` (busca + filtros + view lista).
