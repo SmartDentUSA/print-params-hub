@@ -67,6 +67,8 @@ const fmtDate = (iso: string | null) => {
 // Regras case-insensitive; retorna o mesmo texto se nada bater.
 const PRODUCT_NAME_RULES: { pattern: RegExp; label: string }[] = [
   { pattern: /model\s*plus/i, label: "Resina 3D Smart Print Model Plus" },
+  { pattern: /glaze\s*on/i, label: "GlazeON - Splint" },
+  { pattern: /(nano\s*h[ií]brida\s*vitality|vitality)/i, label: "Resina 3D Smart Print Bio Vitality" },
 ];
 function normalizeProductName(raw: string | null | undefined): string {
   const s = (raw || "").trim();
