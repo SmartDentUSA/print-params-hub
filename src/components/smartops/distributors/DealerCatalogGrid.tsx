@@ -308,6 +308,15 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     const toInsert: any[] = [];
     let productsWithSpecs = 0;
     for (const p of items) {
+      // Produtos onde a variante (cor/sabor/etc.) já está no NOME do próprio produto
+      // NÃO devem receber variações do card mestre (senão vira 20 linhas por cor).
+      // Ex.: "Atos Resina Composta Direta - DA1", "Resina Atos Academic - Amarelo".
+      const nm = String(p?.name || "");
+      if (
+        /^Atos Resina Composta Direta\s*-\s*/i.test(nm) ||
+        /^Resina Atos Academic\s*-\s*/i.test(nm) ||
+        /^ATOS Block\s*-\s*/i.test(nm)
+      ) continue;
       const specs = (p?.extra_data?.system_a_live?.technical_specs ?? []) as Array<{ label: string; value: string }>;
       const parsed = parseSpecVariations(specs);
       if (parsed.variations.length === 0) continue;
