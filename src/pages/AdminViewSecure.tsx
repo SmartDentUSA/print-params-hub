@@ -55,6 +55,7 @@ const SmartOpsDistributors = lazy(() => import("@/components/smartops/SmartOpsDi
 const SmartOpsEvents = lazy(() => import("@/components/smartops/SmartOpsEvents").then(m => ({ default: m.SmartOpsEvents })));
 const SmartOpsRayshape = lazy(() => import("@/components/SmartOpsRayshape").then(m => ({ default: m.SmartOpsRayshape })));
 const SmartOpsStripePayments = lazy(() => import("@/components/SmartOpsStripePayments").then(m => ({ default: m.SmartOpsStripePayments })));
+const SmartOpsReactivationHub = lazy(() => import("@/components/SmartOpsReactivationHub").then(m => ({ default: m.SmartOpsReactivationHub })));
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
