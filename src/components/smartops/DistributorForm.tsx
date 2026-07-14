@@ -31,6 +31,38 @@ function languageForCountry(isoCode?: string): "pt" | "es" | "en" {
   return COUNTRY_LANG[isoCode.toUpperCase()] || "pt";
 }
 
+// País (ISO-2) → moeda preferida.
+const COUNTRY_CURRENCY: Record<string, string> = {
+  BR: "BRL", US: "USD", CA: "CAD", GB: "GBP", AU: "AUD",
+  AR: "ARS", CL: "CLP", CO: "COP", MX: "MXN", PE: "PEN", UY: "UYU", PY: "PYG",
+  BO: "BOB", VE: "VES", EC: "USD", CR: "CRC", GT: "GTQ", HN: "HNL", NI: "NIO",
+  PA: "PAB", DO: "DOP", CU: "CUP", SV: "USD",
+  ES: "EUR", PT: "EUR", DE: "EUR", FR: "EUR", IT: "EUR", NL: "EUR", IE: "EUR",
+  CH: "CHF", JP: "JPY", CN: "CNY",
+};
+const CURRENCY_OPTIONS: { code: string; label: string }[] = [
+  { code: "BRL", label: "🇧🇷 BRL — Real" },
+  { code: "USD", label: "🇺🇸 USD — Dollar" },
+  { code: "EUR", label: "🇪🇺 EUR — Euro" },
+  { code: "GBP", label: "🇬🇧 GBP — Pound" },
+  { code: "ARS", label: "🇦🇷 ARS — Peso Argentino" },
+  { code: "CLP", label: "🇨🇱 CLP — Peso Chileno" },
+  { code: "COP", label: "🇨🇴 COP — Peso Colombiano" },
+  { code: "MXN", label: "🇲🇽 MXN — Peso Mexicano" },
+  { code: "PEN", label: "🇵🇪 PEN — Sol" },
+  { code: "UYU", label: "🇺🇾 UYU — Peso Uruguaio" },
+  { code: "PYG", label: "🇵🇾 PYG — Guarani" },
+  { code: "BOB", label: "🇧🇴 BOB — Boliviano" },
+  { code: "CAD", label: "🇨🇦 CAD — Dollar" },
+  { code: "CHF", label: "🇨🇭 CHF — Franc" },
+  { code: "JPY", label: "🇯🇵 JPY — Yen" },
+  { code: "CNY", label: "🇨🇳 CNY — Yuan" },
+];
+function currencyForCountry(isoCode?: string): string {
+  if (!isoCode) return "BRL";
+  return COUNTRY_CURRENCY[isoCode.toUpperCase()] || "USD";
+}
+
 // Heurística: extrai a "linha" comercial a partir do nome do produto.
 // Ex.: "Smart Print Atos Try-In A2" → "Smart Print Atos"
 //      "SmartMake Kit Inicial"     → "SmartMake"
@@ -82,6 +114,7 @@ export type DistributorFormValue = {
   linhas_representadas?: string[] | null;
   wikidata_id?: string | null;
   language_preference?: string | null;
+  preferred_currency?: string | null;
 };
 
 const COUNTRY_NAME_ALIASES: Record<string, string> = {
@@ -168,6 +201,7 @@ export const emptyDistributorForm = (): DistributorFormValue => ({
   buyer_name: "", buyer_email: "", buyer_whatsapp_ddi: "+55", buyer_whatsapp: "",
   active: true, notes: "", authorized_scope: {},
   service_areas: [], linhas_representadas: [], wikidata_id: "", language_preference: "pt",
+  preferred_currency: "BRL",
 });
 
 type Props = {
@@ -240,6 +274,7 @@ export function DistributorForm({
     const country = resolveCountry(pais);
     const ddi = formatDdi(country?.phonecode);
     const lang = languageForCountry(country?.isoCode);
+    const curr = currencyForCountry(country?.isoCode);
     const allStates = country
       ? State.getStatesOfCountry(country.isoCode).map((s) => s.name)
       : [];
@@ -248,6 +283,7 @@ export function DistributorForm({
       owner_whatsapp_ddi: f.owner_whatsapp_ddi || ddi,
       buyer_whatsapp_ddi: f.buyer_whatsapp_ddi || ddi,
       language_preference: lang,
+      preferred_currency: f.preferred_currency || curr,
       service_areas: allStates,
     }));
   };
@@ -291,6 +327,9 @@ export function DistributorForm({
     const expectedLang = languageForCountry(country.isoCode);
     if (!form.language_preference) {
       updates.language_preference = expectedLang;
+    }
+    if (!form.preferred_currency) {
+      updates.preferred_currency = currencyForCountry(country.isoCode);
     }
     if (Object.keys(updates).length) {
       setForm((f) => ({ ...f, ...updates }));
@@ -680,10 +719,37 @@ export function DistributorForm({
           </div>
           <div>
             <Label>Idioma preferencial da página</Label>
-            <div className="rounded-md border bg-muted/40 p-3 text-sm">
-              {LANG_LABEL[form.language_preference || "pt"] || "Português"}
-              <span className="text-[10px] text-muted-foreground ml-2">(definido automaticamente pelo país)</span>
-            </div>
+            <Select
+              value={form.language_preference || "pt"}
+              onValueChange={(v) => setForm((f) => ({ ...f, language_preference: v }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">🇧🇷 Português</SelectItem>
+                <SelectItem value="es">🇪🇸 Español</SelectItem>
+                <SelectItem value="en">🇺🇸 English</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Usado ao gerar propostas — traduz o catálogo automaticamente.
+            </p>
+          </div>
+          <div>
+            <Label>Moeda preferida</Label>
+            <Select
+              value={form.preferred_currency || "BRL"}
+              onValueChange={(v) => setForm((f) => ({ ...f, preferred_currency: v }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Aplicada na Tabela de Preço e Propostas deste distribuidor.
+            </p>
           </div>
         </div>
       </section>
