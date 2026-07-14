@@ -131,7 +131,18 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
-    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const productCounts = new Map<string, number>();
+    for (const o of owners) {
+      const p = (o.first_repurchase_product || "").trim();
+      if (!p) continue;
+      productCounts.set(p, (productCounts.get(p) || 0) + 1);
+    }
+    let topProduct = "—";
+    let topProductCount = 0;
+    for (const [name, count] of productCounts) {
+      if (count > topProductCount) { topProduct = name; topProductCount = count; }
+    }
+    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, topProduct, topProductCount, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
   }, [owners]);
 
   const filtered = useMemo(() => {
