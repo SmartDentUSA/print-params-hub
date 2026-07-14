@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2, LayoutGrid, List, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2, LayoutGrid, List, Search, Download } from "lucide-react";
 import { AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { DistributorForm, emptyDistributorForm, DistributorFormValue } from "./DistributorForm";
 import { DistributorKitDialog, KitDistributor } from "./DistributorKitDialog";
+import { exportPriceTableXlsx } from "./distributors/DealerProposalExport";
+import type { DealerPriceItem, DealerPriceList } from "./distributors/types";
 
 type Distributor = {
   id: string;
@@ -60,7 +62,9 @@ export function SmartOpsDistributors() {
   const [q, setQ] = useState("");
   const [country, setCountry] = useState<string>("all");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [priceListMap, setPriceListMap] = useState<Record<string, { list: DealerPriceList; updated_at: string }>>({});
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -74,6 +78,45 @@ export function SmartOpsDistributors() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("dealer_price_lists" as any)
+        .select("id,distributor_id,name,currency,language,exchange_rate,version,is_active,notes,created_at,updated_at")
+        .eq("is_active", true)
+        .order("version", { ascending: false });
+      const map: Record<string, { list: DealerPriceList; updated_at: string }> = {};
+      ((data as any) || []).forEach((l: any) => {
+        if (!map[l.distributor_id]) map[l.distributor_id] = { list: l as DealerPriceList, updated_at: l.updated_at };
+      });
+      setPriceListMap(map);
+    })();
+  }, [items]);
+
+  const downloadPriceTable = async (d: Distributor) => {
+    const entry = priceListMap[d.id];
+    if (!entry) { toast.error("Este distribuidor ainda não tem tabela de preço gerada."); return; }
+    setDownloadingId(d.id);
+    try {
+      const { data: rows, error } = await supabase
+        .from("dealer_price_items" as any)
+        .select("*")
+        .eq("price_list_id", entry.list.id)
+        .order("category", { ascending: true })
+        .order("subcategory", { ascending: true })
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      const activeItems = ((rows as any) || []).filter((i: any) => i.is_active !== false) as DealerPriceItem[];
+      if (!activeItems.length) { toast.error("Tabela vazia — nenhum item ativo."); return; }
+      exportPriceTableXlsx(d as any, entry.list, activeItems);
+      toast.success("Download iniciado");
+    } catch (e: any) {
+      toast.error("Erro no download: " + (e?.message || "tente novamente"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const countries = useMemo(() => {
     const s = new Set<string>();
@@ -273,6 +316,7 @@ export function SmartOpsDistributors() {
                   <TableHead>Localização</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Backlink</TableHead>
+                  <TableHead>Tabela de preço</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -303,6 +347,29 @@ export function SmartOpsDistributors() {
                       </Badge>
                     </TableCell>
                     <TableCell>{backlinkBadge(d) ?? <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {priceListMap[d.id] ? (
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-muted-foreground">
+                            Atualizada em<br />
+                            <span className="text-foreground font-medium">
+                              {new Date(priceListMap[d.id].updated_at).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadPriceTable(d)}
+                            disabled={downloadingId === d.id}
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            {downloadingId === d.id ? "…" : "Download"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sem tabela</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex gap-1">
                         <Button size="sm" variant="outline" onClick={() => openEdit(d)}>
