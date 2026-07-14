@@ -336,6 +336,7 @@ export default function AdminViewSecure() {
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       case 'so-campanhas': return <SmartOpsCampaigns />;
       case 'so-distribuicao': return <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />;
+      case 'so-reativacao': return <SmartOpsReactivationHub key={`reativacao-${refreshKey}`} />;
       case 'so-eventos': return <SmartOpsEvents key={`eventos-${refreshKey}`} />;
       default: return <AdminModels />;
     }
