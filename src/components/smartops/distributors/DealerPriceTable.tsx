@@ -936,20 +936,37 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                       // all presentations (1000g / 500g / 250g etc.).
                       const groupKey = (it: DealerPriceItem) =>
                         `${(it.name || "").trim().toLowerCase()}|${it.image_url || ""}`;
+                      // rowSpan only works when grouped rows are CONTIGUOUS.
+                      // Sort rows so all variations of the same product render together,
+                      // preserving the first-seen order between different products.
+                      const firstIndex = new Map<string, number>();
+                      rows.forEach((r, i) => {
+                        const k = groupKey(r);
+                        if (!firstIndex.has(k)) firstIndex.set(k, i);
+                      });
+                      const orderedRows = [...rows].sort((a, b) => {
+                        const ka = groupKey(a);
+                        const kb = groupKey(b);
+                        const ia = firstIndex.get(ka)!;
+                        const ib = firstIndex.get(kb)!;
+                        if (ia !== ib) return ia - ib;
+                        // within a product group, keep original order
+                        return rows.indexOf(a) - rows.indexOf(b);
+                      });
                       const seen = new Map<string, { leader: string; size: number }>();
-                      for (const it of rows) {
+                      for (const it of orderedRows) {
                         const k = groupKey(it);
                         const g = seen.get(k);
                         if (!g) seen.set(k, { leader: it.id, size: 1 });
                         else g.size += 1;
                       }
                       const updateGroupField = (leaderId: string, field: keyof DealerPriceItem, value: any) => {
-                        const leader = rows.find((r) => r.id === leaderId);
+                        const leader = orderedRows.find((r) => r.id === leaderId);
                         if (!leader) return;
                         const k = groupKey(leader);
-                        rows.forEach((r) => { if (groupKey(r) === k) updateField(r.id, field, value); });
+                        orderedRows.forEach((r) => { if (groupKey(r) === k) updateField(r.id, field, value); });
                       };
-                      return rows.map((it) => {
+                      return orderedRows.map((it) => {
                         const k = groupKey(it);
                         const g = seen.get(k)!;
                         const isLeader = g.leader === it.id;
