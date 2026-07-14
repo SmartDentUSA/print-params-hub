@@ -1,25 +1,21 @@
 ## Objetivo
-Na tabela do dashboard **Smart Ops › Stripe Payments** (`src/components/SmartOpsStripePayments.tsx`):
-
-1. A coluna atual **"ID Smart Dent"** (que hoje mostra os 8 primeiros dígitos de `lead_id`) passa a se chamar **"ID Sistema"** — comportamento inalterado (clique copia o UUID completo).
-2. Criar uma nova coluna **"ID Smart Dent"** — campo de texto editável preenchido pelo usuário, persistido em `stripe_payment_units.id_smartdent`.
+Adicionar coluna **"Última recompra"** logo depois de **Recompras** na tabela do Rayshape Edge Mini (`SmartOpsRayshape.tsx`), exibindo a data do último Deal ganho no CRM após a data da impressora.
 
 ## Alterações
 
-### 1. Migration
-Adicionar coluna em `stripe_payment_units`:
-```sql
-ALTER TABLE public.stripe_payment_units
-  ADD COLUMN IF NOT EXISTS id_smartdent TEXT NULL;
-```
+### 1. Migration — RPC `public.fn_rayshape_owners`
+Recriar (`CREATE OR REPLACE`) mantendo toda a lógica atual e:
+- No CTE `post`, adicionar `MAX(d.closed_at) AS last_repurchase_at`.
+- No `jsonb_build_object`, incluir:
+  ```sql
+  'last_repurchase_iso', (po.last_repurchase_at AT TIME ZONE 'America/Sao_Paulo')::date
+  ```
 
-### 2. `SmartOpsStripePayments.tsx`
-- **Interfaces `Unit` e `Row`:** adicionar `id_smartdent: string | null`.
-- **Select do fetch de `stripe_payment_units`:** incluir `id_smartdent`.
-- **Montagem do `Row`:** propagar `id_smartdent: u.id_smartdent ?? null`.
-- **Header (linha 571):** renomear `"ID Smart Dent"` → `"ID Sistema"` e adicionar nova `<th>ID Smart Dent</th>` logo após.
-- **Body:** manter a célula atual (com `r.lead_id`) sob "ID Sistema"; adicionar nova célula (uma por unidade, não `rowSpan`) com `<input type="text" defaultValue={r.id_smartdent ?? ""} onBlur={...} />` chamando `updateUnit(r.unit_id, { id_smartdent: v || null })`.
+### 2. `src/components/SmartOpsRayshape.tsx`
+- Interface `Owner`: adicionar `last_repurchase_iso: string | null`.
+- `<thead>`: adicionar `<th className="text-right p-3">Última recompra</th>` imediatamente após "Recompras" e antes de "Total recompra".
+- `<tbody>`: nova `<td>` com `{fmtDate(o.last_repurchase_iso)}` (`—` quando nulo). Mesma posição.
 
 ## Fora de escopo
-- Sem mudanças em KPIs, webhooks, Ativações ou lógica de mensalidades.
-- Sem validação de formato do ID Smart Dent (texto livre).
+- Sem mudanças em filtros, categorias, KPIs ou fluxo de manual add.
+- A regra "qualquer compra ganha" continua sendo qualquer `deals.status='ganha'` posterior à data da impressora (mesma base do contador Recompras).
