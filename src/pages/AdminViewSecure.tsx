@@ -355,6 +355,7 @@ export default function AdminViewSecure() {
           onSectionChange={setActiveSection}
           isAdmin={isAdmin}
           isAuthor={isAuthor}
+          isDistribuidor={isDistribuidor}
           userEmail={user.email || ''}
           onLogout={handleLogout}
         />
