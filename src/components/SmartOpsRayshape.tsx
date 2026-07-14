@@ -213,7 +213,7 @@ export function SmartOpsRayshape() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Printer className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Rayshape — Donos Edge Mini</h2>
+          <h2 className="text-lg font-semibold text-foreground">Impressora 3D Rayshape Edge Mini — Donos</h2>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="default" onClick={() => setAddOpen(true)}>
@@ -347,7 +347,7 @@ export function SmartOpsRayshape() {
       <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) resetAddForm(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Adicionar dono Rayshape Edge Mini</DialogTitle>
+            <DialogTitle>Adicionar dono — Impressora 3D Rayshape Edge Mini</DialogTitle>
             <DialogDescription>
               Use para registrar combos (ex.: INO 200) que incluem a impressora Rayshape mas não a desmembram na proposta.
             </DialogDescription>
