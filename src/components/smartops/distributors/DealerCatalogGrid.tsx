@@ -1,3 +1,5 @@
+// READ-ONLY view: NUNCA escrever em system_a_catalog a partir deste componente.
+// Fonte da verdade do catálogo é o Painel Admin → Gestão de Catálogo de Produtos.
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
