@@ -520,6 +520,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           />
                         </TableCell>
                         <TableCell>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={it.presentation_qty ?? ""}
+                            placeholder="—"
+                            onChange={(e) => {
+                              const v = e.target.value.replace(",", ".");
+                              if (v === "") { updateField(it.id, "presentation_qty" as any, null); return; }
+                              const n = parseFloat(v);
+                              updateField(it.id, "presentation_qty" as any, isNaN(n) ? null : n);
+                            }}
+                            className="h-8 text-right"
+                          />
+                        </TableCell>
+                        <TableCell>
                           <Select
                             value={(it.presentation as string) || "Unid"}
                             onValueChange={(v) => updateField(it.id, "presentation" as any, v)}
