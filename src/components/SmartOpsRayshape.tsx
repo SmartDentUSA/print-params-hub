@@ -175,10 +175,33 @@ export function SmartOpsRayshape() {
     const topProducts = Array.from(bucket.values()).sort(
       (a, b) => b.leads - a.leads || b.units - a.units,
     );
+    // Vendedor líder por categoria (ignora vendedor vazio ou "manual").
+    const catVendors: Record<Category, Map<string, number>> = {
+      cedo: new Map(), atencao: new Map(), critico: new Map(), recomprou: new Map(),
+    };
+    for (const o of owners) {
+      const v = (o.vendor || "").trim();
+      if (!v || v.toLowerCase() === "manual") continue;
+      const m = catVendors[o.category];
+      if (!m) continue;
+      m.set(v, (m.get(v) || 0) + 1);
+    }
+    const topVendorByCategory: Record<Category, { vendor: string; count: number } | null> = {
+      cedo: null, atencao: null, critico: null, recomprou: null,
+    };
+    (Object.keys(catVendors) as Category[]).forEach(cat => {
+      let best: { vendor: string; count: number } | null = null;
+      for (const [vendor, count] of catVendors[cat]) {
+        if (!best || count > best.count || (count === best.count && vendor.localeCompare(best.vendor) < 0)) {
+          best = { vendor, count };
+        }
+      }
+      topVendorByCategory[cat] = best;
+    });
     return {
       total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
       avgFirstDays, firstDaysCount: firstDaysArr.length,
-      topProducts,
+      topProducts, topVendorByCategory,
       pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
     };
   }, [owners]);
