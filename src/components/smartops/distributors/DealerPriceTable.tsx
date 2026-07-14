@@ -240,7 +240,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
     const allVars = (varRes.data as any) || [];
     const norm = (value: any) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
-    const existingByKey = new Map(
+    const existingByKey = new Map<string, DealerPriceItem>(
       items
         .filter((i) => i.catalog_product_id)
         .map((i) => [`${i.catalog_product_id}::${norm(i.presentation_qty)}`, i] as const),
