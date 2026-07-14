@@ -53,6 +53,29 @@ export type DealerPriceItem = {
   quantity_multiplier?: number | null;
   presentation_qty?: number | null;
   is_active?: boolean;
+  variations?: DealerPriceVariation[] | null;
+};
+
+/** A product with multiple SKUs from `system_a_catalog.extra_data.variations`.
+ *  Each variation carries its own pricing/tax/logistic data. When present
+ *  (length ≥ 2) the parent `DealerPriceItem` renders as one Foto/Produto row
+ *  with N sub-rows — one per variation. Single-variation products fall back
+ *  to the flat item fields. */
+export type DealerPriceVariation = {
+  sku: string | null;
+  name: string | null;
+  gtin_ean: string | null;
+  ncm_hs: string | null;
+  weight_kg?: number | null;
+  depth_cm?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  presentation?: PresentationType | null;
+  presentation_qty?: number | null;
+  quantity_multiplier?: number | null;
+  price_base: number;
+  discount_pct: number;
+  price_dealer: number;
 };
 
 export type PresentationType = "g" | "Kg" | "ml" | "mg" | "Unid";

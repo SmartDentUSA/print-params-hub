@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
+import type { DealerPriceItem, DealerPriceList, DealerPriceVariation, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 
@@ -199,29 +199,57 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     let fallbackCount = 0;
     const toInsert = ((cat as any) || [])
       .filter((p: any) => !existing.has(p.id))
-      .map((p: any, idx: number) => ({
-        price_list_id: list.id,
-        catalog_product_id: p.id,
-        cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
-        name: p.name,
-        name_en: p.name_en,
-        name_es: p.name_es,
-        image_url: p.image_url,
-        category: p.product_category,
-        subcategory: p.product_subcategory,
-        description: p.description,
-        ncm_hs: p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
-        gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
-        price_base: (() => { const r = priceFor(p); if (r.fallback) fallbackCount++; return r.value; })(),
-        discount_pct: 0,
-        price_dealer: (() => { const r = priceFor(p); return r.value; })(),
-        unidade: "UN",
-        presentation: p.presentation ?? "Unid",
-        quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
-        presentation_qty: p.presentation_qty ?? null,
-        sort_order: items.length + idx,
-        is_active: true,
-      }));
+      .map((p: any, idx: number) => {
+        const rawVars: any[] = Array.isArray(p?.extra_data?.variations) ? p.extra_data.variations : [];
+        const priceRes = priceFor(p);
+        if (priceRes.fallback) fallbackCount++;
+        // Inherit NCM/GTIN from the (only) variation when the parent has none.
+        const firstVar = rawVars[0] || {};
+        const inheritedNcm = p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? firstVar.ncm ?? null;
+        const inheritedGtin = p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? firstVar.gtin13 ?? firstVar.gtin ?? firstVar.ean ?? null;
+        const variations: DealerPriceVariation[] | null = rawVars.length >= 2
+          ? rawVars.map((v: any) => ({
+              sku: v.sku ?? v.SKU ?? null,
+              name: v.name ?? null,
+              gtin_ean: v.gtin13 ?? v.gtin ?? v.ean ?? null,
+              ncm_hs: v.ncm ?? null,
+              weight_kg: v.weight_kg ?? null,
+              depth_cm: v.depth_cm ?? null,
+              width_cm: v.width_cm ?? null,
+              height_cm: v.height_cm ?? null,
+              presentation: (p.presentation ?? "Unid") as any,
+              presentation_qty: p.presentation_qty ?? null,
+              quantity_multiplier: 1,
+              price_base: priceRes.value,
+              discount_pct: 0,
+              price_dealer: priceRes.value,
+            }))
+          : null;
+        return {
+          price_list_id: list.id,
+          catalog_product_id: p.id,
+          cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
+          name: p.name,
+          name_en: p.name_en,
+          name_es: p.name_es,
+          image_url: p.image_url,
+          category: p.product_category,
+          subcategory: p.product_subcategory,
+          description: p.description,
+          ncm_hs: inheritedNcm,
+          gtin_ean: inheritedGtin,
+          price_base: priceRes.value,
+          discount_pct: 0,
+          price_dealer: priceRes.value,
+          unidade: "UN",
+          presentation: p.presentation ?? "Unid",
+          quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+          presentation_qty: p.presentation_qty ?? null,
+          sort_order: items.length + idx,
+          is_active: true,
+          variations,
+        };
+      });
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
     if (insErr) toast.error(insErr.message);
@@ -306,6 +334,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     setDirtyIds((s) => new Set(s).add(id));
   };
 
+  /** Update a single variation on a multi-variant item; auto-recalculates
+   *  price_dealer/discount_pct exactly like the flat updateField. */
+  const updateVariationField = (
+    itemId: string,
+    varIndex: number,
+    field: keyof DealerPriceVariation,
+    value: any,
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== itemId || !it.variations) return it;
+        const nextVars = it.variations.map((v, i) => {
+          if (i !== varIndex) return v;
+          const nv: DealerPriceVariation = { ...v, [field]: value } as any;
+          if (field === "price_base" || field === "discount_pct") {
+            nv.price_dealer = recalcDealerPrice(Number(nv.price_base), Number(nv.discount_pct));
+          } else if (field === "price_dealer") {
+            nv.discount_pct = recalcDiscount(Number(nv.price_base), Number(nv.price_dealer));
+          }
+          return nv;
+        });
+        return { ...it, variations: nextVars };
+      }),
+    );
+    setDirtyIds((s) => new Set(s).add(itemId));
+  };
+
   const saveAll = async () => {
     if (!list || dirtyIds.size === 0) return;
     setSaving(true);
@@ -320,6 +375,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           presentation_qty: it.presentation_qty ?? null,
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
+          variations: (it.variations && it.variations.length >= 2 ? it.variations : null) as any,
         })
         .eq("id", it.id);
       if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); return; }
@@ -400,14 +456,30 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     });
   }, [items, t, showInactive]);
 
-  const lineTotal = (it: DealerPriceItem) =>
-    Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+  const hasVariations = (it: DealerPriceItem) =>
+    Array.isArray(it.variations) && it.variations.length >= 2;
+
+  const itemBase = (it: DealerPriceItem) => {
+    if (hasVariations(it)) {
+      return it.variations!.reduce(
+        (a, v) => a + Number(v.price_base || 0) * Number(v.quantity_multiplier ?? 1),
+        0,
+      );
+    }
+    return Number(it.price_base || 0) * Number(it.quantity_multiplier ?? 1);
+  };
+  const lineTotal = (it: DealerPriceItem) => {
+    if (hasVariations(it)) {
+      return it.variations!.reduce(
+        (a, v) => a + Number(v.price_dealer || 0) * Number(v.quantity_multiplier ?? 1),
+        0,
+      );
+    }
+    return Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+  };
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce(
-      (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
-      0,
-    );
+    const subtotal = items.reduce((a, b) => a + itemBase(b), 0);
     const total = items.reduce((a, b) => a + lineTotal(b), 0);
     return { subtotal, total, discount: subtotal - total };
   }, [items]);
@@ -465,6 +537,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       quantity_multiplier: Number(it.quantity_multiplier ?? 1) || 1,
       presentation_qty: it.presentation_qty ?? null,
       sort_order: idx,
+      variations: it.variations ?? null,
     }));
     if (toInsert.length > 0) {
       const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
@@ -712,115 +785,184 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((it) => (
-                     <TableRow key={it.id} className={`${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`}>
-                        <TableCell>
-                          {it.image_url ? (
-                            <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
-                          ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={displayName(it)}
-                            onChange={(e) => {
-                              const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
-                              updateField(it.id, field as any, e.target.value);
-                            }}
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={it.presentation_qty ?? ""}
-                            placeholder="—"
-                            onChange={(e) => {
-                              const v = e.target.value.replace(",", ".");
-                              if (v === "") { updateField(it.id, "presentation_qty" as any, null); return; }
-                              const n = parseFloat(v);
-                              updateField(it.id, "presentation_qty" as any, isNaN(n) ? null : n);
-                            }}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={(it.presentation as string) || "Unid"}
-                            onValueChange={(v) => updateField(it.id, "presentation" as any, v)}
-                          >
-                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {PRESENTATION_OPTIONS.map((p) => (
-                                <SelectItem key={p} value={p}>{p}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.ncm_hs ?? ""} onChange={(e) => updateField(it.id, "ncm_hs", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.gtin_ean ?? ""} onChange={(e) => updateField(it.id, "gtin_ean", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={it.quantity_multiplier ?? 1}
-                            onChange={(e) => updateField(it.id, "quantity_multiplier" as any, parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" step="0.01" value={it.price_base ?? 0}
-                            onChange={(e) => updateField(it.id, "price_base", parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={it.discount_pct ?? 0}
-                            onChange={(e) => {
-                              const v = e.target.value.replace(",", ".");
-                              const n = parseFloat(v);
-                              updateField(it.id, "discount_pct", isNaN(n) ? 0 : n);
-                            }}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" step="0.01" value={it.price_dealer ?? 0}
-                            onChange={(e) => updateField(it.id, "price_dealer", parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right font-semibold" />
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-primary text-sm whitespace-nowrap">
-                          {formatMoney(lineTotal(it), currency)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => toggleItemActive(it.id, !(it.is_active !== false))}
-                              title={it.is_active !== false ? t.active : t.inactive}
+                    {rows.flatMap((it) => {
+                      const rowClass = `${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`;
+                      const variationCells = (v: {
+                        presentation_qty?: number | null;
+                        presentation?: any;
+                        ncm_hs: string | null;
+                        gtin_ean: string | null;
+                        quantity_multiplier?: number | null;
+                        price_base: number;
+                        discount_pct: number;
+                        price_dealer: number;
+                      }, onChange: (field: string, value: any) => void, totalVal: number) => (
+                        <>
+                          <TableCell>
+                            <Input
+                              type="text" inputMode="decimal"
+                              value={v.presentation_qty ?? ""}
+                              placeholder="—"
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(",", ".");
+                                if (raw === "") { onChange("presentation_qty", null); return; }
+                                const n = parseFloat(raw);
+                                onChange("presentation_qty", isNaN(n) ? null : n);
+                              }}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={(v.presentation as string) || "Unid"}
+                              onValueChange={(val) => onChange("presentation", val)}
                             >
-                              {it.is_active !== false
-                                ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                                : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
-                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {PRESENTATION_OPTIONS.map((p) => (
+                                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input value={v.ncm_hs ?? ""} onChange={(e) => onChange("ncm_hs", e.target.value)} className="h-8 font-mono text-xs" />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={v.gtin_ean ?? ""} onChange={(e) => onChange("gtin_ean", e.target.value)} className="h-8 font-mono text-xs" />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number" step="0.01" min="0"
+                              value={v.quantity_multiplier ?? 1}
+                              onChange={(e) => onChange("quantity_multiplier", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input type="number" step="0.01" value={v.price_base ?? 0}
+                              onChange={(e) => onChange("price_base", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right" />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text" inputMode="decimal"
+                              value={v.discount_pct ?? 0}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(",", ".");
+                                const n = parseFloat(raw);
+                                onChange("discount_pct", isNaN(n) ? 0 : n);
+                              }}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input type="number" step="0.01" value={v.price_dealer ?? 0}
+                              onChange={(e) => onChange("price_dealer", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right font-semibold" />
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-primary text-sm whitespace-nowrap">
+                            {formatMoney(totalVal, currency)}
+                          </TableCell>
+                        </>
+                      );
+
+                      if (!hasVariations(it)) {
+                        return [(
+                          <TableRow key={it.id} className={rowClass}>
+                            <TableCell>
+                              {it.image_url ? (
+                                <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                              ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell>
+                              <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={displayName(it)}
+                                onChange={(e) => {
+                                  const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
+                                  updateField(it.id, field as any, e.target.value);
+                                }}
+                                className="h-8"
+                              />
+                            </TableCell>
+                            {variationCells(
+                              {
+                                presentation_qty: it.presentation_qty,
+                                presentation: it.presentation,
+                                ncm_hs: it.ncm_hs,
+                                gtin_ean: it.gtin_ean,
+                                quantity_multiplier: it.quantity_multiplier,
+                                price_base: it.price_base,
+                                discount_pct: it.discount_pct,
+                                price_dealer: it.price_dealer,
+                              },
+                              (f, v) => updateField(it.id, f as any, v),
+                              Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1),
+                            )}
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button size="icon" variant="ghost" onClick={() => toggleItemActive(it.id, !(it.is_active !== false))} title={it.is_active !== false ? t.active : t.inactive}>
+                                  {it.is_active !== false
+                                    ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                    : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )];
+                      }
+
+                      // Multi-variation: parent cells (Foto/COD/Produto/Actions) span N rows.
+                      const vars = it.variations!;
+                      return vars.map((v, vi) => {
+                        const vtotal = Number(v.price_dealer || 0) * Number(v.quantity_multiplier ?? 1);
+                        return (
+                          <TableRow key={`${it.id}:${vi}`} className={rowClass}>
+                            {vi === 0 && (
+                              <>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  {it.image_url ? (
+                                    <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                                  ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
+                                </TableCell>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  <div className="text-xs font-mono text-muted-foreground pt-1">{it.cod ?? "—"}</div>
+                                </TableCell>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  <div className="font-medium text-sm pt-1">{displayName(it)}</div>
+                                  <div className="text-[11px] text-muted-foreground">{vars.length} variações</div>
+                                </TableCell>
+                              </>
+                            )}
+                            {variationCells(
+                              v,
+                              (f, val) => updateVariationField(it.id, vi, f as any, val),
+                              vtotal,
+                            )}
+                            {vi === 0 && (
+                              <TableCell rowSpan={vars.length} className="align-top">
+                                <div className="flex items-center gap-1 pt-1">
+                                  <Button size="icon" variant="ghost" onClick={() => toggleItemActive(it.id, !(it.is_active !== false))} title={it.is_active !== false ? t.active : t.inactive}>
+                                    {it.is_active !== false
+                                      ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                      : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      });
+                    })}
                   </TableBody>
                 </Table>
               </div>
