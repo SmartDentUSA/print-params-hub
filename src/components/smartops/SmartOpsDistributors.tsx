@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2, LayoutGrid, List, Search } from "lucide-react";
 import { AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { DistributorForm, emptyDistributorForm, DistributorFormValue } from "./DistributorForm";
 import { DistributorKitDialog, KitDistributor } from "./DistributorKitDialog";
@@ -54,6 +57,10 @@ export function SmartOpsDistributors() {
   const [kitTarget, setKitTarget] = useState<KitDistributor | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [verifyingAll, setVerifyingAll] = useState(false);
+  const [q, setQ] = useState("");
+  const [country, setCountry] = useState<string>("all");
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const load = async () => {
     setLoading(true);
@@ -67,6 +74,25 @@ export function SmartOpsDistributors() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const countries = useMemo(() => {
+    const s = new Set<string>();
+    items.forEach((d) => { if (d.pais) s.add(d.pais); });
+    return Array.from(s).sort();
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return items.filter((d) => {
+      if (country !== "all" && (d.pais || "") !== country) return false;
+      if (status === "active" && !d.active) return false;
+      if (status === "inactive" && d.active) return false;
+      if (!term) return true;
+      const hay = [d.razao_social, d.nome_fantasia, d.cidade, d.estado, d.buyer_name, d.owner_name]
+        .filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(term);
+    });
+  }, [items, q, country, status]);
 
   const openNew = () => {
     setEditing(null);
