@@ -124,66 +124,61 @@ export async function exportPriceTablePdf(
   const dealerId = resolveDealerId(distributor);
   const dataStr = new Date(list?.created_at ?? Date.now()).toLocaleDateString(locale);
 
-  // Draw background + overlay all header fields on the current page
+  // Draw background + overlay all header fields. Called BEFORE table content
+  // on each page (via willDrawPage) so rows stay visible on top of the PNG.
+  const paintedPages = new Set<number>();
   const drawPageChrome = () => {
+    const pageNo = (doc as any).internal.getCurrentPageInfo?.().pageNumber ?? 1;
+    if (paintedPages.has(pageNo)) return;
+    paintedPages.add(pageNo);
     doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    doc.setFontSize(9);
     doc.setTextColor(20, 20, 20);
 
-    // Field values sit right after the printed labels (positions measured from the PDF).
-    // Empresa: label at (24, 100); value:
-    doc.text(String(empresa).slice(0, 60), 68, 107);
-    // Razão Social: label ~(300, 100)
-    doc.text(String(razao).slice(0, 60), 356, 107);
-    // Contato — Responsável de Compras: label at (24, 109)
-    doc.text(String(contato).slice(0, 80), 165, 116);
-    // E-mail: label at (24, 118)
-    doc.text(String(email).slice(0, 80), 55, 125);
-    // País: label at (24, 127)
-    doc.text(String(pais).slice(0, 40), 46, 134);
-    // ID Dealer SmartDent: label at (24, 135)
-    doc.text(String(dealerId).slice(0, 40), 122, 143);
-    // DATA DA PROPOSTA header at (497, 136) — value just below
+    // Values overlayed on the labels baked into the background PNG.
+    doc.text(String(empresa).slice(0, 40),  70, 138);   // Empresa:
+    doc.text(String(razao).slice(0, 40),   330, 138);   // Razão Social:
+    doc.text(String(contato).slice(0, 60), 180, 148);   // Contato — Responsável de Compras:
+    doc.text(String(email).slice(0, 60),    60, 158);   // E-mail:
+    doc.text(String(pais).slice(0, 30),     55, 168);   // País:
+    doc.text(String(dealerId).slice(0, 20),130, 178);   // ID Dealer SmartDent:
     doc.setFont("helvetica", "normal");
-    doc.text(dataStr, pageW - 40, 152, { align: "right" });
+    doc.setFontSize(9);
+    doc.text(dataStr, pageW - 30, 178, { align: "right" }); // DATA DA PROPOSTA
     doc.setTextColor(0, 0, 0);
   };
 
   drawPageChrome();
 
   // Table area: y 160 → 790 (footer starts ~800)
-  const tableTop = 165;
+  const tableTop = 210;
   const tableBottom = 790;
   const leftMargin = 28;
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
+  // Compact 9-column layout fits contentW = 539pt exactly (sum = 539).
   const head = [[
-    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN", "Unid (×)",
-    "Preço tabela", "% Desc.", "Preço dealer",
+    "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
+    "Unid", "Preço tabela", "% Desc.", "Preço dealer",
   ]];
-  // Column widths sum ≈ contentW (539)
   const columnStyles: Record<number, any> = {
-    0: { cellWidth: 34, halign: "center" },
-    1: { cellWidth: 46 },
-    2: { cellWidth: 130 },
-    3: { cellWidth: 34, halign: "right" },
-    4: { cellWidth: 34 },
-    5: { cellWidth: 50 },
-    6: { cellWidth: 66 },
-    7: { cellWidth: 34, halign: "right" },
-    8: { cellWidth: 50, halign: "right" },
-    9: { cellWidth: 34, halign: "right" },
-    10: { cellWidth: 60, halign: "right", fontStyle: "bold" },
+    0: { cellWidth: 46 },
+    1: { cellWidth: 155 },
+    2: { cellWidth: 60 },
+    3: { cellWidth: 46 },
+    4: { cellWidth: 62 },
+    5: { cellWidth: 30, halign: "right" },
+    6: { cellWidth: 55, halign: "right" },
+    7: { cellWidth: 35, halign: "right" },
+    8: { cellWidth: 50, halign: "right", fontStyle: "bold" },
   };
 
   const rowFor = (it: DealerPriceItem) => [
-    "", // Foto placeholder (drawn via didDrawCell if image_url available in the future)
     it.cod ?? "—",
     it.name,
-    it.presentation_qty != null ? String(it.presentation_qty) : "—",
-    it.presentation ?? "—",
+    it.variant ?? it.presentation ?? "—",
     it.ncm_hs ?? "—",
     it.gtin_ean ?? "—",
     it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
@@ -231,8 +226,9 @@ export async function exportPriceTablePdf(
         headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7.5, fontStyle: "bold" },
         columnStyles,
         theme: "grid",
-        didDrawPage: () => {
-          // Re-draw chrome whenever autoTable starts a new page
+        willDrawPage: () => {
+          // Paint background BEFORE the table content on each new page so
+          // rows remain visible. Guarded to run once per page.
           drawPageChrome();
         },
       });
@@ -261,36 +257,79 @@ export async function exportPriceTableDocx(
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
 
-  // Landscape A4 content width = 16838 - 2*1440 = 13958 DXA
-  const totalW = 13958;
-  const widths = [900, 3400, 1800, 1800, 1400, 1600, 1258, 1800]; // sums to 13958
-  const headers = ["COD", "Produto", "Variante", "GTIN/EAN", "NCM/HS", "Preço", "Desc.", "Preço dealer"];
+  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
+  const widths = [1000, 3600, 1800, 1400, 1800, 900, 1400, 1000, 1938]; // sums to 14838
+  const totalW = widths.reduce((a, b) => a + b, 0);
+  const colCount = widths.length;
+  const headers = ["COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
 
   const headerRow = new TableRow({
     tableHeader: true,
     children: headers.map((h, i) => new TableCell({
       borders, width: { size: widths[i], type: WidthType.DXA },
-      shading: { fill: "1F1F1F", type: ShadingType.CLEAR, color: "auto" },
+      shading: { fill: "374151", type: ShadingType.CLEAR, color: "auto" },
+      margins: { top: 80, bottom: 80, left: 100, right: 100 },
       children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: "FFFFFF" })] })],
     })),
   });
 
-  const bodyRows = items.map((it) => new TableRow({
+  const bandRow = (label: string, dark: boolean) => new TableRow({
+    children: [new TableCell({
+      borders,
+      width: { size: totalW, type: WidthType.DXA },
+      columnSpan: colCount,
+      shading: { fill: dark ? "1F1F1F" : "E5E5E5", type: ShadingType.CLEAR, color: "auto" },
+      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      children: [new Paragraph({ children: [new TextRun({
+        text: dark ? label.toUpperCase() : label,
+        bold: true,
+        color: dark ? "FFFFFF" : "1F1F1F",
+        size: dark ? 22 : 20,
+      })] })],
+    })],
+  });
+
+  const itemRow = (it: DealerPriceItem) => new TableRow({
     children: [
-      it.cod ?? "—", it.name, it.variant ?? "—", it.gtin_ean ?? "—", it.ncm_hs ?? "—",
-      formatMoney(it.price_base, currency), `${Number(it.discount_pct).toFixed(1)}%`, formatMoney(it.price_dealer, currency),
+      it.cod ?? "—",
+      it.name,
+      it.variant ?? it.presentation ?? "—",
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
+      it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
+      formatMoney(it.price_base, currency),
+      `${Number(it.discount_pct).toFixed(1)}%`,
+      formatMoney(it.price_dealer, currency),
     ].map((val, i) => new TableCell({
       borders, width: { size: widths[i], type: WidthType.DXA },
       margins: { top: 60, bottom: 60, left: 100, right: 100 },
-      children: [new Paragraph({ children: [new TextRun(String(val))], alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT })],
+      children: [new Paragraph({
+        children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
+        alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+      })],
     })),
-  }));
+  });
+
+  // Build category-separated rows.
+  const groups = groupItemsByCategory(items);
+  const rows: TableRow[] = [headerRow];
+  for (const grp of groups) {
+    rows.push(bandRow(grp.category, true));
+    for (const sub of grp.subs) {
+      if (grp.subs.length > 1 || sub.subcategory !== "Geral") {
+        rows.push(bandRow(sub.subcategory, false));
+      }
+      for (const it of sub.rows) rows.push(itemRow(it));
+    }
+  }
 
   const table = new Table({
     width: { size: totalW, type: WidthType.DXA },
     columnWidths: widths,
-    rows: [headerRow, ...bodyRows],
+    rows,
   });
+
+  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
 
   const doc = new Document({
     sections: [{
@@ -307,6 +346,8 @@ export async function exportPriceTableDocx(
         new Paragraph({ children: [new TextRun({ text: `País: ${distributor?.pais ?? "—"}  ·  Moeda: ${currency}  ·  Versão: v${list?.version ?? 1}  ·  Data: ${new Date().toLocaleDateString("pt-BR")}` })] }),
         new Paragraph({ children: [new TextRun("")] }),
         table,
+        new Paragraph({ children: [new TextRun("")] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Total dealer: ${formatMoney(total, currency)}`, bold: true, size: 22 })] }),
         new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "WWW.SMARTDENT.COM.BR", bold: true })] }),
       ],
