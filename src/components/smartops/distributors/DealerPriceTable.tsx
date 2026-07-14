@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
+import type { DealerPriceItem, DealerPriceList, DealerPriceVariation, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 
