@@ -247,7 +247,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       .select("*")
       .single();
     if (error) { toast.error(error.message); return; }
-    setVariations((prev) => [...prev, data as Variation]);
+    setVariations((prev) => [...prev, data as unknown as Variation]);
   };
 
   const removeVariation = async (id: string) => {
