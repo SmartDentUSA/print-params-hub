@@ -28848,6 +28848,7 @@ export type Database = {
           ord: number
           product_key: string
           product_label: string
+          revenue: number
           units: number
         }[]
       }
