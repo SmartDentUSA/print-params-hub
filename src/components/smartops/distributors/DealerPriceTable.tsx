@@ -199,29 +199,57 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     let fallbackCount = 0;
     const toInsert = ((cat as any) || [])
       .filter((p: any) => !existing.has(p.id))
-      .map((p: any, idx: number) => ({
-        price_list_id: list.id,
-        catalog_product_id: p.id,
-        cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
-        name: p.name,
-        name_en: p.name_en,
-        name_es: p.name_es,
-        image_url: p.image_url,
-        category: p.product_category,
-        subcategory: p.product_subcategory,
-        description: p.description,
-        ncm_hs: p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
-        gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
-        price_base: (() => { const r = priceFor(p); if (r.fallback) fallbackCount++; return r.value; })(),
-        discount_pct: 0,
-        price_dealer: (() => { const r = priceFor(p); return r.value; })(),
-        unidade: "UN",
-        presentation: p.presentation ?? "Unid",
-        quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
-        presentation_qty: p.presentation_qty ?? null,
-        sort_order: items.length + idx,
-        is_active: true,
-      }));
+      .map((p: any, idx: number) => {
+        const rawVars: any[] = Array.isArray(p?.extra_data?.variations) ? p.extra_data.variations : [];
+        const priceRes = priceFor(p);
+        if (priceRes.fallback) fallbackCount++;
+        // Inherit NCM/GTIN from the (only) variation when the parent has none.
+        const firstVar = rawVars[0] || {};
+        const inheritedNcm = p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? firstVar.ncm ?? null;
+        const inheritedGtin = p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? firstVar.gtin13 ?? firstVar.gtin ?? firstVar.ean ?? null;
+        const variations: DealerPriceVariation[] | null = rawVars.length >= 2
+          ? rawVars.map((v: any) => ({
+              sku: v.sku ?? v.SKU ?? null,
+              name: v.name ?? null,
+              gtin_ean: v.gtin13 ?? v.gtin ?? v.ean ?? null,
+              ncm_hs: v.ncm ?? null,
+              weight_kg: v.weight_kg ?? null,
+              depth_cm: v.depth_cm ?? null,
+              width_cm: v.width_cm ?? null,
+              height_cm: v.height_cm ?? null,
+              presentation: (p.presentation ?? "Unid") as any,
+              presentation_qty: p.presentation_qty ?? null,
+              quantity_multiplier: 1,
+              price_base: priceRes.value,
+              discount_pct: 0,
+              price_dealer: priceRes.value,
+            }))
+          : null;
+        return {
+          price_list_id: list.id,
+          catalog_product_id: p.id,
+          cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
+          name: p.name,
+          name_en: p.name_en,
+          name_es: p.name_es,
+          image_url: p.image_url,
+          category: p.product_category,
+          subcategory: p.product_subcategory,
+          description: p.description,
+          ncm_hs: inheritedNcm,
+          gtin_ean: inheritedGtin,
+          price_base: priceRes.value,
+          discount_pct: 0,
+          price_dealer: priceRes.value,
+          unidade: "UN",
+          presentation: p.presentation ?? "Unid",
+          quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+          presentation_qty: p.presentation_qty ?? null,
+          sort_order: items.length + idx,
+          is_active: true,
+          variations,
+        };
+      });
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
     if (insErr) toast.error(insErr.message);
