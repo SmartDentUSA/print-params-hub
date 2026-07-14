@@ -224,34 +224,45 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const importCatalog = async () => {
     if (!list) return;
     setLoading(true);
-    const { data: cat, error } = await supabase
-      .from("system_a_catalog" as any)
-      .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,currency,ncm,gtin,presentation,presentation_qty,quantity_multiplier,extra_data")
-      // Import completo do catálogo aprovado. O toggle Ativo/Inativo é LOCAL da Distribuição
-      // (dealer_price_items.is_active) e NÃO reflete no system_a_catalog.
-      .eq("approved", true);
-    if (error) { toast.error(error.message); setLoading(false); return; }
-    const existing = new Set(items.map((i) => i.catalog_product_id).filter(Boolean) as string[]);
+    // Fonte: catalog_product_variations (canônica) + system_a_catalog (metadados do produto).
+    // Cada variação vira uma linha na tabela de preço do distribuidor.
+    const [prodRes, varRes] = await Promise.all([
+      supabase
+        .from("system_a_catalog" as any)
+        .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,presentation,quantity_multiplier,extra_data,active,approved")
+        .eq("approved", true),
+      supabase
+        .from("catalog_product_variations" as any)
+        .select("*"),
+    ]);
+    if (prodRes.error) { toast.error(prodRes.error.message); setLoading(false); return; }
+    if (varRes.error) { toast.error(varRes.error.message); setLoading(false); return; }
+    const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
+    const allVars = (varRes.data as any) || [];
+    const existing = new Set(
+      items
+        .map((i) => `${i.catalog_product_id || ""}::${(i.presentation_qty || "").toString().toLowerCase().replace(/\s+/g, "")}`)
+        .filter((k) => k !== "::"),
+    );
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
-    const priceFor = (p: any): { value: number; fallback: boolean } => {
-      const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
+    const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
+      const pick = cur === "USD" ? (v.price_usd ?? p?.price_usd) : cur === "EUR" ? (v.price_eur ?? p?.price_eur) : (v.price_brl ?? p?.price);
       const n = Number(pick);
-      if (!isNaN(n) && n > 0) return { value: n, fallback: false };
-      const brl = Number(p.price) || 0;
+      if (isFinite(n) && n > 0) return { value: n, fallback: false };
+      const brl = Number(v.price_brl ?? p?.price) || 0;
       return { value: brl, fallback: cur !== "BRL" && brl > 0 };
     };
     let fallbackCount = 0;
     const toInsert: any[] = [];
     let cursor = items.length;
-    for (const p of ((cat as any) || [])) {
-      if (existing.has(p.id)) continue;
-      const priced = priceFor(p);
+    for (const v of allVars) {
+      const p = productsById.get(v.catalog_product_id);
+      if (!p) continue;
+      const key = `${v.catalog_product_id}::${String(v.presentation_qty || "").toLowerCase().replace(/\s+/g, "")}`;
+      if (existing.has(key)) continue;
+      const priced = priceFor(v, p);
       if (priced.fallback) fallbackCount++;
-      // Parse variações do card (technical_specs → NCM/GTIN/Unidade por variação)
-      const specs = (p?.extra_data?.system_a_live?.technical_specs ?? []) as Array<{ label: string; value: string }>;
-      const parsed = parseSpecVariations(specs);
-      const ncmFromSpec = parsed.ncm;
-      const baseRow = {
+      toInsert.push({
         price_list_id: list.id,
         catalog_product_id: p.id,
         cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
@@ -262,33 +273,18 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         category: p.product_category,
         subcategory: p.product_subcategory,
         description: p.description,
-        ncm_hs: ncmFromSpec ?? p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
+        ncm_hs: v.ncm_hs ?? null,
+        gtin_ean: v.gtin_ean ?? null,
         price_base: priced.value,
         discount_pct: 0,
         price_dealer: priced.value,
         presentation: p.presentation ?? "Unid",
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+        presentation_qty: v.presentation_qty,
+        unidade: v.unidade || "UN",
+        sort_order: cursor++,
         is_active: true,
-      };
-      if (parsed.variations.length > 0) {
-        parsed.variations.forEach((v) => {
-          toInsert.push({
-            ...baseRow,
-            gtin_ean: v.gtin || p.gtin || p?.extra_data?.gtin || p?.extra_data?.GTIN || null,
-            unidade: v.unit || "UN",
-            presentation_qty: v.qty,
-            sort_order: cursor++,
-          });
-        });
-      } else {
-        toInsert.push({
-          ...baseRow,
-          gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
-          unidade: "UN",
-          presentation_qty: p.presentation_qty ?? null,
-          sort_order: cursor++,
-        });
-      }
+      });
     }
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
