@@ -230,9 +230,19 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     const list = varsByProduct.get(productId) || [];
     const nextSort = (list[list.length - 1]?.sort_order ?? 0) + 1;
     const product = items.find((i) => i.id === productId);
+    // Garante presentation_qty único (constraint UNIQUE(catalog_product_id, presentation_qty))
+    const existingQtys = new Set(
+      list.map((v) => (v.presentation_qty || "").trim().toLowerCase()),
+    );
+    let seedQty = "Nova";
+    let n = 1;
+    while (existingQtys.has(seedQty.toLowerCase())) {
+      n += 1;
+      seedQty = `Nova ${n}`;
+    }
     const seed: any = {
       catalog_product_id: productId,
-      presentation_qty: "",
+      presentation_qty: seedQty,
       unidade: "UN",
       sort_order: nextSort,
       source: "manual",
@@ -246,7 +256,14 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       .insert(seed)
       .select("*")
       .single();
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      if ((error as any).code === "23505") {
+        toast.error("Já existe uma variação com essa apresentação para este produto. Edite a existente.");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
     setVariations((prev) => [...prev, data as unknown as Variation]);
   };
 
