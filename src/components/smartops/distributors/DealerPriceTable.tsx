@@ -224,36 +224,56 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   };
 
   const recalcFromCatalog = async () => {
-    if (!list || items.length === 0) return;
+    if (!list) return;
+    await recalcAndPersist(list.currency || distributor?.preferred_currency || "BRL", { snapshotLabel: null });
+  };
+
+  const recalcAndPersist = async (
+    targetCurrency: string,
+    opts: { snapshotLabel: string | null } = { snapshotLabel: null },
+  ) => {
+    if (!list || items.length === 0) return { updated: 0, fallback: 0 };
     const ids = items.map((i) => i.catalog_product_id).filter(Boolean) as string[];
-    if (ids.length === 0) { toast.info("Nenhum item ligado ao catálogo."); return; }
+    if (ids.length === 0) { toast.info("Nenhum item ligado ao catálogo."); return { updated: 0, fallback: 0 }; }
     setSaving(true);
     const { data: cat, error } = await supabase
       .from("system_a_catalog" as any)
       .select("id,price,price_usd,price_eur")
       .in("id", ids);
-    if (error) { toast.error(error.message); setSaving(false); return; }
-    const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    if (error) { toast.error(error.message); setSaving(false); return { updated: 0, fallback: 0 }; }
+    const cur = (targetCurrency || "BRL").toUpperCase();
     const byId = new Map<string, any>(((cat as any) || []).map((p: any) => [p.id, p]));
     let updated = 0;
     let fallback = 0;
-    setItems((prev) =>
-      prev.map((it) => {
-        const p = it.catalog_product_id ? byId.get(it.catalog_product_id) : null;
-        if (!p) return it;
-        const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
-        let value = Number(pick);
-        if (!(value > 0)) { const brl = Number(p.price) || 0; value = brl; if (cur !== "BRL" && brl > 0) fallback++; }
-        if (!(value > 0)) return it;
-        const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
-        updated++;
-        return { ...it, price_base: value, price_dealer };
-      }),
+    const nextItems: DealerPriceItem[] = items.map((it) => {
+      const p = it.catalog_product_id ? byId.get(it.catalog_product_id) : null;
+      if (!p) return it;
+      const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
+      let value = Number(pick);
+      if (!(value > 0)) { const brl = Number(p.price) || 0; value = brl; if (cur !== "BRL" && brl > 0) fallback++; }
+      if (!(value > 0)) return it;
+      const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
+      updated++;
+      return { ...it, price_base: value, price_dealer };
+    });
+    // Persist updates in parallel
+    const changed = nextItems.filter((n, i) => n !== items[i]);
+    const results = await Promise.all(
+      changed.map((n) =>
+        supabase.from("dealer_price_items" as any)
+          .update({ price_base: n.price_base, price_dealer: n.price_dealer })
+          .eq("id", n.id),
+      ),
     );
-    setDirtyIds(new Set(items.map((i) => i.id)));
+    const failed = results.find((r: any) => r.error);
+    if (failed) { toast.error((failed as any).error.message); setSaving(false); return { updated: 0, fallback: 0 }; }
+    setItems(nextItems);
+    setDirtyIds(new Set());
     setSaving(false);
     toast.success(`${updated} preços recalculados (${cur})`);
     if (fallback > 0) toast.warning(`${fallback} itens sem preço em ${cur} — usando BRL como fallback`);
+    if (opts.snapshotLabel) await autoSnapshot(opts.snapshotLabel, nextItems);
+    return { updated, fallback };
   };
 
   const updateField = (id: string, field: keyof DealerPriceItem, value: any) => {
