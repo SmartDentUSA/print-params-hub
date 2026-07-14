@@ -6,10 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ImageOff, Plus } from "lucide-react";
+import { Search, ImageOff, Plus, Lock } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
-import { PRESENTATION_OPTIONS } from "./types";
 
 const I18N: Record<string, Record<string, string>> = {
   pt: {
@@ -20,6 +19,7 @@ const I18N: Record<string, Record<string, string>> = {
     catUnit: "Unid (×)", catTablePrice: "Preço tabela",
     empty: "Nenhum produto encontrado.", loading: "Carregando catálogo…",
     activated: "Ativado", deactivated: "Desativado", add: "Adicionar",
+    readonly: "Somente leitura. Preços, margens e status por distribuidor ficam na aba Tabelas de Preço. Edições do catálogo mestre são feitas em Base de Conhecimento → Catálogo.",
   },
   es: {
     search: "Buscar producto…", cat: "Categoría", allCats: "Todas las categorías",
@@ -29,6 +29,7 @@ const I18N: Record<string, Record<string, string>> = {
     catUnit: "Unid (×)", catTablePrice: "Precio tabla",
     empty: "Ningún producto encontrado.", loading: "Cargando catálogo…",
     activated: "Activado", deactivated: "Desactivado", add: "Agregar",
+    readonly: "Solo lectura. Precios, márgenes y estado por distribuidor están en la pestaña Tablas de Precio. Ediciones del catálogo maestro se hacen en Base de Conocimiento → Catálogo.",
   },
   en: {
     search: "Search product…", cat: "Category", allCats: "All categories",
@@ -38,6 +39,7 @@ const I18N: Record<string, Record<string, string>> = {
     catUnit: "Qty (×)", catTablePrice: "List price",
     empty: "No products found.", loading: "Loading catalog…",
     activated: "Enabled", deactivated: "Disabled", add: "Add",
+    readonly: "Read-only. Per-distributor pricing, margin and status live in the Price Tables tab. Master catalog edits are done in Knowledge Base → Catalog.",
   },
 };
 
@@ -51,7 +53,6 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [lang, setLang] = useState<"pt" | "en" | "es">("pt");
-  const [savingId, setSavingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
   const t = I18N[lang] || I18N.pt;
@@ -93,28 +94,11 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
   const skuOf = (p: any) => p?.extra_data?.sku || p?.extra_data?.SKU || p?.extra_data?.sku_pai || p?.external_id || "—";
   const ncmOf = (p: any) => p?.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? "";
   const gtinOf = (p: any) => p?.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? "";
-
-  const updateLocal = (id: string, patch: Record<string, any>) =>
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-
-  const saveField = async (id: string, patch: Record<string, any>) => {
-    setSavingId(id);
-    const { error } = await supabase.from("system_a_catalog" as any).update(patch).eq("id", id);
-    setSavingId(null);
-    if (error) { toast.error(error.message); return; }
-  };
-
-  const parseNum = (v: string) => {
-    const s = v.replace(",", ".").trim();
-    if (!s) return null;
-    const n = parseFloat(s);
-    return isNaN(n) ? null : n;
-  };
-
-  const toggleActive = async (p: any, next: boolean) => {
-    updateLocal(p.id, { active: next });
-    await saveField(p.id, { active: next });
-    toast.success(next ? t.activated : t.deactivated);
+  const fmtMoney = (v: any, cur: "BRL" | "USD" | "EUR") => {
+    const n = Number(v);
+    if (!isFinite(n) || n <= 0) return "—";
+    const symbol = cur === "USD" ? "US$" : cur === "EUR" ? "€" : "R$";
+    return `${symbol} ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -145,6 +129,11 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
           <label htmlFor="show-inactive" className="text-xs text-muted-foreground cursor-pointer select-none">{t.showInactive}</label>
         </div>
         <Badge variant="outline">{filtered.length} {t.items}</Badge>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40 p-2 text-[11px] text-muted-foreground">
+        <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        <span>{t.readonly}</span>
       </div>
 
       {loading ? (
@@ -178,10 +167,9 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                 filtered.map((p) => (
                   <TableRow key={p.id} className={p.active ? "" : "opacity-50"}>
                     <TableCell>
-                      <Switch
-                        checked={!!p.active}
-                        onCheckedChange={(v) => toggleActive(p, v)}
-                      />
+                      <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
+                        {p.active ? t.activated : t.deactivated}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
@@ -197,99 +185,21 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                       <div className="truncate">{nameFor(p)}</div>
                       {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={p.presentation_qty ?? ""}
-                        placeholder="—"
-                        onChange={(e) => updateLocal(p.id, { presentation_qty: e.target.value })}
-                        onBlur={(e) => saveField(p.id, { presentation_qty: parseNum(e.target.value) })}
-                        className="h-8 text-right text-xs"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={p.presentation ?? ""}
-                        onValueChange={(v) => { updateLocal(p.id, { presentation: v }); saveField(p.id, { presentation: v }); }}
-                      >
-                        <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          {PRESENTATION_OPTIONS.map((op) => (
-                            <SelectItem key={op} value={op}>{op}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={ncmOf(p)}
-                        onChange={(e) => updateLocal(p.id, { ncm: e.target.value })}
-                        onBlur={(e) => saveField(p.id, { ncm: e.target.value || null })}
-                        className="h-8 font-mono text-xs"
-                        placeholder="—"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={gtinOf(p)}
-                        onChange={(e) => updateLocal(p.id, { gtin: e.target.value })}
-                        onBlur={(e) => saveField(p.id, { gtin: e.target.value || null })}
-                        className="h-8 font-mono text-xs"
-                        placeholder="—"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={p.quantity_multiplier ?? ""}
-                        placeholder="1"
-                        onChange={(e) => updateLocal(p.id, { quantity_multiplier: e.target.value })}
-                        onBlur={(e) => saveField(p.id, { quantity_multiplier: parseNum(e.target.value) })}
-                        className="h-8 text-right text-xs"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] text-muted-foreground w-8">R$</span>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={p.price ?? ""}
-                            onChange={(e) => updateLocal(p.id, { price: e.target.value })}
-                            onBlur={(e) => saveField(p.id, { price: parseNum(e.target.value) })}
-                            className="h-7 text-right text-xs"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] text-muted-foreground w-8">US$</span>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={p.price_usd ?? ""}
-                            onChange={(e) => updateLocal(p.id, { price_usd: e.target.value })}
-                            onBlur={(e) => saveField(p.id, { price_usd: parseNum(e.target.value) })}
-                            className="h-7 text-right text-xs"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] text-muted-foreground w-8">€</span>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={p.price_eur ?? ""}
-                            onChange={(e) => updateLocal(p.id, { price_eur: e.target.value })}
-                            onBlur={(e) => saveField(p.id, { price_eur: parseNum(e.target.value) })}
-                            className="h-7 text-right text-xs"
-                          />
-                        </div>
+                    <TableCell className="text-right text-xs">{p.presentation_qty ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{p.presentation ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{ncmOf(p) || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{gtinOf(p) || "—"}</TableCell>
+                    <TableCell className="text-right text-xs">{p.quantity_multiplier ?? 1}</TableCell>
+                    <TableCell className="text-right text-xs">
+                      <div className="flex flex-col gap-0.5 items-end">
+                        <span>{fmtMoney(p.price, "BRL")}</span>
+                        <span className="text-muted-foreground">{fmtMoney(p.price_usd, "USD")}</span>
+                        <span className="text-muted-foreground">{fmtMoney(p.price_eur, "EUR")}</span>
                       </div>
                     </TableCell>
                     {onAddToPriceList && (
                       <TableCell>
-                        <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)} disabled={savingId === p.id}>
+                        <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
                           <Plus className="w-3.5 h-3.5 mr-1" /> {t.add}
                         </Button>
                       </TableCell>
