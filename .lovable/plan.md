@@ -1,49 +1,47 @@
-## Erro gravíssimo: lead-agregador "CTRO" concentra 486 deals de 1 empresa real
+# Plano: KPIs de Unidades Vendidas por Produto (Rayshape Donos)
 
-### Diagnóstico técnico
+Adicionar, na aba "Impressora 3D Rayshape Edge Mini — Donos", uma nova seção de KPIs mostrando **quantas unidades** de cada produto foram vendidas para os donos da Rayshape (somando apenas compras **após** a compra da impressora).
 
-Lead `b5494221-…` ("CTRO", `piperun_id=61809184`) hoje aparece com **600 deals / R$2,4M / 19 vendedores diferentes** no card. A investigação mostra:
+## Escopo
 
-- `deals` desta lead: **486 linhas**, todas apontando para **1 único** `person_id` (`87ae79d5…`) e **1 único** `company_id` (`1fc0f73f…` = **PROTESE DENTARIA ELTON HELVIG LTDA**, CNPJ 93.385.995/0001-37).
-- O `lia_attendances` correspondente tem `nome='CTRO'`, `email='e-mail não informado'`, `telefone_normalized=+5548999296564`, mas `raw_payload.latest_payload` é de **Igor Peixoto de Mello** (telefone 5582996022004, e‑mail `igor.peixoto@yahoo.com.br`), e `alternate_emails` inclui `lourivall@hotmail.com`. Ou seja, o mesmo registro acumulou identidades de pelo menos 3 pessoas distintas.
-- Existem **481 leads com nome-lixo** (`CTRO`, `CT`, `Cliente`, `Nome não informado`, etc.). Outros leads também estão inflados (ex.: `2b3d6f4c…` = "Nome não informado" com **193 deals**; `c8fc74f6…` = 94 deals; `d7f6fc7b…` = 92 deals).
+- Universo: todos os leads listados em `fn_rayshape_owners()` (auto + manual).
+- Fonte: `deal_items` dos `deals` daqueles leads, com `deal_date > printer_date_iso` e status ganho (mesma regra usada hoje para `total_post`).
+- Métrica: **soma de `quantity`** (unidades), não soma de valor.
+- Produtos exibidos: a lista de 22 grupos fornecida pelo usuário (cada linha vira 1 card).
+  - Itens "qualquer item X" (SmartMake, SmartGum, Atos resina composta, Cimento UNIKK Veneer) agrupam por padrão (ILIKE).
+  - Demais itens fazem match por nome exato / ILIKE do rótulo.
 
-Ou seja: temos **2 problemas independentes** que se combinam para produzir o card monstruoso:
+## Backend (nova RPC)
 
-1. **Regra de merge por chave frágil.** O merge está juntando leads distintos por `piperun_person_id`/`piperun_company_id` (ou por nome placeholder como "CTRO"), fazendo com que múltiplas pessoas físicas do mesmo CNPJ virem 1 só lead. No caso da Elton Helvig, é uma clínica com recompra real (486 pedidos em 4 anos), mas os identificadores do lead (nome, email, phone) foram sobrescritos por qualquer form novo que caiu com esse `person_id`.
-2. **Enrichment sem `origin frozen`.** `nome/email/telefone` continuam sendo sobrescritos por payloads posteriores mesmo quando divergem, produzindo o mix "CTRO + Igor + lourivall + fone SC".
+Criar `fn_rayshape_product_units()` retornando `TABLE(product_key text, product_label text, units numeric, leads int)`:
 
-### Plano de ação
+- CTE `owners` = leads de `fn_rayshape_owners` com `printer_date_iso`.
+- CTE `post_items` = `deal_items JOIN deals` filtrando `deal.lead_id IN owners`, `deal.won/status = ganho`, `deal.deal_date > owners.printer_date_iso`, e removendo o item da própria impressora.
+- CTE `matchers(product_key, product_label, pattern)` VALUES com os 22 grupos e padrões ILIKE:
+  - Ex.: `('smartmake', 'SmartMake (qualquer item)', '%smartmake%')`, `('bio_bite_splint_flex', 'Resina 3D Smart Print Bio Bite Splint +Flex', '%bio bite splint%+flex%')` etc.
+- `SELECT product_key, product_label, SUM(qty), COUNT(DISTINCT lead_id) FROM matchers JOIN post_items ON name ILIKE pattern GROUP BY 1,2`.
 
-**Fase 1 — Congelar dano (imediato, sem tocar UI)**
-- Auditar em `lead_enrichment_audit` quais campos foram sobrescritos em `b5494221-…` e nos outros top‑ofensores (`2b3d6f4c`, `c8fc74f6`, `d7f6fc7b`, `2cf598a1`).
-- Publicar view `v_leads_suspeitos_agregacao` que sinaliza qualquer lead onde: `count(distinct deals.owner_name) > 3` E `count(distinct raw_payload.form_submissions.submitted_via_email) > 1` E (`nome` em lista de placeholders OU `email` LIKE '%placeholder%|não informado').
+GRANTs padrão para `authenticated` + `service_role`.
 
-**Fase 2 — Corrigir o caso Elton Helvig**
-- Restaurar identidade real do lead `b5494221-…`: pegar do PipeRun Person `#20540207` (dono do deal 61809184) e da Company `#11737184` os valores canônicos (nome pessoa, email, telefone, cidade, uf) e sobrescrever `lia_attendances`. Se a Person do PipeRun estiver vazia, promover para nome da razão social ("PROTESE DENTARIA ELTON HELVIG") e email institucional.
-- **Não** dividir os 486 deals: eles pertencem realmente a essa empresa. A agregação por CNPJ está correta; o que estava errado era o rótulo humano do card.
-- Registrar audit `source_priority=99, reason='canonical_identity_restore_from_piperun_person'`.
+## Frontend
 
-**Fase 3 — Fechar o vazamento no enrichment (`updatePersonFields` / lia‑assign)**
-- Adicionar guard: se `raw_payload.latest_payload.email/phone/nome` **não bate** com o `piperun_person_id` atual do lead (via cache `companies`/futuro `persons`), o payload vira **novo lead** em vez de sobrescrever o existente. Regra: `piperun_id` do lead é imutável uma vez setado; email/telefone só podem ser atualizados se `alternate_emails` já contém ou se `origem_primeiro_contato` autorizar.
-- Complementa `mem://architecture/person-origin-and-company-name-detection` — hoje protege origin, mas não nome/email/phone.
+Em `src/components/SmartOpsRayshape.tsx`:
 
-**Fase 4 — Backfill dos demais leads‑agregadores**
-- Rodar Edge Function `smart-ops-lead-canonicalizer` (nova) sobre os N leads com `count(deals)>30 AND nome IN placeholders`. Para cada um: puxar Person/Company real do PipeRun via `piperun_id` e reescrever identidade.
-- Não mexer em deals; apenas re‑rotular o container.
+1. Novo state `productUnits: { product_label: string; units: number; leads: number }[]`.
+2. Carregar via `supabase.rpc("fn_rayshape_product_units")` dentro do `load()` existente (paralelo com `fn_rayshape_owners`).
+3. Realtime: o canal atual em `deals` já dispara o reload — reaproveitar.
+4. Renderizar nova seção **abaixo do grid de KPIs atuais**:
+   - Título "Unidades vendidas — pós-compra da impressora".
+   - Grid responsivo (`grid-cols-2 md:grid-cols-3 xl:grid-cols-4`) de `<Card>` compactos: label do produto (2 linhas, truncado), número grande de unidades, e `N leads` abaixo.
+   - Ordenar por `units` desc; produtos com 0 aparecem em cinza no fim (ou ocultos — decidir na implementação: manter todos para transparência).
 
-**Fase 5 — UI (`SmartOpsRayshape` e Lead Card)**
-- Nenhuma alteração de negócio. Apenas exibir warning no header do card quando `v_leads_suspeitos_agregacao` sinalizar o lead, para que o time comercial veja "este cartão foi corrigido em <data>".
+## Fora do escopo
 
-### O que NÃO fazer
-- Não deletar deals — R$2,4M são reais da Elton Helvig.
-- Não fazer split automático de deals por vendedor: 19 vendedores é normal em 4 anos de conta B2B.
-- Não tocar em `fn_rayshape_owners` (agora está correto ao mostrar 1 dono para 1 CNPJ).
+- Não alterar tabela `deals`/`deal_items`.
+- Não mudar a lista/tabela de donos, filtros, ou o painel do lead.
+- Não incluir preço/receita por produto (usuário pediu apenas unidades).
 
-### Detalhes técnicos (para revisão)
-- Tabelas: `lia_attendances`, `deals`, `companies`, `lead_enrichment_audit`.
-- Edge functions envolvidas: `smart-ops-lia-assign` (guard novo), `piperun-webhook` (guard novo), `smart-ops-lead-canonicalizer` (nova).
-- Migrations: 1 view + 1 índice em `deals(lead_id)` (já existe? verificar) + 1 função SQL de canonicalização.
-- Nenhum breaking change no card / KPIs.
+## Arquivos
 
-Confirma que sigo por essa ordem? Posso já começar pela **Fase 2 (caso Elton Helvig)** para você validar o card corrigido antes de sair fazendo backfill dos outros 480 casos.
+- **Nova migration**: `fn_rayshape_product_units` (SECURITY DEFINER, search_path=public).
+- **Editar**: `src/components/SmartOpsRayshape.tsx` (load + render da seção).

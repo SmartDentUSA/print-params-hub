@@ -65,6 +65,7 @@ const fmtDate = (iso: string | null) => {
 export function SmartOpsRayshape() {
   const { toast } = useToast();
   const [owners, setOwners] = useState<Owner[]>([]);
+  const [productUnits, setProductUnits] = useState<{ product_key: string; product_label: string; units: number; leads: number; ord: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -86,11 +87,26 @@ export function SmartOpsRayshape() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    const { data, error } = await supabase.rpc("fn_rayshape_owners" as any);
-    if (error) {
-      toast({ title: "Erro ao carregar Rayshape", description: error.message, variant: "destructive" });
+    const [ownersRes, unitsRes] = await Promise.all([
+      supabase.rpc("fn_rayshape_owners" as any),
+      supabase.rpc("fn_rayshape_product_units" as any),
+    ]);
+    if (ownersRes.error) {
+      toast({ title: "Erro ao carregar Rayshape", description: ownersRes.error.message, variant: "destructive" });
     } else {
-      setOwners((data as any) || []);
+      setOwners((ownersRes.data as any) || []);
+    }
+    if (unitsRes.error) {
+      // silent — KPI section will just be empty
+      console.warn("fn_rayshape_product_units error", unitsRes.error.message);
+    } else {
+      setProductUnits(((unitsRes.data as any) || []).map((r: any) => ({
+        product_key: r.product_key,
+        product_label: r.product_label,
+        units: Number(r.units) || 0,
+        leads: Number(r.leads) || 0,
+        ord: Number(r.ord) || 0,
+      })));
     }
     setLoading(false);
     setRefreshing(false);
@@ -308,6 +324,40 @@ export function SmartOpsRayshape() {
             <div className="text-xs text-muted-foreground mt-1">{kpis.topProductCount} lead{kpis.topProductCount > 1 ? "s" : ""}</div>
           ) : null}
         </Card>
+      </div>
+
+      {/* Unidades vendidas por produto (pós-impressora) */}
+      <div>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold text-foreground">Unidades vendidas — pós-compra da impressora</h3>
+          <span className="text-xs text-muted-foreground">
+            Total: {productUnits.reduce((a, p) => a + p.units, 0).toLocaleString("pt-BR")} un.
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          {[...productUnits]
+            .sort((a, b) => b.units - a.units || a.ord - b.ord)
+            .map((p) => {
+              const zero = p.units === 0;
+              return (
+                <Card key={p.product_key} className={`p-3 ${zero ? "opacity-50" : ""}`}>
+                  <div
+                    className="text-[11px] text-muted-foreground leading-tight line-clamp-2 min-h-[28px]"
+                    title={p.product_label}
+                  >
+                    {p.product_label}
+                  </div>
+                  <div className={`text-2xl font-semibold ${zero ? "text-muted-foreground" : "text-emerald-400"}`}>
+                    {p.units.toLocaleString("pt-BR")}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">un.</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {p.leads} lead{p.leads !== 1 ? "s" : ""}
+                  </div>
+                </Card>
+              );
+            })}
+        </div>
       </div>
 
       {/* Filters */}
