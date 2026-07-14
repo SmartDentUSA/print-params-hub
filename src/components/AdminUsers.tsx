@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, UserPlus, Trash2, Edit, Shield, User } from "lucide-react";
+import { Users, UserPlus, Trash2, Edit, Shield, User, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,7 +16,7 @@ interface UserData {
   id: string;
   email: string;
   created_at: string;
-  role: 'admin' | 'author' | 'user';
+  role: 'admin' | 'author' | 'user' | 'distribuidor';
   email_confirmed: boolean;
 }
 
@@ -28,7 +28,7 @@ export function AdminUsers() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'author' | 'user'>('user');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'author' | 'user' | 'distribuidor'>('user');
   const [isCreating, setIsCreating] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
@@ -121,7 +121,7 @@ export function AdminUsers() {
     }
   };
 
-  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'author' | 'user') => {
+  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'author' | 'user' | 'distribuidor') => {
     try {
       // Update role in user_roles table
       const { error } = await supabase
@@ -268,7 +268,7 @@ export function AdminUsers() {
                         <Label htmlFor="role">Permissão</Label>
                         <Select 
                           value={newUserRole} 
-                          onValueChange={(value: 'admin' | 'author' | 'user') => setNewUserRole(value)}
+                          onValueChange={(value: 'admin' | 'author' | 'user' | 'distribuidor') => setNewUserRole(value)}
                           disabled={isCreating}
                         >
                           <SelectTrigger>
@@ -277,6 +277,7 @@ export function AdminUsers() {
                           <SelectContent>
                             <SelectItem value="user">Usuário</SelectItem>
                             <SelectItem value="author">Autor</SelectItem>
+                            <SelectItem value="distribuidor">Distribuição</SelectItem>
                             <SelectItem value="admin">Administrador</SelectItem>
                           </SelectContent>
                         </Select>
@@ -327,6 +328,8 @@ export function AdminUsers() {
                           <><Shield className="w-3 h-3 mr-1" /> Admin</>
                         ) : user.role === 'author' ? (
                           <><Edit className="w-3 h-3 mr-1" /> Autor</>
+                        ) : user.role === 'distribuidor' ? (
+                          <><Truck className="w-3 h-3 mr-1" /> Distribuição</>
                         ) : (
                           <><User className="w-3 h-3 mr-1" /> Usuário</>
                         )}
@@ -372,7 +375,7 @@ export function AdminUsers() {
                                 <Label>Permissão Atual</Label>
                                 <Select 
                                   value={user.role} 
-                                  onValueChange={(value: 'admin' | 'author' | 'user') => handleUpdateUserRole(user.id, value)}
+                                  onValueChange={(value: 'admin' | 'author' | 'user' | 'distribuidor') => handleUpdateUserRole(user.id, value)}
                                 >
                                   <SelectTrigger>
                                     <SelectValue />
@@ -380,6 +383,7 @@ export function AdminUsers() {
                                   <SelectContent>
                                     <SelectItem value="user">Usuário</SelectItem>
                                     <SelectItem value="author">Autor</SelectItem>
+                                    <SelectItem value="distribuidor">Distribuição</SelectItem>
                                     <SelectItem value="admin">Administrador</SelectItem>
                                   </SelectContent>
                                 </Select>
