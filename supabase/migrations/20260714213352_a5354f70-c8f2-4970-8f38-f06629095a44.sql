@@ -1,1 +1,0 @@
-ALTER TABLE public.dealer_price_items ADD COLUMN IF NOT EXISTS variations jsonb;

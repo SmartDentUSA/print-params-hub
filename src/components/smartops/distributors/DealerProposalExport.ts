@@ -15,36 +15,6 @@ function fileBase(distributor: Distributor | undefined, list: DealerPriceList | 
   return `${prefix}-${dist}-v${list?.version ?? 1}-${ts}`;
 }
 
-/** Flatten each item into one row per variation (or a single row when the
- *  item has no variations). Sub-rows repeat the parent's identity fields so
- *  each exported row is self-contained. `_isSubRow` = true means it should be
- *  visually grouped with the previous row (no photo/name shown). */
-type FlatRow = DealerPriceItem & { _isSubRow?: boolean };
-function flattenItems(items: DealerPriceItem[]): FlatRow[] {
-  const out: FlatRow[] = [];
-  for (const it of items) {
-    const vars = Array.isArray(it.variations) ? it.variations : [];
-    if (vars.length < 2) { out.push(it); continue; }
-    vars.forEach((v, i) => {
-      out.push({
-        ...it,
-        cod: v.sku ?? it.cod,
-        variant: v.name ?? it.variant,
-        ncm_hs: v.ncm_hs ?? it.ncm_hs,
-        gtin_ean: v.gtin_ean ?? it.gtin_ean,
-        presentation: v.presentation ?? it.presentation,
-        presentation_qty: v.presentation_qty ?? it.presentation_qty,
-        quantity_multiplier: v.quantity_multiplier ?? it.quantity_multiplier,
-        price_base: v.price_base,
-        discount_pct: v.discount_pct,
-        price_dealer: v.price_dealer,
-        _isSubRow: i > 0,
-      } as FlatRow);
-    });
-  }
-  return out;
-}
-
 // ---------- Background helpers ----------
 let bgDataUrlCache: string | null = null;
 async function loadProposalBg(): Promise<string> {
@@ -145,10 +115,9 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
 export function exportPriceTableXlsx(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  itemsIn: DealerPriceItem[],
+  items: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
-  const items = flattenItems(itemsIn);
   const header = ["COD", "Produto", "Categoria", "Subcategoria", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Descrição", "Preço tabela", "% Desconto", "Preço dealer"];
   const aoa: any[][] = [header];
   items.forEach((it, idx) => {
@@ -191,10 +160,9 @@ export function exportPriceTableXlsx(
 export async function exportPriceTablePdf(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  itemsIn: DealerPriceItem[],
+  items: DealerPriceItem[],
   opts: { title?: string; filenamePrefix?: string } = {},
 ) {
-  const items = flattenItems(itemsIn) as (DealerPriceItem & { _isSubRow?: boolean })[];
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();   // 595.28
   const pageH = doc.internal.pageSize.getHeight();  // 841.89
@@ -292,7 +260,7 @@ export async function exportPriceTablePdf(
   const rowFor = (it: DealerPriceItem) => [
     "", // photo cell (drawn in didDrawCell)
     it.cod ?? "—",
-    (it as any)._isSubRow ? "" : it.name,
+    it.name,
     it.variant ?? it.presentation ?? "—",
     it.ncm_hs ?? "—",
     it.gtin_ean ?? "—",
@@ -350,7 +318,6 @@ export async function exportPriceTablePdf(
           if (data.section !== "body" || data.column.index !== 0) return;
           const it = sub.rows[data.row.index];
           if (!it) return;
-          if ((it as any)._isSubRow) return; // photo only on the first row of a group
           const entry = imgs.get(it.id);
           if (!entry) return;
           const pad = 2;
@@ -406,10 +373,9 @@ export async function exportPriceTablePdf(
 export async function exportPriceTableDocx(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  itemsIn: DealerPriceItem[],
+  items: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
-  const items = flattenItems(itemsIn) as (DealerPriceItem & { _isSubRow?: boolean })[];
   const currency = list?.currency ?? "BRL";
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
@@ -449,11 +415,10 @@ export async function exportPriceTableDocx(
   });
 
   const itemRow = (it: DealerPriceItem) => {
-    const isSub = (it as any)._isSubRow === true;
     const values: string[] = [
       "", // photo
       it.cod ?? "—",
-      isSub ? "" : it.name,
+      it.name,
       it.variant ?? it.presentation ?? "—",
       it.ncm_hs ?? "—",
       it.gtin_ean ?? "—",
@@ -466,7 +431,7 @@ export async function exportPriceTableDocx(
       children: values.map((val, i) => {
         // Photo column
         if (i === 0) {
-          const entry = isSub ? null : imgs.get(it.id);
+          const entry = imgs.get(it.id);
           let children: any[] = [new Paragraph({ children: [new TextRun("")] })];
           if (entry) {
             const type = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "jpg"
