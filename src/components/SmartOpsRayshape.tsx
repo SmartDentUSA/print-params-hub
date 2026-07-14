@@ -65,6 +65,7 @@ const fmtDate = (iso: string | null) => {
 export function SmartOpsRayshape() {
   const { toast } = useToast();
   const [owners, setOwners] = useState<Owner[]>([]);
+  const [productUnits, setProductUnits] = useState<{ product_key: string; product_label: string; units: number; leads: number; ord: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -86,11 +87,26 @@ export function SmartOpsRayshape() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    const { data, error } = await supabase.rpc("fn_rayshape_owners" as any);
-    if (error) {
-      toast({ title: "Erro ao carregar Rayshape", description: error.message, variant: "destructive" });
+    const [ownersRes, unitsRes] = await Promise.all([
+      supabase.rpc("fn_rayshape_owners" as any),
+      supabase.rpc("fn_rayshape_product_units" as any),
+    ]);
+    if (ownersRes.error) {
+      toast({ title: "Erro ao carregar Rayshape", description: ownersRes.error.message, variant: "destructive" });
     } else {
-      setOwners((data as any) || []);
+      setOwners((ownersRes.data as any) || []);
+    }
+    if (unitsRes.error) {
+      // silent — KPI section will just be empty
+      console.warn("fn_rayshape_product_units error", unitsRes.error.message);
+    } else {
+      setProductUnits(((unitsRes.data as any) || []).map((r: any) => ({
+        product_key: r.product_key,
+        product_label: r.product_label,
+        units: Number(r.units) || 0,
+        leads: Number(r.leads) || 0,
+        ord: Number(r.ord) || 0,
+      })));
     }
     setLoading(false);
     setRefreshing(false);
