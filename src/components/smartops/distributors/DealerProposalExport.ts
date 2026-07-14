@@ -15,6 +15,36 @@ function fileBase(distributor: Distributor | undefined, list: DealerPriceList | 
   return `${prefix}-${dist}-v${list?.version ?? 1}-${ts}`;
 }
 
+/** Flatten each item into one row per variation (or a single row when the
+ *  item has no variations). Sub-rows repeat the parent's identity fields so
+ *  each exported row is self-contained. `_isSubRow` = true means it should be
+ *  visually grouped with the previous row (no photo/name shown). */
+type FlatRow = DealerPriceItem & { _isSubRow?: boolean };
+function flattenItems(items: DealerPriceItem[]): FlatRow[] {
+  const out: FlatRow[] = [];
+  for (const it of items) {
+    const vars = Array.isArray(it.variations) ? it.variations : [];
+    if (vars.length < 2) { out.push(it); continue; }
+    vars.forEach((v, i) => {
+      out.push({
+        ...it,
+        cod: v.sku ?? it.cod,
+        variant: v.name ?? it.variant,
+        ncm_hs: v.ncm_hs ?? it.ncm_hs,
+        gtin_ean: v.gtin_ean ?? it.gtin_ean,
+        presentation: v.presentation ?? it.presentation,
+        presentation_qty: v.presentation_qty ?? it.presentation_qty,
+        quantity_multiplier: v.quantity_multiplier ?? it.quantity_multiplier,
+        price_base: v.price_base,
+        discount_pct: v.discount_pct,
+        price_dealer: v.price_dealer,
+        _isSubRow: i > 0,
+      } as FlatRow);
+    });
+  }
+  return out;
+}
+
 // ---------- Background helpers ----------
 let bgDataUrlCache: string | null = null;
 async function loadProposalBg(): Promise<string> {
