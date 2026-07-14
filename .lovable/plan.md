@@ -1,63 +1,61 @@
+## Objetivo
 
-## Diagnóstico
+1. **Blindar** o catálogo da Base de Conhecimento: seus cards vêm exclusivamente do **Painel Administrativo → Gestão de Catálogo de Produtos** (`system_a_catalog` com `active + approved + visible_in_ui`). Nada em **Distribuição — Tabelas de Preço & Propostas** pode alterar esses registros.
+2. Tornar o toggle **Ativo/Inativo** dentro da Distribuição um filtro **puramente local** (só define se o produto aparece na lista da tabela de preço daquele distribuidor).
+3. Adicionar botão **Excluir** em cada linha do **Historial de cotizaciones** (snapshots).
 
-Investiguei o console e o código. São **dois problemas distintos**, e nenhum é "aleatório":
+---
 
-### 1) Cards duplicados / sumidos na Base de Conhecimento → Aba Catálogo
-No console aparece:
+## Mudanças
+
+### 1. Base de Conhecimento — reforçar regra (verificação, sem alteração funcional)
+Arquivo: `src/components/knowledge/KbTabCatalogo.tsx`
+- Já filtra `active=true AND approved=true AND visible_in_ui=true` em `system_a_catalog` (linhas 423‑427). Adicionar comentário `// REGRA: cards só vêm de system_a_catalog gerenciado no Painel Admin. NENHUMA escrita a partir de módulos externos (Distribuição, Propostas).` para travar a regra em revisão.
+
+### 2. Distribuição — isolar Ativo/Inativo do catálogo mestre
+Novo campo local em `dealer_price_items`:
+
+```sql
+ALTER TABLE public.dealer_price_items
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 ```
-column products_catalog.id does not exist
-Perhaps you meant to reference the column "products_catalog.product_id"
-```
-A tabela `products_catalog` usa `product_id` como PK (não `id`). Confirmei no schema. Dois arquivos consultam com `id` e quebram silenciosamente:
 
-- `src/components/knowledge/KbTabCatalogo.tsx` (linha ~434): a query cai inteira → o hook não consegue casar `system_a_catalog` × `products_catalog` (datasheet/manual/specs longos), então os cards renderizam só com o que veio do `system_a_catalog`. Efeito visual: itens sem specs "somem" da UI e itens com nomes parecidos entre as duas fontes aparecem "duplicados" (cai para o cruzamento por nome/slug em vez do produto certo).
-- `src/hooks/useCatalogCRUD.ts` (função `mirrorTechSpecsToProductsCatalog`): mesmo bug — `select('id, ...').eq('id', m.id)`. Espelhamento manual de specs não grava.
+Arquivo: `src/components/smartops/distributors/DealerPriceTable.tsx`
+- `importCatalog()` (linha 175): remover o filtro `.eq("active", true)` do `system_a_catalog` — importar **todos** os produtos aprovados. Assim, ligar/desligar um item na Distribuição não depende (nem afeta) o catálogo mestre.
+- Adicionar coluna **Ativo** com `Switch` na tabela por linha; grava só em `dealer_price_items.is_active`.
+- Adicionar filtro no topo "Mostrar inativos" (default: off) que filtra localmente `is_active=false`.
+- Confirmar que **nenhuma escrita** deste componente atinge `system_a_catalog` (grep de verificação no fim).
 
-### 2) Distribuição afetando o catálogo mestre
-A aba **Distribuição → Catálogo de Produtos** (`DealerCatalogGrid.tsx`) grava direto em `system_a_catalog`:
-- `saveField(id, patch)` → `supabase.from('system_a_catalog').update(patch).eq('id', id)`
-- edita `price`, `price_usd`, `price_eur`, `ncm`, `gtin`, `presentation`, `quantity_multiplier`, `active`, etc.
+Arquivo: `src/components/smartops/distributors/types.ts`
+- Adicionar `is_active: boolean` em `DealerPriceItem`.
 
-Ou seja: qualquer ajuste feito ali muda o catálogo que alimenta a Base de Conhecimento, o site publicado, o Copilot e a sincronia com Sistema A. Isso viola o requisito do usuário. A `DealerPriceTable` (a tabela por distribuidor) já está correta — grava em `dealer_price_items`, isolada.
+Arquivo: `src/components/smartops/distributors/DealerCatalogGrid.tsx`
+- Já é somente leitura desde a última rodada. Adicionar comentário topo do arquivo: `// READ-ONLY: nunca escrever em system_a_catalog. Fonte da verdade é o Painel Admin → Gestão de Catálogo.`
 
-## Plano de correção
+### 3. Historial de cotizaciones — botão excluir
+Arquivo: `src/components/smartops/distributors/DealerPriceTable.tsx` (linhas 579‑597)
+- Adicionar ao lado do botão **Restaurar** um botão **Excluir** (ícone `Trash2`) com `AlertDialog` de confirmação.
+- Handler: `deleteSnapshot(id)` → `supabase.from("dealer_price_list_snapshots").delete().eq("id", id)` → `reloadSnapshots()` → toast de sucesso.
+- Adicionar traduções (`pt/es/en`): `deleteSnapshot`, `confirmDeleteSnapshot`, `snapshotDeleted`.
 
-### A. Fix do erro `products_catalog.id`
-1. `src/components/knowledge/KbTabCatalogo.tsx`
-   - Trocar o `select` da query `products_catalog` para usar `product_id` no lugar de `id`.
-   - Ajustar o mapa de lookup (onde hoje se faz `by[row.id]` ou similar) para chavear por `product_id` — vou revisar as linhas 470–560 e ajustar exatamente onde a chave é consumida.
-2. `src/hooks/useCatalogCRUD.ts` → `mirrorTechSpecsToProductsCatalog`
-   - `select('product_id, name, slug')` e `.eq('product_id', m.product_id)`.
-
-Sem migration: o schema já é o correto; era só o SELECT que estava errado.
-
-### B. Blindar Distribuição (nunca mais gravar em `system_a_catalog`)
-`src/components/smartops/distributors/DealerCatalogGrid.tsx`:
-- Transformar a grid em **leitura pura** do catálogo. Remover:
-  - `saveField()` (não escreve mais em `system_a_catalog`)
-  - `toggleActive()` que altera `active` do catálogo mestre
-  - qualquer input editável que dispare `update` no `system_a_catalog`
-- Manter busca, filtros, visualização e o link/ação que joga o produto para dentro da tabela de preços do distribuidor (isso já usa `dealer_price_items`, ok).
-- Adicionar banner discreto: "Somente leitura. Edições de preço/margem por distribuidor ficam na aba Tabelas de Preço."
-- Se o usuário precisar corrigir preço/atributo do catálogo mestre, o caminho continua sendo a Base de Conhecimento → Catálogo (aba admin), não a Distribuição.
-
-Verifiquei que:
-- `DealerPriceTable.tsx` só **lê** `system_a_catalog` (para importar/recalcular) e grava exclusivamente em `dealer_price_items` / `dealer_price_lists` / `dealer_price_list_snapshots` — **mantido como está**.
-- `DealerProposalWizard.tsx` grava apenas em `dealer_proposals` — **mantido**.
-- O historial de snapshots implementado antes fica intacto.
-
-### C. Verificação
-1. Após as edições, abrir `/base-conhecimento` → aba Catálogo e conferir no console que o erro 42703 sumiu e que datasheet/manual/specs voltam a aparecer.
-2. Abrir Distribuição → Catálogo e confirmar que os campos não são mais editáveis; qualquer tentativa de update no `system_a_catalog` a partir dessa tela não existe mais no bundle (grep).
-3. `tsgo` para checagem de tipos.
+### 4. Verificação final
+- `rg "system_a_catalog" src/components/smartops/distributors/` — deve mostrar apenas leituras (`.select`), zero `.update/.insert/.delete/.upsert`.
+- Typecheck.
 
 ## Fora de escopo
-- Não vou tocar em migrations, RLS, nem no fluxo de sincronia Sistema A.
-- Não vou mexer em `products_catalog` (schema está certo — o bug é do cliente).
-- Não vou alterar a lógica de câmbio (`FxRateBadge`) nem o histórico de propostas.
+- Sincronização Sistema A externa; alterações em Painel Admin; FX badge; sync com `products_catalog`.
 
-## Arquivos que serão alterados
-- `src/components/knowledge/KbTabCatalogo.tsx` (fix do select + uso de `product_id`)
-- `src/hooks/useCatalogCRUD.ts` (fix do mirror)
-- `src/components/smartops/distributors/DealerCatalogGrid.tsx` (read-only, remove escritas em `system_a_catalog`)
+## Diagrama
+
+```text
+Painel Admin (Gestão de Catálogo)
+        │  (única fonte de escrita)
+        ▼
+   system_a_catalog  ──►  Base de Conhecimento (read-only, filtra active+approved+visible_in_ui)
+        │
+        └─► Distribuição/Tabelas de Preço (read-only import)
+                    │
+                    ▼
+             dealer_price_items.is_active  ◄── toggle LOCAL do distribuidor
+             dealer_price_list_snapshots   ◄── histórico com botão Excluir
+```
