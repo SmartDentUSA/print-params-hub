@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save } from "lucide-react";
+import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS } from "./types";
@@ -21,7 +21,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Moeda", language: "Idioma", items: "Itens",
     tableTotal: "Preço tabela total", dealerTotal: "Preço dealer total", discount: "Desconto",
     historyTitle: "Histórico de cotações", noSnapshots: "Nenhuma cotação salva ainda. Use “Salvar no histórico” para versionar a tabela atual.",
-    date: "Data", label: "Rótulo", totalDealer: "Total dealer",
+    date: "Data", label: "Rótulo", totalDealer: "Total dealer", restore: "Restaurar",
+    restoreConfirm: "Restaurar esta versão? A tabela atual será substituída (uma nova versão será salva automaticamente).",
+    autoEdit: "Edição manual", autoImport: "Importação de catálogo", autoRemove: "Item removido",
+    autoRecalc: "Recalculado do catálogo", autoRestore: "Restauração do histórico",
     loading: "Carregando…", selectPrompt: "Selecione um distribuidor para criar/editar sua tabela.",
     emptyTable: "Tabela vazia. Clique em", populateAll: "para popular todos os produtos ativos.",
     noCategory: "Sem categoria",
@@ -39,7 +42,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Moneda", language: "Idioma", items: "Ítems",
     tableTotal: "Precio tabla total", dealerTotal: "Precio dealer total", discount: "Descuento",
     historyTitle: "Historial de cotizaciones", noSnapshots: "Ninguna cotización guardada aún. Use “Guardar en historial” para versionar la tabla actual.",
-    date: "Fecha", label: "Etiqueta", totalDealer: "Total dealer",
+    date: "Fecha", label: "Etiqueta", totalDealer: "Total dealer", restore: "Restaurar",
+    restoreConfirm: "¿Restaurar esta versión? La tabla actual será reemplazada (se guardará una nueva versión automáticamente).",
+    autoEdit: "Edición manual", autoImport: "Importación de catálogo", autoRemove: "Ítem eliminado",
+    autoRecalc: "Recalculado del catálogo", autoRestore: "Restauración del historial",
     loading: "Cargando…", selectPrompt: "Seleccione un distribuidor para crear/editar su tabla.",
     emptyTable: "Tabla vacía. Haga clic en", populateAll: "para cargar todos los productos activos.",
     noCategory: "Sin categoría",
@@ -57,7 +63,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Currency", language: "Language", items: "Items",
     tableTotal: "List total", dealerTotal: "Dealer total", discount: "Discount",
     historyTitle: "Quote history", noSnapshots: "No quotes saved yet. Use “Save to history” to version the current table.",
-    date: "Date", label: "Label", totalDealer: "Dealer total",
+    date: "Date", label: "Label", totalDealer: "Dealer total", restore: "Restore",
+    restoreConfirm: "Restore this version? The current table will be replaced (a new version will be auto-saved).",
+    autoEdit: "Manual edit", autoImport: "Catalog import", autoRemove: "Item removed",
+    autoRecalc: "Recalculated from catalog", autoRestore: "Restored from history",
     loading: "Loading…", selectPrompt: "Select a distributor to create/edit its table.",
     emptyTable: "Empty table. Click", populateAll: "to load all active products.",
     noCategory: "Uncategorized",
@@ -207,6 +216,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
     }
     await loadOrCreate(distributorId);
+    if (!insErr) {
+      // captura snapshot pós-import com estado recém carregado
+      const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
+      await autoSnapshot(`${t.autoImport} (+${toInsert.length})`, ((rows as any) || []) as DealerPriceItem[]);
+    }
   };
 
   const recalcFromCatalog = async () => {
@@ -279,6 +293,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     toast.success(`${toSave.length} linhas salvas`);
     setDirtyIds(new Set());
     setSaving(false);
+    await autoSnapshot(`${t.autoEdit} (${toSave.length})`, items);
   };
 
   const saveSnapshot = async () => {
@@ -311,9 +326,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
 
   const removeItem = async (id: string) => {
     if (!confirm("Remover este item da tabela?")) return;
+    const removed = items.find((i) => i.id === id);
     const { error } = await supabase.from("dealer_price_items" as any).delete().eq("id", id);
     if (error) return toast.error(error.message);
-    setItems((p) => p.filter((i) => i.id !== id));
+    const next = items.filter((i) => i.id !== id);
+    setItems(next);
+    await autoSnapshot(`${t.autoRemove}: ${removed?.name ?? id.slice(0, 8)}`, next);
   };
 
   const grouped = useMemo(() => {
@@ -337,6 +355,69 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     const total = items.reduce((a, b) => a + lineTotal(b), 0);
     return { subtotal, total, discount: subtotal - total };
   }, [items]);
+
+  const reloadSnapshots = async () => {
+    if (!distributorId) return;
+    const { data: snaps } = await supabase
+      .from("dealer_price_list_snapshots" as any)
+      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at")
+      .eq("distributor_id", distributorId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setSnapshots(((snaps as any) || []) as DealerSnapshot[]);
+  };
+
+  const autoSnapshot = async (label: string, itemsSnap: DealerPriceItem[]) => {
+    if (!list || !distributorId) return;
+    const subtotal = itemsSnap.reduce((a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1), 0);
+    const total = itemsSnap.reduce((a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1), 0);
+    await supabase.from("dealer_price_list_snapshots" as any).insert({
+      distributor_id: distributorId,
+      price_list_id: list.id,
+      label,
+      currency: list.currency,
+      language: list.language,
+      items: itemsSnap as any,
+      totals: { subtotal, total, discount: subtotal - total } as any,
+    });
+    reloadSnapshots();
+  };
+
+  const restoreSnapshot = async (s: DealerSnapshot) => {
+    if (!list || !confirm(t.restoreConfirm)) return;
+    setSaving(true);
+    // 1. Auto-snapshot atual antes de sobrescrever
+    await autoSnapshot(`${t.autoRestore} — snapshot pré-restauração`, items);
+    // 2. Apaga itens atuais
+    const { error: delErr } = await supabase.from("dealer_price_items" as any).delete().eq("price_list_id", list.id);
+    if (delErr) { toast.error(delErr.message); setSaving(false); return; }
+    // 3. Insere itens do snapshot
+    const arr = Array.isArray(s.items) ? (s.items as any[]) : [];
+    const toInsert = arr.map((it: any, idx: number) => ({
+      price_list_id: list.id,
+      catalog_product_id: it.catalog_product_id ?? null,
+      cod: it.cod ?? null, name: it.name ?? "",
+      name_en: it.name_en ?? null, name_es: it.name_es ?? null,
+      image_url: it.image_url ?? null,
+      category: it.category ?? null, subcategory: it.subcategory ?? null, variant: it.variant ?? null,
+      ncm_hs: it.ncm_hs ?? null, gtin_ean: it.gtin_ean ?? null,
+      unidade: it.unidade ?? "UN", description: it.description ?? null,
+      price_base: Number(it.price_base) || 0,
+      discount_pct: Number(it.discount_pct) || 0,
+      price_dealer: Number(it.price_dealer) || 0,
+      presentation: it.presentation ?? "Unid",
+      quantity_multiplier: Number(it.quantity_multiplier ?? 1) || 1,
+      presentation_qty: it.presentation_qty ?? null,
+      sort_order: idx,
+    }));
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
+      if (insErr) { toast.error(insErr.message); setSaving(false); return; }
+    }
+    toast.success(`Versão de ${new Date(s.created_at).toLocaleString("pt-BR")} restaurada`);
+    setSaving(false);
+    await loadOrCreate(distributorId);
+  };
 
   return (
     <div className="space-y-4">
@@ -468,6 +549,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                       <TableHead>{t.language}</TableHead>
                       <TableHead className="text-right">{t.items}</TableHead>
                       <TableHead className="text-right">{t.totalDealer}</TableHead>
+                      <TableHead className="text-right w-24"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -482,6 +564,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           <TableCell className="uppercase">{s.language}</TableCell>
                           <TableCell className="text-right">{arr.length}</TableCell>
                           <TableCell className="text-right font-semibold">{formatMoney(t, s.currency)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="outline" onClick={() => restoreSnapshot(s)} disabled={saving}>
+                              <RotateCcw className="w-3 h-3 mr-1" /> Restaurar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}

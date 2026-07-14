@@ -6,11 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff, History, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+type SavedProposal = {
+  id: string;
+  proposal_number: string | null;
+  currency: string;
+  language: string;
+  status: string;
+  items: any;
+  totals: any;
+  header_data: any;
+  created_at: string;
+};
 
 type Props = { distributors: Distributor[] };
 
@@ -25,11 +38,23 @@ export function DealerProposalWizard({ distributors }: Props) {
     empresa: "", razao_social: "", contato: "", email: "", pais: "",
   });
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [pastProposals, setPastProposals] = useState<SavedProposal[]>([]);
 
   const distributor = distributors.find((d) => d.id === distributorId);
 
+  const loadProposals = async (distId: string) => {
+    const { data } = await supabase
+      .from("dealer_proposals" as any)
+      .select("id,proposal_number,currency,language,status,items,totals,header_data,created_at")
+      .eq("distributor_id", distId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setPastProposals(((data as any) || []) as SavedProposal[]);
+  };
+
   useEffect(() => {
     if (!distributorId) return;
+    loadProposals(distributorId);
     (async () => {
       const { data: lists } = await supabase
         .from("dealer_price_lists" as any).select("*")
@@ -126,6 +151,7 @@ export function DealerProposalWizard({ distributors }: Props) {
     if (error) return toast.error("Erro ao salvar: " + error.message);
     setSavedId((data as any).id);
     toast.success("Proposta salva");
+    loadProposals(distributor.id);
   };
 
   const stubList: DealerPriceList = list ?? {
@@ -174,6 +200,69 @@ export function DealerProposalWizard({ distributors }: Props) {
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
+
+            {distributorId && (
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                  <History className="w-4 h-4" /> Histórico de propostas ({pastProposals.length})
+                </h4>
+                {pastProposals.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma proposta gerada ainda para este distribuidor.</p>
+                ) : (
+                  <div className="border rounded-md overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Nº</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Moeda</TableHead>
+                          <TableHead className="text-right">Itens</TableHead>
+                          <TableHead className="text-right">Total dealer</TableHead>
+                          <TableHead className="text-right">Exportar</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pastProposals.map((p) => {
+                          const arr = Array.isArray(p.items) ? (p.items as DealerPriceItem[]) : [];
+                          const total = (p.totals && (p.totals as any).total) ?? 0;
+                          const propList: DealerPriceList = {
+                            id: "prop", distributor_id: distributor?.id ?? "", name: p.proposal_number ?? "Proposta",
+                            currency: p.currency, language: p.language, exchange_rate: null,
+                            version: 1, is_active: true, notes: null,
+                            created_at: p.created_at, updated_at: p.created_at,
+                          };
+                          return (
+                            <TableRow key={p.id}>
+                              <TableCell className="text-xs">{new Date(p.created_at).toLocaleString("pt-BR")}</TableCell>
+                              <TableCell className="text-xs">{p.proposal_number || p.id.slice(0, 8)}</TableCell>
+                              <TableCell><Badge variant="outline">{p.status}</Badge></TableCell>
+                              <TableCell>{p.currency}</TableCell>
+                              <TableCell className="text-right">{arr.length}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatMoney(total, p.currency)}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button size="icon" variant="ghost" title="XLSX"
+                                  onClick={() => exportPriceTableXlsx(distributor, propList, arr, "proposta")}>
+                                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" title="PDF"
+                                  onClick={() => exportPriceTablePdf(distributor, propList, arr, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+                                  <FileText className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" title="DOCX"
+                                  onClick={() => exportPriceTableDocx(distributor, propList, arr, "proposta")}>
+                                  <FileType className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
