@@ -415,6 +415,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            <Button size="sm" variant="outline" onClick={recalcFromCatalog} disabled={saving || items.length === 0} className="h-7">
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> {t.recalcFromCatalog}
+            </Button>
             <span className="text-muted-foreground">{t.language}:</span>
             <Select
               value={list.language || "pt"}
