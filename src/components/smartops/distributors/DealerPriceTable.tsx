@@ -334,6 +334,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     setDirtyIds((s) => new Set(s).add(id));
   };
 
+  /** Update a single variation on a multi-variant item; auto-recalculates
+   *  price_dealer/discount_pct exactly like the flat updateField. */
+  const updateVariationField = (
+    itemId: string,
+    varIndex: number,
+    field: keyof DealerPriceVariation,
+    value: any,
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== itemId || !it.variations) return it;
+        const nextVars = it.variations.map((v, i) => {
+          if (i !== varIndex) return v;
+          const nv: DealerPriceVariation = { ...v, [field]: value } as any;
+          if (field === "price_base" || field === "discount_pct") {
+            nv.price_dealer = recalcDealerPrice(Number(nv.price_base), Number(nv.discount_pct));
+          } else if (field === "price_dealer") {
+            nv.discount_pct = recalcDiscount(Number(nv.price_base), Number(nv.price_dealer));
+          }
+          return nv;
+        });
+        return { ...it, variations: nextVars };
+      }),
+    );
+    setDirtyIds((s) => new Set(s).add(itemId));
+  };
+
   const saveAll = async () => {
     if (!list || dirtyIds.size === 0) return;
     setSaving(true);
@@ -348,6 +375,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           presentation_qty: it.presentation_qty ?? null,
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
+          variations: (it.variations && it.variations.length >= 2 ? it.variations : null) as any,
         })
         .eq("id", it.id);
       if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); return; }
