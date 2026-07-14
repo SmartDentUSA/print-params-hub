@@ -1,28 +1,23 @@
-# Plano: 4 KPIs de Vendedor Líder por Categoria (Rayshape)
+# Plano: Cards por Categoria com Ranking de Vendedores
 
-Adicionar 4 novos cards no bloco de KPIs do painel Rayshape — Donos, mostrando qual vendedor tem mais donos em cada categoria:
+Substituir os 4 cards de "Vendedor líder — categoria" (que mostram apenas 1 vendedor) por 4 cards que **listam todos os vendedores da categoria com a respectiva quantidade de donos**, ordenados do maior para o menor.
 
-- **Vendedor líder — ⚪ Cedo**
-- **Vendedor líder — 🟡 Atenção**
-- **Vendedor líder — 🔴 Crítico**
-- **Vendedor líder — ✅ Recompra**
+Cada card:
 
-Cada card exibe:
-- Nome do vendedor.
-- Contagem: `N donos`.
+- Título: `⚪ Cedo` / `🟡 Atenção` / `🔴 Crítico` / `✅ Recomprou` (usar `CATEGORY_META[cat].label`).
+- Contagem total da categoria no topo (ex.: `12 donos`).
+- Lista compacta: `Nome do Vendedor — N` por linha, ordenada desc.
+- Ignora vendedor vazio ou `"manual"` (não é vendedor real).
+- Se a categoria não tiver donos: mostra `—` com opacidade reduzida.
+- Altura razoável (max-h com overflow-y auto) para não estourar o grid.
 
-Se a categoria não tiver donos, mostra `—` com opacidade reduzida.
+## Implementação (frontend apenas, `src/components/SmartOpsRayshape.tsx`)
 
-## Implementação (frontend apenas)
-
-Em `src/components/SmartOpsRayshape.tsx`:
-
-1. Dentro do `useMemo` de `kpis`, agrupar `owners` por `(category, vendor)` com um `Map<Category, Map<string, number>>`, e depois reduzir a `topVendorByCategory: Record<Category, { vendor: string; count: number } | null>`.
-   - Ignora vendors vazios / `"manual"` (não é vendedor de verdade — é fonte manual).
-   - Desempate: maior contagem; se empatar, primeiro alfabético.
-2. No grid de KPIs, adicionar os 4 cards após o card de "3º produto mais comprado na 1ª compra". Cor da borda/valor combina com o `CATEGORY_META` já existente (verde/amarelo/vermelho/cinza).
+1. No `useMemo` de `kpis`, substituir `topVendorByCategory` por `vendorsByCategory: Record<Category, { vendor: string; count: number }[]>` — lista ordenada `count desc`, `vendor asc` como desempate.
+2. Substituir o `.map` que hoje renderiza `topVendorByCategory[cat]` por um `.map` que renderiza cada lista dentro do card com um `<ul>` compacto.
+3. Manter as 4 categorias na mesma ordem: `cedo`, `atencao`, `critico`, `recomprou`.
 
 ## Fora do escopo
 
-- Não mexer em RPCs, banco ou filtros da tabela.
-- Não alterar seções de "Unidades vendidas" nem de "Produto principal na 1ª compra".
+- Não mexer em RPCs ou banco.
+- Não tocar em outros KPIs.
