@@ -23,7 +23,7 @@ import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "./SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "./smartops/SmartOpsWorkflowMapper";
 import { SmartOpsCampaigns } from "./SmartOpsCampaigns";
-import { SmartOpsDistributors } from "./smartops/SmartOpsDistributors";
+import { DistributorsHub } from "./smartops/distributors/DistributorsHub";
 import { SmartOpsReactivationHub } from "./SmartOpsReactivationHub";
 
 
@@ -159,7 +159,7 @@ export function SmartOpsTab() {
           <SmartOpsCampaigns />
         </TabsContent>
         <TabsContent value="distribuicao">
-          <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />
+          <DistributorsHub key={`distribuicao-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="reativacao">
           <SmartOpsReactivationHub key={`reativacao-${refreshKey}`} />
