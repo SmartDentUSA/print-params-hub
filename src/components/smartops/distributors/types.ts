@@ -51,12 +51,12 @@ export type DealerPriceItem = {
   sort_order: number;
   presentation?: PresentationType | null;
   quantity_multiplier?: number | null;
-  presentation_qty?: number | null;
+  presentation_qty?: string | null;
   is_active?: boolean;
 };
 
-export type PresentationType = "g" | "Kg" | "ml" | "mg" | "Unid";
-export const PRESENTATION_OPTIONS: PresentationType[] = ["g", "Kg", "ml", "mg", "Unid"];
+export type PresentationType = "Grs/Kg" | "Unit" | "Kit";
+export const PRESENTATION_OPTIONS: PresentationType[] = ["Grs/Kg", "Unit", "Kit"];
 
 export type DealerSnapshot = {
   id: string;
