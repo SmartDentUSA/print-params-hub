@@ -175,6 +175,18 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
+    const firstDaysBy = (kind: SaleKind) => {
+      const arr = owners
+        .filter(o => o.sale_kind === kind)
+        .map(o => o.first_repurchase_days)
+        .filter((v): v is number => typeof v === "number" && v >= 0);
+      return {
+        avg: arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0,
+        count: arr.length,
+      };
+    };
+    const firstDaysSeparado = firstDaysBy("separado");
+    const firstDaysCombo    = firstDaysBy("combo");
     // Agrupa produtos da 1ª recompra com nome normalizado; soma leads e unidades.
     const bucket = new Map<string, { label: string; leads: number; units: number }>();
     for (const o of owners) {
@@ -209,6 +221,7 @@ export function SmartOpsRayshape() {
     return {
       total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
       avgFirstDays, firstDaysCount: firstDaysArr.length,
+      firstDaysSeparado, firstDaysCombo,
       topProducts, vendorsByCategory,
       pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
     };
@@ -367,6 +380,22 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? `${kpis.avgFirstDays}d` : "—"}
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
+          <ul className="mt-2 pt-2 border-t border-border/40 space-y-0.5 text-[11px]">
+            <li className={`flex justify-between ${kpis.firstDaysSeparado.count === 0 ? "opacity-50" : ""}`}>
+              <span className="text-sky-400">Separado</span>
+              <span className="tabular-nums text-foreground">
+                {kpis.firstDaysSeparado.count ? `${kpis.firstDaysSeparado.avg}d` : "—"}
+                <span className="text-muted-foreground"> · {kpis.firstDaysSeparado.count} lead{kpis.firstDaysSeparado.count !== 1 ? "s" : ""}</span>
+              </span>
+            </li>
+            <li className={`flex justify-between ${kpis.firstDaysCombo.count === 0 ? "opacity-50" : ""}`}>
+              <span className="text-purple-400">Combo</span>
+              <span className="tabular-nums text-foreground">
+                {kpis.firstDaysCombo.count ? `${kpis.firstDaysCombo.avg}d` : "—"}
+                <span className="text-muted-foreground"> · {kpis.firstDaysCombo.count} lead{kpis.firstDaysCombo.count !== 1 ? "s" : ""}</span>
+              </span>
+            </li>
+          </ul>
         </Card>
         {[
           { title: "Produto principal na 1ª compra", idx: 0 },
