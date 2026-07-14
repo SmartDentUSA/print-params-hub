@@ -1,68 +1,65 @@
 ## Objetivo
+Refletir as **variações** do `system_a_catalog.extra_data.variations` (SKU/GTIN/NCM/peso/dimensões) no Catálogo, na Tabela de Preço e nos documentos gerados (PDF/DOCX/XLSX), consolidando produtos multivariante em uma única linha de Foto/Produto com sub-linhas por variação.
 
-Corrigir 4 problemas nos documentos gerados (PDF/DOCX) da Distribuição e padronizar a ordem de categorias em todo o módulo.
+## Fonte de dados
+`system_a_catalog.extra_data.variations` = array com:
+- `sku`, `name`, `gtin13`, `ncm`, `weight_kg`, `depth_cm`, `width_cm`, `height_cm`
 
-## 1. Ordem canônica de categorias (compartilhada)
+Regra:
+- 0 ou 1 variação → linha simples (comportamento atual)
+- ≥ 2 variações → 1 linha "pai" (Foto | Produto), com N sub-linhas de variação exibindo `Pres # | Pres | NCM/HS | GTIN/EAN | Unid (×) | Preço tabela (Unit) | % Desc. | Preço dealer (Unit) | Preço dealer`
 
-Criar um helper único em `src/components/smartops/distributors/types.ts`:
+## Mudanças
 
+### 1. `types.ts`
+Adicionar tipo `DealerPriceVariation` e campo opcional `variations` em `DealerPriceItem`:
 ```ts
-export const CATEGORY_ORDER: string[] = [
-  "RESINAS 3D / BIOCOMPATÍVEIS",
-  "RESINAS 3D / USO GERAL",
-  "PÓS-IMPRESSÃO / ACABAMENTO E FINALIZAÇÃO",
-  "CARACTERIZAÇÃO / SMARTMAKE",
-  "CARACTERIZAÇÃO / SMARTGUM",
-  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / ADESIVOS",
-  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / CIMENTOS",
-  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / RESINAS COMPOSTAS",
-  "INSUMOS LABORATÓRIO / CERÔMERO",
-];
-export function categoryRank(cat?: string|null, sub?: string|null): number { /* match "CAT / SUB" or "CAT" prefix; unknown → 999 */ }
+type DealerPriceVariation = {
+  sku: string | null; name: string | null;
+  gtin_ean: string | null; ncm_hs: string | null;
+  weight_kg?: number|null; depth_cm?: number|null; width_cm?: number|null; height_cm?: number|null;
+  presentation_qty?: number|null; presentation?: PresentationType|null;
+  quantity_multiplier?: number|null;
+  price_base: number; discount_pct: number; price_dealer: number;
+};
 ```
+Persistência: guardar `variations` em `dealer_price_items.extra_data.variations` (JSON) — sem migração de schema, usando coluna JSON existente (a criar apenas se não existir). Alternativa mais simples: persistir em campo `variations jsonb` novo em `dealer_price_items` via migração.
 
-Aplicar em:
-- **`DealerCatalogGrid.tsx`**: ordenar `items` por `categoryRank(product_category, product_subcategory)` antes do render; ordenar o `Select` de categorias na mesma ordem.
-- **`DealerPriceTable.tsx`**: no `grouped` memo (linha 388), ordenar grupos por `categoryRank`.
-- **`DealerProposalExport.ts`**: alterar `groupItemsByCategory` para ordenar categorias e subcategorias na sequência canônica antes de emitir bandas (afeta PDF e DOCX).
+### 2. `DealerPriceTable.tsx` — `importCatalog`
+Ao importar do catálogo, para cada produto do `system_a_catalog`:
+- Se `extra_data.variations.length ≤ 1`: mantém uma linha simples e herda `ncm/gtin/weight/dimensions` da (única) variação quando os campos do produto pai estiverem vazios.
+- Se `≥ 2`: cria uma linha "pai" com `variations: []` populadas a partir do array; cada variação inicial recebe `price_base = preço do pai` (na moeda alvo), `discount_pct = 0`, `price_dealer = price_base` e `quantity_multiplier = 1`.
 
-## 2. PDF — Cabeçalho cortado e imagens dos produtos
+`saveAll` estende para persistir `variations` (JSON).
 
-Em `DealerProposalExport.ts / exportPriceTablePdf`:
+### 3. Renderização da tabela (`DealerPriceTable.tsx`)
+- Cabeçalho ganha colunas: `Pres # | Pres | NCM/HS | GTIN/EAN | Unid (×) | Preço tabela (Unit) | % Desc. | Preço dealer (Unit) | Preço dealer` (a maioria já existe).
+- Item sem variações → 1 `<TableRow>` como hoje.
+- Item com variações → 1 `<TableRow>` "pai" com `rowSpan={n}` em Foto/COD/Produto/Status, seguido de N-1 rows contendo apenas as células das variações. Edição inline (`price_base`, `discount_pct`, `price_dealer`) atua na variação; recálculo automático mantém o mesmo `recalcDealerPrice/recalcDiscount`.
+- Total do produto (última coluna "Preço dealer") = soma de `price_dealer` das variações.
 
-- **Cabeçalho**: recalibrar coordenadas do overlay (`drawPageChrome`) para bater com o PNG de fundo (`proposal-bg`). Ajustar `tableTop` para começar somente após o bloco de cabeçalho do fundo (verificar altura real do PNG e mover para ~230pt se necessário), e reduzir `fontSize` dos campos longos com truncamento inteligente.
-- **Coluna Imagem**: adicionar 1ª coluna "Foto" (~40pt) exibindo miniatura. Carregar `it.image_url` via `fetch → dataURL` (com cache Map), converter para `PNG/JPEG` e desenhar no `didDrawCell` do autoTable (jsPDF `addImage`). Fallback: célula vazia quando URL ausente ou falha.
-- Reajustar `columnStyles` para caber em `contentW = 539pt` com a nova coluna (reduzir "Produto" e "Variante").
+### 4. `DealerCatalogGrid.tsx` (somente-leitura)
+Espelhar a mesma renderização de sub-linhas para produtos com >1 variação, exibindo SKU/GTIN/NCM/Pres/Peso da variação.
 
-## 3. DOCX — Imagens dos produtos
+### 5. `DealerProposalExport.ts` (PDF/DOCX/XLSX)
+- Aplainar `items` para exportação: cada variação vira uma linha com o "Produto" e "Foto" repetidos (ou usar `rowSpan` no DOCX / desenhar imagem só na primeira linha do grupo no PDF).
+- XLSX: emitir uma linha por variação, mantendo `Produto` idêntico em cada uma.
+- Totais no rodapé permanecem: soma de `price_base` e `price_dealer` de todas as variações.
 
-Em `exportPriceTableDocx`:
-- Adicionar 1ª coluna "Foto" (largura 900 DXA; recalcular soma para 14838).
-- Pré-carregar imagens (mesmo cache do PDF) e inserir `ImageRun` (60×60px) por linha; célula vazia quando ausente.
-
-## 4. Rodapé de totais (PDF e DOCX)
-
-Adicionar abaixo da última tabela três linhas alinhadas à direita:
-- **Preço de tabela**: soma de `price_base`
-- **Valor de desconto**: `price_base - price_dealer` total (com % médio ponderado entre parênteses)
-- **Preço Dealer**: soma de `price_dealer` (destaque em bold)
-
-Substituir o atual `Total dealer` único por esse bloco de 3 linhas, em ambos os exportadores.
-
-## Detalhes técnicos
-
-- Fetch de imagens: helper `imageToDataUrl(url)` com `Map<string, Promise<string|null>>`; timeout de 5s; ignora erros silenciosamente.
-- `getStorageImageUrl(url, { width: 120, quality: 70 })` para reduzir payload.
-- Nenhuma mudança de schema/DB necessária.
-
-## Arquivos alterados
-
-- `src/components/smartops/distributors/types.ts` (export `CATEGORY_ORDER`, `categoryRank`)
-- `src/components/smartops/distributors/DealerCatalogGrid.tsx` (ordenação)
-- `src/components/smartops/distributors/DealerPriceTable.tsx` (ordenação de `grouped`)
-- `src/components/smartops/distributors/DealerProposalExport.ts` (ordem + imagens PDF/DOCX + rodapé totais + cabeçalho alinhado)
+### 6. Migração Supabase
+```sql
+ALTER TABLE public.dealer_price_items
+  ADD COLUMN IF NOT EXISTS variations jsonb;
+```
+(sem novas policies — herda as existentes.)
 
 ## Fora do escopo
+- Edição manual de dimensões/peso das variações (vem sempre do catálogo mestre).
+- Sincronização retroativa de linhas já importadas: usuário deve rodar "Recalcular preços do catálogo" ou reimportar para popular as variações.
 
-- Alterar dados no banco, resins, `products_catalog`.
-- Redesenhar o PNG de fundo da proposta.
+## Arquivos alterados
+- `src/components/smartops/distributors/types.ts`
+- `src/components/smartops/distributors/DealerPriceTable.tsx`
+- `src/components/smartops/distributors/DealerCatalogGrid.tsx`
+- `src/components/smartops/distributors/DealerProposalExport.ts`
+- Migração: coluna `variations jsonb` em `dealer_price_items`

@@ -4109,6 +4109,7 @@ export type Database = {
           unidade: string
           updated_at: string
           variant: string | null
+          variations: Json | null
         }
         Insert: {
           catalog_product_id?: string | null
@@ -4136,6 +4137,7 @@ export type Database = {
           unidade?: string
           updated_at?: string
           variant?: string | null
+          variations?: Json | null
         }
         Update: {
           catalog_product_id?: string | null
@@ -4163,6 +4165,7 @@ export type Database = {
           unidade?: string
           updated_at?: string
           variant?: string | null
+          variations?: Json | null
         }
         Relationships: [
           {
