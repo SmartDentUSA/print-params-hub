@@ -200,6 +200,69 @@ export function DealerProposalWizard({ distributors }: Props) {
                 Próximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
+
+            {distributorId && (
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                  <History className="w-4 h-4" /> Histórico de propostas ({pastProposals.length})
+                </h4>
+                {pastProposals.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma proposta gerada ainda para este distribuidor.</p>
+                ) : (
+                  <div className="border rounded-md overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Nº</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Moeda</TableHead>
+                          <TableHead className="text-right">Itens</TableHead>
+                          <TableHead className="text-right">Total dealer</TableHead>
+                          <TableHead className="text-right">Exportar</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pastProposals.map((p) => {
+                          const arr = Array.isArray(p.items) ? (p.items as DealerPriceItem[]) : [];
+                          const total = (p.totals && (p.totals as any).total) ?? 0;
+                          const propList: DealerPriceList = {
+                            id: "prop", distributor_id: distributor?.id ?? "", name: p.proposal_number ?? "Proposta",
+                            currency: p.currency, language: p.language, exchange_rate: null,
+                            version: 1, is_active: true, notes: null,
+                            created_at: p.created_at, updated_at: p.created_at,
+                          };
+                          return (
+                            <TableRow key={p.id}>
+                              <TableCell className="text-xs">{new Date(p.created_at).toLocaleString("pt-BR")}</TableCell>
+                              <TableCell className="text-xs">{p.proposal_number || p.id.slice(0, 8)}</TableCell>
+                              <TableCell><Badge variant="outline">{p.status}</Badge></TableCell>
+                              <TableCell>{p.currency}</TableCell>
+                              <TableCell className="text-right">{arr.length}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatMoney(total, p.currency)}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button size="icon" variant="ghost" title="XLSX"
+                                  onClick={() => exportPriceTableXlsx(distributor, propList, arr, "proposta")}>
+                                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" title="PDF"
+                                  onClick={() => exportPriceTablePdf(distributor, propList, arr, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+                                  <FileText className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" title="DOCX"
+                                  onClick={() => exportPriceTableDocx(distributor, propList, arr, "proposta")}>
+                                  <FileType className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
