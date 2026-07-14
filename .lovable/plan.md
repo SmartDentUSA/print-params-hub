@@ -1,23 +1,31 @@
-Traduzir os cabeçalhos da tabela de preço (`DealerPriceTable`) conforme o idioma selecionado no cabeçalho da lista (PT/ES/EN). Também traduzir os rótulos do painel de resumo (Moeda, Idioma, Itens, Preço tabela total, Preço dealer total, Desconto) e o nome do produto exibido (usar `name_es`/`name_en` quando disponível, com fallback para `name`).
+## Alterar opções da coluna "Pres" (Apresentação)
 
-## Escopo
+Substituir as 3 opções atuais (`Grs/Kg`, `Unit`, `Kit`) pelas **5 unidades de medida** pedidas:
 
-Arquivo: `src/components/smartops/distributors/DealerPriceTable.tsx`
+- `g`
+- `Kg`
+- `ml`
+- `mg`
+- `Unid`
 
-1. Criar um pequeno dicionário local `I18N` com 3 idiomas (pt/es/en) contendo:
-   - Cabeçalhos da tabela: Foto, COD, Produto, Pres, NCM/HS, GTIN/EAN, Unid (×), Preço tabela (Unit), % Desc., Preço dealer (Unit), Preço dealer
-   - Painel de resumo: Moeda, Idioma, Itens, Preço tabela total, Preço dealer total, Desconto
-   - Histórico: Data, Rótulo, Moeda, Idioma, Itens, Total dealer, título "Histórico de cotações"
-   - Botões/textos: Importar catálogo, Salvar, Salvo, Salvar no histórico, Histórico, Gerar proposta, "Selecione um distribuidor…", "Tabela vazia…", "Sem categoria", etc.
+### Arquivos afetados
 
-2. Ler `lang = list.language || 'pt'` e usar `t = I18N[lang] ?? I18N.pt`.
+**`src/components/smartops/distributors/types.ts`**
+- Trocar tipo:
+  ```ts
+  export type PresentationType = "g" | "Kg" | "ml" | "mg" | "Unid";
+  export const PRESENTATION_OPTIONS: PresentationType[] = ["g", "Kg", "ml", "mg", "Unid"];
+  ```
 
-3. Substituir todas as strings hardcoded pelos valores de `t`.
+**`src/components/smartops/distributors/DealerPriceTable.tsx`**
+- Trocar o default `"Unit"` (linhas 179, 216, 491) por `"Unid"` para que novos itens já apareçam com a nova unidade e itens legados sem valor caiam no novo default.
 
-4. Para o nome do produto na coluna "Produto": exibir `it.name_es`/`it.name_en` conforme idioma; se vazio, fallback para `it.name`. Ao editar, continuar atualizando `it.name` (campo canônico) — tradução só afeta exibição.
+### Compatibilidade com dados existentes
 
-## Escopo NÃO incluso
+Registros já salvos em `dealer_price_items.presentation` com `"Grs/Kg"`, `"Unit"` ou `"Kit"` continuarão a aparecer no dropdown (o Select renderiza o valor mesmo fora da lista), mas ao abrir e escolher outra opção o valor é normalizado para a nova lista. **Não é feita migração automática no banco** — se você quiser, posso incluir um `UPDATE` mapeando `Unit → Unid` e `Grs/Kg → g` em uma migration separada; hoje isso não está no escopo.
 
-- Não altera o export (XLSX/PDF/DOCX) — pode ser feito depois se solicitado.
-- Não altera o `DealerProposalWizard` — pode ser feito depois se solicitado.
-- Não altera categorias/subcategorias (vêm do catálogo, geralmente já em PT).
+### Fora do escopo
+
+- Nenhuma mudança na lógica de multiplicador (`quantity_multiplier`) — continua sendo o multiplicador do preço dealer.
+- Nenhuma alteração no `DealerCatalogGrid` (a coluna Pres não aparece lá).
+- Nenhuma tradução PT/EN/ES da lista (unidades são universais).

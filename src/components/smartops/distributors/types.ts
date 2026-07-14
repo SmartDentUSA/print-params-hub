@@ -53,8 +53,8 @@ export type DealerPriceItem = {
   quantity_multiplier?: number | null;
 };
 
-export type PresentationType = "Grs/Kg" | "Unit" | "Kit";
-export const PRESENTATION_OPTIONS: PresentationType[] = ["Grs/Kg", "Unit", "Kit"];
+export type PresentationType = "g" | "Kg" | "ml" | "mg" | "Unid";
+export const PRESENTATION_OPTIONS: PresentationType[] = ["g", "Kg", "ml", "mg", "Unid"];
 
 export type DealerSnapshot = {
   id: string;
