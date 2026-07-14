@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, ImageOff, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function DealerCatalogGrid({ onAddToPriceList }: Props) {
-  const [items, setItems] = useState<CatalogProduct[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -26,14 +26,14 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       setLoading(true);
       const { data, error } = await supabase
         .from("system_a_catalog" as any)
-        .select("id,name,name_en,name_es,category,product_category,product_subcategory,image_url,price,currency,description,active")
+        .select("id,external_id,name,name_en,name_es,slug,category,product_category,product_subcategory,image_url,price,currency,description,active,extra_data")
         .eq("active", true)
         .not("product_category", "is", null)
         .neq("product_category", "")
         .order("product_category", { ascending: true })
         .order("name", { ascending: true });
       if (error) toast.error("Erro ao carregar catálogo: " + error.message);
-      setItems(((data as any) || []) as CatalogProduct[]);
+      setItems(((data as any) || []) as any[]);
       setLoading(false);
     })();
   }, []);
@@ -49,12 +49,15 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     return items.filter((i) => {
       if (category !== "all" && i.product_category !== category) return false;
       if (!needle) return true;
-      const hay = [i.name, i.name_en, i.name_es, i.product_category, i.product_subcategory].join(" ").toLowerCase();
+      const hay = [i.name, i.name_en, i.name_es, i.product_category, i.product_subcategory, i.external_id, i.slug].join(" ").toLowerCase();
       return hay.includes(needle);
     });
   }, [items, q, category]);
 
-  const nameFor = (p: CatalogProduct) => (lang === "en" ? p.name_en || p.name : lang === "es" ? p.name_es || p.name : p.name);
+  const nameFor = (p: any) => (lang === "en" ? p.name_en || p.name : lang === "es" ? p.name_es || p.name : p.name);
+  const skuOf = (p: any) => p?.extra_data?.sku || p?.extra_data?.SKU || p?.extra_data?.sku_pai || p?.external_id || "—";
+  const ncmOf = (p: any) => p?.extra_data?.ncm || p?.extra_data?.NCM || "—";
+  const gtinOf = (p: any) => p?.extra_data?.gtin || p?.extra_data?.ean || p?.extra_data?.GTIN || p?.extra_data?.EAN || "—";
 
   return (
     <div className="space-y-4">
@@ -85,35 +88,66 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando catálogo…</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {filtered.map((p) => (
-            <Card key={p.id} className="overflow-hidden hover:shadow-md transition flex flex-col">
-              <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
-                {p.image_url ? (
-                  <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain" loading="lazy" />
-                ) : (
-                  <ImageOff className="w-8 h-8 text-muted-foreground" />
-                )}
-              </div>
-              <CardContent className="p-3 space-y-1.5 flex-1 flex flex-col">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide truncate">
-                  {p.product_category || "—"}
-                </p>
-                <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5rem]">{nameFor(p)}</p>
-                <p className="text-sm font-semibold text-primary mt-auto">
-                  {formatMoney(p.price, p.currency || "BRL")}
-                </p>
-                {onAddToPriceList && (
-                  <Button size="sm" variant="outline" className="mt-1" onClick={() => onAddToPriceList(p)}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar à tabela
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-sm text-muted-foreground col-span-full text-center py-8">Nenhum produto encontrado.</p>
-          )}
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[64px]">Foto</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Subcategoria</TableHead>
+                <TableHead>NCM/HS</TableHead>
+                <TableHead>GTIN/EAN</TableHead>
+                <TableHead className="text-right">Preço tabela</TableHead>
+                {onAddToPriceList && <TableHead className="w-[120px]">Ações</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={onAddToPriceList ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                    Nenhum produto encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
+                        ) : (
+                          <ImageOff className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
+                    <TableCell className="font-medium max-w-[320px]">
+                      <div className="truncate">{nameFor(p)}</div>
+                      {p.slug && <div className="text-[11px] text-muted-foreground font-mono truncate">/{p.slug}</div>}
+                    </TableCell>
+                    <TableCell>
+                      {p.product_category ? <Badge variant="outline">{p.product_category}</Badge> : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{p.product_subcategory || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{ncmOf(p)}</TableCell>
+                    <TableCell className="font-mono text-xs">{gtinOf(p)}</TableCell>
+                    <TableCell className="text-right font-semibold text-primary whitespace-nowrap">
+                      {formatMoney(p.price, p.currency || "BRL")}
+                    </TableCell>
+                    {onAddToPriceList && (
+                      <TableCell>
+                        <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
