@@ -712,26 +712,56 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((it) => (
+                    {(() => {
+                      // Group variations of the same product (same name + same image)
+                      // so FOTO / COD / PRODUTO render once with rowSpan across
+                      // all presentations (1000g / 500g / 250g etc.).
+                      const groupKey = (it: DealerPriceItem) =>
+                        `${(it.name || "").trim().toLowerCase()}|${it.image_url || ""}`;
+                      const seen = new Map<string, { leader: string; size: number }>();
+                      for (const it of rows) {
+                        const k = groupKey(it);
+                        const g = seen.get(k);
+                        if (!g) seen.set(k, { leader: it.id, size: 1 });
+                        else g.size += 1;
+                      }
+                      const updateGroupField = (leaderId: string, field: keyof DealerPriceItem, value: any) => {
+                        const leader = rows.find((r) => r.id === leaderId);
+                        if (!leader) return;
+                        const k = groupKey(leader);
+                        rows.forEach((r) => { if (groupKey(r) === k) updateField(r.id, field, value); });
+                      };
+                      return rows.map((it) => {
+                        const k = groupKey(it);
+                        const g = seen.get(k)!;
+                        const isLeader = g.leader === it.id;
+                        const span = g.size;
+                        return (
                      <TableRow key={it.id} className={`${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`}>
-                        <TableCell>
+                        {isLeader && (
+                        <TableCell rowSpan={span} className="align-middle">
                           {it.image_url ? (
                             <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
                           ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
                         </TableCell>
-                        <TableCell>
-                          <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
+                        )}
+                        {isLeader && (
+                        <TableCell rowSpan={span} className="align-middle">
+                          <Input value={it.cod ?? ""} onChange={(e) => updateGroupField(it.id, "cod", e.target.value)} className="h-8" />
                         </TableCell>
-                        <TableCell>
+                        )}
+                        {isLeader && (
+                        <TableCell rowSpan={span} className="align-middle">
                           <Input
                             value={displayName(it)}
                             onChange={(e) => {
                               const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
-                              updateField(it.id, field as any, e.target.value);
+                              updateGroupField(it.id, field as any, e.target.value);
                             }}
                             className="h-8"
                           />
                         </TableCell>
+                        )}
                         <TableCell>
                           <Input
                             type="text"
@@ -820,7 +850,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                        );
+                      });
+                    })()}
                   </TableBody>
                 </Table>
               </div>
