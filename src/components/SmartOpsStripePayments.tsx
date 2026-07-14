@@ -480,7 +480,7 @@ export function SmartOpsStripePayments() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-primary" />
-          <h1 className="text-xl font-semibold">Stripe / Pagamentos</h1>
+          <h1 className="text-xl font-semibold">Stripe / Pagamentos - RMS</h1>
         </div>
         <div className="flex-1" />
         <div className="relative">
