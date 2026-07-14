@@ -2,10 +2,12 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType } from "docx";
+import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { formatMoney } from "./types";
+import { formatMoney, categoryRank } from "./types";
 import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
+import { getStorageImageUrl } from "@/utils/storageImage";
 
 function fileBase(distributor: Distributor | undefined, list: DealerPriceList | null, prefix = "tabela-preco") {
   const dist = (distributor?.nome_fantasia || distributor?.razao_social || "distribuidor").replace(/\W+/g, "-").toLowerCase();
@@ -34,6 +36,49 @@ function resolveDealerId(d: Distributor | undefined): string {
   return anyD.id_dealer || anyD.dealer_code || anyD.codigo_dealer || (d?.id ? d.id.slice(0, 8).toUpperCase() : "—");
 }
 
+// ---------- Image cache: url -> { dataUrl, mime, bytes } ----------
+type ImgEntry = { dataUrl: string; mime: string; bytes: Uint8Array } | null;
+const imgCache = new Map<string, Promise<ImgEntry>>();
+
+async function loadImageEntry(rawUrl: string | null | undefined): Promise<ImgEntry> {
+  if (!rawUrl) return null;
+  const url = getStorageImageUrl(rawUrl, { width: 160, quality: 70 });
+  if (imgCache.has(url)) return imgCache.get(url)!;
+  const p = (async (): Promise<ImgEntry> => {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(url, { signal: ctrl.signal, mode: "cors" });
+      clearTimeout(to);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const mime = (blob.type || "image/png").toLowerCase();
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      return { dataUrl, mime, bytes: buf };
+    } catch {
+      return null;
+    }
+  })();
+  imgCache.set(url, p);
+  return p;
+}
+
+async function preloadImages(items: DealerPriceItem[]): Promise<Map<string, ImgEntry>> {
+  const out = new Map<string, ImgEntry>();
+  await Promise.all(items.map(async (it) => {
+    if (!it.image_url) return;
+    const entry = await loadImageEntry(it.image_url);
+    out.set(it.id, entry);
+  }));
+  return out;
+}
+
 function localeForLang(lang: string | null | undefined): string {
   const l = (lang || "pt").toLowerCase();
   if (l.startsWith("es")) return "es-ES";
@@ -54,7 +99,16 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
     if (!subEntry) { subEntry = { subcategory: sub, rows: [] }; entry.subs.push(subEntry); }
     subEntry.rows.push(it);
   }
-  return [...map.values()];
+  const groups = [...map.values()];
+  // Sort categories by CATEGORY_ORDER; within a category, sort subs by rank of "cat / sub".
+  groups.sort((a, b) => categoryRank(a.category) - categoryRank(b.category) || a.category.localeCompare(b.category));
+  for (const g of groups) {
+    g.subs.sort((a, b) =>
+      categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
+      || a.subcategory.localeCompare(b.subcategory)
+    );
+  }
+  return groups;
 }
 
 /** XLSX with a formula for Preço Dealer so it stays live in Excel. */
@@ -115,6 +169,8 @@ export async function exportPriceTablePdf(
   const currency = list?.currency ?? "BRL";
   const locale = localeForLang(list?.language);
   const bg = await loadProposalBg();
+  // Preload product images (silent failure per item)
+  const imgs = await preloadImages(items);
 
   const empresa = distributor?.nome_fantasia ?? distributor?.razao_social ?? "—";
   const razao = distributor?.razao_social ?? "—";
@@ -132,50 +188,77 @@ export async function exportPriceTablePdf(
     if (paintedPages.has(pageNo)) return;
     paintedPages.add(pageNo);
     doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+    // Header field overlay — a compact block placed below the PNG title area,
+    // safely inside the margin so it never crops. This is layout-independent
+    // of the PNG label positions to guarantee alignment.
+    const boxX = 32;
+    const boxY = 118;
+    const boxW = pageW - 64;
+    const boxH = 92;
+    doc.setDrawColor(200);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 4, 4, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(20, 20, 20);
-
-    // Values overlayed on the labels baked into the background PNG.
-    doc.text(String(empresa).slice(0, 40),  70, 138);   // Empresa:
-    doc.text(String(razao).slice(0, 40),   330, 138);   // Razão Social:
-    doc.text(String(contato).slice(0, 60), 180, 148);   // Contato — Responsável de Compras:
-    doc.text(String(email).slice(0, 60),    60, 158);   // E-mail:
-    doc.text(String(pais).slice(0, 30),     55, 168);   // País:
-    doc.text(String(dealerId).slice(0, 20),130, 178);   // ID Dealer SmartDent:
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(dataStr, pageW - 30, 178, { align: "right" }); // DATA DA PROPOSTA
+    doc.setFontSize(8);
+    doc.setTextColor(90, 90, 90);
+    const labelCol1X = boxX + 8;
+    const valueCol1X = boxX + 90;
+    const labelCol2X = boxX + boxW / 2 + 4;
+    const valueCol2X = boxX + boxW / 2 + 86;
+    const rowY = (i: number) => boxY + 14 + i * 15;
+    const drawField = (lx: number, vx: number, i: number, label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text(label, lx, rowY(i));
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(20, 20, 20);
+      const maxW = (vx === valueCol1X ? labelCol2X - vx - 8 : boxX + boxW - vx - 8);
+      const text = doc.splitTextToSize(String(value || "—"), maxW)[0];
+      doc.text(text, vx, rowY(i));
+    };
+    drawField(labelCol1X, valueCol1X, 0, "EMPRESA",  empresa);
+    drawField(labelCol2X, valueCol2X, 0, "RAZÃO SOCIAL", razao);
+    drawField(labelCol1X, valueCol1X, 1, "CONTATO", contato);
+    drawField(labelCol2X, valueCol2X, 1, "E-MAIL",   email);
+    drawField(labelCol1X, valueCol1X, 2, "PAÍS",     pais);
+    drawField(labelCol2X, valueCol2X, 2, "ID DEALER", dealerId);
+    drawField(labelCol1X, valueCol1X, 3, "DATA",     dataStr);
+    drawField(labelCol2X, valueCol2X, 3, "MOEDA",    currency);
     doc.setTextColor(0, 0, 0);
   };
 
   drawPageChrome();
 
-  // Table area: y 160 → 790 (footer starts ~800)
-  const tableTop = 210;
-  const tableBottom = 790;
+  // Table area: header block ends at y=210 — start table below.
+  const tableTop = 224;
+  const tableBottom = 780;
   const leftMargin = 28;
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // Compact 9-column layout fits contentW = 539pt exactly (sum = 539).
+  // 10-column layout with a photo column. Sum = 539pt = contentW.
   const head = [[
-    "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
+    "Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
     "Unid", "Preço tabela", "% Desc.", "Preço dealer",
   ]];
+  const PHOTO_COL_W = 38;
   const columnStyles: Record<number, any> = {
-    0: { cellWidth: 46 },
-    1: { cellWidth: 155 },
-    2: { cellWidth: 60 },
-    3: { cellWidth: 46 },
-    4: { cellWidth: 62 },
-    5: { cellWidth: 30, halign: "right" },
-    6: { cellWidth: 55, halign: "right" },
-    7: { cellWidth: 35, halign: "right" },
-    8: { cellWidth: 50, halign: "right", fontStyle: "bold" },
+    0: { cellWidth: PHOTO_COL_W, halign: "center" },
+    1: { cellWidth: 42 },
+    2: { cellWidth: 132 },
+    3: { cellWidth: 55 },
+    4: { cellWidth: 44 },
+    5: { cellWidth: 60 },
+    6: { cellWidth: 26, halign: "right" },
+    7: { cellWidth: 55, halign: "right" },
+    8: { cellWidth: 33, halign: "right" },
+    9: { cellWidth: 54, halign: "right", fontStyle: "bold" },
   };
 
   const rowFor = (it: DealerPriceItem) => [
+    "", // photo cell (drawn in didDrawCell)
     it.cod ?? "—",
     it.name,
     it.variant ?? it.presentation ?? "—",
@@ -222,7 +305,7 @@ export async function exportPriceTablePdf(
         margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
         body: sub.rows.map(rowFor),
-        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3 },
+        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 30 },
         headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7.5, fontStyle: "bold" },
         columnStyles,
         theme: "grid",
@@ -231,17 +314,57 @@ export async function exportPriceTablePdf(
           // rows remain visible. Guarded to run once per page.
           drawPageChrome();
         },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const it = sub.rows[data.row.index];
+          if (!it) return;
+          const entry = imgs.get(it.id);
+          if (!entry) return;
+          const pad = 2;
+          const size = Math.min(data.cell.width, data.cell.height) - pad * 2;
+          const x = data.cell.x + (data.cell.width - size) / 2;
+          const y = data.cell.y + (data.cell.height - size) / 2;
+          const fmt = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "JPEG" : "PNG";
+          try {
+            doc.addImage(entry.dataUrl, fmt, x, y, size, size, undefined, "FAST");
+          } catch {
+            /* skip broken image */
+          }
+        },
       });
       cursorY = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 4;
     }
   }
 
-  // Total dealer
-  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
-  ensureSpace(24);
+  // Footer totals: Preço de tabela / Valor de desconto / Preço Dealer
+  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
+  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalDesc = totalTabela - totalDealer;
+  const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
+  ensureSpace(72);
+  const boxX = pageW - rightMargin - 240;
+  const boxY = cursorY + 6;
+  doc.setDrawColor(200);
+  doc.setFillColor(248, 249, 250);
+  doc.roundedRect(boxX, boxY, 240, 60, 4, 4, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text("Preço de tabela:", boxX + 10, boxY + 16);
+  doc.text("Valor de desconto:", boxX + 10, boxY + 32);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(`Total dealer: ${formatMoney(total, currency)}`, pageW - rightMargin, cursorY + 14, { align: "right" });
+  doc.setTextColor(20, 20, 20);
+  doc.text("Preço Dealer:", boxX + 10, boxY + 51);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text(formatMoney(totalTabela, currency), boxX + 230, boxY + 16, { align: "right" });
+  doc.text(`${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, boxX + 230, boxY + 32, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  doc.text(formatMoney(totalDealer, currency), boxX + 230, boxY + 51, { align: "right" });
 
   doc.save(`${fileBase(distributor, list, opts.filenamePrefix ?? "tabela-preco")}.pdf`);
 }
@@ -256,12 +379,14 @@ export async function exportPriceTableDocx(
   const currency = list?.currency ?? "BRL";
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
+  const imgs = await preloadImages(items);
 
   // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
-  const widths = [1000, 3600, 1800, 1400, 1800, 900, 1400, 1000, 1938]; // sums to 14838
+  // Columns: Foto | COD | Produto | Variante | NCM/HS | GTIN/EAN | Unid | Preço | Desc. | Preço dealer
+  const widths = [1100, 900, 3200, 1600, 1200, 1600, 800, 1400, 900, 2138]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
-  const headers = ["COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
+  const headers = ["Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -289,8 +414,9 @@ export async function exportPriceTableDocx(
     })],
   });
 
-  const itemRow = (it: DealerPriceItem) => new TableRow({
-    children: [
+  const itemRow = (it: DealerPriceItem) => {
+    const values: string[] = [
+      "", // photo
       it.cod ?? "—",
       it.name,
       it.variant ?? it.presentation ?? "—",
@@ -300,15 +426,47 @@ export async function exportPriceTableDocx(
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
       formatMoney(it.price_dealer, currency),
-    ].map((val, i) => new TableCell({
-      borders, width: { size: widths[i], type: WidthType.DXA },
-      margins: { top: 60, bottom: 60, left: 100, right: 100 },
-      children: [new Paragraph({
-        children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-        alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT,
-      })],
-    })),
-  });
+    ];
+    return new TableRow({
+      children: values.map((val, i) => {
+        // Photo column
+        if (i === 0) {
+          const entry = imgs.get(it.id);
+          let children: any[] = [new Paragraph({ children: [new TextRun("")] })];
+          if (entry) {
+            const type = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "jpg"
+              : entry.mime.includes("png") ? "png"
+              : entry.mime.includes("gif") ? "gif"
+              : "png";
+            try {
+              children = [new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new ImageRun({
+                  type: type as any,
+                  data: entry.bytes,
+                  transformation: { width: 60, height: 60 },
+                  altText: { title: it.name, description: it.name, name: it.name },
+                })],
+              })];
+            } catch { /* leave empty */ }
+          }
+          return new TableCell({
+            borders, width: { size: widths[i], type: WidthType.DXA },
+            margins: { top: 60, bottom: 60, left: 60, right: 60 },
+            children,
+          });
+        }
+        return new TableCell({
+          borders, width: { size: widths[i], type: WidthType.DXA },
+          margins: { top: 60, bottom: 60, left: 100, right: 100 },
+          children: [new Paragraph({
+            children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
+            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+          })],
+        });
+      }),
+    });
+  };
 
   // Build category-separated rows.
   const groups = groupItemsByCategory(items);
@@ -329,7 +487,10 @@ export async function exportPriceTableDocx(
     rows,
   });
 
-  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
+  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalDesc = totalTabela - totalDealer;
+  const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
 
   const doc = new Document({
     sections: [{
@@ -347,7 +508,9 @@ export async function exportPriceTableDocx(
         new Paragraph({ children: [new TextRun("")] }),
         table,
         new Paragraph({ children: [new TextRun("")] }),
-        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Total dealer: ${formatMoney(total, currency)}`, bold: true, size: 22 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Preço de tabela: ${formatMoney(totalTabela, currency)}`, size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Valor de desconto: ${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Preço Dealer: ${formatMoney(totalDealer, currency)}`, bold: true, size: 24 })] }),
         new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "WWW.SMARTDENT.COM.BR", bold: true })] }),
       ],

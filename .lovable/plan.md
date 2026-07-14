@@ -1,62 +1,68 @@
 ## Objetivo
 
-1. Remover as 14 resinas duplicadas do catálogo mestre (`system_a_catalog`) — as versões inseridas pelo import `system_a_live` (18/02/2026) — mantendo os registros canônicos com CTAs/documentos já vinculados.
-2. Em **Distribuição → Distribuidores**: adicionar barra de **busca + filtros** (país, status ativo/inativo, presença de backlink) e um alternador **Lista / Grade**.
+Corrigir 4 problemas nos documentos gerados (PDF/DOCX) da Distribuição e padronizar a ordem de categorias em todo o módulo.
 
----
+## 1. Ordem canônica de categorias (compartilhada)
 
-## 1. Limpeza dos duplicados (migration de dados)
+Criar um helper único em `src/components/smartops/distributors/types.ts`:
 
-Estratégia: para cada `name` duplicado dentro de `RESINAS 3D`, marcar `active = false` no registro com `extra_data ? 'system_a_live' = true`. Isso preserva os IDs originais (evitando quebrar `dealer_price_items.catalog_product_id` e outras FKs) e apenas oculta o duplicado das telas (KB, DealerCatalogGrid, DealerPriceTable — todos filtram por `active/approved/visible_in_ui`).
-
-```sql
-UPDATE public.system_a_catalog s
-SET active = false,
-    visible_in_ui = false,
-    updated_at = now(),
-    extra_data = COALESCE(extra_data, '{}'::jsonb)
-                 || jsonb_build_object(
-                      'deduped_at', to_jsonb(now()),
-                      'deduped_reason', 'system_a_live import duplicate'
-                    )
-WHERE s.product_category = 'RESINAS 3D'
-  AND (s.extra_data ? 'system_a_live')
-  AND EXISTS (
-    SELECT 1 FROM public.system_a_catalog s2
-    WHERE s2.id <> s.id
-      AND s2.product_category = 'RESINAS 3D'
-      AND lower(trim(s2.name)) = lower(trim(s.name))
-      AND s2.active AND s2.approved AND s2.visible_in_ui
-      AND s2.created_at < s.created_at
-  );
+```ts
+export const CATEGORY_ORDER: string[] = [
+  "RESINAS 3D / BIOCOMPATÍVEIS",
+  "RESINAS 3D / USO GERAL",
+  "PÓS-IMPRESSÃO / ACABAMENTO E FINALIZAÇÃO",
+  "CARACTERIZAÇÃO / SMARTMAKE",
+  "CARACTERIZAÇÃO / SMARTGUM",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / ADESIVOS",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / CIMENTOS",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / RESINAS COMPOSTAS",
+  "INSUMOS LABORATÓRIO / CERÔMERO",
+];
+export function categoryRank(cat?: string|null, sub?: string|null): number { /* match "CAT / SUB" or "CAT" prefix; unknown → 999 */ }
 ```
 
-Verificação pós-migration: `SELECT lower(trim(name)), COUNT(*) FROM system_a_catalog WHERE active AND approved AND visible_in_ui AND product_category='RESINAS 3D' GROUP BY 1 HAVING COUNT(*)>1` → esperado 0 linhas.
+Aplicar em:
+- **`DealerCatalogGrid.tsx`**: ordenar `items` por `categoryRank(product_category, product_subcategory)` antes do render; ordenar o `Select` de categorias na mesma ordem.
+- **`DealerPriceTable.tsx`**: no `grouped` memo (linha 388), ordenar grupos por `categoryRank`.
+- **`DealerProposalExport.ts`**: alterar `groupItemsByCategory` para ordenar categorias e subcategorias na sequência canônica antes de emitir bandas (afeta PDF e DOCX).
 
-O guard de dedup em `KbTabCatalogo.tsx` (aplicado na rodada anterior) permanece como cinto‑e‑suspensórios.
+## 2. PDF — Cabeçalho cortado e imagens dos produtos
 
-## 2. Distribuidores — busca + filtros + view lista
+Em `DealerProposalExport.ts / exportPriceTablePdf`:
 
-Arquivo: `src/components/smartops/SmartOpsDistributors.tsx`
+- **Cabeçalho**: recalibrar coordenadas do overlay (`drawPageChrome`) para bater com o PNG de fundo (`proposal-bg`). Ajustar `tableTop` para começar somente após o bloco de cabeçalho do fundo (verificar altura real do PNG e mover para ~230pt se necessário), e reduzir `fontSize` dos campos longos com truncamento inteligente.
+- **Coluna Imagem**: adicionar 1ª coluna "Foto" (~40pt) exibindo miniatura. Carregar `it.image_url` via `fetch → dataURL` (com cache Map), converter para `PNG/JPEG` e desenhar no `didDrawCell` do autoTable (jsPDF `addImage`). Fallback: célula vazia quando URL ausente ou falha.
+- Reajustar `columnStyles` para caber em `contentW = 539pt` com a nova coluna (reduzir "Produto" e "Variante").
 
-- Adicionar 4 estados: `q` (texto), `country` (`all` | valores distintos), `status` (`all|active|inactive`), `viewMode` (`grid|list`, default `grid`).
-- Barra de filtros abaixo do header:
-  - `Input` de busca (nome fantasia, razão social, cidade, buyer_name).
-  - `Select` País — opções calculadas a partir dos `items` distintos.
-  - `Select` Status — Todos / Ativo / Inativo.
-  - `Toggle` Grade / Lista (ícones `LayoutGrid` / `List`).
-  - Contador `X de Y distribuidores`.
-- `filtered` via `useMemo` aplicando os 3 filtros.
-- Modo **Lista**: tabela compacta (Logo, Nome, País/UF, Cidade, Status, Backlink, Ações Editar/Kit/Excluir). Reutiliza `Table` do shadcn.
-- Modo **Grade**: mantém o layout atual, itera sobre `filtered`.
+## 3. DOCX — Imagens dos produtos
 
-Sem alterações em `distributors` schema, backend ou permissões.
+Em `exportPriceTableDocx`:
+- Adicionar 1ª coluna "Foto" (largura 900 DXA; recalcular soma para 14838).
+- Pré-carregar imagens (mesmo cache do PDF) e inserir `ImageRun` (60×60px) por linha; célula vazia quando ausente.
 
-## Fora de escopo
-- Alterar `resins` / `dealer_price_items` / `products_catalog`.
-- Reativar/mesclar dados dos duplicados (só marcamos inativos; nada é apagado).
-- Novos filtros em Catálogo / Tabela de Preço / Propostas.
+## 4. Rodapé de totais (PDF e DOCX)
 
-## Arquivos
-- Migration SQL (dedupe).
-- `src/components/smartops/SmartOpsDistributors.tsx` (busca + filtros + view lista).
+Adicionar abaixo da última tabela três linhas alinhadas à direita:
+- **Preço de tabela**: soma de `price_base`
+- **Valor de desconto**: `price_base - price_dealer` total (com % médio ponderado entre parênteses)
+- **Preço Dealer**: soma de `price_dealer` (destaque em bold)
+
+Substituir o atual `Total dealer` único por esse bloco de 3 linhas, em ambos os exportadores.
+
+## Detalhes técnicos
+
+- Fetch de imagens: helper `imageToDataUrl(url)` com `Map<string, Promise<string|null>>`; timeout de 5s; ignora erros silenciosamente.
+- `getStorageImageUrl(url, { width: 120, quality: 70 })` para reduzir payload.
+- Nenhuma mudança de schema/DB necessária.
+
+## Arquivos alterados
+
+- `src/components/smartops/distributors/types.ts` (export `CATEGORY_ORDER`, `categoryRank`)
+- `src/components/smartops/distributors/DealerCatalogGrid.tsx` (ordenação)
+- `src/components/smartops/distributors/DealerPriceTable.tsx` (ordenação de `grouped`)
+- `src/components/smartops/distributors/DealerProposalExport.ts` (ordem + imagens PDF/DOCX + rodapé totais + cabeçalho alinhado)
+
+## Fora do escopo
+
+- Alterar dados no banco, resins, `products_catalog`.
+- Redesenhar o PNG de fundo da proposta.

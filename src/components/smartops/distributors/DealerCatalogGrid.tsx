@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, ImageOff, Plus, Lock } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
+import { categoryRank } from "./types";
 
 const I18N: Record<string, Record<string, string>> = {
   pt: {
@@ -78,17 +79,26 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
   const categories = useMemo(() => {
     const s = new Set<string>();
     items.forEach((i) => i.product_category && s.add(i.product_category));
-    return ["all", ...Array.from(s).sort()];
+    return [
+      "all",
+      ...Array.from(s).sort((a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b)),
+    ];
   }, [items]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return items.filter((i) => {
+    const list = items.filter((i) => {
       if (!showInactive && !i.active) return false;
       if (category !== "all" && i.product_category !== category) return false;
       if (!needle) return true;
       const hay = [i.name, i.name_en, i.name_es, i.product_category, i.product_subcategory, i.external_id, i.slug].join(" ").toLowerCase();
       return hay.includes(needle);
+    });
+    return list.sort((a, b) => {
+      const ra = categoryRank(a.product_category, a.product_subcategory);
+      const rb = categoryRank(b.product_category, b.product_subcategory);
+      if (ra !== rb) return ra - rb;
+      return String(a.name || "").localeCompare(String(b.name || ""));
     });
   }, [items, q, category, showInactive]);
 

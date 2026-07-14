@@ -126,3 +126,34 @@ export function formatMoney(v: number | null | undefined, currency = "BRL"): str
     return `${currency} ${n.toFixed(2)}`;
   }
 }
+
+/** Canonical display order for product categories across catalog, price
+ * table, and generated PDF/DOCX documents. Format: "CATEGORY / SUBCATEGORY". */
+export const CATEGORY_ORDER: string[] = [
+  "RESINAS 3D / BIOCOMPATÍVEIS",
+  "RESINAS 3D / USO GERAL",
+  "PÓS-IMPRESSÃO / ACABAMENTO E FINALIZAÇÃO",
+  "CARACTERIZAÇÃO / SMARTMAKE",
+  "CARACTERIZAÇÃO / SMARTGUM",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / ADESIVOS",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / CIMENTOS",
+  "DENTÍSTICA, ESTÉTICA E ORTODONTIA / RESINAS COMPOSTAS",
+  "INSUMOS LABORATÓRIO / CERÔMERO",
+];
+
+const normalizeCat = (s?: string | null) =>
+  (s ?? "").toString().trim().toUpperCase();
+
+/** Rank a (category, subcategory) pair against CATEGORY_ORDER.
+ * Unknown combinations get a large rank (999xx) preserving relative order. */
+export function categoryRank(cat?: string | null, sub?: string | null): number {
+  const c = normalizeCat(cat);
+  const s = normalizeCat(sub);
+  if (!c) return 99999;
+  const full = s ? `${c} / ${s}` : c;
+  const idxFull = CATEGORY_ORDER.findIndex((k) => normalizeCat(k) === full);
+  if (idxFull >= 0) return idxFull;
+  // Fallback: match only by category prefix
+  const idxCat = CATEGORY_ORDER.findIndex((k) => normalizeCat(k).startsWith(c + " /") || normalizeCat(k) === c);
+  return idxCat >= 0 ? idxCat + 0.5 : 9999;
+}
