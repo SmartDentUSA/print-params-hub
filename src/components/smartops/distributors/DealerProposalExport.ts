@@ -145,9 +145,10 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
 export function exportPriceTableXlsx(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  items: DealerPriceItem[],
+  itemsIn: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
+  const items = flattenItems(itemsIn);
   const header = ["COD", "Produto", "Categoria", "Subcategoria", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Descrição", "Preço tabela", "% Desconto", "Preço dealer"];
   const aoa: any[][] = [header];
   items.forEach((it, idx) => {
@@ -190,9 +191,10 @@ export function exportPriceTableXlsx(
 export async function exportPriceTablePdf(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  items: DealerPriceItem[],
+  itemsIn: DealerPriceItem[],
   opts: { title?: string; filenamePrefix?: string } = {},
 ) {
+  const items = flattenItems(itemsIn) as (DealerPriceItem & { _isSubRow?: boolean })[];
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();   // 595.28
   const pageH = doc.internal.pageSize.getHeight();  // 841.89
@@ -290,7 +292,7 @@ export async function exportPriceTablePdf(
   const rowFor = (it: DealerPriceItem) => [
     "", // photo cell (drawn in didDrawCell)
     it.cod ?? "—",
-    it.name,
+    (it as any)._isSubRow ? "" : it.name,
     it.variant ?? it.presentation ?? "—",
     it.ncm_hs ?? "—",
     it.gtin_ean ?? "—",
@@ -403,9 +405,10 @@ export async function exportPriceTablePdf(
 export async function exportPriceTableDocx(
   distributor: Distributor | undefined,
   list: DealerPriceList | null,
-  items: DealerPriceItem[],
+  itemsIn: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
+  const items = flattenItems(itemsIn) as (DealerPriceItem & { _isSubRow?: boolean })[];
   const currency = list?.currency ?? "BRL";
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
