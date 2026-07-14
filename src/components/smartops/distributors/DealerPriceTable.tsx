@@ -12,6 +12,57 @@ import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } fr
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 
+const I18N: Record<string, Record<string, string>> = {
+  pt: {
+    distributor: "Distribuidor", selectPlaceholder: "Selecione um distribuidor…",
+    importCatalog: "Importar catálogo", save: "Salvar", saved: "Salvo",
+    snapshotPlaceholder: "Rótulo do snapshot (opcional)", saveSnapshot: "Salvar no histórico",
+    history: "Histórico", generateProposal: "Gerar proposta →",
+    currency: "Moeda", language: "Idioma", items: "Itens",
+    tableTotal: "Preço tabela total", dealerTotal: "Preço dealer total", discount: "Desconto",
+    historyTitle: "Histórico de cotações", noSnapshots: "Nenhuma cotação salva ainda. Use “Salvar no histórico” para versionar a tabela atual.",
+    date: "Data", label: "Rótulo", totalDealer: "Total dealer",
+    loading: "Carregando…", selectPrompt: "Selecione um distribuidor para criar/editar sua tabela.",
+    emptyTable: "Tabela vazia. Clique em", populateAll: "para popular todos os produtos ativos.",
+    noCategory: "Sem categoria",
+    hPhoto: "Foto", hCod: "COD", hProduct: "Produto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hUnit: "Unid (×)", hTablePrice: "Preço tabela (Unit)", hDiscount: "% Desc.",
+    hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
+  },
+  es: {
+    distributor: "Distribuidor", selectPlaceholder: "Seleccione un distribuidor…",
+    importCatalog: "Importar catálogo", save: "Guardar", saved: "Guardado",
+    snapshotPlaceholder: "Etiqueta del snapshot (opcional)", saveSnapshot: "Guardar en historial",
+    history: "Historial", generateProposal: "Generar propuesta →",
+    currency: "Moneda", language: "Idioma", items: "Ítems",
+    tableTotal: "Precio tabla total", dealerTotal: "Precio dealer total", discount: "Descuento",
+    historyTitle: "Historial de cotizaciones", noSnapshots: "Ninguna cotización guardada aún. Use “Guardar en historial” para versionar la tabla actual.",
+    date: "Fecha", label: "Etiqueta", totalDealer: "Total dealer",
+    loading: "Cargando…", selectPrompt: "Seleccione un distribuidor para crear/editar su tabla.",
+    emptyTable: "Tabla vacía. Haga clic en", populateAll: "para cargar todos los productos activos.",
+    noCategory: "Sin categoría",
+    hPhoto: "Foto", hCod: "COD", hProduct: "Producto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hUnit: "Unid (×)", hTablePrice: "Precio tabla (Unit)", hDiscount: "% Desc.",
+    hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
+  },
+  en: {
+    distributor: "Distributor", selectPlaceholder: "Select a distributor…",
+    importCatalog: "Import catalog", save: "Save", saved: "Saved",
+    snapshotPlaceholder: "Snapshot label (optional)", saveSnapshot: "Save to history",
+    history: "History", generateProposal: "Generate proposal →",
+    currency: "Currency", language: "Language", items: "Items",
+    tableTotal: "List total", dealerTotal: "Dealer total", discount: "Discount",
+    historyTitle: "Quote history", noSnapshots: "No quotes saved yet. Use “Save to history” to version the current table.",
+    date: "Date", label: "Label", totalDealer: "Dealer total",
+    loading: "Loading…", selectPrompt: "Select a distributor to create/edit its table.",
+    emptyTable: "Empty table. Click", populateAll: "to load all active products.",
+    noCategory: "Uncategorized",
+    hPhoto: "Photo", hCod: "SKU", hProduct: "Product", hPres: "Pres", hNcm: "HS Code", hGtin: "GTIN/EAN",
+    hUnit: "Qty (×)", hTablePrice: "List price (Unit)", hDiscount: "% Disc.",
+    hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
+  },
+};
+
 type Props = { distributors: Distributor[]; onGenerateProposal?: (list: DealerPriceList, items: DealerPriceItem[]) => void };
 
 export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
@@ -27,6 +78,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
 
   const distributor = distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
+  const lang = (list?.language || distributor?.language_preference || "pt").toLowerCase();
+  const t = I18N[lang] || I18N.pt;
+  const displayName = (it: DealerPriceItem) =>
+    (lang === "es" && it.name_es) || (lang === "en" && it.name_en) || it.name || "";
 
   const loadOrCreate = async (distId: string) => {
     setLoading(true);
@@ -208,12 +263,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const grouped = useMemo(() => {
     const map = new Map<string, DealerPriceItem[]>();
     items.forEach((i) => {
-      const key = `${i.category || "Sem categoria"} / ${i.subcategory || "—"}`;
+      const key = `${i.category || t.noCategory} / ${i.subcategory || "—"}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(i);
     });
     return Array.from(map.entries());
-  }, [items]);
+  }, [items, t]);
 
   const lineTotal = (it: DealerPriceItem) =>
     Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
@@ -231,9 +286,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[280px]">
-          <label className="text-xs text-muted-foreground">Distribuidor</label>
+          <label className="text-xs text-muted-foreground">{t.distributor}</label>
           <Select value={distributorId} onValueChange={setDistributorId}>
-            <SelectTrigger><SelectValue placeholder="Selecione um distribuidor…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={t.selectPlaceholder} /></SelectTrigger>
             <SelectContent>
               {distributors.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
@@ -246,24 +301,24 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         {list && (
           <>
             <Button variant="outline" onClick={importCatalog} disabled={loading}>
-              <RefreshCw className="w-4 h-4 mr-1" /> Importar catálogo
+              <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
             </Button>
             <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
-              {saving ? "Salvando…" : dirtyIds.size > 0 ? `Salvar (${dirtyIds.size})` : "Salvo"}
+              {saving ? `${t.save}…` : dirtyIds.size > 0 ? `${t.save} (${dirtyIds.size})` : t.saved}
             </Button>
             <div className="flex items-center gap-1">
               <Input
                 value={snapshotLabel}
                 onChange={(e) => setSnapshotLabel(e.target.value)}
-                placeholder="Rótulo do snapshot (opcional)"
+                placeholder={t.snapshotPlaceholder}
                 className="h-9 w-[220px]"
               />
               <Button variant="secondary" onClick={saveSnapshot} disabled={items.length === 0}>
-                <Save className="w-4 h-4 mr-1" /> Salvar no histórico
+                <Save className="w-4 h-4 mr-1" /> {t.saveSnapshot}
               </Button>
             </div>
             <Button variant="outline" onClick={() => setShowHistory((s) => !s)}>
-              <History className="w-4 h-4 mr-1" /> Histórico ({snapshots.length})
+              <History className="w-4 h-4 mr-1" /> {t.history} ({snapshots.length})
             </Button>
             <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, list, items)}>
               <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
@@ -276,7 +331,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             </Button>
             {onGenerateProposal && (
               <Button variant="secondary" onClick={() => onGenerateProposal(list, items)}>
-                Gerar proposta →
+                {t.generateProposal}
               </Button>
             )}
           </>
@@ -287,7 +342,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         <Card>
           <CardContent className="p-3 flex flex-wrap items-center gap-3 text-sm">
             <Badge variant="outline">v{list.version}</Badge>
-            <span className="text-muted-foreground">Moeda:</span>
+            <span className="text-muted-foreground">{t.currency}:</span>
             <Select
               value={list.currency || "BRL"}
               onValueChange={async (v) => {
@@ -304,7 +359,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-muted-foreground">Idioma:</span>
+            <span className="text-muted-foreground">{t.language}:</span>
             <Select
               value={list.language || "pt"}
               onValueChange={async (v) => {
@@ -321,13 +376,13 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 <SelectItem value="en">EN</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-muted-foreground">Itens:</span>
+            <span className="text-muted-foreground">{t.items}:</span>
             <strong>{items.length}</strong>
-            <span className="text-muted-foreground">Preço tabela total:</span>
+            <span className="text-muted-foreground">{t.tableTotal}:</span>
             <strong>{formatMoney(totals.subtotal, currency)}</strong>
-            <span className="text-muted-foreground">Preço dealer total:</span>
+            <span className="text-muted-foreground">{t.dealerTotal}:</span>
             <strong className="text-primary">{formatMoney(totals.total, currency)}</strong>
-            <span className="text-muted-foreground">Desconto:</span>
+            <span className="text-muted-foreground">{t.discount}:</span>
             <strong className="text-amber-600">
               {totals.subtotal > 0 ? ((totals.discount / totals.subtotal) * 100).toFixed(1) : "0"}%
             </strong>
@@ -339,21 +394,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         <Card>
           <CardContent className="p-3 space-y-2">
             <h4 className="text-sm font-semibold flex items-center gap-2">
-              <History className="w-4 h-4" /> Histórico de cotações — {distributor?.nome_fantasia || distributor?.razao_social}
+              <History className="w-4 h-4" /> {t.historyTitle} — {distributor?.nome_fantasia || distributor?.razao_social}
             </h4>
             {snapshots.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma cotação salva ainda. Use “Salvar no histórico” para versionar a tabela atual.</p>
+              <p className="text-xs text-muted-foreground">{t.noSnapshots}</p>
             ) : (
               <div className="border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Rótulo</TableHead>
-                      <TableHead>Moeda</TableHead>
-                      <TableHead>Idioma</TableHead>
-                      <TableHead className="text-right">Itens</TableHead>
-                      <TableHead className="text-right">Total dealer</TableHead>
+                      <TableHead>{t.date}</TableHead>
+                      <TableHead>{t.label}</TableHead>
+                      <TableHead>{t.currency}</TableHead>
+                      <TableHead>{t.language}</TableHead>
+                      <TableHead className="text-right">{t.items}</TableHead>
+                      <TableHead className="text-right">{t.totalDealer}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -380,12 +435,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       )}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : !list ? (
-        <p className="text-sm text-muted-foreground">Selecione um distribuidor para criar/editar sua tabela.</p>
+        <p className="text-sm text-muted-foreground">{t.selectPrompt}</p>
       ) : items.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-          Tabela vazia. Clique em <strong>Importar catálogo</strong> para popular todos os produtos ativos.
+          {t.emptyTable} <strong>{t.importCatalog}</strong> {t.populateAll}
         </CardContent></Card>
       ) : (
         <div className="space-y-6">
@@ -396,17 +451,17 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-14">Foto</TableHead>
-                      <TableHead className="w-24">COD</TableHead>
-                      <TableHead className="min-w-[220px]">Produto</TableHead>
-                      <TableHead className="w-24">Pres</TableHead>
-                      <TableHead className="w-28">NCM/HS</TableHead>
-                      <TableHead className="w-32">GTIN/EAN</TableHead>
-                      <TableHead className="w-20">Unid (×)</TableHead>
-                      <TableHead className="w-28">Preço tabela (Unit)</TableHead>
-                      <TableHead className="w-20">% Desc.</TableHead>
-                      <TableHead className="w-28">Preço dealer (Unit)</TableHead>
-                      <TableHead className="w-28">Preço dealer</TableHead>
+                      <TableHead className="w-14">{t.hPhoto}</TableHead>
+                      <TableHead className="w-24">{t.hCod}</TableHead>
+                      <TableHead className="min-w-[220px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-24">{t.hPres}</TableHead>
+                      <TableHead className="w-28">{t.hNcm}</TableHead>
+                      <TableHead className="w-32">{t.hGtin}</TableHead>
+                      <TableHead className="w-20">{t.hUnit}</TableHead>
+                      <TableHead className="w-28">{t.hTablePrice}</TableHead>
+                      <TableHead className="w-20">{t.hDiscount}</TableHead>
+                      <TableHead className="w-28">{t.hDealerUnit}</TableHead>
+                      <TableHead className="w-28">{t.hDealerTotal}</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -422,7 +477,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input value={it.name ?? ""} onChange={(e) => updateField(it.id, "name", e.target.value)} className="h-8" />
+                          <Input
+                            value={displayName(it)}
+                            onChange={(e) => {
+                              const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
+                              updateField(it.id, field as any, e.target.value);
+                            }}
+                            className="h-8"
+                          />
                         </TableCell>
                         <TableCell>
                           <Select
