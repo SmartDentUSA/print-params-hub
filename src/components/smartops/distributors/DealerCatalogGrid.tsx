@@ -1,6 +1,8 @@
-// READ-ONLY view: NUNCA escrever em system_a_catalog a partir deste componente.
-// Fonte da verdade do catálogo é o Painel Admin → Gestão de Catálogo de Produtos.
-import { useEffect, useMemo, useState } from "react";
+// Catálogo de produtos com VARIAÇÕES editáveis (presentation_qty, GTIN, NCM, Unidade,
+// e preços BRL/USD/EUR por variação). Fonte mestre dos produtos: system_a_catalog
+// (somente leitura aqui). As variações são gravadas em public.catalog_product_variations.
+// Sincronização é INCREMENTAL — nunca sobrescreve linhas editadas manualmente.
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,41 +10,125 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ImageOff, Plus, Lock } from "lucide-react";
+import { Search, ImageOff, Plus, Lock, Layers, Trash2, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
 import { categoryRank } from "./types";
+
+/** Extrai variações a partir de system_a_catalog.extra_data.system_a_live.technical_specs. */
+function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
+  ncm: string | null;
+  variations: Array<{ qty: string; gtin: string | null; unit: string | null }>;
+} {
+  const rows = Array.isArray(specs) ? specs : [];
+  let ncm: string | null = null;
+  const gtinByQty = new Map<string, string>();
+  const order: string[] = [];
+  let available: string[] = [];
+  for (const r of rows) {
+    const label = String(r?.label || "").trim();
+    const value = String(r?.value || "").trim();
+    if (!label) continue;
+    if (/^NCM\b/i.test(label) && !ncm) { ncm = value || null; continue; }
+    if (/^Varia[cç][oõ]es dispon[ií]veis/i.test(label)) {
+      available = value.split(/[,;/]/).map((s) => s.trim()).filter(Boolean);
+      continue;
+    }
+    const m = label.match(/^GTIN\/EAN\s*[—–-]\s*(.+)$/i);
+    if (m) {
+      const qty = m[1].trim();
+      if (!gtinByQty.has(qty)) order.push(qty);
+      if (value) gtinByQty.set(qty, value);
+    }
+  }
+  const qtys = order.length > 0 ? order : available;
+  const unitFor = (qty: string): string | null => {
+    const s = qty.toLowerCase().replace(/\s+/g, "");
+    if (/kg$/.test(s)) return "kg";
+    if (/g$/.test(s)) return "g";
+    if (/ml$/.test(s)) return "ml";
+    if (/l$/.test(s)) return "L";
+    if (/un(id)?$/.test(s)) return "UN";
+    return null;
+  };
+  return {
+    ncm,
+    variations: qtys.map((qty) => ({
+      qty,
+      gtin: gtinByQty.get(qty) || null,
+      unit: unitFor(qty),
+    })),
+  };
+}
+
+type Variation = {
+  id: string;
+  catalog_product_id: string;
+  presentation_qty: string;
+  gtin_ean: string | null;
+  ncm_hs: string | null;
+  unidade: string;
+  price_brl: number | null;
+  price_usd: number | null;
+  price_eur: number | null;
+  sort_order: number;
+  source: string;
+};
 
 const I18N: Record<string, Record<string, string>> = {
   pt: {
     search: "Buscar produto…", cat: "Categoria", allCats: "Todas categorias",
     items: "itens", showInactive: "Mostrar inativos",
     catStatus: "Status", catPhoto: "Foto", catCod: "COD", catProduct: "Produto",
-    catPresQty: "Pres #", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
-    catUnit: "Unid (×)", catTablePrice: "Preço tabela",
+    catPresQty: "Variação", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
+    catUnit: "Unidade",
+    priceBRL: "Preço BRL", priceUSD: "Preço USD", priceEUR: "Preço EUR",
     empty: "Nenhum produto encontrado.", loading: "Carregando catálogo…",
-    activated: "Ativado", deactivated: "Desativado", add: "Adicionar",
-    readonly: "Somente leitura. Preços, margens e status por distribuidor ficam na aba Tabelas de Preço. Edições do catálogo mestre são feitas em Base de Conhecimento → Catálogo.",
+    activated: "Ativado", deactivated: "Desativado", addVariation: "Adicionar variação",
+    syncVariations: "Sincronizar do Sistema A",
+    syncTip: "Puxa variações (GTIN, NCM, Unidade) dos cards do Sistema A. Incremental — nunca sobrescreve dados existentes.",
+    readonly: "Cadastro/edição do produto mestre é em Base de Conhecimento → Catálogo. Aqui você mantém as VARIAÇÕES (250g, 500g, 1kg…) e seus preços em BRL/USD/EUR, usados por todos os distribuidores.",
+    saveAll: "Salvar alterações", saved: "Salvo", saving: "Salvando…",
+    unsaved: "não salvas",
+    noVariations: "Sem variações. Clique em “Sincronizar do Sistema A” ou “Adicionar variação”.",
+    variantPlaceholder: "ex.: 1kg",
+    confirmDelete: "Remover esta variação?",
   },
   es: {
     search: "Buscar producto…", cat: "Categoría", allCats: "Todas las categorías",
     items: "ítems", showInactive: "Mostrar inactivos",
     catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catProduct: "Producto",
-    catPresQty: "Pres #", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
-    catUnit: "Unid (×)", catTablePrice: "Precio tabla",
+    catPresQty: "Variación", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
+    catUnit: "Unidad",
+    priceBRL: "Precio BRL", priceUSD: "Precio USD", priceEUR: "Precio EUR",
     empty: "Ningún producto encontrado.", loading: "Cargando catálogo…",
-    activated: "Activado", deactivated: "Desactivado", add: "Agregar",
-    readonly: "Solo lectura. Precios, márgenes y estado por distribuidor están en la pestaña Tablas de Precio. Ediciones del catálogo maestro se hacen en Base de Conocimiento → Catálogo.",
+    activated: "Activado", deactivated: "Desactivado", addVariation: "Agregar variación",
+    syncVariations: "Sincronizar del Sistema A",
+    syncTip: "Trae variaciones (GTIN, NCM, Unidad) del Sistema A. Incremental — nunca sobrescribe datos existentes.",
+    readonly: "El producto maestro se edita en Base de Conocimiento → Catálogo. Aquí mantiene las VARIACIONES (250g, 500g, 1kg…) y sus precios en BRL/USD/EUR, usados por todos los distribuidores.",
+    saveAll: "Guardar cambios", saved: "Guardado", saving: "Guardando…",
+    unsaved: "sin guardar",
+    noVariations: "Sin variaciones. Use “Sincronizar del Sistema A” o “Agregar variación”.",
+    variantPlaceholder: "ej.: 1kg",
+    confirmDelete: "¿Eliminar esta variación?",
   },
   en: {
     search: "Search product…", cat: "Category", allCats: "All categories",
     items: "items", showInactive: "Show inactive",
     catStatus: "Status", catPhoto: "Photo", catCod: "COD", catProduct: "Product",
-    catPresQty: "Pres #", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
-    catUnit: "Qty (×)", catTablePrice: "List price",
+    catPresQty: "Variant", catNcm: "HS Code", catGtin: "GTIN/EAN",
+    catUnit: "Unit",
+    priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
     empty: "No products found.", loading: "Loading catalog…",
-    activated: "Enabled", deactivated: "Disabled", add: "Add",
-    readonly: "Read-only. Per-distributor pricing, margin and status live in the Price Tables tab. Master catalog edits are done in Knowledge Base → Catalog.",
+    activated: "Enabled", deactivated: "Disabled", addVariation: "Add variant",
+    syncVariations: "Sync from System A",
+    syncTip: "Pulls variants (GTIN, HS Code, Unit) from System A cards. Incremental — never overwrites existing data.",
+    readonly: "Master product editing lives in Knowledge Base → Catalog. Here you maintain the VARIANTS (250g, 500g, 1kg…) and their prices in BRL/USD/EUR, shared across all distributors.",
+    saveAll: "Save changes", saved: "Saved", saving: "Saving…",
+    unsaved: "unsaved",
+    noVariations: "No variants. Click “Sync from System A” or “Add variant”.",
+    variantPlaceholder: "e.g., 1kg",
+    confirmDelete: "Remove this variant?",
   },
 };
 
@@ -52,7 +138,11 @@ type Props = {
 
 export function DealerCatalogGrid({ onAddToPriceList }: Props) {
   const [items, setItems] = useState<any[]>([]);
+  const [variations, setVariations] = useState<Variation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [lang, setLang] = useState<"pt" | "en" | "es">("pt");
@@ -60,21 +150,31 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
 
   const t = I18N[lang] || I18N.pt;
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [prodRes, varRes] = await Promise.all([
+      supabase
         .from("system_a_catalog" as any)
         .select("id,external_id,name,name_en,name_es,slug,category,product_category,product_subcategory,image_url,price,price_usd,price_eur,ncm,gtin,presentation,presentation_qty,quantity_multiplier,currency,description,active,extra_data")
         .not("product_category", "is", null)
         .neq("product_category", "")
         .order("product_category", { ascending: true })
-        .order("name", { ascending: true });
-      if (error) toast.error("Erro ao carregar catálogo: " + error.message);
-      setItems(((data as any) || []) as any[]);
-      setLoading(false);
-    })();
+        .order("name", { ascending: true }),
+      supabase
+        .from("catalog_product_variations" as any)
+        .select("*")
+        .order("catalog_product_id", { ascending: true })
+        .order("sort_order", { ascending: true }),
+    ]);
+    if (prodRes.error) toast.error("Erro ao carregar catálogo: " + prodRes.error.message);
+    if (varRes.error) toast.error("Erro ao carregar variações: " + varRes.error.message);
+    setItems(((prodRes.data as any) || []) as any[]);
+    setVariations(((varRes.data as any) || []) as Variation[]);
+    setDirtyIds(new Set());
+    setLoading(false);
   }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const categories = useMemo(() => {
     const s = new Set<string>();
@@ -102,15 +202,126 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     });
   }, [items, q, category, showInactive]);
 
+  const varsByProduct = useMemo(() => {
+    const map = new Map<string, Variation[]>();
+    for (const v of variations) {
+      if (!map.has(v.catalog_product_id)) map.set(v.catalog_product_id, []);
+      map.get(v.catalog_product_id)!.push(v);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.sort_order - b.sort_order);
+    return map;
+  }, [variations]);
+
   const nameFor = (p: any) => (lang === "en" ? p.name_en || p.name : lang === "es" ? p.name_es || p.name : p.name);
   const skuOf = (p: any) => p?.extra_data?.sku || p?.extra_data?.SKU || p?.extra_data?.sku_pai || p?.external_id || "—";
-  const ncmOf = (p: any) => p?.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? "";
-  const gtinOf = (p: any) => p?.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? "";
-  const fmtMoney = (v: any, cur: "BRL" | "USD" | "EUR") => {
-    const n = Number(v);
-    if (!isFinite(n) || n <= 0) return "—";
-    const symbol = cur === "USD" ? "US$" : cur === "EUR" ? "€" : "R$";
-    return `${symbol} ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const patchVariation = (id: string, patch: Partial<Variation>) => {
+    setVariations((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+    setDirtyIds((s) => new Set(s).add(id));
+  };
+
+  const parseNum = (raw: any): number | null => {
+    if (raw === "" || raw === null || raw === undefined) return null;
+    const n = Number(String(raw).replace(",", "."));
+    return isFinite(n) ? n : null;
+  };
+
+  const addVariation = async (productId: string) => {
+    const list = varsByProduct.get(productId) || [];
+    const nextSort = (list[list.length - 1]?.sort_order ?? 0) + 1;
+    const product = items.find((i) => i.id === productId);
+    const seed: any = {
+      catalog_product_id: productId,
+      presentation_qty: "",
+      unidade: "UN",
+      sort_order: nextSort,
+      source: "manual",
+      ncm_hs: product?.ncm ?? null,
+      price_brl: product?.price ?? null,
+      price_usd: product?.price_usd ?? null,
+      price_eur: product?.price_eur ?? null,
+    };
+    const { data, error } = await supabase
+      .from("catalog_product_variations" as any)
+      .insert(seed)
+      .select("*")
+      .single();
+    if (error) { toast.error(error.message); return; }
+    setVariations((prev) => [...prev, data as unknown as Variation]);
+  };
+
+  const removeVariation = async (id: string) => {
+    if (!confirm(t.confirmDelete)) return;
+    const { error } = await supabase.from("catalog_product_variations" as any).delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setVariations((prev) => prev.filter((v) => v.id !== id));
+    setDirtyIds((s) => { const n = new Set(s); n.delete(id); return n; });
+  };
+
+  const saveAll = async () => {
+    if (dirtyIds.size === 0) return;
+    setSaving(true);
+    const toSave = variations.filter((v) => dirtyIds.has(v.id));
+    for (const v of toSave) {
+      const { error } = await supabase
+        .from("catalog_product_variations" as any)
+        .update({
+          presentation_qty: v.presentation_qty,
+          gtin_ean: v.gtin_ean,
+          ncm_hs: v.ncm_hs,
+          unidade: v.unidade || "UN",
+          price_brl: v.price_brl,
+          price_usd: v.price_usd,
+          price_eur: v.price_eur,
+        })
+        .eq("id", v.id);
+      if (error) { toast.error(`Erro: ${error.message}`); setSaving(false); return; }
+    }
+    toast.success(`${toSave.length} variações salvas`);
+    setDirtyIds(new Set());
+    setSaving(false);
+  };
+
+  /** INCREMENTAL: só INSERT de (produto, presentation_qty) que ainda não existem. */
+  const syncFromSystemA = async () => {
+    setSyncing(true);
+    const existing = new Set(
+      variations.map((v) => `${v.catalog_product_id}::${(v.presentation_qty || "").toLowerCase().replace(/\s+/g, "")}`),
+    );
+    const toInsert: any[] = [];
+    let productsWithSpecs = 0;
+    for (const p of items) {
+      const specs = (p?.extra_data?.system_a_live?.technical_specs ?? []) as Array<{ label: string; value: string }>;
+      const parsed = parseSpecVariations(specs);
+      if (parsed.variations.length === 0) continue;
+      productsWithSpecs++;
+      parsed.variations.forEach((v, idx) => {
+        const key = `${p.id}::${v.qty.toLowerCase().replace(/\s+/g, "")}`;
+        if (existing.has(key)) return;
+        toInsert.push({
+          catalog_product_id: p.id,
+          presentation_qty: v.qty,
+          gtin_ean: v.gtin,
+          ncm_hs: parsed.ncm ?? p.ncm ?? null,
+          unidade: v.unit || "UN",
+          price_brl: p.price ?? null,
+          price_usd: p.price_usd ?? null,
+          price_eur: p.price_eur ?? null,
+          sort_order: idx,
+          source: "system_a_sync",
+        });
+      });
+    }
+    if (toInsert.length === 0) {
+      toast.info(`Sem novas variações a importar (${productsWithSpecs} produto(s) analisado(s)).`);
+      setSyncing(false);
+      return;
+    }
+    const { error } = await supabase.from("catalog_product_variations" as any).insert(toInsert);
+    if (error) { toast.error(error.message); setSyncing(false); return; }
+    toast.success(`${toInsert.length} variações importadas incrementalmente`);
+    await loadAll();
+    setSyncing(false);
   };
 
   return (
@@ -140,7 +351,16 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
           <Switch id="show-inactive" checked={showInactive} onCheckedChange={setShowInactive} />
           <label htmlFor="show-inactive" className="text-xs text-muted-foreground cursor-pointer select-none">{t.showInactive}</label>
         </div>
+        <Button variant="outline" onClick={syncFromSystemA} disabled={syncing || loading} title={t.syncTip}>
+          {syncing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Layers className="w-4 h-4 mr-1" />}
+          {t.syncVariations}
+        </Button>
+        <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
+          {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+          {dirtyIds.size > 0 ? `${t.saveAll} (${dirtyIds.size})` : t.saved}
+        </Button>
         <Badge variant="outline">{filtered.length} {t.items}</Badge>
+        <Badge variant="secondary">{variations.length} variações</Badge>
       </div>
 
       <div className="flex items-start gap-2 rounded-md border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40 p-2 text-[11px] text-muted-foreground">
@@ -152,72 +372,162 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[1600px]">
+          <Table className="min-w-[1700px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
                 <TableHead className="w-[64px]">{t.catPhoto}</TableHead>
                 <TableHead className="w-[110px]">{t.catCod}</TableHead>
                 <TableHead className="min-w-[260px]">{t.catProduct}</TableHead>
-                <TableHead className="w-[80px]">{t.catPresQty}</TableHead>
-                <TableHead className="w-[100px]">{t.catPres}</TableHead>
+                <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
                 <TableHead className="w-[80px]">{t.catUnit}</TableHead>
-                <TableHead className="w-[220px] text-right">{t.catTablePrice}</TableHead>
-                {onAddToPriceList && <TableHead className="w-[120px]"></TableHead>}
+                <TableHead className="w-[120px] text-right">{t.priceBRL}</TableHead>
+                <TableHead className="w-[120px] text-right">{t.priceUSD}</TableHead>
+                <TableHead className="w-[120px] text-right">{t.priceEUR}</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={onAddToPriceList ? 11 : 10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((p) => (
-                  <TableRow key={p.id} className={p.active ? "" : "opacity-50"}>
-                    <TableCell>
-                      <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
-                        {p.active ? t.activated : t.deactivated}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
-                        {p.image_url ? (
-                          <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
-                        ) : (
-                          <ImageOff className="w-4 h-4 text-muted-foreground" />
+                filtered.flatMap((p) => {
+                  const vars = varsByProduct.get(p.id) || [];
+                  if (vars.length === 0) {
+                    return [
+                      <TableRow key={p.id} className={p.active ? "" : "opacity-50"}>
+                        <TableCell>
+                          <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
+                            {p.active ? t.activated : t.deactivated}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
+                            ) : (
+                              <ImageOff className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="truncate">{nameFor(p)}</div>
+                          {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
+                        </TableCell>
+                        <TableCell colSpan={6} className="text-xs text-muted-foreground italic">
+                          {t.noVariations}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => addVariation(p.id)}>
+                            <Plus className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>,
+                    ];
+                  }
+                  return vars.map((v, idx) => {
+                    const isLead = idx === 0;
+                    const span = vars.length;
+                    return (
+                      <TableRow key={v.id} className={p.active ? "" : "opacity-50"}>
+                        {isLead && (
+                          <>
+                            <TableCell rowSpan={span}>
+                              <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
+                                {p.active ? t.activated : t.deactivated}
+                              </Badge>
+                            </TableCell>
+                            <TableCell rowSpan={span}>
+                              <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                {p.image_url ? (
+                                  <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
+                                ) : (
+                                  <ImageOff className="w-4 h-4 text-muted-foreground" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell rowSpan={span} className="font-mono text-xs">{skuOf(p)}</TableCell>
+                            <TableCell rowSpan={span} className="font-medium">
+                              <div className="truncate">{nameFor(p)}</div>
+                              {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
+                              <Button size="sm" variant="ghost" className="mt-1 h-6 px-1 text-[10px]" onClick={() => addVariation(p.id)}>
+                                <Plus className="w-3 h-3 mr-0.5" /> {t.addVariation}
+                              </Button>
+                            </TableCell>
+                          </>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
-                    <TableCell className="font-medium max-w-[320px]">
-                      <div className="truncate">{nameFor(p)}</div>
-                      {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
-                    </TableCell>
-                    <TableCell className="text-right text-xs">{p.presentation_qty ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{p.presentation ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{ncmOf(p) || "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{gtinOf(p) || "—"}</TableCell>
-                    <TableCell className="text-right text-xs">{p.quantity_multiplier ?? 1}</TableCell>
-                    <TableCell className="text-right text-xs">
-                      <div className="flex flex-col gap-0.5 items-end">
-                        <span>{fmtMoney(p.price, "BRL")}</span>
-                        <span className="text-muted-foreground">{fmtMoney(p.price_usd, "USD")}</span>
-                        <span className="text-muted-foreground">{fmtMoney(p.price_eur, "EUR")}</span>
-                      </div>
-                    </TableCell>
-                    {onAddToPriceList && (
-                      <TableCell>
-                        <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
-                          <Plus className="w-3.5 h-3.5 mr-1" /> {t.add}
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={v.presentation_qty ?? ""}
+                            placeholder={t.variantPlaceholder}
+                            onChange={(e) => patchVariation(v.id, { presentation_qty: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs font-mono"
+                            value={v.ncm_hs ?? ""}
+                            onChange={(e) => patchVariation(v.id, { ncm_hs: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs font-mono"
+                            value={v.gtin_ean ?? ""}
+                            onChange={(e) => patchVariation(v.id, { gtin_ean: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={v.unidade ?? ""}
+                            onChange={(e) => patchVariation(v.id, { unidade: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs text-right"
+                            inputMode="decimal"
+                            value={v.price_brl ?? ""}
+                            onChange={(e) => patchVariation(v.id, { price_brl: parseNum(e.target.value) })}
+                            placeholder="R$"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs text-right"
+                            inputMode="decimal"
+                            value={v.price_usd ?? ""}
+                            onChange={(e) => patchVariation(v.id, { price_usd: parseNum(e.target.value) })}
+                            placeholder="US$"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs text-right"
+                            inputMode="decimal"
+                            value={v.price_eur ?? ""}
+                            onChange={(e) => patchVariation(v.id, { price_eur: parseNum(e.target.value) })}
+                            placeholder="€"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" onClick={() => removeVariation(v.id)} title={t.confirmDelete}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })
               )}
             </TableBody>
           </Table>
