@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save } from "lucide-react";
+import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS } from "./types";
@@ -21,7 +21,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Moeda", language: "Idioma", items: "Itens",
     tableTotal: "Preço tabela total", dealerTotal: "Preço dealer total", discount: "Desconto",
     historyTitle: "Histórico de cotações", noSnapshots: "Nenhuma cotação salva ainda. Use “Salvar no histórico” para versionar a tabela atual.",
-    date: "Data", label: "Rótulo", totalDealer: "Total dealer",
+    date: "Data", label: "Rótulo", totalDealer: "Total dealer", restore: "Restaurar",
+    restoreConfirm: "Restaurar esta versão? A tabela atual será substituída (uma nova versão será salva automaticamente).",
+    autoEdit: "Edição manual", autoImport: "Importação de catálogo", autoRemove: "Item removido",
+    autoRecalc: "Recalculado do catálogo", autoRestore: "Restauração do histórico",
     loading: "Carregando…", selectPrompt: "Selecione um distribuidor para criar/editar sua tabela.",
     emptyTable: "Tabela vazia. Clique em", populateAll: "para popular todos os produtos ativos.",
     noCategory: "Sem categoria",
@@ -39,7 +42,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Moneda", language: "Idioma", items: "Ítems",
     tableTotal: "Precio tabla total", dealerTotal: "Precio dealer total", discount: "Descuento",
     historyTitle: "Historial de cotizaciones", noSnapshots: "Ninguna cotización guardada aún. Use “Guardar en historial” para versionar la tabla actual.",
-    date: "Fecha", label: "Etiqueta", totalDealer: "Total dealer",
+    date: "Fecha", label: "Etiqueta", totalDealer: "Total dealer", restore: "Restaurar",
+    restoreConfirm: "¿Restaurar esta versión? La tabla actual será reemplazada (se guardará una nueva versión automáticamente).",
+    autoEdit: "Edición manual", autoImport: "Importación de catálogo", autoRemove: "Ítem eliminado",
+    autoRecalc: "Recalculado del catálogo", autoRestore: "Restauración del historial",
     loading: "Cargando…", selectPrompt: "Seleccione un distribuidor para crear/editar su tabla.",
     emptyTable: "Tabla vacía. Haga clic en", populateAll: "para cargar todos los productos activos.",
     noCategory: "Sin categoría",
@@ -57,7 +63,10 @@ const I18N: Record<string, Record<string, string>> = {
     currency: "Currency", language: "Language", items: "Items",
     tableTotal: "List total", dealerTotal: "Dealer total", discount: "Discount",
     historyTitle: "Quote history", noSnapshots: "No quotes saved yet. Use “Save to history” to version the current table.",
-    date: "Date", label: "Label", totalDealer: "Dealer total",
+    date: "Date", label: "Label", totalDealer: "Dealer total", restore: "Restore",
+    restoreConfirm: "Restore this version? The current table will be replaced (a new version will be auto-saved).",
+    autoEdit: "Manual edit", autoImport: "Catalog import", autoRemove: "Item removed",
+    autoRecalc: "Recalculated from catalog", autoRestore: "Restored from history",
     loading: "Loading…", selectPrompt: "Select a distributor to create/edit its table.",
     emptyTable: "Empty table. Click", populateAll: "to load all active products.",
     noCategory: "Uncategorized",
