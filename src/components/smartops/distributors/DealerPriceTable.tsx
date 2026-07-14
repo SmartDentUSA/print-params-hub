@@ -176,7 +176,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         discount_pct: 0,
         price_dealer: Number(p.price) || 0,
         unidade: "UN",
-        presentation: "Unit",
+        presentation: "Unid",
         quantity_multiplier: 1,
         sort_order: items.length + idx,
       }));
@@ -213,7 +213,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .update({
           cod: it.cod, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
           variant: it.variant, unidade: it.unidade, description: it.description,
-          presentation: it.presentation || "Unit",
+          presentation: it.presentation || "Unid",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
         })
@@ -488,7 +488,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={(it.presentation as string) || "Unit"}
+                            value={(it.presentation as string) || "Unid"}
                             onValueChange={(v) => updateField(it.id, "presentation" as any, v)}
                           >
                             <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
