@@ -480,20 +480,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 </div>
               </div>
               <div className="border rounded-md overflow-x-auto">
-                <Table>
+                <Table className="min-w-[1500px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-14">{t.hPhoto}</TableHead>
-                      <TableHead className="w-24">{t.hCod}</TableHead>
-                      <TableHead className="min-w-[220px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-16">{t.hPhoto}</TableHead>
+                      <TableHead className="w-28">{t.hCod}</TableHead>
+                      <TableHead className="min-w-[280px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-20">{t.hPresQty}</TableHead>
                       <TableHead className="w-24">{t.hPres}</TableHead>
-                      <TableHead className="w-28">{t.hNcm}</TableHead>
-                      <TableHead className="w-32">{t.hGtin}</TableHead>
+                      <TableHead className="w-32">{t.hNcm}</TableHead>
+                      <TableHead className="w-40">{t.hGtin}</TableHead>
                       <TableHead className="w-20">{t.hUnit}</TableHead>
-                      <TableHead className="w-28">{t.hTablePrice}</TableHead>
-                      <TableHead className="w-20">{t.hDiscount}</TableHead>
-                      <TableHead className="w-28">{t.hDealerUnit}</TableHead>
-                      <TableHead className="w-28">{t.hDealerTotal}</TableHead>
+                      <TableHead className="w-32">{t.hTablePrice}</TableHead>
+                      <TableHead className="w-24">{t.hDiscount}</TableHead>
+                      <TableHead className="w-32">{t.hDealerUnit}</TableHead>
+                      <TableHead className="w-32">{t.hDealerTotal}</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
