@@ -37,6 +37,7 @@ interface Owner {
   total_post: number;
   first_repurchase_days: number | null;
   first_repurchase_product?: string | null;
+  first_repurchase_qty?: number | null;
   last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
@@ -61,6 +62,18 @@ const fmtDate = (iso: string | null) => {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 };
+
+// Normaliza nomes de produtos para exibição/agrupamento.
+// Regras case-insensitive; retorna o mesmo texto se nada bater.
+const PRODUCT_NAME_RULES: { pattern: RegExp; label: string }[] = [
+  { pattern: /model\s*plus/i, label: "Resina 3D Smart Print Model Plus" },
+];
+function normalizeProductName(raw: string | null | undefined): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  for (const r of PRODUCT_NAME_RULES) if (r.pattern.test(s)) return r.label;
+  return s;
+}
 
 export function SmartOpsRayshape() {
   const { toast } = useToast();
@@ -147,18 +160,25 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
-    const productCounts = new Map<string, number>();
+    // Agrupa produtos da 1ª recompra com nome normalizado; soma leads e unidades.
+    const bucket = new Map<string, { label: string; leads: number; units: number }>();
     for (const o of owners) {
-      const p = (o.first_repurchase_product || "").trim();
-      if (!p) continue;
-      productCounts.set(p, (productCounts.get(p) || 0) + 1);
+      const label = normalizeProductName(o.first_repurchase_product);
+      if (!label) continue;
+      const cur = bucket.get(label) || { label, leads: 0, units: 0 };
+      cur.leads += 1;
+      cur.units += Number(o.first_repurchase_qty) || 0;
+      bucket.set(label, cur);
     }
-    let topProduct = "—";
-    let topProductCount = 0;
-    for (const [name, count] of productCounts) {
-      if (count > topProductCount) { topProduct = name; topProductCount = count; }
-    }
-    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, topProduct, topProductCount, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const topProducts = Array.from(bucket.values()).sort(
+      (a, b) => b.leads - a.leads || b.units - a.units,
+    );
+    return {
+      total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
+      avgFirstDays, firstDaysCount: firstDaysArr.length,
+      topProducts,
+      pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
+    };
   }, [owners]);
 
   const filtered = useMemo(() => {
@@ -315,15 +335,29 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Produto principal na 1ª compra</div>
-          <div className="text-base font-semibold text-foreground leading-tight line-clamp-2" title={kpis.topProduct}>
-            {kpis.topProduct}
-          </div>
-          {kpis.topProductCount ? (
-            <div className="text-xs text-muted-foreground mt-1">{kpis.topProductCount} lead{kpis.topProductCount > 1 ? "s" : ""}</div>
-          ) : null}
-        </Card>
+        {[
+          { title: "Produto principal na 1ª compra", idx: 0 },
+          { title: "2º produto mais comprado na 1ª compra", idx: 1 },
+          { title: "3º produto mais comprado na 1ª compra", idx: 2 },
+        ].map(({ title, idx }) => {
+          const p = kpis.topProducts[idx];
+          return (
+            <Card key={idx} className={`p-4 ${p ? "" : "opacity-50"}`}>
+              <div className="text-xs text-muted-foreground">{title}</div>
+              <div
+                className="text-base font-semibold text-foreground leading-tight line-clamp-2"
+                title={p?.label || "—"}
+              >
+                {p?.label || "—"}
+              </div>
+              {p ? (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {p.units.toLocaleString("pt-BR")} un. · {p.leads} lead{p.leads !== 1 ? "s" : ""}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
       </div>
 
       {/* Unidades vendidas por produto (pós-impressora) */}
