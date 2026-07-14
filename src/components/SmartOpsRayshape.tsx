@@ -335,15 +335,29 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Produto principal na 1ª compra</div>
-          <div className="text-base font-semibold text-foreground leading-tight line-clamp-2" title={kpis.topProduct}>
-            {kpis.topProduct}
-          </div>
-          {kpis.topProductCount ? (
-            <div className="text-xs text-muted-foreground mt-1">{kpis.topProductCount} lead{kpis.topProductCount > 1 ? "s" : ""}</div>
-          ) : null}
-        </Card>
+        {[
+          { title: "Produto principal na 1ª compra", idx: 0 },
+          { title: "2º produto mais comprado na 1ª compra", idx: 1 },
+          { title: "3º produto mais comprado na 1ª compra", idx: 2 },
+        ].map(({ title, idx }) => {
+          const p = kpis.topProducts[idx];
+          return (
+            <Card key={idx} className={`p-4 ${p ? "" : "opacity-50"}`}>
+              <div className="text-xs text-muted-foreground">{title}</div>
+              <div
+                className="text-base font-semibold text-foreground leading-tight line-clamp-2"
+                title={p?.label || "—"}
+              >
+                {p?.label || "—"}
+              </div>
+              {p ? (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {p.units.toLocaleString("pt-BR")} un. · {p.leads} lead{p.leads !== 1 ? "s" : ""}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
       </div>
 
       {/* Unidades vendidas por produto (pós-impressora) */}
