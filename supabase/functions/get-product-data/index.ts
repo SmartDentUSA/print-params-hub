@@ -61,8 +61,7 @@ Deno.serve(async (req) => {
     let query = supabase
       .from('system_a_catalog')
       .select('*')
-      .eq('slug', slug)
-      .eq('category', 'product');
+      .eq('slug', slug);
 
     // Apply approved filter if requested
     if (approved) {
@@ -80,7 +79,6 @@ Deno.serve(async (req) => {
           .from('system_a_catalog')
           .select('*')
           .eq('external_id', slug)
-          .eq('category', 'product')
           .maybeSingle();
         console.log('🔎 Fallback catalog.external_id eq:', { external_id: slug, found: !!byExt, error: extErr });
         if (byExt) {
@@ -125,7 +123,6 @@ Deno.serve(async (req) => {
         const { data: c1, error: e1 } = await supabase
           .from('system_a_catalog')
           .select('*')
-          .eq('category', 'product')
           .ilike('slug', `%${slug}%`)
           .maybeSingle();
         if (c1) {
@@ -134,6 +131,30 @@ Deno.serve(async (req) => {
           catalogError = e1 || catalogError;
         }
         console.log('🔎 Fallback catalog.slug ilike:', { pattern: `%${slug}%`, found: !!c1, error: e1 });
+      }
+
+      // Fallback tolerante por prefixos comuns da loja (ex: "dispositivo-", "kit-", "combo-")
+      if (!catalogProduct && slug) {
+        const stripPrefix = slug.replace(/^(dispositivo|kit|combo)-/, '');
+        if (stripPrefix !== slug) {
+          const { data: c2, error: e2 } = await supabase
+            .from('system_a_catalog')
+            .select('*')
+            .eq('slug', stripPrefix)
+            .maybeSingle();
+          console.log('🔎 Fallback catalog.slug eq (strip prefix):', { stripped: stripPrefix, found: !!c2, error: e2 });
+          if (c2) {
+            catalogProduct = c2;
+          } else {
+            const { data: c3, error: e3 } = await supabase
+              .from('system_a_catalog')
+              .select('*')
+              .ilike('slug', `%${stripPrefix}%`)
+              .maybeSingle();
+            console.log('🔎 Fallback catalog.slug ilike (strip prefix):', { pattern: `%${stripPrefix}%`, found: !!c3, error: e3 });
+            if (c3) catalogProduct = c3;
+          }
+        }
       }
 
       // If found in catalog with fuzzy matching, return it
