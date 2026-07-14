@@ -239,10 +239,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     if (varRes.error) { toast.error(varRes.error.message); setLoading(false); return; }
     const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
     const allVars = (varRes.data as any) || [];
-    const existing = new Set(
+    const norm = (value: any) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const existingByKey = new Map<string, DealerPriceItem>(
       items
-        .map((i) => `${i.catalog_product_id || ""}::${(i.presentation_qty || "").toString().toLowerCase().replace(/\s+/g, "")}`)
-        .filter((k) => k !== "::"),
+        .filter((i) => i.catalog_product_id)
+        .map((i) => [`${i.catalog_product_id}::${norm(i.presentation_qty)}`, i] as const),
     );
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
     const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
@@ -254,18 +255,18 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     };
     let fallbackCount = 0;
     const toInsert: any[] = [];
+    const toUpdate: Array<{ id: string; patch: any }> = [];
     let cursor = items.length;
     for (const v of allVars) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
-      const key = `${v.catalog_product_id}::${String(v.presentation_qty || "").toLowerCase().replace(/\s+/g, "")}`;
-      if (existing.has(key)) continue;
+      const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
       const priced = priceFor(v, p);
       if (priced.fallback) fallbackCount++;
-      toInsert.push({
-        price_list_id: list.id,
+      const current = existingByKey.get(key);
+      const catalogFields = {
         catalog_product_id: p.id,
-        cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
+        cod: p?.external_id || null,
         name: p.name,
         name_en: p.name_en,
         name_es: p.name_es,
@@ -276,29 +277,54 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
         price_base: priced.value,
-        discount_pct: 0,
-        price_dealer: priced.value,
         presentation: p.presentation ?? "Unid",
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: v.presentation_qty,
         unidade: v.unidade || "UN",
-        sort_order: cursor++,
         is_active: true,
-      });
+      };
+      if (current) {
+        toUpdate.push({
+          id: current.id,
+          patch: {
+            ...catalogFields,
+            price_dealer: recalcDealerPrice(priced.value, Number(current.discount_pct) || 0),
+          },
+        });
+      } else {
+        toInsert.push({
+          price_list_id: list.id,
+          ...catalogFields,
+          discount_pct: 0,
+          price_dealer: priced.value,
+          sort_order: cursor++,
+        });
+      }
     }
-    if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
-    const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
-    if (insErr) toast.error(insErr.message);
-    else {
-      toast.success(`${toInsert.length} produtos importados (${cur})`);
-      if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
+    const updateResults = await Promise.all(
+      toUpdate.map(({ id, patch }) =>
+        supabase.from("dealer_price_items" as any).update(patch).eq("id", id),
+      ),
+    );
+    const updateError = updateResults.find((result: any) => result.error)?.error;
+    if (updateError) { toast.error(updateError.message); setLoading(false); return; }
+    let insErr: any = null;
+    if (toInsert.length > 0) {
+      const result = await supabase.from("dealer_price_items" as any).insert(toInsert);
+      insErr = result.error;
     }
+    if (insErr) { toast.error(insErr.message); setLoading(false); return; }
+    if (toInsert.length === 0 && toUpdate.length === 0) {
+      toast.info("Nenhuma alteração do catálogo para importar.");
+      setLoading(false);
+      return;
+    }
+    toast.success(`${toInsert.length} novos e ${toUpdate.length} atualizados (${cur})`);
+    if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
     await loadOrCreate(distributorId);
-    if (!insErr) {
-      // captura snapshot pós-import com estado recém carregado
-      const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
-      await autoSnapshot(`${t.autoImport} (+${toInsert.length})`, ((rows as any) || []) as DealerPriceItem[]);
-    }
+    // captura snapshot pós-import com estado recém carregado
+    const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
+    await autoSnapshot(`${t.autoImport} (+${toInsert.length}, ~${toUpdate.length})`, ((rows as any) || []) as DealerPriceItem[]);
   };
 
   const recalcFromCatalog = async () => {
