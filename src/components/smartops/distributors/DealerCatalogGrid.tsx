@@ -28,6 +28,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         .from("system_a_catalog" as any)
         .select("id,name,name_en,name_es,category,product_category,product_subcategory,image_url,price,currency,description,active")
         .eq("active", true)
+        .not("product_category", "is", null)
+        .neq("product_category", "")
         .order("product_category", { ascending: true })
         .order("name", { ascending: true });
       if (error) toast.error("Erro ao carregar catálogo: " + error.message);
