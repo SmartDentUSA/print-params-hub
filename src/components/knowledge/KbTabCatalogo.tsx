@@ -432,7 +432,7 @@ export default function KbTabCatalogo() {
           .limit(500),
         supabase
           .from('products_catalog')
-          .select('id, name, datasheet_url, manual_url, spec_sheet_url, technical_specifications, technical_specifications_en, technical_specifications_es')
+          .select('product_id, name, datasheet_url, manual_url, spec_sheet_url, technical_specifications, technical_specifications_en, technical_specifications_es')
           .limit(1000),
         supabase
           .from('resins')
@@ -480,7 +480,7 @@ export default function KbTabCatalogo() {
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
         docMap.set(p.name.toLowerCase().trim(), {
-          id: p.id || null,
+          id: p.product_id || null,
           datasheet_url: p.datasheet_url,
           manual_url: p.manual_url,
           spec_sheet_url: p.spec_sheet_url,
