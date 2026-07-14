@@ -216,6 +216,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
     }
     await loadOrCreate(distributorId);
+    if (!insErr) {
+      // captura snapshot pós-import com estado recém carregado
+      const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
+      await autoSnapshot(`${t.autoImport} (+${toInsert.length})`, ((rows as any) || []) as DealerPriceItem[]);
+    }
   };
 
   const recalcFromCatalog = async () => {
@@ -288,6 +293,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     toast.success(`${toSave.length} linhas salvas`);
     setDirtyIds(new Set());
     setSaving(false);
+    await autoSnapshot(`${t.autoEdit} (${toSave.length})`, items);
   };
 
   const saveSnapshot = async () => {
@@ -320,9 +326,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
 
   const removeItem = async (id: string) => {
     if (!confirm("Remover este item da tabela?")) return;
+    const removed = items.find((i) => i.id === id);
     const { error } = await supabase.from("dealer_price_items" as any).delete().eq("id", id);
     if (error) return toast.error(error.message);
-    setItems((p) => p.filter((i) => i.id !== id));
+    const next = items.filter((i) => i.id !== id);
+    setItems(next);
+    await autoSnapshot(`${t.autoRemove}: ${removed?.name ?? id.slice(0, 8)}`, next);
   };
 
   const grouped = useMemo(() => {
