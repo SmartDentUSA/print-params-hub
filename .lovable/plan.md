@@ -1,6 +1,4 @@
-Renomear "Stripe / Pagamentos" para **"Stripe / Pagamentos - RMS"** em dois lugares:
+Ajustar rótulos:
 
-1. `src/components/AdminSidebar.tsx` (linha 103) — item do menu.
-2. `src/components/SmartOpsStripePayments.tsx` (linha 483) — `<h1>` do cabeçalho da página.
-
-Nenhuma outra alteração.
+1. `src/components/AdminSidebar.tsx` — reverter item do menu para **"Stripe / Pagamentos"** (sem "- RMS").
+2. `src/components/SmartOpsStripePayments.tsx` — manter `<h1>` da página como **"Stripe / Pagamentos - RMS"** (já está assim; nenhuma alteração).
