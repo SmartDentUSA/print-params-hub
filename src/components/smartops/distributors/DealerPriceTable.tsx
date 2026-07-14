@@ -347,6 +347,69 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     return { subtotal, total, discount: subtotal - total };
   }, [items]);
 
+  const reloadSnapshots = async () => {
+    if (!distributorId) return;
+    const { data: snaps } = await supabase
+      .from("dealer_price_list_snapshots" as any)
+      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at")
+      .eq("distributor_id", distributorId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setSnapshots(((snaps as any) || []) as DealerSnapshot[]);
+  };
+
+  const autoSnapshot = async (label: string, itemsSnap: DealerPriceItem[]) => {
+    if (!list || !distributorId) return;
+    const subtotal = itemsSnap.reduce((a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1), 0);
+    const total = itemsSnap.reduce((a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1), 0);
+    await supabase.from("dealer_price_list_snapshots" as any).insert({
+      distributor_id: distributorId,
+      price_list_id: list.id,
+      label,
+      currency: list.currency,
+      language: list.language,
+      items: itemsSnap as any,
+      totals: { subtotal, total, discount: subtotal - total } as any,
+    });
+    reloadSnapshots();
+  };
+
+  const restoreSnapshot = async (s: DealerSnapshot) => {
+    if (!list || !confirm(t.restoreConfirm)) return;
+    setSaving(true);
+    // 1. Auto-snapshot atual antes de sobrescrever
+    await autoSnapshot(`${t.autoRestore} — snapshot pré-restauração`, items);
+    // 2. Apaga itens atuais
+    const { error: delErr } = await supabase.from("dealer_price_items" as any).delete().eq("price_list_id", list.id);
+    if (delErr) { toast.error(delErr.message); setSaving(false); return; }
+    // 3. Insere itens do snapshot
+    const arr = Array.isArray(s.items) ? (s.items as any[]) : [];
+    const toInsert = arr.map((it: any, idx: number) => ({
+      price_list_id: list.id,
+      catalog_product_id: it.catalog_product_id ?? null,
+      cod: it.cod ?? null, name: it.name ?? "",
+      name_en: it.name_en ?? null, name_es: it.name_es ?? null,
+      image_url: it.image_url ?? null,
+      category: it.category ?? null, subcategory: it.subcategory ?? null, variant: it.variant ?? null,
+      ncm_hs: it.ncm_hs ?? null, gtin_ean: it.gtin_ean ?? null,
+      unidade: it.unidade ?? "UN", description: it.description ?? null,
+      price_base: Number(it.price_base) || 0,
+      discount_pct: Number(it.discount_pct) || 0,
+      price_dealer: Number(it.price_dealer) || 0,
+      presentation: it.presentation ?? "Unid",
+      quantity_multiplier: Number(it.quantity_multiplier ?? 1) || 1,
+      presentation_qty: it.presentation_qty ?? null,
+      sort_order: idx,
+    }));
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
+      if (insErr) { toast.error(insErr.message); setSaving(false); return; }
+    }
+    toast.success(`Versão de ${new Date(s.created_at).toLocaleString("pt-BR")} restaurada`);
+    setSaving(false);
+    await loadOrCreate(distributorId);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
