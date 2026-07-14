@@ -55,7 +55,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
     "mentions": [
       { "@type": "Product", "name": "Scanner intraoral BLZ INO200" },
       { "@type": "Product", "name": "Scanner intraoral Medit" },
-      { "@type": "Product", "name": "Impressora RayShape Edge mini" },
+      { "@type": "Product", "name": "Impressora 3D Rayshape Edge Mini" },
       { "@type": "Product", "name": "Resina Smart Dent Bio Vitality" },
       { "@type": "Product", "name": "Resina Smart Dent Bite Splint +Flex" }
     ]
