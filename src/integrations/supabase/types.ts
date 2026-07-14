@@ -11715,6 +11715,332 @@ export type Database = {
           },
         ]
       }
+      ltv_reactivation_rules: {
+        Row: {
+          active: boolean
+          cooldown_days: number | null
+          created_at: string
+          deal_origin_tag_template: string | null
+          deal_title_template: string | null
+          description: string | null
+          dry_run: boolean
+          fixed_seller_id: string | null
+          id: string
+          loss_reason_id: string | null
+          lost_pipeline_id: string | null
+          max_open_ltv_deals: number | null
+          min_ltv: number | null
+          name: string
+          notify_seller: boolean
+          priority: number | null
+          product_category: string | null
+          product_suggestion_source: string | null
+          round_robin_seller_ids: string[] | null
+          seller_strategy: string
+          source_pipeline_id: string | null
+          suggested_products: Json | null
+          target_pipeline_id: string | null
+          target_stage_id: string | null
+          trigger_days_list: number[]
+          updated_at: string
+          waleads_message: string | null
+          whatsapp_template_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          cooldown_days?: number | null
+          created_at?: string
+          deal_origin_tag_template?: string | null
+          deal_title_template?: string | null
+          description?: string | null
+          dry_run?: boolean
+          fixed_seller_id?: string | null
+          id?: string
+          loss_reason_id?: string | null
+          lost_pipeline_id?: string | null
+          max_open_ltv_deals?: number | null
+          min_ltv?: number | null
+          name: string
+          notify_seller?: boolean
+          priority?: number | null
+          product_category?: string | null
+          product_suggestion_source?: string | null
+          round_robin_seller_ids?: string[] | null
+          seller_strategy?: string
+          source_pipeline_id?: string | null
+          suggested_products?: Json | null
+          target_pipeline_id?: string | null
+          target_stage_id?: string | null
+          trigger_days_list?: number[]
+          updated_at?: string
+          waleads_message?: string | null
+          whatsapp_template_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          cooldown_days?: number | null
+          created_at?: string
+          deal_origin_tag_template?: string | null
+          deal_title_template?: string | null
+          description?: string | null
+          dry_run?: boolean
+          fixed_seller_id?: string | null
+          id?: string
+          loss_reason_id?: string | null
+          lost_pipeline_id?: string | null
+          max_open_ltv_deals?: number | null
+          min_ltv?: number | null
+          name?: string
+          notify_seller?: boolean
+          priority?: number | null
+          product_category?: string | null
+          product_suggestion_source?: string | null
+          round_robin_seller_ids?: string[] | null
+          seller_strategy?: string
+          source_pipeline_id?: string | null
+          suggested_products?: Json | null
+          target_pipeline_id?: string | null
+          target_stage_id?: string | null
+          trigger_days_list?: number[]
+          updated_at?: string
+          waleads_message?: string | null
+          whatsapp_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltv_reactivation_rules_fixed_seller_id_fkey"
+            columns: ["fixed_seller_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltv_reactivation_runs: {
+        Row: {
+          closed_at: string | null
+          company_id: string | null
+          created_at: string
+          dry_run: boolean
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          new_deal_id: string | null
+          person_id: string | null
+          rule_id: string
+          seller_id: string | null
+          skip_reason: string | null
+          source_deal_id: string
+          status: string
+          trigger_day: number
+          triggered_at: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          new_deal_id?: string | null
+          person_id?: string | null
+          rule_id: string
+          seller_id?: string | null
+          skip_reason?: string | null
+          source_deal_id: string
+          status?: string
+          trigger_day: number
+          triggered_at?: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          new_deal_id?: string | null
+          person_id?: string | null
+          rule_id?: string
+          seller_id?: string | null
+          skip_reason?: string | null
+          source_deal_id?: string
+          status?: string
+          trigger_day?: number
+          triggered_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "ltv_reactivation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_assets: {
         Row: {
           archived_at: string | null
@@ -13372,6 +13698,214 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      operational_flow_shadow_log: {
+        Row: {
+          created_at: string
+          divergence: boolean
+          divergence_summary: string | null
+          flow_id: string
+          id: string
+          input_payload: Json | null
+          output_a: Json | null
+          output_b: Json | null
+          version_a: number
+          version_b: number
+        }
+        Insert: {
+          created_at?: string
+          divergence?: boolean
+          divergence_summary?: string | null
+          flow_id: string
+          id?: string
+          input_payload?: Json | null
+          output_a?: Json | null
+          output_b?: Json | null
+          version_a: number
+          version_b: number
+        }
+        Update: {
+          created_at?: string
+          divergence?: boolean
+          divergence_summary?: string | null
+          flow_id?: string
+          id?: string
+          input_payload?: Json | null
+          output_a?: Json | null
+          output_b?: Json | null
+          version_a?: number
+          version_b?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_flow_shadow_log_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "operational_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operational_flow_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          flow_id: string
+          graph: Json
+          id: string
+          note: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          flow_id: string
+          graph: Json
+          id?: string
+          note?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          flow_id?: string
+          graph?: Json
+          id?: string
+          note?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_flow_versions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "operational_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operational_flows: {
+        Row: {
+          active: boolean
+          created_at: string
+          current_version: number
+          description: string | null
+          flow_key: string
+          graph: Json
+          id: string
+          name: string
+          rollout_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          current_version?: number
+          description?: string | null
+          flow_key: string
+          graph?: Json
+          id?: string
+          name: string
+          rollout_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          current_version?: number
+          description?: string | null
+          flow_key?: string
+          graph?: Json
+          id?: string
+          name?: string
+          rollout_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      operational_settings: {
+        Row: {
+          commercial_intent_whitelist: string[] | null
+          created_at: string
+          default_cooldown_days: number
+          default_seller_strategy: string
+          default_trigger_days: number[]
+          guard_commercial_intent: boolean
+          guard_dedupe: boolean
+          guard_golden_rule: boolean
+          guard_person_origin_frozen: boolean
+          id: string
+          ltv_cron_hour: number
+          ltv_cron_minute: number
+          piperun_cs_pipeline_id: string | null
+          piperun_ltv_loss_reason_id: string | null
+          piperun_ltv_lost_pipeline_id: string | null
+          piperun_ltv_pipeline_id: string | null
+          piperun_ltv_stage_id: string | null
+          piperun_vendas_pipeline_id: string | null
+          rollout_mode: string
+          shadow_duration_days: number
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          commercial_intent_whitelist?: string[] | null
+          created_at?: string
+          default_cooldown_days?: number
+          default_seller_strategy?: string
+          default_trigger_days?: number[]
+          guard_commercial_intent?: boolean
+          guard_dedupe?: boolean
+          guard_golden_rule?: boolean
+          guard_person_origin_frozen?: boolean
+          id?: string
+          ltv_cron_hour?: number
+          ltv_cron_minute?: number
+          piperun_cs_pipeline_id?: string | null
+          piperun_ltv_loss_reason_id?: string | null
+          piperun_ltv_lost_pipeline_id?: string | null
+          piperun_ltv_pipeline_id?: string | null
+          piperun_ltv_stage_id?: string | null
+          piperun_vendas_pipeline_id?: string | null
+          rollout_mode?: string
+          shadow_duration_days?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          commercial_intent_whitelist?: string[] | null
+          created_at?: string
+          default_cooldown_days?: number
+          default_seller_strategy?: string
+          default_trigger_days?: number[]
+          guard_commercial_intent?: boolean
+          guard_dedupe?: boolean
+          guard_golden_rule?: boolean
+          guard_person_origin_frozen?: boolean
+          id?: string
+          ltv_cron_hour?: number
+          ltv_cron_minute?: number
+          piperun_cs_pipeline_id?: string | null
+          piperun_ltv_loss_reason_id?: string | null
+          piperun_ltv_lost_pipeline_id?: string | null
+          piperun_ltv_pipeline_id?: string | null
+          piperun_ltv_stage_id?: string | null
+          piperun_vendas_pipeline_id?: string | null
+          rollout_mode?: string
+          shadow_duration_days?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       opportunity_rules: {
         Row: {
