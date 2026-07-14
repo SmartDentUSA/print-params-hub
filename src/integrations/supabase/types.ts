@@ -28841,6 +28841,16 @@ export type Database = {
         }[]
       }
       fn_rayshape_owners: { Args: never; Returns: Json }
+      fn_rayshape_product_units: {
+        Args: never
+        Returns: {
+          leads: number
+          ord: number
+          product_key: string
+          product_label: string
+          units: number
+        }[]
+      }
       fn_rayshape_status: { Args: { p_lead_id: string }; Returns: Json }
       fn_record_group_send: {
         Args: {
