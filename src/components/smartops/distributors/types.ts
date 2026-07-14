@@ -52,6 +52,7 @@ export type DealerPriceItem = {
   presentation?: PresentationType | null;
   quantity_multiplier?: number | null;
   presentation_qty?: number | null;
+  is_active?: boolean;
 };
 
 export type PresentationType = "g" | "Kg" | "ml" | "mg" | "Unid";
