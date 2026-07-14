@@ -246,6 +246,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .map((i) => [`${i.catalog_product_id}::${norm(i.presentation_qty)}`, i] as const),
     );
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    const presentationFor = (v: any, p: any): "Grs/Kg" | "Unit" | "Kit" => {
+      const unit = String(v?.unidade || "").trim().toLowerCase();
+      const qty = String(v?.presentation_qty || "").trim().toLowerCase();
+      const productPresentation = String(p?.presentation || "").trim().toLowerCase();
+      if (["g", "kg", "mg"].includes(unit) || /(?:^|\d)\s*(?:mg|g|kg)\b/i.test(qty)) return "Grs/Kg";
+      if (/\b(?:kit|caixa|cx|pack|conjunto)\b/i.test(`${qty} ${productPresentation}`)) return "Kit";
+      return "Unit";
+    };
     const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
       const pick = cur === "USD" ? (v.price_usd ?? p?.price_usd) : cur === "EUR" ? (v.price_eur ?? p?.price_eur) : (v.price_brl ?? p?.price);
       const n = Number(pick);
@@ -277,7 +285,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
         price_base: priced.value,
-        presentation: p.presentation ?? "Unid",
+        presentation: presentationFor(v, p),
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: v.presentation_qty,
         unidade: v.unidade || "UN",
@@ -307,13 +315,13 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       ),
     );
     const updateError = updateResults.find((result: any) => result.error)?.error;
-    if (updateError) { toast.error(updateError.message); setLoading(false); return; }
+    if (updateError) { toast.error(`Erro ao atualizar variações: ${updateError.message}`); setLoading(false); return; }
     let insErr: any = null;
     if (toInsert.length > 0) {
       const result = await supabase.from("dealer_price_items" as any).insert(toInsert);
       insErr = result.error;
     }
-    if (insErr) { toast.error(insErr.message); setLoading(false); return; }
+    if (insErr) { toast.error(`Erro ao importar variações: ${insErr.message}`); setLoading(false); return; }
     if (toInsert.length === 0 && toUpdate.length === 0) {
       toast.info("Nenhuma alteração do catálogo para importar.");
       setLoading(false);
@@ -422,7 +430,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             discount_pct: it.discount_pct,
             price_dealer: it.price_dealer,
             unidade: v.unit || it.unidade || "UN",
-            presentation: it.presentation || "Unid",
+            presentation: it.presentation || "Unit",
             quantity_multiplier: 1,
             presentation_qty: v.qty,
             sort_order: (it.sort_order ?? 0) + idx + 1,
@@ -526,7 +534,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .update({
           cod: it.cod, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
           variant: it.variant, unidade: it.unidade, description: it.description,
-          presentation: it.presentation || "Unid",
+          presentation: it.presentation || "Unit",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           presentation_qty: it.presentation_qty ?? null,
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
@@ -671,7 +679,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       price_base: Number(it.price_base) || 0,
       discount_pct: Number(it.discount_pct) || 0,
       price_dealer: Number(it.price_dealer) || 0,
-      presentation: it.presentation ?? "Unid",
+      presentation: it.presentation ?? "Unit",
       quantity_multiplier: Number(it.quantity_multiplier ?? 1) || 1,
       presentation_qty: it.presentation_qty ?? null,
       sort_order: idx,
@@ -975,21 +983,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         <TableCell>
                           <Input
                             type="text"
-                            inputMode="decimal"
                             value={it.presentation_qty ?? ""}
                             placeholder="—"
-                            onChange={(e) => {
-                              const v = e.target.value.replace(",", ".");
-                              if (v === "") { updateField(it.id, "presentation_qty" as any, null); return; }
-                              const n = parseFloat(v);
-                              updateField(it.id, "presentation_qty" as any, isNaN(n) ? null : n);
-                            }}
+                            onChange={(e) => updateField(it.id, "presentation_qty" as any, e.target.value || null)}
                             className="h-8 text-right"
                           />
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={(it.presentation as string) || "Unid"}
+                            value={(it.presentation as string) || "Unit"}
                             onValueChange={(v) => updateField(it.id, "presentation" as any, v)}
                           >
                             <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
