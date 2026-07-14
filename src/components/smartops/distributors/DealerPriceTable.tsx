@@ -52,6 +52,22 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .single();
       if (error) { toast.error("Erro ao criar tabela: " + error.message); setLoading(false); return; }
       l = created;
+    } else if (
+      dist &&
+      ((dist.preferred_currency && l.currency !== dist.preferred_currency) ||
+        (dist.language_preference && l.language !== dist.language_preference))
+    ) {
+      // Sincroniza a tabela existente com as preferências atuais do distribuidor
+      const { data: updated } = await supabase
+        .from("dealer_price_lists" as any)
+        .update({
+          currency: dist.preferred_currency || l.currency,
+          language: dist.language_preference || l.language,
+        })
+        .eq("id", l.id)
+        .select("*")
+        .single();
+      if (updated) l = updated;
     }
     setList(l as DealerPriceList);
     const { data: rows } = await supabase
@@ -272,9 +288,39 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           <CardContent className="p-3 flex flex-wrap items-center gap-3 text-sm">
             <Badge variant="outline">v{list.version}</Badge>
             <span className="text-muted-foreground">Moeda:</span>
-            <strong>{currency}</strong>
+            <Select
+              value={list.currency || "BRL"}
+              onValueChange={async (v) => {
+                const { data } = await supabase
+                  .from("dealer_price_lists" as any)
+                  .update({ currency: v }).eq("id", list.id).select("*").single();
+                if (data) setList(data as unknown as DealerPriceList);
+              }}
+            >
+              <SelectTrigger className="h-7 w-[110px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["BRL","USD","EUR","GBP","ARS","CLP","COP","MXN","PEN","UYU","PYG","BOB"].map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <span className="text-muted-foreground">Idioma:</span>
-            <strong className="uppercase">{list.language || distributor?.language_preference || "pt"}</strong>
+            <Select
+              value={list.language || "pt"}
+              onValueChange={async (v) => {
+                const { data } = await supabase
+                  .from("dealer_price_lists" as any)
+                  .update({ language: v }).eq("id", list.id).select("*").single();
+                if (data) setList(data as unknown as DealerPriceList);
+              }}
+            >
+              <SelectTrigger className="h-7 w-[90px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">PT</SelectItem>
+                <SelectItem value="es">ES</SelectItem>
+                <SelectItem value="en">EN</SelectItem>
+              </SelectContent>
+            </Select>
             <span className="text-muted-foreground">Itens:</span>
             <strong>{items.length}</strong>
             <span className="text-muted-foreground">Preço tabela total:</span>
