@@ -34,6 +34,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
     catDiscount: "% Desc. categoria", apply: "Aplicar",
     recalcFromCatalog: "Recalcular preços do catálogo",
+    active: "Ativo", inactive: "Inativo", showInactive: "Mostrar inativos",
+    deleteSnapshot: "Excluir", confirmDeleteSnapshot: "Excluir esta cotação do histórico? Esta ação não pode ser desfeita.",
+    snapshotDeleted: "Cotação removida do histórico",
   },
   es: {
     distributor: "Distribuidor", selectPlaceholder: "Seleccione un distribuidor…",
@@ -55,6 +58,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
     catDiscount: "% Desc. categoría", apply: "Aplicar",
     recalcFromCatalog: "Recalcular precios del catálogo",
+    active: "Activo", inactive: "Inactivo", showInactive: "Mostrar inactivos",
+    deleteSnapshot: "Eliminar", confirmDeleteSnapshot: "¿Eliminar esta cotización del historial? Esta acción no se puede deshacer.",
+    snapshotDeleted: "Cotización eliminada del historial",
   },
   en: {
     distributor: "Distributor", selectPlaceholder: "Select a distributor…",
@@ -76,6 +82,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
     catDiscount: "% Disc. category", apply: "Apply",
     recalcFromCatalog: "Recalculate prices from catalog",
+    active: "Active", inactive: "Inactive", showInactive: "Show inactive",
+    deleteSnapshot: "Delete", confirmDeleteSnapshot: "Delete this quote from history? This cannot be undone.",
+    snapshotDeleted: "Quote removed from history",
   },
 };
 
