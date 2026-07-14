@@ -124,6 +124,8 @@ Deno.serve(async (req) => {
       let person = (deal as any).person as any;
       const personId = person?.id || (deal as any).person_id;
       step.person_id = personId || null;
+      step.deal_person_id_raw = (deal as any).person_id ?? null;
+      step.deal_top_keys = Object.keys(deal || {});
 
       // Se o hydrate não trouxe o bloco person mas o Deal tem person_id, faz GET /persons/{id}
       if ((!person || typeof person !== "object" || Object.keys(person).length === 0) && personId) {
