@@ -124,7 +124,13 @@ export function SmartOpsRayshape() {
     const avgTicket = recomp ? sumPost / recomp : 0;
     const recompraCombo    = owners.reduce((a, o) => a + (o.recompra_combo_brl || 0), 0);
     const recompraSeparado = owners.reduce((a, o) => a + (o.recompra_separado_brl || 0), 0);
-    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const firstDaysArr = owners
+      .map(o => o.first_repurchase_days)
+      .filter((v): v is number => typeof v === "number" && v >= 0);
+    const avgFirstDays = firstDaysArr.length
+      ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
+      : 0;
+    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
   }, [owners]);
 
   const filtered = useMemo(() => {
@@ -273,6 +279,13 @@ export function SmartOpsRayshape() {
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Recompra Separado</div>
           <div className="text-2xl font-semibold text-sky-400">{fmtBRL(kpis.recompraSeparado)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Média p/ 1ª recompra</div>
+          <div className="text-2xl font-semibold text-foreground">
+            {kpis.firstDaysCount ? `${kpis.avgFirstDays}d` : "—"}
+            {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
+          </div>
         </Card>
       </div>
 
