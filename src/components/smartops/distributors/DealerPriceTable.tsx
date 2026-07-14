@@ -78,6 +78,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const [snapshots, setSnapshots] = useState<DealerSnapshot[]>([]);
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [catDiscount, setCatDiscount] = useState<Record<string, string>>({});
 
   const distributor = distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
@@ -449,7 +450,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         <div className="space-y-6">
           {grouped.map(([group, rows]) => (
             <div key={group}>
-              <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">{group}</h4>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{group}</h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{t.catDiscount}</span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={catDiscount[group] ?? ""}
+                    onChange={(e) => setCatDiscount((s) => ({ ...s, [group]: e.target.value }))}
+                    className="h-8 w-20 text-right"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const raw = (catDiscount[group] ?? "").replace(",", ".").trim();
+                      const pct = parseFloat(raw);
+                      if (isNaN(pct) || pct < 0 || pct > 100) { toast.error("0 – 100"); return; }
+                      rows.forEach((r) => updateField(r.id, "discount_pct", pct));
+                      toast.success(`${rows.length} × ${pct}%`);
+                    }}
+                  >
+                    {t.apply}
+                  </Button>
+                </div>
+              </div>
               <div className="border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
