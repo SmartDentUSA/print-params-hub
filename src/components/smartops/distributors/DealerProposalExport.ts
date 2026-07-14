@@ -5,11 +5,56 @@ import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, Width
 import { saveAs } from "file-saver";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { formatMoney } from "./types";
+import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
 
 function fileBase(distributor: Distributor | undefined, list: DealerPriceList | null, prefix = "tabela-preco") {
   const dist = (distributor?.nome_fantasia || distributor?.razao_social || "distribuidor").replace(/\W+/g, "-").toLowerCase();
   const ts = new Date().toISOString().slice(0, 10);
   return `${prefix}-${dist}-v${list?.version ?? 1}-${ts}`;
+}
+
+// ---------- Background helpers ----------
+let bgDataUrlCache: string | null = null;
+async function loadProposalBg(): Promise<string> {
+  if (bgDataUrlCache) return bgDataUrlCache;
+  const res = await fetch(proposalBgAsset.url);
+  const blob = await res.blob();
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+  bgDataUrlCache = dataUrl;
+  return dataUrl;
+}
+
+function resolveDealerId(d: Distributor | undefined): string {
+  const anyD = (d ?? {}) as any;
+  return anyD.id_dealer || anyD.dealer_code || anyD.codigo_dealer || (d?.id ? d.id.slice(0, 8).toUpperCase() : "—");
+}
+
+function localeForLang(lang: string | null | undefined): string {
+  const l = (lang || "pt").toLowerCase();
+  if (l.startsWith("es")) return "es-ES";
+  if (l.startsWith("en")) return "en-US";
+  return "pt-BR";
+}
+
+/** Group items keeping first-seen order of categories/subcategories. */
+function groupItemsByCategory(items: DealerPriceItem[]) {
+  type Row = { category: string; subs: { subcategory: string; rows: DealerPriceItem[] }[] };
+  const map = new Map<string, Row>();
+  for (const it of items) {
+    const cat = (it.category ?? "").trim() || "Outros";
+    const sub = (it.subcategory ?? "").trim() || "Geral";
+    let entry = map.get(cat);
+    if (!entry) { entry = { category: cat, subs: [] }; map.set(cat, entry); }
+    let subEntry = entry.subs.find((s) => s.subcategory === sub);
+    if (!subEntry) { subEntry = { subcategory: sub, rows: [] }; entry.subs.push(subEntry); }
+    subEntry.rows.push(it);
+  }
+  return [...map.values()];
 }
 
 /** XLSX with a formula for Preço Dealer so it stays live in Excel. */
