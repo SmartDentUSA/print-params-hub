@@ -1,52 +1,35 @@
+## Problema
 
-## Descoberta
+Ao importar `https://loja.smartdent.com.br/dispositivo-blz-dental-dmc`, a edge function `get-product-data` retorna 404, apesar do produto existir no `system_a_catalog`:
 
-O CSV enviado (137 propostas, exportação parcial do PipeRun) não traz nome de item, então é insuficiente para auditar donos da Edge Mini. Cruzando com o banco (fonte real usada pelo dashboard), encontrei um bug de classificação:
+| Campo         | Valor real no banco | O que a função exige |
+|---------------|---------------------|----------------------|
+| slug          | `blz-dental-dmc`    | `dispositivo-blz-dental-dmc` (da URL da loja) |
+| category      | `Acessórios`        | `product` (filtro fixo) |
+| approved      | `true`              | ok                   |
 
-O filtro atual da `fn_rayshape_owners()` é `(item->>'nome') ILIKE '%Edge Mini%'`, e nas propostas ganhas existem 4 SKUs distintos que casam com esse padrão:
+Dois bloqueios simultâneos:
+1. **Filtro rígido de categoria**: todas as buscas no `system_a_catalog` (exata, external_id numérico e ILIKE) usam `.eq('category', 'product')`, então qualquer item em `Acessórios`, `Resinas`, etc. é invisível ao importador.
+2. **Slug com prefixo "dispositivo-"**: a loja publica com prefixo que o catálogo local não tem. O match exato falha e o ILIKE `%dispositivo-blz-dental-dmc%` também não encontra `blz-dental-dmc`.
 
-| SKU                                    | Ocorrências | É a impressora? |
-| -------------------------------------- | ----------- | --------------- |
-| `RayShape - Edge Mini`                 | 125         | **Sim** |
-| `BANDEJA PEQUENA - RAYSHAPE EDGE MINI` | 5           | Não (acessório) |
-| `BANDEJA GRANDE - RAYSHAPE EDGE MINI`  | 3           | Não (acessório) |
-| `LCD RAYSHAPE - EDGE MINI`             | 1           | Não (peça de reposição) |
+## Correção em `supabase/functions/get-product-data/index.ts`
 
-Consequência: **3 leads na lista atual de donos nunca compraram a impressora**, só um acessório. Contaminam KPI de total, ticket médio de recompra e categoria.
+1. **Remover o filtro `.eq('category', 'product')`** de todas as três consultas ao `system_a_catalog` (exata, `external_id` numérico e ILIKE de fallback). O importador do admin trata qualquer produto aprovado; hoje a restrição está silenciosamente escondendo acessórios e resinas do catálogo.
 
-## Correção
+2. **Fallback tolerante por sufixo do slug**: se o match exato e o ILIKE `%slug%` falharem, tentar remover prefixos comuns da loja (`dispositivo-`, `kit-`, `combo-`) e refazer:
+   - `.eq('slug', stripped)` 
+   - `.ilike('slug', '%' || stripped || '%')`
+   
+   Isso resolve o caso atual (`dispositivo-blz-dental-dmc` → `blz-dental-dmc`) sem cair no anti-padrão de match por token de nome, que já foi vetado no código atual.
 
-Migração única em `fn_rayshape_owners()` — restringir o `ILIKE` da impressora ao nome exato do SKU. Um item é a impressora se:
+3. **Manter `approved=true`** como filtro quando enviado — não mexer nessa parte.
 
-- `(item->>'nome') ILIKE 'RayShape - Edge Mini'` (nome canônico), **ou**
-- `(item->>'nome') ILIKE 'Impressora 3D Rayshape Edge Mini%'` (variante já observada em `deals.proposals`)
+4. **Logs**: adicionar log da tentativa com slug reduzido para facilitar debug futuro.
 
-E não casa com `BANDEJA`, `LCD` nem outras peças de reposição.
+Nenhuma outra função, tabela ou componente frontend precisa mudar. O `PublicAPIProductImporter` continua chamando `get-product-data?slug=...&approved=true` normalmente.
 
-Aplicar essa condição em 3 lugares dentro da função:
-1. Cálculo de `printer_price` no CTE `deal_edge` (SUM condicional).
-2. Predicado `EXISTS (item Edge Mini)` na detecção de combo (dentro do `BOOL_OR` do CTE `deal_edge`).
-3. `HAVING` do `deal_edge` — só entra no CTE se a proposta tem a impressora de verdade, não só acessório.
+## Validação após aplicar
 
-Fora desses três pontos, nada muda: manual owners, categorias, KPIs de recompra, sanitizador de e-mail placeholder, thresholds, filtro `status='ganha'` e `is_deleted=false` permanecem idênticos.
-
-## Detalhes técnicos
-
-Predicado reutilizado:
-```sql
-(
-  (item->>'nome') ILIKE 'RayShape - Edge Mini'
-  OR (item->>'nome') ILIKE 'Impressora 3D Rayshape Edge Mini%'
-)
-```
-
-Após aplicar, valido:
-- Total de donos deve cair de 123 para ~120.
-- Rodar `SELECT count(*) filter (where row->>'sale_kind'='combo'), count(*) FROM jsonb_array_elements(fn_rayshape_owners()) row;` e conferir que continua sensato (esperado ~59 combo, ~61 separado).
-- Conferir que os 3 leads falsos positivos identificados saíram da lista.
-
-## Fora do escopo
-
-- Não mudar a regra de combo (INO 200 / KIT CHAIRSIDE / scanners) — já validada com Vettori e Veraldi.
-- Não mexer no CSV enviado — ele é só recorte parcial, sem coluna de nome de item; não vou usar como fonte.
-- Não alterar `rayshape_manual_owners`.
+- Chamar `get-product-data?slug=dispositivo-blz-dental-dmc&approved=true` e confirmar retorno 200 com `data.slug === 'blz-dental-dmc'`.
+- Rechamar com um slug conhecido de produto (`resina-smart-print-bio-vitality` ou similar) e garantir que o comportamento anterior não regrediu.
+- Testar `scanner-intraoral-blz-ino200` (category `product`) para confirmar que remover o filtro não trouxe efeitos colaterais.
