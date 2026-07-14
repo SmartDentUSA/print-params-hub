@@ -212,8 +212,130 @@ export function SmartOpsDistributors() {
           Nenhum distribuidor cadastrado ainda.
         </CardContent></Card>
       ) : (
+        <>
+        <div className="flex flex-wrap items-center gap-2 border rounded-md p-2 bg-muted/30">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por nome, cidade, comprador…"
+              className="pl-8 h-9"
+            />
+          </div>
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="País" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os países</SelectItem>
+              {countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="inactive">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1 border rounded-md p-0.5 bg-background">
+            <Button
+              size="sm"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              className="h-8 px-2"
+              onClick={() => setViewMode("grid")}
+              title="Grade"
+            ><LayoutGrid className="w-4 h-4" /></Button>
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="h-8 px-2"
+              onClick={() => setViewMode("list")}
+              title="Lista"
+            ><List className="w-4 h-4" /></Button>
+          </div>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {filtered.length} de {items.length}
+          </span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+            Nenhum distribuidor bate com os filtros aplicados.
+          </CardContent></Card>
+        ) : viewMode === "list" ? (
+          <div className="border rounded-md overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Distribuidor</TableHead>
+                  <TableHead>Localização</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Backlink</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((d) => (
+                  <TableRow key={d.id} className="cursor-pointer" onClick={() => openEdit(d)}>
+                    <TableCell>
+                      {d.logo_url ? (
+                        <img src={d.logo_url} alt={d.razao_social} className="w-8 h-8 rounded object-contain bg-muted" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium truncate">{d.nome_fantasia || d.razao_social}</div>
+                      {d.nome_fantasia && (
+                        <div className="text-xs text-muted-foreground truncate">{d.razao_social}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {[d.cidade, d.estado, d.pais].filter(Boolean).join(" · ") || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={d.active ? "default" : "secondary"}>
+                        {d.active ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{backlinkBadge(d) ?? <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex gap-1">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(d)}>
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setKitTarget({
+                              razao_social: d.razao_social,
+                              nome_fantasia: d.nome_fantasia,
+                              pais: d.pais,
+                              slug: (d as any).slug ?? null,
+                            });
+                            setKitOpen(true);
+                          }}
+                        >
+                          <Share2 className="w-3 h-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove(d)}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((d) => (
+          {filtered.map((d) => (
             <Card key={d.id} className="cursor-pointer hover:shadow-md transition" onClick={() => openEdit(d)}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
@@ -294,6 +416,8 @@ export function SmartOpsDistributors() {
             </Card>
           ))}
         </div>
+        )}
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
