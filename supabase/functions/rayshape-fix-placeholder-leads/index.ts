@@ -16,6 +16,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { hydrateDealPayload } from "../_shared/piperun-deal-hydrate.ts";
+import { piperunGet } from "../_shared/piperun-field-map.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
@@ -120,10 +121,34 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const person = (deal as any).person;
+      let person = (deal as any).person as any;
+      const personId = person?.id || (deal as any).person_id;
+      step.person_id = personId || null;
+
+      // Se o hydrate não trouxe o bloco person mas o Deal tem person_id, faz GET /persons/{id}
+      if ((!person || typeof person !== "object" || Object.keys(person).length === 0) && personId) {
+        try {
+          const r = await piperunGet(
+            PIPERUN_KEY,
+            `persons/${personId}`,
+            {},
+            { "with[]": ["contact_emails", "contact_phones"] },
+          );
+          const pdata = (r.data as any)?.data;
+          if (pdata && typeof pdata === "object") {
+            person = pdata;
+            step.person_fetched = "direct_get";
+          } else {
+            step.person_fetched = `not_found_status_${r.status}`;
+          }
+          await sleep(300);
+        } catch (e) {
+          step.person_fetch_error = e instanceof Error ? e.message : String(e);
+        }
+      }
+
       const newEmail = pickPersonEmail(person);
       const newPhone = pickPersonPhone(person);
-      step.person_id = person?.id || null;
       step.new_email = newEmail;
       step.new_phone = newPhone;
 
