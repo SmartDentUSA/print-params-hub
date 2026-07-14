@@ -176,48 +176,110 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((p) => (
-                  <TableRow key={p.id} className={p.active ? "" : "opacity-50"}>
-                    <TableCell>
-                      <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
-                        {p.active ? t.activated : t.deactivated}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
-                        {p.image_url ? (
-                          <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
-                        ) : (
-                          <ImageOff className="w-4 h-4 text-muted-foreground" />
+                filtered.flatMap((p) => {
+                  const vars: any[] = Array.isArray(p?.extra_data?.variations) ? p.extra_data.variations : [];
+                  const cls = p.active ? "" : "opacity-50";
+                  // Single or no variation → keep single-line rendering.
+                  if (vars.length < 2) {
+                    return [(
+                      <TableRow key={p.id} className={cls}>
+                        <TableCell>
+                          <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
+                            {p.active ? t.activated : t.deactivated}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
+                            ) : (
+                              <ImageOff className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
+                        <TableCell className="font-medium max-w-[320px]">
+                          <div className="truncate">{nameFor(p)}</div>
+                          {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
+                        </TableCell>
+                        <TableCell className="text-right text-xs">{p.presentation_qty ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{p.presentation ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{ncmOf(p) || vars[0]?.ncm || "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{gtinOf(p) || vars[0]?.gtin13 || vars[0]?.gtin || "—"}</TableCell>
+                        <TableCell className="text-right text-xs">{p.quantity_multiplier ?? 1}</TableCell>
+                        <TableCell className="text-right text-xs">
+                          <div className="flex flex-col gap-0.5 items-end">
+                            <span>{fmtMoney(p.price, "BRL")}</span>
+                            <span className="text-muted-foreground">{fmtMoney(p.price_usd, "USD")}</span>
+                            <span className="text-muted-foreground">{fmtMoney(p.price_eur, "EUR")}</span>
+                          </div>
+                        </TableCell>
+                        {onAddToPriceList && (
+                          <TableCell>
+                            <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
+                              <Plus className="w-3.5 h-3.5 mr-1" /> {t.add}
+                            </Button>
+                          </TableCell>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
-                    <TableCell className="font-medium max-w-[320px]">
-                      <div className="truncate">{nameFor(p)}</div>
-                      {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
-                    </TableCell>
-                    <TableCell className="text-right text-xs">{p.presentation_qty ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{p.presentation ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{ncmOf(p) || "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{gtinOf(p) || "—"}</TableCell>
-                    <TableCell className="text-right text-xs">{p.quantity_multiplier ?? 1}</TableCell>
-                    <TableCell className="text-right text-xs">
-                      <div className="flex flex-col gap-0.5 items-end">
-                        <span>{fmtMoney(p.price, "BRL")}</span>
-                        <span className="text-muted-foreground">{fmtMoney(p.price_usd, "USD")}</span>
-                        <span className="text-muted-foreground">{fmtMoney(p.price_eur, "EUR")}</span>
-                      </div>
-                    </TableCell>
-                    {onAddToPriceList && (
-                      <TableCell>
-                        <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
-                          <Plus className="w-3.5 h-3.5 mr-1" /> {t.add}
-                        </Button>
+                      </TableRow>
+                    )];
+                  }
+                  // Multi-variation: single parent cell for status/photo/product spans N rows.
+                  return vars.map((v: any, i: number) => (
+                    <TableRow key={`${p.id}:${i}`} className={cls}>
+                      {i === 0 && (
+                        <>
+                          <TableCell rowSpan={vars.length} className="align-top">
+                            <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
+                              {p.active ? t.activated : t.deactivated}
+                            </Badge>
+                          </TableCell>
+                          <TableCell rowSpan={vars.length} className="align-top">
+                            <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                              {p.image_url ? (
+                                <img src={p.image_url} alt={nameFor(p)} className="w-full h-full object-contain p-1" loading="lazy" />
+                              ) : (
+                                <ImageOff className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
+                      <TableCell className="font-mono text-xs">{v.sku ?? "—"}</TableCell>
+                      {i === 0 && (
+                        <TableCell rowSpan={vars.length} className="font-medium max-w-[320px] align-top">
+                          <div className="truncate">{nameFor(p)}</div>
+                          {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
+                          <div className="text-[10px] text-muted-foreground mt-1">{vars.length} variações</div>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right text-xs">{p.presentation_qty ?? "—"}</TableCell>
+                      <TableCell className="text-xs">
+                        <div>{p.presentation ?? "—"}</div>
+                        {v.name && <div className="text-[10px] text-muted-foreground truncate max-w-[130px]" title={v.name}>{v.name}</div>}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                      <TableCell className="font-mono text-xs">{v.ncm ?? ncmOf(p) ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{v.gtin13 ?? v.gtin ?? v.ean ?? "—"}</TableCell>
+                      <TableCell className="text-right text-xs">{p.quantity_multiplier ?? 1}</TableCell>
+                      {i === 0 && (
+                        <TableCell rowSpan={vars.length} className="text-right text-xs align-top">
+                          <div className="flex flex-col gap-0.5 items-end">
+                            <span>{fmtMoney(p.price, "BRL")}</span>
+                            <span className="text-muted-foreground">{fmtMoney(p.price_usd, "USD")}</span>
+                            <span className="text-muted-foreground">{fmtMoney(p.price_eur, "EUR")}</span>
+                          </div>
+                        </TableCell>
+                      )}
+                      {onAddToPriceList && i === 0 && (
+                        <TableCell rowSpan={vars.length} className="align-top">
+                          <Button size="sm" variant="outline" onClick={() => onAddToPriceList(p)}>
+                            <Plus className="w-3.5 h-3.5 mr-1" /> {t.add}
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ));
+                })
               )}
             </TableBody>
           </Table>
