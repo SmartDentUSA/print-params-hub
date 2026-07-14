@@ -202,7 +202,7 @@ export function RayshapePanel({ leadId }: RayshapePanelProps) {
         <div style={styles.noPrinterBox}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🖨️</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>
-            Sem Rayshape Edge Mini
+            Sem Impressora 3D Rayshape Edge Mini
           </div>
           <div style={{ fontSize: 12, color: '#475569' }}>
             Este lead não possui uma compra de impressora Rayshape registrada no CRM.
@@ -225,7 +225,7 @@ export function RayshapePanel({ leadId }: RayshapePanelProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontSize: 18 }}>🖨️</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>
-                Rayshape Edge Mini
+                Impressora 3D Rayshape Edge Mini
               </span>
               <span style={{
                 ...styles.catBadge,
@@ -321,7 +321,7 @@ export function RayshapePanel({ leadId }: RayshapePanelProps) {
               date={status.printer_date}
               daysAfter={null}
               isFirst
-              label="🖨️ Rayshape Edge Mini"
+              label="🖨️ Impressora 3D Rayshape Edge Mini"
               value={status.printer_price}
               vendor={status.vendor}
               color="#00e5c3"
