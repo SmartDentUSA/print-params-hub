@@ -160,18 +160,25 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
-    const productCounts = new Map<string, number>();
+    // Agrupa produtos da 1ª recompra com nome normalizado; soma leads e unidades.
+    const bucket = new Map<string, { label: string; leads: number; units: number }>();
     for (const o of owners) {
-      const p = (o.first_repurchase_product || "").trim();
-      if (!p) continue;
-      productCounts.set(p, (productCounts.get(p) || 0) + 1);
+      const label = normalizeProductName(o.first_repurchase_product);
+      if (!label) continue;
+      const cur = bucket.get(label) || { label, leads: 0, units: 0 };
+      cur.leads += 1;
+      cur.units += Number(o.first_repurchase_qty) || 0;
+      bucket.set(label, cur);
     }
-    let topProduct = "—";
-    let topProductCount = 0;
-    for (const [name, count] of productCounts) {
-      if (count > topProductCount) { topProduct = name; topProductCount = count; }
-    }
-    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, topProduct, topProductCount, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const topProducts = Array.from(bucket.values()).sort(
+      (a, b) => b.leads - a.leads || b.units - a.units,
+    );
+    return {
+      total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
+      avgFirstDays, firstDaysCount: firstDaysArr.length,
+      topProducts,
+      pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
+    };
   }, [owners]);
 
   const filtered = useMemo(() => {
