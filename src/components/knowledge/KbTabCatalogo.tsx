@@ -644,7 +644,21 @@ export default function KbTabCatalogo() {
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return rows.filter((r) => {
+    // Dedup defensivo: `system_a_catalog` pode ter linhas duplicadas (mesmo nome/slug
+    // vindas de imports diferentes — ex.: "system_a_live" 02/2026). Mantemos a
+    // primeira ocorrência (ordem já ordenada por product_category → display_order →
+    // name na query) para não exibir cards em dobro no KB.
+    const seen = new Set<string>();
+    const deduped = rows.filter((r) => {
+      const key = (r.slug && r.slug.trim().toLowerCase())
+        || (r.name && r.name.trim().toLowerCase())
+        || r.id;
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return deduped.filter((r) => {
       const canon = normCat(r.product_category);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
