@@ -40,6 +40,9 @@ interface Owner {
   category: Category;
   source?: "auto" | "manual";
   sale_kind?: SaleKind;
+  edge_purchase_at?: string | null;
+  recompra_combo_brl?: number;
+  recompra_separado_brl?: number;
 }
 
 const CATEGORY_META: Record<Category, { label: string; classes: string }> = {
@@ -119,7 +122,9 @@ export function SmartOpsRayshape() {
     const combos    = owners.filter(o => o.sale_kind === "combo").length;
     const sumPost = owners.reduce((a, o) => a + (o.total_post || 0), 0);
     const avgTicket = recomp ? sumPost / recomp : 0;
-    return { total, recomp, critic, separados, combos, avgTicket, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const recompraCombo    = owners.reduce((a, o) => a + (o.recompra_combo_brl || 0), 0);
+    const recompraSeparado = owners.reduce((a, o) => a + (o.recompra_separado_brl || 0), 0);
+    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
   }, [owners]);
 
   const filtered = useMemo(() => {
@@ -236,7 +241,7 @@ export function SmartOpsRayshape() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Donos totais</div>
           <div className="text-2xl font-semibold text-foreground">{kpis.total}</div>
@@ -260,6 +265,14 @@ export function SmartOpsRayshape() {
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Ticket médio recompra</div>
           <div className="text-2xl font-semibold text-foreground">{fmtBRL(kpis.avgTicket)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Recompra Combo</div>
+          <div className="text-2xl font-semibold text-purple-400">{fmtBRL(kpis.recompraCombo)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Recompra Separado</div>
+          <div className="text-2xl font-semibold text-sky-400">{fmtBRL(kpis.recompraSeparado)}</div>
         </Card>
       </div>
 
