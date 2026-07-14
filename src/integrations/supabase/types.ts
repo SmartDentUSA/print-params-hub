@@ -2751,6 +2751,62 @@ export type Database = {
           },
         ]
       }
+      catalog_product_variations: {
+        Row: {
+          catalog_product_id: string
+          created_at: string
+          gtin_ean: string | null
+          id: string
+          ncm_hs: string | null
+          presentation_qty: string
+          price_brl: number | null
+          price_eur: number | null
+          price_usd: number | null
+          sort_order: number
+          source: string
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          catalog_product_id: string
+          created_at?: string
+          gtin_ean?: string | null
+          id?: string
+          ncm_hs?: string | null
+          presentation_qty: string
+          price_brl?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
+          sort_order?: number
+          source?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          catalog_product_id?: string
+          created_at?: string
+          gtin_ean?: string | null
+          id?: string
+          ncm_hs?: string | null
+          presentation_qty?: string
+          price_brl?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
+          sort_order?: number
+          source?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_variations_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classified_listings: {
         Row: {
           academy_bonus_granted: boolean | null
