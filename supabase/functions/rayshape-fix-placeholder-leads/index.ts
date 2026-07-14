@@ -148,14 +148,14 @@ Deno.serve(async (req) => {
           // Auditoria
           await supa.from("lead_enrichment_audit").insert({
             lead_id: lead.id,
-            action: "rayshape_placeholder_fix",
-            source: "piperun_person",
-            details: {
+            source: "rayshape_placeholder_fix",
+            source_priority: 90,
+            fields_updated: Object.keys(updates),
+            previous_values: { email: lead.email, telefone_normalized: lead.telefone_normalized },
+            new_values: {
+              ...updates,
               piperun_deal_id: lead.piperun_id,
               piperun_person_id: person?.id || null,
-              old_email: lead.email,
-              new_email: newEmail,
-              new_phone: newPhone,
             },
           });
         }
