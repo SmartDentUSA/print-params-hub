@@ -247,27 +247,33 @@ Deno.serve(async (req) => {
 
   // Expand into stripe_payment_units (one row per dongle unit) on checkout.completed
   if (event.type === "checkout.session.completed") {
+    // Build unit rows. Attempt to expand via listLineItems, but never let a
+    // Stripe API error skip the insert — always fall back to a single unit
+    // row so the RMS dashboard reflects the payment.
+    let units: Array<{ product_name: string | null; unit_total: number | null }> = [];
     try {
-      let lineItems: any[] = [];
       const sessionId = stripeObjectId;
       if (sessionId) {
         const li = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 100 });
-        lineItems = li?.data ?? [];
+        const lineItems = li?.data ?? [];
+        for (const it of lineItems) {
+          const qty = Number(it?.quantity ?? 1) || 1;
+          const unitCents = typeof it?.price?.unit_amount === "number"
+            ? it.price.unit_amount
+            : (typeof it?.amount_total === "number" && qty > 0 ? Math.round(it.amount_total / qty) : null);
+          const unitTotal = unitCents != null ? Number((unitCents / 100).toFixed(2)) : (amount && qty > 0 ? Number((amount / qty).toFixed(2)) : null);
+          const name = it?.description ?? it?.price?.nickname ?? null;
+          for (let i = 0; i < qty; i++) units.push({ product_name: name, unit_total: unitTotal });
+        }
       }
-      // Build unit rows
-      const units: Array<{ product_name: string | null; unit_total: number | null }> = [];
-      for (const li of lineItems) {
-        const qty = Number(li?.quantity ?? 1) || 1;
-        const unitCents = typeof li?.price?.unit_amount === "number"
-          ? li.price.unit_amount
-          : (typeof li?.amount_total === "number" && qty > 0 ? Math.round(li.amount_total / qty) : null);
-        const unitTotal = unitCents != null ? Number((unitCents / 100).toFixed(2)) : (amount && qty > 0 ? Number((amount / qty).toFixed(2)) : null);
-        const name = li?.description ?? li?.price?.nickname ?? null;
-        for (let i = 0; i < qty; i++) units.push({ product_name: name, unit_total: unitTotal });
-      }
-      if (units.length === 0) {
-        units.push({ product_name: products?.[0]?.name ?? null, unit_total: amount });
-      }
+    } catch (e) {
+      console.error("[stripe-webhook] listLineItems failed, using fallback unit:", (e as Error).message);
+      units = [];
+    }
+    if (units.length === 0) {
+      units.push({ product_name: products?.[0]?.name ?? null, unit_total: amount });
+    }
+    try {
       const rows = units.map((u, idx) => ({
         lead_id: leadId,
         stripe_event_id: event.id,
@@ -283,7 +289,7 @@ Deno.serve(async (req) => {
         .upsert(rows, { onConflict: "stripe_checkout_id,unit_index", ignoreDuplicates: true });
       if (unitsErr) console.error("[stripe-webhook] payment_units upsert error:", unitsErr);
     } catch (e) {
-      console.error("[stripe-webhook] payment_units expand error:", (e as Error).message);
+      console.error("[stripe-webhook] payment_units insert error:", (e as Error).message);
     }
   }
 
