@@ -25,7 +25,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Carregando…", selectPrompt: "Selecione um distribuidor para criar/editar sua tabela.",
     emptyTable: "Tabela vazia. Clique em", populateAll: "para popular todos os produtos ativos.",
     noCategory: "Sem categoria",
-    hPhoto: "Foto", hCod: "COD", hProduct: "Produto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hPhoto: "Foto", hCod: "COD", hProduct: "Produto", hPresQty: "Pres #", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Preço tabela (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
     catDiscount: "% Desc. categoria", apply: "Aplicar",
@@ -42,7 +42,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Cargando…", selectPrompt: "Seleccione un distribuidor para crear/editar su tabla.",
     emptyTable: "Tabla vacía. Haga clic en", populateAll: "para cargar todos los productos activos.",
     noCategory: "Sin categoría",
-    hPhoto: "Foto", hCod: "COD", hProduct: "Producto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hPhoto: "Foto", hCod: "COD", hProduct: "Producto", hPresQty: "Pres #", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Precio tabla (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
     catDiscount: "% Desc. categoría", apply: "Aplicar",
@@ -59,7 +59,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Loading…", selectPrompt: "Select a distributor to create/edit its table.",
     emptyTable: "Empty table. Click", populateAll: "to load all active products.",
     noCategory: "Uncategorized",
-    hPhoto: "Photo", hCod: "SKU", hProduct: "Product", hPres: "Pres", hNcm: "HS Code", hGtin: "GTIN/EAN",
+    hPhoto: "Photo", hCod: "SKU", hProduct: "Product", hPresQty: "Pres #", hPres: "Pres", hNcm: "HS Code", hGtin: "GTIN/EAN",
     hUnit: "Qty (×)", hTablePrice: "List price (Unit)", hDiscount: "% Disc.",
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
     catDiscount: "% Disc. category", apply: "Apply",
@@ -182,6 +182,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         unidade: "UN",
         presentation: "Unid",
         quantity_multiplier: 1,
+        presentation_qty: null,
         sort_order: items.length + idx,
       }));
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
@@ -219,6 +220,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           variant: it.variant, unidade: it.unidade, description: it.description,
           presentation: it.presentation || "Unid",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
+          presentation_qty: it.presentation_qty ?? null,
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
         })
         .eq("id", it.id);
@@ -478,20 +480,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 </div>
               </div>
               <div className="border rounded-md overflow-x-auto">
-                <Table>
+                <Table className="min-w-[1500px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-14">{t.hPhoto}</TableHead>
-                      <TableHead className="w-24">{t.hCod}</TableHead>
-                      <TableHead className="min-w-[220px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-16">{t.hPhoto}</TableHead>
+                      <TableHead className="w-28">{t.hCod}</TableHead>
+                      <TableHead className="min-w-[280px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-20">{t.hPresQty}</TableHead>
                       <TableHead className="w-24">{t.hPres}</TableHead>
-                      <TableHead className="w-28">{t.hNcm}</TableHead>
-                      <TableHead className="w-32">{t.hGtin}</TableHead>
+                      <TableHead className="w-32">{t.hNcm}</TableHead>
+                      <TableHead className="w-40">{t.hGtin}</TableHead>
                       <TableHead className="w-20">{t.hUnit}</TableHead>
-                      <TableHead className="w-28">{t.hTablePrice}</TableHead>
-                      <TableHead className="w-20">{t.hDiscount}</TableHead>
-                      <TableHead className="w-28">{t.hDealerUnit}</TableHead>
-                      <TableHead className="w-28">{t.hDealerTotal}</TableHead>
+                      <TableHead className="w-32">{t.hTablePrice}</TableHead>
+                      <TableHead className="w-24">{t.hDiscount}</TableHead>
+                      <TableHead className="w-32">{t.hDealerUnit}</TableHead>
+                      <TableHead className="w-32">{t.hDealerTotal}</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -514,6 +517,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                               updateField(it.id, field as any, e.target.value);
                             }}
                             className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={it.presentation_qty ?? ""}
+                            placeholder="—"
+                            onChange={(e) => {
+                              const v = e.target.value.replace(",", ".");
+                              if (v === "") { updateField(it.id, "presentation_qty" as any, null); return; }
+                              const n = parseFloat(v);
+                              updateField(it.id, "presentation_qty" as any, isNaN(n) ? null : n);
+                            }}
+                            className="h-8 text-right"
                           />
                         </TableCell>
                         <TableCell>
