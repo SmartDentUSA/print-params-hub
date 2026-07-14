@@ -507,6 +507,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                   .from("dealer_price_lists" as any)
                   .update({ currency: v }).eq("id", list.id).select("*").single();
                 if (data) setList(data as unknown as DealerPriceList);
+                if (v && v !== list.currency) {
+                  await recalcAndPersist(v, { snapshotLabel: `Moeda alterada para ${v} (recalc do catálogo)` });
+                }
               }}
             >
               <SelectTrigger className="h-7 w-[110px]"><SelectValue /></SelectTrigger>
