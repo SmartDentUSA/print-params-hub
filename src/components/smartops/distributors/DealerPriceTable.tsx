@@ -784,115 +784,184 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((it) => (
-                     <TableRow key={it.id} className={`${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`}>
-                        <TableCell>
-                          {it.image_url ? (
-                            <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
-                          ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={displayName(it)}
-                            onChange={(e) => {
-                              const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
-                              updateField(it.id, field as any, e.target.value);
-                            }}
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={it.presentation_qty ?? ""}
-                            placeholder="—"
-                            onChange={(e) => {
-                              const v = e.target.value.replace(",", ".");
-                              if (v === "") { updateField(it.id, "presentation_qty" as any, null); return; }
-                              const n = parseFloat(v);
-                              updateField(it.id, "presentation_qty" as any, isNaN(n) ? null : n);
-                            }}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={(it.presentation as string) || "Unid"}
-                            onValueChange={(v) => updateField(it.id, "presentation" as any, v)}
-                          >
-                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {PRESENTATION_OPTIONS.map((p) => (
-                                <SelectItem key={p} value={p}>{p}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.ncm_hs ?? ""} onChange={(e) => updateField(it.id, "ncm_hs", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={it.gtin_ean ?? ""} onChange={(e) => updateField(it.id, "gtin_ean", e.target.value)} className="h-8" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={it.quantity_multiplier ?? 1}
-                            onChange={(e) => updateField(it.id, "quantity_multiplier" as any, parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" step="0.01" value={it.price_base ?? 0}
-                            onChange={(e) => updateField(it.id, "price_base", parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right" />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={it.discount_pct ?? 0}
-                            onChange={(e) => {
-                              const v = e.target.value.replace(",", ".");
-                              const n = parseFloat(v);
-                              updateField(it.id, "discount_pct", isNaN(n) ? 0 : n);
-                            }}
-                            className="h-8 text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" step="0.01" value={it.price_dealer ?? 0}
-                            onChange={(e) => updateField(it.id, "price_dealer", parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right font-semibold" />
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-primary text-sm whitespace-nowrap">
-                          {formatMoney(lineTotal(it), currency)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => toggleItemActive(it.id, !(it.is_active !== false))}
-                              title={it.is_active !== false ? t.active : t.inactive}
+                    {rows.flatMap((it) => {
+                      const rowClass = `${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`;
+                      const variationCells = (v: {
+                        presentation_qty?: number | null;
+                        presentation?: any;
+                        ncm_hs: string | null;
+                        gtin_ean: string | null;
+                        quantity_multiplier?: number | null;
+                        price_base: number;
+                        discount_pct: number;
+                        price_dealer: number;
+                      }, onChange: (field: string, value: any) => void, totalVal: number) => (
+                        <>
+                          <TableCell>
+                            <Input
+                              type="text" inputMode="decimal"
+                              value={v.presentation_qty ?? ""}
+                              placeholder="—"
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(",", ".");
+                                if (raw === "") { onChange("presentation_qty", null); return; }
+                                const n = parseFloat(raw);
+                                onChange("presentation_qty", isNaN(n) ? null : n);
+                              }}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={(v.presentation as string) || "Unid"}
+                              onValueChange={(val) => onChange("presentation", val)}
                             >
-                              {it.is_active !== false
-                                ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                                : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
-                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {PRESENTATION_OPTIONS.map((p) => (
+                                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input value={v.ncm_hs ?? ""} onChange={(e) => onChange("ncm_hs", e.target.value)} className="h-8 font-mono text-xs" />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={v.gtin_ean ?? ""} onChange={(e) => onChange("gtin_ean", e.target.value)} className="h-8 font-mono text-xs" />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number" step="0.01" min="0"
+                              value={v.quantity_multiplier ?? 1}
+                              onChange={(e) => onChange("quantity_multiplier", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input type="number" step="0.01" value={v.price_base ?? 0}
+                              onChange={(e) => onChange("price_base", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right" />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text" inputMode="decimal"
+                              value={v.discount_pct ?? 0}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(",", ".");
+                                const n = parseFloat(raw);
+                                onChange("discount_pct", isNaN(n) ? 0 : n);
+                              }}
+                              className="h-8 text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input type="number" step="0.01" value={v.price_dealer ?? 0}
+                              onChange={(e) => onChange("price_dealer", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-right font-semibold" />
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-primary text-sm whitespace-nowrap">
+                            {formatMoney(totalVal, currency)}
+                          </TableCell>
+                        </>
+                      );
+
+                      if (!hasVariations(it)) {
+                        return [(
+                          <TableRow key={it.id} className={rowClass}>
+                            <TableCell>
+                              {it.image_url ? (
+                                <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                              ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell>
+                              <Input value={it.cod ?? ""} onChange={(e) => updateField(it.id, "cod", e.target.value)} className="h-8" />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={displayName(it)}
+                                onChange={(e) => {
+                                  const field = lang === "es" ? "name_es" : lang === "en" ? "name_en" : "name";
+                                  updateField(it.id, field as any, e.target.value);
+                                }}
+                                className="h-8"
+                              />
+                            </TableCell>
+                            {variationCells(
+                              {
+                                presentation_qty: it.presentation_qty,
+                                presentation: it.presentation,
+                                ncm_hs: it.ncm_hs,
+                                gtin_ean: it.gtin_ean,
+                                quantity_multiplier: it.quantity_multiplier,
+                                price_base: it.price_base,
+                                discount_pct: it.discount_pct,
+                                price_dealer: it.price_dealer,
+                              },
+                              (f, v) => updateField(it.id, f as any, v),
+                              Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1),
+                            )}
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button size="icon" variant="ghost" onClick={() => toggleItemActive(it.id, !(it.is_active !== false))} title={it.is_active !== false ? t.active : t.inactive}>
+                                  {it.is_active !== false
+                                    ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                    : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )];
+                      }
+
+                      // Multi-variation: parent cells (Foto/COD/Produto/Actions) span N rows.
+                      const vars = it.variations!;
+                      return vars.map((v, vi) => {
+                        const vtotal = Number(v.price_dealer || 0) * Number(v.quantity_multiplier ?? 1);
+                        return (
+                          <TableRow key={`${it.id}:${vi}`} className={rowClass}>
+                            {vi === 0 && (
+                              <>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  {it.image_url ? (
+                                    <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                                  ) : <ImageOff className="w-5 h-5 text-muted-foreground" />}
+                                </TableCell>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  <div className="text-xs font-mono text-muted-foreground pt-1">{it.cod ?? "—"}</div>
+                                </TableCell>
+                                <TableCell rowSpan={vars.length} className="align-top">
+                                  <div className="font-medium text-sm pt-1">{displayName(it)}</div>
+                                  <div className="text-[11px] text-muted-foreground">{vars.length} variações</div>
+                                </TableCell>
+                              </>
+                            )}
+                            {variationCells(
+                              v,
+                              (f, val) => updateVariationField(it.id, vi, f as any, val),
+                              vtotal,
+                            )}
+                            {vi === 0 && (
+                              <TableCell rowSpan={vars.length} className="align-top">
+                                <div className="flex items-center gap-1 pt-1">
+                                  <Button size="icon" variant="ghost" onClick={() => toggleItemActive(it.id, !(it.is_active !== false))} title={it.is_active !== false ? t.active : t.inactive}>
+                                    {it.is_active !== false
+                                      ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                      : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      });
+                    })}
                   </TableBody>
                 </Table>
               </div>
