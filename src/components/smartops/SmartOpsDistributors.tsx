@@ -8,13 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2, LayoutGrid, List, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, Building2, Link2, Share2, LayoutGrid, List, Search, Download } from "lucide-react";
 import { AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { DistributorForm, emptyDistributorForm, DistributorFormValue } from "./DistributorForm";
 import { DistributorKitDialog, KitDistributor } from "./DistributorKitDialog";
 import { exportPriceTableXlsx } from "./distributors/DealerProposalExport";
 import type { DealerPriceItem, DealerPriceList } from "./distributors/types";
-import { Download } from "lucide-react";
 
 type Distributor = {
   id: string;
