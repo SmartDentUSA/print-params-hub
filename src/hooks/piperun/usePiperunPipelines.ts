@@ -8,10 +8,8 @@ export interface PiperunItem {
 }
 
 async function fetchPiperun(resource: string, pipelineId?: string): Promise<PiperunItem[]> {
-  const params = new URLSearchParams({ resource });
-  if (pipelineId) params.set("pipeline_id", pipelineId);
-  const { data, error } = await supabase.functions.invoke(`piperun-list-pipelines?${params.toString()}`, {
-    method: "GET",
+  const { data, error } = await supabase.functions.invoke("piperun-list-pipelines", {
+    body: { resource, pipeline_id: pipelineId ?? null },
   });
   if (error) throw error;
   return (data as any)?.items ?? [];
