@@ -549,6 +549,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                       <TableHead>{t.language}</TableHead>
                       <TableHead className="text-right">{t.items}</TableHead>
                       <TableHead className="text-right">{t.totalDealer}</TableHead>
+                      <TableHead className="text-right w-24"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -563,6 +564,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           <TableCell className="uppercase">{s.language}</TableCell>
                           <TableCell className="text-right">{arr.length}</TableCell>
                           <TableCell className="text-right font-semibold">{formatMoney(t, s.currency)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="outline" onClick={() => restoreSnapshot(s)} disabled={saving}>
+                              <RotateCcw className="w-3 h-3 mr-1" /> Restaurar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
