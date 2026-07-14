@@ -4155,7 +4155,7 @@ export type Database = {
           name_es: string | null
           ncm_hs: string | null
           presentation: string
-          presentation_qty: number | null
+          presentation_qty: string | null
           price_base: number
           price_dealer: number
           price_list_id: string
@@ -4183,7 +4183,7 @@ export type Database = {
           name_es?: string | null
           ncm_hs?: string | null
           presentation?: string
-          presentation_qty?: number | null
+          presentation_qty?: string | null
           price_base?: number
           price_dealer?: number
           price_list_id: string
@@ -4211,7 +4211,7 @@ export type Database = {
           name_es?: string | null
           ncm_hs?: string | null
           presentation?: string
-          presentation_qty?: number | null
+          presentation_qty?: string | null
           price_base?: number
           price_dealer?: number
           price_list_id?: string
