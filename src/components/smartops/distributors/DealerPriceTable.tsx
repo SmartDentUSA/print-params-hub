@@ -311,7 +311,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
 
     let rowsUpdated = 0;
     let rowsInserted = 0;
-    const updatePromises: Promise<any>[] = [];
+    const updateOps: Array<() => Promise<any>> = [];
     const insertPayload: any[] = [];
     const nextItems: DealerPriceItem[] = [];
 
@@ -347,8 +347,8 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       }
       if (Object.keys(patch).length > 0) {
         rowsUpdated++;
-        updatePromises.push(
-          supabase.from("dealer_price_items" as any).update(patch).eq("id", it.id),
+        updateOps.push(async () =>
+          await supabase.from("dealer_price_items" as any).update(patch).eq("id", it.id),
         );
         nextItems.push({ ...it, ...patch });
       } else {
@@ -389,7 +389,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       }
     }
 
-    const results = await Promise.all(updatePromises.map((p) => Promise.resolve(p)));
+    const results = await Promise.all(updateOps.map((op) => op()));
     const failed = results.find((r: any) => r?.error);
     if (failed) { toast.error((failed as any).error.message); setSaving(false); return; }
     if (insertPayload.length > 0) {
