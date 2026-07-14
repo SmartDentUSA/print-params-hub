@@ -551,9 +551,17 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                             className="h-8 text-right" />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" step="0.1" value={it.discount_pct ?? 0}
-                            onChange={(e) => updateField(it.id, "discount_pct", parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right" />
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={it.discount_pct ?? 0}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(",", ".");
+                              const n = parseFloat(v);
+                              updateField(it.id, "discount_pct", isNaN(n) ? 0 : n);
+                            }}
+                            className="h-8 text-right"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input type="number" step="0.01" value={it.price_dealer ?? 0}
