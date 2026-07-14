@@ -368,15 +368,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     await autoSnapshot(`${t.autoRemove}: ${removed?.name ?? id.slice(0, 8)}`, next);
   };
 
+  const toggleItemActive = async (id: string, next: boolean) => {
+    const { error } = await supabase
+      .from("dealer_price_items" as any)
+      .update({ is_active: next })
+      .eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, is_active: next } : i)));
+  };
+
+  const deleteSnapshot = async (id: string) => {
+    if (!confirm(t.confirmDeleteSnapshot)) return;
+    const { error } = await supabase.from("dealer_price_list_snapshots" as any).delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    toast.success(t.snapshotDeleted);
+  };
+
   const grouped = useMemo(() => {
     const map = new Map<string, DealerPriceItem[]>();
-    items.forEach((i) => {
+    const visibleItems = showInactive ? items : items.filter((i) => i.is_active !== false);
+    visibleItems.forEach((i) => {
       const key = `${i.category || t.noCategory} / ${i.subcategory || "—"}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(i);
     });
     return Array.from(map.entries());
-  }, [items, t]);
+  }, [items, t, showInactive]);
 
   const lineTotal = (it: DealerPriceItem) =>
     Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
