@@ -537,6 +537,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       quantity_multiplier: Number(it.quantity_multiplier ?? 1) || 1,
       presentation_qty: it.presentation_qty ?? null,
       sort_order: idx,
+      variations: it.variations ?? null,
     }));
     if (toInsert.length > 0) {
       const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
