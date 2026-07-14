@@ -13,6 +13,50 @@ import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } fr
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 
+/** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
+function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
+  ncm: string | null;
+  variations: Array<{ qty: string; gtin: string | null; unit: string | null }>;
+} {
+  const rows = Array.isArray(specs) ? specs : [];
+  let ncm: string | null = null;
+  const gtinByQty = new Map<string, string>();
+  const order: string[] = [];
+  let available: string[] = [];
+  for (const r of rows) {
+    const label = String(r?.label || "").trim();
+    const value = String(r?.value || "").trim();
+    if (!label) continue;
+    if (/^NCM\b/i.test(label) && !ncm) { ncm = value || null; continue; }
+    if (/^Varia[cç][oõ]es dispon[ií]veis/i.test(label)) {
+      available = value.split(/[,;/]/).map((s) => s.trim()).filter(Boolean);
+      continue;
+    }
+    const m = label.match(/^GTIN\/EAN\s*[—–-]\s*(.+)$/i);
+    if (m) {
+      const qty = m[1].trim();
+      if (!gtinByQty.has(qty)) order.push(qty);
+      if (value) gtinByQty.set(qty, value);
+    }
+  }
+  const qtys = order.length > 0 ? order : available;
+  const unitFor = (qty: string): string | null => {
+    const s = qty.toLowerCase().replace(/\s+/g, "");
+    if (/kg$/.test(s)) return "kg";
+    if (/g$/.test(s)) return "g";
+    if (/ml$/.test(s)) return "ml";
+    if (/l$/.test(s)) return "L";
+    if (/un(id)?$/.test(s)) return "UN";
+    return null;
+  };
+  const variations = qtys.map((qty) => ({
+    qty,
+    gtin: gtinByQty.get(qty) || null,
+    unit: unitFor(qty),
+  }));
+  return { ncm, variations };
+}
+
 const I18N: Record<string, Record<string, string>> = {
   pt: {
     distributor: "Distribuidor", selectPlaceholder: "Selecione um distribuidor…",
@@ -345,7 +389,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       }
     }
 
-    const results = await Promise.all(updatePromises);
+    const results = await Promise.all(updatePromises.map((p) => Promise.resolve(p)));
     const failed = results.find((r: any) => r?.error);
     if (failed) { toast.error((failed as any).error.message); setSaving(false); return; }
     if (insertPayload.length > 0) {
