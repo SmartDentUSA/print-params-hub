@@ -21580,6 +21580,7 @@ export type Database = {
           display_order: number | null
           external_id: string
           extra_data: Json | null
+          gtin: string | null
           id: string
           image_url: string | null
           keyword_ids: string[] | null
@@ -21591,8 +21592,11 @@ export type Database = {
           name: string
           name_en: string | null
           name_es: string | null
+          ncm: string | null
           og_image_url: string | null
           price: number | null
+          price_eur: number | null
+          price_usd: number | null
           product_category: string | null
           product_category_en: string | null
           product_category_es: string | null
@@ -21656,6 +21660,7 @@ export type Database = {
           display_order?: number | null
           external_id: string
           extra_data?: Json | null
+          gtin?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -21667,8 +21672,11 @@ export type Database = {
           name: string
           name_en?: string | null
           name_es?: string | null
+          ncm?: string | null
           og_image_url?: string | null
           price?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
           product_category?: string | null
           product_category_en?: string | null
           product_category_es?: string | null
@@ -21732,6 +21740,7 @@ export type Database = {
           display_order?: number | null
           external_id?: string
           extra_data?: Json | null
+          gtin?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -21743,8 +21752,11 @@ export type Database = {
           name?: string
           name_en?: string | null
           name_es?: string | null
+          ncm?: string | null
           og_image_url?: string | null
           price?: number | null
+          price_eur?: number | null
+          price_usd?: number | null
           product_category?: string | null
           product_category_en?: string | null
           product_category_es?: string | null
