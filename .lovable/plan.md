@@ -1,58 +1,52 @@
 
-## Diagnóstico
+## Descoberta
 
-Rodei `fn_rayshape_owners()` no banco: **122 separado / 1 combo**. A regra atual só marca combo quando o item literalmente contém "scanner intraoral" ou uma marca conhecida (medit, itero, trios, i700 via aoralscan, etc.). Isso deixa de fora os bundles comerciais da Smart Dent que **já embutem** um scanner intraoral mas não citam a palavra no nome do item:
+O CSV enviado (137 propostas, exportação parcial do PipeRun) não traz nome de item, então é insuficiente para auditar donos da Edge Mini. Cruzando com o banco (fonte real usada pelo dashboard), encontrei um bug de classificação:
 
-- `INO 200 - BLZ` — chairside completo (impressora + scanner + pós-cura + notebook)
-- `KIT CHAIRSIDE` — mesmo conceito
+O filtro atual da `fn_rayshape_owners()` é `(item->>'nome') ILIKE '%Edge Mini%'`, e nas propostas ganhas existem 4 SKUs distintos que casam com esse padrão:
 
-Aparecem repetidamente ao lado de "RayShape - Edge Mini" em propostas ganhas (Clinica Kignel, REJANE, Cibely Cândido, CAJU Odontologia, etc.) e hoje caem como "separado".
+| SKU                                    | Ocorrências | É a impressora? |
+| -------------------------------------- | ----------- | --------------- |
+| `RayShape - Edge Mini`                 | 125         | **Sim** |
+| `BANDEJA PEQUENA - RAYSHAPE EDGE MINI` | 5           | Não (acessório) |
+| `BANDEJA GRANDE - RAYSHAPE EDGE MINI`  | 3           | Não (acessório) |
+| `LCD RAYSHAPE - EDGE MINI`             | 1           | Não (peça de reposição) |
 
-Sobre o lead destacado **DENIZE PIMENTA REZENDE VASCONCELLOS**:
-- `piperun_id=61809184`, telefone `+5548999296564`, 51 deals ganhos, R$362k LTV — é um cliente real.
-- O campo `email` está literalmente com a string `e-mail não informado` (não é `NULL`). É lixo vindo do CSV/PipeRun.
-- Existem **2.680 leads** com esse mesmo padrão de placeholder em `lia_attendances.email` (`e-mail não informado`, `não informado%`, `%placeholder%`).
+Consequência: **3 leads na lista atual de donos nunca compraram a impressora**, só um acessório. Contaminam KPI de total, ticket médio de recompra e categoria.
 
-## Escopo do plano
+## Correção
 
-### 1. Regra de combo — incluir bundles Smart Dent
+Migração única em `fn_rayshape_owners()` — restringir o `ILIKE` da impressora ao nome exato do SKU. Um item é a impressora se:
 
-Migração em `fn_rayshape_owners()`: no CTE `deal_edge`, expandir a condição de combo para aceitar OU um scanner intraoral OU um bundle chairside no mesmo `prop->'items'` da Edge Mini:
+- `(item->>'nome') ILIKE 'RayShape - Edge Mini'` (nome canônico), **ou**
+- `(item->>'nome') ILIKE 'Impressora 3D Rayshape Edge Mini%'` (variante já observada em `deals.proposals`)
 
-```
-EXISTS (item Edge Mini)
-AND (
-  EXISTS (item ~* '(scanner\s*intraoral|intraoral|medit|itero|trios|primescan|aoralscan|shining|helios|panda\s*p|runyes|launca|freedom|carestream\s*cs\s*3|3shape|emerald|i700)')
-  OR EXISTS (item ~* '(\yINO\s*200\y|kit\s*chairside)')
-)
-```
+E não casa com `BANDEJA`, `LCD` nem outras peças de reposição.
 
-Justificativa: o usuário definiu combo como "proposta que contém scanner intraoral". INO 200 e KIT CHAIRSIDE são SKUs que **incluem** o scanner intraoral no pacote, mesmo sem citar a palavra. Verificado nas propostas ganhas.
+Aplicar essa condição em 3 lugares dentro da função:
+1. Cálculo de `printer_price` no CTE `deal_edge` (SUM condicional).
+2. Predicado `EXISTS (item Edge Mini)` na detecção de combo (dentro do `BOOL_OR` do CTE `deal_edge`).
+3. `HAVING` do `deal_edge` — só entra no CTE se a proposta tem a impressora de verdade, não só acessório.
 
-Sem outras mudanças na função: thresholds, escopo (só `status='ganha'` + `is_deleted=false`), manual owners, KPIs de recompra e ordenação permanecem.
-
-### 2. Sanitizar e-mails placeholder
-
-`UPDATE lia_attendances SET email = NULL WHERE email ILIKE 'e-mail não informado%' OR email ILIKE 'não informado%' OR email ILIKE '%@import.placeholder%';`
-
-Afeta ~2.680 linhas. Com isso a UI mostra "—" em vez de texto ruído e evita que o `email` placeholder seja usado como identidade em merges/CRM. Nenhum lead perde identidade (todos têm `piperun_id` e/ou telefone).
-
-Também protege o formulário de "Adicionar dono manual": hoje a busca por e-mail retornaria a string placeholder e poderia confundir o operador.
-
-## Fora do escopo
-
-- Não mexer em thresholds (Crítico ≥180d etc.), na definição de `status='ganha'`, em manual owners, na função `fn_rayshape_status`, nem em nenhuma outra tela.
-- Não alterar o processo de ingestão que grava esse placeholder (isso fica para outro plano — aqui só limpo o histórico).
+Fora desses três pontos, nada muda: manual owners, categorias, KPIs de recompra, sanitizador de e-mail placeholder, thresholds, filtro `status='ganha'` e `is_deleted=false` permanecem idênticos.
 
 ## Detalhes técnicos
 
-- **Migração SQL 1**: `CREATE OR REPLACE FUNCTION public.fn_rayshape_owners()` com o novo predicado combo. Corpo idêntico ao atual exceto pelo `OR EXISTS` adicional.
-- **Data-fix (via insert tool, não migração)**: `UPDATE lia_attendances SET email = NULL, updated_at = now() WHERE email ILIKE 'e-mail não informado%' OR email ILIKE 'não informado%' OR email ILIKE '%@import.placeholder%';`
-- Sem mudanças em código frontend — `SmartOpsRayshape.tsx` já lê `sale_kind`, `recompra_combo_brl`, `recompra_separado_brl` e trata `lead_email` nulo.
+Predicado reutilizado:
+```sql
+(
+  (item->>'nome') ILIKE 'RayShape - Edge Mini'
+  OR (item->>'nome') ILIKE 'Impressora 3D Rayshape Edge Mini%'
+)
+```
 
-## Validação
+Após aplicar, valido:
+- Total de donos deve cair de 123 para ~120.
+- Rodar `SELECT count(*) filter (where row->>'sale_kind'='combo'), count(*) FROM jsonb_array_elements(fn_rayshape_owners()) row;` e conferir que continua sensato (esperado ~59 combo, ~61 separado).
+- Conferir que os 3 leads falsos positivos identificados saíram da lista.
 
-Após aplicar:
-1. `SELECT count(*) filter (where row->>'sale_kind'='combo') FROM jsonb_array_elements(fn_rayshape_owners()) row;` — esperado subir de 1 para ~10–15.
-2. Checar que Clinica Kignel, REJANE, CAJU Odontologia, Cibely Cândido migram para "combo".
-3. Recarregar o card de DENIZE — coluna e-mail passa a mostrar "—".
+## Fora do escopo
+
+- Não mudar a regra de combo (INO 200 / KIT CHAIRSIDE / scanners) — já validada com Vettori e Veraldi.
+- Não mexer no CSV enviado — ele é só recorte parcial, sem coluna de nome de item; não vou usar como fonte.
+- Não alterar `rayshape_manual_owners`.
