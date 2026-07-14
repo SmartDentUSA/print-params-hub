@@ -80,7 +80,7 @@ function normalizeProductName(raw: string | null | undefined): string {
 export function SmartOpsRayshape() {
   const { toast } = useToast();
   const [owners, setOwners] = useState<Owner[]>([]);
-  const [productUnits, setProductUnits] = useState<{ product_key: string; product_label: string; units: number; leads: number; ord: number }[]>([]);
+  const [productUnits, setProductUnits] = useState<{ product_key: string; product_label: string; units: number; leads: number; revenue: number; ord: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -120,6 +120,7 @@ export function SmartOpsRayshape() {
         product_label: r.product_label,
         units: Number(r.units) || 0,
         leads: Number(r.leads) || 0,
+        revenue: Number(r.revenue) || 0,
         ord: Number(r.ord) || 0,
       })));
     }
