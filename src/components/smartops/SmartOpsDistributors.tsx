@@ -63,7 +63,7 @@ export function SmartOpsDistributors() {
   const [q, setQ] = useState("");
   const [country, setCountry] = useState<string>("all");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [priceListMap, setPriceListMap] = useState<Record<string, { list: DealerPriceList; updated_at: string }>>({});
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
