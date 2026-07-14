@@ -1,74 +1,64 @@
+
 ## Objetivo
 
-1. Classificar cada dono de Edge Mini como **Separado** ou **Combo** com base no item da proposta ganha (regra: "item único com múltiplos produtos no nome").
-2. Adicionar dois KPIs ao dashboard "Impressora 3D Rayshape Edge Mini — Donos": `Equipamentos vendidos separadamente` e `Equipamentos combo`, além de chips de filtro para as duas categorias.
-3. Manter o filtro atual da RPC: só deals `status='ganha'` e `is_deleted=false`. Deals excluídos/empty-proposals continuam fora — usuário adiciona via "Adicionar manualmente" se quiser.
+No dashboard **Impressora 3D Rayshape Edge Mini — Donos**:
 
-## Passo 1 — Migration: `fn_rayshape_owners` retorna `sale_kind`
+1. Redefinir a regra de `sale_kind`:
+   - **combo** = a proposta ganha que contém a Edge Mini também contém um **scanner intraoral** (item na mesma proposta cujo nome bate com padrão de scanner intraoral).
+   - **separado** = caso contrário.
+2. Adicionar 2 novos KPIs ao painel:
+   - **Recompra Combo (R$)** — soma de todos os pedidos (ganhos) do dono, com data posterior à data da compra do combo Edge Mini.
+   - **Recompra Separado (R$)** — soma de todos os pedidos (ganhos) do dono, com data posterior à data da compra separada da Edge Mini.
 
-Reescrever a RPC (mesma lógica atual + campo novo `sale_kind: 'separado' | 'combo'`).
+## Regra "combo = tem scanner intraoral"
 
-Detecção do combo é feita no `deal_edge` a partir do texto do item que contém `Edge Mini`. Regra:
+Considera scanner intraoral qualquer item da mesma proposta cujo nome contenha (case-insensitive):
 
 ```
-combo := (item->>'nome' ILIKE '%edge mini%')
-      AND (item->>'nome' ~* '(cure|mercury|wash|nano|resina|notebook|ino[[:space:]]|blz[[:space:]]|ryzen|glaze|splint|bite|smartmake|elegoo|kit|vitality|unikk|pod\b)')
+(scanner\s*intraoral|intraoral|medit|itero|trios|primescan|aoralscan|shining|helios|panda\s*p|runyes|launca|freedom|carestream\s*cs\s*3|3shape|emerald)
 ```
 
-Ou seja: se o mesmo item que traz "Edge Mini" também menciona qualquer outro produto conhecido → é combo. Caso contrário → separado.
+- Fica de fora scanners de bancada / desktop (Ceramill, Straumann DWOS, D2000 etc.). Se aparecer algum caso de borda a gente ajusta o regex depois.
+- A detecção continua a nível de **proposta** (`prop->'items'`): a proposta precisa ter (a) item Edge Mini e (b) item scanner intraoral.
+- Agregação por lead via `BOOL_OR` como hoje: se qualquer deal ganho do dono for combo, o dono é combo.
 
-A RPC agrega por lead: se **qualquer** deal Edge Mini do lead for combo → o dono é classificado `combo` (a maioria dos casos misturados no CSV são combos). Isto fica explícito em CASE dentro do SELECT final:
+## Recompra (data da compra Edge Mini)
 
-```sql
-'sale_kind', CASE
-  WHEN BOOL_OR(de.is_combo) OVER (PARTITION BY p.lead_id) THEN 'combo'
-  ELSE 'separado'
-END
-```
+Para cada dono:
 
-Alterações no CTE `deal_edge`:
-- Adiciona coluna `is_combo boolean` calculada pelo regex acima aplicada ao item que trouxe Edge Mini.
-- Mantém filtros `status='ganha'` e `is_deleted=false` (não muda o universo de deals).
+- `edge_purchase_at` = data (`won_at` / `created_at`) da 1ª proposta ganha que contém a Edge Mini.
+- `recompra_valor` = soma dos `deals.value` (ou `proposal.total`) de deals **ganhos** do mesmo lead com `won_at > edge_purchase_at`.
+- Divide em dois campos no retorno da RPC:
+  - `recompra_combo_brl` se `sale_kind='combo'`.
+  - `recompra_separado_brl` se `sale_kind='separado'`.
 
-Nada mais muda no shape retornado — apenas adiciona `sale_kind` em cada linha.
+No painel, os 2 KPIs somam esses campos entre todos os donos.
 
-## Passo 2 — Frontend: `src/components/SmartOpsRayshape.tsx`
+## Mudanças
 
-1. Estender interface `Owner`:
-   ```ts
-   sale_kind?: 'separado' | 'combo';
-   ```
+### 1. Migration — `fn_rayshape_owners()`
 
-2. No `useMemo(kpis)`, adicionar dois contadores:
-   ```ts
-   const separados = owners.filter(o => o.sale_kind === 'separado').length;
-   const combos    = owners.filter(o => o.sale_kind === 'combo').length;
-   ```
+- Ajustar `is_combo` da CTE de proposals para exigir presença de scanner intraoral na mesma proposta (regex acima) além do item Edge Mini.
+- Calcular `edge_purchase_at` (min `won_at` da proposta que tem Edge Mini).
+- LEFT JOIN em `deals` ganhos do mesmo `lead_id` com `won_at > edge_purchase_at` e somar `value` → `recompra_brl`.
+- Retornar novas colunas: `edge_purchase_at timestamptz`, `recompra_combo_brl numeric`, `recompra_separado_brl numeric`.
 
-3. Grid de KPIs vai de 4 para 6 cards (md:grid-cols-3 lg:grid-cols-6):
-   - Donos totais
-   - Vendidos separadamente (novo, azul)
-   - Combo (novo, roxo)
-   - Recompraram
-   - Críticos (180d+)
-   - Ticket médio recompra
+### 2. Frontend — `src/components/SmartOpsRayshape.tsx`
 
-4. Adicionar dois chips de filtro extras ao lado dos existentes (`critico | atencao | cedo | recomprou`): `separado | combo`. Estado `filter` passa a aceitar `Category | 'separado' | 'combo' | 'all'`. Filtro aplicado no `filtered` useMemo por `sale_kind` quando o valor está entre os novos.
+- Estender `Owner` com `edge_purchase_at`, `recompra_combo_brl`, `recompra_separado_brl`.
+- Em `useMemo(kpis)`, somar:
+  - `recompraCombo = Σ recompra_combo_brl`
+  - `recompraSeparado = Σ recompra_separado_brl`
+- Adicionar 2 cards de KPI (grid expande de 6 → 8) formatando em BRL.
+- Sem alteração nos filtros/badges já existentes.
 
-5. Na tabela/lista, adicionar uma coluna/badge pequeno "Combo" quando `sale_kind==='combo'` (badge roxo discreto ao lado do nome do lead).
+## Fora de escopo
 
-## Passo 3 — Verificação
+- Não muda thresholds nem lista de donos.
+- Não inclui deals `is_deleted=true`.
+- Não altera `fn_rayshape_status`.
 
-1. Rodar a RPC nova e conferir contagem separado vs combo:
-   ```sql
-   SELECT o->>'sale_kind' k, count(*) FROM (SELECT jsonb_array_elements(fn_rayshape_owners()) o) t GROUP BY 1;
-   ```
-2. Amostragem manual de 5 leads em cada bucket para validar a regra do regex (falso combo / falso separado).
-3. Conferir no painel se os totais dos dois novos KPIs somam `kpis.total`.
+## Verificação
 
-## Fora do escopo
-
-- Não altero thresholds Crítico/Atenção/Cedo agora (fica para outro turno se você pedir).
-- Não incluo deals `is_deleted=true` no RPC — Renailda (58946144) e Raquel (59620258) continuam de fora até virarem manual owner.
-- Não trato deals com `proposals` vazio (Matheus 56506351) — permanecem fora até proposals ser populado ou serem adicionados manualmente.
-- Não altero a `fn_rayshape_status` (painel individual do lead).
+- Rodar `SELECT sale_kind, count(*), sum(recompra_combo_brl), sum(recompra_separado_brl) FROM fn_rayshape_owners() GROUP BY 1` para conferir totais.
+- Amostrar 3 donos combo e 3 separado, conferindo `edge_purchase_at` e os deals ganhos posteriores.
