@@ -347,6 +347,8 @@ export async function exportPriceTableDocx(
         new Paragraph({ children: [new TextRun("")] }),
         table,
         new Paragraph({ children: [new TextRun("")] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Total dealer: ${formatMoney(total, currency)}`, bold: true, size: 22 })] }),
+        new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "WWW.SMARTDENT.COM.BR", bold: true })] }),
       ],
     }],
