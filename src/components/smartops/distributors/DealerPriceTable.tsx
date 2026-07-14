@@ -28,6 +28,7 @@ const I18N: Record<string, Record<string, string>> = {
     hPhoto: "Foto", hCod: "COD", hProduct: "Produto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Preço tabela (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
+    catDiscount: "% Desc. categoria", apply: "Aplicar",
   },
   es: {
     distributor: "Distribuidor", selectPlaceholder: "Seleccione un distribuidor…",
@@ -44,6 +45,7 @@ const I18N: Record<string, Record<string, string>> = {
     hPhoto: "Foto", hCod: "COD", hProduct: "Producto", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Precio tabla (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
+    catDiscount: "% Desc. categoría", apply: "Aplicar",
   },
   en: {
     distributor: "Distributor", selectPlaceholder: "Select a distributor…",
@@ -60,6 +62,7 @@ const I18N: Record<string, Record<string, string>> = {
     hPhoto: "Photo", hCod: "SKU", hProduct: "Product", hPres: "Pres", hNcm: "HS Code", hGtin: "GTIN/EAN",
     hUnit: "Qty (×)", hTablePrice: "List price (Unit)", hDiscount: "% Disc.",
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
+    catDiscount: "% Disc. category", apply: "Apply",
   },
 };
 
