@@ -79,7 +79,7 @@ const I18N: Record<string, Record<string, string>> = {
   pt: {
     search: "Buscar produto…", cat: "Categoria", allCats: "Todas categorias",
     items: "itens", showInactive: "Mostrar inativos",
-    catStatus: "Status", catPhoto: "Foto", catCod: "COD", catProduct: "Produto",
+    catStatus: "Status", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Produto",
     catPresQty: "Variação", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidade",
     priceBRL: "Preço BRL", priceUSD: "Preço USD", priceEUR: "Preço EUR",
@@ -97,7 +97,7 @@ const I18N: Record<string, Record<string, string>> = {
   es: {
     search: "Buscar producto…", cat: "Categoría", allCats: "Todas las categorías",
     items: "ítems", showInactive: "Mostrar inactivos",
-    catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catProduct: "Producto",
+    catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Producto",
     catPresQty: "Variación", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidad",
     priceBRL: "Precio BRL", priceUSD: "Precio USD", priceEUR: "Precio EUR",
@@ -115,7 +115,7 @@ const I18N: Record<string, Record<string, string>> = {
   en: {
     search: "Search product…", cat: "Category", allCats: "All categories",
     items: "items", showInactive: "Show inactive",
-    catStatus: "Status", catPhoto: "Photo", catCod: "COD", catProduct: "Product",
+    catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
     catPresQty: "Variant", catNcm: "HS Code", catGtin: "GTIN/EAN",
     catUnit: "Unit",
     priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
@@ -213,7 +213,13 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
   }, [variations]);
 
   const nameFor = (p: any) => (lang === "en" ? p.name_en || p.name : lang === "es" ? p.name_es || p.name : p.name);
-  const skuOf = (p: any) => p?.extra_data?.sku || p?.extra_data?.SKU || p?.extra_data?.sku_pai || p?.external_id || "—";
+  const codOf = (p: any) => p?.external_id || "—";
+  const skuOf = (p: any) =>
+    p?.extra_data?.sku ||
+    p?.extra_data?.SKU ||
+    p?.extra_data?.sku_pai ||
+    p?.extra_data?.system_a_live?.sku ||
+    "—";
 
   const patchVariation = (id: string, patch: Partial<Variation>) => {
     setVariations((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
@@ -403,12 +409,13 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[1700px]">
+          <Table className="min-w-[1810px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
                 <TableHead className="w-[64px]">{t.catPhoto}</TableHead>
                 <TableHead className="w-[110px]">{t.catCod}</TableHead>
+                <TableHead className="w-[110px]">{t.catSku}</TableHead>
                 <TableHead className="min-w-[260px]">{t.catProduct}</TableHead>
                 <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
@@ -423,7 +430,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -447,6 +454,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
                         <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
                         <TableCell className="font-medium">
                           <div className="truncate">{nameFor(p)}</div>
@@ -484,6 +492,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                                 )}
                               </div>
                             </TableCell>
+                            <TableCell rowSpan={span} className="font-mono text-xs">{codOf(p)}</TableCell>
                             <TableCell rowSpan={span} className="font-mono text-xs">{skuOf(p)}</TableCell>
                             <TableCell rowSpan={span} className="font-medium">
                               <div className="truncate">{nameFor(p)}</div>
