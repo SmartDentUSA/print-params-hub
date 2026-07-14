@@ -709,7 +709,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                   </TableHeader>
                   <TableBody>
                     {rows.map((it) => (
-                      <TableRow key={it.id} className={dirtyIds.has(it.id) ? "bg-amber-50/40" : ""}>
+                     <TableRow key={it.id} className={`${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`}>
                         <TableCell>
                           {it.image_url ? (
                             <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
@@ -799,9 +799,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           {formatMoney(lineTotal(it), currency)}
                         </TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => toggleItemActive(it.id, !(it.is_active !== false))}
+                              title={it.is_active !== false ? t.active : t.inactive}
+                            >
+                              {it.is_active !== false
+                                ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
