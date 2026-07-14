@@ -24,6 +24,7 @@ import { SmartOpsCopilot } from "./SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "./smartops/SmartOpsWorkflowMapper";
 import { SmartOpsCampaigns } from "./SmartOpsCampaigns";
 import { SmartOpsDistributors } from "./smartops/SmartOpsDistributors";
+import { SmartOpsReactivationHub } from "./SmartOpsReactivationHub";
 
 
 export function SmartOpsTab() {
@@ -102,6 +103,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="mapeamento">Mapeamento 7×3</TabsTrigger>
           <TabsTrigger value="campanhas">Campanhas</TabsTrigger>
           <TabsTrigger value="distribuicao">Distribuição</TabsTrigger>
+          <TabsTrigger value="reativacao">Reativação & Fluxos</TabsTrigger>
           <TabsTrigger value="copilot">🤖 Copilot</TabsTrigger>
         </TabsList>
 
@@ -158,6 +160,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="distribuicao">
           <SmartOpsDistributors key={`distribuicao-${refreshKey}`} />
+        </TabsContent>
+        <TabsContent value="reativacao">
+          <SmartOpsReactivationHub key={`reativacao-${refreshKey}`} />
         </TabsContent>
       </Tabs>
     </div>
