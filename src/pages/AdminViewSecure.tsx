@@ -61,7 +61,8 @@ export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthor, setIsAuthor] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | null>(null);
+  const [isDistribuidor, setIsDistribuidor] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | 'distribuidor' | null>(null);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('models');
@@ -167,10 +168,12 @@ export default function AdminViewSecure() {
             .eq('user_id', session.user.id)
             .single();
           if (roleData) {
-            setUserRole(roleData.role);
+            setUserRole(roleData.role as any);
             setIsAdmin(roleData.role === 'admin');
             setIsAuthor(roleData.role === 'author');
+            setIsDistribuidor((roleData.role as any) === 'distribuidor');
             if (roleData.role === 'author') setActiveSection('knowledge');
+            if ((roleData.role as any) === 'distribuidor') setActiveSection('so-distribuicao');
           }
         }
       } catch (error) {
@@ -188,6 +191,7 @@ export default function AdminViewSecure() {
           setUser(null);
           setIsAdmin(false);
           setIsAuthor(false);
+          setIsDistribuidor(false);
           setUserRole(null);
         } else if (session?.user) {
           setUser(session.user);
@@ -199,9 +203,10 @@ export default function AdminViewSecure() {
                 .eq('user_id', session.user.id)
                 .single();
               if (roleData) {
-                setUserRole(roleData.role);
+                setUserRole(roleData.role as any);
                 setIsAdmin(roleData.role === 'admin');
                 setIsAuthor(roleData.role === 'author');
+                setIsDistribuidor((roleData.role as any) === 'distribuidor');
               }
             } catch (error) {}
           }, 100);
@@ -244,7 +249,7 @@ export default function AdminViewSecure() {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  if (!isAdmin && !isAuthor) {
+  if (!isAdmin && !isAuthor && !isDistribuidor) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
@@ -350,6 +355,7 @@ export default function AdminViewSecure() {
           onSectionChange={setActiveSection}
           isAdmin={isAdmin}
           isAuthor={isAuthor}
+          isDistribuidor={isDistribuidor}
           userEmail={user.email || ''}
           onLogout={handleLogout}
         />

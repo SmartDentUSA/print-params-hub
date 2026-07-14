@@ -33,6 +33,7 @@ interface AdminSidebarProps {
   onSectionChange: (section: string) => void;
   isAdmin: boolean;
   isAuthor: boolean;
+  isDistribuidor?: boolean;
   userEmail: string;
   onLogout: () => void;
 }
@@ -127,11 +128,19 @@ const sidebarGroups: SidebarGroupDef[] = [
   },
 ];
 
-export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor, userEmail, onLogout }: AdminSidebarProps) {
+export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor, isDistribuidor, userEmail, onLogout }: AdminSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  const visibleGroups = sidebarGroups.filter(g => !g.adminOnly || isAdmin);
+  let visibleGroups = sidebarGroups.filter(g => !g.adminOnly || isAdmin);
+  if (isDistribuidor && !isAdmin) {
+    visibleGroups = [{
+      label: "Smart Ops",
+      icon: Zap,
+      defaultOpen: true,
+      items: [{ id: "so-distribuicao", title: "Distribuição", icon: Truck }],
+    }];
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
