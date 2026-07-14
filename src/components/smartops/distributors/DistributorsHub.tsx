@@ -6,6 +6,7 @@ import { DealerCatalogGrid } from "./DealerCatalogGrid";
 import { DealerPriceTable } from "./DealerPriceTable";
 import { DealerProposalWizard } from "./DealerProposalWizard";
 import type { Distributor } from "./types";
+import { FxRateBadge } from "./FxRateBadge";
 
 const TAB_HELP: Record<string, string> = {
   cadastro: "Cadastro completo dos distribuidores credenciados (endereço, contato do comprador, redes sociais, kit institucional).",
@@ -31,11 +32,14 @@ export function DistributorsHub() {
 
   return (
     <div className="space-y-4">
-      <div className="border-l-4 border-primary bg-primary/5 rounded-md px-3 py-2">
-        <h3 className="text-base font-semibold">Distribuição — Tabelas de Preço & Propostas</h3>
-        <p className="text-xs text-muted-foreground">
-          Escolha uma das quatro seções abaixo para gerenciar distribuidores, catálogo, tabelas de preço e propostas comerciais.
-        </p>
+      <div className="border-l-4 border-primary bg-primary/5 rounded-md px-3 py-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold">Distribuição — Tabelas de Preço & Propostas</h3>
+          <p className="text-xs text-muted-foreground">
+            Escolha uma das quatro seções abaixo para gerenciar distribuidores, catálogo, tabelas de preço e propostas comerciais.
+          </p>
+        </div>
+        <FxRateBadge />
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
