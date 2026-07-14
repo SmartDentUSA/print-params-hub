@@ -383,6 +383,26 @@ export function SmartOpsRayshape() {
             </Card>
           );
         })}
+        {(["cedo", "atencao", "critico", "recomprou"] as Category[]).map((cat) => {
+          const top = kpis.topVendorByCategory[cat];
+          const meta = CATEGORY_META[cat];
+          return (
+            <Card key={`vendor-${cat}`} className={`p-4 ${top ? "" : "opacity-50"}`}>
+              <div className="text-xs text-muted-foreground">Vendedor líder — {meta.label}</div>
+              <div
+                className="text-base font-semibold text-foreground leading-tight line-clamp-2"
+                title={top?.vendor || "—"}
+              >
+                {top?.vendor || "—"}
+              </div>
+              {top ? (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {top.count} dono{top.count !== 1 ? "s" : ""}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
       </div>
 
       {/* Unidades vendidas por produto (pós-impressora) */}
