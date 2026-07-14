@@ -241,9 +241,17 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       return { value: brl, fallback: cur !== "BRL" && brl > 0 };
     };
     let fallbackCount = 0;
-    const toInsert = ((cat as any) || [])
-      .filter((p: any) => !existing.has(p.id))
-      .map((p: any, idx: number) => ({
+    const toInsert: any[] = [];
+    let cursor = items.length;
+    for (const p of ((cat as any) || [])) {
+      if (existing.has(p.id)) continue;
+      const priced = priceFor(p);
+      if (priced.fallback) fallbackCount++;
+      // Parse variações do card (technical_specs → NCM/GTIN/Unidade por variação)
+      const specs = (p?.extra_data?.system_a_live?.technical_specs ?? []) as Array<{ label: string; value: string }>;
+      const parsed = parseSpecVariations(specs);
+      const ncmFromSpec = parsed.ncm;
+      const baseRow = {
         price_list_id: list.id,
         catalog_product_id: p.id,
         cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
@@ -254,18 +262,34 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         category: p.product_category,
         subcategory: p.product_subcategory,
         description: p.description,
-        ncm_hs: p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
-        gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
-        price_base: (() => { const r = priceFor(p); if (r.fallback) fallbackCount++; return r.value; })(),
+        ncm_hs: ncmFromSpec ?? p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
+        price_base: priced.value,
         discount_pct: 0,
-        price_dealer: (() => { const r = priceFor(p); return r.value; })(),
-        unidade: "UN",
+        price_dealer: priced.value,
         presentation: p.presentation ?? "Unid",
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
-        presentation_qty: p.presentation_qty ?? null,
-        sort_order: items.length + idx,
         is_active: true,
-      }));
+      };
+      if (parsed.variations.length > 0) {
+        parsed.variations.forEach((v) => {
+          toInsert.push({
+            ...baseRow,
+            gtin_ean: v.gtin || p.gtin || p?.extra_data?.gtin || p?.extra_data?.GTIN || null,
+            unidade: v.unit || "UN",
+            presentation_qty: v.qty,
+            sort_order: cursor++,
+          });
+        });
+      } else {
+        toInsert.push({
+          ...baseRow,
+          gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
+          unidade: "UN",
+          presentation_qty: p.presentation_qty ?? null,
+          sort_order: cursor++,
+        });
+      }
+    }
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
     if (insErr) toast.error(insErr.message);
