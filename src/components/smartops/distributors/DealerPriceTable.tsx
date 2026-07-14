@@ -627,6 +627,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                             <Button size="sm" variant="outline" onClick={() => restoreSnapshot(s)} disabled={saving}>
                               <RotateCcw className="w-3 h-3 mr-1" /> Restaurar
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="ml-1 text-destructive hover:text-destructive"
+                              onClick={() => deleteSnapshot(s.id)}
+                              disabled={saving}
+                              title={t.deleteSnapshot}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
