@@ -154,10 +154,25 @@ Deno.serve(async (req) => {
       step.new_email = newEmail;
       step.new_phone = newPhone;
 
-      const updates: Record<string, any> = { email: newEmail };
+      // Se Person não tem contatos, tenta Company do deal
+      let finalEmail = newEmail;
+      let finalPhone = newPhone;
+      const company = (deal as any).company;
+      if (!finalEmail && company) {
+        finalEmail = pickPersonEmail(company);
+        if (finalEmail) step.email_source = "company";
+      }
+      if (!finalPhone && company) {
+        finalPhone = pickPersonPhone(company);
+        if (finalPhone) step.phone_source = "company";
+      }
+      step.final_email = finalEmail;
+      step.final_phone = finalPhone;
+
+      const updates: Record<string, any> = { email: finalEmail };
       // Só grava telefone se ainda não existe (nunca sobrescreve identificador)
-      if (newPhone && !lead.telefone_normalized) {
-        updates.telefone_normalized = newPhone;
+      if (finalPhone && !lead.telefone_normalized) {
+        updates.telefone_normalized = finalPhone;
       }
 
       step.updates = updates;
