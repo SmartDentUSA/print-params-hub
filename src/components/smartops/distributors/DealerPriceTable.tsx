@@ -294,7 +294,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 const { data } = await supabase
                   .from("dealer_price_lists" as any)
                   .update({ currency: v }).eq("id", list.id).select("*").single();
-                if (data) setList(data as DealerPriceList);
+                if (data) setList(data as unknown as DealerPriceList);
               }}
             >
               <SelectTrigger className="h-7 w-[110px]"><SelectValue /></SelectTrigger>
@@ -311,7 +311,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 const { data } = await supabase
                   .from("dealer_price_lists" as any)
                   .update({ language: v }).eq("id", list.id).select("*").single();
-                if (data) setList(data as DealerPriceList);
+                if (data) setList(data as unknown as DealerPriceList);
               }}
             >
               <SelectTrigger className="h-7 w-[90px]"><SelectValue /></SelectTrigger>
