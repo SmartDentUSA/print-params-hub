@@ -7,11 +7,55 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff, Layers } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+
+/** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
+function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
+  ncm: string | null;
+  variations: Array<{ qty: string; gtin: string | null; unit: string | null }>;
+} {
+  const rows = Array.isArray(specs) ? specs : [];
+  let ncm: string | null = null;
+  const gtinByQty = new Map<string, string>();
+  const order: string[] = [];
+  let available: string[] = [];
+  for (const r of rows) {
+    const label = String(r?.label || "").trim();
+    const value = String(r?.value || "").trim();
+    if (!label) continue;
+    if (/^NCM\b/i.test(label) && !ncm) { ncm = value || null; continue; }
+    if (/^Varia[cç][oõ]es dispon[ií]veis/i.test(label)) {
+      available = value.split(/[,;/]/).map((s) => s.trim()).filter(Boolean);
+      continue;
+    }
+    const m = label.match(/^GTIN\/EAN\s*[—–-]\s*(.+)$/i);
+    if (m) {
+      const qty = m[1].trim();
+      if (!gtinByQty.has(qty)) order.push(qty);
+      if (value) gtinByQty.set(qty, value);
+    }
+  }
+  const qtys = order.length > 0 ? order : available;
+  const unitFor = (qty: string): string | null => {
+    const s = qty.toLowerCase().replace(/\s+/g, "");
+    if (/kg$/.test(s)) return "kg";
+    if (/g$/.test(s)) return "g";
+    if (/ml$/.test(s)) return "ml";
+    if (/l$/.test(s)) return "L";
+    if (/un(id)?$/.test(s)) return "UN";
+    return null;
+  };
+  const variations = qtys.map((qty) => ({
+    qty,
+    gtin: gtinByQty.get(qty) || null,
+    unit: unitFor(qty),
+  }));
+  return { ncm, variations };
+}
 
 const I18N: Record<string, Record<string, string>> = {
   pt: {
@@ -240,6 +284,126 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const recalcFromCatalog = async () => {
     if (!list) return;
     await recalcAndPersist(list.currency || distributor?.preferred_currency || "BRL", { snapshotLabel: null });
+  };
+
+  /**
+   * Sincroniza variações (GTIN, NCM, unidade de medida) a partir dos cards do catálogo.
+   * Fonte: system_a_catalog.extra_data.system_a_live.technical_specs
+   *   - Label "NCM" → ncm_hs (compartilhado por todas as variações)
+   *   - Label "Variações disponíveis" → lista tipo "500g, 1kg"
+   *   - Label "GTIN/EAN — {qty}" → gtin_ean por variação
+   *   - Sufixo da variação (kg/g/ml/L) → unidade
+   * Se um item ainda não estiver desdobrado por variação (presentation_qty vazio) e o
+   * card tiver múltiplas variações, o item existente vira a 1ª variação e as demais
+   * são inseridas como linhas irmãs.
+   */
+  const syncVariationsFromCatalog = async () => {
+    if (!list || items.length === 0) return;
+    const ids = Array.from(new Set(items.map((i) => i.catalog_product_id).filter(Boolean))) as string[];
+    if (ids.length === 0) { toast.info("Nenhum item ligado ao catálogo."); return; }
+    setSaving(true);
+    const { data: cat, error } = await supabase
+      .from("system_a_catalog" as any)
+      .select("id,extra_data,ncm,gtin")
+      .in("id", ids);
+    if (error) { toast.error(error.message); setSaving(false); return; }
+    const byId = new Map<string, any>(((cat as any) || []).map((p: any) => [p.id, p]));
+
+    let rowsUpdated = 0;
+    let rowsInserted = 0;
+    const updateOps: Array<() => Promise<any>> = [];
+    const insertPayload: any[] = [];
+    const nextItems: DealerPriceItem[] = [];
+
+    // agrupa itens por catálogo para saber se algum já cobre múltiplas variações
+    const byCatalog = new Map<string, DealerPriceItem[]>();
+    for (const it of items) {
+      const key = it.catalog_product_id || `__local__${it.id}`;
+      if (!byCatalog.has(key)) byCatalog.set(key, []);
+      byCatalog.get(key)!.push(it);
+    }
+
+    for (const it of items) {
+      const p = it.catalog_product_id ? byId.get(it.catalog_product_id) : null;
+      const specs = (p?.extra_data?.system_a_live?.technical_specs ?? []) as Array<{ label: string; value: string }>;
+      const parsed = parseSpecVariations(specs);
+      // NCM: prefere technical_specs, cai para coluna direta
+      const ncm = parsed.ncm || p?.ncm || it.ncm_hs || null;
+      // Matching por presentation_qty (case-insensitive, sem espaços)
+      const norm = (s: any) => String(s || "").toLowerCase().replace(/\s+/g, "");
+      const currentQty = norm(it.presentation_qty);
+      const match = parsed.variations.find((v) => norm(v.qty) === currentQty);
+      const gtin = match?.gtin || (parsed.variations.length === 1 ? parsed.variations[0].gtin : null) || p?.gtin || it.gtin_ean || null;
+      const unidade = match?.unit || (parsed.variations.length === 1 ? parsed.variations[0].unit : null) || it.unidade || "UN";
+      const patch: any = {};
+      if (ncm && ncm !== it.ncm_hs) patch.ncm_hs = ncm;
+      if (gtin && gtin !== it.gtin_ean) patch.gtin_ean = gtin;
+      if (unidade && unidade !== it.unidade) patch.unidade = unidade;
+      // Se item não tem presentation_qty, adota a 1ª variação do card
+      if (!it.presentation_qty && parsed.variations[0]?.qty && (byCatalog.get(it.catalog_product_id || "")?.length ?? 0) === 1) {
+        patch.presentation_qty = parsed.variations[0].qty;
+        if (parsed.variations[0].gtin) patch.gtin_ean = parsed.variations[0].gtin;
+        if (parsed.variations[0].unit) patch.unidade = parsed.variations[0].unit;
+      }
+      if (Object.keys(patch).length > 0) {
+        rowsUpdated++;
+        updateOps.push(async () =>
+          await supabase.from("dealer_price_items" as any).update(patch).eq("id", it.id),
+        );
+        nextItems.push({ ...it, ...patch });
+      } else {
+        nextItems.push(it);
+      }
+
+      // Expansão: se este item é o único do catálogo e há mais variações, insere linhas irmãs
+      if (it.catalog_product_id && (byCatalog.get(it.catalog_product_id)?.length ?? 0) === 1 && parsed.variations.length > 1) {
+        const extra = parsed.variations.slice(1);
+        extra.forEach((v, idx) => {
+          insertPayload.push({
+            price_list_id: list.id,
+            catalog_product_id: it.catalog_product_id,
+            cod: it.cod,
+            name: it.name,
+            name_en: it.name_en,
+            name_es: it.name_es,
+            image_url: it.image_url,
+            category: it.category,
+            subcategory: it.subcategory,
+            description: it.description,
+            ncm_hs: ncm,
+            gtin_ean: v.gtin || null,
+            price_base: it.price_base,
+            discount_pct: it.discount_pct,
+            price_dealer: it.price_dealer,
+            unidade: v.unit || it.unidade || "UN",
+            presentation: it.presentation || "Unid",
+            quantity_multiplier: 1,
+            presentation_qty: v.qty,
+            sort_order: (it.sort_order ?? 0) + idx + 1,
+            is_active: it.is_active !== false,
+          });
+          rowsInserted++;
+        });
+        // Marca este catálogo como já expandido para não repetir no loop
+        byCatalog.set(it.catalog_product_id, [it, ...extra.map(() => it)]);
+      }
+    }
+
+    const results = await Promise.all(updateOps.map((op) => op()));
+    const failed = results.find((r: any) => r?.error);
+    if (failed) { toast.error((failed as any).error.message); setSaving(false); return; }
+    if (insertPayload.length > 0) {
+      const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(insertPayload);
+      if (insErr) { toast.error(insErr.message); setSaving(false); return; }
+    }
+    setSaving(false);
+    if (rowsUpdated === 0 && rowsInserted === 0) {
+      toast.info("Nenhuma variação nova encontrada no catálogo.");
+      return;
+    }
+    toast.success(`Variações sincronizadas: ${rowsUpdated} atualizadas, ${rowsInserted} novas`);
+    await loadOrCreate(distributorId);
+    await autoSnapshot(`Sync variações (+${rowsInserted}, ~${rowsUpdated})`, nextItems);
   };
 
   const recalcAndPersist = async (
@@ -561,6 +725,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             </Select>
             <Button size="sm" variant="outline" onClick={recalcFromCatalog} disabled={saving || items.length === 0} className="h-7">
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> {t.recalcFromCatalog}
+            </Button>
+            <Button size="sm" variant="outline" onClick={syncVariationsFromCatalog} disabled={saving || items.length === 0} className="h-7" title="Puxa GTIN, NCM e Unidade das variações cadastradas nos cards do catálogo">
+              <Layers className="w-3.5 h-3.5 mr-1" /> Sincronizar variações
             </Button>
             <span className="text-muted-foreground">{t.language}:</span>
             <Select
