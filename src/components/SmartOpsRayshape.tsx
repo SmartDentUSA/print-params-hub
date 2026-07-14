@@ -36,6 +36,7 @@ interface Owner {
   n_post: number;
   total_post: number;
   first_repurchase_days: number | null;
+  first_repurchase_product?: string | null;
   last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
