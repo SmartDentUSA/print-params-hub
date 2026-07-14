@@ -182,6 +182,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         unidade: "UN",
         presentation: "Unid",
         quantity_multiplier: 1,
+        presentation_qty: null,
         sort_order: items.length + idx,
       }));
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
@@ -219,6 +220,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           variant: it.variant, unidade: it.unidade, description: it.description,
           presentation: it.presentation || "Unid",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
+          presentation_qty: it.presentation_qty ?? null,
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
         })
         .eq("id", it.id);
