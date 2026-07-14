@@ -1,64 +1,58 @@
 
-## Objetivo
+## Diagnóstico
 
-No dashboard **Impressora 3D Rayshape Edge Mini — Donos**:
+Rodei `fn_rayshape_owners()` no banco: **122 separado / 1 combo**. A regra atual só marca combo quando o item literalmente contém "scanner intraoral" ou uma marca conhecida (medit, itero, trios, i700 via aoralscan, etc.). Isso deixa de fora os bundles comerciais da Smart Dent que **já embutem** um scanner intraoral mas não citam a palavra no nome do item:
 
-1. Redefinir a regra de `sale_kind`:
-   - **combo** = a proposta ganha que contém a Edge Mini também contém um **scanner intraoral** (item na mesma proposta cujo nome bate com padrão de scanner intraoral).
-   - **separado** = caso contrário.
-2. Adicionar 2 novos KPIs ao painel:
-   - **Recompra Combo (R$)** — soma de todos os pedidos (ganhos) do dono, com data posterior à data da compra do combo Edge Mini.
-   - **Recompra Separado (R$)** — soma de todos os pedidos (ganhos) do dono, com data posterior à data da compra separada da Edge Mini.
+- `INO 200 - BLZ` — chairside completo (impressora + scanner + pós-cura + notebook)
+- `KIT CHAIRSIDE` — mesmo conceito
 
-## Regra "combo = tem scanner intraoral"
+Aparecem repetidamente ao lado de "RayShape - Edge Mini" em propostas ganhas (Clinica Kignel, REJANE, Cibely Cândido, CAJU Odontologia, etc.) e hoje caem como "separado".
 
-Considera scanner intraoral qualquer item da mesma proposta cujo nome contenha (case-insensitive):
+Sobre o lead destacado **DENIZE PIMENTA REZENDE VASCONCELLOS**:
+- `piperun_id=61809184`, telefone `+5548999296564`, 51 deals ganhos, R$362k LTV — é um cliente real.
+- O campo `email` está literalmente com a string `e-mail não informado` (não é `NULL`). É lixo vindo do CSV/PipeRun.
+- Existem **2.680 leads** com esse mesmo padrão de placeholder em `lia_attendances.email` (`e-mail não informado`, `não informado%`, `%placeholder%`).
+
+## Escopo do plano
+
+### 1. Regra de combo — incluir bundles Smart Dent
+
+Migração em `fn_rayshape_owners()`: no CTE `deal_edge`, expandir a condição de combo para aceitar OU um scanner intraoral OU um bundle chairside no mesmo `prop->'items'` da Edge Mini:
 
 ```
-(scanner\s*intraoral|intraoral|medit|itero|trios|primescan|aoralscan|shining|helios|panda\s*p|runyes|launca|freedom|carestream\s*cs\s*3|3shape|emerald)
+EXISTS (item Edge Mini)
+AND (
+  EXISTS (item ~* '(scanner\s*intraoral|intraoral|medit|itero|trios|primescan|aoralscan|shining|helios|panda\s*p|runyes|launca|freedom|carestream\s*cs\s*3|3shape|emerald|i700)')
+  OR EXISTS (item ~* '(\yINO\s*200\y|kit\s*chairside)')
+)
 ```
 
-- Fica de fora scanners de bancada / desktop (Ceramill, Straumann DWOS, D2000 etc.). Se aparecer algum caso de borda a gente ajusta o regex depois.
-- A detecção continua a nível de **proposta** (`prop->'items'`): a proposta precisa ter (a) item Edge Mini e (b) item scanner intraoral.
-- Agregação por lead via `BOOL_OR` como hoje: se qualquer deal ganho do dono for combo, o dono é combo.
+Justificativa: o usuário definiu combo como "proposta que contém scanner intraoral". INO 200 e KIT CHAIRSIDE são SKUs que **incluem** o scanner intraoral no pacote, mesmo sem citar a palavra. Verificado nas propostas ganhas.
 
-## Recompra (data da compra Edge Mini)
+Sem outras mudanças na função: thresholds, escopo (só `status='ganha'` + `is_deleted=false`), manual owners, KPIs de recompra e ordenação permanecem.
 
-Para cada dono:
+### 2. Sanitizar e-mails placeholder
 
-- `edge_purchase_at` = data (`won_at` / `created_at`) da 1ª proposta ganha que contém a Edge Mini.
-- `recompra_valor` = soma dos `deals.value` (ou `proposal.total`) de deals **ganhos** do mesmo lead com `won_at > edge_purchase_at`.
-- Divide em dois campos no retorno da RPC:
-  - `recompra_combo_brl` se `sale_kind='combo'`.
-  - `recompra_separado_brl` se `sale_kind='separado'`.
+`UPDATE lia_attendances SET email = NULL WHERE email ILIKE 'e-mail não informado%' OR email ILIKE 'não informado%' OR email ILIKE '%@import.placeholder%';`
 
-No painel, os 2 KPIs somam esses campos entre todos os donos.
+Afeta ~2.680 linhas. Com isso a UI mostra "—" em vez de texto ruído e evita que o `email` placeholder seja usado como identidade em merges/CRM. Nenhum lead perde identidade (todos têm `piperun_id` e/ou telefone).
 
-## Mudanças
+Também protege o formulário de "Adicionar dono manual": hoje a busca por e-mail retornaria a string placeholder e poderia confundir o operador.
 
-### 1. Migration — `fn_rayshape_owners()`
+## Fora do escopo
 
-- Ajustar `is_combo` da CTE de proposals para exigir presença de scanner intraoral na mesma proposta (regex acima) além do item Edge Mini.
-- Calcular `edge_purchase_at` (min `won_at` da proposta que tem Edge Mini).
-- LEFT JOIN em `deals` ganhos do mesmo `lead_id` com `won_at > edge_purchase_at` e somar `value` → `recompra_brl`.
-- Retornar novas colunas: `edge_purchase_at timestamptz`, `recompra_combo_brl numeric`, `recompra_separado_brl numeric`.
+- Não mexer em thresholds (Crítico ≥180d etc.), na definição de `status='ganha'`, em manual owners, na função `fn_rayshape_status`, nem em nenhuma outra tela.
+- Não alterar o processo de ingestão que grava esse placeholder (isso fica para outro plano — aqui só limpo o histórico).
 
-### 2. Frontend — `src/components/SmartOpsRayshape.tsx`
+## Detalhes técnicos
 
-- Estender `Owner` com `edge_purchase_at`, `recompra_combo_brl`, `recompra_separado_brl`.
-- Em `useMemo(kpis)`, somar:
-  - `recompraCombo = Σ recompra_combo_brl`
-  - `recompraSeparado = Σ recompra_separado_brl`
-- Adicionar 2 cards de KPI (grid expande de 6 → 8) formatando em BRL.
-- Sem alteração nos filtros/badges já existentes.
+- **Migração SQL 1**: `CREATE OR REPLACE FUNCTION public.fn_rayshape_owners()` com o novo predicado combo. Corpo idêntico ao atual exceto pelo `OR EXISTS` adicional.
+- **Data-fix (via insert tool, não migração)**: `UPDATE lia_attendances SET email = NULL, updated_at = now() WHERE email ILIKE 'e-mail não informado%' OR email ILIKE 'não informado%' OR email ILIKE '%@import.placeholder%';`
+- Sem mudanças em código frontend — `SmartOpsRayshape.tsx` já lê `sale_kind`, `recompra_combo_brl`, `recompra_separado_brl` e trata `lead_email` nulo.
 
-## Fora de escopo
+## Validação
 
-- Não muda thresholds nem lista de donos.
-- Não inclui deals `is_deleted=true`.
-- Não altera `fn_rayshape_status`.
-
-## Verificação
-
-- Rodar `SELECT sale_kind, count(*), sum(recompra_combo_brl), sum(recompra_separado_brl) FROM fn_rayshape_owners() GROUP BY 1` para conferir totais.
-- Amostrar 3 donos combo e 3 separado, conferindo `edge_purchase_at` e os deals ganhos posteriores.
+Após aplicar:
+1. `SELECT count(*) filter (where row->>'sale_kind'='combo') FROM jsonb_array_elements(fn_rayshape_owners()) row;` — esperado subir de 1 para ~10–15.
+2. Checar que Clinica Kignel, REJANE, CAJU Odontologia, Cibely Cândido migram para "combo".
+3. Recarregar o card de DENIZE — coluna e-mail passa a mostrar "—".
