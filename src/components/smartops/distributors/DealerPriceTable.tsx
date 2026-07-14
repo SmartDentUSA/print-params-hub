@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 
 const I18N: Record<string, Record<string, string>> = {
@@ -393,7 +393,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(i);
     });
-    return Array.from(map.entries());
+    return Array.from(map.entries()).sort(([, a], [, b]) => {
+      const ra = categoryRank(a[0]?.category, a[0]?.subcategory);
+      const rb = categoryRank(b[0]?.category, b[0]?.subcategory);
+      return ra - rb;
+    });
   }, [items, t, showInactive]);
 
   const lineTotal = (it: DealerPriceItem) =>
