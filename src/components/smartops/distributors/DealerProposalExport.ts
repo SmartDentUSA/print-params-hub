@@ -379,12 +379,14 @@ export async function exportPriceTableDocx(
   const currency = list?.currency ?? "BRL";
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
+  const imgs = await preloadImages(items);
 
   // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
-  const widths = [1000, 3600, 1800, 1400, 1800, 900, 1400, 1000, 1938]; // sums to 14838
+  // Columns: Foto | COD | Produto | Variante | NCM/HS | GTIN/EAN | Unid | Preço | Desc. | Preço dealer
+  const widths = [1100, 900, 3200, 1600, 1200, 1600, 800, 1400, 900, 2138]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
-  const headers = ["COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
+  const headers = ["Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -412,8 +414,9 @@ export async function exportPriceTableDocx(
     })],
   });
 
-  const itemRow = (it: DealerPriceItem) => new TableRow({
-    children: [
+  const itemRow = (it: DealerPriceItem) => {
+    const values: string[] = [
+      "", // photo
       it.cod ?? "—",
       it.name,
       it.variant ?? it.presentation ?? "—",
@@ -423,15 +426,47 @@ export async function exportPriceTableDocx(
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
       formatMoney(it.price_dealer, currency),
-    ].map((val, i) => new TableCell({
-      borders, width: { size: widths[i], type: WidthType.DXA },
-      margins: { top: 60, bottom: 60, left: 100, right: 100 },
-      children: [new Paragraph({
-        children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-        alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT,
-      })],
-    })),
-  });
+    ];
+    return new TableRow({
+      children: values.map((val, i) => {
+        // Photo column
+        if (i === 0) {
+          const entry = imgs.get(it.id);
+          let children: any[] = [new Paragraph({ children: [new TextRun("")] })];
+          if (entry) {
+            const type = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "jpg"
+              : entry.mime.includes("png") ? "png"
+              : entry.mime.includes("gif") ? "gif"
+              : "png";
+            try {
+              children = [new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new ImageRun({
+                  type: type as any,
+                  data: entry.bytes,
+                  transformation: { width: 60, height: 60 },
+                  altText: { title: it.name, description: it.name, name: it.name },
+                })],
+              })];
+            } catch { /* leave empty */ }
+          }
+          return new TableCell({
+            borders, width: { size: widths[i], type: WidthType.DXA },
+            margins: { top: 60, bottom: 60, left: 60, right: 60 },
+            children,
+          });
+        }
+        return new TableCell({
+          borders, width: { size: widths[i], type: WidthType.DXA },
+          margins: { top: 60, bottom: 60, left: 100, right: 100 },
+          children: [new Paragraph({
+            children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
+            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+          })],
+        });
+      }),
+    });
+  };
 
   // Build category-separated rows.
   const groups = groupItemsByCategory(items);
@@ -452,7 +487,10 @@ export async function exportPriceTableDocx(
     rows,
   });
 
-  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
+  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalDesc = totalTabela - totalDealer;
+  const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
 
   const doc = new Document({
     sections: [{
@@ -470,7 +508,9 @@ export async function exportPriceTableDocx(
         new Paragraph({ children: [new TextRun("")] }),
         table,
         new Paragraph({ children: [new TextRun("")] }),
-        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Total dealer: ${formatMoney(total, currency)}`, bold: true, size: 22 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Preço de tabela: ${formatMoney(totalTabela, currency)}`, size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Valor de desconto: ${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Preço Dealer: ${formatMoney(totalDealer, currency)}`, bold: true, size: 24 })] }),
         new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "WWW.SMARTDENT.COM.BR", bold: true })] }),
       ],
