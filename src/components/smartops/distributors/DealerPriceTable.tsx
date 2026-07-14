@@ -29,6 +29,7 @@ const I18N: Record<string, Record<string, string>> = {
     hUnit: "Unid (×)", hTablePrice: "Preço tabela (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
     catDiscount: "% Desc. categoria", apply: "Aplicar",
+    recalcFromCatalog: "Recalcular preços do catálogo",
   },
   es: {
     distributor: "Distribuidor", selectPlaceholder: "Seleccione un distribuidor…",
@@ -46,6 +47,7 @@ const I18N: Record<string, Record<string, string>> = {
     hUnit: "Unid (×)", hTablePrice: "Precio tabla (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
     catDiscount: "% Desc. categoría", apply: "Aplicar",
+    recalcFromCatalog: "Recalcular precios del catálogo",
   },
   en: {
     distributor: "Distributor", selectPlaceholder: "Select a distributor…",
@@ -63,6 +65,7 @@ const I18N: Record<string, Record<string, string>> = {
     hUnit: "Qty (×)", hTablePrice: "List price (Unit)", hDiscount: "% Disc.",
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
     catDiscount: "% Disc. category", apply: "Apply",
+    recalcFromCatalog: "Recalculate prices from catalog",
   },
 };
 
@@ -159,16 +162,25 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     setLoading(true);
     const { data: cat, error } = await supabase
       .from("system_a_catalog" as any)
-      .select("id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,currency")
+      .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,currency,ncm,gtin,presentation,presentation_qty,quantity_multiplier,extra_data")
       .eq("active", true);
     if (error) { toast.error(error.message); setLoading(false); return; }
     const existing = new Set(items.map((i) => i.catalog_product_id).filter(Boolean) as string[]);
+    const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    const priceFor = (p: any): { value: number; fallback: boolean } => {
+      const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
+      const n = Number(pick);
+      if (!isNaN(n) && n > 0) return { value: n, fallback: false };
+      const brl = Number(p.price) || 0;
+      return { value: brl, fallback: cur !== "BRL" && brl > 0 };
+    };
+    let fallbackCount = 0;
     const toInsert = ((cat as any) || [])
       .filter((p: any) => !existing.has(p.id))
       .map((p: any, idx: number) => ({
         price_list_id: list.id,
         catalog_product_id: p.id,
-        cod: null,
+        cod: p?.extra_data?.sku || p?.extra_data?.SKU || p?.external_id || null,
         name: p.name,
         name_en: p.name_en,
         name_es: p.name_es,
@@ -176,20 +188,58 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         category: p.product_category,
         subcategory: p.product_subcategory,
         description: p.description,
-        price_base: Number(p.price) || 0,
+        ncm_hs: p.ncm ?? p?.extra_data?.ncm ?? p?.extra_data?.NCM ?? null,
+        gtin_ean: p.gtin ?? p?.extra_data?.gtin ?? p?.extra_data?.ean ?? p?.extra_data?.GTIN ?? p?.extra_data?.EAN ?? null,
+        price_base: (() => { const r = priceFor(p); if (r.fallback) fallbackCount++; return r.value; })(),
         discount_pct: 0,
-        price_dealer: Number(p.price) || 0,
+        price_dealer: (() => { const r = priceFor(p); return r.value; })(),
         unidade: "UN",
-        presentation: "Unid",
-        quantity_multiplier: 1,
-        presentation_qty: null,
+        presentation: p.presentation ?? "Unid",
+        quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+        presentation_qty: p.presentation_qty ?? null,
         sort_order: items.length + idx,
       }));
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
     if (insErr) toast.error(insErr.message);
-    else toast.success(`${toInsert.length} produtos importados`);
+    else {
+      toast.success(`${toInsert.length} produtos importados (${cur})`);
+      if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
+    }
     await loadOrCreate(distributorId);
+  };
+
+  const recalcFromCatalog = async () => {
+    if (!list || items.length === 0) return;
+    const ids = items.map((i) => i.catalog_product_id).filter(Boolean) as string[];
+    if (ids.length === 0) { toast.info("Nenhum item ligado ao catálogo."); return; }
+    setSaving(true);
+    const { data: cat, error } = await supabase
+      .from("system_a_catalog" as any)
+      .select("id,price,price_usd,price_eur")
+      .in("id", ids);
+    if (error) { toast.error(error.message); setSaving(false); return; }
+    const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    const byId = new Map<string, any>(((cat as any) || []).map((p: any) => [p.id, p]));
+    let updated = 0;
+    let fallback = 0;
+    setItems((prev) =>
+      prev.map((it) => {
+        const p = it.catalog_product_id ? byId.get(it.catalog_product_id) : null;
+        if (!p) return it;
+        const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
+        let value = Number(pick);
+        if (!(value > 0)) { const brl = Number(p.price) || 0; value = brl; if (cur !== "BRL" && brl > 0) fallback++; }
+        if (!(value > 0)) return it;
+        const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
+        updated++;
+        return { ...it, price_base: value, price_dealer };
+      }),
+    );
+    setDirtyIds(new Set(items.map((i) => i.id)));
+    setSaving(false);
+    toast.success(`${updated} preços recalculados (${cur})`);
+    if (fallback > 0) toast.warning(`${fallback} itens sem preço em ${cur} — usando BRL como fallback`);
   };
 
   const updateField = (id: string, field: keyof DealerPriceItem, value: any) => {
@@ -365,6 +415,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            <Button size="sm" variant="outline" onClick={recalcFromCatalog} disabled={saving || items.length === 0} className="h-7">
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> {t.recalcFromCatalog}
+            </Button>
             <span className="text-muted-foreground">{t.language}:</span>
             <Select
               value={list.language || "pt"}
