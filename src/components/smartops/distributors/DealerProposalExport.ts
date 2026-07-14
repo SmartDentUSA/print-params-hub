@@ -169,6 +169,8 @@ export async function exportPriceTablePdf(
   const currency = list?.currency ?? "BRL";
   const locale = localeForLang(list?.language);
   const bg = await loadProposalBg();
+  // Preload product images (silent failure per item)
+  const imgs = await preloadImages(items);
 
   const empresa = distributor?.nome_fantasia ?? distributor?.razao_social ?? "—";
   const razao = distributor?.razao_social ?? "—";
@@ -186,50 +188,77 @@ export async function exportPriceTablePdf(
     if (paintedPages.has(pageNo)) return;
     paintedPages.add(pageNo);
     doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+    // Header field overlay — a compact block placed below the PNG title area,
+    // safely inside the margin so it never crops. This is layout-independent
+    // of the PNG label positions to guarantee alignment.
+    const boxX = 32;
+    const boxY = 118;
+    const boxW = pageW - 64;
+    const boxH = 92;
+    doc.setDrawColor(200);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 4, 4, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(20, 20, 20);
-
-    // Values overlayed on the labels baked into the background PNG.
-    doc.text(String(empresa).slice(0, 40),  70, 138);   // Empresa:
-    doc.text(String(razao).slice(0, 40),   330, 138);   // Razão Social:
-    doc.text(String(contato).slice(0, 60), 180, 148);   // Contato — Responsável de Compras:
-    doc.text(String(email).slice(0, 60),    60, 158);   // E-mail:
-    doc.text(String(pais).slice(0, 30),     55, 168);   // País:
-    doc.text(String(dealerId).slice(0, 20),130, 178);   // ID Dealer SmartDent:
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(dataStr, pageW - 30, 178, { align: "right" }); // DATA DA PROPOSTA
+    doc.setFontSize(8);
+    doc.setTextColor(90, 90, 90);
+    const labelCol1X = boxX + 8;
+    const valueCol1X = boxX + 90;
+    const labelCol2X = boxX + boxW / 2 + 4;
+    const valueCol2X = boxX + boxW / 2 + 86;
+    const rowY = (i: number) => boxY + 14 + i * 15;
+    const drawField = (lx: number, vx: number, i: number, label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text(label, lx, rowY(i));
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(20, 20, 20);
+      const maxW = (vx === valueCol1X ? labelCol2X - vx - 8 : boxX + boxW - vx - 8);
+      const text = doc.splitTextToSize(String(value || "—"), maxW)[0];
+      doc.text(text, vx, rowY(i));
+    };
+    drawField(labelCol1X, valueCol1X, 0, "EMPRESA",  empresa);
+    drawField(labelCol2X, valueCol2X, 0, "RAZÃO SOCIAL", razao);
+    drawField(labelCol1X, valueCol1X, 1, "CONTATO", contato);
+    drawField(labelCol2X, valueCol2X, 1, "E-MAIL",   email);
+    drawField(labelCol1X, valueCol1X, 2, "PAÍS",     pais);
+    drawField(labelCol2X, valueCol2X, 2, "ID DEALER", dealerId);
+    drawField(labelCol1X, valueCol1X, 3, "DATA",     dataStr);
+    drawField(labelCol2X, valueCol2X, 3, "MOEDA",    currency);
     doc.setTextColor(0, 0, 0);
   };
 
   drawPageChrome();
 
-  // Table area: y 160 → 790 (footer starts ~800)
-  const tableTop = 210;
-  const tableBottom = 790;
+  // Table area: header block ends at y=210 — start table below.
+  const tableTop = 224;
+  const tableBottom = 780;
   const leftMargin = 28;
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // Compact 9-column layout fits contentW = 539pt exactly (sum = 539).
+  // 10-column layout with a photo column. Sum = 539pt = contentW.
   const head = [[
-    "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
+    "Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
     "Unid", "Preço tabela", "% Desc.", "Preço dealer",
   ]];
+  const PHOTO_COL_W = 38;
   const columnStyles: Record<number, any> = {
-    0: { cellWidth: 46 },
-    1: { cellWidth: 155 },
-    2: { cellWidth: 60 },
-    3: { cellWidth: 46 },
-    4: { cellWidth: 62 },
-    5: { cellWidth: 30, halign: "right" },
-    6: { cellWidth: 55, halign: "right" },
-    7: { cellWidth: 35, halign: "right" },
-    8: { cellWidth: 50, halign: "right", fontStyle: "bold" },
+    0: { cellWidth: PHOTO_COL_W, halign: "center" },
+    1: { cellWidth: 42 },
+    2: { cellWidth: 132 },
+    3: { cellWidth: 55 },
+    4: { cellWidth: 44 },
+    5: { cellWidth: 60 },
+    6: { cellWidth: 26, halign: "right" },
+    7: { cellWidth: 55, halign: "right" },
+    8: { cellWidth: 33, halign: "right" },
+    9: { cellWidth: 54, halign: "right", fontStyle: "bold" },
   };
 
   const rowFor = (it: DealerPriceItem) => [
+    "", // photo cell (drawn in didDrawCell)
     it.cod ?? "—",
     it.name,
     it.variant ?? it.presentation ?? "—",
@@ -276,7 +305,7 @@ export async function exportPriceTablePdf(
         margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
         body: sub.rows.map(rowFor),
-        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3 },
+        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 30 },
         headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7.5, fontStyle: "bold" },
         columnStyles,
         theme: "grid",
@@ -285,17 +314,57 @@ export async function exportPriceTablePdf(
           // rows remain visible. Guarded to run once per page.
           drawPageChrome();
         },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const it = sub.rows[data.row.index];
+          if (!it) return;
+          const entry = imgs.get(it.id);
+          if (!entry) return;
+          const pad = 2;
+          const size = Math.min(data.cell.width, data.cell.height) - pad * 2;
+          const x = data.cell.x + (data.cell.width - size) / 2;
+          const y = data.cell.y + (data.cell.height - size) / 2;
+          const fmt = entry.mime.includes("jpeg") || entry.mime.includes("jpg") ? "JPEG" : "PNG";
+          try {
+            doc.addImage(entry.dataUrl, fmt, x, y, size, size, undefined, "FAST");
+          } catch {
+            /* skip broken image */
+          }
+        },
       });
       cursorY = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 4;
     }
   }
 
-  // Total dealer
-  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
-  ensureSpace(24);
+  // Footer totals: Preço de tabela / Valor de desconto / Preço Dealer
+  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
+  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalDesc = totalTabela - totalDealer;
+  const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
+  ensureSpace(72);
+  const boxX = pageW - rightMargin - 240;
+  const boxY = cursorY + 6;
+  doc.setDrawColor(200);
+  doc.setFillColor(248, 249, 250);
+  doc.roundedRect(boxX, boxY, 240, 60, 4, 4, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text("Preço de tabela:", boxX + 10, boxY + 16);
+  doc.text("Valor de desconto:", boxX + 10, boxY + 32);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(`Total dealer: ${formatMoney(total, currency)}`, pageW - rightMargin, cursorY + 14, { align: "right" });
+  doc.setTextColor(20, 20, 20);
+  doc.text("Preço Dealer:", boxX + 10, boxY + 51);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text(formatMoney(totalTabela, currency), boxX + 230, boxY + 16, { align: "right" });
+  doc.text(`${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, boxX + 230, boxY + 32, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  doc.text(formatMoney(totalDealer, currency), boxX + 230, boxY + 51, { align: "right" });
 
   doc.save(`${fileBase(distributor, list, opts.filenamePrefix ?? "tabela-preco")}.pdf`);
 }
