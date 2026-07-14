@@ -100,7 +100,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-eventos", title: "Eventos", icon: CalendarDays },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
       { id: "so-rayshape", title: "Rayshape", icon: Printer },
-      { id: "so-stripe", title: "Stripe / Pagamentos", icon: CreditCard },
+      { id: "so-stripe", title: "Stripe / Pagamentos - RMS", icon: CreditCard },
     ],
   },
   {
