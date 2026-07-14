@@ -380,6 +380,22 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? `${kpis.avgFirstDays}d` : "—"}
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
+          <ul className="mt-2 pt-2 border-t border-border/40 space-y-0.5 text-[11px]">
+            <li className={`flex justify-between ${kpis.firstDaysSeparado.count === 0 ? "opacity-50" : ""}`}>
+              <span className="text-sky-400">Separado</span>
+              <span className="tabular-nums text-foreground">
+                {kpis.firstDaysSeparado.count ? `${kpis.firstDaysSeparado.avg}d` : "—"}
+                <span className="text-muted-foreground"> · {kpis.firstDaysSeparado.count} lead{kpis.firstDaysSeparado.count !== 1 ? "s" : ""}</span>
+              </span>
+            </li>
+            <li className={`flex justify-between ${kpis.firstDaysCombo.count === 0 ? "opacity-50" : ""}`}>
+              <span className="text-purple-400">Combo</span>
+              <span className="tabular-nums text-foreground">
+                {kpis.firstDaysCombo.count ? `${kpis.firstDaysCombo.avg}d` : "—"}
+                <span className="text-muted-foreground"> · {kpis.firstDaysCombo.count} lead{kpis.firstDaysCombo.count !== 1 ? "s" : ""}</span>
+              </span>
+            </li>
+          </ul>
         </Card>
         {[
           { title: "Produto principal na 1ª compra", idx: 0 },
