@@ -30,27 +30,36 @@ export function DistributorsHub() {
   useEffect(() => { loadDistributors(); }, []);
 
   return (
-    <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="cadastro">Distribuidores</TabsTrigger>
-        <TabsTrigger value="catalogo">Catálogo de Produtos</TabsTrigger>
-        <TabsTrigger value="tabela">Tabela de Preço</TabsTrigger>
-        <TabsTrigger value="proposta">Gerar Proposta</TabsTrigger>
-      </TabsList>
-
-      <div className="text-xs text-muted-foreground leading-relaxed border rounded-md p-2 bg-muted/40">
-        {TAB_HELP[tab]}
+    <div className="space-y-4">
+      <div className="border-l-4 border-primary bg-primary/5 rounded-md px-3 py-2">
+        <h3 className="text-base font-semibold">Distribuição — Tabelas de Preço & Propostas</h3>
+        <p className="text-xs text-muted-foreground">
+          Escolha uma das quatro seções abaixo para gerenciar distribuidores, catálogo, tabelas de preço e propostas comerciais.
+        </p>
       </div>
 
-      <TabsContent value="cadastro"><SmartOpsDistributors /></TabsContent>
-      <TabsContent value="catalogo"><DealerCatalogGrid /></TabsContent>
-      <TabsContent value="tabela">
-        <DealerPriceTable
-          distributors={distributors}
-          onGenerateProposal={() => setTab("proposta")}
-        />
-      </TabsContent>
-      <TabsContent value="proposta"><DealerProposalWizard distributors={distributors} /></TabsContent>
-    </Tabs>
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full h-auto gap-1 bg-muted p-1">
+          <TabsTrigger value="cadastro" className="data-[state=active]:bg-background">👥 Distribuidores</TabsTrigger>
+          <TabsTrigger value="catalogo" className="data-[state=active]:bg-background">📦 Catálogo de Produtos</TabsTrigger>
+          <TabsTrigger value="tabela" className="data-[state=active]:bg-background">💰 Tabela de Preço</TabsTrigger>
+          <TabsTrigger value="proposta" className="data-[state=active]:bg-background">📄 Gerar Proposta</TabsTrigger>
+        </TabsList>
+
+        <div className="text-xs text-muted-foreground leading-relaxed border rounded-md p-2 bg-muted/40">
+          {TAB_HELP[tab]}
+        </div>
+
+        <TabsContent value="cadastro"><SmartOpsDistributors /></TabsContent>
+        <TabsContent value="catalogo"><DealerCatalogGrid /></TabsContent>
+        <TabsContent value="tabela">
+          <DealerPriceTable
+            distributors={distributors}
+            onGenerateProposal={() => setTab("proposta")}
+          />
+        </TabsContent>
+        <TabsContent value="proposta"><DealerProposalWizard distributors={distributors} /></TabsContent>
+      </Tabs>
+    </div>
   );
 }
