@@ -1,49 +1,29 @@
-# Plano: Ajustes nos KPIs de Produto na 1ª Compra (Rayshape)
+# Plano: Corrigir Descompasso "Recompraram" × KPIs de Produto (Rayshape)
 
-Três ajustes no bloco de KPIs do painel Rayshape — Donos:
+## Causa
 
-## 1. Renomear "MODEL PLUS - 1 KG" → "Resina 3D Smart Print Model Plus"
+`fn_rayshape_product_units` reconstrói a data da impressora com `((o->>'printer_date_iso')::date)::timestamptz` (meia-noite UTC), enquanto `fn_rayshape_owners.post` usa o timestamptz real (`p.printer_date` em America/Sao_Paulo). Isso faz o filtro `closed_at > printer_date` da RPC de unidades ficar frouxo — deals do próprio dia da impressora (combo, kit chairside com Bio Vitality) entram como "pós-compra" no card de unidades, mas não em `n_post`. Resultado: 98 leads em Vitality mas só 53 marcados como "Recompraram".
 
-O card **Produto principal na 1ª compra** mostra hoje o nome cru (`MODEL PLUS - 1 KG`). Normalizar somente na exibição, sem alterar dado no banco.
+## Decisão de negócio (já confirmada)
 
-- Em `src/components/SmartOpsRayshape.tsx`, criar helper `normalizeProductName(raw)` com regras case-insensitive:
-  - `/model\s*plus/i` → `Resina 3D Smart Print Model Plus`
-  - estrutura extensível para futuros aliases.
-- Aplicar o normalize antes de contar (`productCounts`) e ao exibir — variações (`MODEL PLUS - 1 KG`, `Model Plus 1kg`, etc.) somam no mesmo bucket.
+Manter definição **estrita**: recompra = venda com `closed_at > printer_date` real (data e hora). Itens do combo/kit chairside que saem junto da impressora **não** contam como recompra.
 
-## 2. Adicionar quantidade (unidades) ao card do produto principal
+## Correção (backend)
 
-Hoje o card mostra só o nome + `N leads`. Passará a exibir também as **unidades** desse produto acumuladas nas 1ªs recompras.
+Substituir `fn_rayshape_product_units` para usar o timestamp real:
 
-- Expandir `fn_rayshape_owners` para retornar `first_repurchase_qty numeric` (soma de `qtd` do item mais valioso não-impressora da 1ª deal pós-impressora, por lead).
-- No frontend, acumular `topProductQty` junto com `topProductCount`.
-- Renderizar `X un. · N leads` embaixo do nome.
+- Trocar `((o->>'printer_date_iso')::date)::timestamptz` por `(o->>'edge_purchase_at')::timestamptz` no CTE `owners`.
+- `edge_purchase_at` já vem no payload de `fn_rayshape_owners`.
+- Mantém o resto igual: JOIN em `deals` com `status='ganha'`, `closed_at > printer_date`, exclusão explícita do próprio item da impressora, `qtd` do `deal_items` jsonb.
 
-## 3. Novos KPIs: **2º** e **3º** produto mais comprado na 1ª compra
-
-Após "Produto principal na 1ª compra", adicionar dois cards análogos:
-
-- **2º produto mais comprado na 1ª compra**
-- **3º produto mais comprado na 1ª compra**
-
-Reaproveitar o mesmo `productCounts` (já normalizado) para pegar o **top 3** por `leads` (contagem de leads que compraram aquele produto como 1ª recompra), desempate por `units` desc.
-
-Cada card mostra:
-- Nome normalizado do produto (line-clamp-2).
-- `X un. · N leads` abaixo.
-- Se não houver 2º/3º (poucos dados), exibir `—` com opacidade reduzida.
-
-## Arquivos
-
-- **Migration**: `CREATE OR REPLACE fn_rayshape_owners()` incluindo `first_repurchase_qty` no CTE `first_deal_product`.
-- **Editar** `src/components/SmartOpsRayshape.tsx`:
-  - novo `normalizeProductName`;
-  - `useMemo` calcula `topProducts: {label, leads, units}[]` (top 3);
-  - grid de KPIs ganha 2 cards novos (2º e 3º);
-  - display do 1º card já usa `topProducts[0]` com quantidade.
+Efeito esperado: números de "unidades vendidas" e do card de "Produto principal / 2º / 3º" ficam alinhados com o KPI "Recompraram". Vitality deve cair de 98 para ~53 leads.
 
 ## Fora do escopo
 
-- Não alterar `deals`/`deal_items`.
-- Não mexer na seção "Unidades vendidas — pós-compra da impressora".
-- Não tocar em outros KPIs, filtros ou tabela de donos.
+- Não alterar `fn_rayshape_owners`.
+- Não mudar frontend — só a RPC.
+- Não tocar em outros KPIs, tabela ou filtros.
+
+## Arquivos
+
+- **Migration**: `CREATE OR REPLACE FUNCTION public.fn_rayshape_product_units()` com o ajuste do timestamp.
