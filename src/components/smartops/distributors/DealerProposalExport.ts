@@ -257,36 +257,79 @@ export async function exportPriceTableDocx(
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
 
-  // Landscape A4 content width = 16838 - 2*1440 = 13958 DXA
-  const totalW = 13958;
-  const widths = [900, 3400, 1800, 1800, 1400, 1600, 1258, 1800]; // sums to 13958
-  const headers = ["COD", "Produto", "Variante", "GTIN/EAN", "NCM/HS", "Preço", "Desc.", "Preço dealer"];
+  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
+  const widths = [1000, 3600, 1800, 1400, 1800, 900, 1400, 1000, 1938]; // sums to 14838
+  const totalW = widths.reduce((a, b) => a + b, 0);
+  const colCount = widths.length;
+  const headers = ["COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
 
   const headerRow = new TableRow({
     tableHeader: true,
     children: headers.map((h, i) => new TableCell({
       borders, width: { size: widths[i], type: WidthType.DXA },
-      shading: { fill: "1F1F1F", type: ShadingType.CLEAR, color: "auto" },
+      shading: { fill: "374151", type: ShadingType.CLEAR, color: "auto" },
+      margins: { top: 80, bottom: 80, left: 100, right: 100 },
       children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: "FFFFFF" })] })],
     })),
   });
 
-  const bodyRows = items.map((it) => new TableRow({
+  const bandRow = (label: string, dark: boolean) => new TableRow({
+    children: [new TableCell({
+      borders,
+      width: { size: totalW, type: WidthType.DXA },
+      columnSpan: colCount,
+      shading: { fill: dark ? "1F1F1F" : "E5E5E5", type: ShadingType.CLEAR, color: "auto" },
+      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      children: [new Paragraph({ children: [new TextRun({
+        text: dark ? label.toUpperCase() : label,
+        bold: true,
+        color: dark ? "FFFFFF" : "1F1F1F",
+        size: dark ? 22 : 20,
+      })] })],
+    })],
+  });
+
+  const itemRow = (it: DealerPriceItem) => new TableRow({
     children: [
-      it.cod ?? "—", it.name, it.variant ?? "—", it.gtin_ean ?? "—", it.ncm_hs ?? "—",
-      formatMoney(it.price_base, currency), `${Number(it.discount_pct).toFixed(1)}%`, formatMoney(it.price_dealer, currency),
+      it.cod ?? "—",
+      it.name,
+      it.variant ?? it.presentation ?? "—",
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
+      it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
+      formatMoney(it.price_base, currency),
+      `${Number(it.discount_pct).toFixed(1)}%`,
+      formatMoney(it.price_dealer, currency),
     ].map((val, i) => new TableCell({
       borders, width: { size: widths[i], type: WidthType.DXA },
       margins: { top: 60, bottom: 60, left: 100, right: 100 },
-      children: [new Paragraph({ children: [new TextRun(String(val))], alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT })],
+      children: [new Paragraph({
+        children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
+        alignment: i >= 5 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+      })],
     })),
-  }));
+  });
+
+  // Build category-separated rows.
+  const groups = groupItemsByCategory(items);
+  const rows: TableRow[] = [headerRow];
+  for (const grp of groups) {
+    rows.push(bandRow(grp.category, true));
+    for (const sub of grp.subs) {
+      if (grp.subs.length > 1 || sub.subcategory !== "Geral") {
+        rows.push(bandRow(sub.subcategory, false));
+      }
+      for (const it of sub.rows) rows.push(itemRow(it));
+    }
+  }
 
   const table = new Table({
     width: { size: totalW, type: WidthType.DXA },
     columnWidths: widths,
-    rows: [headerRow, ...bodyRows],
+    rows,
   });
+
+  const total = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
 
   const doc = new Document({
     sections: [{
