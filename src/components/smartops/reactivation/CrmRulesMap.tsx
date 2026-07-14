@@ -4,11 +4,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const flows = [
-  { name: "Pessoa / Empresa / Deal", edge: "smart-ops-lia-assign", tables: ["lia_attendances", "deals", "team_members"], guards: ["golden_rule", "commercial_intent", "person_origin_frozen", "cognitive_lock"] },
-  { name: "Nota unificada de vendedor", edge: "smart-ops-lia-assign", tables: ["smartops_deal_note_locks"], guards: ["seller_note_slot_lock"] },
-  { name: "Reativação LTV (novo)", edge: "smart-ops-ltv-reactivation", tables: ["ltv_reactivation_rules", "ltv_reactivation_runs", "deals"], guards: ["golden_rule", "dedupe", "cooldown"] },
-  { name: "Régua CS pós-venda", edge: "smart-ops-cs-processor", tables: ["cs_automation_rules", "cs_onboarding_mover_queue"], guards: ["schedule_window"] },
-  { name: "Webhook PipeRun (status/stage)", edge: "smart-ops-piperun-webhook", tables: ["piperun_webhook_events", "deals", "piperun_stage_transitions"], guards: ["dedupe_event"] },
+  {
+    name: "Pessoa / Empresa / Deal",
+    purpose:
+      "Fluxo primário que cria/atualiza Pessoa e Empresa no PipeRun a partir do lead e, quando há intenção comercial válida, abre Deal em VENDAS. Aplica Golden Rule (nunca duplica deal aberto/recente), congela origem da Pessoa no primeiro contato e usa lock cognitivo para evitar corrida.",
+    edge: "smart-ops-lia-assign",
+    tables: ["lia_attendances", "deals", "team_members"],
+    guards: ["golden_rule", "commercial_intent", "person_origin_frozen", "cognitive_lock"],
+  },
+  {
+    name: "Nota unificada de vendedor",
+    purpose:
+      "Injeta uma única nota-resumo do lead no card do PipeRun contendo formulários, produtos de interesse e contexto comercial. RPC atômica garante que apenas uma execução escreve a nota, mesmo com múltiplas edges disparando ao mesmo tempo.",
+    edge: "smart-ops-lia-assign",
+    tables: ["smartops_deal_note_locks"],
+    guards: ["seller_note_slot_lock"],
+  },
+  {
+    name: "Reativação LTV (novo)",
+    purpose:
+      "Após um deal GANHO em VENDAS, agenda deals em um funil LTV separado (D+30/60/120…) para revenda e cross-sell, sem tocar no card de CS. Respeita cooldown por lead e dedupe por (rule, source_deal, trigger_day).",
+    edge: "smart-ops-ltv-reactivation",
+    tables: ["ltv_reactivation_rules", "ltv_reactivation_runs", "deals"],
+    guards: ["golden_rule", "dedupe", "cooldown"],
+  },
+  {
+    name: "Régua CS pós-venda",
+    purpose:
+      "Automações de Customer Success após venda ganha: onboarding, movimentação no funil CS, mensagens agendadas e disparo de e-mails/WhatsApp. Respeita janelas de horário e status do cliente.",
+    edge: "smart-ops-cs-processor",
+    tables: ["cs_automation_rules", "cs_onboarding_mover_queue"],
+    guards: ["schedule_window"],
+  },
+  {
+    name: "Webhook PipeRun (status/stage)",
+    purpose:
+      "Recebe do PipeRun mudanças de etapa, ganho e perda de deals. Grava histórico de transições, atualiza real_status do lead e sincroniza campos custom. Deduplica eventos repetidos pelo event_id.",
+    edge: "smart-ops-piperun-webhook",
+    tables: ["piperun_webhook_events", "deals", "piperun_stage_transitions"],
+    guards: ["dedupe_event"],
+  },
 ];
 
 export function CrmRulesMap() {
@@ -39,6 +74,7 @@ export function CrmRulesMap() {
           <Card key={f.name}>
             <CardHeader className="pb-2"><CardTitle className="text-base">{f.name}</CardTitle></CardHeader>
             <CardContent className="text-sm space-y-2">
+              <p className="text-muted-foreground text-xs leading-relaxed">{f.purpose}</p>
               <div><span className="text-muted-foreground">Edge:</span> <code className="text-xs">{f.edge}</code></div>
               <div>
                 <span className="text-muted-foreground text-xs">Tabelas: </span>
