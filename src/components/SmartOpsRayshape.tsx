@@ -175,6 +175,18 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
+    const firstDaysBy = (kind: SaleKind) => {
+      const arr = owners
+        .filter(o => o.sale_kind === kind)
+        .map(o => o.first_repurchase_days)
+        .filter((v): v is number => typeof v === "number" && v >= 0);
+      return {
+        avg: arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0,
+        count: arr.length,
+      };
+    };
+    const firstDaysSeparado = firstDaysBy("separado");
+    const firstDaysCombo    = firstDaysBy("combo");
     // Agrupa produtos da 1ª recompra com nome normalizado; soma leads e unidades.
     const bucket = new Map<string, { label: string; leads: number; units: number }>();
     for (const o of owners) {
@@ -209,6 +221,7 @@ export function SmartOpsRayshape() {
     return {
       total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado,
       avgFirstDays, firstDaysCount: firstDaysArr.length,
+      firstDaysSeparado, firstDaysCombo,
       topProducts, vendorsByCategory,
       pctRecomp: total ? Math.round((recomp / total) * 100) : 0,
     };
