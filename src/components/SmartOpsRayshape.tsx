@@ -452,6 +452,19 @@ export function SmartOpsRayshape() {
                   <div className="text-[11px] text-muted-foreground">
                     {p.leads} lead{p.leads !== 1 ? "s" : ""}
                   </div>
+                  {p.product_key === "bio_vitality" && vitalityShades.length > 0 && (
+                    <ul className="mt-2 pt-2 border-t border-border/40 space-y-0.5 text-[11px]">
+                      {vitalityShades.map((s) => (
+                        <li
+                          key={s.shade_key}
+                          className={`flex justify-between ${s.units === 0 ? "opacity-50" : ""}`}
+                        >
+                          <span className="text-muted-foreground">{s.shade_label}</span>
+                          <span className="tabular-nums text-foreground">{s.units.toLocaleString("pt-BR")}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Card>
               );
             })}
