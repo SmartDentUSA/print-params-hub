@@ -34,6 +34,7 @@ interface Owner {
   n_post: number;
   total_post: number;
   first_repurchase_days: number | null;
+  last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
 }
@@ -286,6 +287,7 @@ export function SmartOpsRayshape() {
                   <th className="text-left p-3">Comprou em</th>
                   <th className="text-right p-3">Dias</th>
                   <th className="text-right p-3">Recompras</th>
+                  <th className="text-left p-3">Última recompra</th>
                   <th className="text-right p-3">Total recompra</th>
                   <th className="text-left p-3">Status</th>
                 </tr>
@@ -310,6 +312,7 @@ export function SmartOpsRayshape() {
                     <td className="p-3 text-foreground/80">{fmtDate(o.printer_date_iso)}</td>
                     <td className="p-3 text-right text-foreground/80">{o.days_since}d</td>
                     <td className="p-3 text-right text-foreground/80">{o.n_post}</td>
+                    <td className="p-3 text-foreground/80">{fmtDate(o.last_repurchase_iso)}</td>
                     <td className="p-3 text-right text-foreground/80">{fmtBRL(o.total_post)}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
