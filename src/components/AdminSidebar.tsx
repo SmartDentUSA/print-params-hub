@@ -97,6 +97,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-mapeamento", title: "Mapeamento 7×3", icon: Map },
       { id: "so-campanhas", title: "Campanhas", icon: Megaphone },
       { id: "so-distribuicao", title: "Distribuição", icon: Truck },
+      { id: "so-reativacao", title: "Reativação & Fluxos", icon: Bot },
       { id: "so-eventos", title: "Eventos", icon: CalendarDays },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
       { id: "so-rayshape", title: "Rayshape", icon: Printer },
