@@ -1,24 +1,40 @@
-# Plano: Valor em R$ por Produto na seção "Unidades vendidas"
+## Objetivo
+Dentro do card **Resina 3D Smart Print Bio Vitality** (seção "Unidades vendidas — pós-compra da impressora"), exibir a quebra por tonalidade: BL1, B1, A2, A3, BL1 HT, B1 HT, A2 HT — cada uma com a quantidade vendida.
 
-Adicionar o **valor total em reais** vendido de cada produto na seção *Unidades vendidas — pós-compra da impressora*, ao lado das unidades já exibidas.
+Obs.: nos dados reais existe **A3** (não A3.5). Usarei **A3**, mantendo a ordem pedida (BL1, B1, A2, A3, BL1 HT, B1 HT, A2 HT). Se preferir esconder a linha A3, é só avisar.
 
 ## Backend
+Nova RPC `public.fn_rayshape_vitality_shades()` — mesma base de `fn_rayshape_product_units` (owners com impressora + deals ganhos pós-impressora), filtrando itens que combinam com `%vitality%` e classificando por shade via regex/`ILIKE`:
 
-Atualizar `fn_rayshape_product_units()` para retornar também `revenue numeric`:
+```text
+shade_key | label   | pattern
+bl1_ht    | BL1 HT  | %vitality%bl1%ht%
+b1_ht     | B1 HT   | %vitality%b1%ht%   (excluindo bl1)
+a2_ht     | A2 HT   | %vitality%a2%ht%
+bl1       | BL1     | %vitality%bl1%  (sem HT)
+b1        | B1      | %vitality%b1%   (sem HT e sem bl1)
+a2        | A2      | %vitality%a2%   (sem HT)
+a3        | A3      | %vitality%a3%
+```
 
-- No CTE `post_items`, incluir `COALESCE((item->>'total')::numeric, 0) AS total`.
-- No `SELECT` final, `SUM(mt.total)` agregado por produto → coluna `revenue`.
-- Assinatura passa a: `TABLE(product_key, product_label, units, leads, revenue, ord)`.
+Retorno: `TABLE(shade_key text, shade_label text, units numeric, ord int)`, ordenado como acima.
 
 ## Frontend (`src/components/SmartOpsRayshape.tsx`)
+1. Novo state `vitalityShades: { shade_key; shade_label; units; ord }[]`.
+2. Carregar via `supabase.rpc('fn_rayshape_vitality_shades')` no mesmo bloco `loadAll` que já busca `productUnits`.
+3. No `.map` dos cards, quando `p.product_key === 'bio_vitality'`, renderizar abaixo dos totais um bloco compacto:
+   ```
+   BL1 — 12
+   B1  — 8
+   A2  — 5
+   A3  — 3
+   BL1 HT — 4
+   B1 HT  — 2
+   A2 HT  — 1
+   ```
+   Estilo: `text-[11px]`, `ul` sem bullet, valores alinhados à direita, `opacity-50` quando `units===0`.
 
-1. Ampliar o state `productUnits` para incluir `revenue: number`.
-2. Mapear `revenue: Number(r.revenue) || 0` no `load`.
-3. Nos cards da seção, adicionar linha extra abaixo das unidades com o valor em BRL formatado (`fmtBRL`).
-4. No cabeçalho da seção, exibir também o **total em R$** de todos os produtos ao lado do total de unidades.
-5. Ordenação continua por `units` desc (com desempate por `ord`) — o valor é informação adicional, não muda a ordem.
-
-## Fora do escopo
-
-- Não tocar em outros KPIs.
-- Não mexer em `fn_rayshape_owners`.
+## Fora de escopo
+- Não altero `fn_rayshape_product_units` nem outros cards.
+- Sem breakdown por shade em outros produtos.
+- Sem valor R$ por shade (só quantidade, como pedido).
