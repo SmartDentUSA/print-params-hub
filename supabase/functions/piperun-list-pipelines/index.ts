@@ -22,8 +22,15 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const resource = url.searchParams.get('resource') || 'pipelines'; // pipelines | stages | loss_reasons
-    const pipelineId = url.searchParams.get('pipeline_id');
+    let resource = url.searchParams.get('resource') || 'pipelines';
+    let pipelineId = url.searchParams.get('pipeline_id');
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        if (body?.resource) resource = String(body.resource);
+        if (body?.pipeline_id) pipelineId = String(body.pipeline_id);
+      } catch { /* ignore */ }
+    }
 
     let path = 'pipelines';
     const params: Record<string, string | number> = { show: 200 };
