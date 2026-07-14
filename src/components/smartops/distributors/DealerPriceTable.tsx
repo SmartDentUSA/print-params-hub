@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS } from "./types";
@@ -33,6 +34,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
     catDiscount: "% Desc. categoria", apply: "Aplicar",
     recalcFromCatalog: "Recalcular preços do catálogo",
+    active: "Ativo", inactive: "Inativo", showInactive: "Mostrar inativos",
+    deleteSnapshot: "Excluir", confirmDeleteSnapshot: "Excluir esta cotação do histórico? Esta ação não pode ser desfeita.",
+    snapshotDeleted: "Cotação removida do histórico",
   },
   es: {
     distributor: "Distribuidor", selectPlaceholder: "Seleccione un distribuidor…",
@@ -54,6 +58,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
     catDiscount: "% Desc. categoría", apply: "Aplicar",
     recalcFromCatalog: "Recalcular precios del catálogo",
+    active: "Activo", inactive: "Inactivo", showInactive: "Mostrar inactivos",
+    deleteSnapshot: "Eliminar", confirmDeleteSnapshot: "¿Eliminar esta cotización del historial? Esta acción no se puede deshacer.",
+    snapshotDeleted: "Cotización eliminada del historial",
   },
   en: {
     distributor: "Distributor", selectPlaceholder: "Select a distributor…",
@@ -75,6 +82,9 @@ const I18N: Record<string, Record<string, string>> = {
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
     catDiscount: "% Disc. category", apply: "Apply",
     recalcFromCatalog: "Recalculate prices from catalog",
+    active: "Active", inactive: "Inactive", showInactive: "Show inactive",
+    deleteSnapshot: "Delete", confirmDeleteSnapshot: "Delete this quote from history? This cannot be undone.",
+    snapshotDeleted: "Quote removed from history",
   },
 };
 
@@ -91,6 +101,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [catDiscount, setCatDiscount] = useState<Record<string, string>>({});
+  const [showInactive, setShowInactive] = useState(false);
 
   const distributor = distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
@@ -172,7 +183,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     const { data: cat, error } = await supabase
       .from("system_a_catalog" as any)
       .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,currency,ncm,gtin,presentation,presentation_qty,quantity_multiplier,extra_data")
-      .eq("active", true);
+      // Import completo do catálogo aprovado. O toggle Ativo/Inativo é LOCAL da Distribuição
+      // (dealer_price_items.is_active) e NÃO reflete no system_a_catalog.
+      .eq("approved", true);
     if (error) { toast.error(error.message); setLoading(false); return; }
     const existing = new Set(items.map((i) => i.catalog_product_id).filter(Boolean) as string[]);
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
@@ -207,6 +220,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: p.presentation_qty ?? null,
         sort_order: items.length + idx,
+        is_active: true,
       }));
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
@@ -354,15 +368,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     await autoSnapshot(`${t.autoRemove}: ${removed?.name ?? id.slice(0, 8)}`, next);
   };
 
+  const toggleItemActive = async (id: string, next: boolean) => {
+    const { error } = await supabase
+      .from("dealer_price_items" as any)
+      .update({ is_active: next })
+      .eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, is_active: next } : i)));
+  };
+
+  const deleteSnapshot = async (id: string) => {
+    if (!confirm(t.confirmDeleteSnapshot)) return;
+    const { error } = await supabase.from("dealer_price_list_snapshots" as any).delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    toast.success(t.snapshotDeleted);
+  };
+
   const grouped = useMemo(() => {
     const map = new Map<string, DealerPriceItem[]>();
-    items.forEach((i) => {
+    const visibleItems = showInactive ? items : items.filter((i) => i.is_active !== false);
+    visibleItems.forEach((i) => {
       const key = `${i.category || t.noCategory} / ${i.subcategory || "—"}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(i);
     });
     return Array.from(map.entries());
-  }, [items, t]);
+  }, [items, t, showInactive]);
 
   const lineTotal = (it: DealerPriceItem) =>
     Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
@@ -477,6 +509,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button variant="outline" onClick={() => setShowHistory((s) => !s)}>
               <History className="w-4 h-4 mr-1" /> {t.history} ({snapshots.length})
             </Button>
+            <div className="flex items-center gap-2 px-2 border rounded-md h-9">
+              <Switch id="show-inactive-items" checked={showInactive} onCheckedChange={setShowInactive} />
+              <label htmlFor="show-inactive-items" className="text-xs text-muted-foreground cursor-pointer select-none">{t.showInactive}</label>
+            </div>
             <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, list, items)}>
               <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
             </Button>
@@ -591,6 +627,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                             <Button size="sm" variant="outline" onClick={() => restoreSnapshot(s)} disabled={saving}>
                               <RotateCcw className="w-3 h-3 mr-1" /> Restaurar
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="ml-1 text-destructive hover:text-destructive"
+                              onClick={() => deleteSnapshot(s.id)}
+                              disabled={saving}
+                              title={t.deleteSnapshot}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -663,7 +709,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                   </TableHeader>
                   <TableBody>
                     {rows.map((it) => (
-                      <TableRow key={it.id} className={dirtyIds.has(it.id) ? "bg-amber-50/40" : ""}>
+                     <TableRow key={it.id} className={`${dirtyIds.has(it.id) ? "bg-amber-50/40 " : ""}${it.is_active === false ? "opacity-50" : ""}`}>
                         <TableCell>
                           {it.image_url ? (
                             <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
@@ -753,9 +799,21 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                           {formatMoney(lineTotal(it), currency)}
                         </TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => toggleItemActive(it.id, !(it.is_active !== false))}
+                              title={it.is_active !== false ? t.active : t.inactive}
+                            >
+                              {it.is_active !== false
+                                ? <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

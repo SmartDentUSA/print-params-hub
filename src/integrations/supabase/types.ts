@@ -4093,6 +4093,7 @@ export type Database = {
           gtin_ean: string | null
           id: string
           image_url: string | null
+          is_active: boolean
           name: string
           name_en: string | null
           name_es: string | null
@@ -4119,6 +4120,7 @@ export type Database = {
           gtin_ean?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name: string
           name_en?: string | null
           name_es?: string | null
@@ -4145,6 +4147,7 @@ export type Database = {
           gtin_ean?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name?: string
           name_en?: string | null
           name_es?: string | null

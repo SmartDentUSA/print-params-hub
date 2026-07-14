@@ -419,6 +419,9 @@ export default function KbTabCatalogo() {
         { data: forms, error: e7 },
         { data: shortLinks, error: e8 },
       ] = await Promise.all([
+        // REGRA: cards da Base de Conhecimento SÓ vêm de system_a_catalog gerenciado no
+        // Painel Admin → Gestão de Catálogo de Produtos (active + approved + visible_in_ui).
+        // NENHUM módulo externo (Distribuição, Propostas, Tabelas de Preço) pode escrever aqui.
         supabase
           .from('system_a_catalog')
           .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, technical_specs_en, technical_specs_es, extra_data')
