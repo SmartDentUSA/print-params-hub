@@ -36,6 +36,7 @@ interface Owner {
   n_post: number;
   total_post: number;
   first_repurchase_days: number | null;
+  first_repurchase_product?: string | null;
   last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
@@ -130,7 +131,18 @@ export function SmartOpsRayshape() {
     const avgFirstDays = firstDaysArr.length
       ? Math.round(firstDaysArr.reduce((a, b) => a + b, 0) / firstDaysArr.length)
       : 0;
-    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    const productCounts = new Map<string, number>();
+    for (const o of owners) {
+      const p = (o.first_repurchase_product || "").trim();
+      if (!p) continue;
+      productCounts.set(p, (productCounts.get(p) || 0) + 1);
+    }
+    let topProduct = "—";
+    let topProductCount = 0;
+    for (const [name, count] of productCounts) {
+      if (count > topProductCount) { topProduct = name; topProductCount = count; }
+    }
+    return { total, recomp, critic, separados, combos, avgTicket, recompraCombo, recompraSeparado, avgFirstDays, firstDaysCount: firstDaysArr.length, topProduct, topProductCount, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
   }, [owners]);
 
   const filtered = useMemo(() => {
@@ -286,6 +298,15 @@ export function SmartOpsRayshape() {
             {kpis.firstDaysCount ? `${kpis.avgFirstDays}d` : "—"}
             {kpis.firstDaysCount ? <span className="text-sm text-muted-foreground"> ({kpis.firstDaysCount})</span> : null}
           </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Produto principal na 1ª compra</div>
+          <div className="text-base font-semibold text-foreground leading-tight line-clamp-2" title={kpis.topProduct}>
+            {kpis.topProduct}
+          </div>
+          {kpis.topProductCount ? (
+            <div className="text-xs text-muted-foreground mt-1">{kpis.topProductCount} lead{kpis.topProductCount > 1 ? "s" : ""}</div>
+          ) : null}
         </Card>
       </div>
 
