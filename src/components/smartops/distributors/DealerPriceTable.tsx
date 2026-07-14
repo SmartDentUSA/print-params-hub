@@ -509,6 +509,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button variant="outline" onClick={() => setShowHistory((s) => !s)}>
               <History className="w-4 h-4 mr-1" /> {t.history} ({snapshots.length})
             </Button>
+            <div className="flex items-center gap-2 px-2 border rounded-md h-9">
+              <Switch id="show-inactive-items" checked={showInactive} onCheckedChange={setShowInactive} />
+              <label htmlFor="show-inactive-items" className="text-xs text-muted-foreground cursor-pointer select-none">{t.showInactive}</label>
+            </div>
             <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, list, items)}>
               <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
             </Button>
