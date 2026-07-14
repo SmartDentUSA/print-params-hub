@@ -15,14 +15,14 @@ async function mirrorTechSpecsToProductsCatalog(row: any | null | undefined): Pr
     const slug = (row.slug ?? '').trim();
     const name = (row.name ?? '').trim();
     if (!slug && !name) return;
-    const base: any = supabase.from('products_catalog').select('id, name, slug');
+    const base: any = supabase.from('products_catalog').select('product_id, name, slug');
     const filtered: any = slug ? base.eq('slug', slug) : base.ilike('name', name);
     const { data: matches } = await filtered.limit(5);
     if (!matches?.length) return;
     const tbl: any = supabase.from('products_catalog');
     await Promise.all(
       matches.map((m: any) =>
-        tbl.update({ technical_specifications: specs }).eq('id', m.id)
+        tbl.update({ technical_specifications: specs }).eq('product_id', m.product_id)
       )
     );
   } catch (e) {
