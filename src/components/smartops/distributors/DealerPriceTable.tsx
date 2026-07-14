@@ -183,7 +183,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     const { data: cat, error } = await supabase
       .from("system_a_catalog" as any)
       .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,currency,ncm,gtin,presentation,presentation_qty,quantity_multiplier,extra_data")
-      .eq("active", true);
+      // Import completo do catálogo aprovado. O toggle Ativo/Inativo é LOCAL da Distribuição
+      // (dealer_price_items.is_active) e NÃO reflete no system_a_catalog.
+      .eq("approved", true);
     if (error) { toast.error(error.message); setLoading(false); return; }
     const existing = new Set(items.map((i) => i.catalog_product_id).filter(Boolean) as string[]);
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
@@ -218,6 +220,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: p.presentation_qty ?? null,
         sort_order: items.length + idx,
+        is_active: true,
       }));
     if (toInsert.length === 0) { toast.info("Todos os produtos do catálogo já estão na tabela."); setLoading(false); return; }
     const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(toInsert);
