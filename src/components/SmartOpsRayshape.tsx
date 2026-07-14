@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type Category = "recomprou" | "critico" | "atencao" | "cedo";
+type SaleKind = "separado" | "combo";
+type FilterKey = Category | SaleKind | "all";
 
 interface Owner {
   lead_id: string;
@@ -37,6 +39,7 @@ interface Owner {
   last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
+  sale_kind?: SaleKind;
 }
 
 const CATEGORY_META: Record<Category, { label: string; classes: string }> = {
@@ -61,7 +64,7 @@ export function SmartOpsRayshape() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Category | "all">("all");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [opening, setOpening] = useState(false);
 
@@ -112,15 +115,21 @@ export function SmartOpsRayshape() {
     const total = owners.length;
     const recomp = owners.filter(o => o.category === "recomprou").length;
     const critic = owners.filter(o => o.category === "critico").length;
+    const separados = owners.filter(o => o.sale_kind === "separado").length;
+    const combos    = owners.filter(o => o.sale_kind === "combo").length;
     const sumPost = owners.reduce((a, o) => a + (o.total_post || 0), 0);
     const avgTicket = recomp ? sumPost / recomp : 0;
-    return { total, recomp, critic, avgTicket, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
+    return { total, recomp, critic, separados, combos, avgTicket, pctRecomp: total ? Math.round((recomp / total) * 100) : 0 };
   }, [owners]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return owners.filter(o => {
-      if (filter !== "all" && o.category !== filter) return false;
+      if (filter === "separado" || filter === "combo") {
+        if (o.sale_kind !== filter) return false;
+      } else if (filter !== "all" && o.category !== filter) {
+        return false;
+      }
       if (!q) return true;
       return [o.lead_name, o.lead_email, o.lead_phone, o.vendor]
         .filter(Boolean)
@@ -227,10 +236,18 @@ export function SmartOpsRayshape() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Donos totais</div>
           <div className="text-2xl font-semibold text-foreground">{kpis.total}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Vendidos separadamente</div>
+          <div className="text-2xl font-semibold text-sky-400">{kpis.separados}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Combo</div>
+          <div className="text-2xl font-semibold text-purple-400">{kpis.combos}</div>
         </Card>
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Recompraram</div>
@@ -257,14 +274,20 @@ export function SmartOpsRayshape() {
             className="pl-8"
           />
         </div>
-        {(["all", "critico", "atencao", "cedo", "recomprou"] as const).map((k) => (
+        {(["all", "separado", "combo", "critico", "atencao", "cedo", "recomprou"] as const).map((k) => (
           <Button
             key={k}
             size="sm"
             variant={filter === k ? "default" : "outline"}
             onClick={() => setFilter(k)}
           >
-            {k === "all" ? "Todos" : CATEGORY_META[k].label}
+            {k === "all"
+              ? "Todos"
+              : k === "separado"
+                ? "Separado"
+                : k === "combo"
+                  ? "Combo"
+                  : CATEGORY_META[k as Category].label}
           </Button>
         ))}
       </div>
@@ -302,6 +325,12 @@ export function SmartOpsRayshape() {
                     <td className="p-3">
                       <div className="font-medium text-foreground flex items-center gap-2">
                         {o.lead_name || "—"}
+                        {o.sale_kind === "combo" && (
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-300 border-purple-500/30 text-[10px]">combo</Badge>
+                        )}
+                        {o.sale_kind === "separado" && (
+                          <Badge variant="outline" className="bg-sky-500/10 text-sky-300 border-sky-500/30 text-[10px]">separado</Badge>
+                        )}
                         {o.source === "manual" && (
                           <Badge variant="outline" className="bg-purple-500/10 text-purple-300 border-purple-500/30 text-[10px]">manual</Badge>
                         )}
