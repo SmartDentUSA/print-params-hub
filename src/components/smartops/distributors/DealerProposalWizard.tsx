@@ -6,11 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff, History, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+type SavedProposal = {
+  id: string;
+  proposal_number: string | null;
+  currency: string;
+  language: string;
+  status: string;
+  items: any;
+  totals: any;
+  header_data: any;
+  created_at: string;
+};
 
 type Props = { distributors: Distributor[] };
 
@@ -25,11 +38,23 @@ export function DealerProposalWizard({ distributors }: Props) {
     empresa: "", razao_social: "", contato: "", email: "", pais: "",
   });
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [pastProposals, setPastProposals] = useState<SavedProposal[]>([]);
 
   const distributor = distributors.find((d) => d.id === distributorId);
 
+  const loadProposals = async (distId: string) => {
+    const { data } = await supabase
+      .from("dealer_proposals" as any)
+      .select("id,proposal_number,currency,language,status,items,totals,header_data,created_at")
+      .eq("distributor_id", distId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setPastProposals(((data as any) || []) as SavedProposal[]);
+  };
+
   useEffect(() => {
     if (!distributorId) return;
+    loadProposals(distributorId);
     (async () => {
       const { data: lists } = await supabase
         .from("dealer_price_lists" as any).select("*")
@@ -126,6 +151,7 @@ export function DealerProposalWizard({ distributors }: Props) {
     if (error) return toast.error("Erro ao salvar: " + error.message);
     setSavedId((data as any).id);
     toast.success("Proposta salva");
+    loadProposals(distributor.id);
   };
 
   const stubList: DealerPriceList = list ?? {
