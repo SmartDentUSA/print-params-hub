@@ -37,6 +37,7 @@ interface Owner {
   total_post: number;
   first_repurchase_days: number | null;
   first_repurchase_product?: string | null;
+  first_repurchase_qty?: number | null;
   last_repurchase_iso: string | null;
   category: Category;
   source?: "auto" | "manual";
@@ -61,6 +62,18 @@ const fmtDate = (iso: string | null) => {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 };
+
+// Normaliza nomes de produtos para exibição/agrupamento.
+// Regras case-insensitive; retorna o mesmo texto se nada bater.
+const PRODUCT_NAME_RULES: { pattern: RegExp; label: string }[] = [
+  { pattern: /model\s*plus/i, label: "Resina 3D Smart Print Model Plus" },
+];
+function normalizeProductName(raw: string | null | undefined): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  for (const r of PRODUCT_NAME_RULES) if (r.pattern.test(s)) return r.label;
+  return s;
+}
 
 export function SmartOpsRayshape() {
   const { toast } = useToast();
