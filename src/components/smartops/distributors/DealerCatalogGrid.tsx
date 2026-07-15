@@ -301,6 +301,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
           ncm_hs: v.ncm_hs,
           unidade: v.unidade || "UN",
           presentation: v.presentation ?? null,
+          weight_kg: v.weight_kg,
+          dimensions_cm: v.dimensions_cm,
           price_brl: v.price_brl,
           price_usd: v.price_usd,
           price_eur: v.price_eur,
