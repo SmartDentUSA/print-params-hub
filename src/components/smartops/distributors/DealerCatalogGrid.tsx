@@ -557,16 +557,21 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             onChange={(e) => patchVariation(v.id, { gtin_ean: e.target.value })}
                           />
                         </TableCell>
-                        <TableCell>
+                         <TableCell>
                           <Input
                             className="h-8 text-xs text-right"
-                            type="number"
+                            type="text"
                             inputMode="decimal"
-                            step="0.001"
-                            min="0"
-                            value={v.weight_kg ?? ""}
+                            value={(v as any).__weightDraft ?? (v.weight_kg ?? "")}
                             placeholder="kg"
-                            onChange={(e) => patchVariation(v.id, { weight_kg: parseNum(e.target.value) })}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^\d.,]/g, "");
+                              patchVariation(v.id, { __weightDraft: raw, weight_kg: parseNum(raw) } as any);
+                            }}
+                            onBlur={(e) => {
+                              const n = parseNum(e.target.value);
+                              patchVariation(v.id, { __weightDraft: undefined, weight_kg: n } as any);
+                            }}
                           />
                         </TableCell>
                         <TableCell>
