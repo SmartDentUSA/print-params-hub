@@ -70,6 +70,8 @@ type Variation = {
   ncm_hs: string | null;
   unidade: string;
   presentation: PresentationType | null;
+  weight_kg: number | null;
+  dimensions_cm: string | null;
   price_brl: number | null;
   price_usd: number | null;
   price_eur: number | null;
@@ -83,7 +85,7 @@ const I18N: Record<string, Record<string, string>> = {
     items: "itens", showInactive: "Mostrar inativos",
     catStatus: "Status", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Produto",
     catPresQty: "Variação", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
-    catUnit: "Unidade",
+    catUnit: "Unidade", catWeight: "Peso (kg)", catDims: "Dimensões (cm)",
     priceBRL: "Preço BRL", priceUSD: "Preço USD", priceEUR: "Preço EUR",
     empty: "Nenhum produto encontrado.", loading: "Carregando catálogo…",
     activated: "Ativado", deactivated: "Desativado", addVariation: "Adicionar variação",
@@ -101,7 +103,7 @@ const I18N: Record<string, Record<string, string>> = {
     items: "ítems", showInactive: "Mostrar inactivos",
     catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Producto",
     catPresQty: "Variación", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
-    catUnit: "Unidad",
+    catUnit: "Unidad", catWeight: "Peso (kg)", catDims: "Dimensiones (cm)",
     priceBRL: "Precio BRL", priceUSD: "Precio USD", priceEUR: "Precio EUR",
     empty: "Ningún producto encontrado.", loading: "Cargando catálogo…",
     activated: "Activado", deactivated: "Desactivado", addVariation: "Agregar variación",
@@ -119,7 +121,7 @@ const I18N: Record<string, Record<string, string>> = {
     items: "items", showInactive: "Show inactive",
     catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
     catPresQty: "Variant", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
-    catUnit: "Unit",
+    catUnit: "Unit", catWeight: "Weight (kg)", catDims: "Dimensions (cm)",
     priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
     empty: "No products found.", loading: "Loading catalog…",
     activated: "Enabled", deactivated: "Disabled", addVariation: "Add variant",
@@ -299,6 +301,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
           ncm_hs: v.ncm_hs,
           unidade: v.unidade || "UN",
           presentation: v.presentation ?? null,
+          weight_kg: v.weight_kg,
+          dimensions_cm: v.dimensions_cm,
           price_brl: v.price_brl,
           price_usd: v.price_usd,
           price_eur: v.price_eur,
@@ -415,7 +419,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[1810px]">
+          <Table className="min-w-[2050px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
@@ -427,7 +431,9 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                 <TableHead className="w-[90px]">{t.catPres}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
-                <TableHead className="w-[80px]">{t.catUnit}</TableHead>
+                <TableHead className="w-[110px]">{t.catWeight}</TableHead>
+                <TableHead className="w-[130px]">{t.catDims}</TableHead>
+                <TableHead className="w-[90px]">{t.catUnit}</TableHead>
                 <TableHead className="w-[120px] text-right">{t.priceBRL}</TableHead>
                 <TableHead className="w-[120px] text-right">{t.priceUSD}</TableHead>
                 <TableHead className="w-[120px] text-right">{t.priceEUR}</TableHead>
@@ -437,7 +443,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -466,7 +472,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell colSpan={8} className="text-xs text-muted-foreground italic">
+                        <TableCell colSpan={10} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
@@ -549,6 +555,26 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             className="h-8 text-xs font-mono"
                             value={v.gtin_ean ?? ""}
                             onChange={(e) => patchVariation(v.id, { gtin_ean: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs text-right"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.001"
+                            min="0"
+                            value={v.weight_kg ?? ""}
+                            placeholder="kg"
+                            onChange={(e) => patchVariation(v.id, { weight_kg: parseNum(e.target.value) })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={v.dimensions_cm ?? ""}
+                            placeholder="C×L×A"
+                            onChange={(e) => patchVariation(v.id, { dimensions_cm: e.target.value || null })}
                           />
                         </TableCell>
                         <TableCell>
