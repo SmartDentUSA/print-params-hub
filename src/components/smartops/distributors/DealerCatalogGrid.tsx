@@ -70,6 +70,8 @@ type Variation = {
   ncm_hs: string | null;
   unidade: string;
   presentation: PresentationType | null;
+  weight_kg: number | null;
+  dimensions_cm: string | null;
   price_brl: number | null;
   price_usd: number | null;
   price_eur: number | null;
