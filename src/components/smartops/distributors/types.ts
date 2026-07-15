@@ -34,6 +34,7 @@ export type DealerPriceItem = {
   price_list_id: string;
   catalog_product_id: string | null;
   cod: string | null;
+  sku?: string | null;
   name: string;
   name_en?: string | null;
   name_es?: string | null;

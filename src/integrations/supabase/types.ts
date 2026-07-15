@@ -4166,6 +4166,7 @@ export type Database = {
           price_dealer: number
           price_list_id: string
           quantity_multiplier: number
+          sku: string | null
           sort_order: number
           subcategory: string | null
           unidade: string
@@ -4194,6 +4195,7 @@ export type Database = {
           price_dealer?: number
           price_list_id: string
           quantity_multiplier?: number
+          sku?: string | null
           sort_order?: number
           subcategory?: string | null
           unidade?: string
@@ -4222,6 +4224,7 @@ export type Database = {
           price_dealer?: number
           price_list_id?: string
           quantity_multiplier?: number
+          sku?: string | null
           sort_order?: number
           subcategory?: string | null
           unidade?: string
