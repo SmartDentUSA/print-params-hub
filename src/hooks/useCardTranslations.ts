@@ -5,6 +5,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // In-memory dedupe across components/renders.
 const inflight = new Map<string, Promise<void>>();
 
+type CacheEntry = {
+  sourceSignature: string;
+  values: Record<string, unknown>;
+};
+
+const sourceSignature = (row: TranslatedRow, fields: string[]) =>
+  JSON.stringify(fields.map((field) => (row as any)[field] ?? null));
+
 export type TranslatedRow = Record<string, unknown> & { id: string };
 
 /**
@@ -24,7 +32,7 @@ export function useCardTranslations<T extends TranslatedRow>(
   const { language } = useLanguage();
   const lang = language === 'en' || language === 'es' ? language : null;
   const [version, setVersion] = useState(0);
-  const cache = useRef(new Map<string, Record<string, unknown>>());
+  const cache = useRef(new Map<string, CacheEntry>());
 
   // Trigger translations for rows missing any field in the target lang.
   useEffect(() => {
@@ -33,7 +41,10 @@ export function useCardTranslations<T extends TranslatedRow>(
       fields.some((f) => {
         const ptVal = (r as any)[f];
         const trVal = (r as any)[`${f}_${lang}`];
-        const cached = cache.current.get(`${r.id}|${lang}`)?.[f];
+        const cachedEntry = cache.current.get(`${r.id}|${lang}`);
+        const cached = cachedEntry?.sourceSignature === sourceSignature(r, fields)
+          ? cachedEntry.values[f]
+          : undefined;
         const hasPt = ptVal != null && (typeof ptVal === 'string' ? ptVal.trim() !== '' : true);
         return hasPt && (trVal == null || trVal === '') && cached == null;
       })
@@ -66,7 +77,10 @@ export function useCardTranslations<T extends TranslatedRow>(
                 const v = (fresh as any)[`${f}_${lang}`];
                 if (v != null && v !== '') merged[f] = v;
               }
-              cache.current.set(`${r.id}|${lang}`, merged);
+              cache.current.set(`${r.id}|${lang}`, {
+                sourceSignature: sourceSignature(r, fields),
+                values: merged,
+              });
               setVersion((v) => v + 1);
             }
           }
@@ -88,7 +102,10 @@ export function useCardTranslations<T extends TranslatedRow>(
       const out: any = { ...r };
       for (const f of fields) {
         const trCol = (r as any)[`${f}_${lang}`];
-        const cached = cache.current.get(`${r.id}|${lang}`)?.[f];
+        const cachedEntry = cache.current.get(`${r.id}|${lang}`);
+        const cached = cachedEntry?.sourceSignature === sourceSignature(r, fields)
+          ? cachedEntry.values[f]
+          : undefined;
         const v = trCol != null && trCol !== '' ? trCol : cached;
         if (v != null && v !== '') {
           out[f] = v;
