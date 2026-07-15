@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { reformatBatch, useReformatBatchState } from '@/lib/reformatBatchRunner';
 
 interface Article {
   id: string;
@@ -35,12 +36,12 @@ export function AdminArticleReformatter() {
   const [previewArticleId, setPreviewArticleId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>('all');
-  const [batchRunning, setBatchRunning] = useState(false);
   const [batchForce, setBatchForce] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, ok: 0, skipped: 0, err: 0 });
-  const [batchLog, setBatchLog] = useState<string[]>([]);
-  const cancelRef = useRef(false);
   const { toast } = useToast();
+  const batch = useReformatBatchState();
+  const batchRunning = batch.running;
+  const batchProgress = { done: batch.done, total: batch.total, ok: batch.ok, skipped: batch.skipped, err: batch.err };
+  const batchLog = batch.log;
 
   const analyzeArticle = (article: { id: string; title: string; slug: string; content_html: string | null }): Article => {
     const html = article.content_html || '';
@@ -241,51 +242,30 @@ export function AdminArticleReformatter() {
   );
 
   const runBatch = async () => {
+    if (batchRunning) return;
     const targets = filteredArticles;
     if (targets.length === 0) {
       toast({ title: 'Nada a fazer', description: 'Nenhum artigo no filtro atual.' });
       return;
     }
-    if (!confirm(`Vai reformatar ${targets.length} artigos${batchForce ? ' (forçando re-reformatação)' : ''}. Continuar?`)) return;
+    if (!confirm(
+      `Vai reformatar ${targets.length} artigos${batchForce ? ' (forçando re-reformatação)' : ''}.\n\n` +
+      `O lote roda em segundo plano — você pode navegar para outras páginas do admin, o progresso continua no widget flutuante.\n\nContinuar?`,
+    )) return;
 
-    cancelRef.current = false;
-    setBatchRunning(true);
-    setBatchLog([]);
-    setBatchProgress({ done: 0, total: targets.length, ok: 0, skipped: 0, err: 0 });
+    toast({
+      title: 'Lote iniciado',
+      description: `${targets.length} artigos na fila. Acompanhe pelo widget flutuante — pode navegar livremente.`,
+    });
 
-    let ok = 0, skipped = 0, err = 0;
-    for (let i = 0; i < targets.length; i++) {
-      if (cancelRef.current) {
-        setBatchLog(prev => [`⛔ Cancelado em ${i}/${targets.length}`, ...prev].slice(0, 20));
-        break;
-      }
-      const a = targets[i];
-      try {
-        const { data, error } = await supabase.functions.invoke('reformat-article-html', {
-          body: { contentId: a.id, previewOnly: false, force: batchForce },
-        });
-        if (error) throw error;
-        if (!data?.success) throw new Error(data?.error || 'unknown');
-        if (data.skipped) {
-          skipped++;
-          setBatchLog(prev => [`⏭️  ${a.title} (já reformatado)`, ...prev].slice(0, 20));
-        } else {
-          ok++;
-          setBatchLog(prev => [`✅ ${a.title}`, ...prev].slice(0, 20));
-        }
-      } catch (e: any) {
-        err++;
-        setBatchLog(prev => [`❌ ${a.title}: ${e.message || e}`, ...prev].slice(0, 20));
-      }
-      setBatchProgress({ done: i + 1, total: targets.length, ok, skipped, err });
-    }
-
-    setBatchRunning(false);
-    toast({ title: 'Lote concluído', description: `${ok} ok · ${skipped} pulados · ${err} erros` });
-    await fetchArticles();
+    reformatBatch.start(
+      targets.map((a) => ({ id: a.id, title: a.title })),
+      batchForce,
+      () => { void fetchArticles(); },
+    );
   };
 
-  const cancelBatch = () => { cancelRef.current = true; };
+  const cancelBatch = () => reformatBatch.cancel();
 
   if (loading) {
     return (
