@@ -3721,6 +3721,7 @@ Receba o texto bruto abaixo e:
                                 ai_prompt_template: formData.aiPromptTemplate || null,
                                 category_id: categoryId,
                                 recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+                                is_ebook: formData.is_ebook ?? false,
                               };
 
                               if (editingContent) {
