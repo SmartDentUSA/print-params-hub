@@ -240,6 +240,53 @@ export function AdminArticleReformatter() {
     </Badge>
   );
 
+  const runBatch = async () => {
+    const targets = filteredArticles;
+    if (targets.length === 0) {
+      toast({ title: 'Nada a fazer', description: 'Nenhum artigo no filtro atual.' });
+      return;
+    }
+    if (!confirm(`Vai reformatar ${targets.length} artigos${batchForce ? ' (forçando re-reformatação)' : ''}. Continuar?`)) return;
+
+    cancelRef.current = false;
+    setBatchRunning(true);
+    setBatchLog([]);
+    setBatchProgress({ done: 0, total: targets.length, ok: 0, skipped: 0, err: 0 });
+
+    let ok = 0, skipped = 0, err = 0;
+    for (let i = 0; i < targets.length; i++) {
+      if (cancelRef.current) {
+        setBatchLog(prev => [`⛔ Cancelado em ${i}/${targets.length}`, ...prev].slice(0, 20));
+        break;
+      }
+      const a = targets[i];
+      try {
+        const { data, error } = await supabase.functions.invoke('reformat-article-html', {
+          body: { contentId: a.id, previewOnly: false, force: batchForce },
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'unknown');
+        if (data.skipped) {
+          skipped++;
+          setBatchLog(prev => [`⏭️  ${a.title} (já reformatado)`, ...prev].slice(0, 20));
+        } else {
+          ok++;
+          setBatchLog(prev => [`✅ ${a.title}`, ...prev].slice(0, 20));
+        }
+      } catch (e: any) {
+        err++;
+        setBatchLog(prev => [`❌ ${a.title}: ${e.message || e}`, ...prev].slice(0, 20));
+      }
+      setBatchProgress({ done: i + 1, total: targets.length, ok, skipped, err });
+    }
+
+    setBatchRunning(false);
+    toast({ title: 'Lote concluído', description: `${ok} ok · ${skipped} pulados · ${err} erros` });
+    await fetchArticles();
+  };
+
+  const cancelBatch = () => { cancelRef.current = true; };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
