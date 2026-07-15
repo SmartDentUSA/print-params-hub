@@ -118,24 +118,38 @@ export function exportPriceTableXlsx(
   items: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
-  const header = ["COD", "Produto", "Categoria", "Subcategoria", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Descrição", "Preço tabela", "% Desconto", "Preço dealer"];
+  const header = [
+    "Categoria", "Subcategoria", "COD", "Produto",
+    "Pres #", "Pres", "NCM/HS", "GTIN/EAN", "Unid (×)",
+    "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+  ];
   const aoa: any[][] = [header];
-  items.forEach((it, idx) => {
-    const row = idx + 2; // 1 = header
-    aoa.push([
-      it.cod ?? "", it.name, it.category ?? "", it.subcategory ?? "", it.variant ?? "",
-      it.ncm_hs ?? "", it.gtin_ean ?? "", it.unidade ?? "UN", it.description ?? "",
-      Number(it.price_base) || 0,
-      Number(it.discount_pct) || 0,
-      { f: `ROUND(J${row}*(1-K${row}/100),2)` },
-    ]);
-  });
+  const groups = groupItemsByCategory(items);
+  for (const grp of groups) {
+    for (const sub of grp.subs) {
+      for (const it of sub.rows) {
+        const row = aoa.length + 1; // 1-based, header on row 1
+        aoa.push([
+          grp.category, sub.subcategory,
+          it.cod ?? "", it.name,
+          it.presentation_qty ?? "",
+          (it.presentation as string) ?? "Unit",
+          it.ncm_hs ?? "", it.gtin_ean ?? "",
+          Number(it.quantity_multiplier ?? 1) || 1,
+          Number(it.price_base) || 0,
+          Number(it.discount_pct) || 0,
+          { f: `ROUND(J${row}*(1-K${row}/100),2)` },   // Preço dealer (Unit)
+          { f: `ROUND(L${row}*I${row},2)` },            // Preço dealer (line total)
+        ]);
+      }
+    }
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
-    { wch: 10 }, { wch: 40 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
-    { wch: 12 }, { wch: 16 }, { wch: 8 }, { wch: 40 },
-    { wch: 14 }, { wch: 10 }, { wch: 14 },
+    { wch: 34 }, { wch: 26 }, { wch: 10 }, { wch: 40 },
+    { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 9 },
+    { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Tabela de Preço");
@@ -238,37 +252,75 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 10-column layout with a photo column. Sum = 539pt = contentW.
+  // 12-column layout matching the on-screen table.
+  // Widths sum to contentW = 539pt.
   const head = [[
-    "Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
-    "Unid", "Preço tabela", "% Desc.", "Preço dealer",
+    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN",
+    "Unid (×)", "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
   ]];
-  const PHOTO_COL_W = 38;
+  const PHOTO_COL_W = 34;
   const columnStyles: Record<number, any> = {
-    0: { cellWidth: PHOTO_COL_W, halign: "center" },
-    1: { cellWidth: 42 },
-    2: { cellWidth: 132 },
-    3: { cellWidth: 55 },
-    4: { cellWidth: 44 },
-    5: { cellWidth: 60 },
-    6: { cellWidth: 26, halign: "right" },
-    7: { cellWidth: 55, halign: "right" },
-    8: { cellWidth: 33, halign: "right" },
-    9: { cellWidth: 54, halign: "right", fontStyle: "bold" },
+    0:  { cellWidth: PHOTO_COL_W, halign: "center" },
+    1:  { cellWidth: 38 },
+    2:  { cellWidth: 118 },
+    3:  { cellWidth: 32, halign: "right" },
+    4:  { cellWidth: 30 },
+    5:  { cellWidth: 40 },
+    6:  { cellWidth: 58 },
+    7:  { cellWidth: 26, halign: "right" },
+    8:  { cellWidth: 46, halign: "right" },
+    9:  { cellWidth: 30, halign: "right" },
+    10: { cellWidth: 46, halign: "right" },
+    11: { cellWidth: 41, halign: "right", fontStyle: "bold" },
   };
 
-  const rowFor = (it: DealerPriceItem) => [
-    "", // photo cell (drawn in didDrawCell)
-    it.cod ?? "—",
-    it.name,
-    it.variant ?? it.presentation ?? "—",
-    it.ncm_hs ?? "—",
-    it.gtin_ean ?? "—",
-    it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
-    formatMoney(it.price_base, currency),
-    `${Number(it.discount_pct).toFixed(1)}%`,
-    formatMoney(it.price_dealer, currency),
-  ];
+  // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
+  // matching the on-screen grouping so variations of the same product share
+  // photo/code/name across multiple rows.
+  const groupKeyFor = (it: DealerPriceItem) =>
+    it.catalog_product_id ? `cid:${it.catalog_product_id}` : `id:${it.id}`;
+
+  const rowFor = (it: DealerPriceItem, isLeader: boolean, span: number) => {
+    const lineTotal = Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+    const photo   = isLeader ? { content: "", rowSpan: span } : null;
+    const cod     = isLeader ? { content: it.cod ?? "—", rowSpan: span } : null;
+    const nome    = isLeader ? { content: it.name, rowSpan: span } : null;
+    const cells: any[] = [
+      it.presentation_qty ?? "—",
+      (it.presentation as string) ?? "Unit",
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
+      String(Number(it.quantity_multiplier ?? 1) || 1),
+      formatMoney(it.price_base, currency),
+      `${Number(it.discount_pct).toFixed(1)}%`,
+      formatMoney(it.price_dealer, currency),
+      formatMoney(lineTotal, currency),
+    ];
+    return isLeader ? [photo, cod, nome, ...cells] : cells;
+  };
+
+  const orderRowsForRowSpan = (rows: DealerPriceItem[]) => {
+    const firstIndex = new Map<string, number>();
+    rows.forEach((r, i) => {
+      const k = groupKeyFor(r);
+      if (!firstIndex.has(k)) firstIndex.set(k, i);
+    });
+    const ordered = [...rows].sort((a, b) => {
+      const ia = firstIndex.get(groupKeyFor(a))!;
+      const ib = firstIndex.get(groupKeyFor(b))!;
+      if (ia !== ib) return ia - ib;
+      return rows.indexOf(a) - rows.indexOf(b);
+    });
+    const sizes = new Map<string, number>();
+    for (const r of ordered) sizes.set(groupKeyFor(r), (sizes.get(groupKeyFor(r)) ?? 0) + 1);
+    const seenLeader = new Set<string>();
+    return ordered.map((r) => {
+      const k = groupKeyFor(r);
+      const isLeader = !seenLeader.has(k);
+      seenLeader.add(k);
+      return { it: r, isLeader, span: sizes.get(k)! };
+    });
+  };
 
   let cursorY = tableTop;
   const groups = groupItemsByCategory(items);
@@ -300,13 +352,15 @@ export async function exportPriceTablePdf(
       if (grp.subs.length > 1 || sub.subcategory !== "Geral") {
         drawBand(sub.subcategory, { dark: false });
       }
+      const bodyRows = orderRowsForRowSpan(sub.rows);
+      const orderedItems = bodyRows.map((b) => b.it);
       autoTable(doc, {
         startY: cursorY,
         margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
-        body: sub.rows.map(rowFor),
-        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 30 },
-        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7.5, fontStyle: "bold" },
+        body: bodyRows.map(({ it, isLeader, span }) => rowFor(it, isLeader, span)),
+        styles: { fontSize: 7, cellPadding: 2.5, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 26, valign: "middle" },
+        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7, fontStyle: "bold" },
         columnStyles,
         theme: "grid",
         willDrawPage: () => {
@@ -316,7 +370,7 @@ export async function exportPriceTablePdf(
         },
         didDrawCell: (data) => {
           if (data.section !== "body" || data.column.index !== 0) return;
-          const it = sub.rows[data.row.index];
+          const it = orderedItems[data.row.index];
           if (!it) return;
           const entry = imgs.get(it.id);
           if (!entry) return;
@@ -336,9 +390,15 @@ export async function exportPriceTablePdf(
     }
   }
 
-  // Footer totals: Preço de tabela / Valor de desconto / Preço Dealer
-  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
-  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  // Footer totals — use line totals (price × quantity_multiplier) to match the UI.
+  const totalTabela = items.reduce(
+    (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
+  const totalDealer = items.reduce(
+    (a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
   const totalDesc = totalTabela - totalDealer;
   const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
   ensureSpace(72);
@@ -382,11 +442,14 @@ export async function exportPriceTableDocx(
   const imgs = await preloadImages(items);
 
   // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
-  // Columns: Foto | COD | Produto | Variante | NCM/HS | GTIN/EAN | Unid | Preço | Desc. | Preço dealer
-  const widths = [1100, 900, 3200, 1600, 1200, 1600, 800, 1400, 900, 2138]; // sum = 14838
+  // Columns match the on-screen table (12 columns).
+  const widths = [1000, 800, 2600, 900, 800, 1100, 1500, 700, 1300, 800, 1400, 1938]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
-  const headers = ["Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
+  const headers = [
+    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN",
+    "Unid (×)", "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+  ];
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -415,17 +478,20 @@ export async function exportPriceTableDocx(
   });
 
   const itemRow = (it: DealerPriceItem) => {
+    const lineTotal = Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
     const values: string[] = [
       "", // photo
       it.cod ?? "—",
       it.name,
-      it.variant ?? it.presentation ?? "—",
+      it.presentation_qty ?? "—",
+      (it.presentation as string) ?? "Unit",
       it.ncm_hs ?? "—",
       it.gtin_ean ?? "—",
-      it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
+      String(Number(it.quantity_multiplier ?? 1) || 1),
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
       formatMoney(it.price_dealer, currency),
+      formatMoney(lineTotal, currency),
     ];
     return new TableRow({
       children: values.map((val, i) => {
@@ -461,7 +527,7 @@ export async function exportPriceTableDocx(
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
             children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+            alignment: i >= 7 ? AlignmentType.RIGHT : AlignmentType.LEFT,
           })],
         });
       }),
@@ -487,8 +553,14 @@ export async function exportPriceTableDocx(
     rows,
   });
 
-  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
-  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalTabela = items.reduce(
+    (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
+  const totalDealer = items.reduce(
+    (a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
   const totalDesc = totalTabela - totalDealer;
   const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
 
