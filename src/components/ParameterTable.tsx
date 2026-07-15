@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Share, Check, Info, ExternalLink } from "lucide-react";
+import { Copy, Download, Share, Check, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useCatalogProducts } from "@/hooks/useCatalogProducts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ProcessingInstructionsView, parseMarkdownInstructions } from "@/components/ProcessingInstructionsView";
 
 interface ParameterSet {
   id: string;
@@ -43,7 +43,6 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
-  const { products } = useCatalogProducts();
 
   const formatValue = (value: number | undefined | null, type?: string): string => {
     if (value === 0 || value === null || value === undefined) {
@@ -512,43 +511,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                     </span>
                   </AccordionTrigger>
                    <AccordionContent className="px-0 pb-0">
-                    <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
-                      {pre.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <span className="text-blue-600 dark:text-blue-400">🔵</span>
-                            PRÉ-PROCESSAMENTO
-                          </h4>
-                          <ul className="space-y-1.5">
-                            {pre.map((element, idx) => renderMarkdownElement(element, idx, products))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {post.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <span className="text-green-600 dark:text-green-400">🟢</span>
-                            PÓS-PROCESSAMENTO
-                          </h4>
-                          <ul className="space-y-1.5">
-                            {post.map((element, idx) => renderMarkdownElement(element, idx, products))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {sections.map((section, sectionIdx) => (
-                        <div key={`section-${sectionIdx}`}>
-                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <span className="text-purple-600 dark:text-purple-400">🟣</span>
-                            {section.title}
-                          </h4>
-                          <ul className="space-y-1.5">
-                            {section.content.map((element, idx) => renderMarkdownElement(element, idx, products))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
+                    <ProcessingInstructionsView instructions={processingInstructions} />
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
