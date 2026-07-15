@@ -1,33 +1,44 @@
-Popular `catalog_product_variations` diretamente via SQL (um único `supabase--insert`), casando cada COD com `system_a_catalog.external_id`. Sem modal, sem alteração de UI, sem preços.
+## Diagnóstico
 
-### Parsing por linha
-- **COD** = dígitos iniciais → `catalog_product_id = (SELECT id FROM system_a_catalog WHERE external_id = '<COD>')`. Linha sem match é ignorada.
-- **Variação (`presentation_qty`)** = **apenas o número** (como string), ex.:
-  - `250g` → `250`
-  - `500g` → `500`
-  - `1000g (1kg)` → `1000`
-  - `2,5g` → `2.5`
-  - `0,5g (Seringa)` → `0.5`
-  - `Seringa` → `1`
-  - `Kit (5 un)` → `5`
-  - `Kit (10 un)` → `10`
-  - `1 un` → `1`
-- **Pres (`presentation`)** = unidade de medida ou "Item" (respeitando os valores permitidos `"grs" | "Kg" | "Item" | "ml"`):
-  - contém `g` (sem `kg`) → `grs`
-  - contém `kg` → `Kg` (nenhuma linha do bloco entra aqui — todas as "1kg" estão como `1000g (1kg)` → `grs`/`1000`)
-  - `Seringa`, `Kit`, `un` → `Item`
-- **`unidade`**: `g` para gramas, `kg` para quilos, `UN` para os demais.
-- **`ncm_hs`** = texto do NCM/HS.
-- **`gtin_ean`**: `Sob consulta` e `... (Ref)` → `NULL`; caso contrário, os 13–14 dígitos.
-- **`weight_kg`**: `0,33 kg` → `0.33`.
-- **`dimensions_cm`**: string exata (`16.0 × 8.0 × 8.0 cm`).
-- **`source`** = `'bulk_import'`.
-- **`sort_order`** = índice sequencial da variação dentro do produto (0, 1, 2…).
+A tabela **Catálogo de Produtos** (`DealerPriceTable.importCatalog`) puxa de `system_a_catalog` filtrando apenas por `approved=true`. Mas essa tabela mistura tipos:
 
-### Upsert
-Uma única `INSERT ... ON CONFLICT (catalog_product_id, presentation_qty) DO UPDATE` atualizando apenas `ncm_hs`, `gtin_ean`, `unidade`, `presentation`, `weight_kg`, `dimensions_cm`. Preços permanecem intocados.
+- `category='product'` (real) — 130 linhas
+- `category='resin'` (real) — 14 linhas
+- `category='category_config'` — 25 linhas (são as **categorias** aparecendo como produto: "CARACTERIZAÇÃO - SMARTGUM", "SCANNERS 3D - IOS", etc.)
+- `category='company_info'`, `Software`, `Serviços`, `Acessórios`, `Equipamentos` — 6 linhas soltas
 
-### Segurança / escopo
-- Não cria produto novo em `system_a_catalog` — COD sem match é pulado no `WHERE`.
-- Não gera migration.
-- Idempotente: reexecutar não gera duplicatas.
+Total: 31 linhas "lixo" viram itens sem COD/SKU/variação → cada uma cria dezenas de linhas vazias com R$ 0,00 na planilha do distribuidor. Isso explica exatamente o que aparece na screenshot (linhas sem produto + várias R$ 0,00 seguidas).
+
+Não há registros de vídeo em `system_a_catalog`; o que o usuário lê como "vídeo" são as linhas `category_config` (nomes de categorias/subcategorias).
+
+## Correção
+
+### 1. Filtrar `importCatalog` em `src/components/smartops/distributors/DealerPriceTable.tsx` (linhas ~254-258)
+
+Adicionar filtros à query do `system_a_catalog`:
+- `.in("category", ["product", "resin"])`
+- `.eq("active", true)`
+
+Assim, no próximo "Importar catálogo" só entram produtos e resinas reais.
+
+### 2. Limpeza retroativa dos itens já criados
+
+Rodar um `DELETE` em `dealer_price_items` para todas as linhas cujo `catalog_product_id` aponta para um registro de `system_a_catalog` com `category NOT IN ('product','resin')`. Isso remove os itens "categoria" e "vídeo/serviço/software" já materializados nas listas de todos os distribuidores, sem tocar em preços de itens válidos.
+
+Escopo do DELETE (contagem prévia será confirmada na execução):
+```sql
+DELETE FROM dealer_price_items dpi
+USING system_a_catalog sac
+WHERE dpi.catalog_product_id = sac.id
+  AND sac.category NOT IN ('product','resin');
+```
+
+### 3. Fora do escopo
+
+- Nenhuma alteração de UI, modal, preços ou schema.
+- `system_a_catalog` continua com as linhas `category_config` (elas são usadas pela navegação de categorias em outros lugares) — só deixam de ser importadas para o catálogo do distribuidor.
+- `catalog_product_variations` não é tocada.
+
+## Verificação
+
+Depois de aplicar: recarregar a aba **📦 Catálogo de Produtos** do distribuidor → só devem aparecer produtos reais com COD/SKU/variação; as R$ 0,00 em cascata somem.
