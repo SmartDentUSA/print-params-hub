@@ -388,6 +388,56 @@ export function AdminArticleReformatter() {
         </div>
       </div>
 
+      {/* Batch mode */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="w-4 h-4" /> Reformatar em Lote
+          </CardTitle>
+          <CardDescription>
+            Aplica a reformatação IA em todos os {filteredArticles.length} artigos do filtro atual (sequencial, 1 por vez).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch id="batch-force" checked={batchForce} onCheckedChange={setBatchForce} disabled={batchRunning} />
+              <Label htmlFor="batch-force" className="text-sm">Forçar re-reformatação (ignora artigos já processados)</Label>
+            </div>
+            {!batchRunning ? (
+              <Button onClick={runBatch} size="sm" disabled={filteredArticles.length === 0}>
+                <Zap className="w-4 h-4 mr-2" />
+                Reformatar {filteredArticles.length} artigos
+              </Button>
+            ) : (
+              <Button onClick={cancelBatch} size="sm" variant="destructive">
+                <StopCircle className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+            )}
+          </div>
+          {(batchRunning || batchProgress.done > 0) && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-mono">{batchProgress.done}/{batchProgress.total}</span>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">✅ {batchProgress.ok}</Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">⏭️ {batchProgress.skipped}</Badge>
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">❌ {batchProgress.err}</Badge>
+                {batchRunning && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${batchProgress.total ? (batchProgress.done / batchProgress.total) * 100 : 0}%` }} />
+              </div>
+              {batchLog.length > 0 && (
+                <div className="text-xs font-mono bg-muted/50 p-2 rounded max-h-40 overflow-y-auto space-y-0.5">
+                  {batchLog.map((line, idx) => <div key={idx} className="truncate">{line}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Lista de Artigos */}
       {filteredArticles.length === 0 ? (
         <Alert>
