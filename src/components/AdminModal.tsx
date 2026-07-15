@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2 } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -224,6 +224,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [savedDocId, setSavedDocId] = useState<string | null>(null);
   const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const [generatedCards, setGeneratedCards] = useState<{ pt?: string; en?: string; es?: string } | null>(null);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
