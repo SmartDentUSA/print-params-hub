@@ -642,6 +642,19 @@ export default function KbTabCatalogo() {
     return m;
   }, [translatedResins]);
 
+  // Keep an already-open processing dialog aligned with translations/data that
+  // arrive after the click instead of retaining the card's stale object copy.
+  useEffect(() => {
+    if (!procResin) return;
+    const fresh = (translatedResins || []).find((r: any) => r?.id === procResin.id);
+    if (!fresh) return;
+    setProcResin((current) => current ? {
+      ...current,
+      name: fresh.name || current.name,
+      processing_instructions: fresh.processing_instructions || current.processing_instructions,
+    } : current);
+  }, [translatedResins, procResin?.id]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     // Dedup defensivo: `system_a_catalog` pode ter linhas duplicadas (mesmo nome/slug
