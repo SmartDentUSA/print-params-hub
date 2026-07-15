@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
+import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
