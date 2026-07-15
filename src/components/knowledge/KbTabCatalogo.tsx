@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
+import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -1018,11 +1019,7 @@ export default function KbTabCatalogo() {
             <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
           {procResin?.processing_instructions && (
-            <div
-              style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, color: '#202124' }}
-            >
-              {procResin.processing_instructions}
-            </div>
+            <ProcessingInstructionsView instructions={procResin.processing_instructions} />
           )}
         </DialogContent>
       </Dialog>

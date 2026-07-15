@@ -1,36 +1,35 @@
-## Diagnóstico
-
-O card 🧪 Pré/Pós-Processamento na Base de Conhecimento lê `resins.processing_instructions` **diretamente** (`KbTabCatalogo.tsx`, linha 441-442) — sem cache intermediário. Quando o idioma da página é EN ou ES, o hook `useCardTranslations` mostra o valor da coluna `processing_instructions_en` / `_es` se ela **não estiver vazia**; só chama a Edge Function `translate-card-row` quando a coluna traduzida está nula.
-
-Consultando o banco, várias resinas foram atualizadas em 30/06 mas as colunas traduzidas continuam com o texto antigo (ex.: *Smart Print Bio Bite Splint +Flex* → PT=2001 chars, EN=1291 chars, ES=1425 chars; *Smart Print Try-in Calcinavel* → PT=3679, EN=2215, ES=2467). Ou seja: em EN/ES o KB mostra a tradução obsoleta. Em PT o card também não reflete se a página estiver com cache do bundle antigo, mas o problema estrutural é o cache das traduções.
-
-O `updateResin` (`src/hooks/useSupabaseCRUD.ts:152`) grava apenas o PT — nada limpa `_en/_es`, então a tradução velha “trava” eternamente.
-
 ## Objetivo
 
-Sempre que um campo traduzível de `resins` mudar em PT, invalidar automaticamente as colunas `_en/_es` correspondentes para que o `useCardTranslations` re-traduza no próximo acesso. Aplicar cleanup pontual para as resinas já editadas em 2026-06.
+Renderizar as "Instruções de Pré/Pós-Processamento" no card da resina da Base de Conhecimento (KB → Catálogo → Resina) com o mesmo visual estruturado usado no card de Parâmetros de Impressão (seções coloridas 🔵 PRÉ / 🟢 PÓS / 🟣 extras, subseções com 🔹, notas com ⚠️ em callout âmbar, bullets/subbullets, e produtos do catálogo hiperlinkados).
 
-## O que fazer
+Hoje o KB só mostra o texto cru com `whiteSpace: pre-wrap` em `KbTabCatalogo.tsx` (linhas 1020-1026). Já existe um parser + renderer completo em `ParameterTable.tsx` (linhas 68-283) — vamos extraí-lo em um componente compartilhado.
 
-1. **Invalidar traduções no update (frontend, `useSupabaseCRUD.updateResin`)**
-   - Antes do `.update(dbUpdates)`, carregar a linha atual da resina.
-   - Para cada campo traduzível listado abaixo, se o novo valor PT diferir do atual, adicionar `<campo>_en = null` e `<campo>_es = null` ao payload do update.
-   - Campos traduzíveis considerados: `name`, `processing_instructions`, `technical_specs`, `cta_1_label`, `cta_2_label`, `cta_3_label`, `cta_4_label` (mesma lista já usada em `KbTabCatalogo` / `useCardTranslations`).
-   - Idempotente: nenhum efeito quando o PT não mudou.
+## Passos
 
-2. **Cleanup pontual dos dados já stale (migration/insert SQL)**
-   - `UPDATE public.resins SET processing_instructions_en = NULL, processing_instructions_es = NULL WHERE processing_instructions IS NOT NULL AND updated_at >= '2026-06-01' AND (processing_instructions_en IS NOT NULL OR processing_instructions_es IS NOT NULL);`
-   - Só o campo Pré/Pós — evita retraduzir massivamente conteúdos que o usuário não tocou. Nas próximas edições, o passo 1 mantém isso limpo automaticamente.
+1. **Criar `src/components/ProcessingInstructionsView.tsx`**
+   - Mover `MarkdownElement`, `ParsedInstructions`, `parseMarkdownInstructions`, `linkifyProducts`, `renderMarkdownElement` para lá.
+   - Exportar `<ProcessingInstructionsView instructions={string} />` que renderiza o mesmo bloco (blocos PRÉ / PÓS / seções extras com os mesmos ícones, classes e cores) — igual ao que está dentro do `AccordionContent` de `ParameterTable` (linhas 515-551), mas sem o Accordion (só o conteúdo, já que no KB o próprio Dialog é o container).
+   - Usa `useCatalogProducts()` internamente para os hyperlinks.
 
-3. **Sem mudanças de UI** — o card já lê o campo correto; a correção é só na camada de dados / cache de tradução.
+2. **Refatorar `ParameterTable.tsx`**
+   - Remover as funções locais duplicadas.
+   - Substituir o miolo do `AccordionContent` por `<ProcessingInstructionsView instructions={processingInstructions} />`.
+   - Mantém o Accordion + header "Instruções de Pré/Pós Processamento".
+   - Sem mudança visual.
 
-## Fora de escopo
+3. **Atualizar `src/components/knowledge/KbTabCatalogo.tsx`**
+   - No `Dialog` de `procResin` (linhas 1015-1028), trocar o `<div style={{ whiteSpace: 'pre-wrap' ... }}>{procResin.processing_instructions}</div>` por `<ProcessingInstructionsView instructions={procResin.processing_instructions} />`.
+   - Fallback: se o parser não encontrar nenhuma seção (`pre`, `post`, `sections` todos vazios), renderizar o texto original com `whiteSpace: pre-wrap` para não quebrar resinas cujo campo ainda não usa o formato `## PRÉ-PROCESSAMENTO / ## PÓS-PROCESSAMENTO`. Esse fallback fica dentro do próprio `ProcessingInstructionsView`.
 
-- Não alterar `system_a_catalog`, `resin_documents` ou o Painel Admin.
-- Não mexer em outros campos além dos traduzíveis listados.
-- Não forçar re-tradução em massa (respeita a política atual on-demand).
+## Detalhes técnicos
 
-## Como validar
+- Nenhuma mudança de dados/DB. Fluxo de tradução `useCardTranslations` continua injetando `processing_instructions` no idioma correto antes do componente renderizar.
+- `useCatalogProducts` já é usado em `ParameterTable`; reutilizar sem novas queries.
+- Sem alteração no dialog trigger, título, tamanho ou no modo de abertura.
+- Classes Tailwind/tokens iguais aos do ParameterTable — herdam o tema atual do KB automaticamente.
 
-- Editar Pré/Pós de uma resina em PT no Painel Admin → abrir o KB em PT (deve mostrar texto novo na hora), depois trocar para EN/ES (deve disparar `translate-card-row` e, após concluir, exibir o texto novo traduzido).
-- Conferir no console do navegador o log `[useCardTranslations]` para a resina editada quando em EN/ES.
+## O que NÃO muda
+
+- Layout do card do parâmetro de impressão.
+- Estrutura do KB (abas, listagem, outros dialogs de specs/docs/sheet).
+- Hooks de tradução, edge functions, schema.
