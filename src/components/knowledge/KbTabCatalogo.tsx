@@ -1018,11 +1018,7 @@ export default function KbTabCatalogo() {
             <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
           {procResin?.processing_instructions && (
-            <div
-              style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, color: '#202124' }}
-            >
-              {procResin.processing_instructions}
-            </div>
+            <ProcessingInstructionsView instructions={procResin.processing_instructions} />
           )}
         </DialogContent>
       </Dialog>
