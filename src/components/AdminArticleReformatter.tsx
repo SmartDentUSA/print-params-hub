@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Eye, Save, AlertCircle, Check, X, Filter, List } from 'lucide-react';
+import { Loader2, RefreshCw, Eye, Save, AlertCircle, Check, X, Filter, List, Zap, StopCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +35,11 @@ export function AdminArticleReformatter() {
   const [previewArticleId, setPreviewArticleId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>('all');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchForce, setBatchForce] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, ok: 0, skipped: 0, err: 0 });
+  const [batchLog, setBatchLog] = useState<string[]>([]);
+  const cancelRef = useRef(false);
   const { toast } = useToast();
 
   const analyzeArticle = (article: { id: string; title: string; slug: string; content_html: string | null }): Article => {
@@ -235,6 +240,53 @@ export function AdminArticleReformatter() {
     </Badge>
   );
 
+  const runBatch = async () => {
+    const targets = filteredArticles;
+    if (targets.length === 0) {
+      toast({ title: 'Nada a fazer', description: 'Nenhum artigo no filtro atual.' });
+      return;
+    }
+    if (!confirm(`Vai reformatar ${targets.length} artigos${batchForce ? ' (forçando re-reformatação)' : ''}. Continuar?`)) return;
+
+    cancelRef.current = false;
+    setBatchRunning(true);
+    setBatchLog([]);
+    setBatchProgress({ done: 0, total: targets.length, ok: 0, skipped: 0, err: 0 });
+
+    let ok = 0, skipped = 0, err = 0;
+    for (let i = 0; i < targets.length; i++) {
+      if (cancelRef.current) {
+        setBatchLog(prev => [`⛔ Cancelado em ${i}/${targets.length}`, ...prev].slice(0, 20));
+        break;
+      }
+      const a = targets[i];
+      try {
+        const { data, error } = await supabase.functions.invoke('reformat-article-html', {
+          body: { contentId: a.id, previewOnly: false, force: batchForce },
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'unknown');
+        if (data.skipped) {
+          skipped++;
+          setBatchLog(prev => [`⏭️  ${a.title} (já reformatado)`, ...prev].slice(0, 20));
+        } else {
+          ok++;
+          setBatchLog(prev => [`✅ ${a.title}`, ...prev].slice(0, 20));
+        }
+      } catch (e: any) {
+        err++;
+        setBatchLog(prev => [`❌ ${a.title}: ${e.message || e}`, ...prev].slice(0, 20));
+      }
+      setBatchProgress({ done: i + 1, total: targets.length, ok, skipped, err });
+    }
+
+    setBatchRunning(false);
+    toast({ title: 'Lote concluído', description: `${ok} ok · ${skipped} pulados · ${err} erros` });
+    await fetchArticles();
+  };
+
+  const cancelBatch = () => { cancelRef.current = true; };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -335,6 +387,56 @@ export function AdminArticleReformatter() {
           </Button>
         </div>
       </div>
+
+      {/* Batch mode */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="w-4 h-4" /> Reformatar em Lote
+          </CardTitle>
+          <CardDescription>
+            Aplica a reformatação IA em todos os {filteredArticles.length} artigos do filtro atual (sequencial, 1 por vez).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch id="batch-force" checked={batchForce} onCheckedChange={setBatchForce} disabled={batchRunning} />
+              <Label htmlFor="batch-force" className="text-sm">Forçar re-reformatação (ignora artigos já processados)</Label>
+            </div>
+            {!batchRunning ? (
+              <Button onClick={runBatch} size="sm" disabled={filteredArticles.length === 0}>
+                <Zap className="w-4 h-4 mr-2" />
+                Reformatar {filteredArticles.length} artigos
+              </Button>
+            ) : (
+              <Button onClick={cancelBatch} size="sm" variant="destructive">
+                <StopCircle className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+            )}
+          </div>
+          {(batchRunning || batchProgress.done > 0) && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-mono">{batchProgress.done}/{batchProgress.total}</span>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">✅ {batchProgress.ok}</Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">⏭️ {batchProgress.skipped}</Badge>
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">❌ {batchProgress.err}</Badge>
+                {batchRunning && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${batchProgress.total ? (batchProgress.done / batchProgress.total) * 100 : 0}%` }} />
+              </div>
+              {batchLog.length > 0 && (
+                <div className="text-xs font-mono bg-muted/50 p-2 rounded max-h-40 overflow-y-auto space-y-0.5">
+                  {batchLog.map((line, idx) => <div key={idx} className="truncate">{line}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Lista de Artigos */}
       {filteredArticles.length === 0 ? (

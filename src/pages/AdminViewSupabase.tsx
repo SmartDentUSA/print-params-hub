@@ -11,6 +11,7 @@ import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
 import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
 import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
+import { AdminTranslationsAudit } from "@/components/AdminTranslationsAudit";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { AdminBatchTranslator } from "@/components/AdminBatchTranslator";
 import { ApostilaExport } from "@/components/ApostilaExport";
@@ -137,6 +138,9 @@ const AdminViewSupabase = () => {
 
           {/* SEO Article Enricher */}
           <AdminArticleEnricher />
+
+          {/* Translations & FAQs Audit */}
+          <AdminTranslationsAudit />
 
           {/* Article HTML Reformatter */}
           <Card className="bg-gradient-card border-border shadow-medium">
