@@ -422,8 +422,9 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                 <TableHead className="w-[64px]">{t.catPhoto}</TableHead>
                 <TableHead className="min-w-[260px]">{t.catProduct}</TableHead>
                 <TableHead className="w-[110px]">{t.catCod}</TableHead>
-                <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[120px]">{t.catSku}</TableHead>
+                <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
+                <TableHead className="w-[90px]">{t.catPres}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
                 <TableHead className="w-[80px]">{t.catUnit}</TableHead>
@@ -436,7 +437,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -465,7 +466,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell colSpan={7} className="text-xs text-muted-foreground italic">
+                        <TableCell colSpan={8} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
