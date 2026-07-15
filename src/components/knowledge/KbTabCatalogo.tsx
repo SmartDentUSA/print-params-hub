@@ -323,6 +323,9 @@ interface ResinInfo {
   technical_specs: any | null;
   technical_specs_en?: any | null;
   technical_specs_es?: any | null;
+  info_card_url_pt?: string | null;
+  info_card_url_en?: string | null;
+  info_card_url_es?: string | null;
 }
 
 // Build a stable fuzzy key for matching catalog products to resin records.
