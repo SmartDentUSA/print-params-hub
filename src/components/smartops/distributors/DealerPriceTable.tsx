@@ -299,15 +299,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     for (const v of allVars) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
-      const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
+      const presRaw = presentationFor(v, p);
+      const norm2 = normalizeWeight(v.presentation_qty, presRaw, v.unidade);
+      const key = `${v.catalog_product_id}::${norm(norm2.qty)}`;
       let keySet = validKeysByProduct.get(v.catalog_product_id);
       if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
-      keySet.add(norm(v.presentation_qty));
+      keySet.add(norm(norm2.qty));
       const priced = priceFor(v, p);
       if (priced.fallback) fallbackCount++;
       const current = existingByKey.get(key);
-      const presRaw = presentationFor(v, p);
-      const norm2 = normalizeWeight(v.presentation_qty, presRaw, v.unidade);
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
