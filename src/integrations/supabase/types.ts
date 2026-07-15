@@ -2755,6 +2755,7 @@ export type Database = {
         Row: {
           catalog_product_id: string
           created_at: string
+          dimensions_cm: string | null
           gtin_ean: string | null
           id: string
           ncm_hs: string | null
@@ -2768,10 +2769,12 @@ export type Database = {
           source: string
           unidade: string
           updated_at: string
+          weight_kg: number | null
         }
         Insert: {
           catalog_product_id: string
           created_at?: string
+          dimensions_cm?: string | null
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
@@ -2785,10 +2788,12 @@ export type Database = {
           source?: string
           unidade?: string
           updated_at?: string
+          weight_kg?: number | null
         }
         Update: {
           catalog_product_id?: string
           created_at?: string
+          dimensions_cm?: string | null
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
@@ -2802,6 +2807,7 @@ export type Database = {
           source?: string
           unidade?: string
           updated_at?: string
+          weight_kg?: number | null
         }
         Relationships: [
           {
