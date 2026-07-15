@@ -2758,6 +2758,7 @@ export type Database = {
           gtin_ean: string | null
           id: string
           ncm_hs: string | null
+          presentation: string | null
           presentation_qty: string
           price_brl: number | null
           price_eur: number | null
@@ -2774,6 +2775,7 @@ export type Database = {
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
+          presentation?: string | null
           presentation_qty: string
           price_brl?: number | null
           price_eur?: number | null
@@ -2790,6 +2792,7 @@ export type Database = {
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
+          presentation?: string | null
           presentation_qty?: string
           price_brl?: number | null
           price_eur?: number | null
