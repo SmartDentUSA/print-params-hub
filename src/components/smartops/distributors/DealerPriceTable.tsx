@@ -1036,7 +1036,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         const ia = firstIndex.get(ka)!;
                         const ib = firstIndex.get(kb)!;
                         if (ia !== ib) return ia - ib;
-                        // within a product group, keep original order
+                        // Within a product group, sort variations by qty DESC
+                        // (1000 > 500 > 250). Non-numeric qty falls back to
+                        // original order.
+                        const parseQty = (s: any) => {
+                          const m = String(s ?? "").match(/([\d]+(?:[.,]\d+)?)/);
+                          return m ? parseFloat(m[1].replace(",", ".")) : NaN;
+                        };
+                        const na = parseQty((a as any).presentation_qty);
+                        const nb = parseQty((b as any).presentation_qty);
+                        if (isFinite(na) && isFinite(nb) && na !== nb) return nb - na;
                         return rows.indexOf(a) - rows.indexOf(b);
                       });
                       const seen = new Map<string, { leader: string; size: number }>();
