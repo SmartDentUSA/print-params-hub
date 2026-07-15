@@ -252,37 +252,75 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 10-column layout with a photo column. Sum = 539pt = contentW.
+  // 12-column layout matching the on-screen table.
+  // Widths sum to contentW = 539pt.
   const head = [[
-    "Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN",
-    "Unid", "Preço tabela", "% Desc.", "Preço dealer",
+    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN",
+    "Unid (×)", "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
   ]];
-  const PHOTO_COL_W = 38;
+  const PHOTO_COL_W = 34;
   const columnStyles: Record<number, any> = {
-    0: { cellWidth: PHOTO_COL_W, halign: "center" },
-    1: { cellWidth: 42 },
-    2: { cellWidth: 132 },
-    3: { cellWidth: 55 },
-    4: { cellWidth: 44 },
-    5: { cellWidth: 60 },
-    6: { cellWidth: 26, halign: "right" },
-    7: { cellWidth: 55, halign: "right" },
-    8: { cellWidth: 33, halign: "right" },
-    9: { cellWidth: 54, halign: "right", fontStyle: "bold" },
+    0:  { cellWidth: PHOTO_COL_W, halign: "center" },
+    1:  { cellWidth: 38 },
+    2:  { cellWidth: 118 },
+    3:  { cellWidth: 32, halign: "right" },
+    4:  { cellWidth: 30 },
+    5:  { cellWidth: 40 },
+    6:  { cellWidth: 58 },
+    7:  { cellWidth: 26, halign: "right" },
+    8:  { cellWidth: 46, halign: "right" },
+    9:  { cellWidth: 30, halign: "right" },
+    10: { cellWidth: 46, halign: "right" },
+    11: { cellWidth: 41, halign: "right", fontStyle: "bold" },
   };
 
-  const rowFor = (it: DealerPriceItem) => [
-    "", // photo cell (drawn in didDrawCell)
-    it.cod ?? "—",
-    it.name,
-    it.variant ?? it.presentation ?? "—",
-    it.ncm_hs ?? "—",
-    it.gtin_ean ?? "—",
-    it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
-    formatMoney(it.price_base, currency),
-    `${Number(it.discount_pct).toFixed(1)}%`,
-    formatMoney(it.price_dealer, currency),
-  ];
+  // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
+  // matching the on-screen grouping so variations of the same product share
+  // photo/code/name across multiple rows.
+  const groupKeyFor = (it: DealerPriceItem) =>
+    it.catalog_product_id ? `cid:${it.catalog_product_id}` : `id:${it.id}`;
+
+  const rowFor = (it: DealerPriceItem, isLeader: boolean, span: number) => {
+    const lineTotal = Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
+    const photo   = isLeader ? { content: "", rowSpan: span } : null;
+    const cod     = isLeader ? { content: it.cod ?? "—", rowSpan: span } : null;
+    const nome    = isLeader ? { content: it.name, rowSpan: span } : null;
+    const cells: any[] = [
+      it.presentation_qty ?? "—",
+      (it.presentation as string) ?? "Unit",
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
+      String(Number(it.quantity_multiplier ?? 1) || 1),
+      formatMoney(it.price_base, currency),
+      `${Number(it.discount_pct).toFixed(1)}%`,
+      formatMoney(it.price_dealer, currency),
+      formatMoney(lineTotal, currency),
+    ];
+    return isLeader ? [photo, cod, nome, ...cells] : cells;
+  };
+
+  const orderRowsForRowSpan = (rows: DealerPriceItem[]) => {
+    const firstIndex = new Map<string, number>();
+    rows.forEach((r, i) => {
+      const k = groupKeyFor(r);
+      if (!firstIndex.has(k)) firstIndex.set(k, i);
+    });
+    const ordered = [...rows].sort((a, b) => {
+      const ia = firstIndex.get(groupKeyFor(a))!;
+      const ib = firstIndex.get(groupKeyFor(b))!;
+      if (ia !== ib) return ia - ib;
+      return rows.indexOf(a) - rows.indexOf(b);
+    });
+    const sizes = new Map<string, number>();
+    for (const r of ordered) sizes.set(groupKeyFor(r), (sizes.get(groupKeyFor(r)) ?? 0) + 1);
+    const seenLeader = new Set<string>();
+    return ordered.map((r) => {
+      const k = groupKeyFor(r);
+      const isLeader = !seenLeader.has(k);
+      seenLeader.add(k);
+      return { it: r, isLeader, span: sizes.get(k)! };
+    });
+  };
 
   let cursorY = tableTop;
   const groups = groupItemsByCategory(items);
@@ -314,13 +352,15 @@ export async function exportPriceTablePdf(
       if (grp.subs.length > 1 || sub.subcategory !== "Geral") {
         drawBand(sub.subcategory, { dark: false });
       }
+      const bodyRows = orderRowsForRowSpan(sub.rows);
+      const orderedItems = bodyRows.map((b) => b.it);
       autoTable(doc, {
         startY: cursorY,
         margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
-        body: sub.rows.map(rowFor),
-        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 30 },
-        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7.5, fontStyle: "bold" },
+        body: bodyRows.map(({ it, isLeader, span }) => rowFor(it, isLeader, span)),
+        styles: { fontSize: 7, cellPadding: 2.5, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 26, valign: "middle" },
+        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7, fontStyle: "bold" },
         columnStyles,
         theme: "grid",
         willDrawPage: () => {
@@ -330,7 +370,7 @@ export async function exportPriceTablePdf(
         },
         didDrawCell: (data) => {
           if (data.section !== "body" || data.column.index !== 0) return;
-          const it = sub.rows[data.row.index];
+          const it = orderedItems[data.row.index];
           if (!it) return;
           const entry = imgs.get(it.id);
           if (!entry) return;
@@ -350,9 +390,15 @@ export async function exportPriceTablePdf(
     }
   }
 
-  // Footer totals: Preço de tabela / Valor de desconto / Preço Dealer
-  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
-  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  // Footer totals — use line totals (price × quantity_multiplier) to match the UI.
+  const totalTabela = items.reduce(
+    (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
+  const totalDealer = items.reduce(
+    (a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
   const totalDesc = totalTabela - totalDealer;
   const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
   ensureSpace(72);
