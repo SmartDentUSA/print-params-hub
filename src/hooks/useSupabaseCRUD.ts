@@ -155,7 +155,42 @@ export const useSupabaseCRUD = () => {
       
       // Filtrar campos calculados que não existem no banco
       const { has_documents, ...dbUpdates } = updates as any;
-      
+
+      // Invalidar cache de tradução: quando um campo PT traduzível mudar,
+      // zerar as colunas _en/_es para que useCardTranslations re-traduza on-demand.
+      const TRANSLATABLE_FIELDS = [
+        'name',
+        'processing_instructions',
+        'technical_specs',
+        'cta_1_label',
+        'cta_2_label',
+        'cta_3_label',
+        'cta_4_label',
+      ];
+      const touched = TRANSLATABLE_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(dbUpdates, f));
+      if (touched.length > 0) {
+        const { data: current } = await supabase
+          .from('resins')
+          .select(touched.join(','))
+          .eq('id', id)
+          .maybeSingle();
+        const eq = (a: any, b: any) => {
+          if (a == null && b == null) return true;
+          if (typeof a === 'object' || typeof b === 'object') {
+            try { return JSON.stringify(a ?? null) === JSON.stringify(b ?? null); } catch { return false; }
+          }
+          return a === b;
+        };
+        for (const f of touched) {
+          const prev = current ? (current as any)[f] : undefined;
+          const next = (dbUpdates as any)[f];
+          if (!eq(prev, next)) {
+            (dbUpdates as any)[`${f}_en`] = null;
+            (dbUpdates as any)[`${f}_es`] = null;
+          }
+        }
+      }
+
       const { data, error } = await supabase
         .from('resins')
         .update(dbUpdates)

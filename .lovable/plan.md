@@ -1,44 +1,36 @@
 ## Diagnóstico
 
-A tabela **Catálogo de Produtos** (`DealerPriceTable.importCatalog`) puxa de `system_a_catalog` filtrando apenas por `approved=true`. Mas essa tabela mistura tipos:
+O card 🧪 Pré/Pós-Processamento na Base de Conhecimento lê `resins.processing_instructions` **diretamente** (`KbTabCatalogo.tsx`, linha 441-442) — sem cache intermediário. Quando o idioma da página é EN ou ES, o hook `useCardTranslations` mostra o valor da coluna `processing_instructions_en` / `_es` se ela **não estiver vazia**; só chama a Edge Function `translate-card-row` quando a coluna traduzida está nula.
 
-- `category='product'` (real) — 130 linhas
-- `category='resin'` (real) — 14 linhas
-- `category='category_config'` — 25 linhas (são as **categorias** aparecendo como produto: "CARACTERIZAÇÃO - SMARTGUM", "SCANNERS 3D - IOS", etc.)
-- `category='company_info'`, `Software`, `Serviços`, `Acessórios`, `Equipamentos` — 6 linhas soltas
+Consultando o banco, várias resinas foram atualizadas em 30/06 mas as colunas traduzidas continuam com o texto antigo (ex.: *Smart Print Bio Bite Splint +Flex* → PT=2001 chars, EN=1291 chars, ES=1425 chars; *Smart Print Try-in Calcinavel* → PT=3679, EN=2215, ES=2467). Ou seja: em EN/ES o KB mostra a tradução obsoleta. Em PT o card também não reflete se a página estiver com cache do bundle antigo, mas o problema estrutural é o cache das traduções.
 
-Total: 31 linhas "lixo" viram itens sem COD/SKU/variação → cada uma cria dezenas de linhas vazias com R$ 0,00 na planilha do distribuidor. Isso explica exatamente o que aparece na screenshot (linhas sem produto + várias R$ 0,00 seguidas).
+O `updateResin` (`src/hooks/useSupabaseCRUD.ts:152`) grava apenas o PT — nada limpa `_en/_es`, então a tradução velha “trava” eternamente.
 
-Não há registros de vídeo em `system_a_catalog`; o que o usuário lê como "vídeo" são as linhas `category_config` (nomes de categorias/subcategorias).
+## Objetivo
 
-## Correção
+Sempre que um campo traduzível de `resins` mudar em PT, invalidar automaticamente as colunas `_en/_es` correspondentes para que o `useCardTranslations` re-traduza no próximo acesso. Aplicar cleanup pontual para as resinas já editadas em 2026-06.
 
-### 1. Filtrar `importCatalog` em `src/components/smartops/distributors/DealerPriceTable.tsx` (linhas ~254-258)
+## O que fazer
 
-Adicionar filtros à query do `system_a_catalog`:
-- `.in("category", ["product", "resin"])`
-- `.eq("active", true)`
+1. **Invalidar traduções no update (frontend, `useSupabaseCRUD.updateResin`)**
+   - Antes do `.update(dbUpdates)`, carregar a linha atual da resina.
+   - Para cada campo traduzível listado abaixo, se o novo valor PT diferir do atual, adicionar `<campo>_en = null` e `<campo>_es = null` ao payload do update.
+   - Campos traduzíveis considerados: `name`, `processing_instructions`, `technical_specs`, `cta_1_label`, `cta_2_label`, `cta_3_label`, `cta_4_label` (mesma lista já usada em `KbTabCatalogo` / `useCardTranslations`).
+   - Idempotente: nenhum efeito quando o PT não mudou.
 
-Assim, no próximo "Importar catálogo" só entram produtos e resinas reais.
+2. **Cleanup pontual dos dados já stale (migration/insert SQL)**
+   - `UPDATE public.resins SET processing_instructions_en = NULL, processing_instructions_es = NULL WHERE processing_instructions IS NOT NULL AND updated_at >= '2026-06-01' AND (processing_instructions_en IS NOT NULL OR processing_instructions_es IS NOT NULL);`
+   - Só o campo Pré/Pós — evita retraduzir massivamente conteúdos que o usuário não tocou. Nas próximas edições, o passo 1 mantém isso limpo automaticamente.
 
-### 2. Limpeza retroativa dos itens já criados
+3. **Sem mudanças de UI** — o card já lê o campo correto; a correção é só na camada de dados / cache de tradução.
 
-Rodar um `DELETE` em `dealer_price_items` para todas as linhas cujo `catalog_product_id` aponta para um registro de `system_a_catalog` com `category NOT IN ('product','resin')`. Isso remove os itens "categoria" e "vídeo/serviço/software" já materializados nas listas de todos os distribuidores, sem tocar em preços de itens válidos.
+## Fora de escopo
 
-Escopo do DELETE (contagem prévia será confirmada na execução):
-```sql
-DELETE FROM dealer_price_items dpi
-USING system_a_catalog sac
-WHERE dpi.catalog_product_id = sac.id
-  AND sac.category NOT IN ('product','resin');
-```
+- Não alterar `system_a_catalog`, `resin_documents` ou o Painel Admin.
+- Não mexer em outros campos além dos traduzíveis listados.
+- Não forçar re-tradução em massa (respeita a política atual on-demand).
 
-### 3. Fora do escopo
+## Como validar
 
-- Nenhuma alteração de UI, modal, preços ou schema.
-- `system_a_catalog` continua com as linhas `category_config` (elas são usadas pela navegação de categorias em outros lugares) — só deixam de ser importadas para o catálogo do distribuidor.
-- `catalog_product_variations` não é tocada.
-
-## Verificação
-
-Depois de aplicar: recarregar a aba **📦 Catálogo de Produtos** do distribuidor → só devem aparecer produtos reais com COD/SKU/variação; as R$ 0,00 em cascata somem.
+- Editar Pré/Pós de uma resina em PT no Painel Admin → abrir o KB em PT (deve mostrar texto novo na hora), depois trocar para EN/ES (deve disparar `translate-card-row` e, após concluir, exibir o texto novo traduzido).
+- Conferir no console do navegador o log `[useCardTranslations]` para a resina editada quando em EN/ES.
