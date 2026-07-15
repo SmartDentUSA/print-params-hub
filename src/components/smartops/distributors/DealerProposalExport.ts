@@ -442,11 +442,14 @@ export async function exportPriceTableDocx(
   const imgs = await preloadImages(items);
 
   // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. Use full width.
-  // Columns: Foto | COD | Produto | Variante | NCM/HS | GTIN/EAN | Unid | Preço | Desc. | Preço dealer
-  const widths = [1100, 900, 3200, 1600, 1200, 1600, 800, 1400, 900, 2138]; // sum = 14838
+  // Columns match the on-screen table (12 columns).
+  const widths = [1000, 800, 2600, 900, 800, 1100, 1500, 700, 1300, 800, 1400, 1938]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
-  const headers = ["Foto", "COD", "Produto", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Preço", "Desc.", "Preço dealer"];
+  const headers = [
+    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN",
+    "Unid (×)", "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+  ];
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -475,17 +478,20 @@ export async function exportPriceTableDocx(
   });
 
   const itemRow = (it: DealerPriceItem) => {
+    const lineTotal = Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
     const values: string[] = [
       "", // photo
       it.cod ?? "—",
       it.name,
-      it.variant ?? it.presentation ?? "—",
+      it.presentation_qty ?? "—",
+      (it.presentation as string) ?? "Unit",
       it.ncm_hs ?? "—",
       it.gtin_ean ?? "—",
-      it.quantity_multiplier != null ? String(it.quantity_multiplier) : (it.unidade ?? "1"),
+      String(Number(it.quantity_multiplier ?? 1) || 1),
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
       formatMoney(it.price_dealer, currency),
+      formatMoney(lineTotal, currency),
     ];
     return new TableRow({
       children: values.map((val, i) => {
@@ -521,7 +527,7 @@ export async function exportPriceTableDocx(
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
             children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+            alignment: i >= 7 ? AlignmentType.RIGHT : AlignmentType.LEFT,
           })],
         });
       }),
@@ -547,8 +553,14 @@ export async function exportPriceTableDocx(
     rows,
   });
 
-  const totalTabela = items.reduce((a, b) => a + Number(b.price_base || 0), 0);
-  const totalDealer = items.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+  const totalTabela = items.reduce(
+    (a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
+  const totalDealer = items.reduce(
+    (a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1),
+    0,
+  );
   const totalDesc = totalTabela - totalDealer;
   const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
 
