@@ -637,6 +637,9 @@ export default function KbTabCatalogo() {
         technical_specs: r.technical_specs ?? null,
         technical_specs_en: r.technical_specs_en ?? null,
         technical_specs_es: r.technical_specs_es ?? null,
+        info_card_url_pt: r.info_card_url_pt ?? null,
+        info_card_url_en: r.info_card_url_en ?? null,
+        info_card_url_es: r.info_card_url_es ?? null,
       };
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
