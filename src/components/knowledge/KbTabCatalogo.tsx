@@ -323,6 +323,9 @@ interface ResinInfo {
   technical_specs: any | null;
   technical_specs_en?: any | null;
   technical_specs_es?: any | null;
+  info_card_url_pt?: string | null;
+  info_card_url_en?: string | null;
+  info_card_url_es?: string | null;
 }
 
 // Build a stable fuzzy key for matching catalog products to resin records.
@@ -440,7 +443,7 @@ export default function KbTabCatalogo() {
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es')
+          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es, info_card_url_pt, info_card_url_en, info_card_url_es')
           .eq('active', true)
           .limit(500),
         supabase
@@ -634,6 +637,9 @@ export default function KbTabCatalogo() {
         technical_specs: r.technical_specs ?? null,
         technical_specs_en: r.technical_specs_en ?? null,
         technical_specs_es: r.technical_specs_es ?? null,
+        info_card_url_pt: r.info_card_url_pt ?? null,
+        info_card_url_en: r.info_card_url_en ?? null,
+        info_card_url_es: r.info_card_url_es ?? null,
       };
       m.set(String(r.name).toLowerCase().trim(), info);
       const fk = resinKey(r.name);
@@ -653,6 +659,9 @@ export default function KbTabCatalogo() {
       ...current,
       name: fresh.name || current.name,
       processing_instructions: fresh.processing_instructions || current.processing_instructions,
+      info_card_url_pt: fresh.info_card_url_pt ?? current.info_card_url_pt,
+      info_card_url_en: fresh.info_card_url_en ?? current.info_card_url_en,
+      info_card_url_es: fresh.info_card_url_es ?? current.info_card_url_es,
     } : current);
   }, [translatedResins, procResin?.id]);
 
@@ -1018,6 +1027,31 @@ export default function KbTabCatalogo() {
           <DialogHeader>
             <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
+          {(() => {
+            const cardUrl =
+              specLang === 'en' ? procResin?.info_card_url_en :
+              specLang === 'es' ? procResin?.info_card_url_es :
+              procResin?.info_card_url_pt;
+            return cardUrl ? (
+              <div className="space-y-2">
+                <img
+                  src={cardUrl}
+                  alt={procResin?.name || ''}
+                  className="w-full rounded-lg border shadow-sm"
+                />
+                <div className="flex justify-end">
+                  <a
+                    href={cardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    ↗ {t('kb.catalogo.dialogs.download_card') || 'Abrir em tamanho real'}
+                  </a>
+                </div>
+              </div>
+            ) : null;
+          })()}
           {procResin?.processing_instructions && (
             <ProcessingInstructionsView instructions={procResin.processing_instructions} />
           )}

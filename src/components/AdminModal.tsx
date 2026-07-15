@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2 } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -224,6 +224,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [savedDocId, setSavedDocId] = useState<string | null>(null);
   const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const [generatedCards, setGeneratedCards] = useState<{ pt?: string; en?: string; es?: string } | null>(null);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
@@ -1348,6 +1350,99 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <><Sparkles className="w-4 h-4" /> Formatar com IA</>
                   )}
                 </Button>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      !formData.id ||
+                      !formData.processing_instructions ||
+                      formData.processing_instructions.trim().length < 10 ||
+                      isGeneratingCard
+                    }
+                    onClick={async () => {
+                      if (!formData.id) {
+                        toast({ title: 'Salve a resina antes de gerar o card', variant: 'destructive' });
+                        return;
+                      }
+                      setIsGeneratingCard(true);
+                      setGeneratedCards(null);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('generate-resin-info-card', {
+                          body: { resin_id: formData.id },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        const urls = (data?.urls || {}) as { pt?: string; en?: string; es?: string };
+                        setGeneratedCards(urls);
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          info_card_url_pt: urls.pt || prev.info_card_url_pt,
+                          info_card_url_en: urls.en || prev.info_card_url_en,
+                          info_card_url_es: urls.es || prev.info_card_url_es,
+                        }));
+                        toast({
+                          title: '✅ Card informativo gerado',
+                          description: `Idiomas: ${Object.keys(urls).join(', ').toUpperCase() || 'nenhum'}`,
+                        });
+                      } catch (err: any) {
+                        toast({
+                          title: '❌ Erro ao gerar card',
+                          description: err.message,
+                          variant: 'destructive',
+                        });
+                      } finally {
+                        setIsGeneratingCard(false);
+                      }
+                    }}
+                    className="w-fit"
+                    title={!formData.id ? 'Salve a resina primeiro' : 'Gerar imagem infográfica em PT/EN/ES'}
+                  >
+                    {isGeneratingCard ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando card...</>
+                    ) : (
+                      <><ImageIcon className="w-4 h-4" /> Gerar Card Informativo</>
+                    )}
+                  </Button>
+                  {!formData.id && (
+                    <span className="text-xs text-muted-foreground">Salve a resina antes de gerar</span>
+                  )}
+                </div>
+                {(generatedCards || formData.info_card_url_pt || formData.info_card_url_en || formData.info_card_url_es) && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {(['pt', 'en', 'es'] as const).map((lang) => {
+                      const url =
+                        (generatedCards && generatedCards[lang]) ||
+                        (formData as any)[`info_card_url_${lang}`] ||
+                        null;
+                      return (
+                        <div key={lang} className="border rounded-lg overflow-hidden bg-background">
+                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider bg-muted flex items-center justify-between">
+                            <span>{lang}</span>
+                            {url && (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                abrir
+                              </a>
+                            )}
+                          </div>
+                          {url ? (
+                            <img src={url} alt={`Card ${lang}`} className="w-full h-auto" />
+                          ) : (
+                            <div className="p-4 text-center text-xs text-muted-foreground">
+                              — não gerado —
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex items-start gap-2 p-3 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
                   <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700 dark:text-blue-300">
