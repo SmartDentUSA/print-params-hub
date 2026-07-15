@@ -2762,6 +2762,7 @@ export type Database = {
           price_brl: number | null
           price_eur: number | null
           price_usd: number | null
+          sku: string | null
           sort_order: number
           source: string
           unidade: string
@@ -2777,6 +2778,7 @@ export type Database = {
           price_brl?: number | null
           price_eur?: number | null
           price_usd?: number | null
+          sku?: string | null
           sort_order?: number
           source?: string
           unidade?: string
@@ -2792,6 +2794,7 @@ export type Database = {
           price_brl?: number | null
           price_eur?: number | null
           price_usd?: number | null
+          sku?: string | null
           sort_order?: number
           source?: string
           unidade?: string
