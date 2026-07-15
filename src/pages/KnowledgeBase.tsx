@@ -10,6 +10,7 @@ import KbTabSwitcher, { KbTab } from '@/components/knowledge/KbTabSwitcher';
 import KbTabParametros from '@/components/knowledge/KbTabParametros';
 import KbTabVideos from '@/components/knowledge/KbTabVideos';
 import KbTabArtigos from '@/components/knowledge/KbTabArtigos';
+import KbTabEbooks from '@/components/knowledge/KbTabEbooks';
 import KbTabCatalogo from '@/components/knowledge/KbTabCatalogo';
 import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
 import KbTabEventos from '@/components/knowledge/KbTabEventos';
@@ -26,7 +27,7 @@ const LETTER_TO_TAB: Record<string, KbTab> = {
 function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
   if (forcedTab) return forcedTab;
   const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
-  if (fromUrl && ['parametros','catalogo','videos','artigos','distribuidores','eventos'].includes(fromUrl)) return fromUrl;
+  if (fromUrl && ['parametros','catalogo','videos','artigos','ebooks','distribuidores','eventos'].includes(fromUrl)) return fromUrl;
   if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
   return 'parametros';
 }
@@ -93,6 +94,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         {tab === 'parametros' && <KbTabParametros />}
         {tab === 'videos' && <KbTabVideos onOpen={openArticle} />}
         {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
+        {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
         {tab === 'catalogo' && <KbTabCatalogo />}
         {tab === 'distribuidores' && <KbTabDistribuidores />}
         {tab === 'eventos' && <KbTabEventos />}

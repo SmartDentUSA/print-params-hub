@@ -194,6 +194,7 @@ Receba o texto bruto abaixo e:
     selected_pdf_ids_es: [] as string[],
     selected_pdf_ids_en: [] as string[],
     category_id: '' as string,
+    is_ebook: false,
   });
   
   const { 
@@ -1002,6 +1003,7 @@ Receba o texto bruto abaixo e:
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
       selected_pdf_ids_en: content.selected_pdf_ids_en || [],
       category_id: content.category_id || '',
+      is_ebook: (content as any).is_ebook ?? false,
     });
     
     // Load multilingual content
@@ -1071,6 +1073,7 @@ Receba o texto bruto abaixo e:
       selected_pdf_ids_es: [],
       selected_pdf_ids_en: [],
       category_id: '',
+      is_ebook: false,
     });
     
     // Reset multilingual states
@@ -1200,6 +1203,7 @@ Receba o texto bruto abaixo e:
         selected_pdf_ids_pt: effectiveFormData.selected_pdf_ids_pt || [],
         selected_pdf_ids_es: effectiveFormData.selected_pdf_ids_es || [],
         selected_pdf_ids_en: effectiveFormData.selected_pdf_ids_en || [],
+        is_ebook: effectiveFormData.is_ebook ?? false,
       };
 
       console.log('💾 Saving content with PDFs:', {
@@ -2054,6 +2058,20 @@ Receba o texto bruto abaixo e:
                   <p className="text-xs text-muted-foreground mt-1">
                     Use este seletor para mover o artigo para outra categoria.
                   </p>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-md border border-border p-3">
+                  <Switch
+                    id="is-ebook-toggle"
+                    checked={!!formData.is_ebook}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_ebook: v })}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="is-ebook-toggle" className="cursor-pointer">Marcar como Ebook</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Se ativo, o artigo também aparece na aba <strong>Ebooks</strong> da Base de Conhecimento, mantendo sua categoria original.
+                    </p>
+                  </div>
                 </div>
                 
                 {/* Botão Gerar Título + Resumo por IA */}
@@ -3703,6 +3721,7 @@ Receba o texto bruto abaixo e:
                                 ai_prompt_template: formData.aiPromptTemplate || null,
                                 category_id: categoryId,
                                 recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+                                is_ebook: formData.is_ebook ?? false,
                               };
 
                               if (editingContent) {
