@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Eye, Save, AlertCircle, Check, X, Filter, List } from 'lucide-react';
+import { Loader2, RefreshCw, Eye, Save, AlertCircle, Check, X, Filter, List, Zap, StopCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +35,11 @@ export function AdminArticleReformatter() {
   const [previewArticleId, setPreviewArticleId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [issueFilter, setIssueFilter] = useState<IssueFilter>('all');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchForce, setBatchForce] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, ok: 0, skipped: 0, err: 0 });
+  const [batchLog, setBatchLog] = useState<string[]>([]);
+  const cancelRef = (window as any).__reformatCancelRef ?? ((window as any).__reformatCancelRef = { current: false });
   const { toast } = useToast();
 
   const analyzeArticle = (article: { id: string; title: string; slug: string; content_html: string | null }): Article => {
