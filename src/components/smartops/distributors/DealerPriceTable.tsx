@@ -246,13 +246,18 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .map((i) => [`${i.catalog_product_id}::${norm(i.presentation_qty)}`, i] as const),
     );
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
-    const presentationFor = (v: any, p: any): "Grs/Kg" | "Unit" | "Kit" => {
+    const presentationFor = (v: any, p: any): "grs" | "Kg" | "Item" | "ml" => {
+      // Prefer explicit value set on the variation (catalog editor).
+      const explicit = String(v?.presentation || "").trim();
+      if (explicit === "grs" || explicit === "Kg" || explicit === "Item" || explicit === "ml") {
+        return explicit as any;
+      }
       const unit = String(v?.unidade || "").trim().toLowerCase();
       const qty = String(v?.presentation_qty || "").trim().toLowerCase();
-      const productPresentation = String(p?.presentation || "").trim().toLowerCase();
-      if (["g", "kg", "mg"].includes(unit) || /(?:^|\d)\s*(?:mg|g|kg)\b/i.test(qty)) return "Grs/Kg";
-      if (/\b(?:kit|caixa|cx|pack|conjunto)\b/i.test(`${qty} ${productPresentation}`)) return "Kit";
-      return "Unit";
+      if (unit === "kg" || /\d\s*kg\b/i.test(qty)) return "Kg";
+      if (unit === "ml" || /\d\s*ml\b/i.test(qty)) return "ml";
+      if (["g", "mg"].includes(unit) || /\d\s*(?:mg|g)\b/i.test(qty)) return "grs";
+      return "Item";
     };
     const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
       const pick = cur === "USD" ? (v.price_usd ?? p?.price_usd) : cur === "EUR" ? (v.price_eur ?? p?.price_eur) : (v.price_brl ?? p?.price);
