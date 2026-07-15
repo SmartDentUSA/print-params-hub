@@ -2059,6 +2059,20 @@ Receba o texto bruto abaixo e:
                     Use este seletor para mover o artigo para outra categoria.
                   </p>
                 </div>
+
+                <div className="flex items-start gap-3 rounded-md border border-border p-3">
+                  <Switch
+                    id="is-ebook-toggle"
+                    checked={!!formData.is_ebook}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_ebook: v })}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="is-ebook-toggle" className="cursor-pointer">Marcar como Ebook</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Se ativo, o artigo também aparece na aba <strong>Ebooks</strong> da Base de Conhecimento, mantendo sua categoria original.
+                    </p>
+                  </div>
+                </div>
                 
                 {/* Botão Gerar Título + Resumo por IA */}
                 <div className="flex justify-center">
