@@ -242,22 +242,39 @@ export function useExternalLinks() {
       if (resinError) throw resinError;
 
       // Buscar documentos do catálogo
-      const { data: catalogDocs, error: catalogError } = await supabase
+      // Nota: catalog_documents NÃO tem FK para system_a_catalog, então o embed
+      // PostgREST falha. Buscamos em duas queries e juntamos em memória.
+      const { data: catalogDocsRaw, error: catalogError } = await supabase
         .from('catalog_documents')
-        .select(`
-          id,
-          document_name,
-          document_description,
-          file_url,
-          active,
-          system_a_catalog!inner(name, active, approved)
-        `)
+        .select('id, document_name, document_description, file_url, active, product_id')
         .eq('active', true)
-        .eq('system_a_catalog.active', true)
-        .eq('system_a_catalog.approved', true)
         .order('document_name');
 
       if (catalogError) throw catalogError;
+
+      const productIds = Array.from(
+        new Set((catalogDocsRaw || []).map((d: any) => d.product_id).filter(Boolean))
+      );
+
+      let productMap = new Map<string, { name: string; active: boolean; approved: boolean }>();
+      if (productIds.length > 0) {
+        const { data: products, error: prodErr } = await supabase
+          .from('system_a_catalog')
+          .select('id, name, active, approved')
+          .in('id', productIds);
+        if (prodErr) throw prodErr;
+        (products || []).forEach((p: any) => {
+          productMap.set(p.id, { name: p.name, active: !!p.active, approved: !!p.approved });
+        });
+      }
+
+      const catalogDocs = (catalogDocsRaw || [])
+        .map((doc: any) => {
+          const prod = productMap.get(doc.product_id);
+          if (!prod || !prod.active || !prod.approved) return null;
+          return { ...doc, system_a_catalog: { name: prod.name } };
+        })
+        .filter(Boolean) as any[];
 
       // Mapear documentos de resinas
       const resinDocList: TechnicalDocument[] = resinDocs?.map((doc: any) => ({
