@@ -1024,6 +1024,31 @@ export default function KbTabCatalogo() {
           <DialogHeader>
             <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
+          {(() => {
+            const cardUrl =
+              specLang === 'en' ? procResin?.info_card_url_en :
+              specLang === 'es' ? procResin?.info_card_url_es :
+              procResin?.info_card_url_pt;
+            return cardUrl ? (
+              <div className="space-y-2">
+                <img
+                  src={cardUrl}
+                  alt={procResin?.name || ''}
+                  className="w-full rounded-lg border shadow-sm"
+                />
+                <div className="flex justify-end">
+                  <a
+                    href={cardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    ↗ {t('kb.catalogo.dialogs.download_card') || 'Abrir em tamanho real'}
+                  </a>
+                </div>
+              </div>
+            ) : null;
+          })()}
           {procResin?.processing_instructions && (
             <ProcessingInstructionsView instructions={procResin.processing_instructions} />
           )}
