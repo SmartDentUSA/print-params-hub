@@ -17214,6 +17214,10 @@ export type Database = {
           fda_510k: string | null
           id: string
           image_url: string | null
+          info_card_generated_at: string | null
+          info_card_url_en: string | null
+          info_card_url_es: string | null
+          info_card_url_pt: string | null
           keyword_ids: string[] | null
           keywords: string[] | null
           manufacturer: string
@@ -17286,6 +17290,10 @@ export type Database = {
           fda_510k?: string | null
           id?: string
           image_url?: string | null
+          info_card_generated_at?: string | null
+          info_card_url_en?: string | null
+          info_card_url_es?: string | null
+          info_card_url_pt?: string | null
           keyword_ids?: string[] | null
           keywords?: string[] | null
           manufacturer: string
@@ -17358,6 +17366,10 @@ export type Database = {
           fda_510k?: string | null
           id?: string
           image_url?: string | null
+          info_card_generated_at?: string | null
+          info_card_url_en?: string | null
+          info_card_url_es?: string | null
+          info_card_url_pt?: string | null
           keyword_ids?: string[] | null
           keywords?: string[] | null
           manufacturer?: string
