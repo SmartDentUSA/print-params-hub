@@ -1,0 +1,2 @@
+ALTER TABLE public.knowledge_contents ADD COLUMN IF NOT EXISTS is_ebook boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_knowledge_contents_is_ebook ON public.knowledge_contents (is_ebook) WHERE is_ebook = true;

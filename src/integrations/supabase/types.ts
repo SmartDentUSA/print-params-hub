@@ -6732,6 +6732,7 @@ export type Database = {
           hero_audio_url: string | null
           icon_color: string | null
           id: string
+          is_ebook: boolean
           is_medical_device: boolean | null
           is_scholarly: boolean | null
           keyword_ids: string[] | null
@@ -6797,6 +6798,7 @@ export type Database = {
           hero_audio_url?: string | null
           icon_color?: string | null
           id?: string
+          is_ebook?: boolean
           is_medical_device?: boolean | null
           is_scholarly?: boolean | null
           keyword_ids?: string[] | null
@@ -6862,6 +6864,7 @@ export type Database = {
           hero_audio_url?: string | null
           icon_color?: string | null
           id?: string
+          is_ebook?: boolean
           is_medical_device?: boolean | null
           is_scholarly?: boolean | null
           keyword_ids?: string[] | null
