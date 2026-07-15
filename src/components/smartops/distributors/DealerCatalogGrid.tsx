@@ -122,6 +122,9 @@ const I18N: Record<string, Record<string, string>> = {
     catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
     catPresQty: "Variant", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
     catUnit: "Unit",
+    // en labels
+    // @ts-ignore
+    // (kept minimal; string map is loosely typed)
     priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
     empty: "No products found.", loading: "Loading catalog…",
     activated: "Enabled", deactivated: "Disabled", addVariation: "Add variant",
