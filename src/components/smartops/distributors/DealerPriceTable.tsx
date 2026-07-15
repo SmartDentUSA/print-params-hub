@@ -284,6 +284,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
+        sku: v.sku ?? null,
         name: p.name,
         name_en: p.name_en,
         name_es: p.name_es,
