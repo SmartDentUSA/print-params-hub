@@ -5,6 +5,7 @@ import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
+import { ReformatBatchWidget } from "./components/ReformatBatchWidget";
 
 // Lazy: heavy / admin / non-landing routes
 const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
@@ -172,8 +173,17 @@ const App = () => (
 
     {/* Global footer — hidden on admin and embed routes */}
     <FooterGlobal />
+
+    {/* Persistent batch runner UI — survives route changes */}
+    <ReformatBatchGlobal />
   </>
 );
+
+function ReformatBatchGlobal() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/embed')) return null;
+  return <ReformatBatchWidget />;
+}
 
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
