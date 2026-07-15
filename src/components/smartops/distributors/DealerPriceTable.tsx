@@ -264,11 +264,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     let fallbackCount = 0;
     const toInsert: any[] = [];
     const toUpdate: Array<{ id: string; patch: any }> = [];
+    const validKeysByProduct = new Map<string, Set<string>>();
     let cursor = items.length;
     for (const v of allVars) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
       const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
+      let keySet = validKeysByProduct.get(v.catalog_product_id);
+      if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
+      keySet.add(norm(v.presentation_qty));
       const priced = priceFor(v, p);
       if (priced.fallback) fallbackCount++;
       const current = existingByKey.get(key);
@@ -316,18 +320,35 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     );
     const updateError = updateResults.find((result: any) => result.error)?.error;
     if (updateError) { toast.error(`Erro ao atualizar variações: ${updateError.message}`); setLoading(false); return; }
+    // Remove linhas legadas/duplicadas: para cada produto agora com variações canônicas,
+    // apaga itens desta tabela que não batem com nenhuma variação atual (ex.: rows antigos
+    // com presentation_qty vazio ou variações removidas do catálogo).
+    const staleIds: string[] = [];
+    for (const it of items) {
+      if (!it.catalog_product_id) continue;
+      const keySet = validKeysByProduct.get(it.catalog_product_id);
+      if (!keySet) continue;
+      if (!keySet.has(norm(it.presentation_qty))) staleIds.push(it.id);
+    }
+    if (staleIds.length > 0) {
+      const { error: delErr } = await supabase
+        .from("dealer_price_items" as any)
+        .delete()
+        .in("id", staleIds);
+      if (delErr) { toast.error(`Erro ao remover duplicados: ${delErr.message}`); setLoading(false); return; }
+    }
     let insErr: any = null;
     if (toInsert.length > 0) {
       const result = await supabase.from("dealer_price_items" as any).insert(toInsert);
       insErr = result.error;
     }
     if (insErr) { toast.error(`Erro ao importar variações: ${insErr.message}`); setLoading(false); return; }
-    if (toInsert.length === 0 && toUpdate.length === 0) {
+    if (toInsert.length === 0 && toUpdate.length === 0 && staleIds.length === 0) {
       toast.info("Nenhuma alteração do catálogo para importar.");
       setLoading(false);
       return;
     }
-    toast.success(`${toInsert.length} novos e ${toUpdate.length} atualizados (${cur})`);
+    toast.success(`${toInsert.length} novos, ${toUpdate.length} atualizados, ${staleIds.length} removidos (${cur})`);
     if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
     await loadOrCreate(distributorId);
     // captura snapshot pós-import com estado recém carregado
