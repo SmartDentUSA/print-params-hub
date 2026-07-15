@@ -510,6 +510,14 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                         )}
                         <TableCell>
                           <Input
+                            className="h-8 text-xs font-mono"
+                            value={v.sku ?? ""}
+                            placeholder={skuOf(p) !== "—" ? skuOf(p) : "SKU"}
+                            onChange={(e) => patchVariation(v.id, { sku: e.target.value || null })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
                             className="h-8 text-xs"
                             value={v.presentation_qty ?? ""}
                             placeholder={t.variantPlaceholder}
@@ -517,12 +525,17 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            className="h-8 text-xs font-mono"
-                            value={v.sku ?? ""}
-                            placeholder={skuOf(p) !== "—" ? skuOf(p) : "SKU"}
-                            onChange={(e) => patchVariation(v.id, { sku: e.target.value || null })}
-                          />
+                          <Select
+                            value={v.presentation ?? "Item"}
+                            onValueChange={(val) => patchVariation(v.id, { presentation: val as PresentationType })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {PRESENTATION_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Input
