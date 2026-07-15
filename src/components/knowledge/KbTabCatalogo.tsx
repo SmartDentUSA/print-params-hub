@@ -659,6 +659,9 @@ export default function KbTabCatalogo() {
       ...current,
       name: fresh.name || current.name,
       processing_instructions: fresh.processing_instructions || current.processing_instructions,
+      info_card_url_pt: fresh.info_card_url_pt ?? current.info_card_url_pt,
+      info_card_url_en: fresh.info_card_url_en ?? current.info_card_url_en,
+      info_card_url_es: fresh.info_card_url_es ?? current.info_card_url_es,
     } : current);
   }, [translatedResins, procResin?.id]);
 
