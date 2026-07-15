@@ -65,6 +65,7 @@ type Variation = {
   id: string;
   catalog_product_id: string;
   presentation_qty: string;
+  sku: string | null;
   gtin_ean: string | null;
   ncm_hs: string | null;
   unidade: string;
