@@ -1,0 +1,2 @@
+ALTER TABLE public.dealer_price_items DROP CONSTRAINT IF EXISTS dealer_price_items_presentation_chk;
+ALTER TABLE public.dealer_price_items ADD CONSTRAINT dealer_price_items_presentation_chk CHECK (presentation IN ('grs','Kg','Item','ml','Grs/Kg','Unit','Kit'));
