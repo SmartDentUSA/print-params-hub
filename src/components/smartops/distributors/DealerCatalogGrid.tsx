@@ -417,10 +417,10 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
                 <TableHead className="w-[64px]">{t.catPhoto}</TableHead>
-                <TableHead className="w-[110px]">{t.catCod}</TableHead>
-                <TableHead className="w-[110px]">{t.catSku}</TableHead>
                 <TableHead className="min-w-[260px]">{t.catProduct}</TableHead>
+                <TableHead className="w-[110px]">{t.catCod}</TableHead>
                 <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
+                <TableHead className="w-[120px]">{t.catSku}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
                 <TableHead className="w-[80px]">{t.catUnit}</TableHead>
@@ -433,7 +433,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -457,13 +457,12 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell className="font-mono text-xs">{skuOf(p)}</TableCell>
                         <TableCell className="font-medium">
                           <div className="truncate">{nameFor(p)}</div>
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
-                        <TableCell colSpan={6} className="text-xs text-muted-foreground italic">
+                        <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
+                        <TableCell colSpan={7} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
@@ -495,8 +494,6 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell rowSpan={span} className="font-mono text-xs">{codOf(p)}</TableCell>
-                            <TableCell rowSpan={span} className="font-mono text-xs">{skuOf(p)}</TableCell>
                             <TableCell rowSpan={span} className="font-medium">
                               <div className="truncate">{nameFor(p)}</div>
                               {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
@@ -504,6 +501,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                                 <Plus className="w-3 h-3 mr-0.5" /> {t.addVariation}
                               </Button>
                             </TableCell>
+                            <TableCell rowSpan={span} className="font-mono text-xs">{codOf(p)}</TableCell>
                           </>
                         )}
                         <TableCell>
@@ -512,6 +510,14 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             value={v.presentation_qty ?? ""}
                             placeholder={t.variantPlaceholder}
                             onChange={(e) => patchVariation(v.id, { presentation_qty: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs font-mono"
+                            value={v.sku ?? ""}
+                            placeholder={skuOf(p) !== "—" ? skuOf(p) : "SKU"}
+                            onChange={(e) => patchVariation(v.id, { sku: e.target.value || null })}
                           />
                         </TableCell>
                         <TableCell>
