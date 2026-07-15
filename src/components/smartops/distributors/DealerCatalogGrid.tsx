@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, ImageOff, Plus, Lock, Layers, Trash2, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
-import { categoryRank } from "./types";
+import { categoryRank, PRESENTATION_OPTIONS, type PresentationType } from "./types";
 
 /** Extrai variações a partir de system_a_catalog.extra_data.system_a_live.technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
@@ -69,6 +69,7 @@ type Variation = {
   gtin_ean: string | null;
   ncm_hs: string | null;
   unidade: string;
+  presentation: PresentationType | null;
   price_brl: number | null;
   price_usd: number | null;
   price_eur: number | null;
@@ -81,7 +82,7 @@ const I18N: Record<string, Record<string, string>> = {
     search: "Buscar produto…", cat: "Categoria", allCats: "Todas categorias",
     items: "itens", showInactive: "Mostrar inativos",
     catStatus: "Status", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Produto",
-    catPresQty: "Variação", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
+    catPresQty: "Variação", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidade",
     priceBRL: "Preço BRL", priceUSD: "Preço USD", priceEUR: "Preço EUR",
     empty: "Nenhum produto encontrado.", loading: "Carregando catálogo…",
@@ -99,7 +100,7 @@ const I18N: Record<string, Record<string, string>> = {
     search: "Buscar producto…", cat: "Categoría", allCats: "Todas las categorías",
     items: "ítems", showInactive: "Mostrar inactivos",
     catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Producto",
-    catPresQty: "Variación", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
+    catPresQty: "Variación", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidad",
     priceBRL: "Precio BRL", priceUSD: "Precio USD", priceEUR: "Precio EUR",
     empty: "Ningún producto encontrado.", loading: "Cargando catálogo…",
@@ -117,7 +118,7 @@ const I18N: Record<string, Record<string, string>> = {
     search: "Search product…", cat: "Category", allCats: "All categories",
     items: "items", showInactive: "Show inactive",
     catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
-    catPresQty: "Variant", catNcm: "HS Code", catGtin: "GTIN/EAN",
+    catPresQty: "Variant", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
     catUnit: "Unit",
     priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
     empty: "No products found.", loading: "Loading catalog…",
