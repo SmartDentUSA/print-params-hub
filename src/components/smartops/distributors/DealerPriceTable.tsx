@@ -943,8 +943,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                     <TableRow>
                       <TableHead className="w-16">{t.hPhoto}</TableHead>
                       <TableHead className="w-28">{t.hCod}</TableHead>
-                      <TableHead className="min-w-[280px]">{t.hProduct}</TableHead>
-                      <TableHead className="w-20">{t.hPresQty}</TableHead>
+                      <TableHead className="min-w-[200px]">{t.hProduct}</TableHead>
+                      <TableHead className="w-32">{t.hSku}</TableHead>
+                      <TableHead className="w-28">{t.hPresQty}</TableHead>
                       <TableHead className="w-24">{t.hPres}</TableHead>
                       <TableHead className="w-32">{t.hNcm}</TableHead>
                       <TableHead className="w-40">{t.hGtin}</TableHead>
