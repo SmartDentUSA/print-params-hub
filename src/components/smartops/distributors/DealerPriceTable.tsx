@@ -255,7 +255,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       supabase
         .from("system_a_catalog" as any)
         .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,presentation,quantity_multiplier,extra_data,active,approved")
-        .eq("approved", true),
+        .eq("approved", true)
+        .eq("active", true)
+        .in("category", ["product", "resin"]),
       supabase
         .from("catalog_product_variations" as any)
         .select("*"),
