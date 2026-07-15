@@ -559,7 +559,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       const { error } = await supabase
         .from("dealer_price_items" as any)
         .update({
-          cod: it.cod, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
+          cod: it.cod, sku: (it as any).sku ?? null, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
           variant: it.variant, unidade: it.unidade, description: it.description,
           presentation: it.presentation || "Unit",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
