@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +39,7 @@ export function AdminArticleReformatter() {
   const [batchForce, setBatchForce] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, ok: 0, skipped: 0, err: 0 });
   const [batchLog, setBatchLog] = useState<string[]>([]);
-  const cancelRef = (window as any).__reformatCancelRef ?? ((window as any).__reformatCancelRef = { current: false });
+  const cancelRef = useRef(false);
   const { toast } = useToast();
 
   const analyzeArticle = (article: { id: string; title: string; slug: string; content_html: string | null }): Article => {
