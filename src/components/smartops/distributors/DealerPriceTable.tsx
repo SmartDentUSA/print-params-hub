@@ -259,6 +259,31 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (["g", "mg"].includes(unit) || /\d\s*(?:mg|g)\b/i.test(qty)) return "grs";
       return "Item";
     };
+    // Normaliza qualquer apresentação em peso (kg/g/grs/mg) para gramas +
+    // Pres = "grs". Ex.: "1kg" -> { qty: "1000", pres: "grs" },
+    // "500g" / "500grs" -> { qty: "500", pres: "grs" }, "250mg" -> { qty: "0.25", pres: "grs" }.
+    const normalizeWeight = (
+      qtyRaw: any,
+      pres: "grs" | "Kg" | "Item" | "ml",
+      unidade?: string | null,
+    ): { qty: string | null; pres: "grs" | "Kg" | "Item" | "ml" } => {
+      const qtyStr = String(qtyRaw ?? "").trim();
+      if (pres !== "grs" && pres !== "Kg") return { qty: qtyStr || null, pres };
+      // Extract numeric + unit from qty; fallback to `unidade` when qty has only a number.
+      const m = qtyStr.match(/([\d]+(?:[.,]\d+)?)\s*(kg|grs|g|mg)?/i);
+      const u = String(unidade || "").trim().toLowerCase();
+      let n = m ? parseFloat(m[1].replace(",", ".")) : NaN;
+      let unit = (m?.[2] || u || "").toLowerCase();
+      if (unit === "grs") unit = "g";
+      if (!isFinite(n)) return { qty: qtyStr || null, pres: "grs" };
+      let grams = n;
+      if (unit === "kg") grams = n * 1000;
+      else if (unit === "mg") grams = n / 1000;
+      else if (unit === "g") grams = n;
+      else grams = pres === "Kg" ? n * 1000 : n; // no unit: infer from pres
+      const rounded = Number.isInteger(grams) ? String(grams) : String(Math.round(grams * 1000) / 1000);
+      return { qty: rounded, pres: "grs" };
+    };
     const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
       const pick = cur === "USD" ? (v.price_usd ?? p?.price_usd) : cur === "EUR" ? (v.price_eur ?? p?.price_eur) : (v.price_brl ?? p?.price);
       const n = Number(pick);
@@ -281,6 +306,8 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       const priced = priceFor(v, p);
       if (priced.fallback) fallbackCount++;
       const current = existingByKey.get(key);
+      const presRaw = presentationFor(v, p);
+      const norm2 = normalizeWeight(v.presentation_qty, presRaw, v.unidade);
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
@@ -295,9 +322,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
         price_base: priced.value,
-        presentation: presentationFor(v, p),
+        presentation: norm2.pres,
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
-        presentation_qty: v.presentation_qty,
+        presentation_qty: norm2.qty,
         unidade: v.unidade || "UN",
         is_active: true,
       };
