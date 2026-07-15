@@ -557,6 +557,26 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                         </TableCell>
                         <TableCell>
                           <Input
+                            className="h-8 text-xs text-right"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.001"
+                            min="0"
+                            value={v.weight_kg ?? ""}
+                            placeholder="kg"
+                            onChange={(e) => patchVariation(v.id, { weight_kg: parseNum(e.target.value) })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={v.dimensions_cm ?? ""}
+                            placeholder="C×L×A"
+                            onChange={(e) => patchVariation(v.id, { dimensions_cm: e.target.value || null })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
                             className="h-8 text-xs"
                             value={v.unidade ?? ""}
                             onChange={(e) => patchVariation(v.id, { unidade: e.target.value })}
