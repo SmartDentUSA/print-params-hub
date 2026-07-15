@@ -99,7 +99,8 @@ const ALLOWED_CONTENT_KEYS = [
   'meta_description', 'og_image_url', 'content_image_url', 'content_image_alt', 'canva_template_url',
   'author_id', 'faqs', 'faqs_es', 'faqs_en', 'order_index', 'active', 'category_id', 'recommended_resins', 'recommended_products',
   'ai_prompt_template', 'keywords', 'keyword_ids',
-  'selected_pdf_ids_pt', 'selected_pdf_ids_es', 'selected_pdf_ids_en'
+  'selected_pdf_ids_pt', 'selected_pdf_ids_es', 'selected_pdf_ids_en',
+  'is_ebook'
 ];
 
 function pickAllowed<T extends Record<string, any>>(obj: T): Record<string, any> {
