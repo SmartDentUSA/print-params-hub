@@ -1003,6 +1003,7 @@ Receba o texto bruto abaixo e:
       selected_pdf_ids_es: content.selected_pdf_ids_es || [],
       selected_pdf_ids_en: content.selected_pdf_ids_en || [],
       category_id: content.category_id || '',
+      is_ebook: (content as any).is_ebook ?? false,
     });
     
     // Load multilingual content
@@ -1072,6 +1073,7 @@ Receba o texto bruto abaixo e:
       selected_pdf_ids_es: [],
       selected_pdf_ids_en: [],
       category_id: '',
+      is_ebook: false,
     });
     
     // Reset multilingual states
@@ -1201,6 +1203,7 @@ Receba o texto bruto abaixo e:
         selected_pdf_ids_pt: effectiveFormData.selected_pdf_ids_pt || [],
         selected_pdf_ids_es: effectiveFormData.selected_pdf_ids_es || [],
         selected_pdf_ids_en: effectiveFormData.selected_pdf_ids_en || [],
+        is_ebook: effectiveFormData.is_ebook ?? false,
       };
 
       console.log('💾 Saving content with PDFs:', {
