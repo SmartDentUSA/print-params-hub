@@ -254,6 +254,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       sort_order: nextSort,
       source: "manual",
       ncm_hs: product?.ncm ?? null,
+      sku: null,
       price_brl: product?.price ?? null,
       price_usd: product?.price_usd ?? null,
       price_eur: product?.price_eur ?? null,
@@ -291,6 +292,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         .from("catalog_product_variations" as any)
         .update({
           presentation_qty: v.presentation_qty,
+          sku: v.sku,
           gtin_ean: v.gtin_ean,
           ncm_hs: v.ncm_hs,
           unidade: v.unidade || "UN",
