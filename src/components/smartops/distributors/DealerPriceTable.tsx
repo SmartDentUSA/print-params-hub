@@ -1033,6 +1033,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         )}
                         <TableCell>
                           <Input
+                            value={(it as any).sku ?? ""}
+                            onChange={(e) => updateField(it.id, "sku" as any, e.target.value)}
+                            className="h-8"
+                            placeholder="—"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
                             type="text"
                             value={it.presentation_qty ?? ""}
                             placeholder="—"
