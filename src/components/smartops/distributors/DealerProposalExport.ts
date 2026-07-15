@@ -118,24 +118,38 @@ export function exportPriceTableXlsx(
   items: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
-  const header = ["COD", "Produto", "Categoria", "Subcategoria", "Variante", "NCM/HS", "GTIN/EAN", "Unid", "Descrição", "Preço tabela", "% Desconto", "Preço dealer"];
+  const header = [
+    "Categoria", "Subcategoria", "COD", "Produto",
+    "Pres #", "Pres", "NCM/HS", "GTIN/EAN", "Unid (×)",
+    "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+  ];
   const aoa: any[][] = [header];
-  items.forEach((it, idx) => {
-    const row = idx + 2; // 1 = header
-    aoa.push([
-      it.cod ?? "", it.name, it.category ?? "", it.subcategory ?? "", it.variant ?? "",
-      it.ncm_hs ?? "", it.gtin_ean ?? "", it.unidade ?? "UN", it.description ?? "",
-      Number(it.price_base) || 0,
-      Number(it.discount_pct) || 0,
-      { f: `ROUND(J${row}*(1-K${row}/100),2)` },
-    ]);
-  });
+  const groups = groupItemsByCategory(items);
+  for (const grp of groups) {
+    for (const sub of grp.subs) {
+      for (const it of sub.rows) {
+        const row = aoa.length + 1; // 1-based, header on row 1
+        aoa.push([
+          grp.category, sub.subcategory,
+          it.cod ?? "", it.name,
+          it.presentation_qty ?? "",
+          (it.presentation as string) ?? "Unit",
+          it.ncm_hs ?? "", it.gtin_ean ?? "",
+          Number(it.quantity_multiplier ?? 1) || 1,
+          Number(it.price_base) || 0,
+          Number(it.discount_pct) || 0,
+          { f: `ROUND(J${row}*(1-K${row}/100),2)` },   // Preço dealer (Unit)
+          { f: `ROUND(L${row}*I${row},2)` },            // Preço dealer (line total)
+        ]);
+      }
+    }
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
-    { wch: 10 }, { wch: 40 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
-    { wch: 12 }, { wch: 16 }, { wch: 8 }, { wch: 40 },
-    { wch: 14 }, { wch: 10 }, { wch: 14 },
+    { wch: 34 }, { wch: 26 }, { wch: 10 }, { wch: 40 },
+    { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 9 },
+    { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Tabela de Preço");
