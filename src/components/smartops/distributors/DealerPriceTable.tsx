@@ -203,8 +203,33 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       .order("category", { ascending: true })
       .order("subcategory", { ascending: true })
       .order("sort_order", { ascending: true });
-    setItems(((rows as any) || []) as DealerPriceItem[]);
-    setDirtyIds(new Set());
+    // Sanea variações legadas em memória: converte "1kg"/"500g"/"250g" +
+    // presentation Kg/grs para qty em gramas + presentation "grs".
+    // Linhas alteradas entram em dirtyIds para o usuário salvar.
+    const legacyDirty = new Set<string>();
+    const sanitized = (((rows as any) || []) as DealerPriceItem[]).map((it) => {
+      const pres = String((it as any).presentation || "");
+      if (pres !== "Kg" && pres !== "grs") return it;
+      const qtyStr = String((it as any).presentation_qty ?? "").trim();
+      if (!qtyStr) return it;
+      const m = qtyStr.match(/([\d]+(?:[.,]\d+)?)\s*(kg|grs|g|mg)?/i);
+      if (!m) return it;
+      const n = parseFloat(m[1].replace(",", "."));
+      if (!isFinite(n)) return it;
+      let unit = (m[2] || "").toLowerCase();
+      if (unit === "grs") unit = "g";
+      let grams: number;
+      if (unit === "kg") grams = n * 1000;
+      else if (unit === "mg") grams = n / 1000;
+      else if (unit === "g") grams = n;
+      else grams = pres === "Kg" ? n * 1000 : n;
+      const rounded = Number.isInteger(grams) ? String(grams) : String(Math.round(grams * 1000) / 1000);
+      if (rounded === qtyStr && pres === "grs") return it;
+      legacyDirty.add(it.id);
+      return { ...it, presentation_qty: rounded, presentation: "grs" } as DealerPriceItem;
+    });
+    setItems(sanitized);
+    setDirtyIds(legacyDirty);
     // Carrega histórico de snapshots
     const { data: snaps } = await supabase
       .from("dealer_price_list_snapshots" as any)
@@ -1011,7 +1036,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         const ia = firstIndex.get(ka)!;
                         const ib = firstIndex.get(kb)!;
                         if (ia !== ib) return ia - ib;
-                        // within a product group, keep original order
+                        // Within a product group, sort variations by qty DESC
+                        // (1000 > 500 > 250). Non-numeric qty falls back to
+                        // original order.
+                        const parseQty = (s: any) => {
+                          const m = String(s ?? "").match(/([\d]+(?:[.,]\d+)?)/);
+                          return m ? parseFloat(m[1].replace(",", ".")) : NaN;
+                        };
+                        const na = parseQty((a as any).presentation_qty);
+                        const nb = parseQty((b as any).presentation_qty);
+                        if (isFinite(na) && isFinite(nb) && na !== nb) return nb - na;
                         return rows.indexOf(a) - rows.indexOf(b);
                       });
                       const seen = new Map<string, { leader: string; size: number }>();
