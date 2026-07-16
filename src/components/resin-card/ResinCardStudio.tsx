@@ -30,7 +30,9 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   const [busyLang, setBusyLang] = useState<Lang | null>(null)
   const [validation, setValidation] = useState<AssetValidation | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [plans, setPlans] = useState<Record<Lang, CardPlan | null>>({ pt: null, en: null, es: null })
+  // Overrides só para traduções obtidas em runtime (EN/ES via edge function).
+  // PT é SEMPRE recomputado a partir das instruções vivas — sem cache local.
+  const [translationOverrides, setTranslationOverrides] = useState<Record<Lang, CardPlan | null>>({ pt: null, en: null, es: null })
   const rootRef = useRef<HTMLDivElement>(null)
 
   // Rehidrata do banco por id para evitar estado obsoleto após backfill/reimport.
@@ -104,20 +106,14 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     return parsed
   }, [liveInstructions, hydratedResin?.info_card_plan_pt])
 
-  useEffect(() => {
-    setPlans({
-      pt: planPt,
-      en: hydratedResin?.info_card_plan_en || null,
-      es: hydratedResin?.info_card_plan_es || null,
-    })
-  }, [planPt, hydratedResin?.info_card_plan_en, hydratedResin?.info_card_plan_es])
-
   const canExport = !!resin?.id && planPt.sections.length > 0
 
   async function ensurePlan(lang: Lang): Promise<CardPlan> {
     if (lang === 'pt') return planPt
-    const cached = plans[lang]
-    if (cached && cached.sections?.length) return cached
+    const override = translationOverrides[lang]
+    if (override && override.sections?.length) return override
+    const cachedDb = hydratedResin?.[`info_card_plan_${lang}`]
+    if (cachedDb && Array.isArray(cachedDb.sections) && cachedDb.sections.length) return cachedDb
     const { data, error } = await supabase.functions.invoke('translate-resin-card', {
       body: { resinId: resin.id, plan: planPt, targetLang: lang },
     })
@@ -125,7 +121,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     if (data?.error) throw new Error(data.error)
     const p = data?.plan as CardPlan
     if (!p?.sections?.length) throw new Error('Tradução vazia')
-    setPlans((prev) => ({ ...prev, [lang]: p }))
+    setTranslationOverrides((prev) => ({ ...prev, [lang]: p }))
     // persist PT plan too, para futuras traduções
     await supabase.from('resins').update({ info_card_plan_pt: planPt } as any).eq('id', resin.id).then(() => {})
     return p
@@ -141,7 +137,9 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     setError(null)
     try {
       const plan = await ensurePlan(lang)
-      setPlans((prev) => ({ ...prev, [lang]: plan }))
+      if (lang !== 'pt') {
+        setTranslationOverrides((prev) => ({ ...prev, [lang]: plan }))
+      }
       setPreviewLang(lang)
       setPreviewOpen(true)
       // give React a tick to render offscreen
@@ -167,7 +165,14 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     }
   }
 
-  const previewPlan = plans[previewLang] || planPt
+  const previewPlan: CardPlan = (() => {
+    if (previewLang === 'pt') return planPt
+    const override = translationOverrides[previewLang]
+    if (override && override.sections?.length) return override
+    const cachedDb = hydratedResin?.[`info_card_plan_${previewLang}`]
+    if (cachedDb && Array.isArray(cachedDb.sections) && cachedDb.sections.length) return cachedDb
+    return planPt
+  })()
 
   return (
     <div className="space-y-3">
