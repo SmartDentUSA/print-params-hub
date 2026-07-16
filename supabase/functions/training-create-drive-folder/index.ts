@@ -16,7 +16,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+const GOOGLE_DRIVE_API_KEY = Deno.env.get("GOOGLE_DRIVE_API_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GOOGLE_DRIVE_PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID");
 
 const MESES_PT_LONG = [
@@ -204,9 +205,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    if (!GOOGLE_SERVICE_ACCOUNT_JSON || !GOOGLE_DRIVE_PARENT_FOLDER_ID) {
+    if (!GOOGLE_DRIVE_API_KEY || !LOVABLE_API_KEY || !GOOGLE_DRIVE_PARENT_FOLDER_ID) {
       return new Response(
-        JSON.stringify({ error: "GOOGLE_SERVICE_ACCOUNT_JSON ou GOOGLE_DRIVE_PARENT_FOLDER_ID não configurados" }),
+        JSON.stringify({ error: "Conector Google Drive não vinculado ou GOOGLE_DRIVE_PARENT_FOLDER_ID não configurado" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
