@@ -1,35 +1,86 @@
-## Diagnóstico
+## Objetivo
 
-Nos logs da edge function `generate-resin-info-card` aparece exatamente:
+Substituir a pipeline atual (LLM → JSON → HTML/CSS → SVG frágil) por **geração real de PNG via imagegen premium (GPT-image-2)**, replicando o layout do infográfico de referência anexado (Smart Print Bio Bite Splint +Flex).
 
-```
-poe: Model `GPT-5.6-Sol` not found.
-```
+## Referência visual
 
-Como a chamada à LLM falha na 1ª linha do fluxo, o código lança `throw new Error(llm.error)` antes de renderizar/upload/atualizar `resins.info_card_url_*`. Resultado: nenhum PNG é gerado, nada é salvo no Storage, e a base de conhecimento continua sem imagem para exibir.
+Layout do infográfico enviado como base fixa:
+- Cabeçalho: logo Smart Dent (topo esquerdo) + foto do frasco da resina (topo direito) + título "Processo de Uso e Pós-Processamento — {Nome da Resina}" + subtítulo "Guia visual para manual de instruções"
+- 3 blocos verticais empilhados, cada um com borda colorida e ícone circular:
+  1. **Pré-Processamento** (azul) — ícone termômetro
+  2. **Pós-Processamento** (verde) — ícone engrenagem
+  3. **Pós-Cura UV** (roxo) — ícone sol
+- Cada bloco com sub-etapas numeradas (1.1, 1.2…), cada uma com ícone próprio, título e bullets
+- Alertas em caixas rosa-claro com ícone de triângulo (⚠️)
+- Rodapé "Importante" com escudo azul + texto de fechamento
+- Paleta: azul #1E3A8A, verde #10B981, roxo #7C3AED, rosa alerta #FEE2E2, texto #0F172A, fundo branco com padrão sutil
 
-A causa é o **identifier do modelo Poe**. A API OpenAI-compatible do Poe usa handles em minúsculas (ex.: `gpt-5.4`, `gpt-5.5`, `claude-opus-4.8`). O bot correto é `gpt-5.6-sol` (o `GPT-5.6-Sol` com maiúsculas é o nome exibido no site, não o handle da API).
+## Nova pipeline
 
-## Correção
+**Etapa 1 — LLM estrutura o conteúdo (mantida, simplificada)**
+- Prompt do GPT-5.6-Sol agora só gera **JSON estruturado** com as 3 seções, sub-etapas, bullets e alertas — sem HTML/CSS.
+- Schema fixo por idioma (PT/EN/ES), paridade estrutural obrigatória (mesmo número de sub-etapas e alertas nos 3).
+
+**Etapa 2 — Geração da imagem via imagegen premium**
+- Chamar `openai/gpt-image-2` via `https://ai.gateway.lovable.dev/v1/images/generations` com `LOVABLE_API_KEY`.
+- `size: "1024x1536"` (proporção retrato próxima da referência), `quality: "high"`, `stream: false` (edge function grava direto no bucket).
+- Prompt de imagem combina:
+  - Descrição visual detalhada do layout de referência (blocos, cores, ícones circulares, tipografia)
+  - Nome da resina + conteúdo JSON serializado como texto do infográfico
+  - Instrução explícita: "renderizar como infográfico vetorial estilo Smart Dent, layout idêntico à referência, tipografia sans-serif limpa, todos os textos em {idioma}"
+- 3 chamadas paralelas (PT/EN/ES).
+
+**Etapa 3 — Upload e persistência (mantida)**
+- Decodificar `b64_json` → PNG binário
+- Upload para bucket `model-images` em `resin-info-cards/{resin_id}/{lang}.png`
+- Atualizar `resins.info_card_url_pt/en/es` + `info_card_generated_at`
+
+## Arquivos a alterar
 
 1. **`supabase/functions/generate-resin-info-card/index.ts`**
-   - Trocar `model: 'GPT-5.6-Sol'` → `model: 'gpt-5.6-sol'` na chamada `callPoe(...)`.
-   - Atualizar as strings de log/retorno: `'poe/GPT-5.6-Sol'` → `'poe/gpt-5.6-sol'` (no `logAIUsage` e no `model_used` do response JSON).
-   - Nenhuma outra alteração de lógica: paridade estrutural, retry, template determinístico e loop de idiomas seguem iguais.
+   - Remover: pipeline SVG/HTML fallback, `render-template`, foreignObject
+   - Manter: chamada Poe/GPT-5.6-Sol apenas para gerar JSON estrutural
+   - Adicionar: função `generateInfographicPNG(resin, contentJson, lang)` que chama `openai/gpt-image-2` via Gateway
+   - Manter: upload no bucket + update em `resins`
+   - Logar modelo em `ai_usage_logs` (`poe/gpt-5.6-sol` + `openai/gpt-image-2`)
 
-2. **Fallback defensivo (mesmo arquivo)**
-   - Se a chamada com `gpt-5.6-sol` retornar `status !== 200` com mensagem "not found" ou `status === 404`, tentar automaticamente `gpt-5.5` como fallback (modelo já validado em `ai_model_routing`) e continuar. Isso evita que uma renomeação futura do bot no Poe quebre novamente a UI.
-   - Loga o modelo efetivamente usado em `logAIUsage` e no `model_used` do response.
+2. **`src/components/AdminModal.tsx`** — nenhuma alteração (já mostra preview + status)
 
-## Validação após deploy
+3. **`src/components/knowledge/KbTabCatalogo.tsx`** — ajustar download para `.png` (remover branch SVG)
 
-- Chamar a função pela UI ("Gerar Card Informativo") em uma resina com `processing_instructions` preenchidas.
-- Conferir logs: deve aparecer boot + upload sem `Model not found`.
-- Conferir na tabela `resins`: `info_card_url_pt/en/es` e `info_card_generated_at` preenchidos.
-- Abrir a resina na Base de Conhecimento e confirmar que a imagem aparece ao final de "Pré e Pós Processamento" com o botão "Baixar card".
+## Prompt de imagem (rascunho — GPT-image-2)
+
+```
+Vertical infographic poster, 1024x1536, dental resin technical guide.
+Style: clean vector illustration, Smart Dent brand (dark navy #1E3A8A logo top-left,
+resin bottle photo top-right). Title "Processo de Uso e Pós-Processamento —
+{RESIN_NAME}" in bold navy, subtitle "Guia visual para manual de instruções".
+
+Three stacked rounded rectangle sections with colored borders and circular icon badges:
+1) "1) PRÉ-PROCESSAMENTO" (navy #1E3A8A, thermometer icon)
+2) "2) PÓS-PROCESSAMENTO" (green #10B981, gear icon)
+3) "3) PÓS-CURA UV" (purple #7C3AED, sun icon)
+
+Each section contains numbered sub-steps with small circular icons, titles and
+bullet lists. Warning callouts on soft pink background with ⚠️ triangle icon.
+Bottom "Importante" strip with blue shield icon.
+
+Content (render exact text, language={LANG}):
+{JSON_SERIALIZED_STEPS}
+
+Typography: sans-serif, high legibility. White background with faint geometric
+pattern top-right. No commercial info, no prices.
+```
+
+## Validação
+
+1. Trigger "Gerar Card Informativo" em uma resina com `processing_instructions_pt/en/es` preenchidas
+2. Conferir logs edge: 1× chamada Poe + 3× chamadas gateway `/v1/images/generations`
+3. Conferir `resins.info_card_url_*` populados apontando para PNGs no bucket
+4. Abrir Base de Conhecimento → aba Catálogo → confirmar imagem renderizando + botão download baixando `.png`
 
 ## Fora de escopo
 
-- UI do `KbTabCatalogo` / `AdminModal` (já implementadas na iteração anterior).
-- Estrutura de prompt / template HTML / paridade trilíngue (já funcionais — só falta a LLM responder).
-- Tabela `ai_model_routing` (esta função não usa `aiComplete`; chama `callPoe` direto). Nenhuma migration necessária.
+- Migração para outros modelos de imagem (Gemini nano-banana etc.)
+- Editor visual manual do card
+- Cache/regeneração automática por mudança em `processing_instructions`
