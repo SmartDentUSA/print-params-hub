@@ -641,30 +641,33 @@ async function runJob(ctx: {
     const timestamp = Date.now()
     const safeSlug = (resin.slug || resin.id).toString().replace(/[^a-z0-9-]/gi, '-').toLowerCase()
 
-    // 3 gerações em paralelo — corta o tempo total de ~3× para ~1×.
+    // 3 gerações em paralelo — cada uma ~2–4s (Puppeteer).
     const settled = await Promise.allSettled(
       langs.map(async (lang) => {
-        const prompt = buildImagePrompt({ plan, lang, resinName: nameFor(lang) })
-        console.log(`[generate-resin-info-card] imagegen lang=${lang} prompt_chars=${prompt.length}`)
-        const img = await generateInfographicPNG(prompt)
+        const html = renderCardHtml({
+          plan,
+          lang,
+          resinName: nameFor(lang),
+          productImageUrl: (resin as any).image_url || null,
+        })
+        console.log(`[generate-resin-info-card] render lang=${lang} html_chars=${html.length}`)
+        const img = await renderPNG(html)
         const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
         const { error: upErr } = await supabase.storage
           .from('model-images')
           .upload(path, img.bytes, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
         if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
         const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
-        return { lang, url: pub.publicUrl, usage: img.usage }
+        return { lang, url: pub.publicUrl }
       }),
     )
 
     const results: Record<string, string> = {}
-    const imgUsages: any[] = []
     const errors: string[] = []
     settled.forEach((r, i) => {
       const lang = langs[i]
       if (r.status === 'fulfilled') {
         results[lang] = r.value.url
-        if (r.value.usage) imgUsages.push({ lang, ...r.value.usage })
       } else {
         errors.push(`${lang}: ${r.reason?.message || String(r.reason)}`)
       }
@@ -694,16 +697,6 @@ async function runJob(ctx: {
         promptTokens: llm.usage.prompt_tokens || 0,
         completionTokens: llm.usage.completion_tokens || 0,
         metadata: { resin_id, languages: langs },
-      }).catch(() => {})
-    }
-    for (const u of imgUsages) {
-      logAIUsage({
-        functionName: 'generate-resin-info-card',
-        actionLabel: 'resin_info_card_image',
-        model: IMAGE_MODEL,
-        promptTokens: u.input_tokens || 0,
-        completionTokens: u.output_tokens || 0,
-        metadata: { resin_id, lang: u.lang },
       }).catch(() => {})
     }
     console.log(`[generate-resin-info-card] job done resin=${resin_id} langs=${Object.keys(results).join(',')} errors=${errors.length}`)
