@@ -293,7 +293,7 @@
       "search": "Buscar productos, resinas, escáneres...",
       "count_one": "{{count}} producto encontrado",
       "count_other": "{{count}} productos encontrados",
-      "presentations": "Presentaciones",
+      "presentations": "Rendimiento",
       "print_type": "Tipo de impresión",
       "prints_per_bottle": "Imp/Frasco",
       "print_types": {

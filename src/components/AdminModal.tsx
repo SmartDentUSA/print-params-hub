@@ -2468,10 +2468,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </Button>
               </div>
 
-              {/* SEÇÃO: Apresentações (SKUs) */}
+              {/* SEÇÃO: Rendimento */}
               <div className="space-y-4 mt-6 pt-6 border-t">
                 <Label className="text-base font-semibold flex items-center gap-2">
-                  📦 Apresentações (SKUs)
+                  📦 Rendimento
                 </Label>
                 <p className="text-sm text-muted-foreground">
                   Cadastre as diferentes apresentações de peso, preço e rendimento desta resina

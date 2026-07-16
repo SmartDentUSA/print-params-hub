@@ -293,7 +293,7 @@
       "search": "Search products, resins, scanners...",
       "count_one": "{{count}} product found",
       "count_other": "{{count}} products found",
-      "presentations": "Presentations",
+      "presentations": "Yield",
       "print_type": "Print type",
       "prints_per_bottle": "Prints/Bottle",
       "print_types": {
