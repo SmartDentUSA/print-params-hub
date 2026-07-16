@@ -290,19 +290,47 @@ export function ParameterTable({ parameterSet, processingInstructions, infoCardU
                       <ProcessingInstructionsView instructions={processingInstructions} />
                     )}
                     {infoCardUrl && (
-                      <a
-                        href={infoCardUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block mt-4"
-                      >
-                        <img
-                          src={infoCardUrl}
-                          alt="Guia de Pré e Pós-Processamento"
-                          loading="lazy"
-                          className="w-full max-w-2xl rounded-lg border border-border shadow-sm"
-                        />
-                      </a>
+                      <div className="mt-4 space-y-2">
+                        <a
+                          href={infoCardUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          <img
+                            src={infoCardUrl}
+                            alt="Guia de Pré e Pós-Processamento"
+                            loading="lazy"
+                            className="w-full max-w-2xl rounded-lg border border-border shadow-sm"
+                          />
+                        </a>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const res = await fetch(infoCardUrl, { mode: 'cors' });
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              const ext = (blob.type.split('/')[1] || 'png').split('+')[0];
+                              a.download = `guia-pre-pos-processamento.${ext}`;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              URL.revokeObjectURL(url);
+                            } catch {
+                              window.open(infoCardUrl, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Baixar guia
+                        </Button>
+                      </div>
                     )}
                   </AccordionContent>
                 </AccordionItem>
