@@ -17213,9 +17213,14 @@ export type Database = {
           external_id: string | null
           fda_510k: string | null
           id: string
+          image_background_removed_url: string | null
           image_url: string | null
+          image_urls: Json | null
           info_card_error: string | null
           info_card_generated_at: string | null
+          info_card_plan_en: Json | null
+          info_card_plan_es: Json | null
+          info_card_plan_pt: Json | null
           info_card_started_at: string | null
           info_card_status: string
           info_card_url_en: string | null
@@ -17292,9 +17297,14 @@ export type Database = {
           external_id?: string | null
           fda_510k?: string | null
           id?: string
+          image_background_removed_url?: string | null
           image_url?: string | null
+          image_urls?: Json | null
           info_card_error?: string | null
           info_card_generated_at?: string | null
+          info_card_plan_en?: Json | null
+          info_card_plan_es?: Json | null
+          info_card_plan_pt?: Json | null
           info_card_started_at?: string | null
           info_card_status?: string
           info_card_url_en?: string | null
@@ -17371,9 +17381,14 @@ export type Database = {
           external_id?: string | null
           fda_510k?: string | null
           id?: string
+          image_background_removed_url?: string | null
           image_url?: string | null
+          image_urls?: Json | null
           info_card_error?: string | null
           info_card_generated_at?: string | null
+          info_card_plan_en?: Json | null
+          info_card_plan_es?: Json | null
+          info_card_plan_pt?: Json | null
           info_card_started_at?: string | null
           info_card_status?: string
           info_card_url_en?: string | null
