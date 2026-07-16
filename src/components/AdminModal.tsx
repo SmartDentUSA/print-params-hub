@@ -226,6 +226,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [generatedCards, setGeneratedCards] = useState<{ pt?: string; en?: string; es?: string } | null>(null);
+  const [cardGenerationError, setCardGenerationError] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
@@ -245,6 +246,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Update form data when item or type changes
   useEffect(() => {
     setFormData(getInitialFormData());
+    setGeneratedCards(null);
+    setCardGenerationError(null);
     
     // Carregar documentos e recursos do sistema se for tipo resin ou catalog
     if ((type === 'resin' || type === 'catalog') && isOpen) {
@@ -1368,6 +1371,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       }
                       setIsGeneratingCard(true);
                       setGeneratedCards(null);
+                      setCardGenerationError(null);
                       try {
                         const { data, error } = await supabase.functions.invoke('generate-resin-info-card', {
                           body: { resin_id: formData.id },
@@ -1387,9 +1391,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           description: `Idiomas: ${Object.keys(urls).join(', ').toUpperCase() || 'nenhum'}`,
                         });
                       } catch (err: any) {
+                        const message = err?.message || 'Falha desconhecida ao gerar o card';
+                        setCardGenerationError(message);
                         toast({
                           title: '❌ Erro ao gerar card',
-                          description: err.message,
+                          description: message,
                           variant: 'destructive',
                         });
                       } finally {
@@ -1409,15 +1415,26 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <span className="text-xs text-muted-foreground">Salve a resina antes de gerar</span>
                   )}
                 </div>
-                {(generatedCards || formData.info_card_url_pt || formData.info_card_url_en || formData.info_card_url_es) && (
-                  <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="space-y-2 mt-2" aria-live="polite">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Imagens geradas</Label>
+                    <Badge variant={cardGenerationError ? 'destructive' : (generatedCards ? 'default' : 'secondary')}>
+                      {isGeneratingCard ? 'Gerando…' : cardGenerationError ? 'Falha na geração' : generatedCards ? 'Concluído' : 'Aguardando geração'}
+                    </Badge>
+                  </div>
+                  {cardGenerationError && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                      {cardGenerationError}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {(['pt', 'en', 'es'] as const).map((lang) => {
                       const url =
                         (generatedCards && generatedCards[lang]) ||
                         (formData as any)[`info_card_url_${lang}`] ||
                         null;
                       return (
-                        <div key={lang} className="border rounded-lg overflow-hidden bg-background">
+                        <div key={lang} className="border rounded-lg overflow-hidden bg-background min-h-32">
                           <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider bg-muted flex items-center justify-between">
                             <span>{lang}</span>
                             {url && (
@@ -1442,7 +1459,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       );
                     })}
                   </div>
-                )}
+                </div>
                 <div className="flex items-start gap-2 p-3 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
                   <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700 dark:text-blue-300">

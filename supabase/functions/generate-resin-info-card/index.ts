@@ -359,14 +359,19 @@ async function planCardWithLLM(opts: {
     return r
   }
 
-  const PRIMARY = 'gpt-5.6-sol'
-  const FALLBACK = 'gpt-5.5'
-  let modelUsed = PRIMARY
-  let first = await attempt(PRIMARY)
-  if (!first.ok && (first.status === 404 || /not found|unknown model/i.test(first.error || ''))) {
-    console.warn(`[generate-resin-info-card] ${PRIMARY} indisponível, tentando ${FALLBACK}`)
-    modelUsed = FALLBACK
-    first = await attempt(FALLBACK)
+  // A disponibilidade dos bots Poe varia por conta/API. Mantemos GPT-5.6 Sol
+  // como primeira opção e percorremos apenas modelos Poe quando um handle não
+  // está liberado, evitando que a geração inteira pare em "Model not found".
+  const MODELS = ['gpt-5.6-sol', 'gpt-5.5', 'claude-sonnet-4.6'] as const
+  let modelUsed: string = MODELS[0]
+  let first = await attempt(modelUsed)
+  for (const fallback of MODELS.slice(1)) {
+    if (first.ok) break
+    const unavailable = first.status === 404 || /not found|unknown model/i.test(first.error || '')
+    if (!unavailable) break
+    console.warn(`[generate-resin-info-card] ${modelUsed} indisponível, tentando ${fallback}`)
+    modelUsed = fallback
+    first = await attempt(modelUsed)
   }
   if (!first.ok) return { plan: null, error: `poe: ${first.error || first.status}` }
   let parsed = extractJson(first.text || '')
