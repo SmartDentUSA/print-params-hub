@@ -452,6 +452,7 @@ Deno.serve(async (req) => {
     })
     if (!llm.plan) throw new Error(llm.error || 'Falha ao planejar card com o LLM')
     const plan = llm.plan
+    const modelUsed = llm.model || 'gpt-5.6-sol'
 
     const results: Record<string, string> = {}
     const timestamp = Date.now()
@@ -488,14 +489,14 @@ Deno.serve(async (req) => {
       logAIUsage({
         functionName: 'generate-resin-info-card',
         actionLabel: 'resin_info_card',
-        model: 'poe/GPT-5.6-Sol',
+        model: `poe/${modelUsed}`,
         promptTokens: llm.usage.prompt_tokens || 0,
         completionTokens: llm.usage.completion_tokens || 0,
         metadata: { resin_id, languages: langs },
       }).catch(() => {})
     }
 
-    return new Response(JSON.stringify({ ok: true, urls: results, model_used: 'poe/GPT-5.6-Sol' }), {
+    return new Response(JSON.stringify({ ok: true, urls: results, model_used: `poe/${modelUsed}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
