@@ -1,0 +1,273 @@
+/* Smart Dent identity — tokens imutáveis do card informativo */
+@import url('https://fonts.googleapis.com/css2?family=Host+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+.infographic-root {
+  --font-brand: "Host Grotesk", Arial, Helvetica, sans-serif;
+  --sd-background: #EDF0F7;
+  --sd-blue-light: #8B9EB4;
+  --sd-blue-medium: #546085;
+  --sd-navy: #363E56;
+  --sd-orange: #DE6E37;
+  --sd-text-primary: #363E56;
+  --sd-text-secondary: #546085;
+  --sd-border: rgba(84, 96, 133, 0.22);
+  --sd-panel: rgba(255, 255, 255, 0.90);
+
+  --sd-pre: #4C6A8E;
+  --sd-post: #4F8C6E;
+  --sd-postcure: #6B5B8A;
+
+  font-family: var(--font-brand);
+  color: var(--sd-text-primary);
+  background: var(--sd-background);
+  width: 1080px;
+  padding: 56px 56px 40px;
+  box-sizing: border-box;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.infographic-root * { box-sizing: border-box; }
+
+.infographic-root .brand-logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 260px;
+  max-height: 88px;
+  object-fit: contain;
+}
+
+.infographic-root .head {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  align-items: end;
+  margin-bottom: 32px;
+}
+
+.infographic-root .head h1 {
+  margin: 24px 0 6px;
+  font-weight: 700;
+  font-size: 44px;
+  letter-spacing: -0.025em;
+  line-height: 1.06;
+  color: var(--sd-navy);
+}
+
+.infographic-root .head .subtitle {
+  font-weight: 500;
+  color: var(--sd-text-secondary);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.infographic-root .head .rule {
+  width: 72px;
+  height: 3px;
+  background: var(--sd-orange);
+  margin: 12px 0 10px;
+  border-radius: 2px;
+}
+
+.infographic-root .product-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 300px;
+  isolation: isolate;
+}
+.infographic-root .product-hero::before {
+  content: "";
+  position: absolute;
+  inset: auto 8% 0;
+  height: 16%;
+  border-radius: 50%;
+  background: rgba(54, 62, 86, 0.15);
+  filter: blur(20px);
+  z-index: -1;
+}
+.infographic-root .product-hero img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 18px 24px rgba(54, 62, 86, 0.18));
+}
+.infographic-root .product-hero .placeholder {
+  width: 160px;
+  height: 240px;
+  border: 1px dashed var(--sd-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--sd-text-secondary);
+  text-align: center;
+  padding: 8px;
+}
+
+.infographic-root .section {
+  background: var(--sd-panel);
+  border: 1px solid var(--sd-border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  break-inside: avoid;
+}
+.infographic-root .section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.infographic-root .section-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex: 0 0 32px;
+}
+.infographic-root .section-title {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--sd-navy);
+  letter-spacing: -0.01em;
+}
+.infographic-root .section.kind-pre .section-badge { background: var(--sd-pre); }
+.infographic-root .section.kind-post .section-badge { background: var(--sd-post); }
+.infographic-root .section.kind-postcure .section-badge { background: var(--sd-postcure); }
+.infographic-root .section.kind-generic .section-badge { background: var(--sd-blue-medium); }
+
+.infographic-root .subsection { margin-top: 10px; }
+.infographic-root .subsection-title {
+  font-weight: 600;
+  color: var(--sd-text-secondary);
+  font-size: 15px;
+  margin: 8px 0 6px;
+  letter-spacing: -0.005em;
+}
+
+.infographic-root ul.card-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+}
+.infographic-root ul.card-list > li {
+  position: relative;
+  padding-left: 16px;
+  margin: 4px 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--sd-text-primary);
+}
+.infographic-root ul.card-list > li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  background: var(--sd-blue-medium);
+  border-radius: 50%;
+}
+.infographic-root ul.card-list ul {
+  list-style: none;
+  padding-left: 14px;
+  margin: 4px 0 0;
+}
+.infographic-root ul.card-list ul li {
+  font-size: 13.5px;
+  color: var(--sd-text-secondary);
+  padding-left: 14px;
+  position: relative;
+  margin: 2px 0;
+}
+.infographic-root ul.card-list ul li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  width: 4px;
+  height: 4px;
+  border: 1px solid var(--sd-blue-light);
+  border-radius: 50%;
+}
+
+.infographic-root .paragraph {
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin: 6px 0;
+}
+
+.infographic-root .callout {
+  background: rgba(222, 110, 55, 0.08);
+  border-left: 3px solid var(--sd-orange);
+  padding: 10px 14px;
+  border-radius: 6px;
+  color: var(--sd-navy);
+  font-weight: 500;
+  font-size: 14px;
+  margin: 10px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.infographic-root .callout::before {
+  content: "⚠";
+  color: var(--sd-orange);
+  font-weight: 700;
+}
+
+.infographic-root .numeric-value,
+.infographic-root .technical-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--sd-navy);
+}
+
+.infographic-root strong { font-weight: 600; color: var(--sd-navy); }
+
+.infographic-root .footer {
+  margin-top: 20px;
+  background: rgba(222, 110, 55, 0.08);
+  border: 1px solid rgba(222, 110, 55, 0.22);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.infographic-root .footer .shield {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sd-navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  font-weight: 700;
+}
+.infographic-root .footer .foot-text {
+  color: var(--sd-navy);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.infographic-root .footer .foot-title {
+  font-weight: 700;
+  margin-right: 6px;
+}
