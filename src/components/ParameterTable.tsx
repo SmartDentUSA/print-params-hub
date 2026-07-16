@@ -269,8 +269,8 @@ export function ParameterTable({ parameterSet, processingInstructions, infoCardU
         {processingInstructions && (() => {
           const { pre, post, sections } = parseMarkdownInstructions(processingInstructions);
           const hasInstructions = pre.length > 0 || post.length > 0 || sections.length > 0;
-          
-          if (!hasInstructions) return null;
+
+          if (!hasInstructions && !infoCardUrl) return null;
           
           return (
             <div className="mt-4">
@@ -283,7 +283,24 @@ export function ParameterTable({ parameterSet, processingInstructions, infoCardU
                     </span>
                   </AccordionTrigger>
                    <AccordionContent className="px-0 pb-0">
-                    <ProcessingInstructionsView instructions={processingInstructions} />
+                    {hasInstructions && (
+                      <ProcessingInstructionsView instructions={processingInstructions} />
+                    )}
+                    {infoCardUrl && (
+                      <a
+                        href={infoCardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-4"
+                      >
+                        <img
+                          src={infoCardUrl}
+                          alt="Guia de Pré e Pós-Processamento"
+                          loading="lazy"
+                          className="w-full max-w-2xl rounded-lg border border-border shadow-sm"
+                        />
+                      </a>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
