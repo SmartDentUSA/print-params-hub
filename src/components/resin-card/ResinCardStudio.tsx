@@ -33,7 +33,30 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   const [plans, setPlans] = useState<Record<Lang, CardPlan | null>>({ pt: null, en: null, es: null })
   const rootRef = useRef<HTMLDivElement>(null)
 
-  const productImageUrl = useMemo(() => resolveProductImage(resin), [resin])
+  // Rehidrata do banco por id para evitar estado obsoleto após backfill/reimport.
+  const [hydratedResin, setHydratedResin] = useState<any>(resin)
+  useEffect(() => {
+    setHydratedResin(resin)
+    const id = resin?.id
+    if (!id) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('resins')
+        .select(
+          'image_url, image_urls, image_background_removed_url, name, info_card_plan_pt, info_card_plan_en, info_card_plan_es, processing_instructions',
+        )
+        .eq('id', id)
+        .maybeSingle()
+      if (cancelled || !data) return
+      setHydratedResin((prev: any) => ({ ...(prev || {}), ...data }))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [resin?.id])
+
+  const productImageUrl = useMemo(() => resolveProductImage(hydratedResin), [hydratedResin])
   const missingProductImage = !productImageUrl
   const isExternalProductImage = useMemo(() => {
     if (!productImageUrl) return false
@@ -45,7 +68,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     if (!productImageUrl || !resin?.id) return
     setReimporting(true)
     try {
-      const safeName = (resin?.name || 'resin')
+      const safeName = (hydratedResin?.name || resin?.name || 'resin')
         .toString()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -56,8 +79,8 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
         .update({ image_background_removed_url: publicUrl } as any)
         .eq('id', resin.id)
       if (upErr) throw upErr
-      toast({ title: '✅ Imagem reimportada', description: 'Recarregando para aplicar…' })
-      setTimeout(() => window.location.reload(), 600)
+      setHydratedResin((prev: any) => ({ ...(prev || {}), image_background_removed_url: publicUrl }))
+      toast({ title: '✅ Imagem reimportada', description: 'Imagem oficial atualizada.' })
     } catch (e: any) {
       toast({
         title: '❌ Falha ao reimportar imagem',
@@ -70,18 +93,18 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   }
 
   const planPt = useMemo<CardPlan>(() => {
-    const cached = resin?.info_card_plan_pt
+    const cached = hydratedResin?.info_card_plan_pt
     if (cached && Array.isArray(cached.sections) && cached.sections.length) return cached
-    return parseInstructionsMd(resin?.processing_instructions || '')
-  }, [resin?.info_card_plan_pt, resin?.processing_instructions])
+    return parseInstructionsMd(hydratedResin?.processing_instructions || '')
+  }, [hydratedResin?.info_card_plan_pt, hydratedResin?.processing_instructions])
 
   useEffect(() => {
     setPlans({
       pt: planPt,
-      en: resin?.info_card_plan_en || null,
-      es: resin?.info_card_plan_es || null,
+      en: hydratedResin?.info_card_plan_en || null,
+      es: hydratedResin?.info_card_plan_es || null,
     })
-  }, [planPt, resin?.info_card_plan_en, resin?.info_card_plan_es])
+  }, [planPt, hydratedResin?.info_card_plan_en, hydratedResin?.info_card_plan_es])
 
   const canExport = !!resin?.id && planPt.sections.length > 0
 
@@ -254,7 +277,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
               <InfographicCard
                 ref={rootRef}
                 plan={previewPlan}
-                resinName={resin?.name || ''}
+                resinName={hydratedResin?.name || resin?.name || ''}
                 productImageUrl={productImageUrl}
               />
             </div>
@@ -268,7 +291,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
           <InfographicCard
             ref={rootRef}
             plan={previewPlan}
-            resinName={resin?.name || ''}
+            resinName={hydratedResin?.name || resin?.name || ''}
             productImageUrl={productImageUrl}
           />
         </div>

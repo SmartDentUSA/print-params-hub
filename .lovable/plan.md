@@ -1,38 +1,27 @@
-## Diagnóstico das 22 resinas
+## Diagnóstico
 
-| Categoria | Qtd | Ação |
-|---|---|---|
-| Já hospedadas no Supabase Storage | 9 | Nada a fazer |
-| CDN externo (awsli) — problema atual | 5 | 2 têm match no `system_a_catalog` (backfill imediato), 3 usam o botão de reimportar |
-| Sem imagem alguma | 8 | Cadastro manual (alerta `MISSING_OFFICIAL_PRODUCT_IMAGE` já cobre) |
+Backfill no banco está correto — `resins.image_background_removed_url` para o Bio Temp B1 aponta para `https://pgfgripuanuwwolmtknn.supabase.co/.../37149ad6-...webp` e o `curl` confirma **HTTP 200** com `access-control-allow-origin: *`.
 
-### Backfill imediato (2 resinas via `system_a_catalog`)
+O motivo de a imagem não carregar no card do admin é **estado obsoleto no `AdminSettings`**: a lista `resins` é lida uma única vez ao montar (`select('*')`) e passada para o `AdminModal` como `item`, que inicializa `formData = { ...item }`. Como a página foi aberta antes do backfill, o `formData.image_background_removed_url` continua `null` e o `resolveProductImage` cai no `image_url` externo (awsli), que aparece quebrado ou barrado pelo CORS.
 
-- **Smart Print Bio Temp B1** (`e193267c-…`) → usa a URL Supabase já existente.
-- **Smart Print Model Plus** (`e56b385b-…`) → usa a URL Supabase já existente (`832fa3e7-…webp`).
+## Correção
 
-Ambas serão gravadas em `resins.image_background_removed_url`, campo de maior prioridade em `resolveProductImage`, sem alterar o `image_url` original.
+Fazer o `ResinCardStudio` **rehidratar a resina** por `id` ao montar/receber outra resina, garantindo que sempre use os campos mais atuais do banco — inclusive `image_background_removed_url` gravado por outro fluxo (backfill, botão de reimportar, sync).
 
-### Aviso sobre resinas sem match (3 awsli)
+### `src/components/resin-card/ResinCardStudio.tsx`
 
-Ficam para o botão de reimportação:
-- Smart Print Bio Denture (Rosa)
-- Smart Print Model L'Aqua
-- Smart Print Try-in Calcinavel
+- Adicionar `useState` `hydratedResin` inicializado com a prop `resin`.
+- `useEffect([resin?.id])`: se `resin?.id` existir, `SELECT image_url, image_urls, image_background_removed_url, name, info_card_plan_pt, info_card_plan_en, info_card_plan_es, processing_instructions FROM resins WHERE id = ?`.
+- Ao receber, fazer `setHydratedResin({ ...resin, ...fresh })` (o merge preserva campos não persistidos ainda em edição).
+- Usar `hydratedResin` em vez de `resin` em `resolveProductImage`, `planPt`, `ensurePlan`, `handleReimportImage` (mantendo `resin.id`).
+- Após o `handleReimportImage` gravar a nova URL, atualizar `hydratedResin` localmente em vez de forçar `window.location.reload()`, para UX mais suave.
 
-## Solução (mesma do plano anterior, aplicada a todas)
+### Fora do escopo
 
-1. **`src/components/resin-card/ResinCardStudio.tsx`**
-   - Detectar URL externa (não começa com `VITE_SUPABASE_URL`).
-   - Adicionar botão "Reimportar imagem para o Storage" no alerta e ao lado do chip "Imagem do produto" quando `productImageLoaded` falhar.
-   - Ao clicar: `uploadExternalImage` → `UPDATE resins SET image_background_removed_url = …` → toast + reload da resina (callback opcional; se ausente, `window.location.reload()`).
+- Não alterar `resolveProductImage`, `ProductHero`, exportação, `system_a_catalog` nem o fluxo do `AdminSettings`.
+- Não mexer nas 8 resinas sem imagem alguma nem nas 3 awsli sem match — elas continuam com o botão de reimportar.
 
-2. **`src/components/resin-card/ProductHero.tsx`**
-   - Remover `crossOrigin="anonymous"` quando a URL não for Supabase, para o preview conseguir renderizar. Exportação continua exigindo a versão rehospedada.
+## Como validar
 
-3. **Backfill imediato via `supabase--insert`** para os 2 casos acima.
-
-## Fora do escopo
-
-- Não mexer em `resolveProductImage`, `exportInfographic.ts`, catálogo ou traduções.
-- Resinas sem imagem alguma (8) permanecem dependentes de upload manual — o alerta já existente sinaliza.
+1. Reabrir a modal do Smart Print Bio Temp B1: chip "Imagem do produto" deve ficar verde, preview renderiza a imagem oficial.
+2. Exportar PT: PNG sai com a imagem oficial embutida (sem erro CORS na exportação).
