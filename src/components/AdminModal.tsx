@@ -1378,18 +1378,44 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         });
                         if (error) throw error;
                         if (data?.error) throw new Error(data.error);
-                        const urls = (data?.urls || {}) as { pt?: string; en?: string; es?: string };
-                        setGeneratedCards(urls);
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          info_card_url_pt: urls.pt || prev.info_card_url_pt,
-                          info_card_url_en: urls.en || prev.info_card_url_en,
-                          info_card_url_es: urls.es || prev.info_card_url_es,
-                        }));
                         toast({
-                          title: '✅ Card informativo gerado',
-                          description: `Idiomas: ${Object.keys(urls).join(', ').toUpperCase() || 'nenhum'}`,
+                          title: '⏳ Geração iniciada',
+                          description: 'O card leva ~60–120s. Você pode fechar o modal, o status atualiza automaticamente.',
                         });
+                        // Polling: consulta resins a cada 5s até status !== 'processing'.
+                        const started = Date.now();
+                        const MAX_MS = 4 * 60 * 1000; // 4 min
+                        while (Date.now() - started < MAX_MS) {
+                          await new Promise((r) => setTimeout(r, 5000));
+                          const { data: row } = await supabase
+                            .from('resins')
+                            .select('info_card_status, info_card_error, info_card_url_pt, info_card_url_en, info_card_url_es')
+                            .eq('id', formData.id)
+                            .maybeSingle();
+                          if (!row) continue;
+                          if (row.info_card_status === 'ready' || row.info_card_status === 'error') {
+                            const urls = {
+                              pt: row.info_card_url_pt || undefined,
+                              en: row.info_card_url_en || undefined,
+                              es: row.info_card_url_es || undefined,
+                            };
+                            setGeneratedCards(urls);
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              info_card_url_pt: urls.pt || prev.info_card_url_pt,
+                              info_card_url_en: urls.en || prev.info_card_url_en,
+                              info_card_url_es: urls.es || prev.info_card_url_es,
+                            }));
+                            if (row.info_card_status === 'error') {
+                              setCardGenerationError(row.info_card_error || 'Falha desconhecida');
+                              toast({ title: '❌ Erro ao gerar card', description: row.info_card_error || '', variant: 'destructive' });
+                            } else {
+                              toast({ title: '✅ Card informativo gerado', description: `Idiomas: ${Object.keys(urls).filter((k) => (urls as any)[k]).join(', ').toUpperCase()}` });
+                            }
+                            return;
+                          }
+                        }
+                        throw new Error('Tempo esgotado aguardando geração (>4min). Verifique os logs.');
                       } catch (err: any) {
                         let message = err?.message || 'Falha desconhecida ao gerar o card';
                         try {
@@ -1414,7 +1440,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     title={!formData.id ? 'Salve a resina primeiro' : 'Gerar imagem infográfica em PT/EN/ES'}
                   >
                     {isGeneratingCard ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando com IA (GPT‑5.6 Sol)…</>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando (~60–120s)…</>
                     ) : (
                       <><ImageIcon className="w-4 h-4" /> Gerar Card Informativo</>
                     )}
