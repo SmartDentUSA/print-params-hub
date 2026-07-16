@@ -107,6 +107,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/api/v1/:path*",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-dent-api/api/v1/:path*"
+    },
+    {
+      "source": "/ai-search",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/ai-search"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
