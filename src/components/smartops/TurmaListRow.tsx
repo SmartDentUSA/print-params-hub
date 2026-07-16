@@ -7,6 +7,7 @@ import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
+import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
@@ -156,6 +157,7 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <CriarPastaDriveButton turmaId={turma.id} folderUrl={(turma as any).factory_drive_folder_url} />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
             turmaId={turma.id}
