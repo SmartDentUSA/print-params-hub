@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, ExternalLink } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ParameterSet {
   id: string;
@@ -45,6 +46,9 @@ interface Resin {
   cta_4_url?: string;
   cta_4_description?: string;
   processing_instructions?: string | null;
+  info_card_url_pt?: string | null;
+  info_card_url_en?: string | null;
+  info_card_url_es?: string | null;
 }
 
 interface ResinAccordionProps {
@@ -53,6 +57,11 @@ interface ResinAccordionProps {
 }
 
 export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordionProps) {
+  const { language } = useLanguage();
+  const pickCardUrl = (r: Resin): string | null => {
+    const byLang = (r as any)[`info_card_url_${language}`];
+    return byLang || r.info_card_url_pt || null;
+  };
   // Filter out parameter sets with invalid data (but allow cure_time = 0 for special cases)
   const filteredResins = resins.map(resin => ({
     ...resin,
@@ -282,6 +291,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                           <ParameterTable 
                             parameterSet={paramSet} 
                             processingInstructions={resin.processing_instructions}
+                            infoCardUrl={pickCardUrl(resin)}
                           />
                         </AccordionContent>
                       </AccordionItem>

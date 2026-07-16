@@ -25,9 +25,10 @@ interface ParameterSet {
 interface ParameterTableProps {
   parameterSet: ParameterSet;
   processingInstructions?: string | null;
+  infoCardUrl?: string | null;
 }
 
-export function ParameterTable({ parameterSet, processingInstructions }: ParameterTableProps) {
+export function ParameterTable({ parameterSet, processingInstructions, infoCardUrl }: ParameterTableProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -265,11 +266,14 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
           </Button>
         </div>
 
-        {processingInstructions && (() => {
-          const { pre, post, sections } = parseMarkdownInstructions(processingInstructions);
+        {(processingInstructions || infoCardUrl) && (() => {
+          const parsed = processingInstructions
+            ? parseMarkdownInstructions(processingInstructions)
+            : { pre: [], post: [], sections: [] };
+          const { pre, post, sections } = parsed;
           const hasInstructions = pre.length > 0 || post.length > 0 || sections.length > 0;
-          
-          if (!hasInstructions) return null;
+
+          if (!hasInstructions && !infoCardUrl) return null;
           
           return (
             <div className="mt-4">
@@ -282,7 +286,24 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                     </span>
                   </AccordionTrigger>
                    <AccordionContent className="px-0 pb-0">
-                    <ProcessingInstructionsView instructions={processingInstructions} />
+                    {hasInstructions && (
+                      <ProcessingInstructionsView instructions={processingInstructions} />
+                    )}
+                    {infoCardUrl && (
+                      <a
+                        href={infoCardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-4"
+                      >
+                        <img
+                          src={infoCardUrl}
+                          alt="Guia de Pré e Pós-Processamento"
+                          loading="lazy"
+                          className="w-full max-w-2xl rounded-lg border border-border shadow-sm"
+                        />
+                      </a>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
