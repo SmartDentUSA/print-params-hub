@@ -398,8 +398,9 @@ async function planCardWithLLM(opts: {
       model,
       messages,
       temperature: 0.2,
-      max_tokens: 8000,
+      max_tokens: 5000,
       response_format: { type: 'json_object' },
+      timeout_ms: 18_000,
     })
     return r
   }
@@ -432,6 +433,7 @@ async function planCardWithLLM(opts: {
     .filter((id): id is string => Boolean(id))
   const MODELS = Array.from(new Set([...discovered, ...configured]))
   let modelUsed: string = MODELS[0]
+  console.log(`[generate-resin-info-card] modelo selecionado: ${modelUsed}`)
   let first = await attempt(modelUsed)
   for (const fallback of MODELS.slice(1)) {
     if (first.ok) break
@@ -441,22 +443,15 @@ async function planCardWithLLM(opts: {
     modelUsed = fallback
     first = await attempt(modelUsed)
   }
-  if (!first.ok) return { plan: null, error: `poe: ${first.error || first.status}` }
+  if (!first.ok) {
+    console.warn(`[generate-resin-info-card] Poe falhou (${first.error || first.status}); usando estrutura determinística`)
+    return { plan: fallbackPlan(opts), model: modelUsed }
+  }
   let parsed = extractJson(first.text || '')
   if (parsed) {
     const parity = assertStructuralParity(parsed as CardPlan)
     if (parity.ok) return { plan: parsed as CardPlan, usage: first.usage, model: modelUsed }
-    console.warn('[generate-resin-info-card] parity fail, retrying:', parity.reason)
-    const retry = await attempt(
-      modelUsed,
-      `A resposta anterior falhou na validação: ${parity.reason}. Reenvie o JSON garantindo IDENTICAMENTE o mesmo número de blocks, colunas por block, items por coluna e ícones nos três idiomas.`,
-    )
-    if (retry.ok) {
-      const p2 = extractJson(retry.text || '')
-      if (p2 && assertStructuralParity(p2 as CardPlan).ok) {
-        return { plan: p2 as CardPlan, usage: retry.usage, model: modelUsed }
-      }
-    }
+    console.warn('[generate-resin-info-card] parity fail:', parity.reason)
   }
   console.warn('[generate-resin-info-card] resposta LLM sem paridade; aplicando estrutura determinística trilíngue')
   return { plan: fallbackPlan(opts), usage: first.usage, model: modelUsed }

@@ -12,6 +12,7 @@ export interface PoeCallParams {
   temperature?: number;
   max_tokens?: number;
   stream?: false;                             // streaming não suportado nesta v1
+  timeout_ms?: number;
 }
 
 export interface PoeCallResult {
@@ -41,6 +42,8 @@ export async function callPoe(params: PoeCallParams): Promise<PoeCallResult> {
   if (typeof params.max_tokens === "number") body.max_tokens = params.max_tokens;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), params.timeout_ms ?? 45_000);
     const resp = await fetch("https://api.poe.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -48,7 +51,9 @@ export async function callPoe(params: PoeCallParams): Promise<PoeCallResult> {
         "Authorization": `Bearer ${POE_API_KEY}`,
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     const txt = await resp.text();
     let parsed: any;
@@ -75,7 +80,7 @@ export async function callPoe(params: PoeCallParams): Promise<PoeCallResult> {
       raw: parsed,
     };
   } catch (e: any) {
-    return { ok: false, status: 0, error: e?.message || String(e) };
+    return { ok: false, status: 0, error: e?.name === "AbortError" ? "Poe timeout" : (e?.message || String(e)) };
   }
 }
 
