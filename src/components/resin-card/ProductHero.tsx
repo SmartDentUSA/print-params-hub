@@ -12,7 +12,10 @@ export function ProductHero({ productName, imageUrl }: Props) {
         <img
           src={imageUrl}
           alt={productName}
-          crossOrigin="anonymous"
+          // crossOrigin só faz sentido para URLs Supabase (com CORS liberado).
+          // Para CDNs externas (ex.: awsli), definir crossOrigin bloqueia a
+          // renderização do preview. A exportação exige rehospedagem no Storage.
+          {...(imageUrl.includes('supabase.co') ? { crossOrigin: 'anonymous' as const } : {})}
           draggable={false}
         />
       ) : (
