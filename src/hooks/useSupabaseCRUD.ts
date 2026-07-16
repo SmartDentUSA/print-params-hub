@@ -187,6 +187,18 @@ export const useSupabaseCRUD = () => {
           if (!eq(prev, next)) {
             (dbUpdates as any)[`${f}_en`] = null;
             (dbUpdates as any)[`${f}_es`] = null;
+            if (f === 'processing_instructions') {
+              // Planos e imagens são snapshots do texto. Uma alteração nas
+              // instruções deve obrigar uma geração totalmente nova.
+              (dbUpdates as any).info_card_plan_pt = null;
+              (dbUpdates as any).info_card_plan_en = null;
+              (dbUpdates as any).info_card_plan_es = null;
+              (dbUpdates as any).info_card_url_pt = null;
+              (dbUpdates as any).info_card_url_en = null;
+              (dbUpdates as any).info_card_url_es = null;
+              (dbUpdates as any).info_card_status = null;
+              (dbUpdates as any).info_card_error = null;
+            }
           }
         }
       }
