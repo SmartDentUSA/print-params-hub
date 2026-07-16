@@ -66,11 +66,11 @@ serve(async (req) => {
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
     const campaignIds = Array.from(new Set(claimedRows.map(r => r.campaign_id).filter(Boolean)))
-    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string; dedupe_window_days: number }>()
+    const campByIdMap = new Map<string, { delay_seconds: number; daily_limit: number; status: string; dedupe_window_days: number; campaign_type: string }>()
     if (campaignIds.length) {
       const { data: campRows } = await supabase.from('wa_campaigns')
-        .select('id, delay_seconds, daily_limit, status, dedupe_window_days').in('id', campaignIds)
-      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status, dedupe_window_days: (c as any).dedupe_window_days ?? 30 })
+        .select('id, delay_seconds, daily_limit, status, dedupe_window_days, campaign_type').in('id', campaignIds)
+      for (const c of campRows ?? []) campByIdMap.set((c as any).id, { delay_seconds: (c as any).delay_seconds ?? 15, daily_limit: (c as any).daily_limit ?? 9999, status: (c as any).status, dedupe_window_days: (c as any).dedupe_window_days ?? 30, campaign_type: (c as any).campaign_type ?? 'flow' })
     }
 
     const pending: any[] = []
@@ -132,17 +132,20 @@ serve(async (req) => {
         const { data: cooldown } = await supabase.rpc('fn_check_group_send_cooldown', { p_group_jid: item.group_jid, p_node_index: item.node_index, p_campaign_id: item.campaign_id })
         if (cooldown === false) { await setStatus(supabase, item.id, 'skipped', 'Cooldown'); results.push({ id: item.id, status: 'skipped' }); continue }
 
-        // Dedupe global cross-campaign: bloqueia reenviar mesmo conteúdo ao mesmo grupo dentro da janela
+        // O fluxo é identificado por (campanha + grupo + sequence_no), protegido
+        // por índice único no banco. Hash de conteúdo só se aplica a blasts pontuais.
         const cHash = await contentHashOf(item.node_type, item.content_json ?? {})
-        const { data: allowSend } = await supabase.rpc('fn_check_group_global_dedup', {
-          p_group_jid: item.group_jid,
-          p_content_hash: cHash,
-          p_window_days: (camp as any).dedupe_window_days ?? 30,
-        })
-        if (allowSend === false) {
-          await setStatus(supabase, item.id, 'skipped', 'dedupe_global')
-          results.push({ id: item.id, status: 'skipped_dedup_global' })
-          continue
+        if ((camp as any).campaign_type === 'blast') {
+          const { data: allowSend } = await supabase.rpc('fn_check_group_global_dedup', {
+            p_group_jid: item.group_jid,
+            p_content_hash: cHash,
+            p_window_days: (camp as any).dedupe_window_days ?? 30,
+          })
+          if (allowSend === false) {
+            await setStatus(supabase, item.id, 'skipped', 'dedupe_global')
+            results.push({ id: item.id, status: 'skipped_dedup_global' })
+            continue
+          }
         }
 
         let evoId: string | null = null
@@ -258,16 +261,17 @@ serve(async (req) => {
         // NB: supabase.rpc() retorna um PostgrestBuilder thenable (sem .catch);
         // encadear .catch aqui lançava "TypeError: .catch is not a function"
         // e derrubava envios já bem-sucedidos.
-        try {
-          const { error: recErr } = await supabase.rpc('fn_record_group_send', {
-            p_group_jid: item.group_jid,
-            p_content_hash: cHash,
-            p_node_type: item.node_type,
-            p_campaign_id: item.campaign_id,
-          })
-          if (recErr) console.error('[v66eg] fn_record_group_send failed', recErr)
-        } catch (e) {
-          console.error('[v66eg] fn_record_group_send threw', e)
+          try {
+            const { error: recErr } = await supabase.rpc('fn_record_group_send', {
+              p_group_jid: item.group_jid,
+              p_content_hash: cHash,
+              p_node_type: item.node_type,
+              p_campaign_id: item.campaign_id,
+            })
+            if (recErr) console.error('[v66eg] fn_record_group_send failed', recErr)
+          } catch (e) {
+            console.error('[v66eg] fn_record_group_send threw', e)
+          }
         }
         if (isGroup) await supabase.from('wa_groups').update({ session_health: 'ok', consecutive_send_errors: 0, last_send_error: null, last_send_error_at: null }).eq('group_jid', item.group_jid).gt('consecutive_send_errors', 0)
         await advanceCampaign(supabase, item.campaign_id, item.node_index)

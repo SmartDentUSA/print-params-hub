@@ -59,24 +59,24 @@ serve(async (req) => {
     return Response.json({ ok: false, error: 'Campanha sem grupos vinculados' }, { status: 400, headers: corsHeaders })
   }
 
-  // Clean previous pending for this campaign across all groups
-  await supabase.from('wa_message_queue')
-    .delete().eq('campaign_id', campaign_id).eq('status', 'pending')
-
   const defaultStartTs = camp.started_at ? new Date(camp.started_at).getTime() : Date.now() + 15_000
   const queueRows: Array<Record<string, unknown>> = []
+  const pendingUpdates: Array<{ id: string; values: Record<string, unknown> }> = []
+  const retainedNodeIds = new Set<string>()
 
   for (const tgt of targets) {
-    // Modo incremental: se já existem mensagens sent/sending para esse grupo,
-    // pular esses node_indexes e ancorar os novos após o último envio.
+    // Identidade incremental: cada nó de conteúdo mantém node_id + sequence_no.
+    // Reativar/editar a campanha atualiza somente linhas pending; nós terminais
+    // nunca são recriados e nunca voltam a ser enviados.
     const { data: existing } = await supabase
       .from('wa_message_queue')
-      .select('node_index, status, scheduled_at, sent_at')
+      .select('id, node_id, sequence_no, node_index, node_type, status, scheduled_at, sent_at')
       .eq('campaign_id', campaign_id)
       .eq('group_jid', tgt.group_jid)
-      .in('status', ['sent', 'sending'])
 
-    const sentIndexes = new Set<number>((existing ?? []).map((r: any) => r.node_index as number))
+    const existingByNodeId = new Map<string, any>()
+    for (const row of existing ?? []) if ((row as any).node_id) existingByNodeId.set((row as any).node_id, row)
+    let nextSequence = Math.max(0, ...(existing ?? []).map((r: any) => Number(r.sequence_no) || 0)) + 1
     // Nunca ancorar no passado: started_at antigo (edição incremental de campanha
     // criada dias atrás) causaria datas vencidas e disparo imediato/errado.
     let anchorTs = Math.max(defaultStartTs, Date.now() + 15_000)
@@ -112,13 +112,6 @@ serve(async (req) => {
         lastWait = node
         continue
       }
-      // Skip nós já enviados: preserva a linha sent existente e zera o acumulador
-      // de wait (waits anteriores ao último sent não devem afetar os novos nós).
-      if (sentIndexes.has(i)) {
-        accMs = 0
-        lastWait = null
-        continue
-      }
       let ts: Date
       if (lastWait) {
         if (lastWait.mode === 'absolute' && typeof lastWait.absolute_at === 'string') {
@@ -152,42 +145,73 @@ serve(async (req) => {
         const msgs = ((node.messages as any[]) ?? []).filter(m => m?.enabled !== false && String(m?.content ?? '').trim())
         for (let k = 0; k < msgs.length; k++) {
           const subTs = new Date(ts.getTime() + k * interval)
-          queueRows.push({
+          const nodeId = `${String(node.id ?? `flow-${i}`)}:promo:${String(msgs[k].order ?? k + 1)}`
+          retainedNodeIds.add(`${tgt.group_jid}|${nodeId}`)
+          const values = {
             campaign_id,
             group_jid: tgt.group_jid,
             node_index: i,
+            node_id: nodeId,
             node_type: 'msg',
             content_json: { text: String(msgs[k].content), mentions_everyone: false, _promo_seq: { produto_slug: node.produto_slug, bucket: node.bucket, order: msgs[k].order } },
             scheduled_at: subTs.toISOString(),
             status: 'pending',
-          })
+          }
+          const prior = existingByNodeId.get(nodeId)
+          if (!prior) queueRows.push({ ...values, sequence_no: nextSequence++ })
+          else if (prior.status === 'pending') pendingUpdates.push({ id: prior.id, values })
           accMs += interval
         }
         lastWait = null
         continue
       }
-      queueRows.push({
+      const nodeId = String(node.id ?? `flow-${i}`)
+      retainedNodeIds.add(`${tgt.group_jid}|${nodeId}`)
+      const values = {
         campaign_id,
         group_jid: tgt.group_jid,
         node_index: i,
+        node_id: nodeId,
         node_type: node.type,
         content_json: buildContent(node),
         scheduled_at: ts.toISOString(),
         status: 'pending',
-      })
+      }
+      const prior = existingByNodeId.get(nodeId)
+      if (!prior) queueRows.push({ ...values, sequence_no: nextSequence++ })
+      else if (prior.status === 'pending') pendingUpdates.push({ id: prior.id, values })
     }
   }
 
-  if (queueRows.length === 0) {
+  // Remove somente pendências de nós apagados do fluxo. Histórico terminal fica intacto.
+  const { data: pendingRows } = await supabase.from('wa_message_queue')
+    .select('id, group_jid, node_id').eq('campaign_id', campaign_id).eq('status', 'pending')
+  const stalePendingIds = (pendingRows ?? [])
+    .filter((r: any) => !r.node_id || !retainedNodeIds.has(`${r.group_jid}|${r.node_id}`))
+    .map((r: any) => r.id)
+  if (stalePendingIds.length) await supabase.from('wa_message_queue').delete().in('id', stalePendingIds)
+
+  for (const update of pendingUpdates) {
+    const { error: updateErr } = await supabase.from('wa_message_queue').update(update.values).eq('id', update.id)
+    if (updateErr) throw updateErr
+  }
+
+  if (queueRows.length === 0 && pendingUpdates.length === 0) {
     // Edição incremental sem novos nós: apenas reativa a campanha sem fila nova.
     await supabase.from('wa_campaigns').update({ status: 'active' }).eq('id', campaign_id)
     return Response.json({ ok: true, campaign: campaign_id, groups: targets.length, queued: 0, note: 'Sem novos nós para enfileirar' }, { headers: corsHeaders })
   }
 
-  const { error: insertErr } = await supabase.from('wa_message_queue').insert(queueRows)
-  if (insertErr) throw insertErr
+  if (queueRows.length > 0) {
+    const { error: insertErr } = await supabase.from('wa_message_queue').insert(queueRows)
+    if (insertErr) throw insertErr
+  }
 
-  const firstSend = queueRows.map(r => r.scheduled_at as string).sort()[0]
+  const allScheduled = [
+    ...queueRows.map(r => r.scheduled_at as string),
+    ...pendingUpdates.map(r => r.values.scheduled_at as string),
+  ]
+  const firstSend = allScheduled.sort()[0] ?? null
 
   await supabase.from('wa_campaigns').update({
     status: 'active',
@@ -203,13 +227,14 @@ serve(async (req) => {
       .eq('id', tgt.id)
   }
 
-  console.log(`[wa-campaign-builder] Campanha ${campaign_id} ativada: ${queueRows.length} msgs em ${targets.length} grupos`)
+  console.log(`[wa-campaign-builder] Campanha ${campaign_id} ativada: ${queueRows.length} novas, ${pendingUpdates.length} atualizadas em ${targets.length} grupos`)
 
   return Response.json({
     ok: true, campaign: campaign_id,
     groups: targets.length,
     group_jids: targets.map(t => t.group_jid),
     queued: queueRows.length,
+    updated: pendingUpdates.length,
     first_send: firstSend,
   }, { headers: corsHeaders })
 })
