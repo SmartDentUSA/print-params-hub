@@ -122,7 +122,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     const cachedDb = hydratedResin?.[`info_card_plan_${lang}`]
     if (!instructionsChanged && cachedDb && Array.isArray(cachedDb.sections) && cachedDb.sections.length) return cachedDb
     const { data, error } = await supabase.functions.invoke('translate-resin-card', {
-      body: { resinId: resin.id, plan: planPt, targetLang: lang },
+      body: { resinId: resin.id, plan: planPt, targetLang: lang, forceRefresh: instructionsChanged },
     })
     if (error) throw error
     if (data?.error) throw new Error(data.error)

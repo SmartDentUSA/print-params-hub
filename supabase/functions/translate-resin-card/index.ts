@@ -38,7 +38,7 @@ function extractJson(raw: string): any | null {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
-    const { resinId, plan, targetLang } = await req.json() as { resinId?: string; plan: any; targetLang: Lang }
+    const { resinId, plan, targetLang, forceRefresh } = await req.json() as { resinId?: string; plan: any; targetLang: Lang; forceRefresh?: boolean }
     if (!plan || !targetLang || !['en', 'es', 'pt'].includes(targetLang)) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
         status: 400,
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     )
 
     // cache lookup
-    if (resinId) {
+    if (resinId && !forceRefresh) {
       const col = `info_card_plan_${targetLang}` as const
       const { data } = await supabase.from('resins').select(col).eq('id', resinId).maybeSingle() as any
       const cached = data?.[col]
