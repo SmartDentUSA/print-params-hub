@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { validateFileSize } from '@/utils/security';
+import { extensionFromMime } from '@/utils/storageImage';
 import { Progress } from '@/components/ui/progress';
 
 interface Brand {
