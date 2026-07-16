@@ -9,6 +9,7 @@ import { InfographicCard } from './InfographicCard'
 import { parseInstructionsMd } from './parseInstructionsMd'
 import type { CardPlan, Lang } from './types'
 import { resolveProductImage } from '@/utils/resolveProductImage'
+import { uploadExternalImage } from '@/utils/uploadExternalImage'
 import {
   validateAssets,
   exportInfographicPng,
@@ -34,6 +35,39 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
 
   const productImageUrl = useMemo(() => resolveProductImage(resin), [resin])
   const missingProductImage = !productImageUrl
+  const isExternalProductImage = useMemo(() => {
+    if (!productImageUrl) return false
+    return !productImageUrl.includes('supabase.co')
+  }, [productImageUrl])
+  const [reimporting, setReimporting] = useState(false)
+
+  async function handleReimportImage() {
+    if (!productImageUrl || !resin?.id) return
+    setReimporting(true)
+    try {
+      const safeName = (resin?.name || 'resin')
+        .toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'resin'
+      const publicUrl = await uploadExternalImage(productImageUrl, `resin-${safeName}-${resin.id}`)
+      const { error: upErr } = await supabase
+        .from('resins')
+        .update({ image_background_removed_url: publicUrl } as any)
+        .eq('id', resin.id)
+      if (upErr) throw upErr
+      toast({ title: '✅ Imagem reimportada', description: 'Recarregando para aplicar…' })
+      setTimeout(() => window.location.reload(), 600)
+    } catch (e: any) {
+      toast({
+        title: '❌ Falha ao reimportar imagem',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      })
+    } finally {
+      setReimporting(false)
+    }
+  }
 
   const planPt = useMemo<CardPlan>(() => {
     const cached = resin?.info_card_plan_pt
@@ -143,6 +177,32 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
           <div>
             <div className="font-semibold">MISSING_OFFICIAL_PRODUCT_IMAGE</div>
             <div>Cadastre uma imagem oficial do produto (aba Imagens) para liberar a exportação.</div>
+          </div>
+        </div>
+      )}
+
+      {!missingProductImage && isExternalProductImage && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm flex gap-3 items-start text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <div className="font-semibold">Imagem hospedada em CDN externo</div>
+            <div className="text-xs opacity-90 mb-2">
+              A exportação exige CORS liberado. Reimporte para o Storage do Supabase.
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleReimportImage}
+              disabled={reimporting}
+            >
+              {reimporting ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <ImageIcon className="w-4 h-4 mr-1" />
+              )}
+              Reimportar imagem para o Storage
+            </Button>
           </div>
         </div>
       )}
