@@ -1039,7 +1039,8 @@ export default function KbTabCatalogo() {
               procResin?.info_card_url_es ||
               null;
             if (!cardUrl) return null;
-            const downloadName = `${(procResin?.name || 'resin').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${specLang || 'pt'}.png`;
+            const extension = cardUrl.toLowerCase().includes('.svg') ? 'svg' : 'png';
+            const downloadName = `${(procResin?.name || 'resin').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${specLang || 'pt'}.${extension}`;
             const onDownload = async () => {
               try {
                 const resp = await fetch(cardUrl);

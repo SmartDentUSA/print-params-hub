@@ -86,6 +86,51 @@ interface CardPlan {
   content: Record<Lang, LangContent>
 }
 
+function fallbackPlan(opts: {
+  instructionsPt: string; instructionsEn: string; instructionsEs: string
+}): CardPlan {
+  const split = (text: string): [string, string] => {
+    const clean = text.replace(/[#>*_`]/g, ' ').replace(/\s+/g, ' ').trim()
+    const sentences = clean.split(/(?<=[.!?;])\s+/).filter(Boolean)
+    const middle = Math.max(1, Math.ceil(sentences.length / 2))
+    const first = sentences.slice(0, middle).join(' ').slice(0, 430) || clean.slice(0, 430)
+    const second = sentences.slice(middle).join(' ').slice(0, 430) || clean.slice(430, 860) || first
+    return [first, second]
+  }
+  const makeContent = (lang: Lang, text: string): LangContent => {
+    const [preText, postText] = split(text)
+    return {
+      title: L[lang].title,
+      subtitle: L[lang].subtitle,
+      important: L[lang].importantText,
+      blocks: {
+        pre: {
+          heading: L[lang].pre,
+          columns: [{ title: L[lang].pre, icon: '🌡️', items: [{ text: preText }] }],
+        },
+        post: {
+          heading: L[lang].post,
+          columns: [{ title: L[lang].post, icon: '⚙️', items: [{ text: postText }] }],
+        },
+      },
+    }
+  }
+  return {
+    structure: {
+      blocks: [
+        { id: 'pre', color: 'blue', icon: '🌡️', num: '1)' },
+        { id: 'post', color: 'green', icon: '⚙️', num: '2)' },
+      ],
+      columns_per_block: { pre: 1, post: 1 },
+    },
+    content: {
+      pt: makeContent('pt', opts.instructionsPt),
+      en: makeContent('en', opts.instructionsEn),
+      es: makeContent('es', opts.instructionsEs),
+    },
+  }
+}
+
 function buildSystemPrompt(): string {
   return [
     'Você é um designer sênior de infográficos técnicos odontológicos.',
@@ -353,53 +398,97 @@ async function planCardWithLLM(opts: {
       model,
       messages,
       temperature: 0.2,
-      max_tokens: 8000,
+      max_tokens: 5000,
       response_format: { type: 'json_object' },
+      timeout_ms: 18_000,
     })
     return r
   }
 
-  const PRIMARY = 'gpt-5.6-sol'
-  const FALLBACK = 'gpt-5.5'
-  let modelUsed = PRIMARY
-  let first = await attempt(PRIMARY)
-  if (!first.ok && (first.status === 404 || /not found|unknown model/i.test(first.error || ''))) {
-    console.warn(`[generate-resin-info-card] ${PRIMARY} indisponível, tentando ${FALLBACK}`)
-    modelUsed = FALLBACK
-    first = await attempt(FALLBACK)
+  // A API Poe é case-sensitive e os IDs liberados variam por conta. Consulta o
+  // catálogo da própria conta para resolver o handle real antes da chamada.
+  const configured = ['GPT-5.6-Sol', 'gpt-5.6-sol', 'GPT-5.5', 'gpt-5.5', 'Claude-Sonnet-4.6', 'claude-sonnet-4.6']
+  let available: string[] = []
+  const poeKey = Deno.env.get('POE_API_KEY')
+  if (poeKey) {
+    try {
+      const modelResp = await fetch('https://api.poe.com/v1/models', {
+        headers: { Authorization: `Bearer ${poeKey}` },
+      })
+      if (modelResp.ok) {
+        const modelData = await modelResp.json()
+        available = (modelData?.data || []).map((m: any) => String(m?.id || '')).filter(Boolean)
+        console.log(`[generate-resin-info-card] Poe models disponíveis: ${available.length}`)
+      } else {
+        await modelResp.text()
+      }
+    } catch (e) {
+      console.warn('[generate-resin-info-card] não foi possível consultar /v1/models:', e)
+    }
   }
-  if (!first.ok) return { plan: null, error: `poe: ${first.error || first.status}` }
+  const normalizeModel = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const desired = ['gpt56sol', 'gpt55', 'claudesonnet46', 'claudeopus']
+  const discovered = desired
+    .map((target) => available.find((id) => normalizeModel(id).includes(target)))
+    .filter((id): id is string => Boolean(id))
+  const MODELS = Array.from(new Set([...discovered, ...configured]))
+  let modelUsed: string = MODELS[0]
+  console.log(`[generate-resin-info-card] modelo selecionado: ${modelUsed}`)
+  let first = await attempt(modelUsed)
+  for (const fallback of MODELS.slice(1)) {
+    if (first.ok) break
+    const unavailable = first.status === 404 || /not found|unknown model/i.test(first.error || '')
+    if (!unavailable) break
+    console.warn(`[generate-resin-info-card] ${modelUsed} indisponível, tentando ${fallback}`)
+    modelUsed = fallback
+    first = await attempt(modelUsed)
+  }
+  if (!first.ok) {
+    console.warn(`[generate-resin-info-card] Poe falhou (${first.error || first.status}); usando estrutura determinística`)
+    return { plan: fallbackPlan(opts), model: modelUsed }
+  }
   let parsed = extractJson(first.text || '')
   if (parsed) {
     const parity = assertStructuralParity(parsed as CardPlan)
     if (parity.ok) return { plan: parsed as CardPlan, usage: first.usage, model: modelUsed }
-    console.warn('[generate-resin-info-card] parity fail, retrying:', parity.reason)
-    const retry = await attempt(
-      modelUsed,
-      `A resposta anterior falhou na validação: ${parity.reason}. Reenvie o JSON garantindo IDENTICAMENTE o mesmo número de blocks, colunas por block, items por coluna e ícones nos três idiomas.`,
-    )
-    if (retry.ok) {
-      const p2 = extractJson(retry.text || '')
-      if (p2 && assertStructuralParity(p2 as CardPlan).ok) {
-        return { plan: p2 as CardPlan, usage: retry.usage, model: modelUsed }
-      }
-    }
+    console.warn('[generate-resin-info-card] parity fail:', parity.reason)
   }
-  return { plan: null, error: 'LLM não produziu JSON com paridade estrutural', usage: first.usage, model: modelUsed }
+  console.warn('[generate-resin-info-card] resposta LLM sem paridade; aplicando estrutura determinística trilíngue')
+  return { plan: fallbackPlan(opts), usage: first.usage, model: modelUsed }
 }
 
-async function renderPng(html: string): Promise<Uint8Array> {
+function htmlToStandaloneSvg(html: string): Uint8Array {
+  const body = html
+    .replace(/^.*?<body[^>]*>/is, '')
+    .replace(/<\/body>.*$/is, '')
+  const css = html.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1500" viewBox="0 0 1080 1500">
+    <foreignObject width="1080" height="1500">
+      <div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${body}</div>
+    </foreignObject>
+  </svg>`
+  return new TextEncoder().encode(svg)
+}
+
+async function renderImage(html: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
   const res = await fetch(RENDER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ html, width: 1080, height: 1500 }),
   })
+  const contentType = res.headers.get('content-type') || ''
   if (!res.ok) {
     const t = await res.text().catch(() => '')
     throw new Error(`render-template ${res.status}: ${t.slice(0, 300)}`)
   }
+  if (!contentType.startsWith('image/')) {
+    await res.arrayBuffer()
+    console.warn(`[generate-resin-info-card] renderer retornou ${contentType || 'MIME vazio'}; usando SVG autônomo`)
+    return { bytes: htmlToStandaloneSvg(html), contentType: 'image/svg+xml', extension: 'svg' }
+  }
   const buf = await res.arrayBuffer()
-  return new Uint8Array(buf)
+  const extension = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') ? 'jpg' : 'png'
+  return { bytes: new Uint8Array(buf), contentType, extension }
 }
 
 Deno.serve(async (req) => {
@@ -466,13 +555,13 @@ Deno.serve(async (req) => {
         resinName: nameFor(lang),
         productImage: resin.image_url,
       })
-      const png = await renderPng(html)
-      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
+      const rendered = await renderImage(html)
+      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.${rendered.extension}`
       const { error: upErr } = await supabase.storage
-        .from('product-images')
-        .upload(path, png, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
+        .from('model-images')
+        .upload(path, rendered.bytes, { contentType: rendered.contentType, upsert: true, cacheControl: '3600' })
       if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
-      const { data: pub } = supabase.storage.from('product-images').getPublicUrl(path)
+      const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
       results[lang] = pub.publicUrl
     }
 
