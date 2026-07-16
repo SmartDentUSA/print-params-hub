@@ -23,6 +23,20 @@ type Props = {
   onCardUrlChanged?: (lang: Lang, url: string | null) => void
 }
 
+function planSourceSignature(plan: CardPlan): string {
+  const source = JSON.stringify(plan)
+  let hash = 2166136261
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `v1-${(hash >>> 0).toString(16)}`
+}
+
+function matchesSource(plan: any, signature: string): boolean {
+  return !!plan?.sections?.length && plan?._sourceSignature === signature
+}
+
 export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   const { toast } = useToast()
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -114,15 +128,16 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   }, [liveInstructions, instructionsChanged, hydratedResin?.info_card_plan_pt])
 
   const canExport = !!resin?.id && planPt.sections.length > 0
+  const sourceSignature = useMemo(() => planSourceSignature(planPt), [planPt])
 
   async function ensurePlan(lang: Lang): Promise<CardPlan> {
     if (lang === 'pt') return planPt
     const override = translationOverrides[lang]
-    if (override && override.sections?.length) return override
+    if (matchesSource(override, sourceSignature)) return override as CardPlan
     const cachedDb = hydratedResin?.[`info_card_plan_${lang}`]
-    if (!instructionsChanged && cachedDb && Array.isArray(cachedDb.sections) && cachedDb.sections.length) return cachedDb
+    if (!instructionsChanged && matchesSource(cachedDb, sourceSignature)) return cachedDb
     const { data, error } = await supabase.functions.invoke('translate-resin-card', {
-      body: { resinId: resin.id, plan: planPt, targetLang: lang, forceRefresh: instructionsChanged },
+      body: { resinId: resin.id, plan: planPt, targetLang: lang, sourceSignature, forceRefresh: true },
     })
     if (error) throw error
     if (data?.error) throw new Error(data.error)
@@ -175,9 +190,9 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
   const previewPlan: CardPlan = (() => {
     if (previewLang === 'pt') return planPt
     const override = translationOverrides[previewLang]
-    if (override && override.sections?.length) return override
+    if (matchesSource(override, sourceSignature)) return override as CardPlan
     const cachedDb = hydratedResin?.[`info_card_plan_${previewLang}`]
-    if (!instructionsChanged && cachedDb && Array.isArray(cachedDb.sections) && cachedDb.sections.length) return cachedDb
+    if (!instructionsChanged && matchesSource(cachedDb, sourceSignature)) return cachedDb
     return planPt
   })()
 
