@@ -250,7 +250,7 @@ serve(async (req) => {
     const { data: turmaRow, error: turmaErr } = await supabase
       .from("smartops_course_turmas")
       .select(
-        "id, drive_folder_id, drive_folder_url, drive_folder_name, drive_subfolders, drive_descricao_file_id, factory_drive_folder_id, factory_drive_folder_url",
+        "id, drive_folder_id, drive_folder_url, drive_folder_name, drive_folder_created_at, drive_subfolders, drive_descricao_file_id, factory_drive_folder_id, factory_drive_folder_url",
       )
       .eq("id", turma_id)
       .maybeSingle();
