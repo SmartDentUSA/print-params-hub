@@ -18588,6 +18588,13 @@ export type Database = {
           active: boolean
           course_id: string
           created_at: string | null
+          drive_descricao_file_id: string | null
+          drive_docx_file_id: string | null
+          drive_folder_created_at: string | null
+          drive_folder_id: string | null
+          drive_folder_name: string | null
+          drive_folder_url: string | null
+          drive_subfolders: Json
           end_date: string | null
           enrolled_count: number
           factory_drive_folder_id: string | null
@@ -18613,6 +18620,13 @@ export type Database = {
           active?: boolean
           course_id: string
           created_at?: string | null
+          drive_descricao_file_id?: string | null
+          drive_docx_file_id?: string | null
+          drive_folder_created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_folder_url?: string | null
+          drive_subfolders?: Json
           end_date?: string | null
           enrolled_count?: number
           factory_drive_folder_id?: string | null
@@ -18638,6 +18652,13 @@ export type Database = {
           active?: boolean
           course_id?: string
           created_at?: string | null
+          drive_descricao_file_id?: string | null
+          drive_docx_file_id?: string | null
+          drive_folder_created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_folder_url?: string | null
+          drive_subfolders?: Json
           end_date?: string | null
           enrolled_count?: number
           factory_drive_folder_id?: string | null
