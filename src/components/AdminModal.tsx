@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { validateFileSize } from '@/utils/security';
+import { extensionFromMime } from '@/utils/storageImage';
 import { Progress } from '@/components/ui/progress';
 
 interface Brand {
@@ -227,6 +228,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [generatedCards, setGeneratedCards] = useState<{ pt?: string; en?: string; es?: string } | null>(null);
   const [cardGenerationError, setCardGenerationError] = useState<string | null>(null);
+  const [uploadingLang, setUploadingLang] = useState<'pt' | 'en' | 'es' | null>(null);
+  const cardFileInputs = useRef<Record<'pt' | 'en' | 'es', HTMLInputElement | null>>({ pt: null, en: null, es: null });
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
@@ -1467,28 +1470,129 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         (generatedCards && generatedCards[lang]) ||
                         (formData as any)[`info_card_url_${lang}`] ||
                         null;
+                      const isUploading = uploadingLang === lang;
+                      const canUpload = !!formData.id && !isUploading;
+
+                      const handleUpload = async (file: File) => {
+                        if (!formData.id) {
+                          toast({ title: 'Salve a resina antes de enviar a imagem', variant: 'destructive' });
+                          return;
+                        }
+                        if (!file.type.startsWith('image/')) {
+                          toast({ title: 'Arquivo inválido', description: 'Envie apenas imagens.', variant: 'destructive' });
+                          return;
+                        }
+                        if (!validateFileSize(file, 10)) {
+                          toast({ title: 'Arquivo muito grande', description: 'Máx. 10 MB.', variant: 'destructive' });
+                          return;
+                        }
+                        setUploadingLang(lang);
+                        try {
+                          const ext = extensionFromMime(file.type, file.name.split('.').pop() || 'png');
+                          const path = `resins/${formData.id}-card-${lang}-${Date.now()}.${ext}`;
+                          const { error: upErr } = await supabase.storage
+                            .from('model-images')
+                            .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || undefined });
+                          if (upErr) throw upErr;
+                          const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path);
+                          const publicUrl = pub.publicUrl;
+                          const patch: any = { [`info_card_url_${lang}`]: publicUrl, info_card_status: 'ready', info_card_error: null };
+                          const { error: updErr } = await supabase.from('resins').update(patch).eq('id', formData.id);
+                          if (updErr) throw updErr;
+                          setFormData((prev: any) => ({ ...prev, [`info_card_url_${lang}`]: publicUrl }));
+                          setGeneratedCards((prev) => ({ ...(prev || {}), [lang]: publicUrl }));
+                          setCardGenerationError(null);
+                          toast({ title: `✅ Imagem ${lang.toUpperCase()} enviada` });
+                        } catch (e: any) {
+                          toast({ title: '❌ Falha no upload', description: e?.message || String(e), variant: 'destructive' });
+                        } finally {
+                          setUploadingLang(null);
+                        }
+                      };
+
+                      const handleDelete = async () => {
+                        if (!formData.id || !url) return;
+                        if (!window.confirm(`Remover imagem ${lang.toUpperCase()} deste card?`)) return;
+                        setUploadingLang(lang);
+                        try {
+                          const { error } = await supabase
+                            .from('resins')
+                            .update({ [`info_card_url_${lang}`]: null } as any)
+                            .eq('id', formData.id);
+                          if (error) throw error;
+                          setFormData((prev: any) => ({ ...prev, [`info_card_url_${lang}`]: null }));
+                          setGeneratedCards((prev) => {
+                            if (!prev) return prev;
+                            const next = { ...prev };
+                            delete next[lang];
+                            return next;
+                          });
+                          toast({ title: `Imagem ${lang.toUpperCase()} removida` });
+                        } catch (e: any) {
+                          toast({ title: '❌ Falha ao remover', description: e?.message || String(e), variant: 'destructive' });
+                        } finally {
+                          setUploadingLang(null);
+                        }
+                      };
+
                       return (
-                        <div key={lang} className="border rounded-lg overflow-hidden bg-background min-h-32">
-                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider bg-muted flex items-center justify-between">
+                        <div key={lang} className="border rounded-lg overflow-hidden bg-background min-h-32 flex flex-col">
+                          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider bg-muted flex items-center justify-between gap-2">
                             <span>{lang}</span>
-                            {url && (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                abrir
-                              </a>
+                            <div className="flex items-center gap-2">
+                              {url && (
+                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline normal-case">
+                                  abrir
+                                </a>
+                              )}
+                              {url && (
+                                <button
+                                  type="button"
+                                  onClick={handleDelete}
+                                  disabled={isUploading}
+                                  title={`Excluir imagem ${lang.toUpperCase()}`}
+                                  className="text-destructive hover:opacity-70 disabled:opacity-40"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1 flex items-center justify-center">
+                            {url ? (
+                              <img src={url} alt={`Card ${lang}`} className="w-full h-auto" />
+                            ) : (
+                              <div className="p-4 text-center text-xs text-muted-foreground">— sem imagem —</div>
                             )}
                           </div>
-                          {url ? (
-                            <img src={url} alt={`Card ${lang}`} className="w-full h-auto" />
-                          ) : (
-                            <div className="p-4 text-center text-xs text-muted-foreground">
-                              — não gerado —
-                            </div>
-                          )}
+                          <div className="p-2 border-t bg-muted/40">
+                            <input
+                              ref={(el) => { cardFileInputs.current[lang] = el; }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUpload(f);
+                                if (e.target) e.target.value = '';
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs"
+                              disabled={!canUpload}
+                              title={!formData.id ? 'Salve a resina primeiro' : `Enviar imagem ${lang.toUpperCase()}`}
+                              onClick={() => cardFileInputs.current[lang]?.click()}
+                            >
+                              {isUploading ? (
+                                <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> Enviando…</>
+                              ) : (
+                                <><Upload className="w-3.5 h-3.5 mr-1" /> Enviar {lang.toUpperCase()}</>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}

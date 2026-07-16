@@ -1,61 +1,71 @@
-## Diagnóstico
+## Escopo desta entrega
 
-O `openai/gpt-image-2` é um modelo **generativo de imagem** — ele não é um renderizador de texto. Por isso:
+Adicionar **upload manual** e **excluir** para cada card de idioma (PT / EN / ES) no `AdminModal`, salvando direto em `resins.info_card_url_pt/en/es`. A imagem enviada aparece imediatamente na pré-visualização e passa a ser servida no card público, sem depender do gerador automático.
 
-1. **Omite conteúdo**: mesmo com prompt verbatim, o modelo resume/reescreve/pula bullets quando o texto é longo (você perdeu Lavagem, Pós-cura UV, Tratamento térmico, Polimento, Caracterização estética, Condicionamento, Cimentação).
-2. **Ignora URLs**: não consegue baixar `https://.../logo.png` nem `https://loja.smartdent.com.br/...`. Ele "imagina" um logo SD e uma bisnaga preta genérica.
-3. **Alucina texto**: já vimos "NanoClea" cortado, "80 nos equipos" etc.
+O prompt de branding (Host Grotesk, paleta Smart Dent, camadas logo/produto, Nano Banana) fica **registrado para a próxima iteração do gerador** — não faz parte desta entrega.
 
-Não há tuning de prompt que resolva isso — a arquitetura está errada para o objetivo.
+## Mudanças
 
-## Correção
+### `src/components/AdminModal.tsx` — bloco "Imagens geradas" (linhas ~1464-1495)
 
-Trocar `openai/gpt-image-2` por **HTML/CSS renderizado a PNG** via `api/render-template.ts` (Puppeteer/Chromium já existente no projeto). Isso garante:
+Para cada card PT / EN / ES, substituir o tile atual por:
 
-- 100% do texto do plano (nada omitido).
-- Logo SD **real** (`product-images/h7stblp3qxn_1760720051743.png`) via `<img src>`.
-- Foto **real** do frasco vinda do produto (`loja.smartdent.com.br/resina-smart-print-bio-vitality`) via `<img src>`.
-- Layout pixel-perfect igual à referência que você anexou (barra navy, badges circulares, cores por seção, callouts ⚠️, footer pink com escudo).
-- Tipografia nítida, sem alucinação.
+```
+┌──────────────────────────┐
+│ PT   [abrir] [🗑 excluir] │  ← cabeçalho
+├──────────────────────────┤
+│                          │
+│    <img> ou placeholder  │
+│                          │
+├──────────────────────────┤
+│ [⬆ Enviar imagem PT]     │  ← botão upload (drag&drop opcional)
+└──────────────────────────┘
+```
 
-### 1. `supabase/functions/generate-resin-info-card/index.ts`
+Comportamento por idioma:
 
-- **Remover** `generateInfographicPNG`, `buildImagePrompt`, `serializePlanContent`, `IMAGE_MODEL`, `IMAGE_GATEWAY`, chamadas ao gateway de imagem, e `logAIUsage` de `resin_info_card_image`.
-- **Manter** `planCardWithLLM` (Poe → JSON estruturado trilíngue) — ele já entrega o conteúdo íntegro.
-- **Adicionar** `renderCardHtml(plan, lang, resin)` que gera HTML/CSS fiel à referência:
-  - Header: barra navy 8px, logo SD (URL do storage), título grande navy, subtítulo cinza com linha, foto do frasco à direita.
-  - Corpo: N seções (blue/green/purple) com badge circular, heading numerado, colunas 2–4 com sub-numeração (`1.1`, `1.2`…), bullets em `<ul>`, tokens em `<strong>`, callouts ⚠️ pink.
-  - Footer: box pink com escudo navy + `important`.
-- **Adicionar** `renderPNG(html, width=1080, height=~1600)` que faz `POST` para `${VITE_PUBLIC_ORIGIN}/api/render-template` (o endpoint Vercel já existe) e recebe PNG.
-- **Product image**: novo campo `resins.product_image_url` (ou reusar `resins.image_url` se já existir — verificar no schema). Passar para o renderer. Fallback: silhueta neutra do frasco em SVG inline.
-- **Height dinâmica**: computar altura ~= `540 + 320*num_sections + 220` para caber tudo sem cortar (ou usar `waitForSelector` + `page.evaluate(document.body.scrollHeight)` no `render-template.ts`).
-- Fire-and-forget async (`EdgeRuntime.waitUntil`) — arquitetura atual mantida, mas cada idioma agora leva **~2–4 s** (Puppeteer) em vez de 40–70 s (GPT-image-2). Total dos 3 idiomas < 15 s.
+1. **Enviar imagem** — abre `<input type="file" accept="image/*">`. Ao selecionar:
+   - valida ≤ 10 MB (usa `validateFileSize` já existente);
+   - faz upload para bucket `model-images`, path `resins/{resin.id}-card-{lang}-{timestamp}.{ext}` (extensão pelo MIME real via `extensionFromMime`);
+   - `getPublicUrl` → atualiza `resins.info_card_url_{lang}` via `supabase.from('resins').update(...).eq('id', formData.id)`;
+   - atualiza `formData` e `generatedCards` em memória para render imediato;
+   - toast de sucesso.
 
-### 2. `api/render-template.ts`
+2. **Excluir** — botão lixeira só aparece quando existe URL. Ao clicar:
+   - confirma via `window.confirm`;
+   - seta `resins.info_card_url_{lang} = null`;
+   - limpa `formData[info_card_url_{lang}]` e `generatedCards[lang]`;
+   - **não** remove o arquivo do storage (evita quebrar histórico); apenas desatrela.
 
-Pequenos ajustes para suportar altura dinâmica:
-- Aceitar `height: 'auto'` no body → após `setContent`, ler `document.body.scrollHeight` e re-setar viewport + `clip`.
-- Aumentar timeout de screenshot para 30 s (o Chromium cold start no Vercel demora ~5 s).
+3. **Guard-rails**:
+   - se `!formData.id` → botão de upload desabilitado com tooltip "Salve a resina primeiro" (mesma regra do gerador).
+   - erros: toast destrutivo com mensagem.
 
-### 3. Migração (só se necessário)
+### Estado / helpers
 
-Se `resins` ainda não tiver coluna para imagem do produto, adicionar `product_image_url text` (nullable). O `AdminModal` já tem upload de imagens do produto — mapear qual campo existente usar antes de criar coluna nova.
+Adicionar dentro do componente:
+- `uploadingLang: 'pt'|'en'|'es'|null` para spinner por idioma;
+- função interna `handleUploadCard(lang, file)` e `handleDeleteCard(lang)` (não extrair componente novo para minimizar diff).
 
-### 4. `src/components/AdminModal.tsx`
+Reutiliza:
+- `supabase.storage.from('model-images')` — bucket já existe (usado pelo `ImageUpload`);
+- `extensionFromMime` de `@/utils/storageImage`;
+- `validateFileSize` de `@/utils/security`;
+- `toast` já importado.
 
-Sem mudanças de lógica — polling de `info_card_status` já cobre. Ajustar só a label do badge de "Gerando (~60–120s)…" para "Gerando (~15s)…".
+### Fora deste diff
 
-## Fora de escopo
-
-- Editor visual do card.
-- Suportar mais que 3 idiomas.
-- Trocar Poe / plano JSON (o LLM continua igual).
+- Sem migration (colunas `info_card_url_pt/en/es` já existem).
+- Sem edge function.
+- Sem mudança em `AdminViewSecure`/`AdminViewSupabase` além do modal.
+- Sem tocar no fluxo do gerador automático — os dois convivem: upload manual sobrescreve o gerado; excluir volta ao estado "aguardando geração".
 
 ## Validação
 
-1. Clicar "Gerar Card Informativo" na resina Smart Print Bio Vitality.
-2. Em ~15 s os 3 PNGs aparecem no modal.
-3. Abrir o PNG PT: verificar que **todo** o texto que você colou (Pré, Pós-lavagem NanoClean, Secagem ar, Pós-cura Elegoo/Anycubic/ShapeCure, Tratamento térmico A/B/C/D, Polimento, SmartMake 5 etapas, Condicionamento, Protocolo clínico, Cimentação) está renderizado, com bullets e ⚠️.
-4. Logo Smart Dent no topo é a imagem real do storage (não desenho gerado).
-5. Foto do frasco à direita é a real do produto (não bisnaga preta genérica).
-6. Sem alucinação: nenhum "NanoClea" cortado, nenhum "80 nos equipos".
+1. Abrir uma resina existente → aba do card informativo.
+2. Clicar "Enviar imagem PT" → escolher PNG local → tile PT mostra a imagem em < 2 s.
+3. Recarregar a página → a imagem PT continua no card.
+4. Ir na página pública/consumidora e conferir que o card PT mostra a imagem enviada.
+5. Clicar 🗑 no PT → confirma → tile volta a "— não gerado —"; recarrega e permanece vazio.
+6. Repetir para EN e ES independentemente (uploads não interferem entre si).
+7. Tentar upload em resina não salva → botão desabilitado / tooltip aparece.
