@@ -339,7 +339,7 @@ function extractJson(raw: string): any | null {
 async function planCardWithLLM(opts: {
   resinNamePt: string; resinNameEn: string; resinNameEs: string
   instructionsPt: string; instructionsEn: string; instructionsEs: string
-}): Promise<{ plan: CardPlan | null; error?: string; usage?: any }> {
+}): Promise<{ plan: CardPlan | null; error?: string; usage?: any; model?: string }> {
   const system = buildSystemPrompt()
   const user = buildUserPrompt(opts)
 
