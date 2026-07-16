@@ -27,13 +27,13 @@ serve(async (req) => {
   // 1. Fetch posts pendentes
   let query = sb
     .from('social_posts')
-    .select('id, platform, caption, post_url, short_link, product_name')
+    .select('id, platform, caption, post_url, short_link, product_name, created_at')
     .is('auto_blast_at', null)
     .not('caption', 'is', null)
     .order('created_at', { ascending: true })
     .limit(MAX_POSTS_PER_RUN);
   if (body.post_id) query = sb.from('social_posts')
-    .select('id, platform, caption, post_url, short_link, product_name')
+    .select('id, platform, caption, post_url, short_link, product_name, created_at')
     .eq('id', body.post_id)
     .is('auto_blast_at', null)
     .not('caption', 'is', null);
@@ -45,6 +45,56 @@ serve(async (req) => {
   }
   if (!posts || posts.length === 0) {
     return Response.json({ ok: true, processed: 0, dispatched_campaigns: 0, skipped: 0 }, { headers: corsHeaders });
+  }
+
+  // 1b. Dedupe por caption normalizada — o mesmo post do IG é espelhado em
+  // várias plataformas (instagram/facebook/tiktok/youtube), gerando N linhas
+  // com legenda idêntica mas post_url/short_link diferentes. Sem esse dedup,
+  // cada linha vira um wa-group-blast separado e o mesmo texto chega 2–3x
+  // nos grupos. Aqui escolhemos um representante e marcamos as demais como
+  // processadas junto no final.
+  const PLATFORM_PRIORITY: Record<string, number> = {
+    instagram: 0, facebook: 1, tiktok: 2, youtube: 3,
+  };
+  const normalizeCaption = (s: string | null | undefined) =>
+    (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 500);
+  const groups = new Map<string, any[]>();
+  for (const p of posts as any[]) {
+    const key = `${normalizeCaption(p.caption)}|${(p.product_name ?? '').trim().toLowerCase()}`;
+    if (!key.replaceAll('|', '').trim()) continue;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(p);
+  }
+  const representatives: any[] = [];
+  const suppressedIdsByRep = new Map<string, string[]>();
+  for (const [key, arr] of groups) {
+    // pick representative: melhor plataforma, com URL, mais antigo como desempate
+    const sorted = [...arr].sort((a, b) => {
+      const pa = PLATFORM_PRIORITY[a.platform] ?? 99;
+      const pb = PLATFORM_PRIORITY[b.platform] ?? 99;
+      if (pa !== pb) return pa - pb;
+      const ua = (a.short_link || a.post_url) ? 0 : 1;
+      const ub = (b.short_link || b.post_url) ? 0 : 1;
+      if (ua !== ub) return ua - ub;
+      return String(a.created_at ?? '').localeCompare(String(b.created_at ?? ''));
+    });
+    let rep = sorted[0];
+    // se o representante não tem URL mas um sibling tem, promover o sibling
+    if (!(rep.short_link || rep.post_url)) {
+      const withUrl = sorted.find((r) => r.short_link || r.post_url);
+      if (withUrl) rep = withUrl;
+    }
+    const siblings = arr.filter((r) => r.id !== rep.id).map((r) => r.id);
+    representatives.push(rep);
+    suppressedIdsByRep.set(rep.id, siblings);
+    if (siblings.length > 0) {
+      console.log('[social-post-auto-blast] deduped', JSON.stringify({
+        captionKey: key.slice(0, 80),
+        chosen: rep.id,
+        chosen_platform: rep.platform,
+        suppressed_count: siblings.length,
+        suppressed_platforms: arr.filter((r) => r.id !== rep.id).map((r) => r.platform),
+      }));
+    }
   }
 
   // 2. Fetch instâncias ativas e seus targets (1x)
@@ -82,8 +132,9 @@ serve(async (req) => {
 
   let dispatched = 0;
   let skipped = 0;
+  let deduped_suppressed = 0;
 
-  for (const post of posts as any[]) {
+  for (const post of representatives) {
     const url = post.short_link || post.post_url;
     if (!url) { skipped++; continue; }
     const captionBody = (post.caption ?? '').trim();
@@ -116,14 +167,20 @@ serve(async (req) => {
       }
     }
 
-    // Marca como processado independentemente (evita loop; dedupe já protege reenvio)
-    await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).eq('id', post.id);
+    // Marca representante + siblings como processados de uma vez
+    // (evita loop; dedupe também protege reenvio dentro da mesma janela).
+    const siblings = suppressedIdsByRep.get(post.id) ?? [];
+    deduped_suppressed += siblings.length;
+    const idsToMark = [post.id, ...siblings];
+    await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).in('id', idsToMark);
     if (!anyDispatched) skipped++;
   }
 
   return Response.json({
     ok: true,
     processed: posts.length,
+    deduped_representatives: representatives.length,
+    deduped_suppressed,
     dispatched_campaigns: dispatched,
     skipped,
   }, { headers: corsHeaders });
