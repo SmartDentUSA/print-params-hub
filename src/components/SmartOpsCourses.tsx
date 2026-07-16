@@ -307,6 +307,8 @@ function CatalogoTab() {
             id, label, turma_number, slots, enrolled_count, active,
             recurrence_parent_id, recurrence_index, sort_order,
             factory_status, factory_processed_at,
+            factory_drive_folder_id, factory_drive_folder_url,
+            drive_folder_id, drive_folder_url, drive_folder_name,
             days:smartops_turma_days (day_number, date, start_time, end_time)
           )
         `)
