@@ -25,9 +25,10 @@ interface ParameterSet {
 interface ParameterTableProps {
   parameterSet: ParameterSet;
   processingInstructions?: string | null;
+  infoCardUrl?: string | null;
 }
 
-export function ParameterTable({ parameterSet, processingInstructions }: ParameterTableProps) {
+export function ParameterTable({ parameterSet, processingInstructions, infoCardUrl }: ParameterTableProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
