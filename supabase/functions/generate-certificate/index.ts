@@ -231,7 +231,7 @@ Deno.serve(async (req: Request) => {
     const { data: turma, error: turmaErr } = await supabase
       .from("smartops_course_turmas")
       .select(`
-        id, label, course_id,
+        id, label, course_id, turma_number, drive_folder_id, drive_subfolders, factory_drive_folder_id,
         course:smartops_courses!course_id (
           id, title, location, instructor_name, duration_days, duration_hours_per_day, certificate_body_template
         )
