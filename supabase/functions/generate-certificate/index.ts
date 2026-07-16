@@ -18,6 +18,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
+import {
+  getDriveAccessToken,
+  driveUploadFile,
+  slugForFilename,
+} from "../_shared/drive.ts";
 
 const BUCKET = "training-certificates";
 const ASSETS_PATH = "";
