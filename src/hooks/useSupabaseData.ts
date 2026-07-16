@@ -510,6 +510,9 @@ export const useSupabaseData = () => {
             cta_4_url: resinData?.cta_4_url,
             cta_4_description: resinData?.cta_4_description,
             processing_instructions: resinData?.processing_instructions || null,
+            info_card_url_pt: resinData?.info_card_url_pt || null,
+            info_card_url_en: resinData?.info_card_url_en || null,
+            info_card_url_es: resinData?.info_card_url_es || null,
             parameterSets: []
           });
         }
