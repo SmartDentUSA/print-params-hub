@@ -1,27 +1,41 @@
+
+# Card não reflete o texto das instruções
+
 ## Diagnóstico
 
-Backfill no banco está correto — `resins.image_background_removed_url` para o Bio Temp B1 aponta para `https://pgfgripuanuwwolmtknn.supabase.co/.../37149ad6-...webp` e o `curl` confirma **HTTP 200** com `access-control-allow-origin: *`.
+Dois problemas independentes convergem no sintoma:
 
-O motivo de a imagem não carregar no card do admin é **estado obsoleto no `AdminSettings`**: a lista `resins` é lida uma única vez ao montar (`select('*')`) e passada para o `AdminModal` como `item`, que inicializa `formData = { ...item }`. Como a página foi aberta antes do backfill, o `formData.image_background_removed_url` continua `null` e o `resolveProductImage` cai no `image_url` externo (awsli), que aparece quebrado ou barrado pelo CORS.
+1. **Sincronia texto → card frágil.** `ResinCardStudio` mantém um `hydratedResin` (snapshot do DB carregado 1x no mount) e um `plans[lang]` em estado. Se o cache `info_card_plan_pt` do DB estiver desatualizado ou se o `previewPlan` ficar preso ao estado antigo, o card não acompanha edições no textarea. O patch anterior priorizou o `resin.processing_instructions` do prop, mas ainda há caminhos onde o cache ganha (ex.: `plans.pt` inicializado uma vez pelo `useEffect`).
 
-## Correção
+2. **Parser aceita seções duplicadas.** Se o texto contiver `## Pós-cura UV` mais de uma vez (por qualquer razão — IA de formatação, colagem, edição), `parseInstructionsMd` cria duas `Section` distintas. É por isso que aparecem "3 · Pós-cura UV" e "4 · Pós-cura UV" no card.
 
-Fazer o `ResinCardStudio` **rehidratar a resina** por `id` ao montar/receber outra resina, garantindo que sempre use os campos mais atuais do banco — inclusive `image_background_removed_url` gravado por outro fluxo (backfill, botão de reimportar, sync).
+Escopo confirmado pelo usuário: (a) garantir sincronia texto→card e (b) deduplicar seções no parser. Sem mudar o prompt do "Formatar com IA".
 
-### `src/components/resin-card/ResinCardStudio.tsx`
+## Mudanças
 
-- Adicionar `useState` `hydratedResin` inicializado com a prop `resin`.
-- `useEffect([resin?.id])`: se `resin?.id` existir, `SELECT image_url, image_urls, image_background_removed_url, name, info_card_plan_pt, info_card_plan_en, info_card_plan_es, processing_instructions FROM resins WHERE id = ?`.
-- Ao receber, fazer `setHydratedResin({ ...resin, ...fresh })` (o merge preserva campos não persistidos ainda em edição).
-- Usar `hydratedResin` em vez de `resin` em `resolveProductImage`, `planPt`, `ensurePlan`, `handleReimportImage` (mantendo `resin.id`).
-- Após o `handleReimportImage` gravar a nova URL, atualizar `hydratedResin` localmente em vez de forçar `window.location.reload()`, para UX mais suave.
+### 1. `src/components/resin-card/parseInstructionsMd.ts` — dedupe de seções
 
-### Fora do escopo
+- Após montar `sections`, mesclar em pós-processo qualquer `Section` cujo `title` (normalizado: lowercase + sem acentos + trim) já exista antes na lista.
+- Ao mesclar: concatenar `blocks` na primeira ocorrência e fundir `subsections` — subsections com `title` normalizado igual têm seus `blocks` concatenados; caso contrário, são adicionadas ao final.
+- Preservar ordem original da primeira ocorrência.
+- Idem para subsections dentro da mesma section (defesa extra caso `### Ciclo de cura` também apareça duplicado).
 
-- Não alterar `resolveProductImage`, `ProductHero`, exportação, `system_a_catalog` nem o fluxo do `AdminSettings`.
-- Não mexer nas 8 resinas sem imagem alguma nem nas 3 awsli sem match — elas continuam com o botão de reimportar.
+Resultado esperado no card do exemplo: 3 seções em vez de 4; "Pós-cura UV" contém "Ciclo de cura" com o bullet "Equipamentos e Tempos Recomendados" e seus sub-bullets no lugar certo.
 
-## Como validar
+### 2. `src/components/resin-card/ResinCardStudio.tsx` — sincronia texto→card
 
-1. Reabrir a modal do Smart Print Bio Temp B1: chip "Imagem do produto" deve ficar verde, preview renderiza a imagem oficial.
-2. Exportar PT: PNG sai com a imagem oficial embutida (sem erro CORS na exportação).
+- Remover o `useEffect` que copia `planPt` para `plans.pt`. Trocar por um `plans` derivado por `useMemo` da tupla `(planPt, hydratedResin.info_card_plan_en, hydratedResin.info_card_plan_es)` mais um `overridePlans` (state) para as traduções obtidas em runtime via `ensurePlan`.
+- `previewPlan` passa a ser: `overridePlans[previewLang] ?? (previewLang==='pt' ? planPt : hydratedResin?.[`info_card_plan_${previewLang}`]) ?? planPt`. Nunca mais serve `plans.pt` antigo — PT é sempre recomputado a partir do texto vivo.
+- Manter `ensurePlan('pt')` retornando `planPt` diretamente (sem persistir no DB) para evitar gravar cache defasado enquanto o usuário edita.
+- Continuar persistindo `info_card_plan_pt` apenas no momento do export (dentro de `handleExport` ou `ensurePlan('en'|'es')`), garantindo que o snapshot salvo corresponde ao texto que gerou aquela exportação.
+
+### 3. Verificação
+
+- Ler o `processing_instructions` atual da resina "Smart Print Bio Temp B1" no DB via `supabase--read_query` para confirmar se o texto salvo bate com o que o usuário colou. Se estiver diferente, informar o usuário — não vou reescrever conteúdo automaticamente.
+- Testar mentalmente com o texto fornecido: parser deve produzir 3 seções (PRÉ, PÓS, Pós-cura UV), Pós-cura UV com 1 subsection "Ciclo de cura", contendo 1 bullet "Equipamentos e Tempos Recomendados" com 4 sub-bullets.
+
+## Fora de escopo
+
+- Não altero `format-processing-instructions/index.ts` nem o prompt do LLM.
+- Não altero `resolveProductImage`, `ProductHero`, `exportInfographic` nem regravo caches existentes no DB.
+- Não mexo em `translate-resin-card` — traduções EN/ES continuam usando cache do DB (o dedupe roda na conversão PT antes de traduzir).

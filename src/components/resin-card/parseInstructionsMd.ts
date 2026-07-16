@@ -106,8 +106,62 @@ export function parseInstructionsMd(md: string, opts?: { title?: string; subtitl
     important:
       opts?.important ??
       'O cumprimento rigoroso dos tempos e etapas descritos neste guia garante melhor acabamento, estabilidade dimensional e desempenho clínico da peça.',
-    sections,
+    sections: dedupeSections(sections),
   }
+}
+
+function normalizeTitle(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function mergeSubsections(target: Subsection[], incoming: Subsection[]): Subsection[] {
+  const byKey = new Map<string, Subsection>()
+  const order: Subsection[] = []
+  for (const sub of [...target, ...incoming]) {
+    const key = normalizeTitle(sub.title)
+    const existing = byKey.get(key)
+    if (existing) {
+      existing.blocks.push(...sub.blocks)
+    } else {
+      const clone: Subsection = { title: sub.title, blocks: [...sub.blocks] }
+      byKey.set(key, clone)
+      order.push(clone)
+    }
+  }
+  return order
+}
+
+function dedupeSections(sections: Section[]): Section[] {
+  const byKey = new Map<string, Section>()
+  const order: Section[] = []
+  for (const s of sections) {
+    const key = normalizeTitle(s.title)
+    // Seções sem título (implicit generic) nunca são mescladas entre si.
+    if (!key) {
+      order.push(s)
+      continue
+    }
+    const existing = byKey.get(key)
+    if (existing) {
+      existing.blocks.push(...s.blocks)
+      existing.subsections = mergeSubsections(existing.subsections, s.subsections)
+    } else {
+      const clone: Section = {
+        kind: s.kind,
+        title: s.title,
+        blocks: [...s.blocks],
+        subsections: mergeSubsections([], s.subsections),
+      }
+      byKey.set(key, clone)
+      order.push(clone)
+    }
+  }
+  return order
 }
 
 /** Envolve valores numéricos técnicos em <span class="numeric-value">. */
