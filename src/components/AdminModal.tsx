@@ -1440,7 +1440,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     title={!formData.id ? 'Salve a resina primeiro' : 'Gerar imagem infográfica em PT/EN/ES'}
                   >
                     {isGeneratingCard ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando (~60–120s)…</>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando (~15s)…</>
                     ) : (
                       <><ImageIcon className="w-4 h-4" /> Gerar Card Informativo</>
                     )}
