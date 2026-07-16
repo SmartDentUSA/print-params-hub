@@ -92,11 +92,17 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     }
   }
 
+  // Instruções em edição no form (prop) têm prioridade sobre o DB hidratado,
+  // para que qualquer alteração no textarea reflita imediatamente no card visual.
+  const liveInstructions = resin?.processing_instructions ?? hydratedResin?.processing_instructions ?? ''
   const planPt = useMemo<CardPlan>(() => {
+    // Sempre reparseia a partir das instruções vivas — cache do DB pode estar defasado.
+    const parsed = parseInstructionsMd(liveInstructions || '')
+    if (parsed.sections.length) return parsed
     const cached = hydratedResin?.info_card_plan_pt
     if (cached && Array.isArray(cached.sections) && cached.sections.length) return cached
-    return parseInstructionsMd(hydratedResin?.processing_instructions || '')
-  }, [hydratedResin?.info_card_plan_pt, hydratedResin?.processing_instructions])
+    return parsed
+  }, [liveInstructions, hydratedResin?.info_card_plan_pt])
 
   useEffect(() => {
     setPlans({
