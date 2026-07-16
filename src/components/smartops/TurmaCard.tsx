@@ -186,7 +186,14 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         ) : <span />}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
-          <CriarPastaDriveButton turmaId={turma.id} folderUrl={(turma as any).factory_drive_folder_url} />
+          <CriarPastaDriveButton
+            turmaId={turma.id}
+            folderUrl={
+              (turma as any).drive_folder_url ??
+              (turma as any).factory_drive_folder_url ??
+              null
+            }
+          />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
             turmaId={turma.id}
