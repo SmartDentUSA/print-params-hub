@@ -558,10 +558,10 @@ Deno.serve(async (req) => {
       const rendered = await renderImage(html)
       const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.${rendered.extension}`
       const { error: upErr } = await supabase.storage
-        .from('catalog-images')
+        .from('model-images')
         .upload(path, rendered.bytes, { contentType: rendered.contentType, upsert: true, cacheControl: '3600' })
       if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
-      const { data: pub } = supabase.storage.from('catalog-images').getPublicUrl(path)
+      const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
       results[lang] = pub.publicUrl
     }
 
