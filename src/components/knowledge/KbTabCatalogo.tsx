@@ -1027,34 +1027,66 @@ export default function KbTabCatalogo() {
           <DialogHeader>
             <DialogTitle>{t('kb.catalogo.dialogs.pre_post', { name: procResin?.name || '' })}</DialogTitle>
           </DialogHeader>
-          {(() => {
-            const cardUrl =
-              specLang === 'en' ? procResin?.info_card_url_en :
-              specLang === 'es' ? procResin?.info_card_url_es :
-              procResin?.info_card_url_pt;
-            return cardUrl ? (
-              <div className="space-y-2">
-                <img
-                  src={cardUrl}
-                  alt={procResin?.name || ''}
-                  className="w-full rounded-lg border shadow-sm"
-                />
-                <div className="flex justify-end">
-                  <a
-                    href={cardUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    ↗ {t('kb.catalogo.dialogs.download_card') || 'Abrir em tamanho real'}
-                  </a>
-                </div>
-              </div>
-            ) : null;
-          })()}
           {procResin?.processing_instructions && (
             <ProcessingInstructionsView instructions={procResin.processing_instructions} />
           )}
+          {(() => {
+            const cardUrl =
+              (specLang === 'en' && procResin?.info_card_url_en) ||
+              (specLang === 'es' && procResin?.info_card_url_es) ||
+              procResin?.info_card_url_pt ||
+              procResin?.info_card_url_en ||
+              procResin?.info_card_url_es ||
+              null;
+            if (!cardUrl) return null;
+            const downloadName = `${(procResin?.name || 'resin').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${specLang || 'pt'}.png`;
+            const onDownload = async () => {
+              try {
+                const resp = await fetch(cardUrl);
+                const blob = await resp.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = objectUrl;
+                a.download = downloadName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+              } catch {
+                // fallback: open in new tab
+                window.open(cardUrl, '_blank', 'noopener,noreferrer');
+              }
+            };
+            const dlLabel =
+              specLang === 'en' ? 'Download card' :
+              specLang === 'es' ? 'Descargar tarjeta' :
+              'Baixar card';
+            const titleLabel =
+              specLang === 'en' ? 'Info card' :
+              specLang === 'es' ? 'Tarjeta informativa' :
+              'Card informativo';
+            return (
+              <div className="mt-6 pt-4 border-t space-y-3">
+                <div className="text-sm font-semibold text-foreground">{titleLabel}</div>
+                <img
+                  src={cardUrl}
+                  alt={procResin?.name || ''}
+                  loading="lazy"
+                  className="w-full rounded-lg border shadow-sm bg-white"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={onDownload}
+                    className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    {dlLabel}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
       <Dialog open={!!specsModal} onOpenChange={(v) => !v && setSpecsModal(null)}>
