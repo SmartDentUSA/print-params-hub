@@ -18,6 +18,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PDFDocument, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
+import {
+  getDriveAccessToken,
+  driveUploadFile,
+  slugForFilename,
+} from "../_shared/drive.ts";
 
 const BUCKET = "training-certificates";
 const ASSETS_PATH = "";
@@ -226,7 +231,7 @@ Deno.serve(async (req: Request) => {
     const { data: turma, error: turmaErr } = await supabase
       .from("smartops_course_turmas")
       .select(`
-        id, label, course_id,
+        id, label, course_id, turma_number, drive_folder_id, drive_subfolders, factory_drive_folder_id,
         course:smartops_courses!course_id (
           id, title, location, instructor_name, duration_days, duration_hours_per_day, certificate_body_template
         )
@@ -411,6 +416,43 @@ Deno.serve(async (req: Request) => {
             upsert: true,
           });
         if (upErr) throw new Error(`Upload falhou: ${upErr.message}`);
+
+        // Mirror PDF to Google Drive → "02 - Certificados / 01 - Individuais"
+        // Best-effort: never blocks storage/DB update.
+        try {
+          let subfolders = ((turma as any).drive_subfolders as Record<string, string>) || {};
+          let rootFolder =
+            (turma as any).drive_folder_id || (turma as any).factory_drive_folder_id || null;
+          if (!rootFolder || !subfolders?.certificados_individuais) {
+            const { data: fnData } = await supabase.functions.invoke(
+              "training-create-drive-folder",
+              { body: { turma_id: turmaId } },
+            );
+            rootFolder = (fnData as any)?.folder_id ?? rootFolder;
+            const fresh = ((fnData as any)?.subfolders as Record<string, string>) || {};
+            subfolders = { ...subfolders, ...fresh };
+            (turma as any).drive_folder_id = rootFolder;
+            (turma as any).drive_subfolders = subfolders;
+          }
+          const indivId = subfolders?.certificados_individuais;
+          if (indivId) {
+            const token = await getDriveAccessToken();
+            const numero = (turma as any).turma_number ?? "sn";
+            const fname = `certificado_${numero}_${slugForFilename(person.name)}.pdf`;
+            await driveUploadFile({
+              token,
+              folderId: indivId,
+              name: fname,
+              content: pdfBytes,
+              mimeType: "application/pdf",
+              overwriteByName: true,
+            });
+          }
+        } catch (e) {
+          console.warn(
+            `[generate-certificate] drive mirror falhou (${person.type} ${person.id}): ${(e as Error).message}`,
+          );
+        }
 
         const tableName = person.type === "enrollment"
           ? "smartops_course_enrollments"

@@ -8,6 +8,10 @@ import {
   AlignmentType, HeadingLevel, BorderStyle, WidthType, ShadingType,
   TableLayoutType, PageOrientation,
 } from "npm:docx@8.5.0";
+import {
+  getDriveAccessToken,
+  driveUploadFile,
+} from "../_shared/drive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -361,6 +365,61 @@ Deno.serve(async (req) => {
 
     const buffer = await Packer.toBuffer(doc);
     const safeName = (turma.label || turmaId).replace(/[^a-zA-Z0-9]/g, "_");
+
+    // Mirror to Google Drive → "01 - Dados da Imersão" (best-effort)
+    try {
+      const { data: turmaRow } = await supabase
+        .from("smartops_course_turmas")
+        .select(
+          "turma_number, drive_folder_id, drive_subfolders, drive_docx_file_id, factory_drive_folder_id",
+        )
+        .eq("id", turmaId)
+        .maybeSingle();
+
+      // Ensure folder structure exists first (idempotent).
+      let subfolders = (turmaRow?.drive_subfolders as Record<string, string>) || {};
+      let folderId =
+        turmaRow?.drive_folder_id || turmaRow?.factory_drive_folder_id || null;
+      if (!folderId || !subfolders?.dados) {
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke(
+          "training-create-drive-folder",
+          { body: { turma_id: turmaId } },
+        );
+        if (fnErr) throw fnErr;
+        folderId = (fnData as any)?.folder_id ?? folderId;
+        subfolders = ((fnData as any)?.subfolders as Record<string, string>) || subfolders;
+      }
+      const dadosId = subfolders?.dados;
+      if (dadosId) {
+        const token = await getDriveAccessToken();
+        // Filename: imersao_{numero}_participantes_{DD-MM-YYYY}.docx (data inicial)
+        const numero = turmaRow?.turma_number ?? "sn";
+        const startISO = (turma as any).start_date || (turma as any).days?.[0]?.day_date;
+        let dateSeg = "sem-data";
+        if (startISO) {
+          const [y, m, d] = String(startISO).slice(0, 10).split("-");
+          if (y && m && d) dateSeg = `${d}-${m}-${y}`;
+        }
+        const fname = `imersao_${numero}_participantes_${dateSeg}.docx`;
+        const fileId = await driveUploadFile({
+          token,
+          folderId: dadosId,
+          name: fname,
+          content: new Uint8Array(buffer),
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          existingFileId: (turmaRow as any)?.drive_docx_file_id || undefined,
+          overwriteByName: true,
+        });
+        await supabase
+          .from("smartops_course_turmas")
+          .update({ drive_docx_file_id: fileId })
+          .eq("id", turmaId);
+      }
+    } catch (e) {
+      console.warn(`[smartops-gerar-doc-turma] drive mirror falhou: ${(e as Error).message}`);
+    }
+
     return new Response(buffer, {
       status: 200,
       headers: {

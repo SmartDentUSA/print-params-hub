@@ -48,6 +48,14 @@ export interface Turma {
   factory_processed_at?: string | null;
   factory_drive_folder_id?: string | null;
   factory_drive_folder_url?: string | null;
+  // Drive (novo layout, coexiste com factory_drive_folder_*)
+  drive_folder_id?: string | null;
+  drive_folder_url?: string | null;
+  drive_folder_name?: string | null;
+  drive_folder_created_at?: string | null;
+  drive_subfolders?: Record<string, string> | null;
+  drive_docx_file_id?: string | null;
+  drive_descricao_file_id?: string | null;
 }
 
 export interface TurmaComVagas extends Turma {

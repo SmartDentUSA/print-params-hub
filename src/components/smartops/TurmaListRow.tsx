@@ -157,7 +157,14 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
-          <CriarPastaDriveButton turmaId={turma.id} folderUrl={(turma as any).factory_drive_folder_url} />
+          <CriarPastaDriveButton
+            turmaId={turma.id}
+            folderUrl={
+              (turma as any).drive_folder_url ??
+              (turma as any).factory_drive_folder_url ??
+              null
+            }
+          />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
             turmaId={turma.id}

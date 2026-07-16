@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  getDriveAccessToken,
+  driveCreateFolder,
+  driveEnsureFolder,
+  driveUploadFile,
+  sanitizeFolderName,
+} from "../_shared/drive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,184 +16,190 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON")!;
-const GOOGLE_DRIVE_PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID")!;
+const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+const GOOGLE_DRIVE_PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID");
 
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
-const SUBFOLDERS = ["dia1", "dia2", "dia3", "depoimentos", "fotos_grupo"];
-const MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_PT_LONG = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
 
-// ── Auth: Service account JWT → access_token ─────────────────────────────────
-function base64UrlEncode(input: ArrayBuffer | string): string {
-  let bytes: Uint8Array;
-  if (typeof input === "string") bytes = new TextEncoder().encode(input);
-  else bytes = new Uint8Array(input);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+type FolderNode = { key: string; name: string; children?: FolderNode[] };
+const FOLDER_TREE: FolderNode[] = [
+  { key: "dados", name: "01 - Dados da Imersão" },
+  {
+    key: "certificados",
+    name: "02 - Certificados",
+    children: [
+      { key: "certificados_individuais", name: "01 - Individuais" },
+      { key: "certificados_pacote", name: "02 - Pacote Completo" },
+    ],
+  },
+  {
+    key: "fotos",
+    name: "03 - Fotos Originais",
+    children: [
+      { key: "fotos_turma", name: "01 - Foto da Turma" },
+      { key: "fotos_participantes_certificados", name: "02 - Participantes com Certificados" },
+      { key: "fotos_atividades", name: "03 - Atividades Práticas" },
+      { key: "fotos_equipamentos", name: "04 - Equipamentos e Resultados" },
+      { key: "fotos_bastidores", name: "05 - Bastidores" },
+    ],
+  },
+  {
+    key: "videos",
+    name: "04 - Vídeos Originais",
+    children: [
+      { key: "videos_vertical", name: "01 - Vídeos Verticais" },
+      { key: "videos_horizontal", name: "02 - Vídeos Horizontais" },
+      { key: "videos_depoimentos", name: "03 - Depoimentos" },
+      { key: "videos_atividades", name: "04 - Atividades Práticas" },
+      { key: "videos_bastidores", name: "05 - Bastidores" },
+    ],
+  },
+  {
+    key: "entregas",
+    name: "05 - Entregas",
+    children: [
+      { key: "entregas_carrossel", name: "01 - Carrossel Instagram" },
+      { key: "entregas_stories", name: "02 - Stories" },
+      { key: "entregas_reels", name: "03 - Reels" },
+      { key: "entregas_thumb_yt", name: "04 - Thumbnail YouTube" },
+      { key: "entregas_reddit", name: "05 - Reddit" },
+      { key: "entregas_legendas", name: "06 - Legendas e Textos" },
+    ],
+  },
+];
+
+type YMD = { y: number; m: number; d: number };
+
+function parseYMD(raw: unknown): YMD | null {
+  if (!raw) return null;
+  const s = String(raw).slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return { y, m, d };
 }
 
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s+/g, "");
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
+function extractDays(factoryData: any): YMD[] {
+  const days = factoryData?.days || factoryData?.turma?.days || [];
+  return (days as any[])
+    .map((x: any) => parseYMD(x?.day_date || x?.date || x))
+    .filter((x): x is YMD => !!x)
+    .sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d);
 }
 
-let cachedToken: { token: string; exp: number } | null = null;
+function fmtDDMMYYYY(x: YMD): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(x.d)}-${pad(x.m)}-${x.y}`;
+}
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.exp > Date.now() / 1000 + 60) return cachedToken.token;
-
-  const sa = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 3600;
-  const header = { alg: "RS256", typ: "JWT" };
-  const claim = {
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/drive",
-    aud: "https://oauth2.googleapis.com/token",
-    iat,
-    exp,
-  };
-  const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claim))}`;
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToArrayBuffer(sa.private_key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
-  const jwt = `${unsigned}.${base64UrlEncode(sig)}`;
-
-  const resp = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Google token error ${resp.status}: ${err}`);
+function formatFolderDateRange(days: YMD[]): string {
+  if (!days.length) return "sem-data";
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (days.length === 1 || (first.y === last.y && first.m === last.m && first.d === last.d)) {
+    return fmtDDMMYYYY(first);
   }
-  const data = await resp.json();
-  cachedToken = { token: data.access_token, exp };
-  return data.access_token;
-}
-
-// ── Drive helpers ────────────────────────────────────────────────────────────
-async function driveFetch(token: string, path: string, init: RequestInit = {}, isUpload = false) {
-  const base = isUpload ? UPLOAD_API : DRIVE_API;
-  const resp = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init.headers || {}),
-    },
-  });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Drive ${path} ${resp.status}: ${err}`);
+  if (first.y === last.y && first.m === last.m) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(first.d)} a ${pad(last.d)}-${pad(first.m)}-${first.y}`;
   }
-  return resp.json();
+  return `${fmtDDMMYYYY(first)} a ${fmtDDMMYYYY(last)}`;
 }
 
-async function createFolder(token: string, name: string, parentId: string): Promise<string> {
-  const data = await driveFetch(token, "/files?fields=id", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentId],
-    }),
-  });
-  return data.id;
-}
-
-async function findFile(token: string, parentId: string, name: string): Promise<string | null> {
-  const q = encodeURIComponent(`'${parentId}' in parents and name='${name}' and trashed=false`);
-  const data = await driveFetch(token, `/files?q=${q}&fields=files(id)`);
-  return data.files?.[0]?.id ?? null;
-}
-
-async function uploadJson(
-  token: string,
-  folderId: string,
-  name: string,
-  content: string,
-  existingId: string | null,
-): Promise<void> {
-  const boundary = `bdry_${crypto.randomUUID()}`;
-  const metadata = existingId
-    ? { name }
-    : { name, parents: [folderId], mimeType: "application/json" };
-
-  const body =
-    `--${boundary}\r\n` +
-    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-    `${JSON.stringify(metadata)}\r\n` +
-    `--${boundary}\r\n` +
-    `Content-Type: application/json\r\n\r\n` +
-    `${content}\r\n` +
-    `--${boundary}--`;
-
-  const path = existingId
-    ? `/files/${existingId}?uploadType=multipart&fields=id`
-    : `/files?uploadType=multipart&fields=id`;
-
-  await driveFetch(
-    token,
-    path,
-    {
-      method: existingId ? "PATCH" : "POST",
-      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
-      body,
-    },
-    true,
-  );
-}
-
-// ── Date formatting ──────────────────────────────────────────────────────────
-function formatTurmaDates(days: any[]): string {
-  if (!days || days.length === 0) return "sem-data";
-  const parsed = days
-    .map((d) => {
-      const raw = d?.day_date || d?.date || d;
-      if (!raw) return null;
-      // YYYY-MM-DD → Date local
-      const [y, m, dd] = String(raw).slice(0, 10).split("-").map(Number);
-      if (!y || !m || !dd) return null;
-      return { y, m, dd };
-    })
-    .filter((x): x is { y: number; m: number; dd: number } => !!x)
-    .sort((a, b) => a.y - b.y || a.m - b.m || a.dd - b.dd);
-
-  if (parsed.length === 0) return "sem-data";
-
-  const sameMonth = parsed.every((p) => p.m === parsed[0].m && p.y === parsed[0].y);
+function formatHumanDateLine(days: YMD[]): string {
+  if (!days.length) return "—";
+  if (days.length === 1) {
+    const x = days[0];
+    return `${x.d} de ${MESES_PT_LONG[x.m - 1]} de ${x.y}`;
+  }
+  const sameMonth = days.every((x) => x.m === days[0].m && x.y === days[0].y);
   if (sameMonth) {
-    const dias = parsed.map((p) => p.dd).join(",");
-    return `${dias} ${MESES_PT[parsed[0].m - 1]} ${parsed[0].y}`;
+    const list = days.map((x) => x.d).join(", ").replace(/,([^,]*)$/, " e$1");
+    return `${list} de ${MESES_PT_LONG[days[0].m - 1]} de ${days[0].y}`;
   }
-  // Mixed months
-  const parts = parsed.map((p) => `${p.dd} ${MESES_PT[p.m - 1]}`);
-  return `${parts.join(", ")} ${parsed[parsed.length - 1].y}`;
+  const parts = days.map((x) => `${x.d}/${x.m}`);
+  return `${parts.join(", ")} de ${days[days.length - 1].y}`;
 }
 
-function sanitize(name: string): string {
-  return name.replace(/[\/\\]/g, "-").replace(/\s+/g, " ").trim();
+function buildDescricaoTxt(factoryData: any): string {
+  const turma = factoryData?.turma || factoryData;
+  const curso = factoryData?.curso || factoryData?.course || {};
+  const days = extractDays(factoryData);
+  const numero = turma?.turma_number ?? turma?.number ?? "S/N";
+  const nome = curso?.name || curso?.title || curso?.slug || "Treinamento";
+  const modalidade = (turma?.modality || curso?.modality || "presencial")
+    .toString()
+    .replace(/_/g, " ");
+  const local = turma?.location || curso?.location || "";
+  const linkOnline = turma?.meeting_link || "";
+  const instrutor = turma?.instructor_name || curso?.instructor_name || "";
+  const enrolled = factoryData?.enrolled_count ?? turma?.enrolled_count ?? "";
+  const horario =
+    turma?.start_time && turma?.end_time ? `${turma.start_time} – ${turma.end_time}` : "";
+  const status = turma?.status || turma?.factory_status || "";
+  const descricao = curso?.description || turma?.description || "";
+  const conteudo =
+    curso?.content || curso?.objectives || turma?.content || turma?.objectives || "";
+  const observacoes = turma?.notes || turma?.internal_notes || "";
+
+  const title = `IMERSÃO ${numero} — ${String(nome).toUpperCase()}`;
+  const localLine = modalidade.toLowerCase().includes("presencial")
+    ? local
+    : (linkOnline || "Online");
+
+  const parts = [
+    title,
+    "",
+    `Número: ${numero}`,
+    `Treinamento: ${nome}`,
+    `Modalidade: ${modalidade.charAt(0).toUpperCase()}${modalidade.slice(1)}`,
+    `Data: ${formatHumanDateLine(days)}`,
+    `Horário: ${horario}`,
+    `Local: ${localLine}`,
+    `Instrutor(es): ${instrutor}`,
+    `Quantidade de participantes: ${enrolled}`,
+    `Status: ${status}`,
+    "",
+    "DESCRIÇÃO",
+    descricao || "—",
+    "",
+    "CONTEÚDO / OBJETIVOS",
+    conteudo || "—",
+    "",
+    "OBSERVAÇÕES",
+    observacoes || "—",
+    "",
+    "ORIENTAÇÃO PARA COMUNICAÇÃO",
+    "Utilizar os nomes dos participantes somente na legenda da publicação.",
+    "Não inserir nomes, telefones, documentos, contratos ou outras informações",
+    "pessoais nas artes.",
+    "",
+  ];
+  return parts.join("\n");
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+async function ensureTree(
+  token: string,
+  rootId: string,
+  existing: Record<string, string> = {},
+): Promise<Record<string, string>> {
+  const map: Record<string, string> = { ...existing };
+  async function walk(nodes: FolderNode[], parentId: string) {
+    for (const node of nodes) {
+      let id = map[node.key];
+      if (!id) {
+        id = await driveEnsureFolder(token, parentId, node.name);
+        map[node.key] = id;
+      }
+      if (node.children?.length) await walk(node.children, id);
+    }
+  }
+  await walk(FOLDER_TREE, rootId);
+  return map;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -201,6 +214,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const turma_id: string | undefined = body?.turma_id;
     const update_only: boolean = !!body?.update_only;
+    const refresh_description: boolean = !!body?.refresh_description;
     if (!turma_id || typeof turma_id !== "string") {
       return new Response(JSON.stringify({ error: "turma_id obrigatório" }), {
         status: 400,
@@ -210,69 +224,113 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1) Factory data
     const { data: factoryData, error: rpcErr } = await supabase.rpc("fn_get_turma_factory_data", {
       p_turma_id: turma_id,
     });
     if (rpcErr) throw new Error(`fn_get_turma_factory_data: ${rpcErr.message}`);
     if (!factoryData) throw new Error("Turma não encontrada");
 
-    // 2) Existing folder id
     const { data: turmaRow, error: turmaErr } = await supabase
       .from("smartops_course_turmas")
-      .select("id, factory_drive_folder_id, factory_drive_folder_url")
+      .select(
+        "id, drive_folder_id, drive_folder_url, drive_folder_name, drive_subfolders, drive_descricao_file_id, factory_drive_folder_id, factory_drive_folder_url",
+      )
       .eq("id", turma_id)
       .maybeSingle();
     if (turmaErr) throw new Error(`turma fetch: ${turmaErr.message}`);
 
-    const token = await getAccessToken();
-    let folderId = turmaRow?.factory_drive_folder_id || null;
-    let folderUrl = turmaRow?.factory_drive_folder_url || null;
+    const token = await getDriveAccessToken();
+    let folderId: string | null =
+      turmaRow?.drive_folder_id || turmaRow?.factory_drive_folder_id || null;
+    let folderUrl: string | null =
+      turmaRow?.drive_folder_url || turmaRow?.factory_drive_folder_url || null;
+    let folderName: string | null = turmaRow?.drive_folder_name || null;
+    let subfolders: Record<string, string> =
+      (turmaRow?.drive_subfolders as Record<string, string>) || {};
+    let descricaoFileId: string | null = turmaRow?.drive_descricao_file_id || null;
     let created = false;
 
-    const shouldCreate = !update_only && !folderId;
+    const turma = (factoryData as any)?.turma || (factoryData as any);
+    const curso = (factoryData as any)?.curso || (factoryData as any)?.course || {};
+    const days = extractDays(factoryData);
+    const turmaNumber = turma?.turma_number ?? turma?.number ?? "S/N";
+    const cursoNome = curso?.name || curso?.title || curso?.slug || "Treinamento";
+    const dateStr = days.length ? formatFolderDateRange(days) : "sem-data";
+    const canonicalName = sanitizeFolderName(
+      `Imersão ${turmaNumber} - ${cursoNome} - ${dateStr}`,
+    );
 
-    if (shouldCreate) {
-      const turma = (factoryData as any)?.turma || (factoryData as any);
-      const curso = (factoryData as any)?.curso || (factoryData as any)?.course || {};
-      const days = (factoryData as any)?.days || turma?.days || [];
-      const turmaNumber = turma?.turma_number ?? turma?.number ?? "S/N";
-      const cursoNome = curso?.name || curso?.title || curso?.slug || "Curso";
-      const dateStr = formatTurmaDates(days);
-      const folderName = sanitize(`${turmaNumber} - ${cursoNome} - ${dateStr}`);
-
-      folderId = await createFolder(token, folderName, GOOGLE_DRIVE_PARENT_FOLDER_ID);
+    if (!folderId && !update_only) {
+      folderId = await driveCreateFolder(token, canonicalName, GOOGLE_DRIVE_PARENT_FOLDER_ID);
       folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
-
-      // Subpastas (parallel, tolerantes a falha individual)
-      await Promise.allSettled(
-        SUBFOLDERS.map((sub) =>
-          createFolder(token, sub, folderId!).catch((e) => {
-            console.warn(`[training-create-drive-folder] subpasta ${sub} falhou: ${e.message}`);
-          }),
-        ),
-      );
-
-      const { error: updErr } = await supabase
-        .from("smartops_course_turmas")
-        .update({
-          factory_drive_folder_id: folderId,
-          factory_drive_folder_url: folderUrl,
-        })
-        .eq("id", turma_id);
-      if (updErr) throw new Error(`update turma: ${updErr.message}`);
+      folderName = canonicalName;
       created = true;
     }
 
     let updatedJson = false;
     if (folderId) {
-      const existingJsonId = await findFile(token, folderId, "turma.json");
-      await uploadJson(token, folderId, "turma.json", JSON.stringify(factoryData, null, 2), existingJsonId);
-      updatedJson = true;
+      subfolders = await ensureTree(token, folderId, subfolders);
+
+      try {
+        await driveUploadFile({
+          token,
+          folderId,
+          name: "turma.json",
+          content: JSON.stringify(factoryData, null, 2),
+          mimeType: "application/json",
+          overwriteByName: true,
+        });
+        updatedJson = true;
+      } catch (e) {
+        console.warn(`[training-create-drive-folder] turma.json falhou: ${(e as Error).message}`);
+      }
+
+      const dadosId = subfolders["dados"];
+      if (dadosId && (created || refresh_description || !descricaoFileId)) {
+        try {
+          const txt = buildDescricaoTxt(factoryData);
+          descricaoFileId = await driveUploadFile({
+            token,
+            folderId: dadosId,
+            name: "descricao_da_imersao.txt",
+            content: txt,
+            mimeType: "text/plain; charset=utf-8",
+            existingFileId: descricaoFileId || undefined,
+            overwriteByName: true,
+          });
+        } catch (e) {
+          console.warn(`[training-create-drive-folder] descricao TXT falhou: ${(e as Error).message}`);
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        drive_folder_id: folderId,
+        drive_folder_url: folderUrl,
+        drive_folder_name: folderName ?? canonicalName,
+        drive_subfolders: subfolders,
+        drive_descricao_file_id: descricaoFileId,
+        factory_drive_folder_id: folderId,
+        factory_drive_folder_url: folderUrl,
+      };
+      if (created) updatePayload.drive_folder_created_at = new Date().toISOString();
+
+      const { error: updErr } = await supabase
+        .from("smartops_course_turmas")
+        .update(updatePayload)
+        .eq("id", turma_id);
+      if (updErr) throw new Error(`update turma: ${updErr.message}`);
     }
 
     return new Response(
-      JSON.stringify({ ok: true, folder_id: folderId, folder_url: folderUrl, created, updated_json: updatedJson }),
+      JSON.stringify({
+        ok: true,
+        folder_id: folderId,
+        folder_url: folderUrl,
+        folder_name: folderName,
+        subfolders,
+        created,
+        updated_json: updatedJson,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
