@@ -9,6 +9,7 @@ import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
+import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
@@ -185,6 +186,7 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         ) : <span />}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <CriarPastaDriveButton turmaId={turma.id} folderUrl={(turma as any).factory_drive_folder_url} />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
             turmaId={turma.id}

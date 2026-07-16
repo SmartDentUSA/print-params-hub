@@ -46,6 +46,8 @@ export interface Turma {
   turma_number?: number | null;
   factory_status?: 'processando' | 'pronto' | 'publicando' | 'concluido' | 'erro' | string | null;
   factory_processed_at?: string | null;
+  factory_drive_folder_id?: string | null;
+  factory_drive_folder_url?: string | null;
 }
 
 export interface TurmaComVagas extends Turma {
