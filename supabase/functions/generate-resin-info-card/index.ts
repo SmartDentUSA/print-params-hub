@@ -528,40 +528,6 @@ async function planCardWithLLM(opts: {
   return { plan: fallbackPlan(opts), usage: first.usage, model: modelUsed }
 }
 
-function htmlToStandaloneSvg(html: string): Uint8Array {
-  const body = html
-    .replace(/^.*?<body[^>]*>/is, '')
-    .replace(/<\/body>.*$/is, '')
-  const css = html.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1500" viewBox="0 0 1080 1500">
-    <foreignObject width="1080" height="1500">
-      <div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${body}</div>
-    </foreignObject>
-  </svg>`
-  return new TextEncoder().encode(svg)
-}
-
-async function renderImage(html: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
-  const res = await fetch(RENDER_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ html, width: 1080, height: 1500 }),
-  })
-  const contentType = res.headers.get('content-type') || ''
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`render-template ${res.status}: ${t.slice(0, 300)}`)
-  }
-  if (!contentType.startsWith('image/')) {
-    await res.arrayBuffer()
-    console.warn(`[generate-resin-info-card] renderer retornou ${contentType || 'MIME vazio'}; usando SVG autônomo`)
-    return { bytes: htmlToStandaloneSvg(html), contentType: 'image/svg+xml', extension: 'svg' }
-  }
-  const buf = await res.arrayBuffer()
-  const extension = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') ? 'jpg' : 'png'
-  return { bytes: new Uint8Array(buf), contentType, extension }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
