@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LtvRules } from "./smartops/reactivation/LtvRules";
 import { LtvRunsPanel } from "./smartops/reactivation/LtvRunsPanel";
-import { FlowEditorPlaceholder } from "./smartops/reactivation/FlowEditorPlaceholder";
+import { OperationalFlowEditor } from "./smartops/reactivation/OperationalFlowEditor";
 import { IngestionMap } from "./smartops/reactivation/IngestionMap";
 import { CrmRulesMap } from "./smartops/reactivation/CrmRulesMap";
 import { ReactivationSettings } from "./smartops/reactivation/ReactivationSettings";
@@ -52,7 +52,7 @@ export function SmartOpsReactivationHub() {
         <LtvRules />
         <LtvRunsPanel />
       </TabsContent>
-      <TabsContent value="flows"><FlowEditorPlaceholder /></TabsContent>
+      <TabsContent value="flows"><OperationalFlowEditor /></TabsContent>
       <TabsContent value="ingestion"><IngestionMap /></TabsContent>
       <TabsContent value="crm"><CrmRulesMap /></TabsContent>
       <TabsContent value="settings"><ReactivationSettings /></TabsContent>
