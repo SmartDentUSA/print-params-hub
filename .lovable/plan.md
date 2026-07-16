@@ -1,53 +1,23 @@
-## Diagnóstico
+## Problema
 
-Investiguei DNS + resposta HTTP do domínio `parametros.smartdent.com.br`:
+Na aba **Configurações** de reativação, todos os selects de pipelines PipeRun mostram "Erro ao carregar". Causa raiz confirmada:
 
-- **DNS**: aponta para `vercel-dns-017.com` → hospedagem é **Vercel**, não Lovable.
-- `curl -I https://parametros.smartdent.com.br/api/v1/health` retorna `server: Vercel` e `x-served-by: supabase-edge-runtime`, `sb-project-ref: okeogjgqijbfkudfjadz` — ou seja, **o rewrite do vercel.json JÁ está publicado e funcionando**. O proxy está ativo.
-- **404 do usuário estava obsoleto** (provavelmente antes do deploy Vercel concluir ou cache). Todos os 5 endpoints agora respondem HTTP 200.
-- **Problema real**: o Supabase Functions Gateway entrega à função `smart-dent-api` sempre no path raiz — o subpath (`/api/v1/health`, `/api/v1/resins` etc.) é descartado. Por isso todos os endpoints devolvem a mesma resposta genérica "Smart Dent Knowledge API v1" com a dica `Direct call: add ?path=/api/v1/health`.
-- Confirmado: chamando `https://parametros.smartdent.com.br/api/v1/health?path=/api/v1/health` a função responde corretamente com `{"status":"ok","articles_online":605,...}`. A função foi escrita para ler o path via query param `path`.
+- O hook `usePiperunPipelines` chama a Edge Function `piperun-list-pipelines`.
+- O código da função existe em `supabase/functions/piperun-list-pipelines/index.ts`, mas **não está registrada em `supabase/config.toml`**, então nunca foi deployada.
+- Teste direto retorna: `404 {"code":"NOT_FOUND","message":"Requested function was not found"}`.
 
-Portanto o rewrite atual passa o path na URL, mas a função ignora e só olha `?path=`. Precisamos passar o subpath via query param.
+## Correção
 
-## Mudança proposta
+Registrar a função em `supabase/config.toml` adicionando:
 
-Editar apenas o rewrite `/api/v1/:path*` no `vercel.json` (sem tocar em nenhum outro), trocando de:
-
-```json
-{
-  "source": "/api/v1/:path*",
-  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-dent-api/api/v1/:path*"
-}
+```toml
+[functions.piperun-list-pipelines]
+verify_jwt = false
 ```
 
-para:
+O deploy é automático. Após o deploy, os 5 selects (Pipeline VENDAS, CS, LTV, Etapa LTV, LTV Perdidos) passam a carregar via `PIPERUN_API_KEY` já configurada (usada por `piperun-api-test`).
 
-```json
-{
-  "source": "/api/v1/:path*",
-  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-dent-api?path=/api/v1/:path*"
-}
-```
+## Escopo
 
-Os query params originais da requisição (`?printer=elegoo`, `?q=vitality`) são preservados pelo Vercel e concatenados à destination, então a função receberá `?path=/api/v1/parameters&printer=elegoo`.
-
-O rewrite `/ai-search` fica inalterado. Nenhum outro rewrite é tocado.
-
-## Validação
-
-Após deploy no Vercel (~1 min), testar via `curl`:
-
-| Endpoint | Esperado |
-|---|---|
-| `/api/v1/health` | `{"status":"ok", articles_online:605}` |
-| `/api/v1/resins` | lista de resinas |
-| `/api/v1/parameters?printer=elegoo` | parâmetros filtrados |
-| `/api/v1/search?q=vitality` | resultados de busca |
-| `/api/v1/openapi.json` | spec OpenAPI |
-
-## O que NÃO vou fazer
-
-- Não editar outros rewrites do `vercel.json`.
-- Não mexer no rewrite `/ai-search` (esse já vai direto para a função `ai-search`, sem subpath — deve funcionar).
-- Não editar a edge function `smart-dent-api` (não está no repositório local; é gerenciada externamente).
+- Alterar apenas `supabase/config.toml` (adicionar bloco da função).
+- Nenhum outro arquivo tocado.

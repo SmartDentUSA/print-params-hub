@@ -3,6 +3,9 @@ project_id = "okeogjgqijbfkudfjadz"
 [functions.google-oauth-callback]
 verify_jwt = false
 
+[functions.piperun-list-pipelines]
+verify_jwt = false
+
 [functions.google-reviews-pull]
 verify_jwt = false
 
