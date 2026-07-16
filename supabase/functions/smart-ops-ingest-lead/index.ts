@@ -1632,7 +1632,8 @@ Deno.serve(async (req) => {
       existingLead?.piperun_pipeline_id,
     );
     const shouldDispatchLiaAssign =
-      !existingLead || !existingLeadHasCrmLink || allowCommercialReactivation || explicitEcomQuote;
+      !existingLead || !existingLeadHasCrmLink || allowCommercialReactivation || explicitEcomQuote ||
+      (payload.new_conversion_confirmed === true && !!payload.conversion_key);
     const liaAssignPromise = shouldDispatchLiaAssign
       ? dispatchAsync("smart-ops-lia-assign", {
           lead_id: leadId,
@@ -1641,8 +1642,13 @@ Deno.serve(async (req) => {
             ? "sdr_captacao_reativacao"
             : "ingest-lead",
           form_responses: payload.form_responses || [],
-          new_conversion_confirmed: !!existingLead && allowCommercialReactivation,
-          conversion_key: allowCommercialReactivation ? conversionKey : null,
+          new_conversion_confirmed: (!!existingLead && allowCommercialReactivation) ||
+            (payload.new_conversion_confirmed === true && !!payload.conversion_key),
+          conversion_key: allowCommercialReactivation
+            ? conversionKey
+            : (payload.new_conversion_confirmed === true && payload.conversion_key
+              ? String(payload.conversion_key)
+              : null),
           // Apenas orçamento explícito de e-commerce pode forçar novo Deal.
           // Re-entrega Meta/form de lead existente fica CDP-only e não chama lia-assign.
           force_new_deal: explicitEcomQuote,

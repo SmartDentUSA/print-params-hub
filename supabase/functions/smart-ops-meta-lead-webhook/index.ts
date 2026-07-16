@@ -154,6 +154,8 @@ Deno.serve(async (req) => {
           // --- Build normalized payload for ingest-lead ---
           const normalizedPayload: Record<string, unknown> = {
             source: "meta_lead_ads",
+            new_conversion_confirmed: true,
+            conversion_key: `meta_leadgen:${leadgenId}`,
             utm_source: platform,
             utm_medium: "paid",
             utm_campaign: campaignName || (formId ? `form_${formId}` : null),
