@@ -1,86 +1,50 @@
-## Objetivo
+## Problema
 
-Substituir a pipeline atual (LLM → JSON → HTML/CSS → SVG frágil) por **geração real de PNG via imagegen premium (GPT-image-2)**, replicando o layout do infográfico de referência anexado (Smart Print Bio Bite Splint +Flex).
+Edge function `generate-resin-info-card` está estourando o limite de 150s do Supabase.
 
-## Referência visual
+Causa: as 3 chamadas ao `openai/gpt-image-2` (PT/EN/ES) rodam em sequência, e cada geração de PNG 1024x1536 em `quality: high` leva 40–70s. Total >150s → `Request idle timeout`.
 
-Layout do infográfico enviado como base fixa:
-- Cabeçalho: logo Smart Dent (topo esquerdo) + foto do frasco da resina (topo direito) + título "Processo de Uso e Pós-Processamento — {Nome da Resina}" + subtítulo "Guia visual para manual de instruções"
-- 3 blocos verticais empilhados, cada um com borda colorida e ícone circular:
-  1. **Pré-Processamento** (azul) — ícone termômetro
-  2. **Pós-Processamento** (verde) — ícone engrenagem
-  3. **Pós-Cura UV** (roxo) — ícone sol
-- Cada bloco com sub-etapas numeradas (1.1, 1.2…), cada uma com ícone próprio, título e bullets
-- Alertas em caixas rosa-claro com ícone de triângulo (⚠️)
-- Rodapé "Importante" com escudo azul + texto de fechamento
-- Paleta: azul #1E3A8A, verde #10B981, roxo #7C3AED, rosa alerta #FEE2E2, texto #0F172A, fundo branco com padrão sutil
+## Correção
 
-## Nova pipeline
+Transformar a função em **assíncrona (fire-and-forget)**: responde imediatamente ao clique e processa em background usando `EdgeRuntime.waitUntil`, com status persistido em `resins` para o UI acompanhar.
 
-**Etapa 1 — LLM estrutura o conteúdo (mantida, simplificada)**
-- Prompt do GPT-5.6-Sol agora só gera **JSON estruturado** com as 3 seções, sub-etapas, bullets e alertas — sem HTML/CSS.
-- Schema fixo por idioma (PT/EN/ES), paridade estrutural obrigatória (mesmo número de sub-etapas e alertas nos 3).
+### 1. `supabase/functions/generate-resin-info-card/index.ts`
 
-**Etapa 2 — Geração da imagem via imagegen premium**
-- Chamar `openai/gpt-image-2` via `https://ai.gateway.lovable.dev/v1/images/generations` com `LOVABLE_API_KEY`.
-- `size: "1024x1536"` (proporção retrato próxima da referência), `quality: "high"`, `stream: false` (edge function grava direto no bucket).
-- Prompt de imagem combina:
-  - Descrição visual detalhada do layout de referência (blocos, cores, ícones circulares, tipografia)
-  - Nome da resina + conteúdo JSON serializado como texto do infográfico
-  - Instrução explícita: "renderizar como infográfico vetorial estilo Smart Dent, layout idêntico à referência, tipografia sans-serif limpa, todos os textos em {idioma}"
-- 3 chamadas paralelas (PT/EN/ES).
+- Ao receber `POST`:
+  1. Validar payload + carregar resina.
+  2. `UPDATE resins SET info_card_status='processing', info_card_error=NULL, info_card_started_at=now() WHERE id=?`.
+  3. Disparar processamento em background com `EdgeRuntime.waitUntil(runJob(...))`.
+  4. Retornar `202 { ok: true, status: 'processing' }` imediatamente (bem abaixo de 150s).
+- `runJob()`:
+  1. Gera plano JSON (Poe) — 1 chamada.
+  2. **Paraleliza** as 3 chamadas GPT-image-2 com `Promise.allSettled` (corta ~⅔ do tempo mesmo se não fosse background).
+  3. Upload dos PNGs no bucket + `UPDATE resins SET info_card_url_pt/en/es, info_card_generated_at, info_card_status='ready'`.
+  4. Em erro: `UPDATE resins SET info_card_status='error', info_card_error=<msg>`.
+  5. `logAIUsage` mantido.
 
-**Etapa 3 — Upload e persistência (mantida)**
-- Decodificar `b64_json` → PNG binário
-- Upload para bucket `model-images` em `resin-info-cards/{resin_id}/{lang}.png`
-- Atualizar `resins.info_card_url_pt/en/es` + `info_card_generated_at`
+### 2. Migração
 
-## Arquivos a alterar
+Adicionar em `public.resins`:
+- `info_card_status text` (`idle` | `processing` | `ready` | `error`, default `idle`)
+- `info_card_error text`
+- `info_card_started_at timestamptz`
 
-1. **`supabase/functions/generate-resin-info-card/index.ts`**
-   - Remover: pipeline SVG/HTML fallback, `render-template`, foreignObject
-   - Manter: chamada Poe/GPT-5.6-Sol apenas para gerar JSON estrutural
-   - Adicionar: função `generateInfographicPNG(resin, contentJson, lang)` que chama `openai/gpt-image-2` via Gateway
-   - Manter: upload no bucket + update em `resins`
-   - Logar modelo em `ai_usage_logs` (`poe/gpt-5.6-sol` + `openai/gpt-image-2`)
+Sem novas GRANTs (tabela já existe e é acessada pelo service_role/edge).
 
-2. **`src/components/AdminModal.tsx`** — nenhuma alteração (já mostra preview + status)
+### 3. `src/components/AdminModal.tsx`
 
-3. **`src/components/knowledge/KbTabCatalogo.tsx`** — ajustar download para `.png` (remover branch SVG)
-
-## Prompt de imagem (rascunho — GPT-image-2)
-
-```
-Vertical infographic poster, 1024x1536, dental resin technical guide.
-Style: clean vector illustration, Smart Dent brand (dark navy #1E3A8A logo top-left,
-resin bottle photo top-right). Title "Processo de Uso e Pós-Processamento —
-{RESIN_NAME}" in bold navy, subtitle "Guia visual para manual de instruções".
-
-Three stacked rounded rectangle sections with colored borders and circular icon badges:
-1) "1) PRÉ-PROCESSAMENTO" (navy #1E3A8A, thermometer icon)
-2) "2) PÓS-PROCESSAMENTO" (green #10B981, gear icon)
-3) "3) PÓS-CURA UV" (purple #7C3AED, sun icon)
-
-Each section contains numbered sub-steps with small circular icons, titles and
-bullet lists. Warning callouts on soft pink background with ⚠️ triangle icon.
-Bottom "Importante" strip with blue shield icon.
-
-Content (render exact text, language={LANG}):
-{JSON_SERIALIZED_STEPS}
-
-Typography: sans-serif, high legibility. White background with faint geometric
-pattern top-right. No commercial info, no prices.
-```
-
-## Validação
-
-1. Trigger "Gerar Card Informativo" em uma resina com `processing_instructions_pt/en/es` preenchidas
-2. Conferir logs edge: 1× chamada Poe + 3× chamadas gateway `/v1/images/generations`
-3. Conferir `resins.info_card_url_*` populados apontando para PNGs no bucket
-4. Abrir Base de Conhecimento → aba Catálogo → confirmar imagem renderizando + botão download baixando `.png`
+- Após clicar "Gerar Card Informativo": mostrar badge "Gerando… (~2 min)" enquanto `info_card_status='processing'`.
+- Polling leve a cada 5s (ou realtime na row) até status virar `ready` (mostra imagens) ou `error` (mostra mensagem + botão "Tentar novamente").
 
 ## Fora de escopo
 
-- Migração para outros modelos de imagem (Gemini nano-banana etc.)
-- Editor visual manual do card
-- Cache/regeneração automática por mudança em `processing_instructions`
+- Trocar modelo de imagem.
+- Reduzir para 1 idioma só.
+- Editor visual do card.
+
+## Validação
+
+1. Clicar "Gerar Card Informativo" → resposta HTTP em <2s, badge "Gerando…" aparece.
+2. Logs edge: 1× Poe + 3× `openai/gpt-image-2` em paralelo, função encerra sem timeout.
+3. Após ~60–90s, `info_card_status='ready'`, PNGs aparecem no modal e na aba Catálogo.
+4. Se GPT-image-2 falhar em algum idioma, status vira `error` com mensagem legível — sem travar o UI.
