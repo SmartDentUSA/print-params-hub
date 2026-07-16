@@ -76,18 +76,33 @@ type YMD = { y: number; m: number; d: number };
 
 function parseYMD(raw: unknown): YMD | null {
   if (!raw) return null;
-  const s = String(raw).slice(0, 10);
-  const [y, m, d] = s.split("-").map(Number);
+  const s = String(raw).trim().slice(0, 10);
+  const parts = s.includes("/") ? s.split("/").map(Number) : s.split("-").map(Number);
+  const [y, m, d] = s.includes("/")
+    ? [parts[2], parts[1], parts[0]]
+    : parts;
   if (!y || !m || !d) return null;
   return { y, m, d };
 }
 
 function extractDays(factoryData: any): YMD[] {
-  const days = factoryData?.days || factoryData?.turma?.days || [];
-  return (days as any[])
-    .map((x: any) => parseYMD(x?.day_date || x?.date || x))
+  const days = factoryData?.days || factoryData?.dias || factoryData?.turma?.days || factoryData?.turma?.dias || [];
+  const parsed = (days as any[])
+    .map((x: any) => parseYMD(x?.day_date || x?.date || x?.data || x))
     .filter((x): x is YMD => !!x)
     .sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d);
+  if (parsed.length) return parsed;
+  const start = parseYMD(factoryData?.start_date || factoryData?.turma?.start_date);
+  const end = parseYMD(factoryData?.end_date || factoryData?.turma?.end_date);
+  return [start, end]
+    .filter((x): x is YMD => !!x)
+    .filter((x, index, all) => index === 0 || x.y !== all[0].y || x.m !== all[0].m || x.d !== all[0].d);
+}
+
+function getCourseName(factoryData: any): string {
+  const course = factoryData?.curso ?? factoryData?.course ?? factoryData?.turma?.curso;
+  if (typeof course === "string" && course.trim()) return course.trim();
+  return course?.name || course?.title || course?.slug || "Treinamento";
 }
 
 function fmtDDMMYYYY(x: YMD): string {
@@ -126,17 +141,18 @@ function formatHumanDateLine(days: YMD[]): string {
 
 function buildDescricaoTxt(factoryData: any): string {
   const turma = factoryData?.turma || factoryData;
-  const curso = factoryData?.curso || factoryData?.course || {};
+  const cursoRaw = factoryData?.curso || factoryData?.course || {};
+  const curso = typeof cursoRaw === "object" ? cursoRaw : {};
   const days = extractDays(factoryData);
   const numero = turma?.turma_number ?? turma?.number ?? "S/N";
-  const nome = curso?.name || curso?.title || curso?.slug || "Treinamento";
+  const nome = getCourseName(factoryData);
   const modalidade = (turma?.modality || curso?.modality || "presencial")
     .toString()
     .replace(/_/g, " ");
-  const local = turma?.location || curso?.location || "";
+  const local = turma?.location || factoryData?.location || curso?.location || "";
   const linkOnline = turma?.meeting_link || "";
-  const instrutor = turma?.instructor_name || curso?.instructor_name || "";
-  const enrolled = factoryData?.enrolled_count ?? turma?.enrolled_count ?? "";
+  const instrutor = turma?.instructor_name || turma?.instrutor || curso?.instructor_name || "";
+  const enrolled = factoryData?.total_participantes ?? factoryData?.enrolled_count ?? turma?.enrolled_count ?? "";
   const horario =
     turma?.start_time && turma?.end_time ? `${turma.start_time} – ${turma.end_time}` : "";
   const status = turma?.status || turma?.factory_status || "";
@@ -252,14 +268,26 @@ serve(async (req) => {
     let created = false;
 
     const turma = (factoryData as any)?.turma || (factoryData as any);
-    const curso = (factoryData as any)?.curso || (factoryData as any)?.course || {};
     const days = extractDays(factoryData);
     const turmaNumber = turma?.turma_number ?? turma?.number ?? "S/N";
-    const cursoNome = curso?.name || curso?.title || curso?.slug || "Treinamento";
+    const cursoNome = getCourseName(factoryData);
     const dateStr = days.length ? formatFolderDateRange(days) : "sem-data";
     const canonicalName = sanitizeFolderName(
       `Imersão ${turmaNumber} - ${cursoNome} - ${dateStr}`,
     );
+
+    // Legacy factory folders were created by a Service Account, often in a
+    // different parent. They are not the canonical OAuth folders requested by
+    // this feature. A canonical folder is valid only after its creation marker
+    // has been persisted by this function.
+    const hasCanonicalFolder = !!turmaRow?.drive_folder_id && !!turmaRow?.drive_folder_created_at;
+    if (!hasCanonicalFolder) {
+      folderId = null;
+      folderUrl = null;
+      folderName = null;
+      subfolders = {};
+      descricaoFileId = null;
+    }
 
     if (!folderId && !update_only) {
       folderId = await driveCreateFolder(token, canonicalName, GOOGLE_DRIVE_PARENT_FOLDER_ID);
@@ -320,6 +348,14 @@ serve(async (req) => {
         .update(updatePayload)
         .eq("id", turma_id);
       if (updErr) throw new Error(`update turma: ${updErr.message}`);
+      console.log(JSON.stringify({
+        event: "drive_folder_ready",
+        turma_id,
+        parent_id: GOOGLE_DRIVE_PARENT_FOLDER_ID,
+        folder_id: folderId,
+        folder_name: folderName ?? canonicalName,
+        created,
+      }));
     }
 
     return new Response(
