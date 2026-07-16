@@ -1,27 +1,47 @@
-Renomear o rótulo "Apresentações" → "Rendimento" nos dois locais mencionados, com tradução para EN e ES.
+## Objetivo
+Destravar a reativação Estagnados→Vendas para leads que chegam via webhook do Meta Lead Ads, passando `new_conversion_confirmed` e `conversion_key` pela cadeia `meta-lead-webhook → ingest-lead → lia-assign`, satisfazendo a Golden Rule sem alterar sua lógica.
 
-## Alterações
+## Mudanças
 
-1. **`src/components/AdminModal.tsx`** (linhas 2471/2474)
-   - Comentário `{/* SEÇÃO: Apresentações (SKUs) */}` → `{/* SEÇÃO: Rendimento */}`
-   - Título visível `📦 Apresentações (SKUs)` → `📦 Rendimento`
+### 1. `supabase/functions/smart-ops-meta-lead-webhook/index.ts`
+No objeto `normalizedPayload` (montado antes da chamada a `smart-ops-ingest-lead`), adicionar duas propriedades:
 
-2. **`src/locales/pt.json`** (linha 296)
-   - `"presentations": "Apresentações"` → `"presentations": "Rendimento"`
+```ts
+new_conversion_confirmed: true,
+conversion_key: `meta_leadgen:${leadgenId}`,
+```
 
-3. **`src/locales/en.json`** (linha 296)
-   - `"presentations": "Presentations"` → `"presentations": "Yield"`
+Cada `leadgen_id` do Meta é único e prova conversão nova legítima. Nenhuma outra alteração no arquivo.
 
-4. **`src/locales/es.json`** (linha 296)
-   - `"presentations": "Presentaciones"` → `"presentations": "Rendimiento"`
+### 2. `supabase/functions/smart-ops-ingest-lead/index.ts`
+No dispatch para `smart-ops-lia-assign`, repassar os dois campos **apenas se** vierem no payload (não inventar para outros callers):
 
-## Traduções aplicadas
-| Idioma | Termo |
-| --- | --- |
-| PT-BR | Rendimento |
-| EN | Yield |
-| ES | Rendimiento |
+```ts
+const liaAssignPromise = dispatchAsync("smart-ops-lia-assign", {
+  lead_id: leadId,
+  source,
+  trigger: "ingest-lead",
+  ...(payload.new_conversion_confirmed === true && payload.conversion_key
+    ? {
+        new_conversion_confirmed: true,
+        conversion_key: String(payload.conversion_key),
+      }
+    : {}),
+});
+```
 
-## Fora do escopo
-- Nome da tabela `resin_presentations`, estados internos `presentations` e chave i18n `presentations` permanecem (mudança é só de rótulo visível).
-- `KbResinDocsDialog` ("Apresentações & Materiais") não é o card do catálogo de produto — não alterado.
+Não tocar em `mergeSmartLead`, `validateLeadIdentity`, nem no bloco de `normalizeBrazilianPhone` / fix last11.
+
+## Fora de escopo (não alterar)
+- `smart-ops-lia-assign/index.ts` (já lê os dois campos corretamente)
+- `golden-rule-guard.ts`
+- Outros callers de `ingest-lead` (`meta-lead-ads-pull`, `smart-ops-meta-csv-backfill`, reprocessamentos manuais) — devem continuar sem passar `new_conversion_confirmed`.
+
+## Validação pós-deploy
+1. Build sem erro de sintaxe nos dois arquivos.
+2. Lead de teste (email novo, deal aberto apenas em pipeline 72938 Estagnados) via `smart-ops-meta-lead-webhook`.
+3. `system_health_logs`: resultado deixa de ser `existing_lead_no_new_conversion_cdp_only` e passa a registrar `reactivate_estagnado_new_deal` (ou equivalente).
+4. PipeRun: deal antigo do Estagnados marcado como "Perdido — Novo interesse"; deal novo criado no Funil de Vendas com vendedor ativo sorteado (round-robin).
+
+## Memória a atualizar após execução
+`mem/architecture/estagnados-redelivery-reactivation.md` — registrar que o gatilho `new_conversion_confirmed`/`conversion_key` agora flui do Meta webhook via ingest-lead, complementando os escape hatches já documentados nas rotas A e B de dedupe.
