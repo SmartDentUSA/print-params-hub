@@ -9571,6 +9571,30 @@ export type Database = {
         }
         Relationships: []
       }
+      leads_queue_meta_reprocess: {
+        Row: {
+          id: number
+          payload: Json
+          request_id: number | null
+          sent: boolean
+          sent_at: string | null
+        }
+        Insert: {
+          id?: number
+          payload: Json
+          request_id?: number | null
+          sent?: boolean
+          sent_at?: string | null
+        }
+        Update: {
+          id?: number
+          payload?: Json
+          request_id?: number | null
+          sent?: boolean
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
       lia_assign_note_dedup: {
         Row: {
           expires_at: string
@@ -30882,6 +30906,7 @@ export type Database = {
       }
       normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
+      process_meta_lead_batch: { Args: never; Returns: undefined }
       query_printer_brand_distribution: {
         Args: never
         Returns: {
