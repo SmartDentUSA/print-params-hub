@@ -469,6 +469,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleInputChange = (field: string, value: any) => {
     const newFormData = { ...formData, [field]: value };
+
+    // Cards e planos são derivados das instruções. Ao editar o texto, não
+    // mantenha nenhuma imagem/tradução produzida para a versão anterior.
+    if (field === 'processing_instructions' && value !== formData.processing_instructions) {
+      newFormData.info_card_plan_pt = null;
+      newFormData.info_card_plan_en = null;
+      newFormData.info_card_plan_es = null;
+      newFormData.info_card_url_pt = null;
+      newFormData.info_card_url_en = null;
+      newFormData.info_card_url_es = null;
+      newFormData.info_card_status = null;
+      newFormData.info_card_error = null;
+      setGeneratedCards(null);
+      setCardGenerationError(null);
+    }
     
     // If brand changes in parameter form, reset the model selection
     if (field === 'brand_slug' && type === 'parameter') {
@@ -1429,10 +1444,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         try {
                           const { error } = await supabase
                             .from('resins')
-                            .update({ [`info_card_url_${lang}`]: null } as any)
+                            .update({
+                              [`info_card_url_${lang}`]: null,
+                              [`info_card_plan_${lang}`]: null,
+                              info_card_status: null,
+                              info_card_error: null,
+                            } as any)
                             .eq('id', formData.id);
                           if (error) throw error;
-                          setFormData((prev: any) => ({ ...prev, [`info_card_url_${lang}`]: null }));
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            [`info_card_url_${lang}`]: null,
+                            [`info_card_plan_${lang}`]: null,
+                            info_card_status: null,
+                            info_card_error: null,
+                          }));
                           setGeneratedCards((prev) => {
                             if (!prev) return prev;
                             const next = { ...prev };
