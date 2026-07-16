@@ -257,10 +257,9 @@ serve(async (req) => {
         const now = new Date().toISOString()
         await supabase.from('wa_message_queue').update({ status: 'sent', sent_at: now, evo_message_id: evoId, delivery_status: 'sent_to_server', delivery_checked_at: now }).eq('id', item.id)
         await supabase.from('wa_send_log').insert({ queue_id: item.id, campaign_id: item.campaign_id, group_jid: item.group_jid, instance_name: instance ?? 'unknown', node_type: item.node_type, success: true, http_status: 200, evo_message_id: evoId, sent_at: now })
-        // Registra fingerprint para impedir reenvio em campanhas futuras.
-        // NB: supabase.rpc() retorna um PostgrestBuilder thenable (sem .catch);
-        // encadear .catch aqui lançava "TypeError: .catch is not a function"
-        // e derrubava envios já bem-sucedidos.
+        // Blasts registram fingerprint para impedir reenvio do mesmo post.
+        // Fluxos não usam conteúdo como identidade: sequence_no é a chave.
+        if ((camp as any).campaign_type === 'blast') {
           try {
             const { error: recErr } = await supabase.rpc('fn_record_group_send', {
               p_group_jid: item.group_jid,
