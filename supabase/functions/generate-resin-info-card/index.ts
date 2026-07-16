@@ -4,9 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { callPoe } from '../_shared/providers/poe.ts'
 import { logAIUsage } from '../_shared/log-ai-usage.ts'
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-const IMAGE_MODEL = 'openai/gpt-image-2'
-const IMAGE_GATEWAY = 'https://ai.gateway.lovable.dev/v1/images/generations'
+const RENDER_ENDPOINT =
+  Deno.env.get('RENDER_TEMPLATE_URL') ||
+  'https://admin.smartdent.com.br/api/render-template'
+const SD_LOGO_URL =
+  'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png'
 
 type Lang = 'pt' | 'en' | 'es'
 
