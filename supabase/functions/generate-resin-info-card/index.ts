@@ -339,18 +339,18 @@ function extractJson(raw: string): any | null {
 async function planCardWithLLM(opts: {
   resinNamePt: string; resinNameEn: string; resinNameEs: string
   instructionsPt: string; instructionsEn: string; instructionsEs: string
-}): Promise<{ plan: CardPlan | null; error?: string; usage?: any }> {
+}): Promise<{ plan: CardPlan | null; error?: string; usage?: any; model?: string }> {
   const system = buildSystemPrompt()
   const user = buildUserPrompt(opts)
 
-  const attempt = async (extraCorrection?: string) => {
+  const attempt = async (model: string, extraCorrection?: string) => {
     const messages: any[] = [
       { role: 'system', content: system },
       { role: 'user', content: user },
     ]
     if (extraCorrection) messages.push({ role: 'user', content: extraCorrection })
     const r = await callPoe({
-      model: 'GPT-5.6-Sol',
+      model,
       messages,
       temperature: 0.2,
       max_tokens: 8000,
@@ -359,24 +359,33 @@ async function planCardWithLLM(opts: {
     return r
   }
 
-  const first = await attempt()
+  const PRIMARY = 'gpt-5.6-sol'
+  const FALLBACK = 'gpt-5.5'
+  let modelUsed = PRIMARY
+  let first = await attempt(PRIMARY)
+  if (!first.ok && (first.status === 404 || /not found|unknown model/i.test(first.error || ''))) {
+    console.warn(`[generate-resin-info-card] ${PRIMARY} indisponível, tentando ${FALLBACK}`)
+    modelUsed = FALLBACK
+    first = await attempt(FALLBACK)
+  }
   if (!first.ok) return { plan: null, error: `poe: ${first.error || first.status}` }
   let parsed = extractJson(first.text || '')
   if (parsed) {
     const parity = assertStructuralParity(parsed as CardPlan)
-    if (parity.ok) return { plan: parsed as CardPlan, usage: first.usage }
+    if (parity.ok) return { plan: parsed as CardPlan, usage: first.usage, model: modelUsed }
     console.warn('[generate-resin-info-card] parity fail, retrying:', parity.reason)
     const retry = await attempt(
+      modelUsed,
       `A resposta anterior falhou na validação: ${parity.reason}. Reenvie o JSON garantindo IDENTICAMENTE o mesmo número de blocks, colunas por block, items por coluna e ícones nos três idiomas.`,
     )
     if (retry.ok) {
       const p2 = extractJson(retry.text || '')
       if (p2 && assertStructuralParity(p2 as CardPlan).ok) {
-        return { plan: p2 as CardPlan, usage: retry.usage }
+        return { plan: p2 as CardPlan, usage: retry.usage, model: modelUsed }
       }
     }
   }
-  return { plan: null, error: 'LLM não produziu JSON com paridade estrutural', usage: first.usage }
+  return { plan: null, error: 'LLM não produziu JSON com paridade estrutural', usage: first.usage, model: modelUsed }
 }
 
 async function renderPng(html: string): Promise<Uint8Array> {
@@ -443,6 +452,7 @@ Deno.serve(async (req) => {
     })
     if (!llm.plan) throw new Error(llm.error || 'Falha ao planejar card com o LLM')
     const plan = llm.plan
+    const modelUsed = llm.model || 'gpt-5.6-sol'
 
     const results: Record<string, string> = {}
     const timestamp = Date.now()
@@ -479,14 +489,14 @@ Deno.serve(async (req) => {
       logAIUsage({
         functionName: 'generate-resin-info-card',
         actionLabel: 'resin_info_card',
-        model: 'poe/GPT-5.6-Sol',
+        model: `poe/${modelUsed}`,
         promptTokens: llm.usage.prompt_tokens || 0,
         completionTokens: llm.usage.completion_tokens || 0,
         metadata: { resin_id, languages: langs },
       }).catch(() => {})
     }
 
-    return new Response(JSON.stringify({ ok: true, urls: results, model_used: 'poe/GPT-5.6-Sol' }), {
+    return new Response(JSON.stringify({ ok: true, urls: results, model_used: `poe/${modelUsed}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
