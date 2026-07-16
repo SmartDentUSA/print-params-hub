@@ -417,6 +417,43 @@ Deno.serve(async (req: Request) => {
           });
         if (upErr) throw new Error(`Upload falhou: ${upErr.message}`);
 
+        // Mirror PDF to Google Drive → "02 - Certificados / 01 - Individuais"
+        // Best-effort: never blocks storage/DB update.
+        try {
+          let subfolders = ((turma as any).drive_subfolders as Record<string, string>) || {};
+          let rootFolder =
+            (turma as any).drive_folder_id || (turma as any).factory_drive_folder_id || null;
+          if (!rootFolder || !subfolders?.certificados_individuais) {
+            const { data: fnData } = await supabase.functions.invoke(
+              "training-create-drive-folder",
+              { body: { turma_id: turmaId } },
+            );
+            rootFolder = (fnData as any)?.folder_id ?? rootFolder;
+            const fresh = ((fnData as any)?.subfolders as Record<string, string>) || {};
+            subfolders = { ...subfolders, ...fresh };
+            (turma as any).drive_folder_id = rootFolder;
+            (turma as any).drive_subfolders = subfolders;
+          }
+          const indivId = subfolders?.certificados_individuais;
+          if (indivId) {
+            const token = await getDriveAccessToken();
+            const numero = (turma as any).turma_number ?? "sn";
+            const fname = `certificado_${numero}_${slugForFilename(person.name)}.pdf`;
+            await driveUploadFile({
+              token,
+              folderId: indivId,
+              name: fname,
+              content: pdfBytes,
+              mimeType: "application/pdf",
+              overwriteByName: true,
+            });
+          }
+        } catch (e) {
+          console.warn(
+            `[generate-certificate] drive mirror falhou (${person.type} ${person.id}): ${(e as Error).message}`,
+          );
+        }
+
         const tableName = person.type === "enrollment"
           ? "smartops_course_enrollments"
           : "smartops_enrollment_companions";
