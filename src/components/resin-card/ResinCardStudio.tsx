@@ -277,7 +277,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
               <InfographicCard
                 ref={rootRef}
                 plan={previewPlan}
-                resinName={resin?.name || ''}
+                resinName={hydratedResin?.name || resin?.name || ''}
                 productImageUrl={productImageUrl}
               />
             </div>
@@ -291,7 +291,7 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
           <InfographicCard
             ref={rootRef}
             plan={previewPlan}
-            resinName={resin?.name || ''}
+            resinName={hydratedResin?.name || resin?.name || ''}
             productImageUrl={productImageUrl}
           />
         </div>
