@@ -22,6 +22,7 @@ import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { validateFileSize } from '@/utils/security';
 import { extensionFromMime } from '@/utils/storageImage';
+import { ResinCardStudio } from '@/components/resin-card/ResinCardStudio';
 import { Progress } from '@/components/ui/progress';
 
 interface Brand {
@@ -1356,102 +1357,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <><Sparkles className="w-4 h-4" /> Formatar com IA</>
                   )}
                 </Button>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={
-                      !formData.id ||
-                      !formData.processing_instructions ||
-                      formData.processing_instructions.trim().length < 10 ||
-                      isGeneratingCard
-                    }
-                    onClick={async () => {
-                      if (!formData.id) {
-                        toast({ title: 'Salve a resina antes de gerar o card', variant: 'destructive' });
-                        return;
-                      }
-                      setIsGeneratingCard(true);
-                      setGeneratedCards(null);
-                      setCardGenerationError(null);
-                      try {
-                        const { data, error } = await supabase.functions.invoke('generate-resin-info-card', {
-                          body: { resin_id: formData.id },
-                        });
-                        if (error) throw error;
-                        if (data?.error) throw new Error(data.error);
-                        toast({
-                          title: '⏳ Geração iniciada',
-                          description: 'O card leva ~60–120s. Você pode fechar o modal, o status atualiza automaticamente.',
-                        });
-                        // Polling: consulta resins a cada 5s até status !== 'processing'.
-                        const started = Date.now();
-                        const MAX_MS = 4 * 60 * 1000; // 4 min
-                        while (Date.now() - started < MAX_MS) {
-                          await new Promise((r) => setTimeout(r, 5000));
-                          const { data: row } = await supabase
-                            .from('resins')
-                            .select('info_card_status, info_card_error, info_card_url_pt, info_card_url_en, info_card_url_es')
-                            .eq('id', formData.id)
-                            .maybeSingle();
-                          if (!row) continue;
-                          if (row.info_card_status === 'ready' || row.info_card_status === 'error') {
-                            const urls = {
-                              pt: row.info_card_url_pt || undefined,
-                              en: row.info_card_url_en || undefined,
-                              es: row.info_card_url_es || undefined,
-                            };
-                            setGeneratedCards(urls);
-                            setFormData((prev: any) => ({
-                              ...prev,
-                              info_card_url_pt: urls.pt || prev.info_card_url_pt,
-                              info_card_url_en: urls.en || prev.info_card_url_en,
-                              info_card_url_es: urls.es || prev.info_card_url_es,
-                            }));
-                            if (row.info_card_status === 'error') {
-                              setCardGenerationError(row.info_card_error || 'Falha desconhecida');
-                              toast({ title: '❌ Erro ao gerar card', description: row.info_card_error || '', variant: 'destructive' });
-                            } else {
-                              toast({ title: '✅ Card informativo gerado', description: `Idiomas: ${Object.keys(urls).filter((k) => (urls as any)[k]).join(', ').toUpperCase()}` });
-                            }
-                            return;
-                          }
-                        }
-                        throw new Error('Tempo esgotado aguardando geração (>4min). Verifique os logs.');
-                      } catch (err: any) {
-                        let message = err?.message || 'Falha desconhecida ao gerar o card';
-                        try {
-                          if (err?.context instanceof Response) {
-                            const details = await err.context.clone().json();
-                            message = details?.error || details?.message || message;
-                          }
-                        } catch {
-                          // Mantém a mensagem original quando a resposta não for JSON.
-                        }
-                        setCardGenerationError(message);
-                        toast({
-                          title: '❌ Erro ao gerar card',
-                          description: message,
-                          variant: 'destructive',
-                        });
-                      } finally {
-                        setIsGeneratingCard(false);
-                      }
-                    }}
-                    className="w-fit"
-                    title={!formData.id ? 'Salve a resina primeiro' : 'Gerar imagem infográfica em PT/EN/ES'}
-                  >
-                    {isGeneratingCard ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando (~15s)…</>
-                    ) : (
-                      <><ImageIcon className="w-4 h-4" /> Gerar Card Informativo</>
-                    )}
-                  </Button>
-                  {!formData.id && (
-                    <span className="text-xs text-muted-foreground">Salve a resina antes de gerar</span>
-                  )}
-                </div>
+                <ResinCardStudio
+                  resin={formData}
+                  onCardUrlChanged={(lang, url) => {
+                    setFormData((prev: any) => ({ ...prev, [`info_card_url_${lang}`]: url }))
+                    setGeneratedCards((prev) => ({ ...(prev || {}), [lang]: url || undefined }))
+                  }}
+                />
                 <div className="space-y-2 mt-2" aria-live="polite">
                   <div className="flex items-center justify-between gap-2">
                     <Label>Imagens geradas</Label>
