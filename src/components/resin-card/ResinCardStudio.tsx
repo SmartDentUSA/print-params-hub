@@ -109,9 +109,9 @@ export function ResinCardStudio({ resin, onCardUrlChanged }: Props) {
     const parsed = parseInstructionsMd(liveInstructions || '')
     if (parsed.sections.length) return parsed
     const cached = hydratedResin?.info_card_plan_pt
-    if (cached && Array.isArray(cached.sections) && cached.sections.length) return cached
+    if (!instructionsChanged && cached && Array.isArray(cached.sections) && cached.sections.length) return cached
     return parsed
-  }, [liveInstructions, hydratedResin?.info_card_plan_pt])
+  }, [liveInstructions, instructionsChanged, hydratedResin?.info_card_plan_pt])
 
   const canExport = !!resin?.id && planPt.sections.length > 0
 
