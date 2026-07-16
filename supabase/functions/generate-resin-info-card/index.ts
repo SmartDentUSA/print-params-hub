@@ -245,102 +245,200 @@ function assertStructuralParity(plan: CardPlan): { ok: true } | { ok: false; rea
   }
 }
 
-// Serializa o conteúdo trilíngue em texto simples para injetar no prompt de imagem.
-function serializePlanContent(plan: CardPlan, lang: Lang): string {
-  const c = plan.content[lang]
-  const parts: string[] = []
-  parts.push(`TITLE: "${c.title}"`)
-  parts.push(`SUBTITLE: "${c.subtitle}"`)
-  for (const b of plan.structure.blocks) {
-    const blk = c.blocks[b.id]
-    if (!blk) continue
-    parts.push(`\nSECTION ${b.num} ${blk.heading} [color=${b.color}, icon=${b.icon}]`)
-    blk.columns.forEach((col, i) => {
-      parts.push(`  ${b.num.replace(')', '')}.${i + 1} ${col.title} [icon=${col.icon}]`)
-      col.items.forEach((it) => parts.push(`    • ${it.text}`))
-      if (col.note) parts.push(`    ⚠️ ${col.note}`)
-    })
-  }
-  parts.push(`\nFOOTER "IMPORTANT" BOX: ${c.important}`)
-  return parts.join('\n')
+// Cores por bloco
+const BLOCK_COLORS: Record<BlockColor, { border: string; bg: string; badge: string }> = {
+  blue:   { border: '#1D4ED8', bg: '#F0F5FF', badge: '#1D4ED8' },
+  green:  { border: '#16A34A', bg: '#F0FBF3', badge: '#16A34A' },
+  purple: { border: '#7C3AED', bg: '#F6F1FE', badge: '#7C3AED' },
 }
 
-// Constrói o prompt visual para GPT-image-2, replicando o layout de referência.
-function buildImagePrompt(opts: {
+// Renderiza HTML fiel à referência Smart Dent com o plano + logo real + foto real do produto.
+function renderCardHtml(opts: {
   plan: CardPlan
   lang: Lang
   resinName: string
+  productImageUrl: string | null
 }): string {
-  const serialized = serializePlanContent(opts.plan, opts.lang)
-  const langLabel = opts.lang === 'pt' ? 'Portuguese (Brazil)' : opts.lang === 'en' ? 'English' : 'Spanish'
+  const { plan, lang, resinName, productImageUrl } = opts
+  const c = plan.content[lang]
 
-  return `Vertical infographic poster, portrait 1024x1536, technical dental resin usage & post-processing guide for the Smart Dent brand.
+  const productImgHtml = productImageUrl
+    ? `<img src="${escapeHtml(productImageUrl)}" alt="${escapeHtml(resinName)}" class="bottle" crossorigin="anonymous" />`
+    : `<div class="bottle-fallback"><span>${escapeHtml(resinName)}</span></div>`
 
-STYLE: clean flat vector illustration, professional dental technical publication. White background (#FFFFFF) with a very faint geometric line pattern in the top-right corner. Thin navy blue horizontal bar (#1D4ED8) across the very top edge. Sans-serif typography, high legibility, generous whitespace. NO photorealism, NO 3D shadows, NO gradients on text.
+  const sections = plan.structure.blocks.map((b) => {
+    const blk = c.blocks[b.id]
+    if (!blk) return ''
+    const col = BLOCK_COLORS[b.color] || BLOCK_COLORS.blue
+    const nCols = blk.columns.length
+    const colClass = nCols >= 4 ? 'cols-4' : nCols === 3 ? 'cols-3' : nCols === 2 ? 'cols-2' : 'cols-1'
 
-HEADER (top area):
-- Top-left: "SMART DENT" logo — stylized "SD" monogram in navy (#1D4ED8) with orange accent arc, plus wordmark "SMART DENT" in bold navy sans-serif.
-- Top-right: photorealistic 3D render of a black cylindrical 1kg resin bottle with a white Smart Dent label. The label shows "SMART DENT" at top and the product name "${opts.resinName}" prominently in blue.
-- Below logo: large bold title in dark navy (#0F172A), two lines max, weight 800: "${opts.plan.content[opts.lang].title} — ${opts.resinName}".
-- Under title: short subtitle in slate gray (#475569) preceded by a short navy horizontal line: "${opts.plan.content[opts.lang].subtitle}".
+    const columnsHtml = blk.columns
+      .map((column, i) => {
+        const num = `${b.num.replace(')', '')}.${i + 1}`
+        const itemsHtml = column.items
+          .map((it) => `<li>${inlineFormat(it.text, it.bold)}</li>`)
+          .join('')
+        const noteHtml = column.note
+          ? `<div class="warn"><span class="warn-icon">⚠️</span><span>${inlineFormat(column.note)}</span></div>`
+          : ''
+        return `
+          <div class="col">
+            <div class="col-head">
+              <div class="col-icon" style="border-color:${col.border};color:${col.border}">${escapeHtml(column.icon || b.icon || '•')}</div>
+              <div class="col-title"><span class="col-num">${num}</span> ${escapeHtml(column.title)}</div>
+            </div>
+            <ul class="col-list">${itemsHtml}</ul>
+            ${noteHtml}
+          </div>`
+      })
+      .join('')
 
-BODY: three (or two) stacked rounded-rectangle sections with 2px colored borders, soft tinted backgrounds, and a circular colored badge with a white icon overlapping the top-left corner of each section. Section colors follow the plan exactly:
-  • blue → border/badge #1D4ED8, background #F0F5FF (thermometer icon 🌡️)
-  • green → border/badge #16A34A, background #F0FBF3 (gear icon ⚙️)
-  • purple → border/badge #7C3AED, background #F6F1FE (sun icon ☀️)
+    return `
+      <section class="block" style="border-color:${col.border};background:${col.bg}">
+        <div class="badge" style="background:${col.badge}">${escapeHtml(b.icon)}</div>
+        <h2 class="block-heading" style="color:${col.border}">${escapeHtml(b.num)} ${escapeHtml(blk.heading)}</h2>
+        <div class="cols ${colClass}">${columnsHtml}</div>
+      </section>`
+  }).join('')
 
-Each section header: circular badge + numbered heading like "1) PRÉ-PROCESSAMENTO" in bold uppercase. Inside each section, arrange sub-steps as a horizontal row of columns (2–4 columns depending on content). Each column has:
-  - A small white circular icon (32–40px) outlined in the section color, with the sub-step's emoji/icon centered.
-  - A short bold title with numbering like "1.1", "1.2", "2.3"…
-  - A tight bulleted list, small dark-slate body text (#334155), important tokens (times, temperatures, rpm) in bold black.
-  - Optional warning callout with a light pink background (#FEF2F2), red left border, ⚠️ icon and short red text (#7F1D1D).
-
-FOOTER: a full-width rounded pink box (#FEF2F2 background, #FECACA border) at the bottom, containing a navy circular shield badge (🛡) on the left and, on the right, the word "${opts.plan.content[opts.lang].important}" in large bold navy followed by a short paragraph of body text.
-
-LANGUAGE: render every text label EXACTLY in ${langLabel}. Do NOT translate, paraphrase, or invent extra text. Do NOT add prices, monetary values, or competitor brands. Do NOT add any extra sections beyond what is listed below.
-
-EXACT CONTENT TO RENDER (verbatim, preserving order, numbering, bullets and warnings):
-
-${serialized}
-
-Reproduce the layout of a Smart Dent "Processo de Uso e Pós-Processamento" infographic poster (three-section vertical guide with colored badges, columns of sub-steps, warning callouts, and an "Important" footer). Output must be a single high-resolution PNG poster, all text sharp and correctly spelled, no lorem ipsum, no watermarks.`
-}
-
-// Base64 → Uint8Array (Deno).
-function b64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out
-}
-
-interface ImageGenResult { bytes: Uint8Array; usage?: any }
-
-async function generateInfographicPNG(prompt: string): Promise<ImageGenResult> {
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY não configurada')
-  const resp = await fetch(IMAGE_GATEWAY, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: IMAGE_MODEL,
-      prompt,
-      size: '1024x1536',
-      quality: 'high',
-      n: 1,
-    }),
-  })
-  const bodyText = await resp.text()
-  if (!resp.ok) {
-    throw new Error(`imagegen ${resp.status}: ${bodyText.slice(0, 400)}`)
+  return `<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: #0F172A;
+    padding: 40px 48px 32px;
+    width: 1080px;
   }
-  let parsed: any
-  try { parsed = JSON.parse(bodyText) } catch { throw new Error('imagegen: resposta não-JSON') }
-  const b64 = parsed?.data?.[0]?.b64_json
-  if (!b64) throw new Error('imagegen: sem b64_json na resposta')
-  return { bytes: b64ToBytes(b64), usage: parsed?.usage }
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 8px; background: #1D4ED8; }
+  header { display: flex; gap: 24px; align-items: flex-start; margin-top: 8px; margin-bottom: 28px; }
+  header .head-left { flex: 1; min-width: 0; }
+  header .logo { height: 48px; margin-bottom: 20px; }
+  header h1 { margin: 0 0 12px; font-size: 42px; line-height: 1.1; font-weight: 800; color: #0F172A; letter-spacing: -0.5px; }
+  header .rule { width: 90px; height: 3px; background: #1D4ED8; margin: 4px 0 8px; }
+  header .subtitle { color: #64748B; font-size: 18px; font-weight: 500; }
+  header .head-right { width: 240px; flex-shrink: 0; display: flex; justify-content: flex-end; }
+  header .bottle { width: 240px; height: auto; max-height: 340px; object-fit: contain; }
+  header .bottle-fallback {
+    width: 200px; height: 300px; border-radius: 20px;
+    background: linear-gradient(180deg,#0F172A,#0F172A 65%,#1D4ED8 65%,#1D4ED8);
+    color:white; display:flex; align-items:center; justify-content:center; padding:16px; text-align:center;
+    font-weight:700; font-size:14px;
+  }
+
+  .block {
+    position: relative;
+    border: 2px solid #1D4ED8;
+    border-radius: 18px;
+    padding: 22px 24px 22px 84px;
+    margin: 44px 0 0;
+  }
+  .badge {
+    position: absolute; left: -18px; top: -18px;
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 26px;
+    box-shadow: 0 4px 10px rgba(15,23,42,0.15);
+  }
+  .block-heading {
+    margin: 0 0 16px; font-size: 22px; font-weight: 800; letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .cols { display: grid; gap: 18px; }
+  .cols.cols-1 { grid-template-columns: 1fr; }
+  .cols.cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .col-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .col-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid #1D4ED8; background: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .col-title { font-size: 15px; font-weight: 700; color: #0F172A; }
+  .col-num { color: inherit; margin-right: 4px; }
+
+  .col-list {
+    margin: 0; padding-left: 20px;
+    font-size: 14px; line-height: 1.5; color: #334155;
+  }
+  .col-list li { margin-bottom: 5px; }
+  .col-list strong { color: #0F172A; font-weight: 700; }
+
+  .warn {
+    margin-top: 10px; padding: 10px 12px;
+    background: #FEF2F2; border-left: 4px solid #EF4444;
+    border-radius: 6px;
+    color: #7F1D1D; font-size: 13px; line-height: 1.45;
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .warn-icon { font-size: 15px; }
+  .warn strong { color: #7F1D1D; }
+
+  footer {
+    margin-top: 32px;
+    background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 16px;
+    padding: 20px 24px; display: flex; gap: 18px; align-items: flex-start;
+  }
+  .shield {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #1D4ED8; color: white; font-size: 26px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  footer .foot-text {
+    font-size: 16px; line-height: 1.5; color: #0F172A; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <div class="top-bar"></div>
+  <header>
+    <div class="head-left">
+      <img class="logo" src="${SD_LOGO_URL}" alt="Smart Dent" crossorigin="anonymous" />
+      <h1>${escapeHtml(c.title)} — ${escapeHtml(resinName)}</h1>
+      <div class="rule"></div>
+      <div class="subtitle">${escapeHtml(c.subtitle)}</div>
+    </div>
+    <div class="head-right">${productImgHtml}</div>
+  </header>
+
+  ${sections}
+
+  <footer>
+    <div class="shield">🛡</div>
+    <div class="foot-text">${inlineFormat(c.important)}</div>
+  </footer>
+</body>
+</html>`
+}
+
+interface RenderResult { bytes: Uint8Array }
+
+async function renderPNG(html: string): Promise<RenderResult> {
+  const res = await fetch(RENDER_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, width: 1080, height: 'auto' }),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`render-template ${res.status}: ${t.slice(0, 300)}`)
+  }
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.startsWith('image/')) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`render-template retornou ${contentType || 'MIME vazio'}: ${t.slice(0, 200)}`)
+  }
+  const buf = await res.arrayBuffer()
+  return { bytes: new Uint8Array(buf) }
 }
 
 function extractJson(raw: string): any | null {
