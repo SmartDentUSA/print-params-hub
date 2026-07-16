@@ -1176,7 +1176,18 @@ async function pickRandomActiveVendedor(
     .eq("ativo", true)
     .eq("role", "vendedor");
 
-  if (!members || members.length === 0) {
+  // Guard: only members with numeric piperun_owner_id can enter rotation.
+  // Non-numeric values (e.g. emails) cause PipeRun 422 on deal creation.
+  const eligible = (members ?? []).filter((m) => {
+    const n = Number(m.piperun_owner_id);
+    return Number.isFinite(n) && n > 0;
+  });
+  const skipped = (members ?? []).length - eligible.length;
+  if (skipped > 0) {
+    console.warn(`[lia-assign] rotation: skipped ${skipped} active vendedor(es) with non-numeric piperun_owner_id`);
+  }
+
+  if (eligible.length === 0) {
     console.warn("[lia-assign] No active vendedores, falling back to admin");
     const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
     return {
@@ -1186,8 +1197,8 @@ async function pickRandomActiveVendedor(
     };
   }
 
-  const idx = Math.floor(Math.random() * members.length);
-  return members[idx] as TeamMember;
+  const idx = Math.floor(Math.random() * eligible.length);
+  return eligible[idx] as TeamMember;
 }
 
 // ─── AI Message Generation ───
