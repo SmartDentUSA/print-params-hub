@@ -1,80 +1,42 @@
 // Shared Google Drive helpers used by training-create-drive-folder,
 // smartops-gerar-doc-turma, generate-certificate, etc.
 //
-// Auth: service account (GOOGLE_SERVICE_ACCOUNT_JSON) → OAuth access token.
-// Scope: https://www.googleapis.com/auth/drive
+// Auth: Lovable Connector Gateway (OAuth user token — oraculosmartdent@gmail.com).
+// Service accounts don't have storage quota in a personal Gmail Drive, so we
+// route every call through the connector so files land under the OAuth user
+// quota and folder capabilities.
 
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
+const GATEWAY_BASE = "https://connector-gateway.lovable.dev/google_drive";
+const DRIVE_PATH = "/drive/v3";
+const UPLOAD_PATH = "/upload/drive/v3";
 
-function b64url(input: ArrayBuffer | string): string {
-  let bytes: Uint8Array;
-  if (typeof input === "string") bytes = new TextEncoder().encode(input);
-  else bytes = new Uint8Array(input);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s+/g, "");
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-let cachedToken: { token: string; exp: number } | null = null;
-
-export async function getDriveAccessToken(): Promise<string> {
-  const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
-  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
-  if (cachedToken && cachedToken.exp > Date.now() / 1000 + 60) return cachedToken.token;
-
-  const sa = JSON.parse(raw);
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 3600;
-  const header = { alg: "RS256", typ: "JWT" };
-  const claim = {
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/drive",
-    aud: "https://oauth2.googleapis.com/token",
-    iat,
-    exp,
+function gwHeaders(): HeadersInit {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const connKey = Deno.env.get("GOOGLE_DRIVE_API_KEY");
+  if (!lovableKey || !connKey) {
+    throw new Error("Missing LOVABLE_API_KEY or GOOGLE_DRIVE_API_KEY (Google Drive connector not linked)");
+  }
+  return {
+    Authorization: `Bearer ${lovableKey}`,
+    "X-Connection-Api-Key": connKey,
   };
-  const unsigned = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(claim))}`;
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToArrayBuffer(sa.private_key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
-  const jwt = `${unsigned}.${b64url(sig)}`;
-
-  const resp = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-  if (!resp.ok) throw new Error(`Google token error ${resp.status}: ${await resp.text()}`);
-  const data = await resp.json();
-  cachedToken = { token: data.access_token, exp };
-  return data.access_token;
 }
 
-async function driveFetch(token: string, path: string, init: RequestInit = {}, isUpload = false): Promise<any> {
-  const base = isUpload ? UPLOAD_API : DRIVE_API;
+/**
+ * Kept for backwards compatibility with callers that pass a `token` argument.
+ * The gateway supplies its own auth, so the returned string is only a marker.
+ */
+export async function getDriveAccessToken(): Promise<string> {
+  // Validate env upfront so callers fail fast with a clear error.
+  gwHeaders();
+  return "gateway";
+}
+
+async function driveFetch(_token: string, path: string, init: RequestInit = {}, isUpload = false): Promise<any> {
+  const base = isUpload ? `${GATEWAY_BASE}${UPLOAD_PATH}` : `${GATEWAY_BASE}${DRIVE_PATH}`;
   const resp = await fetch(`${base}${path}`, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, ...(init.headers || {}) },
+    headers: { ...gwHeaders(), ...(init.headers || {}) },
   });
   if (!resp.ok) throw new Error(`Drive ${path} ${resp.status}: ${await resp.text()}`);
   return resp.json();
@@ -121,10 +83,10 @@ export interface UploadOpts {
 
 /** Upload (or replace) a file via multipart. Returns the file id. */
 export async function driveUploadFile(opts: UploadOpts): Promise<string> {
-  const { token, folderId, name, content, mimeType } = opts;
+  const { folderId, name, content, mimeType } = opts;
   let existingId = opts.existingFileId || null;
   if (!existingId && opts.overwriteByName) {
-    existingId = await driveFindChild(token, folderId, name, false);
+    existingId = await driveFindChild(opts.token, folderId, name, false);
   }
 
   const boundary = `bdry_${crypto.randomUUID()}`;
@@ -152,10 +114,10 @@ export async function driveUploadFile(opts: UploadOpts): Promise<string> {
     ? `/files/${existingId}?uploadType=multipart&fields=id&supportsAllDrives=true`
     : `/files?uploadType=multipart&fields=id&supportsAllDrives=true`;
 
-  const resp = await fetch(`${UPLOAD_API}${path}`, {
+  const resp = await fetch(`${GATEWAY_BASE}${UPLOAD_PATH}${path}`, {
     method: existingId ? "PATCH" : "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...gwHeaders(),
       "Content-Type": `multipart/related; boundary=${boundary}`,
     },
     body,
