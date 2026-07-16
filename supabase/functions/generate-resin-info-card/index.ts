@@ -243,130 +243,102 @@ function assertStructuralParity(plan: CardPlan): { ok: true } | { ok: false; rea
   }
 }
 
-function renderBlockHtml(block: StructureBlock, content: ContentBlock): string {
-  const badgeClass =
-    block.color === 'blue' ? 'blue' : block.color === 'green' ? 'green' : 'purple'
-  const blockClass =
-    block.color === 'blue' ? 'block-blue' : block.color === 'green' ? 'block-green' : 'block-extra'
-  const cols = (content.columns || []).map((c) => `
-    <div class="col">
-      <div class="col-head"><span class="col-icon">${c.icon || '🔹'}</span><h3>${escapeHtml(c.title || '')}</h3></div>
-      <ul>
-        ${(c.items || []).map((it) => `<li><span class="dot">•</span><span>${inlineFormat(it.text, it.bold)}</span></li>`).join('')}
-      </ul>
-      ${c.note ? `<div class="callout"><span class="callout-ico">⚠️</span><span>${inlineFormat(c.note)}</span></div>` : ''}
-    </div>`).join('')
-  const colsClass = (content.columns?.length || 0) >= 4 ? 'cols four' : 'cols'
-  return `
-    <section class="block ${blockClass}">
-      <div class="block-head">
-        <span class="block-badge ${badgeClass}">${block.icon}</span>
-        <h2><span class="num">${escapeHtml(block.num)}</span> ${escapeHtml(content.heading || '')}</h2>
-      </div>
-      <div class="${colsClass}">${cols}</div>
-    </section>`
+// Serializa o conteúdo trilíngue em texto simples para injetar no prompt de imagem.
+function serializePlanContent(plan: CardPlan, lang: Lang): string {
+  const c = plan.content[lang]
+  const parts: string[] = []
+  parts.push(`TITLE: "${c.title}"`)
+  parts.push(`SUBTITLE: "${c.subtitle}"`)
+  for (const b of plan.structure.blocks) {
+    const blk = c.blocks[b.id]
+    if (!blk) continue
+    parts.push(`\nSECTION ${b.num} ${blk.heading} [color=${b.color}, icon=${b.icon}]`)
+    blk.columns.forEach((col, i) => {
+      parts.push(`  ${b.num.replace(')', '')}.${i + 1} ${col.title} [icon=${col.icon}]`)
+      col.items.forEach((it) => parts.push(`    • ${it.text}`))
+      if (col.note) parts.push(`    ⚠️ ${col.note}`)
+    })
+  }
+  parts.push(`\nFOOTER "IMPORTANT" BOX: ${c.important}`)
+  return parts.join('\n')
 }
 
-function renderCardHtml(opts: {
+// Constrói o prompt visual para GPT-image-2, replicando o layout de referência.
+function buildImagePrompt(opts: {
   plan: CardPlan
   lang: Lang
   resinName: string
-  productImage: string | null
 }): string {
-  const l = L[opts.lang]
-  const langContent = opts.plan.content[opts.lang]
-  const blocksHtml = opts.plan.structure.blocks
-    .map((b) => {
-      const c = langContent.blocks[b.id]
-      return c ? renderBlockHtml(b, c) : ''
-    })
-    .join('')
+  const serialized = serializePlanContent(opts.plan, opts.lang)
+  const langLabel = opts.lang === 'pt' ? 'Portuguese (Brazil)' : opts.lang === 'en' ? 'English' : 'Spanish'
 
-  return `<!doctype html>
-<html lang="${opts.lang}"><head><meta charset="utf-8"/>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:1080px;background:#F8FAFC;font-family:'Inter',system-ui,sans-serif;color:#1E293B}
-  .page{position:relative;padding:52px 56px 48px;background:#F8FAFC;overflow:hidden}
-  .topbar{position:absolute;top:0;left:0;right:0;height:8px;background:#1D4ED8}
-  .bg-pattern{position:absolute;top:120px;right:-30px;width:340px;height:340px;opacity:.35;
-    background-image:linear-gradient(#CBD5E1 1px,transparent 1px),linear-gradient(90deg,#CBD5E1 1px,transparent 1px);
-    background-size:22px 22px;-webkit-mask:radial-gradient(circle at 30% 30%,#000 40%,transparent 70%);
-                    mask:radial-gradient(circle at 30% 30%,#000 40%,transparent 70%)}
-  .header{display:flex;gap:24px;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
-  .header-left{flex:1}
-  .logo{height:56px;margin-bottom:20px;object-fit:contain;object-position:left}
-  h1{font-size:44px;font-weight:800;line-height:1.05;letter-spacing:-.02em;color:#0F172A}
-  h1 .prod{color:#0F172A}
-  h1 .plus{color:#2563EB}
-  .subtitle{margin-top:10px;color:#475569;font-size:16px;display:flex;align-items:center;gap:10px}
-  .subtitle::before{content:'';display:inline-block;width:34px;height:3px;background:#1D4ED8;border-radius:2px}
-  .product-img-wrap{flex:0 0 210px;height:260px;display:flex;align-items:center;justify-content:center}
-  .product-img{max-width:100%;max-height:100%;object-fit:contain}
-  .block{border:2px solid;border-radius:22px;padding:22px 24px 20px;margin-bottom:22px;background:#fff;position:relative}
-  .block-blue{border-color:#1D4ED8;background:#F0F5FF}
-  .block-green{border-color:#16A34A;background:#F0FBF3}
-  .block-extra{border-color:#7C3AED;background:#F6F1FE}
-  .block-head{display:flex;align-items:center;gap:14px;margin:-38px 0 14px 0}
-  .block-badge{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;box-shadow:0 6px 16px rgba(15,23,42,.15)}
-  .block-badge.blue{background:#1D4ED8}
-  .block-badge.green{background:#16A34A}
-  .block-badge.purple{background:#7C3AED}
-  .block-head h2{font-size:22px;font-weight:800;color:#0F172A;letter-spacing:.02em}
-  .block-head .num{color:#1D4ED8;margin-right:4px}
-  .block-green .block-head .num{color:#16A34A}
-  .block-extra .block-head .num{color:#7C3AED}
-  .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
-  .cols.four{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .col{min-width:0}
-  .col-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .col-icon{width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:18px;color:#1D4ED8;flex:0 0 36px}
-  .block-green .col-icon{color:#16A34A}
-  .block-extra .col-icon{color:#7C3AED}
-  .col h3{font-size:14px;font-weight:700;color:#0F172A;line-height:1.25}
-  .col ul{list-style:none;padding:0;margin:0}
-  .col li{display:flex;gap:8px;font-size:13px;line-height:1.45;color:#334155;margin-bottom:6px}
-  .col li strong{color:#0F172A;font-weight:700}
-  .col li .dot{color:#1D4ED8;font-weight:800;flex:0 0 10px}
-  .block-green .col li .dot{color:#16A34A}
-  .block-extra .col li .dot{color:#7C3AED}
-  .col li.sub{margin-left:16px;font-size:12px;color:#64748B}
-  .col li.sub .sub-dot{color:#94A3B8}
-  .callout{margin-top:8px;padding:10px 12px;background:#FEF2F2;border-left:3px solid #EF4444;border-radius:6px;display:flex;gap:8px;font-size:12.5px;color:#7F1D1D;line-height:1.4}
-  .callout .callout-ico{flex:0 0 auto}
-  .footer{margin-top:18px;padding:18px 22px;background:#FEF2F2;border-radius:14px;display:flex;gap:14px;align-items:flex-start;border:1px solid #FECACA}
-  .footer .shield{width:44px;height:44px;border-radius:50%;background:#1D4ED8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 44px}
-  .footer .imp{font-size:20px;font-weight:800;color:#1D4ED8;margin-bottom:4px}
-  .footer p{font-size:13px;color:#334155;line-height:1.5}
-</style>
-</head>
-<body>
-  <div class="page">
-    <div class="topbar"></div>
-    <div class="bg-pattern"></div>
-    <header class="header">
-      <div class="header-left">
-        <img class="logo" src="${SD_LOGO}" alt="Smart Dent"/>
-        <h1><span class="prod">${escapeHtml(langContent.title || l.title)} —</span><br/><span class="plus">${escapeHtml(opts.resinName)}</span></h1>
-        <div class="subtitle">${escapeHtml(langContent.subtitle || l.subtitle)}</div>
-      </div>
-      ${opts.productImage ? `<div class="product-img-wrap"><img class="product-img" src="${opts.productImage}" alt="${escapeHtml(opts.resinName)}"/></div>` : ''}
-    </header>
+  return `Vertical infographic poster, portrait 1024x1536, technical dental resin usage & post-processing guide for the Smart Dent brand.
 
-    ${blocksHtml}
+STYLE: clean flat vector illustration, professional dental technical publication. White background (#FFFFFF) with a very faint geometric line pattern in the top-right corner. Thin navy blue horizontal bar (#1D4ED8) across the very top edge. Sans-serif typography, high legibility, generous whitespace. NO photorealism, NO 3D shadows, NO gradients on text.
 
-    <div class="footer">
-      <div class="shield">🛡</div>
-      <div>
-        <div class="imp">${escapeHtml(l.important)}</div>
-        <p>${escapeHtml(langContent.important || l.importantText)}</p>
-      </div>
-    </div>
-  </div>
-</body></html>`
+HEADER (top area):
+- Top-left: "SMART DENT" logo — stylized "SD" monogram in navy (#1D4ED8) with orange accent arc, plus wordmark "SMART DENT" in bold navy sans-serif.
+- Top-right: photorealistic 3D render of a black cylindrical 1kg resin bottle with a white Smart Dent label. The label shows "SMART DENT" at top and the product name "${opts.resinName}" prominently in blue.
+- Below logo: large bold title in dark navy (#0F172A), two lines max, weight 800: "${opts.plan.content[opts.lang].title} — ${opts.resinName}".
+- Under title: short subtitle in slate gray (#475569) preceded by a short navy horizontal line: "${opts.plan.content[opts.lang].subtitle}".
+
+BODY: three (or two) stacked rounded-rectangle sections with 2px colored borders, soft tinted backgrounds, and a circular colored badge with a white icon overlapping the top-left corner of each section. Section colors follow the plan exactly:
+  • blue → border/badge #1D4ED8, background #F0F5FF (thermometer icon 🌡️)
+  • green → border/badge #16A34A, background #F0FBF3 (gear icon ⚙️)
+  • purple → border/badge #7C3AED, background #F6F1FE (sun icon ☀️)
+
+Each section header: circular badge + numbered heading like "1) PRÉ-PROCESSAMENTO" in bold uppercase. Inside each section, arrange sub-steps as a horizontal row of columns (2–4 columns depending on content). Each column has:
+  - A small white circular icon (32–40px) outlined in the section color, with the sub-step's emoji/icon centered.
+  - A short bold title with numbering like "1.1", "1.2", "2.3"…
+  - A tight bulleted list, small dark-slate body text (#334155), important tokens (times, temperatures, rpm) in bold black.
+  - Optional warning callout with a light pink background (#FEF2F2), red left border, ⚠️ icon and short red text (#7F1D1D).
+
+FOOTER: a full-width rounded pink box (#FEF2F2 background, #FECACA border) at the bottom, containing a navy circular shield badge (🛡) on the left and, on the right, the word "${opts.plan.content[opts.lang].important}" in large bold navy followed by a short paragraph of body text.
+
+LANGUAGE: render every text label EXACTLY in ${langLabel}. Do NOT translate, paraphrase, or invent extra text. Do NOT add prices, monetary values, or competitor brands. Do NOT add any extra sections beyond what is listed below.
+
+EXACT CONTENT TO RENDER (verbatim, preserving order, numbering, bullets and warnings):
+
+${serialized}
+
+Reproduce the layout of a Smart Dent "Processo de Uso e Pós-Processamento" infographic poster (three-section vertical guide with colored badges, columns of sub-steps, warning callouts, and an "Important" footer). Output must be a single high-resolution PNG poster, all text sharp and correctly spelled, no lorem ipsum, no watermarks.`
+}
+
+// Base64 → Uint8Array (Deno).
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+interface ImageGenResult { bytes: Uint8Array; usage?: any }
+
+async function generateInfographicPNG(prompt: string): Promise<ImageGenResult> {
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY não configurada')
+  const resp = await fetch(IMAGE_GATEWAY, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      prompt,
+      size: '1024x1536',
+      quality: 'high',
+      n: 1,
+    }),
+  })
+  const bodyText = await resp.text()
+  if (!resp.ok) {
+    throw new Error(`imagegen ${resp.status}: ${bodyText.slice(0, 400)}`)
+  }
+  let parsed: any
+  try { parsed = JSON.parse(bodyText) } catch { throw new Error('imagegen: resposta não-JSON') }
+  const b64 = parsed?.data?.[0]?.b64_json
+  if (!b64) throw new Error('imagegen: sem b64_json na resposta')
+  return { bytes: b64ToBytes(b64), usage: parsed?.usage }
 }
 
 function extractJson(raw: string): any | null {
