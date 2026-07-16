@@ -501,7 +501,65 @@ Deno.serve(async (req) => {
     const instrEs = (resin.processing_instructions_es || instrPt).trim()
     if (!instrPt) throw new Error('processing_instructions vazio: adicione o texto antes de gerar')
 
-    // ── 1) Chama GPT-5.6 Sol UMA vez, obtém plano trilíngue com paridade estrutural.
+    // Marca como "processing" e responde imediatamente. Job real roda em background
+    // via EdgeRuntime.waitUntil (evita o timeout de 150s da edge function).
+    await supabase
+      .from('resins')
+      .update({
+        info_card_status: 'processing',
+        info_card_error: null,
+        info_card_started_at: new Date().toISOString(),
+      })
+      .eq('id', resin_id)
+
+    const job = runJob({
+      supabase,
+      resin,
+      langs,
+      nameFor,
+      instrPt,
+      instrEn,
+      instrEs,
+    })
+
+    // @ts-ignore — EdgeRuntime é global no runtime Deno do Supabase
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(job)
+    } else {
+      // Fallback local: não bloqueia a resposta.
+      job.catch((e) => console.error('[generate-resin-info-card] job error:', e))
+    }
+
+    return new Response(JSON.stringify({ ok: true, status: 'processing' }), {
+      status: 202,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err: any) {
+    console.error('[generate-resin-info-card] error:', err)
+    return new Response(JSON.stringify({ error: err?.message || String(err) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// Job em background: planeja com LLM, gera 3 PNGs em paralelo, faz upload
+// e persiste status em `resins`.
+// ────────────────────────────────────────────────────────────────────────────
+async function runJob(ctx: {
+  supabase: ReturnType<typeof createClient>
+  resin: any
+  langs: Lang[]
+  nameFor: (l: Lang) => string
+  instrPt: string
+  instrEn: string
+  instrEs: string
+}): Promise<void> {
+  const { supabase, resin, langs, nameFor, instrPt, instrEn, instrEs } = ctx
+  const resin_id = resin.id
+  try {
     const llm = await planCardWithLLM({
       resinNamePt: nameFor('pt'),
       resinNameEn: nameFor('en'),
@@ -514,27 +572,47 @@ Deno.serve(async (req) => {
     const plan = llm.plan
     const modelUsed = llm.model || 'gpt-5.6-sol'
 
-    const results: Record<string, string> = {}
     const timestamp = Date.now()
     const safeSlug = (resin.slug || resin.id).toString().replace(/[^a-z0-9-]/gi, '-').toLowerCase()
 
-    // ── 2) Gera 1 PNG real por idioma via GPT-image-2 (Lovable AI Gateway).
+    // 3 gerações em paralelo — corta o tempo total de ~3× para ~1×.
+    const settled = await Promise.allSettled(
+      langs.map(async (lang) => {
+        const prompt = buildImagePrompt({ plan, lang, resinName: nameFor(lang) })
+        console.log(`[generate-resin-info-card] imagegen lang=${lang} prompt_chars=${prompt.length}`)
+        const img = await generateInfographicPNG(prompt)
+        const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
+        const { error: upErr } = await supabase.storage
+          .from('model-images')
+          .upload(path, img.bytes, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
+        if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
+        const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
+        return { lang, url: pub.publicUrl, usage: img.usage }
+      }),
+    )
+
+    const results: Record<string, string> = {}
     const imgUsages: any[] = []
-    for (const lang of langs) {
-      const prompt = buildImagePrompt({ plan, lang, resinName: nameFor(lang) })
-      console.log(`[generate-resin-info-card] imagegen lang=${lang} prompt_chars=${prompt.length}`)
-      const img = await generateInfographicPNG(prompt)
-      if (img.usage) imgUsages.push({ lang, ...img.usage })
-      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
-      const { error: upErr } = await supabase.storage
-        .from('model-images')
-        .upload(path, img.bytes, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
-      if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
-      const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
-      results[lang] = pub.publicUrl
+    const errors: string[] = []
+    settled.forEach((r, i) => {
+      const lang = langs[i]
+      if (r.status === 'fulfilled') {
+        results[lang] = r.value.url
+        if (r.value.usage) imgUsages.push({ lang, ...r.value.usage })
+      } else {
+        errors.push(`${lang}: ${r.reason?.message || String(r.reason)}`)
+      }
+    })
+
+    if (Object.keys(results).length === 0) {
+      throw new Error(`Todas as gerações falharam — ${errors.join(' | ')}`)
     }
 
-    const update: Record<string, unknown> = { info_card_generated_at: new Date().toISOString() }
+    const update: Record<string, unknown> = {
+      info_card_generated_at: new Date().toISOString(),
+      info_card_status: errors.length ? 'error' : 'ready',
+      info_card_error: errors.length ? errors.join(' | ') : null,
+    }
     if (results.pt) update.info_card_url_pt = results.pt
     if (results.en) update.info_card_url_en = results.en
     if (results.es) update.info_card_url_es = results.es
@@ -542,7 +620,6 @@ Deno.serve(async (req) => {
     const { error: uErr } = await supabase.from('resins').update(update).eq('id', resin_id)
     if (uErr) throw uErr
 
-    // Log de uso (fire-and-forget) — LLM planejador + imagegen.
     if (llm.usage) {
       logAIUsage({
         functionName: 'generate-resin-info-card',
@@ -563,19 +640,16 @@ Deno.serve(async (req) => {
         metadata: { resin_id, lang: u.lang },
       }).catch(() => {})
     }
-
-    return new Response(JSON.stringify({
-      ok: true,
-      urls: results,
-      model_used: `${IMAGE_MODEL} (plan: poe/${modelUsed})`,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    console.log(`[generate-resin-info-card] job done resin=${resin_id} langs=${Object.keys(results).join(',')} errors=${errors.length}`)
   } catch (err: any) {
-    console.error('[generate-resin-info-card] error:', err)
-    return new Response(JSON.stringify({ error: err?.message || String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    console.error('[generate-resin-info-card] job failure:', err)
+    await supabase
+      .from('resins')
+      .update({
+        info_card_status: 'error',
+        info_card_error: (err?.message || String(err)).slice(0, 1000),
+      })
+      .eq('id', resin_id)
+      .then(() => {})
   }
-})
+}
