@@ -518,19 +518,17 @@ Deno.serve(async (req) => {
     const timestamp = Date.now()
     const safeSlug = (resin.slug || resin.id).toString().replace(/[^a-z0-9-]/gi, '-').toLowerCase()
 
-    // ── 2) Renderiza cada idioma com o MESMO template determinístico.
+    // ── 2) Gera 1 PNG real por idioma via GPT-image-2 (Lovable AI Gateway).
+    const imgUsages: any[] = []
     for (const lang of langs) {
-      const html = renderCardHtml({
-        plan,
-        lang,
-        resinName: nameFor(lang),
-        productImage: resin.image_url,
-      })
-      const rendered = await renderImage(html)
-      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.${rendered.extension}`
+      const prompt = buildImagePrompt({ plan, lang, resinName: nameFor(lang) })
+      console.log(`[generate-resin-info-card] imagegen lang=${lang} prompt_chars=${prompt.length}`)
+      const img = await generateInfographicPNG(prompt)
+      if (img.usage) imgUsages.push({ lang, ...img.usage })
+      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
       const { error: upErr } = await supabase.storage
         .from('model-images')
-        .upload(path, rendered.bytes, { contentType: rendered.contentType, upsert: true, cacheControl: '3600' })
+        .upload(path, img.bytes, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
       if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
       const { data: pub } = supabase.storage.from('model-images').getPublicUrl(path)
       results[lang] = pub.publicUrl
@@ -544,19 +542,33 @@ Deno.serve(async (req) => {
     const { error: uErr } = await supabase.from('resins').update(update).eq('id', resin_id)
     if (uErr) throw uErr
 
-    // Log de uso (fire-and-forget).
+    // Log de uso (fire-and-forget) — LLM planejador + imagegen.
     if (llm.usage) {
       logAIUsage({
         functionName: 'generate-resin-info-card',
-        actionLabel: 'resin_info_card',
+        actionLabel: 'resin_info_card_plan',
         model: `poe/${modelUsed}`,
         promptTokens: llm.usage.prompt_tokens || 0,
         completionTokens: llm.usage.completion_tokens || 0,
         metadata: { resin_id, languages: langs },
       }).catch(() => {})
     }
+    for (const u of imgUsages) {
+      logAIUsage({
+        functionName: 'generate-resin-info-card',
+        actionLabel: 'resin_info_card_image',
+        model: IMAGE_MODEL,
+        promptTokens: u.input_tokens || 0,
+        completionTokens: u.output_tokens || 0,
+        metadata: { resin_id, lang: u.lang },
+      }).catch(() => {})
+    }
 
-    return new Response(JSON.stringify({ ok: true, urls: results, model_used: `poe/${modelUsed}` }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      urls: results,
+      model_used: `${IMAGE_MODEL} (plan: poe/${modelUsed})`,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
