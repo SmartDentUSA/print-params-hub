@@ -1,22 +1,53 @@
-## Ação
+## Diagnóstico
 
-Reprocessar 3 dos 4 leads via edge function `lia-assign` com `commercial_override=true`. Skip do #1 (email de teste, bloqueado por regra).
+Investiguei DNS + resposta HTTP do domínio `parametros.smartdent.com.br`:
 
-| # | attendance_id | Lead | Ação |
-|---|---|---|---|
-| 1 | 02efa7dc-1f23-4a27-bd27-f4f20e181a96 | julesteste (teste) | **skip** (crm_creation_blocked=true) |
-| 2 | 08f36444-c228-408e-aede-15067daad98b | Dra. Paulina Becker | reprocessar |
-| 3 | f0e34a3d-1f9c-46f5-add9-38ed5ec593df | Rafael Mensch Tavares | reprocessar |
-| 4 | 67d289e8-d017-4c6f-abd6-24375ab2465e | Instituto Excellence | corrigir email `.nf → .br` e reprocessar |
+- **DNS**: aponta para `vercel-dns-017.com` → hospedagem é **Vercel**, não Lovable.
+- `curl -I https://parametros.smartdent.com.br/api/v1/health` retorna `server: Vercel` e `x-served-by: supabase-edge-runtime`, `sb-project-ref: okeogjgqijbfkudfjadz` — ou seja, **o rewrite do vercel.json JÁ está publicado e funcionando**. O proxy está ativo.
+- **404 do usuário estava obsoleto** (provavelmente antes do deploy Vercel concluir ou cache). Todos os 5 endpoints agora respondem HTTP 200.
+- **Problema real**: o Supabase Functions Gateway entrega à função `smart-dent-api` sempre no path raiz — o subpath (`/api/v1/health`, `/api/v1/resins` etc.) é descartado. Por isso todos os endpoints devolvem a mesma resposta genérica "Smart Dent Knowledge API v1" com a dica `Direct call: add ?path=/api/v1/health`.
+- Confirmado: chamando `https://parametros.smartdent.com.br/api/v1/health?path=/api/v1/health` a função responde corretamente com `{"status":"ok","articles_online":605,...}`. A função foi escrita para ler o path via query param `path`.
 
-## Passos
+Portanto o rewrite atual passa o path na URL, mas a função ignora e só olha `?path=`. Precisamos passar o subpath via query param.
 
-1. `UPDATE lia_attendances SET email='richard.valdomiro@terra.com.br' WHERE id='67d289e8-…'` (typo óbvio no TLD).
-2. Chamar `lia-assign` 3× (uma por attendance_id) com `{ attendance_id, commercial_override: true, source: 'manual_reprocess_julho_2026' }`.
-3. Validar via `SELECT id, piperun_id, piperun_deal_id, piperun_pipeline_name FROM lia_attendances WHERE id IN (…)`.
-4. Ler `system_health_logs` e `agent_actions_log` para os 3 IDs no intervalo 04-05/07 e reportar por que a criação original falhou silenciosamente.
-5. Reportar resultado consolidado (deals criados + causa raiz identificada).
+## Mudança proposta
 
-## Não incluso
-- Correção estrutural do fluxo silencioso (fica para plano separado após diagnóstico).
-- Métricas `fn_form_metrics` (plano anterior, ainda pendente).
+Editar apenas o rewrite `/api/v1/:path*` no `vercel.json` (sem tocar em nenhum outro), trocando de:
+
+```json
+{
+  "source": "/api/v1/:path*",
+  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-dent-api/api/v1/:path*"
+}
+```
+
+para:
+
+```json
+{
+  "source": "/api/v1/:path*",
+  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-dent-api?path=/api/v1/:path*"
+}
+```
+
+Os query params originais da requisição (`?printer=elegoo`, `?q=vitality`) são preservados pelo Vercel e concatenados à destination, então a função receberá `?path=/api/v1/parameters&printer=elegoo`.
+
+O rewrite `/ai-search` fica inalterado. Nenhum outro rewrite é tocado.
+
+## Validação
+
+Após deploy no Vercel (~1 min), testar via `curl`:
+
+| Endpoint | Esperado |
+|---|---|
+| `/api/v1/health` | `{"status":"ok", articles_online:605}` |
+| `/api/v1/resins` | lista de resinas |
+| `/api/v1/parameters?printer=elegoo` | parâmetros filtrados |
+| `/api/v1/search?q=vitality` | resultados de busca |
+| `/api/v1/openapi.json` | spec OpenAPI |
+
+## O que NÃO vou fazer
+
+- Não editar outros rewrites do `vercel.json`.
+- Não mexer no rewrite `/ai-search` (esse já vai direto para a função `ai-search`, sem subpath — deve funcionar).
+- Não editar a edge function `smart-dent-api` (não está no repositório local; é gerenciada externamente).
