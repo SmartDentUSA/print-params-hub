@@ -28,4 +28,6 @@ Todos os outros pipelines (CS, Ganhos, Treinamento, E-book, Distribuidor) mantê
 
 Se adicionar novos pipelines reativáveis, atualizar `canonPipelineId === 72938` para `[72938, <novo_id>].includes(...)` nos DOIS blocos. Sem espelhar na rota B, leads em Estagnados que preenchem novo lead ad ficam presos em CDP-only (caso Marcelo Correa / Renan Balsanelli 10/07/2026).
 
+**Gate simplificado — sem exigir `conversionKey` (16/07/2026 Sandro Galvão):** o hatch em ambas as rotas dispara com apenas `canonPipelineId === 72938 && formName`. Antes exigia `conversionKey` truthy, e casos onde o canônico legado tinha `platform_form_id`/`raw_payload.form_submissions` vazios (Sandro entrou 2026-03-16 sem esses campos) faziam `buildConversionKey` retornar valor válido mas outra checagem lateral acabava não disparando o hatch. Fallback: `effectiveConversionKey = conversionKey || meta:redelivery:<leadgen_id>`. `conversion_key_fallback:true` no log identifica o path.
+
 **How to apply:** Ao adicionar novos pipelines "reativáveis", estender o check nos dois blocos acima.
