@@ -1,23 +1,26 @@
 ## Problema
 
-Na aba **Configurações** de reativação, todos os selects de pipelines PipeRun mostram "Erro ao carregar". Causa raiz confirmada:
+Registrei `piperun-list-pipelines` em `supabase/config.toml`, mas o endpoint continua retornando `404 NOT_FOUND`. A causa é o import inválido no topo do arquivo:
 
-- O hook `usePiperunPipelines` chama a Edge Function `piperun-list-pipelines`.
-- O código da função existe em `supabase/functions/piperun-list-pipelines/index.ts`, mas **não está registrada em `supabase/config.toml`**, então nunca foi deployada.
-- Teste direto retorna: `404 {"code":"NOT_FOUND","message":"Requested function was not found"}`.
+```ts
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+```
+
+Esse subpath não existe no pacote — o boot da função falha silenciosamente e o runtime deixa de servi-la (404). Outras funções que funcionam (ex.: `piperun-api-test`) definem `corsHeaders` inline.
 
 ## Correção
 
-Registrar a função em `supabase/config.toml` adicionando:
+Substituir o import quebrado por uma constante local no arquivo `supabase/functions/piperun-list-pipelines/index.ts`:
 
-```toml
-[functions.piperun-list-pipelines]
-verify_jwt = false
+```ts
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 ```
 
-O deploy é automático. Após o deploy, os 5 selects (Pipeline VENDAS, CS, LTV, Etapa LTV, LTV Perdidos) passam a carregar via `PIPERUN_API_KEY` já configurada (usada por `piperun-api-test`).
+Nenhuma outra alteração. Após o deploy automático, os 5 selects de pipelines (VENDAS, CS, LTV, Etapa LTV, LTV Perdidos) passarão a carregar.
 
 ## Escopo
 
-- Alterar apenas `supabase/config.toml` (adicionar bloco da função).
-- Nenhum outro arquivo tocado.
+- Editar apenas `supabase/functions/piperun-list-pipelines/index.ts` (trocar o import por const inline).
