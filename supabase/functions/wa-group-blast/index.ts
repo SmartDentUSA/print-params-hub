@@ -144,6 +144,8 @@ serve(async (req) => {
     campaign_id:  cid,
     group_jid:    g.group_jid,
     node_index:   0,
+    node_id:      String(flowNode.id),
+    sequence_no:  1,
     node_type:    body.message_type,
     content_json: body.content,
     scheduled_at: scheduledAt.toISOString(),

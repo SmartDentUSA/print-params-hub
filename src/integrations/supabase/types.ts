@@ -24541,11 +24541,13 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
+          node_id: string | null
           node_index: number
           node_type: string
           retry_count: number
           scheduled_at: string
           sent_at: string | null
+          sequence_no: number
           status: string
         }
         Insert: {
@@ -24559,11 +24561,13 @@ export type Database = {
           evo_message_id?: string | null
           group_jid: string
           id?: string
+          node_id?: string | null
           node_index: number
           node_type: string
           retry_count?: number
           scheduled_at: string
           sent_at?: string | null
+          sequence_no: number
           status?: string
         }
         Update: {
@@ -24577,11 +24581,13 @@ export type Database = {
           evo_message_id?: string | null
           group_jid?: string
           id?: string
+          node_id?: string | null
           node_index?: number
           node_type?: string
           retry_count?: number
           scheduled_at?: string
           sent_at?: string | null
+          sequence_no?: number
           status?: string
         }
         Relationships: [
@@ -29468,11 +29474,13 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
+          node_id: string | null
           node_index: number
           node_type: string
           retry_count: number
           scheduled_at: string
           sent_at: string | null
+          sequence_no: number
           status: string
         }[]
         SetofOptions: {

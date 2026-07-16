@@ -230,6 +230,8 @@ export interface WaQueueRow {
   id: string;
   campaign_id: string;
   node_index: number;
+  node_id: string | null;
+  sequence_no: number;
   node_type: string;
   status: "pending" | "sending" | "sent" | "failed" | "skipped";
   scheduled_at: string;

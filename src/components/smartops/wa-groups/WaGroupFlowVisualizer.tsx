@@ -51,7 +51,7 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
     const sb = supabase as any;
     const [{ data: c, error: ec }, { data: q, error: eq }] = await Promise.all([
       sb.from("wa_campaigns").select("*").eq("id", campaignId).single(),
-      sb.from("wa_message_queue").select("*").eq("campaign_id", campaignId).order("node_index", { ascending: true }),
+      sb.from("wa_message_queue").select("*").eq("campaign_id", campaignId).order("sequence_no", { ascending: true }),
     ]);
     if (ec || eq) { toast.error((ec ?? eq)?.message); setLoading(false); return; }
     setCampaign(c);
@@ -106,10 +106,10 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">{campaign.name}</h2>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               Status: <Badge variant="outline" className="ml-1">{campaign.status}</Badge>
               {campaign.started_at && <> · Iniciada em {new Date(campaign.started_at).toLocaleString("pt-BR")}</>}
-            </p>
+            </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <button
@@ -149,7 +149,7 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
                   <Icon className="w-4 h-4 mt-0.5 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-[10px]">#{row.node_index + 1}</Badge>
+                      <Badge variant="outline" className="text-[10px]">#{row.sequence_no}</Badge>
                       <span className="text-sm font-medium capitalize">{row.node_type}</span>
                       <Badge className={`text-[10px] ${statusVariant[row.status]}`}>
                         <StatusIcon className={`w-3 h-3 mr-1 ${row.status === "sending" ? "animate-spin" : ""}`} />
