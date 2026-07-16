@@ -38,7 +38,13 @@ function extractJson(raw: string): any | null {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
-    const { resinId, plan, targetLang, forceRefresh } = await req.json() as { resinId?: string; plan: any; targetLang: Lang; forceRefresh?: boolean }
+    const { resinId, plan, targetLang, sourceSignature, forceRefresh } = await req.json() as {
+      resinId?: string
+      plan: any
+      targetLang: Lang
+      sourceSignature?: string
+      forceRefresh?: boolean
+    }
     if (!plan || !targetLang || !['en', 'es', 'pt'].includes(targetLang)) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
         status: 400,
@@ -56,7 +62,7 @@ Deno.serve(async (req) => {
       const col = `info_card_plan_${targetLang}` as const
       const { data } = await supabase.from('resins').select(col).eq('id', resinId).maybeSingle() as any
       const cached = data?.[col]
-      if (cached && cached.sections?.length) {
+      if (cached && cached.sections?.length && (!sourceSignature || cached._sourceSignature === sourceSignature)) {
         return new Response(JSON.stringify({ plan: cached, cached: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -110,6 +116,10 @@ Rules:
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Vincula a tradução ao conteúdo PT exato que a originou. Assim um plano
+    // antigo nunca é reutilizado depois que as instruções forem alteradas.
+    if (sourceSignature) translated._sourceSignature = sourceSignature
 
     // persist cache
     if (resinId) {

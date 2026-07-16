@@ -1442,7 +1442,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         if (!window.confirm(`Remover imagem ${lang.toUpperCase()} deste card?`)) return;
                         setUploadingLang(lang);
                         try {
-                          const { error } = await supabase
+                          const { data: updated, error } = await supabase
                             .from('resins')
                             .update({
                               [`info_card_url_${lang}`]: null,
@@ -1450,8 +1450,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               info_card_status: null,
                               info_card_error: null,
                             } as any)
-                            .eq('id', formData.id);
+                            .eq('id', formData.id)
+                            .select('id')
+                            .maybeSingle();
                           if (error) throw error;
+                          if (!updated) throw new Error('A imagem não foi removida. Verifique sua sessão de administrador.');
                           setFormData((prev: any) => ({
                             ...prev,
                             [`info_card_url_${lang}`]: null,
