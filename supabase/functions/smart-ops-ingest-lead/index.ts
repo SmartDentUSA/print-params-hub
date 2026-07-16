@@ -653,7 +653,10 @@ Deno.serve(async (req) => {
           // no PipeRun antes de qualquer ação.
           const canonPipelineId = Number((canon as Record<string, unknown>).piperun_pipeline_id ?? 0);
           const isEstagnadosCanonical = canonPipelineId === 72938;
-          if (isEstagnadosCanonical && formName && conversionKey) {
+          if (isEstagnadosCanonical && formName) {
+            const effectiveConversionKey =
+              conversionKey ||
+              (dedupeId ? `meta:redelivery:${String(dedupeId)}` : `form:${formName}:${new Date().toISOString()}`);
             try {
               await supabase.from("system_health_logs").insert({
                 function_name: "smart-ops-ingest-lead",
@@ -665,7 +668,8 @@ Deno.serve(async (req) => {
                   form_name: formName,
                   new_leadgen_id: dedupeId ? String(dedupeId) : null,
                   canonical_pipeline_id: canonPipelineId,
-                  conversion_key: conversionKey,
+                  conversion_key: effectiveConversionKey,
+                  conversion_key_fallback: !conversionKey,
                   dedupe_via: deferredRedeliveryVia,
                 },
               });
@@ -678,7 +682,7 @@ Deno.serve(async (req) => {
                     lead_id: canon.id,
                     trigger: "sdr_captacao_reativacao",
                     new_conversion_confirmed: true,
-                    conversion_key: conversionKey,
+                    conversion_key: effectiveConversionKey,
                     form_name: formName,
                     source,
                     force: true,
