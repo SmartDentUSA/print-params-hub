@@ -20528,6 +20528,7 @@ export type Database = {
           account_id: string | null
           analytics_synced_at: string | null
           auto_blast_at: string | null
+          blast_seq: number | null
           campaign_id: string | null
           caption: string | null
           caption_fingerprint: string | null
@@ -20563,6 +20564,7 @@ export type Database = {
           account_id?: string | null
           analytics_synced_at?: string | null
           auto_blast_at?: string | null
+          blast_seq?: number | null
           campaign_id?: string | null
           caption?: string | null
           caption_fingerprint?: string | null
@@ -20598,6 +20600,7 @@ export type Database = {
           account_id?: string | null
           analytics_synced_at?: string | null
           auto_blast_at?: string | null
+          blast_seq?: number | null
           campaign_id?: string | null
           caption?: string | null
           caption_fingerprint?: string | null
