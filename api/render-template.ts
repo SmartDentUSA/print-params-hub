@@ -18,19 +18,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: { width, height },
+      defaultViewport: { width, height: typeof height === 'number' ? height : 1500 },
       executablePath: await chromium.executablePath(),
       headless: true,
     })
 
     try {
       const page = await browser.newPage()
-      await page.setViewport({ width, height })
-      await page.setContent(html, { waitUntil: 'networkidle0' })
+      const isAuto = height === 'auto' || height === 0
+      await page.setViewport({ width, height: isAuto ? 1500 : (height as number) })
+      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 })
+
+      let finalHeight: number = isAuto ? 1500 : (height as number)
+      if (isAuto) {
+        finalHeight = await page.evaluate(() =>
+          Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+          ),
+        )
+        await page.setViewport({ width, height: finalHeight })
+      }
 
       const screenshot = await page.screenshot({
         type: 'png',
-        clip: { x: 0, y: 0, width, height },
+        clip: { x: 0, y: 0, width, height: finalHeight },
       })
 
       res.setHeader('Content-Type', 'image/png')
