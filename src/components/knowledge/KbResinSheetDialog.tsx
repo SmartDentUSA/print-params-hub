@@ -55,6 +55,9 @@ export default function KbResinSheetDialog({ open, onClose, resinName, modelSlug
         cta_4_url: resinData?.cta_4_url,
         cta_4_description: resinData?.cta_4_description,
         processing_instructions: resinData?.processing_instructions || null,
+        info_card_url_pt: (resinData as any)?.info_card_url_pt || null,
+        info_card_url_en: (resinData as any)?.info_card_url_en || null,
+        info_card_url_es: (resinData as any)?.info_card_url_es || null,
         parameterSets: params.map((p: any) => ({
           id: p.id,
           label: `${p.layer_height}mm - ${p.cure_time}s`,
