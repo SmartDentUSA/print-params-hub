@@ -22,6 +22,7 @@ import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { validateFileSize } from '@/utils/security';
 import { extensionFromMime } from '@/utils/storageImage';
+import { ResinCardStudio } from '@/components/resin-card/ResinCardStudio';
 import { Progress } from '@/components/ui/progress';
 
 interface Brand {
