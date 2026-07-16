@@ -9974,6 +9974,7 @@ export type Database = {
           pessoa_piperun_id: number | null
           pessoa_rdstation: string | null
           pessoa_website: string | null
+          phone_normalized_backfilled_at: string | null
           piperun_action: Json | null
           piperun_activities: Json | null
           piperun_closed_at: string | null
@@ -10549,6 +10550,7 @@ export type Database = {
           pessoa_piperun_id?: number | null
           pessoa_rdstation?: string | null
           pessoa_website?: string | null
+          phone_normalized_backfilled_at?: string | null
           piperun_action?: Json | null
           piperun_activities?: Json | null
           piperun_closed_at?: string | null
@@ -11124,6 +11126,7 @@ export type Database = {
           pessoa_piperun_id?: number | null
           pessoa_rdstation?: string | null
           pessoa_website?: string | null
+          phone_normalized_backfilled_at?: string | null
           piperun_action?: Json | null
           piperun_activities?: Json | null
           piperun_closed_at?: string | null
@@ -30580,6 +30583,7 @@ export type Database = {
           pessoa_piperun_id: number | null
           pessoa_rdstation: string | null
           pessoa_website: string | null
+          phone_normalized_backfilled_at: string | null
           piperun_action: Json | null
           piperun_activities: Json | null
           piperun_closed_at: string | null
