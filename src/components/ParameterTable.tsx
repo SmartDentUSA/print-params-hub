@@ -266,8 +266,11 @@ export function ParameterTable({ parameterSet, processingInstructions, infoCardU
           </Button>
         </div>
 
-        {processingInstructions && (() => {
-          const { pre, post, sections } = parseMarkdownInstructions(processingInstructions);
+        {(processingInstructions || infoCardUrl) && (() => {
+          const parsed = processingInstructions
+            ? parseMarkdownInstructions(processingInstructions)
+            : { pre: [], post: [], sections: [] };
+          const { pre, post, sections } = parsed;
           const hasInstructions = pre.length > 0 || post.length > 0 || sections.length > 0;
 
           if (!hasInstructions && !infoCardUrl) return null;
