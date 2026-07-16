@@ -359,10 +359,33 @@ async function planCardWithLLM(opts: {
     return r
   }
 
-  // A disponibilidade dos bots Poe varia por conta/API. Mantemos GPT-5.6 Sol
-  // como primeira opção e percorremos apenas modelos Poe quando um handle não
-  // está liberado, evitando que a geração inteira pare em "Model not found".
-  const MODELS = ['gpt-5.6-sol', 'gpt-5.5', 'claude-sonnet-4.6'] as const
+  // A API Poe é case-sensitive e os IDs liberados variam por conta. Consulta o
+  // catálogo da própria conta para resolver o handle real antes da chamada.
+  const configured = ['GPT-5.6-Sol', 'gpt-5.6-sol', 'GPT-5.5', 'gpt-5.5', 'Claude-Sonnet-4.6', 'claude-sonnet-4.6']
+  let available: string[] = []
+  const poeKey = Deno.env.get('POE_API_KEY')
+  if (poeKey) {
+    try {
+      const modelResp = await fetch('https://api.poe.com/v1/models', {
+        headers: { Authorization: `Bearer ${poeKey}` },
+      })
+      if (modelResp.ok) {
+        const modelData = await modelResp.json()
+        available = (modelData?.data || []).map((m: any) => String(m?.id || '')).filter(Boolean)
+        console.log(`[generate-resin-info-card] Poe models disponíveis: ${available.length}`)
+      } else {
+        await modelResp.text()
+      }
+    } catch (e) {
+      console.warn('[generate-resin-info-card] não foi possível consultar /v1/models:', e)
+    }
+  }
+  const normalizeModel = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const desired = ['gpt56sol', 'gpt55', 'claudesonnet46', 'claudeopus']
+  const discovered = desired
+    .map((target) => available.find((id) => normalizeModel(id).includes(target)))
+    .filter((id): id is string => Boolean(id))
+  const MODELS = Array.from(new Set([...discovered, ...configured]))
   let modelUsed: string = MODELS[0]
   let first = await attempt(modelUsed)
   for (const fallback of MODELS.slice(1)) {
@@ -393,18 +416,38 @@ async function planCardWithLLM(opts: {
   return { plan: null, error: 'LLM não produziu JSON com paridade estrutural', usage: first.usage, model: modelUsed }
 }
 
-async function renderPng(html: string): Promise<Uint8Array> {
+function htmlToStandaloneSvg(html: string): Uint8Array {
+  const body = html
+    .replace(/^.*?<body[^>]*>/is, '')
+    .replace(/<\/body>.*$/is, '')
+  const css = html.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1500" viewBox="0 0 1080 1500">
+    <foreignObject width="1080" height="1500">
+      <div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${body}</div>
+    </foreignObject>
+  </svg>`
+  return new TextEncoder().encode(svg)
+}
+
+async function renderImage(html: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
   const res = await fetch(RENDER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ html, width: 1080, height: 1500 }),
   })
+  const contentType = res.headers.get('content-type') || ''
   if (!res.ok) {
     const t = await res.text().catch(() => '')
     throw new Error(`render-template ${res.status}: ${t.slice(0, 300)}`)
   }
+  if (!contentType.startsWith('image/')) {
+    await res.arrayBuffer()
+    console.warn(`[generate-resin-info-card] renderer retornou ${contentType || 'MIME vazio'}; usando SVG autônomo`)
+    return { bytes: htmlToStandaloneSvg(html), contentType: 'image/svg+xml', extension: 'svg' }
+  }
   const buf = await res.arrayBuffer()
-  return new Uint8Array(buf)
+  const extension = contentType.includes('svg') ? 'svg' : contentType.includes('jpeg') ? 'jpg' : 'png'
+  return { bytes: new Uint8Array(buf), contentType, extension }
 }
 
 Deno.serve(async (req) => {
@@ -471,11 +514,11 @@ Deno.serve(async (req) => {
         resinName: nameFor(lang),
         productImage: resin.image_url,
       })
-      const png = await renderPng(html)
-      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
+      const rendered = await renderImage(html)
+      const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.${rendered.extension}`
       const { error: upErr } = await supabase.storage
         .from('product-images')
-        .upload(path, png, { contentType: 'image/png', upsert: true, cacheControl: '3600' })
+        .upload(path, rendered.bytes, { contentType: rendered.contentType, upsert: true, cacheControl: '3600' })
       if (upErr) throw new Error(`Upload ${lang}: ${upErr.message}`)
       const { data: pub } = supabase.storage.from('product-images').getPublicUrl(path)
       results[lang] = pub.publicUrl

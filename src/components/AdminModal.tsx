@@ -1391,7 +1391,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           description: `Idiomas: ${Object.keys(urls).join(', ').toUpperCase() || 'nenhum'}`,
                         });
                       } catch (err: any) {
-                        const message = err?.message || 'Falha desconhecida ao gerar o card';
+                        let message = err?.message || 'Falha desconhecida ao gerar o card';
+                        try {
+                          if (err?.context instanceof Response) {
+                            const details = await err.context.clone().json();
+                            message = details?.error || details?.message || message;
+                          }
+                        } catch {
+                          // Mantém a mensagem original quando a resposta não for JSON.
+                        }
                         setCardGenerationError(message);
                         toast({
                           title: '❌ Erro ao gerar card',
