@@ -1400,7 +1400,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     title={!formData.id ? 'Salve a resina primeiro' : 'Gerar imagem infográfica em PT/EN/ES'}
                   >
                     {isGeneratingCard ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando card...</>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando com IA (GPT‑5.6 Sol)…</>
                     ) : (
                       <><ImageIcon className="w-4 h-4" /> Gerar Card Informativo</>
                     )}

@@ -1,80 +1,100 @@
-# Gerar Card Informativo (Pré/Pós-Processamento)
-
 ## Objetivo
+1. Gerar o card informativo da resina com **GPT‑5.6 Sol via Poe**, produzindo **3 imagens visualmente idênticas** (PT / EN / ES) — mesmo layout, mesmas cores, mesmos ícones, mesmo número e ordem de blocos/bullets; só o texto muda.
+2. Exibir a imagem gerada **dentro do card "🧪 Pré e Pós Processamento"** da Base de Conhecimento (ex.: `Smart Print Bio Vitality`), **abaixo do texto** e com um botão **Baixar** para o usuário salvar o PNG.
 
-Adicionar um botão **"Gerar Card Informativo"** ao lado de *Formatar com IA* no editor de resinas. Ao clicar, o sistema gera uma imagem infográfica (estilo do exemplo enviado — logo Smart Dent, imagem do produto, blocos 1) Pré-Processamento, 2) Pós-Processamento, 3) Pós-Cura) em **3 idiomas (PT/EN/ES)** e disponibiliza cada versão no Card da Base de Conhecimento conforme o seletor de idioma.
+## Estratégia para paridade visual (imagem)
+Separar **estrutura** de **conteúdo**:
+1. Uma única chamada ao GPT‑5.6 Sol devolve um **JSON trilíngue** com o mesmo esquema de blocos para PT/EN/ES.
+2. Um **template HTML determinístico** (server-side, sem LLM) renderiza cada idioma a partir desse JSON. Como o template é o mesmo e o JSON tem a mesma forma, os 3 PNGs saem com layout idêntico — só o texto muda.
 
-## Arquitetura
+## Mudanças
 
+### 1. `supabase/functions/generate-resin-info-card/index.ts` (reescrita parcial)
+- **Remover** `parseInstructions` markdown atual e o `buildHtml` acoplado.
+- **Manter** `escapeHtml`, `inlineFormat`, `renderPng`, upload/storage e update em `resins`.
+- Nova função `planCardWithLLM({ resinName, instructionsPt, instructionsEn, instructionsEs })`:
+  - Chamada única `callPoe`:
+    - `model: "GPT-5.6-Sol"`, `temperature: 0.2`, `max_tokens: 8000`
+    - `response_format: { type: "json_object" }`
+  - **System prompt**: designer sênior de infográficos técnicos odontológicos; obrigação de manter estrutura idêntica entre idiomas.
+  - **User prompt** entrega:
+    - Nome da resina (PT / EN / ES).
+    - Os 3 textos de `processing_instructions_*` (fallback para PT quando EN/ES vazios).
+    - Contrato de saída JSON:
+      ```json
+      {
+        "structure": {
+          "blocks": [
+            { "id":"pre",  "color":"blue",   "icon":"🌡️", "num":"1)" },
+            { "id":"post", "color":"green",  "icon":"⚙️",  "num":"2)" },
+            { "id":"cure", "color":"purple", "icon":"☀️",  "num":"3)" }
+          ],
+          "columns_per_block": { "pre": 3, "post": 3, "cure": 2 }
+        },
+        "content": {
+          "pt": { "title":"...", "subtitle":"...", "important":"...",
+                  "blocks": { "pre": { "heading":"PRÉ-PROCESSAMENTO",
+                                       "columns":[ { "title":"Limpeza", "icon":"🧼",
+                                                     "items":[ {"text":"...","bold":["5 min"]} ],
+                                                     "note":"..." } ] }, ... } },
+          "en": { ... mesma forma ... },
+          "es": { ... mesma forma ... }
+        }
+      }
+      ```
+    - Regras rígidas no prompt: os três idiomas DEVEM ter exatamente os mesmos `blocks`, mesma quantidade de colunas por bloco, mesma quantidade de `items` por coluna, mesmos `icon`/`color`.
+- Validador `assertStructuralParity(content)`:
+  - Igualdade de contagens (blocos → colunas → items) e igualdade de ícones/cores nos 3 idiomas.
+  - Se falhar → **1 retry** com mensagem correcional; se ainda falhar → fallback para o gerador determinístico anterior (parseInstructions + template estático).
+- `renderCardHtml(structure, contentForLang, resinName, productImage, lang)`:
+  - Template HTML/CSS fixo em código (mesmo já existente: header com logo + imagem do produto, blocos azul/verde/roxo, callouts vermelhos, footer azul), lendo apenas dados textuais.
+- Loop pelos idiomas: `renderPng(renderCardHtml(...))` → upload em `product-images/resin-info-cards/{slug}-{lang}-{ts}.png` → grava `info_card_url_{lang}`.
+- Log de uso: `logAIUsage({ functionName: "generate-resin-info-card", actionLabel: "resin_info_card", model: "poe/GPT-5.6-Sol", ... })` **uma vez** (não por idioma).
+- Resposta inclui `model_used: "poe/GPT-5.6-Sol"` e `fallback_used: boolean`.
+
+### 2. UI admin (`src/components/AdminModal.tsx`)
+- Ajustar apenas o rótulo do botão **Gerar Card Informativo** durante geração para "Gerando com IA (GPT‑5.6 Sol)…". Nada muda no grid de preview trilíngue.
+
+### 3. UI Base de Conhecimento (`src/components/knowledge/KbTabCatalogo.tsx`)
+No diálogo **🧪 Pré e Pós Processamento — {resina}**:
+- Manter o texto estruturado (`ProcessingInstructionsView`) no topo.
+- **Ao final do conteúdo**, adicionar bloco `Card Informativo`:
+  - Seletor efetivo de idioma = idioma ativo da KB (`pt|en|es`); usa `info_card_url_{lang}` da resina, com fallback para PT quando o idioma escolhido não tiver card gerado.
+  - Se houver URL: exibir a imagem (`<img>` responsiva, `loading="lazy"`, `alt` com nome da resina) num container arredondado, com borda sutil e sombra leve para combinar com o card do produto.
+  - Abaixo da imagem, um botão **Baixar** (variante `outline`, ícone `Download` do lucide) que dispara download do PNG:
+    - Implementado como `fetch(url) → blob → URL.createObjectURL → <a download="{slug}-{lang}.png"> click`, para forçar download em vez de abrir em nova aba.
+    - Label i18n: PT "Baixar card", EN "Download card", ES "Descargar tarjeta".
+  - Se `info_card_url_{lang}` for `null` para todos os idiomas: não renderiza o bloco (comportamento atual preservado).
+- Sem alteração no fallback textual: se a resina não tiver imagem, o texto continua sendo a única representação.
+
+### 4. Traduções
+- `src/locales/{pt,en,es}.json`: adicionar chaves `kb.resin.infoCard.title`, `kb.resin.infoCard.download`.
+
+## Fora de escopo
+- Sem mudanças em `ProcessingInstructionsView`, `processing_instructions*`, schema `resins` (já criado na iteração anterior), tradução automática de instruções, `social-generate-image`, `smart-ops-copilot`.
+- Sem alteração no fluxo de disponibilizar cards para redes sociais.
+
+## Riscos e mitigação
+- **LLM devolver estruturas desiguais entre idiomas** → validador + 1 retry + fallback determinístico.
+- **Latência**: uma chamada Poe (não 3).
+- **Custo**: GPT‑5.6 Sol é premium; ação manual e sob demanda no Admin.
+- **CORS no download**: bucket `product-images` é público; `fetch → blob` funciona sem preflight custom. Fallback: `<a href="{url}" download target="_blank">` caso o `fetch` falhe.
+
+## Detalhes técnicos
 ```text
-[Admin: Editar Resina]
-   └─ Botão "Gerar Card Informativo"
-        │
-        ▼
-   generate-resin-info-card (edge fn nova)
-        │  parseia processing_instructions_{pt,en,es}
-        │  monta HTML template (logo + product img + blocos)
-        │  para cada idioma:
-        │      chama /api/render-template (Puppeteer → PNG)
-        │      faz upload no bucket product-images
-        │      guarda URL
-        │
-        ▼
-   resins.info_card_url_pt / _en / _es (novas colunas)
-        │
-        ▼
-   KbTabCatalogo → renderiza <img> conforme idioma atual
+generate-resin-info-card
+├─ callPoe("GPT-5.6-Sol", 1x, JSON trilíngue)
+├─ assertStructuralParity → retry 1x → fallback determinístico
+├─ para cada lang solicitado:
+│   ├─ renderCardHtml(structure, content[lang], names[lang], image_url, lang)
+│   ├─ renderPng(html)  ← puppeteer /api/render-template (mesmo template p/ todos)
+│   ├─ upload product-images/resin-info-cards/{slug}-{lang}-{ts}.png
+│   └─ results[lang] = publicUrl
+├─ update resins.info_card_url_{pt,en,es} + info_card_generated_at
+└─ logAIUsage(1x)
+
+KbTabCatalogo → diálogo Pré/Pós
+└─ após ProcessingInstructionsView:
+    ├─ <img src={resin.info_card_url_[lang] || info_card_url_pt} />
+    └─ <Button onClick={downloadBlob}> Baixar card </Button>
 ```
-
-## Passos
-
-### 1. Migration
-Adicionar 3 colunas em `public.resins`:
-- `info_card_url_pt text`
-- `info_card_url_en text`
-- `info_card_url_es text`
-- `info_card_generated_at timestamptz`
-
-### 2. Edge Function `generate-resin-info-card`
-- Input: `{ resin_id, languages?: ['pt','en','es'] }`
-- Busca `resins` (nome, image_url, processing_instructions_{pt/en/es}).
-- Reutiliza `parseMarkdownInstructions` (portada para Deno) para dividir em Pré / Pós / seções extras.
-- Monta HTML com CSS inline seguindo o mockup (fundo com padrão sutil, header azul-escuro, blocos coloridos: azul PRÉ, verde PÓS, roxo PÓS-CURA, callouts vermelho-claros para `> notas`).
-- Logo fixo: `https://pgfgripuanuwwolmtknn.supabase.co/.../h7stblp3qxn_1760720051743.png`.
-- Chama `POST /api/render-template` (Puppeteer já existente) com `width:1080 height:1500` — o endpoint já retorna PNG.
-- Upload no bucket `product-images` (path `resin-info-cards/{resin_slug}-{lang}-{timestamp}.png`) via `storage.upload`.
-- Atualiza `resins.info_card_url_{lang}`.
-
-### 3. UI — `src/components/AdminModal.tsx`
-- Botão **"Gerar Card Informativo"** (variant outline, ícone `ImageIcon`) ao lado do botão Formatar com IA.
-- Estado `isGeneratingCard`. Chama `supabase.functions.invoke('generate-resin-info-card', { body:{ resin_id: formData.id } })`.
-- Toast de progresso e sucesso; ao terminar, mostra preview em miniatura das 3 versões geradas (`info_card_url_pt/en/es`) com link para abrir em nova aba.
-- Desabilitado se resina ainda não foi salva ou se `processing_instructions` está vazio.
-
-### 4. KB Card — `src/components/knowledge/KbTabCatalogo.tsx`
-- Dentro da dialog **🧪 Pré/Pós-Processamento**, se `procResin.info_card_url_{lang}` existir para o idioma atual (`language` do contexto), renderiza a imagem no topo (`<img class="w-full rounded-lg border">`) *acima* do `<ProcessingInstructionsView />` (mantém compatibilidade com resinas sem card).
-- Botão discreto "Baixar card" abre a imagem em nova aba.
-
-### 5. Traduções UI
-Adicionar chaves em `pt/en/es.json`: `admin.resin.generateInfoCard`, `admin.resin.generatingInfoCard`, `kb.resin.downloadCard`.
-
-## O que NÃO muda
-- Formato/parser das `processing_instructions` continua o mesmo.
-- Hook `useCardTranslations` intacto — o card usa colunas dedicadas.
-- Nenhuma alteração no fluxo de tradução automática (o card só é regenerado sob demanda pelo botão).
-
-## Detalhes técnicos do template HTML
-
-- Google Fonts: Inter (700/600/400).
-- Header: título grande `Processo de Uso e Pós-Processamento — {resin_name}`, subtítulo cinza "Guia visual para manual de instruções", faixa azul no topo, logo à esquerda e product image (crop vertical) à direita.
-- Bloco 1 (PRÉ): borda azul, badge circular com ícone termômetro (emoji 🌡️ em círculo azul). Cada subseção vira coluna com ícone + título + bullets. Notas `> ` viram callouts vermelho-claros com ícone ⚠️.
-- Bloco 2 (PÓS): mesma estrutura, borda verde, ícone ⚙️.
-- Bloco 3 (PÓS-CURA UV): se existir subseção com "cura"/"UV" no título, entra num bloco roxo com ícone ☀️.
-- Rodapé "Importante": card cinza com escudo azul + texto de conclusão fixo por idioma.
-- Regras de fit: se número de subseções > 3, renderiza em 2 linhas.
-
-## Riscos e mitigações
-
-- **Layout quebrando com texto longo**: aplicar `overflow: hidden` + `text-wrap: pretty` no CSS; template testado com o exemplo do usuário.
-- **Puppeteer cold start no Vercel**: já existe endpoint `api/render-template.ts` funcional (60s max duration). Se der timeout, cair para geração sequencial por idioma dentro da edge function e responder progressivamente.
-- **Custo de storage**: chaveado por `resin_slug + lang`, sobrescrevendo geração anterior (não acumula).

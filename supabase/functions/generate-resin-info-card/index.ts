@@ -1,6 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { callPoe } from '../_shared/providers/poe.ts'
+import { logAIUsage } from '../_shared/log-ai-usage.ts'
 
 const SD_LOGO = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png'
 
@@ -9,90 +11,23 @@ const RENDER_ENDPOINT = Deno.env.get('RENDER_TEMPLATE_URL') || 'https://admin.sm
 
 type Lang = 'pt' | 'en' | 'es'
 
-interface MdEl { type: 'section' | 'subsection' | 'note' | 'bullet' | 'subbullet'; content: string; level?: number }
-interface Parsed { pre: MdEl[]; post: MdEl[]; sections: { title: string; content: MdEl[] }[] }
-
-function parseInstructions(instructions: string | null | undefined): Parsed {
-  if (!instructions) return { pre: [], post: [], sections: [] }
-  const lines = instructions.split('\n')
-  const pre: MdEl[] = []
-  const post: MdEl[] = []
-  const sections: { title: string; content: MdEl[] }[] = []
-  let current: 'pre' | 'post' | 'generic' | null = null
-  let gTitle = ''
-  let gContent: MdEl[] = []
-
-  const flushGeneric = () => {
-    if (current === 'generic' && gContent.length) {
-      sections.push({ title: gTitle, content: gContent })
-      gContent = []
-    }
-  }
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-    if (trimmed.match(/^##[^#]/)) {
-      flushGeneric()
-      const title = trimmed.replace(/^##\s*/, '')
-      if (/^PRÉ[-\s]?PROCESSAMENTO|^PRE[-\s]?PROCESSING|^PRE[-\s]?PROCESAMIENTO/i.test(title)) {
-        current = 'pre'; pre.push({ type: 'section', content: title })
-      } else if (/^PÓS[-\s]?PROCESSAMENTO|^POST[-\s]?PROCESSING|^POST[-\s]?PROCESAMIENTO/i.test(title)) {
-        current = 'post'; post.push({ type: 'section', content: title })
-      } else {
-        current = 'generic'; gTitle = title
-      }
-      continue
-    }
-    if (trimmed.match(/^###[^#]/)) {
-      const sub = trimmed.replace(/^###\s*/, '')
-      const el: MdEl = { type: 'subsection', content: sub }
-      if (current === 'pre') pre.push(el)
-      else if (current === 'post') post.push(el)
-      else if (current === 'generic') gContent.push(el)
-      continue
-    }
-    if (trimmed.startsWith('> ')) {
-      const el: MdEl = { type: 'note', content: trimmed.replace(/^>\s*/, '') }
-      if (current === 'pre') pre.push(el)
-      else if (current === 'post') post.push(el)
-      else if (current === 'generic') gContent.push(el)
-      continue
-    }
-    if (trimmed.match(/^[•\-]\s+/)) {
-      const indent = line.match(/^(\s+)/)
-      const level = indent ? Math.floor(indent[1].length / 2) : 0
-      const el: MdEl = { type: level > 0 ? 'subbullet' : 'bullet', content: trimmed.replace(/^[•\-]\s+/, ''), level }
-      if (current === 'pre') pre.push(el)
-      else if (current === 'post') post.push(el)
-      else if (current === 'generic') gContent.push(el)
-      continue
-    }
-    if (current) {
-      const indent = line.match(/^(\s+)/)
-      const level = indent ? Math.floor(indent[1].length / 2) : 0
-      const el: MdEl = { type: level > 0 ? 'subbullet' : 'bullet', content: trimmed, level }
-      if (current === 'pre') pre.push(el)
-      else if (current === 'post') post.push(el)
-      else if (current === 'generic') gContent.push(el)
-    }
-  }
-  flushGeneric()
-  return { pre, post, sections }
-}
-
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 
-// Highlight bold-ish inline emphasis: converts **x** or numbers with units into <strong>.
-function inlineFormat(text: string): string {
+// Inline emphasis: **x** => <strong>. Additionally, any tokens listed in `bold`
+// get wrapped in <strong> (case-insensitive, whole-word-ish).
+function inlineFormat(text: string, bold?: string[]): string {
   let s = escapeHtml(text)
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  // Bold time/temp patterns like "5 minutos" / "10 minutes" / "60°C" / "7000 rpm"
-  s = s.replace(
-    /(\d+(?:[.,]\d+)?\s?(?:°C|°F|minutos|minutes|minutos\.|min|rpm|µm|um|segundos|seconds|segundos|horas|hours|horas))/gi,
-    '<strong>$1</strong>'
-  )
+  if (bold && bold.length) {
+    for (const raw of bold) {
+      const token = escapeHtml(raw).trim()
+      if (!token) continue
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const re = new RegExp(`(${escaped})`, 'gi')
+      s = s.replace(re, '<strong>$1</strong>')
+    }
+  }
   return s
 }
 
@@ -126,76 +61,181 @@ const L = {
   },
 } as const
 
-function renderElements(els: MdEl[]): string {
-  // Group subsections with their following bullets/notes into columns.
-  const cols: { title: string; icon: string; items: MdEl[] }[] = []
-  let bucket: { title: string; icon: string; items: MdEl[] } | null = null
-  const iconFor = (title: string) => {
-    const t = title.toLowerCase()
-    if (/limpeza|lavagem|wash|clean|limpieza/.test(t)) return '🧼'
-    if (/filtr/.test(t)) return '🧴'
-    if (/prepar|ambiente|temperatura/.test(t)) return '🌡️'
-    if (/remoç|remov|remoc/.test(t)) return '🧲'
-    if (/secagem|dry|secado|ar comprimido|air/.test(t)) return '💨'
-    if (/cura|cure|uv/.test(t)) return '☀️'
-    if (/refinamento|refin/.test(t)) return '🖊️'
-    if (/glaze|aplic/.test(t)) return '🖌️'
-    if (/final|polim/.test(t)) return '✨'
-    return '🔹'
-  }
-  for (const el of els) {
-    if (el.type === 'section') continue
-    if (el.type === 'subsection') {
-      if (bucket) cols.push(bucket)
-      bucket = { title: el.content, icon: iconFor(el.content), items: [] }
-      continue
-    }
-    if (!bucket) bucket = { title: '', icon: '', items: [] }
-    bucket.items.push(el)
-  }
-  if (bucket) cols.push(bucket)
+// ────────────────────────────────────────────────────────────────────────────
+// LLM-planned trilingual card (GPT-5.6 Sol via Poe)
+// ────────────────────────────────────────────────────────────────────────────
 
-  const renderItem = (el: MdEl): string => {
-    if (el.type === 'note') {
-      return `<div class="callout"><span class="callout-ico">⚠️</span><span>${inlineFormat(el.content)}</span></div>`
-    }
-    if (el.type === 'subbullet') {
-      return `<li class="sub"><span class="sub-dot">◦</span><span>${inlineFormat(el.content)}</span></li>`
-    }
-    return `<li><span class="dot">•</span><span>${inlineFormat(el.content)}</span></li>`
-  }
+type BlockColor = 'blue' | 'green' | 'purple'
 
-  return cols
-    .map(
-      (c) => `
-    <div class="col">
-      ${c.title ? `<div class="col-head"><span class="col-icon">${c.icon}</span><h3>${escapeHtml(c.title)}</h3></div>` : ''}
-      <ul>${c.items.map(renderItem).join('')}</ul>
-    </div>`,
-    )
-    .join('')
+interface StructureBlock { id: string; color: BlockColor; icon: string; num: string }
+interface Structure {
+  blocks: StructureBlock[]
+  columns_per_block: Record<string, number>
+}
+interface ColumnItem { text: string; bold?: string[] }
+interface ContentColumn { title: string; icon: string; items: ColumnItem[]; note?: string }
+interface ContentBlock { heading: string; columns: ContentColumn[] }
+interface LangContent {
+  title: string
+  subtitle: string
+  important: string
+  blocks: Record<string, ContentBlock>
+}
+interface CardPlan {
+  structure: Structure
+  content: Record<Lang, LangContent>
 }
 
-function buildHtml(opts: {
+function buildSystemPrompt(): string {
+  return [
+    'Você é um designer sênior de infográficos técnicos odontológicos.',
+    'Sua tarefa é gerar UM plano estruturado (em JSON) para um card educativo de resina 3D odontológica.',
+    'REGRA CRÍTICA: PT / EN / ES devem ter EXATAMENTE a mesma estrutura — mesmo número de blocks, mesmas colunas por block, mesmo número de items por coluna, mesmos icons e cores. Só muda o TEXTO.',
+    'Cada block deve ter cor coerente: pré-processamento = blue, pós-processamento = green, pós-cura/cura/finalização = purple.',
+    'Ícones (emoji unicode): 🌡️ preparo/temperatura, 🧼 limpeza, 🧴 filtragem, 🧲 remoção, 💨 secagem, ☀️ cura UV, 🖊️ refinamento, 🖌️ glaze, ✨ polimento/final, ⚙️ processo mecânico.',
+    'Nunca inclua preços, valores comerciais ou marcas concorrentes.',
+    'A resposta DEVE ser um único JSON válido no schema informado, sem texto fora do JSON.',
+  ].join(' ')
+}
+
+function buildUserPrompt(opts: {
+  resinNamePt: string; resinNameEn: string; resinNameEs: string
+  instructionsPt: string; instructionsEn: string; instructionsEs: string
+}): string {
+  return `RESINA:
+- Nome (PT): ${opts.resinNamePt}
+- Nome (EN): ${opts.resinNameEn}
+- Nome (ES): ${opts.resinNameEs}
+
+INSTRUÇÕES ORIGINAIS (PT):
+${opts.instructionsPt}
+
+INSTRUÇÕES ORIGINAIS (EN):
+${opts.instructionsEn}
+
+INSTRUÇÕES ORIGINAIS (ES):
+${opts.instructionsEs}
+
+Produza JSON EXATAMENTE neste formato (sem comentários, sem markdown fences):
+
+{
+  "structure": {
+    "blocks": [
+      { "id": "pre",  "color": "blue",   "icon": "🌡️", "num": "1)" },
+      { "id": "post", "color": "green",  "icon": "⚙️",  "num": "2)" }
+    ],
+    "columns_per_block": { "pre": 3, "post": 3 }
+  },
+  "content": {
+    "pt": {
+      "title": "Processo de Uso e Pós-Processamento",
+      "subtitle": "Guia visual para manual de instruções",
+      "important": "O cumprimento rigoroso dos tempos e etapas descritos neste guia garante melhor acabamento, estabilidade dimensional e desempenho clínico da peça.",
+      "blocks": {
+        "pre": {
+          "heading": "PRÉ-PROCESSAMENTO",
+          "columns": [
+            {
+              "title": "Limpeza",
+              "icon": "🧼",
+              "items": [ { "text": "Limpar a peça por 5 minutos", "bold": ["5 minutos"] } ],
+              "note": "Nunca ultrapasse 10 minutos"
+            }
+          ]
+        }
+      }
+    },
+    "en": { /* mesma estrutura, textos em inglês */ },
+    "es": { /* mesma estrutura, textos em espanhol */ }
+  }
+}
+
+REGRAS FINAIS:
+- Adicione um terceiro block "cure" (color=purple, icon=☀️, num="3)") APENAS se as instruções originais mencionarem uma etapa de cura UV / pós-cura distinta.
+- Máx. 4 colunas por block, máx. 5 items por coluna, cada item.text ≤ 90 chars.
+- Use "note" para alertas/⚠️ (opcional por coluna).
+- Use "bold" para destacar tempos/temperaturas/rpm mencionados no item (ex: "5 min", "60°C", "7000 rpm").
+- As três línguas DEVEM refletir os textos originais fornecidos.`
+}
+
+function assertStructuralParity(plan: CardPlan): { ok: true } | { ok: false; reason: string } {
+  try {
+    const langs: Lang[] = ['pt', 'en', 'es']
+    const structBlocks = plan.structure?.blocks || []
+    if (!Array.isArray(structBlocks) || structBlocks.length === 0) {
+      return { ok: false, reason: 'structure.blocks vazio' }
+    }
+    for (const lang of langs) {
+      const c = plan.content?.[lang]
+      if (!c) return { ok: false, reason: `content.${lang} ausente` }
+      if (!c.blocks) return { ok: false, reason: `content.${lang}.blocks ausente` }
+    }
+    // Igualdade de contagens/ícones/cores entre idiomas.
+    for (const b of structBlocks) {
+      const ptBlock = plan.content.pt.blocks[b.id]
+      if (!ptBlock) return { ok: false, reason: `pt.blocks.${b.id} ausente` }
+      const ptCols = ptBlock.columns?.length || 0
+      for (const lang of langs) {
+        const blk = plan.content[lang].blocks[b.id]
+        if (!blk) return { ok: false, reason: `${lang}.blocks.${b.id} ausente` }
+        if ((blk.columns?.length || 0) !== ptCols) {
+          return { ok: false, reason: `colunas divergem em block=${b.id} lang=${lang}` }
+        }
+        for (let i = 0; i < ptCols; i++) {
+          const ptCol = ptBlock.columns[i]
+          const col = blk.columns[i]
+          if ((ptCol.items?.length || 0) !== (col.items?.length || 0)) {
+            return { ok: false, reason: `items divergem em ${b.id}.col[${i}] lang=${lang}` }
+          }
+          if ((ptCol.icon || '') !== (col.icon || '')) {
+            return { ok: false, reason: `icon divergente em ${b.id}.col[${i}] lang=${lang}` }
+          }
+        }
+      }
+    }
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, reason: e?.message || 'erro parity' }
+  }
+}
+
+function renderBlockHtml(block: StructureBlock, content: ContentBlock): string {
+  const badgeClass =
+    block.color === 'blue' ? 'blue' : block.color === 'green' ? 'green' : 'purple'
+  const blockClass =
+    block.color === 'blue' ? 'block-blue' : block.color === 'green' ? 'block-green' : 'block-extra'
+  const cols = (content.columns || []).map((c) => `
+    <div class="col">
+      <div class="col-head"><span class="col-icon">${c.icon || '🔹'}</span><h3>${escapeHtml(c.title || '')}</h3></div>
+      <ul>
+        ${(c.items || []).map((it) => `<li><span class="dot">•</span><span>${inlineFormat(it.text, it.bold)}</span></li>`).join('')}
+      </ul>
+      ${c.note ? `<div class="callout"><span class="callout-ico">⚠️</span><span>${inlineFormat(c.note)}</span></div>` : ''}
+    </div>`).join('')
+  const colsClass = (content.columns?.length || 0) >= 4 ? 'cols four' : 'cols'
+  return `
+    <section class="block ${blockClass}">
+      <div class="block-head">
+        <span class="block-badge ${badgeClass}">${block.icon}</span>
+        <h2><span class="num">${escapeHtml(block.num)}</span> ${escapeHtml(content.heading || '')}</h2>
+      </div>
+      <div class="${colsClass}">${cols}</div>
+    </section>`
+}
+
+function renderCardHtml(opts: {
+  plan: CardPlan
+  lang: Lang
   resinName: string
   productImage: string | null
-  parsed: Parsed
-  lang: Lang
 }): string {
   const l = L[opts.lang]
-  const preHtml = renderElements(opts.parsed.pre)
-  const postHtml = renderElements(opts.parsed.post)
-  const extras = opts.parsed.sections
-    .map(
-      (s) => `
-    <section class="block block-extra">
-      <div class="block-head">
-        <span class="block-badge purple">☀️</span>
-        <h2>${escapeHtml(s.title)}</h2>
-      </div>
-      <div class="cols">${renderElements(s.content)}</div>
-    </section>`,
-    )
+  const langContent = opts.plan.content[opts.lang]
+  const blocksHtml = opts.plan.structure.blocks
+    .map((b) => {
+      const c = langContent.blocks[b.id]
+      return c ? renderBlockHtml(b, c) : ''
+    })
     .join('')
 
   return `<!doctype html>
@@ -266,41 +306,77 @@ function buildHtml(opts: {
     <header class="header">
       <div class="header-left">
         <img class="logo" src="${SD_LOGO}" alt="Smart Dent"/>
-        <h1><span class="prod">${escapeHtml(l.title)} —</span><br/><span class="plus">${escapeHtml(opts.resinName)}</span></h1>
-        <div class="subtitle">${escapeHtml(l.subtitle)}</div>
+        <h1><span class="prod">${escapeHtml(langContent.title || l.title)} —</span><br/><span class="plus">${escapeHtml(opts.resinName)}</span></h1>
+        <div class="subtitle">${escapeHtml(langContent.subtitle || l.subtitle)}</div>
       </div>
       ${opts.productImage ? `<div class="product-img-wrap"><img class="product-img" src="${opts.productImage}" alt="${escapeHtml(opts.resinName)}"/></div>` : ''}
     </header>
 
-    ${preHtml ? `
-    <section class="block block-blue">
-      <div class="block-head">
-        <span class="block-badge blue">🌡️</span>
-        <h2><span class="num">1)</span> ${escapeHtml(l.pre)}</h2>
-      </div>
-      <div class="cols">${preHtml}</div>
-    </section>` : ''}
-
-    ${postHtml ? `
-    <section class="block block-green">
-      <div class="block-head">
-        <span class="block-badge green">⚙️</span>
-        <h2><span class="num">2)</span> ${escapeHtml(l.post)}</h2>
-      </div>
-      <div class="cols">${postHtml}</div>
-    </section>` : ''}
-
-    ${extras}
+    ${blocksHtml}
 
     <div class="footer">
       <div class="shield">🛡</div>
       <div>
         <div class="imp">${escapeHtml(l.important)}</div>
-        <p>${escapeHtml(l.importantText)}</p>
+        <p>${escapeHtml(langContent.important || l.importantText)}</p>
       </div>
     </div>
   </div>
 </body></html>`
+}
+
+function extractJson(raw: string): any | null {
+  if (!raw) return null
+  const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim()
+  try { return JSON.parse(trimmed) } catch {}
+  const first = trimmed.indexOf('{'); const last = trimmed.lastIndexOf('}')
+  if (first >= 0 && last > first) {
+    try { return JSON.parse(trimmed.slice(first, last + 1)) } catch {}
+  }
+  return null
+}
+
+async function planCardWithLLM(opts: {
+  resinNamePt: string; resinNameEn: string; resinNameEs: string
+  instructionsPt: string; instructionsEn: string; instructionsEs: string
+}): Promise<{ plan: CardPlan | null; error?: string; usage?: any }> {
+  const system = buildSystemPrompt()
+  const user = buildUserPrompt(opts)
+
+  const attempt = async (extraCorrection?: string) => {
+    const messages: any[] = [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ]
+    if (extraCorrection) messages.push({ role: 'user', content: extraCorrection })
+    const r = await callPoe({
+      model: 'GPT-5.6-Sol',
+      messages,
+      temperature: 0.2,
+      max_tokens: 8000,
+      response_format: { type: 'json_object' },
+    })
+    return r
+  }
+
+  const first = await attempt()
+  if (!first.ok) return { plan: null, error: `poe: ${first.error || first.status}` }
+  let parsed = extractJson(first.text || '')
+  if (parsed) {
+    const parity = assertStructuralParity(parsed as CardPlan)
+    if (parity.ok) return { plan: parsed as CardPlan, usage: first.usage }
+    console.warn('[generate-resin-info-card] parity fail, retrying:', parity.reason)
+    const retry = await attempt(
+      `A resposta anterior falhou na validação: ${parity.reason}. Reenvie o JSON garantindo IDENTICAMENTE o mesmo número de blocks, colunas por block, items por coluna e ícones nos três idiomas.`,
+    )
+    if (retry.ok) {
+      const p2 = extractJson(retry.text || '')
+      if (p2 && assertStructuralParity(p2 as CardPlan).ok) {
+        return { plan: p2 as CardPlan, usage: retry.usage }
+      }
+    }
+  }
+  return { plan: null, error: 'LLM não produziu JSON com paridade estrutural', usage: first.usage }
 }
 
 async function renderPng(html: string): Promise<Uint8Array> {
@@ -346,30 +422,39 @@ Deno.serve(async (req) => {
     if (rErr) throw rErr
     if (!resin) throw new Error('Resin not found')
 
-    const instructionsFor = (lang: Lang): string | null => {
-      if (lang === 'en') return resin.processing_instructions_en || resin.processing_instructions
-      if (lang === 'es') return resin.processing_instructions_es || resin.processing_instructions
-      return resin.processing_instructions
-    }
     const nameFor = (lang: Lang): string => {
       if (lang === 'en') return resin.name_en || resin.name
       if (lang === 'es') return resin.name_es || resin.name
       return resin.name
     }
+    const instrPt = (resin.processing_instructions || '').trim()
+    const instrEn = (resin.processing_instructions_en || instrPt).trim()
+    const instrEs = (resin.processing_instructions_es || instrPt).trim()
+    if (!instrPt) throw new Error('processing_instructions vazio: adicione o texto antes de gerar')
+
+    // ── 1) Chama GPT-5.6 Sol UMA vez, obtém plano trilíngue com paridade estrutural.
+    const llm = await planCardWithLLM({
+      resinNamePt: nameFor('pt'),
+      resinNameEn: nameFor('en'),
+      resinNameEs: nameFor('es'),
+      instructionsPt: instrPt,
+      instructionsEn: instrEn,
+      instructionsEs: instrEs,
+    })
+    if (!llm.plan) throw new Error(llm.error || 'Falha ao planejar card com o LLM')
+    const plan = llm.plan
 
     const results: Record<string, string> = {}
     const timestamp = Date.now()
     const safeSlug = (resin.slug || resin.id).toString().replace(/[^a-z0-9-]/gi, '-').toLowerCase()
 
+    // ── 2) Renderiza cada idioma com o MESMO template determinístico.
     for (const lang of langs) {
-      const raw = instructionsFor(lang)
-      if (!raw || !raw.trim()) continue
-      const parsed = parseInstructions(raw)
-      const html = buildHtml({
+      const html = renderCardHtml({
+        plan,
+        lang,
         resinName: nameFor(lang),
         productImage: resin.image_url,
-        parsed,
-        lang,
       })
       const png = await renderPng(html)
       const path = `resin-info-cards/${safeSlug}-${lang}-${timestamp}.png`
@@ -389,7 +474,19 @@ Deno.serve(async (req) => {
     const { error: uErr } = await supabase.from('resins').update(update).eq('id', resin_id)
     if (uErr) throw uErr
 
-    return new Response(JSON.stringify({ ok: true, urls: results }), {
+    // Log de uso (fire-and-forget).
+    if (llm.usage) {
+      logAIUsage({
+        functionName: 'generate-resin-info-card',
+        actionLabel: 'resin_info_card',
+        model: 'poe/GPT-5.6-Sol',
+        promptTokens: llm.usage.prompt_tokens || 0,
+        completionTokens: llm.usage.completion_tokens || 0,
+        metadata: { resin_id, languages: langs },
+      }).catch(() => {})
+    }
+
+    return new Response(JSON.stringify({ ok: true, urls: results, model_used: 'poe/GPT-5.6-Sol' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
