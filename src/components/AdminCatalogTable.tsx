@@ -207,14 +207,13 @@ export function AdminCatalogTable({
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-14 text-center">Status</TableHead>
-              <TableHead className="w-28">SKU</TableHead>
+              <TableHead className="w-32">SKU / Fabricante</TableHead>
               <TableHead className="w-24">Flow</TableHead>
               <TableHead className="w-36">Categoria</TableHead>
               <TableHead className="min-w-[240px]">Nome</TableHead>
               <TableHead className="w-24">Variação</TableHead>
               <TableHead className="w-20">Pres</TableHead>
               <TableHead className="w-24">Cor</TableHead>
-              <TableHead className="w-32">Fabricante</TableHead>
               <TableHead className="w-24">NCM/HS</TableHead>
               <TableHead className="w-28">GTIN/EAN</TableHead>
               <TableHead className="w-20">Peso (kg)</TableHead>
