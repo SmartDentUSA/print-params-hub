@@ -3,6 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 /**
+ * `system_a_catalog` is a universal System A repository, not a products-only table.
+ * Testimonials/clients, category configuration and company records must never
+ * enter Gestão de Catálogo de Produtos.
+ */
+export const PRODUCT_CATALOG_ENTITY_TYPES = [
+  'product',
+  'resin',
+  'Resinas',
+  'consumables',
+  'Serviços',
+] as const;
+
+/**
  * Mirror the manual tech-specs editor output into products_catalog.technical_specifications,
  * so the public catalog card (KbTabCatalogo) renders the latest edits without waiting
  * for the Sistema A sync. Matches the products_catalog row by slug (preferred) or name.
@@ -112,6 +125,7 @@ export const useCatalogCRUD = () => {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('*')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .order('name');
       
       if (error) throw error;
@@ -396,7 +410,7 @@ export const useCatalogCRUD = () => {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('product_category')
-        .eq('category', 'product')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .not('product_category', 'is', null);
       
       if (error) throw error;
@@ -415,7 +429,7 @@ export const useCatalogCRUD = () => {
       let query = supabase
         .from('system_a_catalog')
         .select('product_subcategory')
-        .eq('category', 'product')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .not('product_subcategory', 'is', null);
       
       if (category) {

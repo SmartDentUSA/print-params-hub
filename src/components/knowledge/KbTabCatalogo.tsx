@@ -15,6 +15,7 @@ import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFromCatalogRow } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/hooks/useCatalogCRUD';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -429,6 +430,7 @@ export default function KbTabCatalogo() {
         supabase
           .from('system_a_catalog')
           .select('id, name, name_en, name_es, slug, description, description_en, description_es, image_url, product_category, product_category_en, product_category_es, product_subcategory, product_subcategory_en, product_subcategory_es, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, technical_specs, technical_specs_en, technical_specs_es, extra_data')
+          .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
           .eq('active', true)
           .eq('approved', true)
           .eq('visible_in_ui', true)
