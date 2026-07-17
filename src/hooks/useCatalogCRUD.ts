@@ -112,7 +112,6 @@ export const useCatalogCRUD = () => {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('*')
-        .eq('category', 'product')
         .order('name');
       
       if (error) throw error;
