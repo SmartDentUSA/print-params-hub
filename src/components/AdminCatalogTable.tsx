@@ -207,8 +207,7 @@ export function AdminCatalogTable({
               <TableHead className="w-24">COD</TableHead>
               <TableHead className="w-28">SKU</TableHead>
               <TableHead className="w-24">Flow</TableHead>
-              <TableHead className="w-32">Categoria</TableHead>
-              <TableHead className="w-32">Subcategoria</TableHead>
+              <TableHead className="w-36">Categoria</TableHead>
               <TableHead className="min-w-[240px]">Nome</TableHead>
               <TableHead className="w-24">Variação</TableHead>
               <TableHead className="w-20">Pres</TableHead>
@@ -229,7 +228,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={21} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -297,22 +296,20 @@ export function AdminCatalogTable({
                           )}
                         </TableCell>
                         <TableCell rowSpan={list.length} className="align-top">
-                          {product.product_category ? (
-                            <Badge variant="outline" className="text-[10px]">
-                              {product.product_category}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          {(product as any).product_subcategory ? (
-                            <span className="text-muted-foreground text-[11px]">
-                              {(product as any).product_subcategory}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {product.product_category ? (
+                              <Badge variant="outline" className="text-[10px] w-fit">
+                                {product.product_category}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px]">—</span>
+                            )}
+                            {(product as any).product_subcategory ? (
+                              <span className="text-muted-foreground text-[11px] leading-tight">
+                                {(product as any).product_subcategory}
+                              </span>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell rowSpan={list.length} className="align-top">
                           <div className="flex items-center gap-2">
