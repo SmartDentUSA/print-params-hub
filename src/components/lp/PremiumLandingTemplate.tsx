@@ -445,6 +445,16 @@ function HeroAudioPlayer({ url, label }: { url: string; label?: string }) {
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
   const [started, setStarted] = useState(false);
+  const [rate, setRate] = useState<1 | 1.5 | 2>(1);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+  }, [rate]);
+
+  function cycleRate(e: React.MouseEvent) {
+    e.stopPropagation();
+    setRate((r) => (r === 1 ? 1.5 : r === 1.5 ? 2 : 1));
+  }
 
   useEffect(() => {
     const a = audioRef.current;
@@ -517,6 +527,14 @@ function HeroAudioPlayer({ url, label }: { url: string; label?: string }) {
             </svg>
             <span className="truncate">{started ? `${formatAudioTime(current)} / ${formatAudioTime(duration)}` : displayLabel}</span>
           </span>
+          <button
+            type="button"
+            onClick={cycleRate}
+            aria-label={`Velocidade de reprodução: ${rate}x. Clique para alterar.`}
+            className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-[var(--lp-orange)] hover:bg-[color-mix(in_oklab,var(--lp-orange)_12%,transparent)] transition-colors"
+          >
+            {rate === 1 ? "1x" : rate === 1.5 ? "1.5x" : "2x"}
+          </button>
         </div>
         <div className="mt-1 h-1 w-full rounded-full bg-[color-mix(in_oklab,var(--lp-brand)_15%,transparent)] overflow-hidden">
           <div
