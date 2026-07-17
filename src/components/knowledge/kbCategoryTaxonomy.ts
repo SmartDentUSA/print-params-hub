@@ -2,15 +2,21 @@
 export const CAT_ALIASES: Record<string, string> = {
   'SCANNERS 3D': 'SCANNERS 3D',
   'SCANNERS': 'SCANNERS 3D',
+  'SCAN': 'SCANNERS 3D',
   'RESINAS 3D': 'RESINAS 3D',
   'RESINAS': 'RESINAS 3D',
   'IMPRESSÃO 3D': 'IMPRESSÃO 3D',
   'IMPRESSORAS 3D': 'IMPRESSÃO 3D',
   'PÓS-IMPRESSÃO': 'PÓS-IMPRESSÃO',
+  'POS-IMPRESSAO': 'PÓS-IMPRESSÃO',
   'DENTÍSTICA, ESTÉTICA E ORTODONTIA': 'DENTÍSTICA, ESTÉTICA E ORTODONTIA',
+  'DENTISTICA, ESTETICA E ORTODONTIA': 'DENTÍSTICA, ESTÉTICA E ORTODONTIA',
   'CARACTERIZAÇÃO': 'CARACTERIZAÇÃO',
+  'CARACTERIZACAO': 'CARACTERIZAÇÃO',
+  'FINALIZAÇÃO': 'CARACTERIZAÇÃO',
   'SOFTWARES': 'SOFTWARES',
   'SOFTWARE': 'SOFTWARES',
+  'CAD': 'SOFTWARES',
 };
 
 export const CANONICAL_CATS = Array.from(new Set(Object.values(CAT_ALIASES)));
@@ -48,8 +54,26 @@ export function resolveCategoryTk(id: string | null | undefined): string | null 
 
 export function normCat(v: string | null | undefined): string | null {
   if (!v) return null;
-  const up = String(v).trim().toUpperCase();
-  return CAT_ALIASES[up] ?? null;
+  // Remove prefixos numéricos como "1. ", "3. ", "3.1 " antes de tentar mapear.
+  const cleaned = String(v)
+    .trim()
+    .replace(/^\d+(\.\d+)*\.?\s*/, '')
+    .trim()
+    .toUpperCase();
+  return CAT_ALIASES[cleaned] ?? null;
+}
+
+// Deriva a categoria canônica considerando também a subcategoria.
+// Ex.: produto em "3. IMPRESSÃO 3D" com subcategoria "3.1 RESINAS 3D - BIOCOMPATÍVEIS"
+// deve aparecer no chip "RESINAS 3D", não em "IMPRESSÃO 3D".
+export function canonFromCatalogRow(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): string | null {
+  const sub = (subcategory || '').toUpperCase();
+  if (/RESINA/.test(sub)) return 'RESINAS 3D';
+  if (/SOFTWARE/.test(sub)) return 'SOFTWARES';
+  return normCat(category);
 }
 
 // Scope autorizado por revenda:
