@@ -33,4 +33,4 @@ Filtrar apenas por `product_category` ou remover o filtro de `category` mistura 
 - Cards da Base de Conhecimento → Catálogo (`KbTabCatalogo`).
 - Links automáticos de produtos em conteúdos (`useCatalogProducts`).
 
-Ao introduzir um novo tipo comercial, atualizar a constante compartilhada `PRODUCT_CATALOG_ENTITY_TYPES`. Não criar filtros divergentes por tela.
+Ao introduzir um novo tipo comercial, atualizar a constante compartilhada `PRODUCT_CATALOG_ENTITY_TYPES` em `src/lib/catalogEntityTypes.ts`. Não criar filtros divergentes por tela.

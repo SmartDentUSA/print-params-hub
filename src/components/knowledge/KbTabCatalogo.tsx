@@ -15,7 +15,7 @@ import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
 import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFromCatalogRow } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
-import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/hooks/useCatalogCRUD';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 

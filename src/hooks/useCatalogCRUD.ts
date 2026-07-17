@@ -1,19 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-
-/**
- * `system_a_catalog` is a universal System A repository, not a products-only table.
- * Testimonials/clients, category configuration and company records must never
- * enter Gestão de Catálogo de Produtos.
- */
-export const PRODUCT_CATALOG_ENTITY_TYPES = [
-  'product',
-  'resin',
-  'Resinas',
-  'consumables',
-  'Serviços',
-] as const;
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 /**
  * Mirror the manual tech-specs editor output into products_catalog.technical_specifications,

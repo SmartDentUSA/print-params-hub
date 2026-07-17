@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/hooks/useCatalogCRUD';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 interface CatalogProductLink {
   name: string;
