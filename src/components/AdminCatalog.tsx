@@ -2,15 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw, Eye, Sparkles } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, ShoppingCart, AlertTriangle, Filter, RefreshCw, Eye, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
 import { AdminModal } from "./AdminModal";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminCatalogTable } from "./AdminCatalogTable";
 
 export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -22,6 +19,7 @@ export function AdminCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedOrigin, setSelectedOrigin] = useState<string>('all');
   const [migrating, setMigrating] = useState(false);
   const [regenDescs, setRegenDescs] = useState(false);
 
@@ -79,6 +77,14 @@ export function AdminCatalog() {
       filtered = filtered.filter(p => p.product_category === selectedCategory);
     }
 
+    // Filtro de origem (produtos gerais vs. espelho de resinas)
+    if (selectedOrigin !== 'all') {
+      filtered = filtered.filter(p => {
+        const isResin = (p.product_category || p.category || '').toLowerCase().includes('resina');
+        return selectedOrigin === 'resins' ? isResin : !isResin;
+      });
+    }
+
     // Filtro de status
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'active') {
@@ -97,7 +103,7 @@ export function AdminCatalog() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, searchTerm, selectedCategory, selectedStatus]);
+  }, [products, searchTerm, selectedCategory, selectedStatus, selectedOrigin]);
 
   const loadData = async () => {
     try {
@@ -141,6 +147,17 @@ export function AdminCatalog() {
       }
     } catch (error) {
       console.error('Error toggling visibility:', error);
+    }
+  };
+
+  const handleToggleActive = async (productId: string, currentActive: boolean | undefined) => {
+    try {
+      const updated = await updateCatalogProduct(productId, { active: !currentActive });
+      if (updated) {
+        setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+      }
+    } catch (error) {
+      console.error('Error toggling active:', error);
     }
   };
 
@@ -384,130 +401,31 @@ export function AdminCatalog() {
             </div>
           </div>
 
-          {/* Tabela */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Imagem</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead className="text-center">Visível</TableHead>
-                  <TableHead className="text-center">Docs</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      {searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all'
-                        ? 'Nenhum produto encontrado com os filtros aplicados.'
-                        : 'Nenhum produto encontrado. Crie o primeiro produto.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell>
-                        {product.image_url ? (
-                          <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
-                            <img 
-                              src={product.image_url} 
-                              alt={product.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full h-full object-contain p-1"
-                              onError={(e) => {
-                                e.currentTarget.src = '/placeholder.svg';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
-                            <ShoppingCart className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {product.name}
-                        {product.slug && (
-                          <div className="text-xs text-muted-foreground font-mono">
-                            /{product.slug}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {product.product_category ? (
-                          <Badge variant="outline">{product.product_category}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox
-                          checked={!!product.visible_in_ui}
-                          onCheckedChange={() => handleToggleVisibility(product.id!, product.visible_in_ui)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={docCounts[product.id!] ? "default" : "secondary"}>
-                          {docCounts[product.id!] || 0}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant={product.active ? "default" : "secondary"}>
-                            {product.active ? "Ativo" : "Inativo"}
-                          </Badge>
-                          <Badge variant={product.approved ? "default" : "destructive"}>
-                            {product.approved ? "Aprovado" : "Pendente"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(product)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir "{product.name}"? 
-                                  Esta ação não pode ser desfeita e removerá todos os documentos associados.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(product.id!)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          {/* Filtro adicional: origem (produtos gerais / espelho de resinas) */}
+          <div className="mb-4 flex items-center gap-3">
+            <label className="text-sm font-medium">Origem:</label>
+            <select
+              value={selectedOrigin}
+              onChange={(e) => setSelectedOrigin(e.target.value)}
+              className="p-2 border border-border rounded-md bg-background text-sm"
+            >
+              <option value="all">Todos</option>
+              <option value="products">Produtos gerais</option>
+              <option value="resins">Resinas (espelho)</option>
+            </select>
+            <span className="text-xs text-muted-foreground">
+              Linhas de resinas são espelho read-only de <em>Configurações do Sistema → Resinas</em>.
+            </span>
           </div>
+
+          {/* Nova tabela (layout Distribuição + variações) */}
+          <AdminCatalogTable
+            products={filteredProducts}
+            onEditCore={openEditDialog}
+            onDeleteCore={handleDelete}
+            onToggleVisibility={handleToggleVisibility}
+            onToggleActive={handleToggleActive}
+          />
         </CardContent>
       </Card>
 

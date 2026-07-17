@@ -1,89 +1,78 @@
-# Editor Visual de Fluxos Operacionais
+## Objetivo
 
-Substituir `FlowEditorPlaceholder` por um editor ReactFlow real que edita `operational_flows` (5 fluxos: ingest_lead, form_ingest, assign, cs_rule, ltv). Padrão inspirado em `SocialFlowEditor`, mas para o domínio SmartOps.
+Transformar **Gestão de Catálogo de Produtos** (`AdminCatalog.tsx`) em concentrador oficial, replicando o layout tabular e edição inline de **Distribuição — Tabelas de Preço & Propostas** (`DealerPriceTable.tsx`), **sem alterar** o core do produto e **sem quebrar** a rota/documentos de Resinas.
 
-## Escopo
+## Fonte de dados (política Canonical Mirror preservada)
 
-- Frontend apenas. Nenhuma edge function nova, nenhuma migration.
-- O motor genérico de execução continua no backend (fora deste incremento); este editor só edita o `graph` armazenado e cria versões.
-- Não altero regra de negócio (Golden Rule, guards, cronjobs). O rollout continua `hardcoded` até o usuário promover manualmente.
+- **Core produtos gerais**: `system_a_catalog` (id, name, slug, product_category, product_subcategory, image_url, active, approved, visible_in_ui, extra_data, workflow_stages). **Não modificar.**
+- **Core resinas**: `public.resins` continua canônico (Configurações do Sistema → Resinas). **Rota, documentos (`resin_documents`) e edição intactos.**
+- **Espelho de resinas** no listing: linhas de resinas aparecem em `system_a_catalog` (product_category ILIKE '%resina%') via mirror já existente. Aqui só **lemos** — nenhuma edição na linha grava em `resins`; um botão "Editar em Resinas" abre a página canônica.
+- **Documentos (contagem unificada por card)**: soma `catalog_documents.product_id = system_a_catalog.id` + `resin_documents.resin_id = <resin match>` (match por slug idêntico ao mirror existente). Cards como *Bite Flex* que têm docs só em `catalog_documents` continuam funcionando; resinas com docs só em `resin_documents` também. Nenhum dado é apagado ou movido.
+- **Variações**: `catalog_product_variations` (já existe) por produto (`catalog_product_id`). Adicionar campo `color text` via migration mínima.
 
-## UX
+## Novo layout da tabela
 
-Layout em 2 colunas dentro da aba "Fluxos":
+Uma linha por **variação** do produto (produtos sem variação → 1 linha "padrão"). Colunas:
 
-```text
-┌───────────────┬────────────────────────────────────────┐
-│ Fluxos (5)    │  Toolbar: [nome] [rollout] [ativo] [Salvar] │
-│ • Ingestão    ├────────────────────────────────────────┤
-│ • Form SDR    │                                        │
-│ • Atribuição  │        Canvas ReactFlow                │
-│ • Régua CS    │        (drag, connect, minimap)        │
-│ • LTV         │                                        │
-│               ├────────────────────────────────────────┤
-│ + Paleta nós  │  Inspector do nó selecionado           │
-└───────────────┴────────────────────────────────────────┘
-```
+| Status (ativo) | COD Sistema | SKU | Etapa Flow | Categoria | Subcategoria | Nome | Variação | Pres | **Cor** | **Fabricante** | NCM/HS | GTIN/EAN | Peso (kg) | Dimensões (cm) | Preço | Visível | **IDs Correlação** | **Docs (nº)** | Status | Ações |
 
-- **Sidebar esquerda**: lista dos 5 flows (fetch `operational_flows`), destaca o ativo, badge de `rollout_mode` e `active`. Abaixo, paleta de nós com botões "adicionar" por tipo.
-- **Toolbar**: `name` (readonly, vem do banco), select `rollout_mode` (hardcoded / shadow / canary / live), switch `active`, botão **Salvar nova versão**.
-- **Canvas**: ReactFlow com Background, Controls, MiniMap. Nós arrastáveis, conexões livres, seleção única.
-- **Inspector**: painel inferior/lateral com campos do nó selecionado (label, config JSON textarea + campos rápidos por tipo). Botão remover nó.
+- **Status (1ª col.)**: switch `active` do core.
+- **COD Sistema**: `system_a_catalog.product_id` (read-only, monospace).
+- **SKU / NCM / GTIN / Peso / Dimensões / Pres / Variação / Cor**: inputs inline gravando em `catalog_product_variations`. `presentation` usa `PRESENTATION_OPTIONS`. Autosave `onBlur` com toast (padrão DealerPriceTable).
+- **Etapa Flow**: badge derivada de `workflow_stages` (read-only por ora).
+- **Categoria / Subcategoria / Nome**: read-only na linha; abrir modal para editar core.
+- **Fabricante**: lê de `extra_data.manufacturer` ou `system_a_catalog.brand` (o que existir); editável inline para produtos gerais; **read-only** para linhas espelhadas de resinas (fonte = `resins`).
+- **Preço**: BRL principal inline; USD/EUR em popover ("Ver moedas"). Grava em `catalog_product_variations.price_brl/usd/eur`.
+- **Visível**: checkbox `visible_in_ui` do core (mantém).
+- **IDs Correlação**: célula compacta mostrando três chips read-only:
+  - `Loja: {extra_data.loja_integrada_id ?? '—'}`
+  - `Sist A: {external_id ?? '—'}`
+  - `ID: {id.slice(0,8)}` (uuid curto do `system_a_catalog`)
+  Copia ao clicar (clipboard).
+- **Docs (nº)**: badge com **total unificado** (`catalog_documents` + `resin_documents` quando aplicável). Tooltip discrimina "Catálogo: X · Resinas: Y".
+- **Status (penúltima)**: badges Ativo/Aprovado.
+- **Ações**:
+  - Produtos gerais: Editar core (AdminModal) · + Variação · Excluir.
+  - Resinas espelhadas: Editar em Resinas (link `/admin` → aba Configurações do Sistema → Resinas com anchor) · + Variação (grava em `catalog_product_variations` do espelho, sem tocar em `resins`) · **sem excluir** (protegido).
 
-## Modelo de dados usado
+## Ferramentas reaproveitadas de DealerPriceTable
 
-Tabela `operational_flows` já existe:
-- `graph jsonb` — armazena `{ nodes: Node[], edges: Edge[] }`
-- `current_version int` — incrementado ao salvar
-- `rollout_mode text` — hardcoded | shadow | canary | live
-- `active boolean`
-
-Ao salvar:
-1. `insert into operational_flow_versions (flow_id, version, graph, status, note)` com `version = current_version + 1`, `status = 'draft'`.
-2. `update operational_flows set graph=..., current_version=..., rollout_mode=..., active=..., updated_at=now()`.
-
-Graph vazio hoje (`{}`) — normalizo para `{nodes:[], edges:[]}` ao carregar.
-
-## Paleta de nós (genérica, cobre os 5 fluxos)
-
-| Tipo             | Uso                                            |
-|------------------|------------------------------------------------|
-| `trigger`        | Entrada do fluxo (webhook, cron, evento)      |
-| `guard`          | Golden Rule / commercial intent / dedupe       |
-| `enrich`         | Chamada de enrichment (Meta, Piperun, Omie)   |
-| `merge`          | Smart merge / identity resolution              |
-| `assign`         | Round-robin / distribuidor                     |
-| `crm_action`     | Criar Person / Deal / Nota no Piperun          |
-| `wait`           | Delay (D+30, cooldown)                         |
-| `condition`      | if/else sobre payload                          |
-| `notify`         | WhatsApp / SMS / e-mail                        |
-| `end`            | Fim do fluxo                                   |
-
-Config por tipo fica em `data.config` (JSON livre) — inspetor mostra textarea + campos comuns (label, note).
+- Ordenação por `categoryRank(category, subcategory)` (função de `distributors/types.ts`).
+- Autosave por célula com debounce, toast sonner, header sticky, filtros idênticos + novo filtro "Origem: Todos / Gerais / Resinas".
+- Ícones de status (Ativo/Aprovado) + `Cor` renderizada como swatch (`<div style={{backgroundColor: color}}>` fallback texto).
 
 ## Arquivos
 
 **Novos**
-- `src/components/smartops/reactivation/OperationalFlowEditor.tsx` — componente principal com ReactFlow, sidebar de flows, toolbar, inspector.
-- `src/hooks/reactivation/useOperationalFlows.ts` — query list + query single flow + mutation save (usa `@tanstack/react-query` + supabase client).
+- `src/components/AdminCatalogTable.tsx` — tabela com layout completo (linhas = variações + linha default para produtos sem variação).
+- `src/hooks/useCatalogVariations.ts` — CRUD `catalog_product_variations` (list por produto, upsert de célula, insert, delete).
+- `src/hooks/useCatalogDocCounts.ts` — soma unificada `catalog_documents` + `resin_documents` por `system_a_catalog.id` (join por slug → resin_id, mesma regra do mirror).
 
 **Alterados**
-- `src/components/SmartOpsReactivationHub.tsx` — trocar `<FlowEditorPlaceholder />` por `<OperationalFlowEditor />` na `TabsContent value="flows"`.
+- `src/components/AdminCatalog.tsx` — trocar bloco `<Table>` atual por `<AdminCatalogTable />`. Header, filtros e `AdminModal` do core permanecem. Adicionar filtro "Origem" (Gerais/Resinas) e nova coluna de contagem.
 
-**Removido**
-- `src/components/smartops/reactivation/FlowEditorPlaceholder.tsx` — não usado após a troca.
+**Migration mínima**
+- `ALTER TABLE public.catalog_product_variations ADD COLUMN IF NOT EXISTS color text;`
+- Nenhuma outra mudança de schema, RLS ou grants — `resins`, `resin_documents`, `catalog_documents`, `system_a_catalog` **inalterados**.
 
-## Detalhes técnicos
+## Garantias explícitas (o que NÃO muda)
 
-- Reusar `@xyflow/react` (já instalado, v12) — mesma versão do `SocialFlowEditor` para consistência.
-- Salvar via `supabase.from('operational_flows').update(...)` + `insert('operational_flow_versions', ...)` em sequência com try/catch; se o insert de versão falhar, reverter update? → aceito best-effort: mostrar toast de erro, sem transação (RLS/serviço permite update simples e é reversível manualmente via histórico).
-- Normalização dos nós idêntica ao `SocialFlowEditor` (garante `type: 'default'`, position válida, `data.label`/`data.nodeType`/`data.config`).
-- Toast via `sonner` (já no projeto).
-- Nenhuma mudança em `operational_flow_shadow_log` — permanece populado pelo motor no backend.
+- `public.resins` e sua UI em Configurações do Sistema → Resinas: intactas.
+- `resin_documents` e `catalog_documents`: nenhum dado apagado, movido ou unificado; apenas **somados** para exibição.
+- Rotas de resinas (`/resinas/*`, `/base-conhecimento/*`), Canonical Mirror job e mirror job COALESCE: sem alterações.
+- Cards com docs só no core do produto (ex.: Bite Flex) continuam expondo os docs de `catalog_documents` normalmente.
 
-## Fora do escopo (próximos incrementos)
+## Fora do escopo
 
-- Motor executor genérico que consome `graph` (hoje segue hardcoded).
-- Editor de rollout progressivo com % canary.
-- Diff visual entre versões / rollback UI.
-- Validação semântica do grafo (nó `end` alcançável, guards obrigatórios, etc).
+- Editor de `workflow_stages` inline.
+- Escrita cross-source (linha espelhada de resina não escreve em `resins`).
+- Deduplicação de documentos entre `catalog_documents` e `resin_documents`.
+- Reescrita do `AdminModal` do core.
+
+## Aceitação
+
+- Linhas de resinas aparecem com os campos preenchidos vindos de `system_a_catalog` (espelho de `resins`) — sem editar `resins`.
+- Contagem "Docs" mostra soma correta e cards como Bite Flex (docs no catálogo) exibem número > 0.
+- Colunas Cor, Fabricante e IDs Correlação (Loja/Sist A/ID) presentes e populadas quando dado existir.
+- Edição inline de SKU/NCM/GTIN/Peso/Dimensões/Preço/Pres/Cor grava em `catalog_product_variations` sem sair da linha.
+- Nenhuma escrita ocorre em `resins` a partir desta tabela.
