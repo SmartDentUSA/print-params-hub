@@ -88,11 +88,14 @@ export function useCatalogVariations() {
         existing.reduce((m, v) => Math.max(m, v.sort_order ?? 0), 0) + 1;
       const { data, error } = await supabase
         .from("catalog_product_variations")
-        .insert({
-          catalog_product_id: productId,
-          sort_order: nextOrder,
-          source: "admin_catalog_ui",
-        })
+        .insert([
+          {
+            catalog_product_id: productId,
+            sort_order: nextOrder,
+            source: "admin_catalog_ui",
+            presentation_qty: "",
+          },
+        ])
         .select()
         .single();
       if (error) throw error;
