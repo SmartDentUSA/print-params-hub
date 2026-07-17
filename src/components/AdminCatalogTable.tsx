@@ -218,7 +218,6 @@ export function AdminCatalogTable({
               <TableHead className="w-28">Dim (cm)</TableHead>
               <TableHead className="w-24">Preço BRL</TableHead>
               <TableHead className="w-14 text-center">Visível</TableHead>
-              <TableHead className="w-40">IDs</TableHead>
               <TableHead className="w-14 text-center">Docs</TableHead>
               <TableHead className="w-24">Situação</TableHead>
               <TableHead className="w-24 text-center">Ações</TableHead>
@@ -227,7 +226,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -457,37 +456,6 @@ export function AdminCatalogTable({
                             checked={!!product.visible_in_ui}
                             onCheckedChange={() => onToggleVisibility(product.id!, product.visible_in_ui)}
                           />
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={() => copyToClipboard(lojaId || "", "Loja ID")}
-                              className="text-left text-[10px] hover:underline flex items-center gap-1"
-                              title={lojaId || "—"}
-                            >
-                              <span className="text-muted-foreground">Loja:</span>
-                              <span className="font-mono truncate max-w-[100px]">{lojaId || "—"}</span>
-                              {lojaId && <Copy className="w-2.5 h-2.5" />}
-                            </button>
-                            <button
-                              onClick={() => copyToClipboard(product.external_id || "", "Sist A")}
-                              className="text-left text-[10px] hover:underline flex items-center gap-1"
-                              title={product.external_id || "—"}
-                            >
-                              <span className="text-muted-foreground">Sist A:</span>
-                              <span className="font-mono truncate max-w-[100px]">{product.external_id || "—"}</span>
-                              {product.external_id && <Copy className="w-2.5 h-2.5" />}
-                            </button>
-                            <button
-                              onClick={() => copyToClipboard(product.id!, "ID")}
-                              className="text-left text-[10px] hover:underline flex items-center gap-1"
-                              title={product.id}
-                            >
-                              <span className="text-muted-foreground">ID:</span>
-                              <span className="font-mono truncate max-w-[100px]">{product.id!.slice(0, 8)}</span>
-                              <Copy className="w-2.5 h-2.5" />
-                            </button>
-                          </div>
                         </TableCell>
                         <TableCell rowSpan={list.length} className="align-top text-center">
                           <Tooltip>
