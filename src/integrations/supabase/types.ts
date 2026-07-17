@@ -2754,6 +2754,7 @@ export type Database = {
       catalog_product_variations: {
         Row: {
           catalog_product_id: string
+          color: string | null
           created_at: string
           dimensions_cm: string | null
           gtin_ean: string | null
@@ -2773,6 +2774,7 @@ export type Database = {
         }
         Insert: {
           catalog_product_id: string
+          color?: string | null
           created_at?: string
           dimensions_cm?: string | null
           gtin_ean?: string | null
@@ -2792,6 +2794,7 @@ export type Database = {
         }
         Update: {
           catalog_product_id?: string
+          color?: string | null
           created_at?: string
           dimensions_cm?: string | null
           gtin_ean?: string | null
