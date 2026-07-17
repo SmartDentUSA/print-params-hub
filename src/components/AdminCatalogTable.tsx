@@ -290,11 +290,21 @@ export function AdminCatalogTable({
                     ) : null}
 
                     <TableCell>
-                      <CellInput
-                        value={v.sku}
-                        placeholder="SKU"
-                        onCommit={(val) => commitVariationField(product.id!, v, { sku: val || null })}
-                      />
+                      <div className="flex flex-col gap-1">
+                        <CellInput
+                          value={v.sku}
+                          placeholder="SKU"
+                          onCommit={(val) => commitVariationField(product.id!, v, { sku: val || null })}
+                        />
+                        {idx === 0 && (
+                          <CellInput
+                            value={manufacturer}
+                            placeholder={resin ? "(via Resinas)" : "Fabricante"}
+                            disabled={resin}
+                            onCommit={(val) => commitCoreManufacturer(product, val)}
+                          />
+                        )}
+                      </div>
                     </TableCell>
 
                     {idx === 0 ? (
@@ -395,16 +405,6 @@ export function AdminCatalogTable({
                         />
                       </div>
                     </TableCell>
-                    {idx === 0 ? (
-                      <TableCell rowSpan={list.length} className="align-top">
-                        <CellInput
-                          value={manufacturer}
-                          placeholder={resin ? "(via Resinas)" : "Fabricante"}
-                          disabled={resin}
-                          onCommit={(val) => commitCoreManufacturer(product, val)}
-                        />
-                      </TableCell>
-                    ) : null}
                     <TableCell>
                       <CellInput
                         value={v.ncm_hs}
