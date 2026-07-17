@@ -204,7 +204,6 @@ export function AdminCatalogTable({
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-14 text-center">Status</TableHead>
-              <TableHead className="w-24">COD</TableHead>
               <TableHead className="w-28">SKU</TableHead>
               <TableHead className="w-24">Flow</TableHead>
               <TableHead className="w-36">Categoria</TableHead>
@@ -228,7 +227,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -258,22 +257,6 @@ export function AdminCatalogTable({
                             checked={!!product.active}
                             onCheckedChange={() => onToggleActive(product.id!, product.active)}
                           />
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          {product.external_id ? (
-                            <button
-                              onClick={() => copyToClipboard(product.external_id!, "COD")}
-                              className="font-mono text-[10px] hover:underline flex items-center gap-1"
-                              title={product.external_id}
-                            >
-                              <span className="truncate max-w-[80px] inline-block">
-                                {product.external_id.slice(0, 8)}…
-                              </span>
-                              <Copy className="w-2.5 h-2.5 flex-shrink-0" />
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
                         </TableCell>
                       </>
                     ) : null}
