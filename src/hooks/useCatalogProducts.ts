@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 interface CatalogProductLink {
   name: string;
@@ -16,6 +17,7 @@ export function useCatalogProducts() {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('id, name, slug')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .eq('active', true)
         .eq('approved', true);
 

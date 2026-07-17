@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 /**
  * Mirror the manual tech-specs editor output into products_catalog.technical_specifications,
@@ -112,6 +113,7 @@ export const useCatalogCRUD = () => {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('*')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .order('name');
       
       if (error) throw error;
@@ -396,7 +398,7 @@ export const useCatalogCRUD = () => {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('product_category')
-        .eq('category', 'product')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .not('product_category', 'is', null);
       
       if (error) throw error;
@@ -415,7 +417,7 @@ export const useCatalogCRUD = () => {
       let query = supabase
         .from('system_a_catalog')
         .select('product_subcategory')
-        .eq('category', 'product')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .not('product_subcategory', 'is', null);
       
       if (category) {

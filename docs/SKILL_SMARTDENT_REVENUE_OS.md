@@ -24,7 +24,7 @@
 | 1 | Hub de Parâmetros | 260+ combinações resina × impressora, URLs SEO únicas |
 | 2 | Base de Conhecimento | 304 artigos PT/EN/ES, blog técnico multilíngue |
 | 3 | Dra. L.I.A. | Chatbot RAG conversacional (vetor + FTS + ILIKE) |
-| 4 | Catálogo (system_a_catalog) | 454 produtos sincronizados com Loja Integrada |
+| 4 | Catálogo (`system_a_catalog`) | Repositório universal do Sistema A; somente tipos comerciais formam o catálogo de produtos |
 | 5 | Gestão de Vídeos | 499 vídeos PandaVideo com analytics |
 | 6 | Geração de Conteúdo IA | Pipeline de criação/enriquecimento/tradução de artigos |
 | 7 | Autores E-E-A-T | Perfis completos para SEO E-E-A-T |
@@ -265,6 +265,15 @@ Uso: substituir leituras diretas de lia_attendances no WorkflowPortfolio.tsx
 
 ### Golden Rule (NÃO violar)
 Se existe um deal **aberto no pipeline de VENDAS** no PipeRun → **NUNCA** sobrescrever `owner_id` nem `stage_id`.
+
+### Governança do Catálogo de Produtos (NÃO violar)
+
+`system_a_catalog` é uma tabela universal e contém produtos e entidades que **não são produtos**.
+
+- Gestão de Catálogo e cards da Base de Conhecimento aceitam somente `category` em: `product`, `resin`, `Resinas`, `consumables`, `Serviços`.
+- `video_testimonial` representa clientes/depoimentos; `category_config` representa categorias/filtros; `company_info` representa a empresa. Nenhum deles pode aparecer como produto.
+- Nunca remover a allowlist de tipos comerciais para recuperar resinas. Uma nova origem comercial deve ser adicionada explicitamente à allowlist compartilhada.
+- Ausência de `product_category`/`product_subcategory` não transforma uma entidade em produto; `category` define primeiro o tipo da entidade.
 
 ### Smart Merge (lead-enrichment.ts)
 - `PROTECTED`: nunca sobrescrever (email, piperun_id, id, etc.)
