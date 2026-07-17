@@ -200,30 +200,30 @@ export function AdminCatalogTable({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="rounded-md border overflow-x-auto">
-        <Table className="text-xs">
+        <Table className="text-xs min-w-[2100px] [&_th]:whitespace-nowrap [&_td]:align-middle">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
-              <TableHead className="w-16">Status</TableHead>
-              <TableHead className="w-24">COD Sistema</TableHead>
+              <TableHead className="w-14 text-center">Status</TableHead>
+              <TableHead className="w-24">COD</TableHead>
               <TableHead className="w-28">SKU</TableHead>
-              <TableHead className="w-28">Etapa Flow</TableHead>
-              <TableHead className="w-40">Categoria</TableHead>
-              <TableHead className="w-40">Subcategoria</TableHead>
-              <TableHead className="min-w-[220px]">Nome</TableHead>
-              <TableHead className="w-28">Variação</TableHead>
-              <TableHead className="w-24">Pres</TableHead>
+              <TableHead className="w-24">Flow</TableHead>
+              <TableHead className="w-32">Categoria</TableHead>
+              <TableHead className="w-32">Subcategoria</TableHead>
+              <TableHead className="min-w-[240px]">Nome</TableHead>
+              <TableHead className="w-24">Variação</TableHead>
+              <TableHead className="w-20">Pres</TableHead>
               <TableHead className="w-24">Cor</TableHead>
               <TableHead className="w-32">Fabricante</TableHead>
               <TableHead className="w-24">NCM/HS</TableHead>
-              <TableHead className="w-32">GTIN/EAN</TableHead>
+              <TableHead className="w-28">GTIN/EAN</TableHead>
               <TableHead className="w-20">Peso (kg)</TableHead>
-              <TableHead className="w-32">Dimensões (cm)</TableHead>
-              <TableHead className="w-28">Preço (BRL)</TableHead>
-              <TableHead className="w-16 text-center">Visível</TableHead>
-              <TableHead className="w-44">IDs Correlação</TableHead>
-              <TableHead className="w-16 text-center">Docs</TableHead>
-              <TableHead className="w-24">Status</TableHead>
-              <TableHead className="w-32">Ações</TableHead>
+              <TableHead className="w-28">Dim (cm)</TableHead>
+              <TableHead className="w-24">Preço BRL</TableHead>
+              <TableHead className="w-14 text-center">Visível</TableHead>
+              <TableHead className="w-40">IDs</TableHead>
+              <TableHead className="w-14 text-center">Docs</TableHead>
+              <TableHead className="w-24">Situação</TableHead>
+              <TableHead className="w-24 text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -261,9 +261,20 @@ export function AdminCatalogTable({
                           />
                         </TableCell>
                         <TableCell rowSpan={list.length} className="align-top">
-                          <span className="font-mono text-[10px] break-all">
-                            {product.external_id || "—"}
-                          </span>
+                          {product.external_id ? (
+                            <button
+                              onClick={() => copyToClipboard(product.external_id!, "COD")}
+                              className="font-mono text-[10px] hover:underline flex items-center gap-1"
+                              title={product.external_id}
+                            >
+                              <span className="truncate max-w-[80px] inline-block">
+                                {product.external_id.slice(0, 8)}…
+                              </span>
+                              <Copy className="w-2.5 h-2.5 flex-shrink-0" />
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </>
                     ) : null}
