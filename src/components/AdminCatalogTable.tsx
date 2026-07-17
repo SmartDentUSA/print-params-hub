@@ -156,9 +156,12 @@ export function AdminCatalogTable({
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
-      const ra = categoryRank(a.product_category, (a as any).product_subcategory);
-      const rb = categoryRank(b.product_category, (b as any).product_subcategory);
-      if (ra !== rb) return ra - rb;
+      const ca = (a.product_category || "~~sem~~").toString();
+      const cb = (b.product_category || "~~sem~~").toString();
+      if (ca !== cb) return ca.localeCompare(cb, "pt", { numeric: true });
+      const sa = ((a as any).product_subcategory || "").toString();
+      const sb = ((b as any).product_subcategory || "").toString();
+      if (sa !== sb) return sa.localeCompare(sb, "pt", { numeric: true });
       return (a.name || "").localeCompare(b.name || "");
     });
   }, [products]);
@@ -231,7 +234,34 @@ export function AdminCatalogTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedProducts.flatMap((product) => {
+              (() => {
+                let lastCat = "__init__";
+                let lastSub = "__init__";
+                const rows: JSX.Element[] = [];
+                sortedProducts.forEach((product) => {
+                  const cat = product.product_category || "Sem classificação";
+                  const sub = (product as any).product_subcategory || "—";
+                  if (cat !== lastCat) {
+                    rows.push(
+                      <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
+                        <TableCell colSpan={18} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                          {cat}
+                        </TableCell>
+                      </TableRow>
+                    );
+                    lastCat = cat;
+                    lastSub = "__init__";
+                  }
+                  if (sub !== lastSub) {
+                    rows.push(
+                      <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
+                        <TableCell colSpan={18} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                          {sub}
+                        </TableCell>
+                      </TableRow>
+                    );
+                    lastSub = sub;
+                  }
                 const list =
                   variationsByProduct[product.id!] ||
                   [makePlaceholderVariation(product.id!)];
@@ -247,7 +277,7 @@ export function AdminCatalogTable({
                 const stage = firstWorkflowStage(product);
                 const dc = docCounts[product.id!];
 
-                return list.map((v, idx) => (
+                list.forEach((v, idx) => rows.push(
                   <TableRow key={`${product.id}-${v.id}`}>
                     {idx === 0 ? (
                       <>
@@ -578,7 +608,9 @@ export function AdminCatalogTable({
                     )}
                   </TableRow>
                 ));
-              })
+                });
+                return rows;
+              })()
             )}
           </TableBody>
         </Table>
