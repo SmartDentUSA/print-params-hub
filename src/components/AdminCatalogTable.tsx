@@ -151,7 +151,7 @@ export function AdminCatalogTable({
   const { variationsByProduct, upsertField, addVariation, removeVariation, loadAll } =
     useCatalogVariationsFor(productIds);
   const docCounts = useCatalogDocCounts(
-    products.map((p) => ({ id: p.id!, slug: p.slug })),
+    products.map((p) => ({ id: p.id!, slug: p.slug, name: p.name })),
   );
 
   const sortedProducts = useMemo(() => {
