@@ -12,7 +12,7 @@ import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
-import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
+import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFromCatalogRow } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 
