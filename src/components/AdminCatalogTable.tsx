@@ -207,14 +207,13 @@ export function AdminCatalogTable({
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-14 text-center">Status</TableHead>
-              <TableHead className="w-28">SKU</TableHead>
+              <TableHead className="w-32">SKU / Fabricante</TableHead>
               <TableHead className="w-24">Flow</TableHead>
               <TableHead className="w-36">Categoria</TableHead>
               <TableHead className="min-w-[240px]">Nome</TableHead>
               <TableHead className="w-24">Variação</TableHead>
               <TableHead className="w-20">Pres</TableHead>
               <TableHead className="w-24">Cor</TableHead>
-              <TableHead className="w-32">Fabricante</TableHead>
               <TableHead className="w-24">NCM/HS</TableHead>
               <TableHead className="w-28">GTIN/EAN</TableHead>
               <TableHead className="w-20">Peso (kg)</TableHead>
@@ -229,7 +228,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -244,7 +243,7 @@ export function AdminCatalogTable({
                   if (cat !== lastCat) {
                     rows.push(
                       <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
-                        <TableCell colSpan={18} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                        <TableCell colSpan={17} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
                           {cat}
                         </TableCell>
                       </TableRow>
@@ -255,7 +254,7 @@ export function AdminCatalogTable({
                   if (sub !== lastSub) {
                     rows.push(
                       <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={18} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                        <TableCell colSpan={17} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
                           {sub}
                         </TableCell>
                       </TableRow>
@@ -291,11 +290,21 @@ export function AdminCatalogTable({
                     ) : null}
 
                     <TableCell>
-                      <CellInput
-                        value={v.sku}
-                        placeholder="SKU"
-                        onCommit={(val) => commitVariationField(product.id!, v, { sku: val || null })}
-                      />
+                      <div className="flex flex-col gap-1">
+                        <CellInput
+                          value={v.sku}
+                          placeholder="SKU"
+                          onCommit={(val) => commitVariationField(product.id!, v, { sku: val || null })}
+                        />
+                        {idx === 0 && (
+                          <CellInput
+                            value={manufacturer}
+                            placeholder={resin ? "(via Resinas)" : "Fabricante"}
+                            disabled={resin}
+                            onCommit={(val) => commitCoreManufacturer(product, val)}
+                          />
+                        )}
+                      </div>
                     </TableCell>
 
                     {idx === 0 ? (
@@ -396,16 +405,6 @@ export function AdminCatalogTable({
                         />
                       </div>
                     </TableCell>
-                    {idx === 0 ? (
-                      <TableCell rowSpan={list.length} className="align-top">
-                        <CellInput
-                          value={manufacturer}
-                          placeholder={resin ? "(via Resinas)" : "Fabricante"}
-                          disabled={resin}
-                          onCommit={(val) => commitCoreManufacturer(product, val)}
-                        />
-                      </TableCell>
-                    ) : null}
                     <TableCell>
                       <CellInput
                         value={v.ncm_hs}

@@ -12,7 +12,7 @@ import { CATALOG_COLORS } from './kbCategoryColors';
 import KbResinSheetDialog from './KbResinSheetDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import KbResinDocsDialog, { ResinDocItem } from './KbResinDocsDialog';
-import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat } from './kbCategoryTaxonomy';
+import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFromCatalogRow } from './kbCategoryTaxonomy';
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 
@@ -682,7 +682,7 @@ export default function KbTabCatalogo() {
       return true;
     });
     return deduped.filter((r) => {
-      const canon = normCat(r.product_category);
+      const canon = canonFromCatalogRow(r.product_category, r.product_subcategory);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
       if (chip !== 'all' && subChip !== 'all' && !CATEGORIES_WITHOUT_SUBFILTER.has(chip)) {
@@ -698,7 +698,7 @@ export default function KbTabCatalogo() {
     if (chip === 'all' || CATEGORIES_WITHOUT_SUBFILTER.has(chip)) return [];
     const set = new Set<string>();
     rows.forEach((r) => {
-      if (normCat(r.product_category) !== chip) return;
+      if (canonFromCatalogRow(r.product_category, r.product_subcategory) !== chip) return;
       const s = (r.product_subcategory || '').trim();
       if (s) set.add(s);
     });
@@ -727,7 +727,7 @@ export default function KbTabCatalogo() {
           <KbEmptyState icon="📦" />
         ) : (
           filtered.map((p, i) => {
-            const canon = normCat(p.product_category) || 'SOFTWARES';
+            const canon = canonFromCatalogRow(p.product_category, p.product_subcategory) || 'SOFTWARES';
             const color = CATALOG_COLORS[canon] || '#5F6368';
             const bgBadge = color + '1A';
             const special = p.product_subcategory && SPECIAL.test(p.product_subcategory)
