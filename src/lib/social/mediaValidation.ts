@@ -1,5 +1,3 @@
-const IMAGE_MAX = 8 * 1024 * 1024;
-const VIDEO_MAX = 500 * 1024 * 1024;
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 const VIDEO_MIMES = ['video/mp4', 'video/quicktime', 'video/webm'];
 
@@ -8,12 +6,10 @@ export type MediaValidationError = { file: File; reason: string };
 export function validateMediaFile(file: File): string | null {
   if (file.type.startsWith('image/')) {
     if (!IMAGE_MIMES.includes(file.type)) return 'Formato de imagem não suportado (use JPG, PNG ou WEBP)';
-    if (file.size > IMAGE_MAX) return `Imagem acima de 8MB`;
     return null;
   }
   if (file.type.startsWith('video/')) {
     if (!VIDEO_MIMES.includes(file.type)) return 'Formato de vídeo não suportado (use MP4 ou MOV)';
-    if (file.size > VIDEO_MAX) return 'Vídeo acima de 500MB';
     return null;
   }
   return 'Tipo de arquivo não suportado';
