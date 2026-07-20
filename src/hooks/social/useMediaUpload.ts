@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import type { MediaItem } from '@/lib/social/postSchema';
 
 const BUCKET = 'wa-media';
-const MAX_BYTES = 500 * 1024 * 1024;
 
 function getMediaDimensions(file: File): Promise<{ width?: number; height?: number }> {
   return new Promise((resolve) => {
@@ -28,10 +27,6 @@ export function useMediaUpload() {
   const [progress, setProgress] = useState(0);
 
   const uploadFile = async (file: File): Promise<MediaItem | null> => {
-    if (file.size > MAX_BYTES) {
-      toast.error(`Arquivo muito grande (max ${MAX_BYTES / 1024 / 1024}MB)`);
-      return null;
-    }
     const isVideo = file.type.startsWith('video/');
     const isImage = file.type.startsWith('image/');
     if (!isVideo && !isImage) {
