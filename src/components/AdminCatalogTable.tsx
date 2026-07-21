@@ -109,6 +109,7 @@ function CellInput({
   className = "",
   onCommit,
   disabled,
+  step,
 }: {
   value: string | number | null;
   placeholder?: string;
@@ -116,6 +117,7 @@ function CellInput({
   className?: string;
   onCommit: (next: string) => Promise<void> | void;
   disabled?: boolean;
+  step?: string;
 }) {
   const initial = value == null ? "" : String(value);
   const [local, setLocal] = useState(initial);
@@ -127,9 +129,11 @@ function CellInput({
     <Input
       value={local}
       type={type}
+      step={type === "number" ? (step ?? "any") : undefined}
+      inputMode={type === "number" ? "decimal" : undefined}
       placeholder={placeholder}
       disabled={disabled}
-      onChange={(e) => setLocal(e.target.value)}
+      onChange={(e) => setLocal(e.target.value.replace(",", "."))}
       onBlur={async () => {
         if (local === initial) return;
         try {
