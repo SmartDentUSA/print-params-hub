@@ -23,11 +23,11 @@ export const ESPECIALIDADE_OPTIONS: TaxonomyOption[] = [
   { value: "ORTODONTISTA", label: "Ortodontista" },
   { value: "ODONTOPEDIATRIA", label: "Odontopediatria" },
   { value: "PERIODONTISTA", label: "Periodontista" },
+  { value: "ENDODONTISTA", label: "Endodontista" },
   { value: "RADIOLOGISTA", label: "Radiologista" },
   { value: "CIRURGIA BUCO MAXILO FACIAL", label: "Cirurgia Buco Maxilo Facial" },
   { value: "TÉCNICO EM RADIOLOGIA", label: "Técnico em Radiologia" },
   { value: "TÉCNICO EM PRÓTESE ODONTOLÓGICA", label: "Técnico em Prótese Odontológica" },
-  { value: "ENDODONTISTA", label: "Endodontista" },
   { value: "OUTROS", label: "Outros" },
 ];
 

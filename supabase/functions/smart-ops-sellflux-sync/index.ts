@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchLeadFromSellFlux, migrateLegacyTags, mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
+import {
+  canonicalizeArea,
+  canonicalizeScanner,
+  canonicalizePrinter,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,9 +81,15 @@ Deno.serve(async (req) => {
 
         // Update extracted fields only if currently empty
         const ef = migration.extractedFields;
-        if (ef.area_atuacao && !lead.area_atuacao) updatePayload.area_atuacao = ef.area_atuacao;
-        if (ef.tem_impressora && !lead.tem_impressora) updatePayload.tem_impressora = ef.tem_impressora;
-        if (ef.tem_scanner && !lead.tem_scanner) updatePayload.tem_scanner = ef.tem_scanner;
+        if (ef.area_atuacao && !lead.area_atuacao) {
+          updatePayload.area_atuacao = canonicalizeArea(String(ef.area_atuacao)) ?? ef.area_atuacao;
+        }
+        if (ef.tem_impressora && !lead.tem_impressora) {
+          updatePayload.tem_impressora = canonicalizePrinter(String(ef.tem_impressora)).tem_impressora ?? ef.tem_impressora;
+        }
+        if (ef.tem_scanner && !lead.tem_scanner) {
+          updatePayload.tem_scanner = canonicalizeScanner(String(ef.tem_scanner)).tem_scanner ?? ef.tem_scanner;
+        }
 
         // Map custom fields from SellFlux
         if (cf["atual-id-pipe"] && !lead.piperun_id) updatePayload.piperun_id = cf["atual-id-pipe"];

@@ -1,5 +1,12 @@
-// redeployed 2026-03-31T14:30Z — fix token trim + diagnostic logs
+// redeployed 2026-07-21 — accent-safe field parsing + canonical taxonomy
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildMetaFieldMap, pickMetaField } from "../_shared/meta-field-utils.ts";
+import {
+  canonicalizeArea,
+  canonicalizeSpecialty,
+  canonicalizeScanner,
+  canonicalizePrinter,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,14 +100,12 @@ Deno.serve(async (req) => {
           const leadData = await graphRes.json();
           console.log("[meta-webhook] Graph API response:", JSON.stringify(leadData).slice(0, 500));
 
-          // Parse field_data array: [{ name: "email", values: ["x@y.com"] }, ...]
+          // Parse field_data array with accent-safe key normalization.
+          // Meta sends keys like `área_de_atuação`, `como_digitaliza_suas_moldagens?`
+          // and values like `clínica_ou_consultório` — buildMetaFieldMap strips
+          // diacritics, collapses non-alnum to `_` and unslugs values.
           const fieldData = leadData.field_data || [];
-          const fields: Record<string, string> = {};
-          for (const field of fieldData) {
-            if (field.name && field.values?.[0]) {
-              fields[field.name.toLowerCase()] = field.values[0];
-            }
-          }
+          const fields = buildMetaFieldMap(fieldData);
 
           // Determine platform (facebook or instagram)
           const platform = body.object === "instagram" ? "instagram" : "facebook";
@@ -141,8 +146,8 @@ Deno.serve(async (req) => {
 
           // Product of interest (cascade: form answer → keyword inference → campaign name)
           const KEYWORDS_RE_LOCAL = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
-          const directProduct = fields.produto || fields.produto_de_interesse || fields.produto_interesse
-            || fields.equipamento || fields.interesse || fields.solucao || null;
+          const directProduct = pickMetaField(fields, "produto_de_interesse", "produto_interesse", "produto",
+            "equipamento", "interesse", "solucao");
           const allFieldValuesPre = Object.values(fields).join(' ');
           const inferredMatches = allFieldValuesPre.match(KEYWORDS_RE_LOCAL);
           const inferredProduct = inferredMatches?.length
@@ -177,26 +182,47 @@ Deno.serve(async (req) => {
             meta_form_id: formId,
             meta_created_time: leadData.created_time,
             meta_platform: platform,
-            // Map common Meta Lead Ad fields
-            email: fields.email || fields.e_mail || fields["e-mail"] || null,
-            full_name: fields.full_name || fields.nome_completo || fields.nome || null,
-            first_name: fields.first_name || fields.nome || null,
-            last_name: fields.last_name || fields.sobrenome || null,
-            phone_number: fields.phone_number || fields.telefone || fields.celular || null,
-            // Custom fields commonly used in dental/3D printing forms
-            especialidade: fields.especialidade || fields.specialty || fields.especialidade_odontologica || null,
-            area_atuacao: fields.area_de_atuacao || fields.area_atuacao || fields.area || fields.atuacao || null,
-            tem_scanner: fields.tem_scanner || fields.possui_scanner || fields.scanner || fields.scanner_intraoral || null,
-            tem_impressora: fields.tem_impressora || fields.possui_impressora || fields.impressora || fields.impressoes_3d || fields["impressoes 3d"] || null,
-            impressora_modelo: fields.impressora_modelo || fields.modelo_impressora || fields.printer_model || null,
+            // Map common Meta Lead Ad fields (accent-safe pickMetaField)
+            email: pickMetaField(fields, "email", "e_mail"),
+            full_name: pickMetaField(fields, "full_name", "nome_completo", "nome"),
+            first_name: pickMetaField(fields, "first_name", "nome"),
+            last_name: pickMetaField(fields, "last_name", "sobrenome"),
+            phone_number: pickMetaField(fields, "phone_number", "phone", "telefone", "celular"),
+            // Canonicalized taxonomy fields
+            ...(() => {
+              const areaRaw = pickMetaField(fields, "area_de_atuacao", "area_atuacao", "atuacao", "area");
+              const espRaw  = pickMetaField(fields, "especialidade", "specialty", "especialidade_odontologica");
+              const scanRaw = pickMetaField(fields, "como_digitaliza", "como_digitaliza_suas_moldagens",
+                "tem_scanner", "possui_scanner", "scanner_intraoral", "scanner");
+              const printRaw = pickMetaField(fields, "tem_impressora", "possui_impressora",
+                "impressora_3d", "impressoes_3d", "impressora");
+              const modeloRaw = pickMetaField(fields, "impressora_modelo", "modelo_impressora",
+                "printer_model", "modelo_da_impressora");
+              const scan = canonicalizeScanner(scanRaw);
+              const printer = canonicalizePrinter(printRaw || modeloRaw);
+              return {
+                area_atuacao: canonicalizeArea(areaRaw),
+                especialidade: canonicalizeSpecialty(espRaw),
+                como_digitaliza: scan.como_digitaliza,
+                scanner_marca: scan.scanner_marca,
+                tem_scanner: scan.tem_scanner,
+                tem_impressora: printer.tem_impressora,
+                impressora_modelo: printer.impressora_marca || modeloRaw || null,
+                // preservar raw para auditoria
+                area_atuacao_raw: areaRaw,
+                especialidade_raw: espRaw,
+                scanner_raw: scanRaw,
+                impressora_raw: printRaw,
+              };
+            })(),
             // Behavioral Ingestion: keep both explicit and inferred product
             produto_interesse_auto: inferredProduct || campaignProduct || null,
-            empresa_nome: fields.empresa || fields.empresa_nome || fields.clinica || fields.consultorio || null,
-            empresa_razao_social: fields.razao_social || fields.empresa_razao_social || null,
-            cidade: fields.city || fields.cidade || null,
-            uf: fields.state || fields.estado || fields.uf || null,
-            city: fields.city || fields.cidade || null,
-            state: fields.state || fields.estado || fields.uf || null,
+            empresa_nome: pickMetaField(fields, "empresa_nome", "empresa", "clinica", "consultorio"),
+            empresa_razao_social: pickMetaField(fields, "razao_social", "empresa_razao_social"),
+            cidade: pickMetaField(fields, "cidade", "city"),
+            uf: pickMetaField(fields, "uf", "estado", "state"),
+            city: pickMetaField(fields, "city", "cidade"),
+            state: pickMetaField(fields, "state", "estado", "uf"),
           };
 
           // --- Detect equipment/product mentions for lead_form_submissions ---
