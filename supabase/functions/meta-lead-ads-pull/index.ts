@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  let sinceMinutes = 45;
+  let sinceMinutes = 30;
   try {
     const b = await req.json().catch(() => ({}));
     if (Number.isFinite(Number(b?.since_minutes))) sinceMinutes = Number(b.since_minutes);
