@@ -1035,6 +1035,7 @@ Deno.serve(async (req) => {
       nome, email, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
       area_atuacao: areaAtuacao, especialidade, como_digitaliza: comoDigitaliza,
       tem_impressora: temImpressora, impressora_modelo: impressoraModelo,
+      scanner_marca: scannerMarca,
       resina_interesse: resinaInteresse, produto_interesse: produtoInteresse,
       source, form_name: formName,
       origem_campanha: payload.campaign || payload.origem_campanha || null,
