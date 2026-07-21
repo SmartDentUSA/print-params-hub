@@ -1207,10 +1207,12 @@ const LIA_SOURCES = ["dra-lia", "whatsapp_lia", "handoff_lia"];
 const BLOCKED_SELLER_NAMES = ["Celular", "Comercial", "Vendas", "Smart Dent"];
 
 // ── Owners that NEVER receive leads as vendedores ──
-// Patricia Gastaldi (47675) usa o nº dela só para LIA/Copilot.
-// Qualquer lead roteado para ela vai para o Distribuidor de Leads.
-const BLOCKED_SELLER_OWNER_IDS = new Set<number>([47675]);
-const BLOCKED_SELLER_NAME_PATTERNS: RegExp[] = [/patric[ai]\s+(gastaldi|silva)/i];
+// FONTE ÚNICA DE VERDADE: tabela team_members (ativo=true AND role='vendedor').
+// Sem hardcode — se o usuário desativar/mudar função na UI, o sorteio reflete
+// imediatamente. Qualquer owner atualmente atribuído mas NÃO presente em
+// team_members como vendedor ativo é considerado bloqueado dinamicamente.
+const BLOCKED_SELLER_OWNER_IDS = new Set<number>();
+const BLOCKED_SELLER_NAME_PATTERNS: RegExp[] = [];
 
 function isBlockedSeller(opts: { ownerId?: number | null; ownerName?: string | null }): boolean {
   const { ownerId, ownerName } = opts;
