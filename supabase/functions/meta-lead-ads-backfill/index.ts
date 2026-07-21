@@ -37,6 +37,23 @@ function normPhone(s: string | null | undefined): string {
   return String(s || "").replace(/\D/g, "");
 }
 
+async function findCanonicalByPhone(supabase: any, phone: string): Promise<Record<string, unknown> | null> {
+  const digits = normPhone(phone);
+  if (digits.length < 8) return null;
+  // CDP stores a mix of E.164 (+55...) and legacy digit-only values. Match by
+  // the national suffix so a Smart Merge can always be resolved afterwards.
+  const suffix = digits.slice(-11);
+  const { data } = await supabase
+    .from("lia_attendances")
+    .select("*")
+    .is("merged_into", null)
+    .ilike("telefone_normalized", `%${suffix}`)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data as Record<string, unknown> | null;
+}
+
 // Normalize accented Meta field names to canonical snake_case ASCII keys.
 function normKey(k: string): string {
   return String(k || "")
@@ -220,11 +237,7 @@ Deno.serve(async (req) => {
             canon = data as any;
           }
           if (!canon && phone) {
-            const { data } = await supabase
-              .from("lia_attendances")
-              .select("id, email, telefone_normalized, piperun_id, pessoa_piperun_id, form_data, area_atuacao, especialidade, tem_scanner, tem_impressora, como_digitaliza, impressora_modelo, scanner_marca, produto_interesse, produto_interesse_auto, pais_origem, id_cliente_smart")
-              .eq("telefone_normalized", phone).is("merged_into", null).maybeSingle();
-            canon = data as any;
+            canon = await findCanonicalByPhone(supabase, phone);
           }
           // Recovery path: older versions only enriched rows that already
           // existed in the CDP, so a truly missed Meta lead stayed missing.
@@ -279,9 +292,7 @@ Deno.serve(async (req) => {
               canon = data as any;
             }
             if (!canon && phone) {
-              const { data } = await supabase.from("lia_attendances").select("*")
-                .eq("telefone_normalized", phone).is("merged_into", null).maybeSingle();
-              canon = data as any;
+              canon = await findCanonicalByPhone(supabase, phone);
             }
             if (!canon) {
               skipped++;
