@@ -78,6 +78,13 @@ function isResinRow(p: CatalogProduct): boolean {
   return cat.includes("resina");
 }
 
+/** Presets físicos por gramatura de resina (embalagem padrão). */
+const RESIN_GRS_PRESETS: Record<string, { weight_kg: number; dimensions_cm: string }> = {
+  "250": { weight_kg: 0.33, dimensions_cm: "16.0 x 8.0 x 8.0" },
+  "500": { weight_kg: 0.61, dimensions_cm: "19.5 x 8.5 x 8.5" },
+  "1000": { weight_kg: 1.13, dimensions_cm: "24.5 x 9.5 x 9.5" },
+};
+
 function firstWorkflowStage(p: CatalogProduct): string | null {
   const stages = (p as any).workflow_stages;
   if (Array.isArray(stages) && stages.length > 0) {
