@@ -364,8 +364,12 @@ export function AdminCatalogTable({
                     <TableCell>
                       <CellInput
                         value={v.presentation_qty}
-                        placeholder="ex: 500g"
-                        onCommit={(val) => commitVariationField(product.id!, v, { presentation_qty: val || null })}
+                        placeholder="ex: 250"
+                        inputMode="numeric"
+                        onCommit={(val) => {
+                          const cleaned = (val || "").replace(/[^\d.,]/g, "").replace(",", ".");
+                          return commitVariationField(product.id!, v, { presentation_qty: cleaned || null });
+                        }}
                       />
                     </TableCell>
                     <TableCell>
