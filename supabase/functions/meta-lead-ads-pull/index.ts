@@ -26,6 +26,21 @@ const BUC_BACKOFF = 75;
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+// Accent/space-safe normalization for Meta form field keys.
+// Mirrors pickMetaField/normKey in meta-lead-ads-backfill so real-time and
+// backfill produce identical form_data shapes.
+function normKey(k: string): string {
+  return String(k || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[?().,]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/-+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 async function log(
   supabase: SupabaseClient,
   severity: "info" | "warning" | "error",
