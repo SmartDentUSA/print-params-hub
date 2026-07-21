@@ -14638,6 +14638,179 @@ export type Database = {
         }
         Relationships: []
       }
+      piperun_companies_mirror: {
+        Row: {
+          cidade: string | null
+          cnpj: string | null
+          cnpj_digits: string | null
+          created_at: string
+          data_cadastro: string | null
+          email_contato: string | null
+          nome: string | null
+          nome_fantasia: string | null
+          piperun_company_id: number
+          raw: Json | null
+          razao_social: string | null
+          segmento: string | null
+          status: string | null
+          telefone_principal: string | null
+          uf: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          cnpj?: string | null
+          cnpj_digits?: string | null
+          created_at?: string
+          data_cadastro?: string | null
+          email_contato?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          piperun_company_id: number
+          raw?: Json | null
+          razao_social?: string | null
+          segmento?: string | null
+          status?: string | null
+          telefone_principal?: string | null
+          uf?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          cnpj?: string | null
+          cnpj_digits?: string | null
+          created_at?: string
+          data_cadastro?: string | null
+          email_contato?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          piperun_company_id?: number
+          raw?: Json | null
+          razao_social?: string | null
+          segmento?: string | null
+          status?: string | null
+          telefone_principal?: string | null
+          uf?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      piperun_persons_mirror: {
+        Row: {
+          area_atuacao: string | null
+          cargo: string | null
+          cargo_empresa: string | null
+          cliente_desde: string | null
+          cpf: string | null
+          cpf_digits: string | null
+          created_at: string
+          data_cadastro: string | null
+          data_nascimento: string | null
+          email: string | null
+          email_normalized: string | null
+          empresa_cnpj_digits: string | null
+          empresa_nome: string | null
+          especialidade: string | null
+          id_banco_dados: string | null
+          impressora_form: string | null
+          lia_attendance_id: string | null
+          nome: string | null
+          observacoes: string | null
+          origem_dados: string | null
+          phone_digits: string | null
+          phone_last10: string | null
+          piperun_company_id: number | null
+          piperun_person_id: number
+          raw: Json | null
+          scanner_form: string | null
+          tags: string | null
+          telefone: string | null
+          telefone_principal: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          updated_at: string
+        }
+        Insert: {
+          area_atuacao?: string | null
+          cargo?: string | null
+          cargo_empresa?: string | null
+          cliente_desde?: string | null
+          cpf?: string | null
+          cpf_digits?: string | null
+          created_at?: string
+          data_cadastro?: string | null
+          data_nascimento?: string | null
+          email?: string | null
+          email_normalized?: string | null
+          empresa_cnpj_digits?: string | null
+          empresa_nome?: string | null
+          especialidade?: string | null
+          id_banco_dados?: string | null
+          impressora_form?: string | null
+          lia_attendance_id?: string | null
+          nome?: string | null
+          observacoes?: string | null
+          origem_dados?: string | null
+          phone_digits?: string | null
+          phone_last10?: string | null
+          piperun_company_id?: number | null
+          piperun_person_id: number
+          raw?: Json | null
+          scanner_form?: string | null
+          tags?: string | null
+          telefone?: string | null
+          telefone_principal?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          updated_at?: string
+        }
+        Update: {
+          area_atuacao?: string | null
+          cargo?: string | null
+          cargo_empresa?: string | null
+          cliente_desde?: string | null
+          cpf?: string | null
+          cpf_digits?: string | null
+          created_at?: string
+          data_cadastro?: string | null
+          data_nascimento?: string | null
+          email?: string | null
+          email_normalized?: string | null
+          empresa_cnpj_digits?: string | null
+          empresa_nome?: string | null
+          especialidade?: string | null
+          id_banco_dados?: string | null
+          impressora_form?: string | null
+          lia_attendance_id?: string | null
+          nome?: string | null
+          observacoes?: string | null
+          origem_dados?: string | null
+          phone_digits?: string | null
+          phone_last10?: string | null
+          piperun_company_id?: number | null
+          piperun_person_id?: number
+          raw?: Json | null
+          scanner_form?: string | null
+          tags?: string | null
+          telefone?: string | null
+          telefone_principal?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piperun_persons_mirror_piperun_company_id_fkey"
+            columns: ["piperun_company_id"]
+            isOneToOne: false
+            referencedRelation: "piperun_companies_mirror"
+            referencedColumns: ["piperun_company_id"]
+          },
+        ]
+      }
       piperun_pessoas_staging: {
         Row: {
           area_atuacao: string | null
