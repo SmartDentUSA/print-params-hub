@@ -7,6 +7,12 @@
 // pipeline merges on email/phone and PUTs custom_fields on the existing
 // PipeRun deal (no new Deal/Person is created for matched canonical leads).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  mapAttendanceToDealCustomFields,
+  customFieldsToDealPayload,
+  buildPersonFormCustomFields,
+  piperunPut,
+} from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +35,27 @@ type Body = {
 
 function normPhone(s: string | null | undefined): string {
   return String(s || "").replace(/\D/g, "");
+}
+
+// Normalize accented Meta field names to canonical snake_case ASCII keys.
+function normKey(k: string): string {
+  return String(k || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function pickMetaField(fmap: Record<string, string>, ...needles: string[]): string | null {
+  for (const [k, v] of Object.entries(fmap)) {
+    if (!v) continue;
+    const nk = normKey(k);
+    for (const n of needles) {
+      if (nk.includes(n)) return String(v).trim();
+    }
+  }
+  return null;
 }
 
 async function log(supabase: any, severity: "info" | "warning" | "error", errorType: string, details: Record<string, unknown>) {
@@ -57,6 +84,7 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+  const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") || "";
 
   const body = (req.method === "POST" ? await req.json().catch(() => ({})) : {}) as Body;
   const sinceMinutes = Math.max(1, Number(body.since_minutes ?? 43200)); // default 30d
@@ -104,12 +132,6 @@ Deno.serve(async (req) => {
   const hasTargetFilter = targetEmails.size > 0 || targetPhones.size > 0;
 
   const sinceEpoch = Math.floor((Date.now() - sinceMinutes * 60_000) / 1000);
-  const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-ops-ingest-lead`;
-  const ingestHeaders = {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-  };
-
   const perForm: Array<Record<string, unknown>> = [];
   const matchedSamples: Array<Record<string, unknown>> = [];
   const notFoundEmails = new Set<string>(targetEmails);
@@ -168,65 +190,109 @@ Deno.serve(async (req) => {
           }
           matched++;
 
-          const campaignId = lead.campaign_id ? String(lead.campaign_id) : null;
-          const campaignName = await getCampaignName(campaignId);
-          const originLabel = campaignName
-            ? `Meta Ads — ${campaignName}`
-            : `Meta Ads — Form ${String(lead.form_id || formId)}`;
-
-          const KEYWORDS_RE = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
-          const directProduct = fmap.produto || fmap.produto_de_interesse || fmap.produto_interesse
-            || fmap.equipamento || fmap.interesse || fmap.solucao || null;
-          const inferredMatches = Object.values(fmap).join(" ").match(KEYWORDS_RE);
-          const inferredProduct = inferredMatches?.length
-            ? [...new Set(inferredMatches.map((m) => m.toLowerCase()))].join(", ") : null;
-          const campaignProduct = campaignName?.match(KEYWORDS_RE)?.[0]?.toLowerCase() || null;
-          const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
-
-          const payload = {
-            source: "meta_lead_ads",
-            platform_lead_id: String(lead.id),
-            platform_form_id: String(lead.form_id || formId),
-            form_name: originLabel,
-            origem_campanha: originLabel,
-            utm_source: lead.platform || "facebook",
-            utm_medium: "paid",
-            utm_campaign: campaignName || campaignId,
-            form_purpose: "sdr_captacao",
-            name: fmap.full_name || fmap.name || fmap.nome || null,
-            email: fmap.email || null,
-            phone: fmap.phone_number || fmap.phone || fmap.telefone || null,
-            produto_interesse: produtoInteresse,
-            produto_interesse_auto: inferredProduct || campaignProduct || null,
-            meta_created_time: lead.created_time,
-            platform_ad_id: lead.ad_id || null,
-            platform_adgroup_id: lead.adset_id || null,
-            platform_campaign_id: campaignId,
-            meta_platform: lead.platform || "facebook",
-            raw_field_data: fd,
-            _backfill_source: "meta-lead-ads-backfill",
-          };
+          // ── Direct enrichment path (no ingest / no lia-assign) ──
+          // Extract qualification fields from Meta field_data with accent-safe key matching.
+          const areaAtuacao   = pickMetaField(fmap, "area_de_atuacao", "area_atuacao", "atuacao");
+          const especialidade = pickMetaField(fmap, "especialidade", "specialty");
+          const temImpressora = pickMetaField(fmap, "tem_impressora", "possui_impressora", "impressora");
+          const temScanner    = pickMetaField(fmap, "tem_scanner", "possui_scanner", "scanner");
+          const comoDigitaliza= pickMetaField(fmap, "como_digitaliza", "moldagens", "digitalizacao");
+          const impressoraModelo = pickMetaField(fmap, "modelo_impressora", "impressora_modelo", "printer_model");
+          const scannerMarca  = pickMetaField(fmap, "marca_scanner", "scanner_marca", "scanner_modelo");
 
           if (matchedSamples.length < 5) {
-            matchedSamples.push({ form_id: formId, email, phone, field_names: fd.map((f) => f.name), produto_interesse: produtoInteresse });
+            matchedSamples.push({
+              form_id: formId, email, phone,
+              field_names: fd.map((f) => f.name),
+              area_atuacao: areaAtuacao, especialidade, tem_scanner: temScanner, tem_impressora: temImpressora,
+            });
           }
 
           if (dryRun) { forwarded++; continue; }
-          try {
-            const ir = await fetch(ingestUrl, { method: "POST", headers: ingestHeaders, body: JSON.stringify(payload) });
-            if (ir.ok) forwarded++; else { skipped++; console.warn(`[${FN}] ingest ${ir.status} for ${email || phone}`); }
-            await ir.text().catch(() => "");
-          } catch (e) {
-            skipped++;
-            console.warn(`[${FN}] forward failed`, e);
-            const msg = String(e);
-            if (/RateLimitError|Rate limit exceeded/i.test(msg)) {
-              // Runtime rate-limit — pause hard and continue
-              await new Promise((r) => setTimeout(r, 25_000));
+
+          // Locate canonical lia_attendances row (email OR normalized phone).
+          let canon: Record<string, unknown> | null = null;
+          if (email) {
+            const { data } = await supabase
+              .from("lia_attendances")
+              .select("id, email, telefone_normalized, piperun_id, pessoa_piperun_id, form_data, area_atuacao, especialidade, tem_scanner, tem_impressora, como_digitaliza, impressora_modelo, scanner_marca, produto_interesse, produto_interesse_auto, pais_origem, id_cliente_smart")
+              .eq("email", email).is("merged_into", null).maybeSingle();
+            canon = data as any;
+          }
+          if (!canon && phone) {
+            const { data } = await supabase
+              .from("lia_attendances")
+              .select("id, email, telefone_normalized, piperun_id, pessoa_piperun_id, form_data, area_atuacao, especialidade, tem_scanner, tem_impressora, como_digitaliza, impressora_modelo, scanner_marca, produto_interesse, produto_interesse_auto, pais_origem, id_cliente_smart")
+              .eq("telefone_normalized", phone).is("merged_into", null).maybeSingle();
+            canon = data as any;
+          }
+          if (!canon) { skipped++; continue; }
+
+          // Build COALESCE-style updates (never overwrite existing non-null values).
+          const upd: Record<string, unknown> = {};
+          const coalesce = (col: string, val: unknown) => {
+            if (val === null || val === undefined || val === "") return;
+            if ((canon as any)[col] === null || (canon as any)[col] === undefined || (canon as any)[col] === "") {
+              upd[col] = val;
+            }
+          };
+          coalesce("area_atuacao", areaAtuacao);
+          coalesce("especialidade", especialidade);
+          coalesce("tem_impressora", temImpressora);
+          coalesce("tem_scanner", temScanner);
+          coalesce("como_digitaliza", comoDigitaliza);
+          coalesce("impressora_modelo", impressoraModelo);
+          coalesce("scanner_marca", scannerMarca);
+
+          // Merge form_data snapshot with raw Meta field_data (never overwrite existing keys).
+          const existingFd = (canon.form_data as Record<string, unknown> | null) || {};
+          const rawFields: Record<string, string> = {};
+          for (const f of fd) rawFields[normKey(f.name)] = (f.values || [])[0] || "";
+          const mergedFd = { ...rawFields, ...existingFd, _meta_backfill_ts: new Date().toISOString() };
+          upd.form_data = mergedFd;
+          upd.updated_at = new Date().toISOString();
+
+          const { error: updErr } = await supabase
+            .from("lia_attendances").update(upd).eq("id", canon.id);
+          if (updErr) { skipped++; console.warn(`[${FN}] cdp update failed`, updErr); continue; }
+
+          // Re-fetch enriched row for PipeRun mapping.
+          const { data: fresh } = await supabase
+            .from("lia_attendances")
+            .select("*").eq("id", canon.id).maybeSingle();
+          const leadRow = (fresh || { ...canon, ...upd }) as Record<string, unknown>;
+
+          // PUT Deal custom_fields.
+          if (PIPERUN_API_KEY && leadRow.piperun_id) {
+            const cf = mapAttendanceToDealCustomFields(leadRow);
+            if (cf.length > 0) {
+              const putRes = await piperunPut(PIPERUN_API_KEY, `deals/${leadRow.piperun_id}`, {
+                custom_fields: customFieldsToDealPayload(cf),
+              });
+              if (putRes.success) {
+                await supabase.from("lia_attendances")
+                  .update({ piperun_custom_fields: cf }).eq("id", canon.id);
+              } else {
+                console.warn(`[${FN}] deal PUT failed`, putRes.status, String(putRes.data).slice(0, 200));
+              }
             }
           }
-          // gentle pacing to avoid runtime rate-limits (ingest chain is heavy: lia-assign + PipeRun PUT)
-          await new Promise((r) => setTimeout(r, 1500));
+
+          // PUT Person custom_fields.
+          if (PIPERUN_API_KEY && leadRow.pessoa_piperun_id) {
+            const pcf = buildPersonFormCustomFields(leadRow);
+            if (pcf.length > 0) {
+              const pRes = await piperunPut(PIPERUN_API_KEY, `persons/${leadRow.pessoa_piperun_id}`, {
+                custom_fields: pcf,
+              });
+              if (!pRes.success) {
+                console.warn(`[${FN}] person PUT failed`, pRes.status, String(pRes.data).slice(0, 200));
+              }
+            }
+          }
+
+          forwarded++;
+          await new Promise((r) => setTimeout(r, 250));
         }
 
         nextUrl = j?.paging?.next || null;
