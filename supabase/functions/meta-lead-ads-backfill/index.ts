@@ -51,7 +51,20 @@ async function findCanonicalByPhone(supabase: any, phone: string): Promise<Recor
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  return data as Record<string, unknown> | null;
+  if (data) return data as Record<string, unknown>;
+  // Legacy Brazilian records may differ only by the inserted mobile ninth
+  // digit. Fall back to the stable subscriber suffix, but only when unique.
+  const subscriberSuffix = digits.slice(-8);
+  const { data: candidates } = await supabase
+    .from("lia_attendances")
+    .select("*")
+    .is("merged_into", null)
+    .ilike("telefone_normalized", `%${subscriberSuffix}`)
+    .order("created_at", { ascending: true })
+    .limit(2);
+  return Array.isArray(candidates) && candidates.length === 1
+    ? candidates[0] as Record<string, unknown>
+    : null;
 }
 
 // Normalize accented Meta field names to canonical snake_case ASCII keys.
