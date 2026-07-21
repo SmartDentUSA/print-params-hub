@@ -1,34 +1,91 @@
-# Fix: campos do formulário Meta não chegam à nota do PipeRun no fluxo real-time
 
-## Diagnóstico confirmado
+## Objetivo
 
-Lead `alanteofilo.at@gmail.com` (piperun_id 62054724, form "Meta Ads — [LEADS] - RayShape Edge mini") entrou em 20/07 com `form_data = {}`, `area_atuacao`, `tem_scanner`, `tem_impressora` nulos. Leads posteriores do MESMO formulário (ex.: `sidineimiguel@hotmail.com`, `mkdelma62@gmail.com`) têm todos esses campos preenchidos — porém apenas porque a função **`meta-lead-ads-backfill`** rodou depois (chaves internas `_meta_backfill_ts`, `area_de_atuacao`, `como_digitaliza_suas_moldagens`, `tem_impressora` presentes no `form_data`).
+O canvas de "Fluxos Editor" hoje abre vazio porque `operational_flows.graph` está `{}`. O usuário quer ver **exatamente o que está hardcoded** rodando nas edge functions — o canvas passa a ser o espelho fiel do sistema atual (modo `hardcoded`, `active=false`), pronto para servir de baseline antes de qualquer edição futura.
 
-Raiz do bug está em `supabase/functions/meta-lead-ads-pull/index.ts` (linhas 260–306): o payload enviado a `smart-ops-ingest-lead` só carrega `name`, `email`, `phone`, `produto_interesse` e o array bruto `raw_field_data`. As respostas de qualificação (área de atuação, tem impressora, tem scanner, como digitaliza, especialidade, etc.) **NÃO** são passadas como chaves top-level.
+## Escopo
 
-Do lado do ingest, `extractField` (linha 24) itera `Object.entries(payload)` procurando substrings — como `raw_field_data` é um array e não um objeto flat, os nomes de campo do Meta nunca ficam visíveis. Resultado: em tempo real, todos os leads Meta entram sem enriquecimento; só o backfill (que tem `pickMetaField` accent-safe sobre `raw_field_data`) preenche. Enquanto o backfill não roda, a nota "Resumo do Lead" cai vazia — foi exatamente o que o usuário viu na Alan.
+Sem mudar comportamento das edge functions. Apenas:
+1. Migração SQL que popula `operational_flows.graph` com os 5 grafos abaixo (nodes + edges + posições).
+2. Cria a versão v1 correspondente em `operational_flow_versions` (status `hardcoded_mirror`).
+3. Nenhuma mudança no `OperationalFlowEditor.tsx` — ele já sabe renderizar o shape `{nodes,edges}` normalizado.
 
-## Correção
+## Os 5 fluxos espelhados
 
-Ajustar apenas o `meta-lead-ads-pull` para achatar `fieldMap` no payload, replicando a mesma lógica do backfill no caminho real-time. Sem tocar em `smart-ops-ingest-lead` (a `extractField` existente já cobre esses aliases, basta enxergá-los como chaves de topo).
+Cada grafo usa os `nodeType`s já existentes na paleta (`trigger`, `guard`, `enrich`, `merge`, `assign`, `crm_action`, `wait`, `condition`, `notify`, `end`). `config` de cada nó nomeia a edge function / RPC / tabela real, para o usuário ver a origem sem abrir código.
 
-Alterações em `supabase/functions/meta-lead-ads-pull/index.ts`:
+### 1. `ingest_lead` — Ingestão Meta / SellFlux / eCommerce / CSV
+```text
+trigger(meta-lead-ads-pull, sellflux-webhook, ecommerce-*, csv-import)
+  → enrich(flatten raw_field_data + normKey accent-safe)
+  → guard(commercial-intent: form_name / source whitelist / piperun_id / override)
+  → merge(Smart Merge: piperun_id > email > phone; last-8/11 digits)
+  → guard(person-identifier: email OR phone obrigatório)
+  → crm_action(createPerson + origin_id frozen)
+  → assign(lia-assign primário)
+  → end
+```
 
-1. Antes de montar `payload`, construir `formData` (cópia de `fieldMap` com chaves normalizadas: lowercase + remoção de acentos + `_` no lugar de espaço/`?`/`.`). Usar mesma normalização (`normKey`) da `meta-lead-ads-backfill` para casar variações portuguesas (`área_de_atuação` → `area_de_atuacao`).
-2. Espalhar `formData` no payload enviado ao ingest e passar `form_data: formData` como objeto explícito para preservar tudo.
-3. Manter `raw_field_data` intacto (auditoria).
-4. Adicionar log `meta_pull_fields_flattened` com contagem de campos além de nome/email/telefone quando > 0, para observabilidade.
+### 2. `assign` — Golden Rule + sorteio de vendedor
+```text
+trigger(smart-ops-lia-assign)
+  → guard(cognitive_lead_locks TTL 30s)
+  → condition(deal VENDAS <30d existe?)
+       true  → crm_action(update deal existente, preserva owner) → end
+       false → guard(commercial-intent) 
+             → assign(sorteio round-robin: team_members WHERE ativo AND role='vendedor' AND piperun_owner_id numérico)
+             → crm_action(createDeal VENDAS + claimSellerNoteSlot lock)
+             → end
+```
+
+### 3. `nota` — Resumo do Lead unificado
+```text
+trigger(deal criado/atualizado)
+  → guard(try_claim_seller_note_slot RPC atômica)
+  → enrich(mapAttendanceToDealCustomFields + buildPersonFormCustomFields)
+  → crm_action(PUT /deals/{id}/custom_fields + PUT /persons/{id}/custom_fields)
+  → crm_action(POST /deals/{id}/notes — Resumo do Lead)
+  → end
+```
+
+### 4. `ltv` — Reativação pós-venda
+```text
+trigger(deal VENDAS ganho)
+  → wait(D+30 / D+60 / D+120 conforme ltv_rules)
+  → guard(cooldown + real_status = CLIENTE_ativo)
+  → condition(estratégia de vendedor)
+       mesmo_dono | round_robin | fixo
+  → crm_action(createDeal pipeline LTV, origem = template configurado)
+  → notify(WhatsApp opcional)
+  → end
+```
+
+### 5. `cs_rule` — Régua CS Onboarding / Ganhos Aleatórios
+```text
+trigger(deal ganho + form_name CS)
+  → guard(pipeline protegido: CS Onboarding / Ganhos Aleatórios nunca fecha)
+  → enrich(dedupe-redelivery: aplica enrichment universal)
+  → crm_action(move stage CS conforme régua)
+  → wait(D+n régua)
+  → condition(cliente respondeu?) 
+       true  → end
+       false → notify(WA/SMS via smart-ops-sms-disparopro) → end
+```
+
+## Detalhes técnicos
+
+- Migração: `UPDATE public.operational_flows SET graph = $json, rollout_mode='hardcoded', active=false, current_version=1 WHERE flow_key = $key;` para cada uma das 5 chaves.
+- Cada `UPDATE` seguido de `INSERT INTO public.operational_flow_versions (flow_id, version, graph, status, note)` com `status='hardcoded_mirror'` e `note='Espelho do comportamento hardcoded em produção — baseline read-only'`.
+- Posições `x/y` calculadas em grade (colunas de 220px, linhas de 130px) para o `fitView` do ReactFlow abrir legível.
+- `config` de cada nó carrega os nomes reais: `{ "edge_function": "meta-lead-ads-pull" }`, `{ "rpc": "try_claim_seller_note_slot" }`, `{ "table": "cognitive_lead_locks", "ttl_seconds": 30 }`, `{ "memory": "mem://architecture/golden-rule-primary-flow" }` — assim clicar no nó no canvas revela a origem no inspetor JSON.
+- Nada é executado a partir do grafo (rollout continua `hardcoded`); o executor real permanece nas edge functions atuais.
+
+## Fora de escopo
+
+- Não altero `smart-ops-lia-assign`, `meta-lead-ads-pull`, `smart-ops-ingest-lead`, nem qualquer outra função.
+- Não mudo o `OperationalFlowEditor.tsx` nem a paleta.
+- Não ligo `active=true` — quem decidir migrar para execução via grafo faz isso depois, por fluxo, na UI.
 
 ## Verificação
 
-1. Deploy `meta-lead-ads-pull`.
-2. Chamar via `curl_edge_functions` com `sinceMinutes=60` para forçar reingest recente e observar em `system_health_logs` o novo log `meta_pull_fields_flattened`.
-3. Consultar `lia_attendances` de leads que entraram após o deploy no form "[LEADS] - RayShape Edge mini" e confirmar `area_atuacao`/`tem_impressora`/`form_data` populados sem depender do backfill manual.
-4. Rodar `meta-lead-ads-backfill` uma última vez sobre Alan Teofilo para desbloquear a nota atual.
-
-## O que NÃO muda
-
-- `smart-ops-ingest-lead` (extração e Golden Rule intactos).
-- `meta-lead-ads-backfill` (segue como rede de segurança).
-- `smart-ops-deal-form-note` / template de "Resumo do Lead" (assim que as colunas chegarem preenchidas, a nota se enche automaticamente).
-- Janela adaptativa e logs de gap-detector adicionados ontem.
+Após a migração: abrir `/admin` → aba "Fluxos Editor" → cada um dos 5 fluxos aparece com seu grafo desenhado, badge `v1` `hardcoded`, inativo. Clicar em nós mostra `config` JSON apontando para a edge function / RPC real.
