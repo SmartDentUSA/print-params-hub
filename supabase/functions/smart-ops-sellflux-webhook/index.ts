@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { migrateLegacyTags } from "../_shared/sellflux-field-map.ts";
+import {
+  canonicalizeArea,
+  canonicalizeSpecialty,
+  canonicalizeScanner,
+  canonicalizePrinter,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,12 +157,12 @@ Deno.serve(async (req) => {
       // Location
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
-      // Extracted from tags
-      ...(extractedFields.area_atuacao ? { "area de atuacao": extractedFields.area_atuacao } : {}),
-      ...(extractedFields.tem_impressora ? { "impressoes 3d": extractedFields.tem_impressora } : {}),
-      ...(extractedFields.tem_scanner ? { tem_scanner: extractedFields.tem_scanner } : {}),
-      // Custom fields passthrough
-      ...(payload.especialidade ? { especialidade: payload.especialidade } : {}),
+      // Extracted from tags (canonicalizados)
+      ...(extractedFields.area_atuacao ? { "area de atuacao": canonicalizeArea(String(extractedFields.area_atuacao)) ?? extractedFields.area_atuacao } : {}),
+      ...(extractedFields.tem_impressora ? { "impressoes 3d": canonicalizePrinter(String(extractedFields.tem_impressora)).tem_impressora ?? extractedFields.tem_impressora } : {}),
+      ...(extractedFields.tem_scanner ? { tem_scanner: canonicalizeScanner(String(extractedFields.tem_scanner)).tem_scanner ?? extractedFields.tem_scanner } : {}),
+      // Custom fields passthrough (canonicalizado)
+      ...(payload.especialidade ? { especialidade: canonicalizeSpecialty(String(payload.especialidade)) ?? payload.especialidade } : {}),
       ...(payload.produto_interesse || productName ? { produto_interesse: payload.produto_interesse || productName } : {}),
       ...(payload.impressora_modelo || payload.impressora ? { impressora_modelo: payload.impressora_modelo || payload.impressora } : {}),
       ...(payload.resina_interesse ? { resina_interesse: payload.resina_interesse } : {}),
