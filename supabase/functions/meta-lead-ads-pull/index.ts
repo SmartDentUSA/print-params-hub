@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  let sinceMinutes = 30;
+  let sinceMinutes = 45;
   try {
     const b = await req.json().catch(() => ({}));
     if (Number.isFinite(Number(b?.since_minutes))) sinceMinutes = Number(b.since_minutes);
@@ -147,6 +147,34 @@ Deno.serve(async (req) => {
       message: "cron_state.meta_pull_forms is empty/invalid — falling back to compiled-in list. Update cron_state.meta_pull_forms ASAP.",
       fallback_form_ids: FALLBACK_FORM_IDS,
     });
+  }
+
+  // Gap detector: if this form_id was last successfully polled longer ago than
+  // our lookback window, there's a blind zone where Meta leads may have been
+  // missed. Emit a warning so we can catch it without auditing CSVs manually.
+  try {
+    const { data: lastOk } = await supabase
+      .from("system_health_logs")
+      .select("created_at")
+      .eq("function_name", FN)
+      .eq("error_type", "meta_pull_ok")
+      .filter("details->>form_id", "eq", formId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastOk?.created_at) {
+      const gapMin = (Date.now() - new Date(lastOk.created_at as string).getTime()) / 60_000;
+      if (gapMin > sinceMinutes) {
+        await log(supabase, "warning", "meta_pull_window_gap_detected", {
+          form_id: formId,
+          last_ok_at: lastOk.created_at,
+          gap_minutes: Number(gapMin.toFixed(2)),
+          since_minutes: sinceMinutes,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn(`[${FN}] gap-detector failed`, e);
   }
 
   const sinceEpoch = Math.floor((Date.now() - sinceMinutes * 60_000) / 1000);
