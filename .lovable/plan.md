@@ -1,51 +1,32 @@
-# Popular Bio Vitality preservando vínculos existentes
+## Atualizar catalogo-produtos-master-2026-07-21.csv
 
-## Estado verificado agora
+Regerar o CSV master com o estado atual do banco, incorporando as mudanças feitas desde a última exportação:
 
-- Produto pai `system_a_catalog` id `fc3b3928-ac28-46c5-a7f0-6ede5ff7230c` **permanece intocado** — nenhum DELETE nele.
-- `catalog_documents` são vinculados por `product_id` = id do pai, então não são afetados.
-- `catalog_product_variations`: 13 linhas. As **8 com GTIN preenchido** casam exatamente com os 8 SKUs enviados. As **5 sem GTIN** são fantasmas (todos os campos nulos).
+- Enriquecimento Bio Vitality (Anvisa, FDA, GTINs, NCM, preços BRL 1.859).
+- 8 variações canônicas (A2/A3/B1/BL1 Classic + HT) com SKUs 1736/1645/1266/1644/2230/2231/2233/2232.
+- Dimensões 16.0 × 8.0 × 8.0 cm e peso 0,33 kg nas variações 250g.
+- Remoção das 5 linhas fantasmas de `catalog_product_variations`.
+- Presentation normalizado (qty numérico + unit "grs").
+- Preços BRL/USD/EUR por variação, quando existirem.
 
-## Mapa GTIN → id (para UPDATE-in-place)
+### Fontes consultadas
 
-| SKU | Cor | GTIN | id atual da variação |
-|---|---|---|---|
-| 1736 | A2 | 756014744965 | `43c3a76d…` |
-| 1645 | A3 | 756014745016 | `38c5427d…` |
-| 1266 | B1 | 756014745122 | `c0c9cc40…` |
-| 1644 | BL1 | 756014745009 | `40217485…` |
-| 2230 | A2 HT | 0756014744804 | `78b832f0…` |
-| 2231 | A3 HT | 0756014744811 | `1deeecb1…` |
-| 2233 | B1 HT | 0756014744835 | `db51bcbc…` |
-| 2232 | BL1 HT | 0756014744828 | `161df76d…` |
+- `system_a_catalog` (allowlist: product, resin, Resinas, consumables, Serviços — conforme `docs/CATALOG_PRODUCT_GOVERNANCE.md`).
+- `catalog_product_variations` (variações com SKU/GTIN/preço/dimensões).
+- `resins` + `products_catalog` (espelhos), somente para completar campos onde `system_a_catalog` estiver vazio.
 
-## Execução (não destrutiva)
+### Colunas do CSV (mesmo cabeçalho da versão anterior)
 
-### 1. UPDATE nas 8 variações reais, casando por GTIN
-Preserva ids, timestamps e qualquer FK futuro. Em cada linha:
-- `sku` = valor da tabela
-- `color` = valor da tabela (A2, A3, B1, BL1, A2 HT, A3 HT, B1 HT, BL1 HT)
-- `presentation` = '250g'
-- `price_brl` = 1859
-- `ncm_hs` = '3906.90.49'
-- `sort_order` = 1..8 na ordem Classic → HT
+`entity_type, product_id, parent_name, variation_id, sku, gtin_ean, name, color, presentation_qty, presentation_unit, dimensions_cm, weight_kg, price_brl, price_usd, price_eur, ncm_hs, anvisa_registration, fda_510k, category, subcategory, stage, is_active, is_approved, is_visible, updated_at`
 
-### 2. DELETE apenas nas 5 linhas fantasmas
-Só as com `gtin_ean IS NULL AND sku IS NULL` (`ec2c6e04`, `c4abef7c`, `68ffc71d`, `080fe1b1`, `0c875af4`). Zero dado real perdido.
+Uma linha por variação (quando existir); produtos sem variação entram como linha única com `variation_id` vazio.
 
-### 3. UPDATE no produto pai (sem tocar em documentos/imagens)
-- `anvisa_registration = '81835969003'`
-- `fda_510k = 'Regulation 872.3760'`
+### Entrega
 
-Nenhum outro campo do pai é tocado. Documentos em `catalog_documents` continuam ligados ao mesmo `product_id`.
+Arquivo salvo em `/mnt/documents/catalogo-produtos-master-2026-07-21.csv` (sobrescreve o atual, mesmo nome para preservar o link já aberto no preview).
 
-## O que este plano NÃO faz
+### Fora de escopo
 
-- Não deleta o produto pai.
-- Não recria variações do zero (evita perder ids e qualquer referência).
-- Não mexe em `catalog_documents`, `resin_documents`, `resins`, imagens ou SEO do pai.
-- Não sincroniza para `resins`/`products_catalog` neste passo — se você quiser espelhar depois, faço em plano separado seguindo a política `resins-canonical-mirror`.
-
-## Confirma?
-
-Se OK, ao entrar em build eu rodo os 3 passos acima em uma migração/insert única, na ordem: UPDATE das 8 → DELETE das 5 fantasmas → UPDATE do pai.
+- Não altero dados no banco.
+- Não mudo o schema do CSV nem o nome do arquivo.
+- Não incluo `video_testimonial`, `category_config` nem `company_info` (proibidos pela governança).
