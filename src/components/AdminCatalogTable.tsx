@@ -215,9 +215,7 @@ export function AdminCatalogTable({
             <TableRow>
               <TableHead className="w-14 text-center">Status</TableHead>
               <TableHead className="w-32">SKU / Fabricante</TableHead>
-              <TableHead className="w-24">Flow</TableHead>
-              <TableHead className="w-36">Categoria</TableHead>
-              <TableHead className="min-w-[240px]">Nome</TableHead>
+              <TableHead className="min-w-[260px]">Produto</TableHead>
               <TableHead className="w-24">Variação</TableHead>
               <TableHead className="w-20">Pres</TableHead>
               <TableHead className="w-24">Cor</TableHead>
@@ -316,33 +314,26 @@ export function AdminCatalogTable({
                       </div>
                     </TableCell>
 
-                    {idx === 0 ? (
-                      <>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          {stage ? (
-                            <Badge variant="outline" className="text-[10px]">{stage}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          <div className="flex flex-col gap-1">
-                            {product.product_category ? (
-                              <Badge variant="outline" className="text-[10px] w-fit">
-                                {product.product_category}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-[11px]">—</span>
-                            )}
-                            {(product as any).product_subcategory ? (
-                              <span className="text-muted-foreground text-[11px] leading-tight">
-                                {(product as any).product_subcategory}
-                              </span>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top">
-                          <div className="flex items-center gap-2">
+                     {idx === 0 ? (
+                       <>
+                         <TableCell rowSpan={list.length} className="align-top">
+                           <div className="flex flex-col gap-1.5">
+                             <div className="flex flex-wrap items-center gap-1">
+                               {stage ? (
+                                 <Badge variant="outline" className="text-[10px]">{stage}</Badge>
+                               ) : null}
+                               {product.product_category ? (
+                                 <Badge variant="outline" className="text-[10px] w-fit">
+                                   {product.product_category}
+                                 </Badge>
+                               ) : null}
+                             </div>
+                             {(product as any).product_subcategory ? (
+                               <span className="text-muted-foreground text-[11px] leading-tight">
+                                 {(product as any).product_subcategory}
+                               </span>
+                             ) : null}
+                           <div className="flex items-center gap-2">
                             {product.image_url ? (
                               <img
                                 src={product.image_url}
@@ -366,7 +357,8 @@ export function AdminCatalogTable({
                               )}
                             </div>
                           </div>
-                        </TableCell>
+                           </div>
+                         </TableCell>
                       </>
                     ) : null}
 
