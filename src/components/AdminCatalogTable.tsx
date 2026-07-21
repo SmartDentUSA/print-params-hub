@@ -128,16 +128,22 @@ function CellInput({
   return (
     <Input
       value={local}
-      type={type}
-      step={type === "number" ? (step ?? "any") : undefined}
+      type={type === "number" ? "text" : type}
+      step={undefined}
       inputMode={type === "number" ? "decimal" : undefined}
       placeholder={placeholder}
       disabled={disabled}
-      onChange={(e) => setLocal(e.target.value.replace(",", "."))}
+      onChange={(e) => {
+        const next = e.target.value;
+        if (type !== "number" || /^-?\d*(?:[.,]\d*)?$/.test(next)) {
+          setLocal(next);
+        }
+      }}
       onBlur={async () => {
-        if (local === initial) return;
+        const committedValue = type === "number" ? local.replace(",", ".") : local;
+        if (committedValue === initial) return;
         try {
-          await onCommit(local);
+          await onCommit(committedValue);
         } catch (e: any) {
           toast.error(e?.message || "Erro ao salvar");
           setLocal(initial);
