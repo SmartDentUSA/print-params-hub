@@ -2052,7 +2052,7 @@ async function executarReativacaoSdrCaptacao(
   // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
   let personId = lead.pessoa_piperun_id as number | null;
   if (!personId) {
-    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
+    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null), supabase);
     personId = person?.id ?? null;
   }
   if (!personId) {
@@ -3208,7 +3208,7 @@ Deno.serve(async (req) => {
         }
       } else {
         console.warn(`[lia-assign] Cached person ${personId} truly missing in PipeRun, re-resolving`);
-        const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
+        const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null), supabase);
         if (fallback) {
           personId = fallback.id;
           companyId = fallback.company_id || companyId;
