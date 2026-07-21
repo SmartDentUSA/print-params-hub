@@ -586,6 +586,7 @@ Deno.serve(async (req) => {
           coalesce("area_atuacao", areaAtuacao);
           coalesce("especialidade", especialidade);
           coalesce("como_digitaliza", comoDigitaliza);
+          coalesce("scanner_marca", scannerMarca);
           coalesce("produto_interesse", produtoInteresse);
           coalesce("produto_interesse_auto", produtoInteresseAuto);
           coalesce("resina_interesse", resinaInteresse);
@@ -914,6 +915,7 @@ Deno.serve(async (req) => {
           coalesce("area_atuacao", areaAtuacao);
           coalesce("especialidade", especialidade);
           coalesce("como_digitaliza", comoDigitaliza);
+          coalesce("scanner_marca", scannerMarca);
           coalesce("produto_interesse", produtoInteresse);
           coalesce("produto_interesse_auto", produtoInteresseAuto);
           coalesce("resina_interesse", resinaInteresse);
