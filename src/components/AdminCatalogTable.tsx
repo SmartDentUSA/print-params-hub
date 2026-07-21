@@ -486,27 +486,23 @@ export function AdminCatalogTable({
 
                     {idx === 0 ? (
                       <>
-                        <TableCell rowSpan={list.length} className="align-top text-center">
-                          <Checkbox
-                            checked={!!product.visible_in_ui}
-                            onCheckedChange={() => onToggleVisibility(product.id!, product.visible_in_ui)}
-                          />
-                        </TableCell>
-                        <TableCell rowSpan={list.length} className="align-top text-center">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant={dc && dc.total > 0 ? "default" : "secondary"} className="cursor-help">
-                                <FileText className="w-3 h-3 mr-1" />
-                                {dc?.total ?? 0}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="text-xs">
-                              Catálogo: {dc?.catalog ?? 0} · Resinas: {dc?.resins ?? 0}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TableCell>
                         <TableCell rowSpan={list.length} className="align-top">
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Checkbox
+                              checked={!!product.visible_in_ui}
+                              onCheckedChange={() => onToggleVisibility(product.id!, product.visible_in_ui)}
+                            />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant={dc && dc.total > 0 ? "default" : "secondary"} className="cursor-help">
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  {dc?.total ?? 0}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs">
+                                Catálogo: {dc?.catalog ?? 0} · Resinas: {dc?.resins ?? 0}
+                              </TooltipContent>
+                            </Tooltip>
                             <Badge variant={product.active ? "default" : "secondary"} className="text-[10px]">
                               {product.active ? "Ativo" : "Inativo"}
                             </Badge>
