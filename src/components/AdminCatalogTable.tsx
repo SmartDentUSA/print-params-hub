@@ -225,7 +225,9 @@ export function AdminCatalogTable({
               <TableHead className="w-28">GTIN/EAN</TableHead>
               <TableHead className="w-20">Peso (kg)</TableHead>
               <TableHead className="w-28">Dim (cm)</TableHead>
-              <TableHead className="w-24">Preço BRL</TableHead>
+              <TableHead className="w-32">BRL</TableHead>
+              <TableHead className="w-32">USD</TableHead>
+              <TableHead className="w-32">EUR</TableHead>
               <TableHead className="w-14 text-center">Visível</TableHead>
               <TableHead className="w-14 text-center">Docs</TableHead>
               <TableHead className="w-24">Situação</TableHead>
@@ -462,52 +464,34 @@ export function AdminCatalogTable({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <CellInput
-                          value={v.price_brl}
-                          type="number"
-                          placeholder="0.00"
-                          onCommit={(val) => commitVariationField(product.id!, v, {
-                            price_brl: val ? Number(val) : null,
-                          })}
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground hover:bg-muted"
-                              title="Outras moedas"
-                            >
-                              $€
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 p-3 space-y-2" side="left">
-                          <div className="text-xs font-medium">Outras moedas</div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground">USD</label>
-                            <CellInput
-                              value={v.price_usd}
-                              type="number"
-                              placeholder="0.00"
-                              onCommit={(val) => commitVariationField(product.id!, v, {
-                                price_usd: val ? Number(val) : null,
-                              })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground">EUR</label>
-                            <CellInput
-                              value={v.price_eur}
-                              type="number"
-                              placeholder="0.00"
-                              onCommit={(val) => commitVariationField(product.id!, v, {
-                                price_eur: val ? Number(val) : null,
-                              })}
-                            />
-                          </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+                      <CellInput
+                        value={v.price_brl}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_brl: val ? Number(val) : null,
+                        })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <CellInput
+                        value={v.price_usd}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_usd: val ? Number(val) : null,
+                        })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <CellInput
+                        value={v.price_eur}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_eur: val ? Number(val) : null,
+                        })}
+                      />
                     </TableCell>
 
                     {idx === 0 ? (
