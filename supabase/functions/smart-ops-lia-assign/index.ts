@@ -101,7 +101,8 @@ function buildOriginLines(lead: Record<string, unknown>, mode: "wa" | "html"): s
 async function findPersonByEmail(
   apiToken: string,
   email: string,
-  phoneNormalized?: string | null
+  phoneNormalized?: string | null,
+  supabase?: ReturnType<typeof createClient>,
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email && !phoneNormalized) return null;
   try {
@@ -110,7 +111,7 @@ async function findPersonByEmail(
     // owning either identifier (would otherwise silently create a name-only
     // shadow because emails/phones get deduped server-side).
     const { findPersonByContact } = await import("../_shared/piperun-person-resolver.ts");
-    const hit = await findPersonByContact(apiToken, email || null, phoneNormalized || null);
+    const hit = await findPersonByContact(apiToken, email || null, phoneNormalized || null, supabase);
     if (hit) {
       console.log(`[lia-assign] findPersonByContact: hit ${hit.id} via ${hit.matched_via}`);
       return { id: hit.id, company_id: hit.company_id };
