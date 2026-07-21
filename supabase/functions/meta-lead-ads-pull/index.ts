@@ -26,6 +26,21 @@ const BUC_BACKOFF = 75;
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+// Accent/space-safe normalization for Meta form field keys.
+// Mirrors pickMetaField/normKey in meta-lead-ads-backfill so real-time and
+// backfill produce identical form_data shapes.
+function normKey(k: string): string {
+  return String(k || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[?().,]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/-+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 async function log(
   supabase: SupabaseClient,
   severity: "info" | "warning" | "error",
@@ -262,6 +277,16 @@ Deno.serve(async (req) => {
           const fieldData: Array<{ name: string; values: string[] }> = lead.field_data || [];
           const fieldMap: Record<string, string> = {};
           for (const f of fieldData) fieldMap[String(f.name || "").toLowerCase()] = (f.values || [])[0] || "";
+          // Normalized flat map (accent-safe) — mirrors backfill so downstream
+          // extractField() in smart-ops-ingest-lead sees qualification answers
+          // as top-level keys (area_atuacao, tem_impressora, tem_scanner, etc.).
+          const formData: Record<string, string> = {};
+          for (const f of fieldData) {
+            const key = normKey(String(f.name || ""));
+            if (!key) continue;
+            const val = (f.values || [])[0] || "";
+            if (val) formData[key] = val;
+          }
           const campaignId = lead.campaign_id ? String(lead.campaign_id) : null;
           const campaignName = await getCampaignName(campaignId);
           const originLabel = campaignName
@@ -281,7 +306,9 @@ Deno.serve(async (req) => {
           const campaignProduct = campaignName?.match(KEYWORDS_RE)?.[0]?.toLowerCase() || null;
           const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
 
-          const payload = {
+          const payload: Record<string, unknown> = {
+            // Flatten qualification answers first so explicit fields below win.
+            ...formData,
             source: "meta_lead_ads",
             platform_lead_id: String(lead.id),
             platform_form_id: String(lead.form_id || formId),
@@ -303,7 +330,20 @@ Deno.serve(async (req) => {
             platform_campaign_id: campaignId,
             meta_platform: lead.platform || "facebook",
             raw_field_data: fieldData,
+            form_data: formData,
           };
+
+          const extraFieldCount = Object.keys(formData).filter(
+            (k) => !["full_name","name","nome","email","phone_number","phone","telefone"].includes(k),
+          ).length;
+          if (extraFieldCount > 0) {
+            await log(supabase, "info", "meta_pull_fields_flattened", {
+              form_id: String(lead.form_id || formId),
+              meta_lead_id: String(lead.id || ""),
+              extra_field_count: extraFieldCount,
+              field_keys: Object.keys(formData),
+            });
+          }
 
           const ir = await fetch(ingestUrl, {
             method: "POST",
