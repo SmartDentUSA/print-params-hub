@@ -462,20 +462,26 @@ export function AdminCatalogTable({
                       />
                     </TableCell>
                     <TableCell>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="w-full text-left">
-                            <CellInput
-                              value={v.price_brl}
-                              type="number"
-                              placeholder="0.00"
-                              onCommit={(val) => commitVariationField(product.id!, v, {
-                                price_brl: val ? Number(val) : null,
-                              })}
-                            />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3 space-y-2" side="left">
+                      <div className="flex items-center gap-1">
+                        <CellInput
+                          value={v.price_brl}
+                          type="number"
+                          placeholder="0.00"
+                          onCommit={(val) => commitVariationField(product.id!, v, {
+                            price_brl: val ? Number(val) : null,
+                          })}
+                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground hover:bg-muted"
+                              title="Outras moedas"
+                            >
+                              $€
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-3 space-y-2" side="left">
                           <div className="text-xs font-medium">Outras moedas</div>
                           <div className="space-y-1">
                             <label className="text-[10px] text-muted-foreground">USD</label>
@@ -499,8 +505,9 @@ export function AdminCatalogTable({
                               })}
                             />
                           </div>
-                        </PopoverContent>
-                      </Popover>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </TableCell>
 
                     {idx === 0 ? (
