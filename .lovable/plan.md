@@ -1,55 +1,72 @@
-# Ativar lookup local via `piperun_persons_mirror`
+# Popular Catálogo — Resina Smart Print Bio Vitality
 
-O espelho já está populado (53.235 pessoas / 15.614 empresas). Agora precisamos ligá-lo ao fluxo de resolução de Person, sem alterar o funil de vendas.
+## Estado atual (verificado)
 
-## Escopo
+- **`system_a_catalog`**: 1 registro pai — `Resina 3D Smart Print Bio Vitality` (id `fc3b3928-ac28-46c5-a7f0-6ede5ff7230c`, categoria `3. IMPRESSÃO 3D`). Sem Anvisa/FDA preenchidos.
+- **`catalog_product_variations`**: **13 linhas** ligadas ao pai. Nenhuma tem `sku`. Só 1 tem `color` ('A2'). 5 linhas estão vazias (sem GTIN, sem NCM, sem cor) → duplicatas fantasma.
+- **`resins`**: sem linha "Bio Vitality" cadastrada.
 
-**Somente** `supabase/functions/_shared/piperun-person-resolver.ts`. Nenhum outro consumidor muda porque `smart-ops-lia-assign`, `piperun-person-contact-backfill` e `_shared/piperun-hierarchy.ts` já chamam `findPersonByContact` deste módulo.
+## Mapeamento confirmado pelo usuário
 
-## O que muda
+| Linha | Cor | SKU | GTIN candidato no banco |
+|---|---|---|---|
+| Classic 250g | A2 | 1736 | `756014744965` (única com color='A2') |
+| Classic 250g | A3 | 1645 | um dos GTIN `...4804 / ...4811 / ...4828 / ...4835` |
+| Classic 250g | B1 | 1266 | idem |
+| Classic 250g | BL1 | 1644 | idem |
+| HT 250g | A2 HT | 2230 | um dos GTIN `756014745009 / 745016 / 745122` |
+| HT 250g | A3 HT | 2231 | idem |
+| HT 250g | B1 HT | 2233 | idem |
+| HT 250g | BL1 HT | 2232 | idem |
 
-### 1. Novo helper: `findPersonInMirror(supabase, email, phone)`
-Lookup local em ordem de confiança:
-1. `email_normalized = lower(trim(email))` — hit → retorna `{id, company_id, matched_via:'mirror_email'}`.
-2. `phone_digits = full digits` (>= 11) — hit → `mirror_phone_full`.
-3. `phone_last10 = last 10 digits` (>= 10) — hit → `mirror_phone_last10`.
+**Ponto que precisa da sua confirmação antes de eu gravar** — o banco tem GTINs mas não sei qual pertence a qual cor. Ver "Pergunta pendente" no fim.
 
-Cada hit lê `piperun_person_id` + `piperun_company_id` do mirror. Nada de escrever no PipeRun.
+## Execução
 
-### 2. `findPersonByContact` passa a ser mirror-first
-Injetamos `supabase?: SupabaseClient` como parâmetro opcional. Fluxo:
-1. Se `supabase` foi passado → tenta `findPersonInMirror`. Hit → retorna imediatamente.
-2. Caso contrário, cai no cascade atual (emails[email] → search email → phones[phone] → search phone).
+### 1. Deletar as 5 variações vazias
+Linhas sem `gtin_ean` e sem `sku` (ids: `ec2c6e04`, `c4abef7c`, `68ffc71d`, `080fe1b1`, `0c875af4`) — ruído puro.
 
-Assim, chamadas antigas sem `supabase` continuam funcionando exatamente como hoje (compat retroativa 100%).
+### 2. UPDATE nas 8 variações restantes
+Preencher em cada linha (match por GTIN existente):
+- `sku` (1736/1645/1266/1644/2230/2231/2233/2232)
+- `color` ('A2', 'A3', 'B1', 'BL1', 'A2 HT', ...)
+- `presentation` = '250g'
+- `price_brl` = 1859 (onde ainda está null)
+- `ncm_hs` = '3906.90.49' (onde está null)
+- `extra_data.line` = 'Classic' | 'HT'
 
-### 3. Callers passam `supabase`
-- `smart-ops-lia-assign/index.ts` — as duas invocações de `findPersonByContact` já têm cliente Supabase no escopo; injetamos como argumento final.
-- `_shared/piperun-hierarchy.ts` — mesma injeção onde já existe `supabase` no closure.
-- `piperun-person-contact-backfill` — não chama `findPersonByContact` diretamente, só `verifyAndRecoverPersonContact` (que segue chamando a API, ok — é remediação pós-fato).
+### 3. Enriquecer o produto pai `system_a_catalog`
+UPDATE em `fc3b3928-...`:
+- `anvisa_registration` = '81835969003'
+- `fda_510k` = 'Regulation 872.3760' (campo textual)
 
-### 4. Instrumentação (leve)
-Cada hit local grava um log `system_health_logs` com `error_type='piperun_mirror_hit'` (severity `info`) contendo `{matched_via, person_id, company_id}`. Serve pra medir a taxa de acerto do mirror nos primeiros dias.
+### 4. Criar linha em `public.resins` como fonte canônica
+Espelho técnico (mem `resins-canonical-mirror` diz que `resins` é canônico e `system_a_catalog` espelha). Inserir 1 linha com `name='Smart Print Bio Vitality'`, `slug` casando com o catálogo, `technical_specs` JSONB:
+```json
+{
+  "mechanical": {
+    "flexural_strength_mpa": 147,
+    ...demais props que você me mandou
+  },
+  "presentation_g": 250,
+  "certifications": { "anvisa": "81835969003", "fda": "872.3760" }
+}
+```
+(uso exatamente os valores que você enviou na mensagem original do dia 20/07 — reaproveito sem inventar.)
 
-## O que NÃO muda
+### 5. Nada no frontend
+`AdminCatalogTable` já lê `catalog_product_variations` via `useCatalogVariations`. Com SKU + cor preenchidos, as 8 variações aparecem organizadas automaticamente.
 
-- `verifyAndRecoverPersonContact` continua batendo API PipeRun (é pós-PUT, precisa da verdade remota).
-- `validateCachedPerson` continua na API — a validação de existência precisa ser autoritativa.
-- Golden Rule, CommercialIntentGuard, VENDAS immutability: intocados.
-- Funil, stages, pipelines, owners, sorteio de vendedor: idênticos.
-- Nenhuma migration nova, nenhum schema change.
+## Pergunta pendente (crítica antes de rodar)
 
-## Riscos e mitigação
+Não consigo mapear cor↔GTIN sozinho. Preciso de UMA das duas coisas:
 
-- **Mirror desatualizado**: se um Person novo foi criado no PipeRun após a importação e ainda não caiu no mirror, o lookup local vai falhar e cair automaticamente no fallback API. Zero regressão.
-- **Falso positivo por telefone last10**: mesmo risco que a API tem hoje (`endsWith` já é usado). Precedência: email > phone_full > phone_last10 mitiga.
-- **Sync futuro**: fora do escopo desta task. Fica marcado para próxima iteração (webhook PipeRun → upsert no mirror).
+- **(a)** Você me manda a tabela GTIN→cor completa (8 linhas), OU
+- **(b)** Eu apago as 13 variações atuais (todas duplicadas/incompletas) e insiro 8 novas do zero apenas com SKU + cor + preço + NCM, deixando GTIN vazio para você preencher depois no admin.
 
-## Entregável
+Opção (b) é mais limpa e não perde dado real (as linhas atuais estão praticamente todas em branco). Confirma qual caminho.
 
-1. Patch em `_shared/piperun-person-resolver.ts` (adiciona helper + parâmetro opcional).
-2. Duas linhas alteradas em `smart-ops-lia-assign/index.ts` (passar `supabase` nas chamadas).
-3. Uma linha alterada em `_shared/piperun-hierarchy.ts`.
-4. Log `piperun_mirror_hit` para observabilidade.
+## Fora do escopo desta task
 
-Total estimado: ~60 linhas de código, uma edge function reimplantada.
+- Documentos/artes no Drive (aba Mídias & Artes) — em plano separado.
+- Migração para novos campos de `resins` (compatibilidade de impressoras, etc.) — só se você me pedir.
