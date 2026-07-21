@@ -149,9 +149,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Gap detector: if this form_id was last successfully polled longer ago than
-  // our lookback window, there's a blind zone where Meta leads may have been
-  // missed. Emit a warning so we can catch it without auditing CSVs manually.
+  // Gap-safe lookback: each invocation processes only one form. A fixed window
+  // can therefore be shorter than a full round-robin cycle and silently lose
+  // leads. Expand the lookback to cover the time since this form's last
+  // successful poll, with a safety overlap. Cap at 7 days to bound API work.
+  let effectiveSinceMinutes = sinceMinutes;
   try {
     const { data: lastOk } = await supabase
       .from("system_health_logs")
@@ -165,11 +167,13 @@ Deno.serve(async (req) => {
     if (lastOk?.created_at) {
       const gapMin = (Date.now() - new Date(lastOk.created_at as string).getTime()) / 60_000;
       if (gapMin > sinceMinutes) {
+        effectiveSinceMinutes = Math.min(7 * 24 * 60, Math.ceil(gapMin + 10));
         await log(supabase, "warning", "meta_pull_window_gap_detected", {
           form_id: formId,
           last_ok_at: lastOk.created_at,
           gap_minutes: Number(gapMin.toFixed(2)),
-          since_minutes: sinceMinutes,
+          configured_since_minutes: sinceMinutes,
+          effective_since_minutes: effectiveSinceMinutes,
         });
       }
     }
@@ -177,7 +181,7 @@ Deno.serve(async (req) => {
     console.warn(`[${FN}] gap-detector failed`, e);
   }
 
-  const sinceEpoch = Math.floor((Date.now() - sinceMinutes * 60_000) / 1000);
+  const sinceEpoch = Math.floor((Date.now() - effectiveSinceMinutes * 60_000) / 1000);
   const sinceMs = sinceEpoch * 1000;
   const url = `${GRAPH}/${formId}/leads?fields=id,form_id,ad_id,adset_id,campaign_id,created_time,field_data,platform&filtering=[{"field":"time_created","operator":"GREATER_THAN","value":${sinceEpoch}}]&limit=50&access_token=${META_TOKEN}`;
 
@@ -306,7 +310,20 @@ Deno.serve(async (req) => {
             headers: ingestHeaders,
             body: JSON.stringify(payload),
           });
-          if (ir?.ok) forwarded++; else skipped++;
+           if (ir?.ok) {
+             forwarded++;
+           } else {
+             skipped++;
+             const responsePreview = await ir.text().catch(() => "");
+             await log(supabase, "error", "meta_pull_ingest_rejected", {
+               form_id: formId,
+               meta_lead_id: String(lead.id || ""),
+               email: fieldMap.email || null,
+               phone: fieldMap.phone_number || fieldMap.phone || fieldMap.telefone || null,
+               ingest_status: ir.status,
+               response_preview: responsePreview.slice(0, 500),
+             });
+           }
         } catch (e) {
           skipped++;
           console.warn(`[${FN}] forward failed`, e);
@@ -330,7 +347,8 @@ Deno.serve(async (req) => {
 
     await log(supabase, "info", "meta_pull_ok", {
       form_id: formId, idx, total, leads_fetched: leadsFetched,
-      forwarded, skipped, pages: pageCount, since_minutes: sinceMinutes,
+      forwarded, skipped, pages: pageCount, configured_since_minutes: sinceMinutes,
+      effective_since_minutes: effectiveSinceMinutes,
       buc_pct: bucPct, duration_ms: Date.now() - startedAt,
       cycle_hint: `${total} forms x 5min cron = ${total * 5}min per-form polling cadence`,
     });
