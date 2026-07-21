@@ -1,46 +1,34 @@
-## Diagnóstico
+# Fix: campos do formulário Meta não chegam à nota do PipeRun no fluxo real-time
 
-Os 58 leads recém-reingeridos foram enviados ao PipeRun com apenas **3 custom_fields** (telefone, produto_interesse, país). Consultei a linha do `sidineimiguel@hotmail.com` (piperun_id 62065110) e confirmei:
+## Diagnóstico confirmado
 
-- `area_atuacao`, `especialidade`, `tem_scanner`, `tem_impressora` estão **NULL** no CDP e no PipeRun.
-- `form_data` está **vazio** ({}) e `raw_payload` também.
-- Motivo: o CSV do PipeRun (`leads_4.csv`) contém apenas nome, email, telefone, formulário e origem — não traz as respostas do formulário do Meta. O `smart-ops-ingest-lead` só recebeu o que existia no CSV; por isso não havia área/especialidade/equipamentos para mapear.
+Lead `alanteofilo.at@gmail.com` (piperun_id 62054724, form "Meta Ads — [LEADS] - RayShape Edge mini") entrou em 20/07 com `form_data = {}`, `area_atuacao`, `tem_scanner`, `tem_impressora` nulos. Leads posteriores do MESMO formulário (ex.: `sidineimiguel@hotmail.com`, `mkdelma62@gmail.com`) têm todos esses campos preenchidos — porém apenas porque a função **`meta-lead-ads-backfill`** rodou depois (chaves internas `_meta_backfill_ts`, `area_de_atuacao`, `como_digitaliza_suas_moldagens`, `tem_impressora` presentes no `form_data`).
 
-A fonte original dessas respostas é a Meta Lead Ads API (`field_data`). O buffer `meta_lead_event_buffer` já foi purgado, mas a Graph API mantém os leads por ~90 dias e o `meta-lead-ads-pull` já sabe traduzir `field_data` → colunas do CDP + custom_fields do PipeRun.
+Raiz do bug está em `supabase/functions/meta-lead-ads-pull/index.ts` (linhas 260–306): o payload enviado a `smart-ops-ingest-lead` só carrega `name`, `email`, `phone`, `produto_interesse` e o array bruto `raw_field_data`. As respostas de qualificação (área de atuação, tem impressora, tem scanner, como digitaliza, especialidade, etc.) **NÃO** são passadas como chaves top-level.
 
-## Plano
+Do lado do ingest, `extractField` (linha 24) itera `Object.entries(payload)` procurando substrings — como `raw_field_data` é um array e não um objeto flat, os nomes de campo do Meta nunca ficam visíveis. Resultado: em tempo real, todos os leads Meta entram sem enriquecimento; só o backfill (que tem `pickMetaField` accent-safe sobre `raw_field_data`) preenche. Enquanto o backfill não roda, a nota "Resumo do Lead" cai vazia — foi exatamente o que o usuário viu na Alan.
 
-1. **Nova edge function `meta-lead-ads-backfill`** (one-shot, sem cursor):
-   - Aceita `{ form_ids: string[], since_minutes: number, dry_run?: boolean }`.
-   - Para cada form_id, chama Graph API `/{form_id}/leads?since=...&fields=id,form_id,created_time,field_data,platform` com paginação (mesma URL que `meta-lead-ads-pull` linha 182).
-   - Encaminha cada lead ao `smart-ops-ingest-lead` com o mesmo payload usado hoje (payload Meta com `raw_field_data`), o que já dispara `smart-ops-lia-assign` e envia todos os custom fields via `mapAttendanceToDealCustomFields`.
-   - Idempotência garantida pelo merge por email/telefone: os canônicos existentes serão **enriquecidos** (não duplicados), e o PUT em `deals/{piperun_id}` atualizará os custom_fields.
+## Correção
 
-2. **Descobrir os form_ids** que cobrem os 58 leads a partir do CSV (`Formulário` = "# - Impresoras - Smart Dent", etc.). Cruzar com `cron_state.meta_pull_forms` + `form_name` já registrados em `system_health_logs`/`meta_lead_ingestion_log` para mapear `form_name` → `form_id`.
+Ajustar apenas o `meta-lead-ads-pull` para achatar `fieldMap` no payload, replicando a mesma lógica do backfill no caminho real-time. Sem tocar em `smart-ops-ingest-lead` (a `extractField` existente já cobre esses aliases, basta enxergá-los como chaves de topo).
 
-3. **Execução em dois passos**:
-   - `dry_run: true` — retorna quantos leads a Graph API devolve por form_id nos últimos 30 dias e mostra amostra do `field_data`.
-   - `dry_run: false` (após validar) — encaminha para `smart-ops-ingest-lead`, com `since_minutes` alto o suficiente para cobrir a data dos 58 leads (o mais antigo é de 2026-07-01 → ~30 dias).
+Alterações em `supabase/functions/meta-lead-ads-pull/index.ts`:
 
-4. **Validação pós-run** (via `supabase--read_query`):
-   - Contagem de leads com `piperun_custom_fields` com ≥ 6 campos entre os 58.
-   - Preenchimento de `area_atuacao`, `especialidade`, `tem_scanner`, `tem_impressora`, `form_data` nos registros canônicos.
-   - Amostra de 3 leads confirmando que o PipeRun recebeu os novos custom_fields (via PUT log em `system_health_logs`).
+1. Antes de montar `payload`, construir `formData` (cópia de `fieldMap` com chaves normalizadas: lowercase + remoção de acentos + `_` no lugar de espaço/`?`/`.`). Usar mesma normalização (`normKey`) da `meta-lead-ads-backfill` para casar variações portuguesas (`área_de_atuação` → `area_de_atuacao`).
+2. Espalhar `formData` no payload enviado ao ingest e passar `form_data: formData` como objeto explícito para preservar tudo.
+3. Manter `raw_field_data` intacto (auditoria).
+4. Adicionar log `meta_pull_fields_flattened` com contagem de campos além de nome/email/telefone quando > 0, para observabilidade.
 
-5. **Se a Graph API não retornar algum lead** (janela > 90 dias ou form desativado):
-   - Registrar em `system_health_logs.error_type='meta_backfill_leads_not_found'` com lista de emails/leadgen_ids ausentes.
-   - Reportar ao usuário para decisão manual (enriquecer via formulário interno ou pular).
+## Verificação
 
-## Detalhes técnicos
+1. Deploy `meta-lead-ads-pull`.
+2. Chamar via `curl_edge_functions` com `sinceMinutes=60` para forçar reingest recente e observar em `system_health_logs` o novo log `meta_pull_fields_flattened`.
+3. Consultar `lia_attendances` de leads que entraram após o deploy no form "[LEADS] - RayShape Edge mini" e confirmar `area_atuacao`/`tem_impressora`/`form_data` populados sem depender do backfill manual.
+4. Rodar `meta-lead-ads-backfill` uma última vez sobre Alan Teofilo para desbloquear a nota atual.
 
-**Arquivos afetados:**
-- `supabase/functions/meta-lead-ads-backfill/index.ts` — nova função (fora do cursor rotativo, sem tocar em `cron_state`).
-- `supabase/config.toml` — registrar a nova função com `verify_jwt = false`.
+## O que NÃO muda
 
-**Sem alterações em:**
-- `meta-lead-ads-pull`, `smart-ops-ingest-lead`, `smart-ops-lia-assign`, `piperun-field-map.ts`. Reutilizamos toda a régua atual, garantindo que os custom_fields (549058 produto, 549150 telefone, 621083 país, 673900 área, 445631 especialidade, 549141/549142 scanner/impressora, 772727/772728 texto scanner/impressora, etc.) sejam enviados exatamente como já ocorre no fluxo normal.
-
-**Riscos e mitigações:**
-- Rate limit da Graph API → respeitar o BUC como `meta-lead-ads-pull` já faz (bail se `x-business-use-case-usage > 80%`).
-- Reprocessamento pode gerar “Ganho novamente” ou eventos no PipeRun → não; `smart-ops-lia-assign` só faz PUT nos custom_fields quando o deal já existe (não recria).
-- Pessoas com origem congelada → mantido; `updatePersonFields` não sobrescreve `origin_id` (memória `person-origin-frozen`).
+- `smart-ops-ingest-lead` (extração e Golden Rule intactos).
+- `meta-lead-ads-backfill` (segue como rede de segurança).
+- `smart-ops-deal-form-note` / template de "Resumo do Lead" (assim que as colunas chegarem preenchidas, a nota se enche automaticamente).
+- Janela adaptativa e logs de gap-detector adicionados ontem.
