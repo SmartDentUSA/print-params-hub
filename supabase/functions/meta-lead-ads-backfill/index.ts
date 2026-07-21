@@ -224,17 +224,30 @@ Deno.serve(async (req) => {
           // Extract qualification fields from Meta field_data with accent-safe key matching.
           const areaAtuacao   = pickMetaField(fmap, "area_de_atuacao", "area_atuacao", "atuacao");
           const especialidade = pickMetaField(fmap, "especialidade", "specialty");
-          const temImpressora = pickMetaField(fmap, "tem_impressora", "possui_impressora", "impressora");
-          const temScanner    = pickMetaField(fmap, "tem_scanner", "possui_scanner", "scanner");
-          const comoDigitaliza= pickMetaField(fmap, "como_digitaliza", "moldagens", "digitalizacao");
-          const impressoraModelo = pickMetaField(fmap, "modelo_impressora", "impressora_modelo", "printer_model");
-          const scannerMarca  = pickMetaField(fmap, "marca_scanner", "scanner_marca", "scanner_modelo");
+          const temImpressoraRaw = pickMetaField(fmap, "tem_impressora", "possui_impressora", "impressora");
+          const temScannerRaw    = pickMetaField(fmap, "tem_scanner", "possui_scanner", "scanner");
+          const comoDigitalizaRaw= pickMetaField(fmap, "como_digitaliza", "moldagens", "digitalizacao");
+          const impressoraModeloRaw = pickMetaField(fmap, "modelo_impressora", "impressora_modelo", "printer_model");
+          // unslug values (Meta manda "clínica_ou_consultório")
+          const unslug = (v: string | null) => v ? v.replace(/_/g, " ").replace(/\s+/g, " ").trim() : v;
+          const areaCanon = canonicalizeArea(unslug(areaAtuacao));
+          const espCanon  = canonicalizeSpecialty(unslug(especialidade));
+          const scan = canonicalizeScanner(unslug(comoDigitalizaRaw) || unslug(temScannerRaw));
+          const printer = canonicalizePrinter(unslug(temImpressoraRaw) || unslug(impressoraModeloRaw));
+          const areaAtuacaoV   = areaCanon ?? unslug(areaAtuacao);
+          const especialidadeV = espCanon ?? unslug(especialidade);
+          const temImpressora  = printer.tem_impressora ?? unslug(temImpressoraRaw);
+          const temScanner     = scan.tem_scanner ?? unslug(temScannerRaw);
+          const comoDigitaliza = scan.como_digitaliza ?? unslug(comoDigitalizaRaw);
+          const impressoraModelo = printer.impressora_marca ?? unslug(impressoraModeloRaw);
+          const scannerMarca   = scan.scanner_marca;
 
           if (matchedSamples.length < 5) {
             matchedSamples.push({
               meta_lead_id: String(lead.id || ""), form_id: formId, email, phone,
               field_names: fd.map((f) => f.name),
-              area_atuacao: areaAtuacao, especialidade, tem_scanner: temScanner, tem_impressora: temImpressora,
+              area_atuacao: areaAtuacaoV, especialidade: especialidadeV,
+              tem_scanner: temScanner, tem_impressora: temImpressora,
             });
           }
 
@@ -324,8 +337,8 @@ Deno.serve(async (req) => {
               upd[col] = val;
             }
           };
-          coalesce("area_atuacao", areaAtuacao);
-          coalesce("especialidade", especialidade);
+          coalesce("area_atuacao", areaAtuacaoV);
+          coalesce("especialidade", especialidadeV);
           coalesce("tem_impressora", temImpressora);
           coalesce("tem_scanner", temScanner);
           coalesce("como_digitaliza", comoDigitaliza);
