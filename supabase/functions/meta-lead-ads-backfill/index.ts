@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
 
           if (matchedSamples.length < 5) {
             matchedSamples.push({
-              form_id: formId, email, phone,
+              meta_lead_id: String(lead.id || ""), form_id: formId, email, phone,
               field_names: fd.map((f) => f.name),
               area_atuacao: areaAtuacao, especialidade, tem_scanner: temScanner, tem_impressora: temImpressora,
             });
@@ -226,7 +226,71 @@ Deno.serve(async (req) => {
               .eq("telefone_normalized", phone).is("merged_into", null).maybeSingle();
             canon = data as any;
           }
-          if (!canon) { skipped++; continue; }
+          // Recovery path: older versions only enriched rows that already
+          // existed in the CDP, so a truly missed Meta lead stayed missing.
+          // Re-ingest the original Meta payload first, preserving its real
+          // lead ID and creation timestamp, then continue the same enrichment.
+          if (!canon) {
+            const campaignId = lead.campaign_id ? String(lead.campaign_id) : null;
+            const campaignName = await getCampaignName(campaignId);
+            const originLabel = campaignName
+              ? `Meta Ads — ${campaignName}`
+              : `Meta Ads — Form ${String(lead.form_id || formId)}`;
+            const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-ops-ingest-lead`;
+            const ingestRes = await fetch(ingestUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                source: "meta_lead_ads",
+                platform_lead_id: String(lead.id),
+                platform_form_id: String(lead.form_id || formId),
+                form_name: originLabel,
+                origem_campanha: originLabel,
+                utm_source: lead.platform || "facebook",
+                utm_medium: "paid",
+                utm_campaign: campaignName || campaignId,
+                form_purpose: "sdr_captacao",
+                name: fmap.full_name || fmap.name || fmap.nome || null,
+                email: email || null,
+                phone: phone || null,
+                meta_created_time: lead.created_time,
+                platform_ad_id: lead.ad_id || null,
+                platform_adgroup_id: lead.adset_id || null,
+                platform_campaign_id: campaignId,
+                meta_platform: lead.platform || "facebook",
+                raw_field_data: fd,
+              }),
+            });
+            if (!ingestRes.ok) {
+              skipped++;
+              await log(supabase, "error", "meta_backfill_ingest_failed", {
+                meta_lead_id: String(lead.id || ""), email, phone,
+                status: ingestRes.status,
+                response_preview: (await ingestRes.text().catch(() => "")).slice(0, 500),
+              });
+              continue;
+            }
+            if (email) {
+              const { data } = await supabase.from("lia_attendances").select("*")
+                .eq("email", email).is("merged_into", null).maybeSingle();
+              canon = data as any;
+            }
+            if (!canon && phone) {
+              const { data } = await supabase.from("lia_attendances").select("*")
+                .eq("telefone_normalized", phone).is("merged_into", null).maybeSingle();
+              canon = data as any;
+            }
+            if (!canon) {
+              skipped++;
+              await log(supabase, "error", "meta_backfill_ingest_unresolved", {
+                meta_lead_id: String(lead.id || ""), email, phone,
+              });
+              continue;
+            }
+          }
 
           // Build COALESCE-style updates (never overwrite existing non-null values).
           const upd: Record<string, unknown> = {};
