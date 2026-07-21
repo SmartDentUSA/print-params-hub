@@ -13,6 +13,12 @@ import {
   buildPersonFormCustomFields,
   piperunPut,
 } from "../_shared/piperun-field-map.ts";
+import {
+  canonicalizeArea,
+  canonicalizeSpecialty,
+  canonicalizeScanner,
+  canonicalizePrinter,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
