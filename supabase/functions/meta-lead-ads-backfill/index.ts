@@ -219,9 +219,14 @@ Deno.serve(async (req) => {
           } catch (e) {
             skipped++;
             console.warn(`[${FN}] forward failed`, e);
+            const msg = String(e);
+            if (/RateLimitError|Rate limit exceeded/i.test(msg)) {
+              // Runtime rate-limit — pause hard and continue
+              await new Promise((r) => setTimeout(r, 25_000));
+            }
           }
-          // gentle pacing to avoid runtime rate-limits
-          await new Promise((r) => setTimeout(r, 60));
+          // gentle pacing to avoid runtime rate-limits (ingest chain is heavy: lia-assign + PipeRun PUT)
+          await new Promise((r) => setTimeout(r, 1500));
         }
 
         nextUrl = j?.paging?.next || null;
