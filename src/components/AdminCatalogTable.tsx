@@ -225,7 +225,9 @@ export function AdminCatalogTable({
               <TableHead className="w-28">GTIN/EAN</TableHead>
               <TableHead className="w-20">Peso (kg)</TableHead>
               <TableHead className="w-28">Dim (cm)</TableHead>
-              <TableHead className="w-24">Preço BRL</TableHead>
+              <TableHead className="w-32">BRL</TableHead>
+              <TableHead className="w-32">USD</TableHead>
+              <TableHead className="w-32">EUR</TableHead>
               <TableHead className="w-14 text-center">Visível</TableHead>
               <TableHead className="w-14 text-center">Docs</TableHead>
               <TableHead className="w-24">Situação</TableHead>
@@ -235,7 +237,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -250,7 +252,7 @@ export function AdminCatalogTable({
                   if (cat !== lastCat) {
                     rows.push(
                       <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
-                        <TableCell colSpan={17} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                        <TableCell colSpan={19} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
                           {cat}
                         </TableCell>
                       </TableRow>
@@ -261,7 +263,7 @@ export function AdminCatalogTable({
                   if (sub !== lastSub) {
                     rows.push(
                       <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={17} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                        <TableCell colSpan={19} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
                           {sub}
                         </TableCell>
                       </TableRow>
@@ -462,52 +464,34 @@ export function AdminCatalogTable({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <CellInput
-                          value={v.price_brl}
-                          type="number"
-                          placeholder="0.00"
-                          onCommit={(val) => commitVariationField(product.id!, v, {
-                            price_brl: val ? Number(val) : null,
-                          })}
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground hover:bg-muted"
-                              title="Outras moedas"
-                            >
-                              $€
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 p-3 space-y-2" side="left">
-                          <div className="text-xs font-medium">Outras moedas</div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground">USD</label>
-                            <CellInput
-                              value={v.price_usd}
-                              type="number"
-                              placeholder="0.00"
-                              onCommit={(val) => commitVariationField(product.id!, v, {
-                                price_usd: val ? Number(val) : null,
-                              })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] text-muted-foreground">EUR</label>
-                            <CellInput
-                              value={v.price_eur}
-                              type="number"
-                              placeholder="0.00"
-                              onCommit={(val) => commitVariationField(product.id!, v, {
-                                price_eur: val ? Number(val) : null,
-                              })}
-                            />
-                          </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+                      <CellInput
+                        value={v.price_brl}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_brl: val ? Number(val) : null,
+                        })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <CellInput
+                        value={v.price_usd}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_usd: val ? Number(val) : null,
+                        })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <CellInput
+                        value={v.price_eur}
+                        type="number"
+                        placeholder="0.00"
+                        onCommit={(val) => commitVariationField(product.id!, v, {
+                          price_eur: val ? Number(val) : null,
+                        })}
+                      />
                     </TableCell>
 
                     {idx === 0 ? (
