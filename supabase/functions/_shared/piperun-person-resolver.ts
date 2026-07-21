@@ -23,6 +23,75 @@ const norm = (s: string | null | undefined) => String(s || "").trim().toLowerCas
 const digits = (s: string | null | undefined) => String(s || "").replace(/\D/g, "");
 
 /**
+ * Local mirror lookup (piperun_persons_mirror). Zero API calls, ~1 ms/hit.
+ * Populated by piperun-mirror-import (CSV) and future PipeRun webhooks.
+ *
+ * Precedence: email exact → phone full digits → phone last10.
+ */
+export async function findPersonInMirror(
+  supabase: SupabaseClient,
+  email: string | null,
+  phone: string | null,
+): Promise<{ id: number; company_id: number | null; matched_via: string } | null> {
+  const lowerEmail = norm(email);
+  const phoneDigits = digits(phone);
+
+  // 1) email exact
+  if (lowerEmail && lowerEmail.includes("@")) {
+    const { data } = await supabase
+      .from("piperun_persons_mirror")
+      .select("piperun_person_id,piperun_company_id")
+      .eq("email_normalized", lowerEmail)
+      .limit(1)
+      .maybeSingle();
+    if (data?.piperun_person_id) {
+      return {
+        id: Number(data.piperun_person_id),
+        company_id: data.piperun_company_id ? Number(data.piperun_company_id) : null,
+        matched_via: "mirror_email",
+      };
+    }
+  }
+
+  // 2) phone full digits (>= 11)
+  if (phoneDigits.length >= 11) {
+    const { data } = await supabase
+      .from("piperun_persons_mirror")
+      .select("piperun_person_id,piperun_company_id")
+      .eq("phone_digits", phoneDigits)
+      .limit(1)
+      .maybeSingle();
+    if (data?.piperun_person_id) {
+      return {
+        id: Number(data.piperun_person_id),
+        company_id: data.piperun_company_id ? Number(data.piperun_company_id) : null,
+        matched_via: "mirror_phone_full",
+      };
+    }
+  }
+
+  // 3) phone last10 (fallback for CRM records stored without DDI)
+  if (phoneDigits.length >= 10) {
+    const last10 = phoneDigits.slice(-10);
+    const { data } = await supabase
+      .from("piperun_persons_mirror")
+      .select("piperun_person_id,piperun_company_id")
+      .eq("phone_last10", last10)
+      .limit(1)
+      .maybeSingle();
+    if (data?.piperun_person_id) {
+      return {
+        id: Number(data.piperun_person_id),
+        company_id: data.piperun_company_id ? Number(data.piperun_company_id) : null,
+        matched_via: "mirror_phone_last10",
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Validate the TLD of an email. Rejects nonsense like ".TYPO", ".local",
  * stray ".gmil" (typo of gmail), etc. We use a permissive regex (2..24 alpha
  * chars) — it doesn't validate that the domain actually exists, only that
@@ -90,7 +159,27 @@ export async function findPersonByContact(
   apiToken: string,
   email: string | null,
   phone: string | null,
+  supabase?: SupabaseClient,
 ): Promise<{ id: number; company_id: number | null; matched_via: string } | null> {
+  // 0) Local mirror first (when supabase client is available). Instant hit
+  // saves an API round-trip and avoids PipeRun rate limits.
+  if (supabase) {
+    try {
+      const local = await findPersonInMirror(supabase, email, phone);
+      if (local) {
+        // Fire-and-forget observability log; do not await failures.
+        supabase.from("system_health_logs").insert({
+          function_name: "piperun-person-resolver",
+          severity: "info",
+          error_type: "piperun_mirror_hit",
+          lead_email: email,
+          details: { matched_via: local.matched_via, person_id: local.id, company_id: local.company_id },
+        }).then(() => {}, () => {});
+        return local;
+      }
+    } catch (e) { console.warn("[piperun-resolver] mirror lookup error:", e); }
+  }
+
   // a) email exact
   if (email) {
     try {

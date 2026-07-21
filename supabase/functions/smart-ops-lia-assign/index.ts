@@ -101,7 +101,8 @@ function buildOriginLines(lead: Record<string, unknown>, mode: "wa" | "html"): s
 async function findPersonByEmail(
   apiToken: string,
   email: string,
-  phoneNormalized?: string | null
+  phoneNormalized?: string | null,
+  supabase?: ReturnType<typeof createClient>,
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email && !phoneNormalized) return null;
   try {
@@ -110,7 +111,7 @@ async function findPersonByEmail(
     // owning either identifier (would otherwise silently create a name-only
     // shadow because emails/phones get deduped server-side).
     const { findPersonByContact } = await import("../_shared/piperun-person-resolver.ts");
-    const hit = await findPersonByContact(apiToken, email || null, phoneNormalized || null);
+    const hit = await findPersonByContact(apiToken, email || null, phoneNormalized || null, supabase);
     if (hit) {
       console.log(`[lia-assign] findPersonByContact: hit ${hit.id} via ${hit.matched_via}`);
       return { id: hit.id, company_id: hit.company_id };
@@ -2051,7 +2052,7 @@ async function executarReativacaoSdrCaptacao(
   // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
   let personId = lead.pessoa_piperun_id as number | null;
   if (!personId) {
-    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
+    const person = await findPersonByEmail(apiToken, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null), supabase);
     personId = person?.id ?? null;
   }
   if (!personId) {
@@ -3207,7 +3208,7 @@ Deno.serve(async (req) => {
         }
       } else {
         console.warn(`[lia-assign] Cached person ${personId} truly missing in PipeRun, re-resolving`);
-        const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null));
+        const fallback = await findPersonByEmail(PIPERUN_API_KEY, leadEmail, (lead.telefone_normalized as string | null) ?? (lead.telefone_raw as string | null), supabase);
         if (fallback) {
           personId = fallback.id;
           companyId = fallback.company_id || companyId;

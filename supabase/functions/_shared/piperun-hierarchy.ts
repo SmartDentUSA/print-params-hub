@@ -25,10 +25,11 @@ type SupabaseClient = ReturnType<typeof createClient>;
 
 export async function findPersonByEmail(
   apiToken: string,
-  email: string
+  email: string,
+  supabase?: SupabaseClient,
 ): Promise<{ id: number; company_id: number | null } | null> {
   if (!email) return null;
-  const hit = await findPersonByContact(apiToken, email, null);
+  const hit = await findPersonByContact(apiToken, email, null, supabase);
   if (!hit) return null;
   return { id: hit.id, company_id: hit.company_id };
 }
