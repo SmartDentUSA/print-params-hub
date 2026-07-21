@@ -368,7 +368,15 @@ export function AdminCatalogTable({
                         type="number"
                         onCommit={(val) => {
                           const cleaned = (val || "").replace(/[^\d.,]/g, "").replace(",", ".");
-                          return commitVariationField(product.id!, v, { presentation_qty: cleaned || null });
+                          const patch: any = { presentation_qty: cleaned || null };
+                          const preset = RESIN_GRS_PRESETS[cleaned];
+                          const unit = (v.presentation || "").toLowerCase();
+                          if (preset && (!v.presentation || unit === "grs" || unit === "g")) {
+                            if (v.weight_kg == null) patch.weight_kg = preset.weight_kg;
+                            if (!v.dimensions_cm) patch.dimensions_cm = preset.dimensions_cm;
+                            if (!v.presentation) patch.presentation = "grs";
+                          }
+                          return commitVariationField(product.id!, v, patch);
                         }}
                       />
                     </TableCell>
@@ -377,7 +385,13 @@ export function AdminCatalogTable({
                         value={v.presentation || ""}
                         onValueChange={async (val) => {
                           try {
-                            await commitVariationField(product.id!, v, { presentation: val || null });
+                            const patch: any = { presentation: val || null };
+                            const preset = RESIN_GRS_PRESETS[v.presentation_qty || ""];
+                            if (preset && (val === "grs" || val === "g")) {
+                              if (v.weight_kg == null) patch.weight_kg = preset.weight_kg;
+                              if (!v.dimensions_cm) patch.dimensions_cm = preset.dimensions_cm;
+                            }
+                            await commitVariationField(product.id!, v, patch);
                           } catch (e: any) {
                             toast.error(e?.message || "Erro ao salvar");
                           }
