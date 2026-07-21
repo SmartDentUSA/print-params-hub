@@ -3,6 +3,12 @@ import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux
 import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead, sanitizeDisplayName } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import {
+  canonicalizeArea,
+  canonicalizeSpecialty,
+  canonicalizeScanner,
+  canonicalizePrinter,
+} from "../_shared/dental-taxonomy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,11 +27,21 @@ const NEW_DEAL_SOURCES = new Set([
   "vendedor_direto",
 ]);
 
+function normalizeAscii(s: string): string {
+  return String(s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 function extractField(payload: Record<string, unknown>, ...keys: string[]): string | null {
-  for (const key of keys) {
+  const needles = keys.map((k) => normalizeAscii(k));
+  for (const needle of needles) {
     for (const [k, v] of Object.entries(payload)) {
-      if (k.toLowerCase().includes(key.toLowerCase()) && v) {
-        return String(v).trim();
+      if (!v) continue;
+      const nk = normalizeAscii(k);
+      if (nk.includes(needle)) {
+        // Unslug values that arrived slugged from Meta (`clínica_ou_consultório`)
+        return String(v).replace(/_/g, " ").replace(/\s+/g, " ").trim();
       }
     }
   }
@@ -485,18 +501,28 @@ Deno.serve(async (req) => {
     const telefoneRaw = extractField(payload, "phone_number", "phone", "mobile", "telefone", "celular", "user_phone");
     const telefoneNormalized = normalizePhone(telefoneRaw);
 
-    const areaAtuacao = extractField(payload, "area de atuacao", "area_atuacao", "area_de_atuacao", "atuacao");
-    const especialidade = extractField(payload, "especialidade", "specialty", "especialidade_odontologica");
-    const comoDigitaliza = extractField(payload, "como digitaliza", "como_digitaliza", "moldagens");
-    const temImpressora = payload.tem_impressora
+    const areaAtuacaoRaw = extractField(payload, "area de atuacao", "area_atuacao", "area_de_atuacao", "atuacao");
+    const especialidadeRaw = extractField(payload, "especialidade", "specialty", "especialidade_odontologica");
+    const comoDigitalizaRaw = extractField(payload, "como digitaliza", "como_digitaliza", "moldagens");
+    const temImpressoraRaw = payload.tem_impressora
       ? String(payload.tem_impressora).trim()
       : extractField(payload, "tem_impressora", "impressoes 3d", "impressoes_3d", "utiliza impressoes", "possui_impressora", "possui impressora", "impressora");
-    const temScanner = payload.tem_scanner
+    const temScannerRaw = payload.tem_scanner
       ? String(payload.tem_scanner).trim()
       : extractField(payload, "tem_scanner", "possui_scanner", "possui scanner", "scanner_intraoral", "tem scanner");
-    const impressoraModelo = payload.impressora_modelo
+    const impressoraModeloRaw = payload.impressora_modelo
       ? String(payload.impressora_modelo).trim()
       : extractField(payload, "impressora_modelo", "modelo impressora", "printer_model", "modelo_impressora");
+    // ── Canonicalização determinística (rule-based) ──
+    const areaAtuacao = canonicalizeArea(areaAtuacaoRaw) ?? areaAtuacaoRaw;
+    const especialidade = canonicalizeSpecialty(especialidadeRaw) ?? especialidadeRaw;
+    const scannerCanon = canonicalizeScanner(comoDigitalizaRaw || temScannerRaw);
+    const printerCanon = canonicalizePrinter(temImpressoraRaw || impressoraModeloRaw);
+    const comoDigitaliza = scannerCanon.como_digitaliza ?? comoDigitalizaRaw;
+    const scannerMarca = scannerCanon.scanner_marca;
+    const temScanner = scannerCanon.tem_scanner ?? temScannerRaw;
+    const temImpressora = printerCanon.tem_impressora ?? temImpressoraRaw;
+    const impressoraModelo = printerCanon.impressora_marca ?? impressoraModeloRaw;
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const formProduct = detectProductFromFormName(formName);
     let produtoInteresse: string | null = payload.produto_interesse
