@@ -46,7 +46,9 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter, forcedTab));
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const shellV2 = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shell') === 'v2';
+  const shellV2 = typeof window === 'undefined'
+    ? true
+    : new URLSearchParams(window.location.search).get('shell') !== 'v1';
   const [overview, setOverview] = useState<boolean>(() =>
     shellV2 && !forcedTab && !categoryLetter && !new URLSearchParams(window.location.search).get('tab'),
   );
