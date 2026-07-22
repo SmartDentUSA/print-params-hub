@@ -51,6 +51,11 @@ const SOCIAL_BOTS = [
 
 const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 
+// Heurística ampla — captura ferramentas de auditoria, LLMs, scrapers e clientes
+// HTTP genéricos que não estão nomeados na allowlist. Sem isso, qualquer UA
+// desconhecido caía num Response('') e a IA/auditor via página em branco.
+const BOT_HEURISTIC = /bot|crawler|spider|slurp|python|curl|wget|scrapy|headless|node-?fetch|axios|http-?client|postman|insomnia|go-http|java\/|okhttp|httpie|libwww|lighthouse|screaming|semrush|ahrefs|serpstat/i;
+
 // Favicon Tags para SEO
 const BASE_URL = 'https://parametros.smartdent.com.br';
 
