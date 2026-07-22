@@ -124,29 +124,52 @@ Deno.serve(async (req) => {
       // Forward to smart-ops-ingest-lead. source `meta_lead_ads` triggers
       // the Estagnados → Vendas hatch (close Lost + open new Vendas deal).
       const syntheticLeadgenId = `reprocess_${row.csv_row}_${Date.now()}`;
-      const ingestRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
+      // If canonical exists in Estagnados (or nowhere), call lia-assign
+      // directly with the documented reactivation trigger. This bypasses the
+      // ingest CDP-only guard which was suppressing all deal creation.
+      const targetFn = canon?.id ? "smart-ops-lia-assign" : "smart-ops-ingest-lead";
+      const payload = canon?.id
+        ? {
+            lead_id: canon.id,
+            trigger: "sdr_captacao_reativacao",
+            source: "meta_lead_ads",
+            form_name: row.form_name,
+            form_purpose: "sdr_captacao",
+            produto_interesse: row.produto_interesse,
+            origem_campanha: row.form_name,
+            utm_source: "facebook",
+            utm_medium: "paid",
+            utm_campaign: row.form_name,
+            new_conversion_confirmed: true,
+            conversion_key: `meta:reprocess:${syntheticLeadgenId}`,
+            force: true,
+            platform_lead_id: syntheticLeadgenId,
+            leadgen_id: syntheticLeadgenId,
+            _reprocess_reason: "meta_sem_crm_queue",
+          }
+        : {
+            source: "meta_lead_ads",
+            form_name: row.form_name,
+            origem_campanha: row.form_name,
+            utm_source: "facebook",
+            utm_medium: "paid",
+            utm_campaign: row.form_name,
+            form_purpose: "sdr_captacao",
+            name: row.nome,
+            email: row.email,
+            phone: row.telefone_normalized || row.telefone_raw,
+            produto_interesse: row.produto_interesse,
+            meta_created_time: row.created_time,
+            platform_lead_id: syntheticLeadgenId,
+            leadgen_id: syntheticLeadgenId,
+            platform_form_id: row.form_name,
+            new_conversion_confirmed: true,
+            _reprocess_reason: "meta_sem_crm_queue",
+          };
+      const ingestRes = await fetch(`${SUPABASE_URL}/functions/v1/${targetFn}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE}` },
-        body: JSON.stringify({
-          source: "meta_lead_ads",
-          form_name: row.form_name,
-          origem_campanha: row.form_name,
-          utm_source: "facebook",
-          utm_medium: "paid",
-          utm_campaign: row.form_name,
-          form_purpose: "sdr_captacao",
-          name: row.nome,
-          email: row.email,
-          phone: row.telefone_normalized || row.telefone_raw,
-          produto_interesse: row.produto_interesse,
-          meta_created_time: row.created_time,
-          platform_lead_id: syntheticLeadgenId,
-          leadgen_id: syntheticLeadgenId,
-          platform_form_id: row.form_name,
-          new_conversion_confirmed: true,
-          force_reactivation: true,
-          _reprocess_reason: "meta_sem_crm_queue",
-        }),
+        body: JSON.stringify(payload),
       });
       const okBody = await ingestRes.text().catch(() => "");
       if (!ingestRes.ok) {
