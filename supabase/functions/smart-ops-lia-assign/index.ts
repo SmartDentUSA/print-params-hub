@@ -3546,47 +3546,56 @@ Deno.serve(async (req) => {
           await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
           console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
         }
+        // ─── Estagnados coexistente: fechar como Perdido "Solicitou novo
+        // contato através de formulários" mesmo quando VENDAS aberto foi
+        // preservado. Regra do usuário: sempre limpar Estagnados quando
+        // chegar novo formulário.
+        if (estagnDeal) {
+          try {
+            const lostReasonId = await resolveLostReasonId(PIPERUN_API_KEY);
+            const closedOk = await closeDealAsLost(
+              PIPERUN_API_KEY,
+              Number(estagnDeal.id),
+              lostReasonId,
+              `Lead reagiu a novo formulário em ${new Date().toLocaleDateString("pt-BR")} — Estagnados fechado (VENDAS aberto preservado) via Dra. L.I.A.`,
+            );
+            console.log(`[lia-assign] Estagnados coexistente ${estagnDeal.id} fechado como Perdido (VENDAS aberto ${vendaDeal.id} preservado). ok=${closedOk}`);
+            try {
+              await supabase.from("lead_activity_log").insert({
+                lead_id: lead.id,
+                event_type: "estagnado_fechado_vendas_preservado",
+                entity_type: "deal",
+                entity_id: String(estagnDeal.id),
+                entity_name: "Estagnados fechado (VENDAS aberto preservado)",
+                event_data: {
+                  deal_estagnados_fechado: String(estagnDeal.id),
+                  deal_vendas_preservado: String(vendaDeal.id),
+                  motivo_perda: LOST_REASON_NOVO_INTERESSE,
+                  form_name: lead.form_name,
+                  source: lead.source,
+                },
+                source_channel: "form",
+                event_timestamp: new Date().toISOString(),
+              });
+            } catch {}
+          } catch (e) {
+            console.warn("[lia-assign] Falha ao fechar Estagnados coexistente:", e);
+          }
+        }
       } else if (estagnDeal && force_new_deal !== true) {
         // ─── Reativação Estagnados → Vendas (jul/2026) ───
         // Quando um lead parado no Funil Estagnados reage a um novo
         // anúncio Meta OU a qualquer formulário (COMMERCIAL_SOURCES),
-        // o deal antigo é FECHADO como "Perdido" (motivo "Novo
-        // interesse") e um deal NOVO é criado no Funil de Vendas,
+        // o deal antigo é SEMPRE FECHADO como "Perdido" (motivo
+        // "Solicitou novo contato através de formulários") e um deal
+        // NOVO é criado no Funil de Vendas,
         // sorteando entre vendedores ativos (nunca herda o antigo).
         // Deals abertos em Vendas / CS / Onboarding já foram
         // preservados pelos branches anteriores.
-        //
-        // GUARD: se o vendedor já interveio no deal Estagnados
-        // (nota de vendedor ativo), o patch NÃO fecha/recria —
-        // preserva o deal antigo e apenas registra o skip.
+        // (Guard de intervenção do vendedor removido em jul/2026 —
+        // regra do usuário: formulário novo SEMPRE fecha Estagnados.)
         const estagnDealIdNum = Number(estagnDeal.id);
-
-        const intervention = await hasSellerIntervention(PIPERUN_API_KEY, supabase, estagnDeal as Record<string, unknown>);
-        if (intervention.intervened) {
-          piperunId = String(estagnDealIdNum);
-          flowType = "reactivate_estagnado_seller_intervention_preserved";
-          console.log(`[lia-assign] Estagnados ${estagnDealIdNum}: intervenção do vendedor detectada (${intervention.signal}) — preservando deal antigo`);
-          try {
-            await supabase.from("lead_activity_log").insert({
-              lead_id: lead.id,
-              event_type: "estagnado_seller_intervention_skip",
-              entity_type: "deal",
-              entity_id: String(estagnDealIdNum),
-              entity_name: "Reativação Estagnados ignorada (intervenção do vendedor)",
-              event_data: {
-                deal_estagnados_preservado: String(estagnDealIdNum),
-                signal: intervention.signal,
-                form_name: lead.form_name,
-                source: lead.source,
-                person_id: personId,
-              },
-              source_channel: "form",
-              event_timestamp: new Date().toISOString(),
-            });
-          } catch (e) {
-            console.warn("[lia-assign] Failed to log estagnado_seller_intervention_skip:", e);
-          }
-        } else {
+        {
           flowType = "reactivate_estagnado_new_deal";
 
           const lostReasonId = await resolveLostReasonId(PIPERUN_API_KEY);
