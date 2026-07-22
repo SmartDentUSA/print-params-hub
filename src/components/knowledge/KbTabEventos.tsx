@@ -123,7 +123,7 @@ export default function KbTabEventos() {
 
   return (
     <section>
-      <KbSectionHeader title={t('kb.eventos.title')} subtitle={t('kb.eventos.subtitle')} />
+      {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.eventos.search')} value={q} onDebouncedChange={setQ} />
       {!loading && <KbResultCount count={filtered.length} noun="event" />}
       <div className="kb-dgrid">
