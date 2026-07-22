@@ -115,6 +115,10 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/ai-search"
     },
     {
+      "source": "/r/:code",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-redirect?c=:code"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
