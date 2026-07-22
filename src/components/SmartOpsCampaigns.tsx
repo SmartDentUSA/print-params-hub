@@ -2325,20 +2325,56 @@ function CampaignHistory() {
                 </div>
                 {selectedCampaign.description && <p className="text-muted-foreground">{selectedCampaign.description}</p>}
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-3 border rounded">
-                    <p className="text-2xl font-bold">{selectedCampaign.lead_count ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">Leads</p>
-                  </div>
-                  <div className="text-center p-3 border rounded">
-                    <p className="text-2xl font-bold text-green-600">{selectedCampaign.sent_count ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">Enviados</p>
-                  </div>
-                  <div className="text-center p-3 border rounded">
-                    <p className="text-2xl font-bold text-red-600">{selectedCampaign.failed_count ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">Falhas</p>
-                  </div>
-                </div>
+                {(() => {
+                  const isEmail = (selectedCampaign.channel || "").toLowerCase() === "email";
+                  const es = emailStats[selectedCampaign.id];
+                  const total = isEmail ? (es?.total ?? selectedCampaign.lead_count ?? 0) : (selectedCampaign.lead_count ?? 0);
+                  const sent = isEmail ? (es?.sent ?? 0) : (selectedCampaign.sent_count ?? 0);
+                  const failed = isEmail ? (es?.failed ?? selectedCampaign.failed_count ?? 0) : (selectedCampaign.failed_count ?? 0);
+                  const queued = isEmail ? (es?.queued ?? 0) : 0;
+                  const opened = isEmail ? (es?.opened ?? 0) : 0;
+                  const clicked = isEmail ? (es?.clicked ?? 0) : 0;
+                  const bounced = isEmail ? (es?.bounced ?? 0) : 0;
+                  const pct = (n: number) => sent > 0 ? ` (${Math.round((n / sent) * 100)}%)` : "";
+                  return (
+                    <div className={`grid ${isEmail ? "grid-cols-4" : "grid-cols-3"} gap-3`}>
+                      <div className="text-center p-3 border rounded">
+                        <p className="text-2xl font-bold">{total}</p>
+                        <p className="text-xs text-muted-foreground">Leads</p>
+                      </div>
+                      <div className="text-center p-3 border rounded">
+                        <p className="text-2xl font-bold text-green-600">{sent}</p>
+                        <p className="text-xs text-muted-foreground">Enviados</p>
+                      </div>
+                      {isEmail && (
+                        <div className="text-center p-3 border rounded">
+                          <p className="text-2xl font-bold text-amber-600">{queued}</p>
+                          <p className="text-xs text-muted-foreground">Na fila</p>
+                        </div>
+                      )}
+                      <div className="text-center p-3 border rounded">
+                        <p className="text-2xl font-bold text-red-600">{failed}</p>
+                        <p className="text-xs text-muted-foreground">Falhas</p>
+                      </div>
+                      {isEmail && (
+                        <>
+                          <div className="text-center p-3 border rounded col-span-2">
+                            <p className="text-2xl font-bold text-blue-600">{opened}<span className="text-xs text-muted-foreground font-normal">{pct(opened)}</span></p>
+                            <p className="text-xs text-muted-foreground">Abertos</p>
+                          </div>
+                          <div className="text-center p-3 border rounded col-span-2">
+                            <p className="text-2xl font-bold text-emerald-600">{clicked}<span className="text-xs text-muted-foreground font-normal">{pct(clicked)}</span></p>
+                            <p className="text-xs text-muted-foreground">Cliques</p>
+                          </div>
+                          <div className="text-center p-3 border rounded col-span-4">
+                            <p className="text-2xl font-bold text-red-600">{bounced}<span className="text-xs text-muted-foreground font-normal">{pct(bounced)}</span></p>
+                            <p className="text-xs text-muted-foreground">Bounces (e-mail inválido)</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {selectedCampaign.channel === "sms" && smsAttribution && (
                   <>
@@ -2406,42 +2442,13 @@ function CampaignHistory() {
                   </div>
                 )}
 
-                {sendLogs.length > 0 && (
-                  <div>
-                    <p className="font-medium mb-2">Log de envios ({sendLogs.length})</p>
-                    <div className="max-h-60 overflow-y-auto space-y-1">
-                      {sendLogs.map(log => (
-                        <div key={log.id} className="flex items-center justify-between border rounded p-2 text-xs">
-                          <div>
-                            <span className="font-medium">{log.nome || log.lead_id.slice(0, 8)}</span>
-                            {log.telefone && <span className="ml-2 text-muted-foreground">{log.telefone}</span>}
-                            {selectedCampaign.channel === "sms" && (log.provider_detail_code || log.provider_detail_message) && (
-                              <span className="ml-2 text-muted-foreground">
-                                {log.provider_detail_code ?? ""}{log.provider_detail_code && log.provider_detail_message ? " — " : ""}{log.provider_detail_message ?? ""}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {selectedCampaign.channel === "sms" && log.provider_status && (
-                              <Badge className={
-                                log.provider_status === "DELIVERED" ? "bg-green-100 text-green-800" :
-                                log.provider_status === "ACCEPTED"  ? "bg-yellow-100 text-yellow-800" :
-                                log.provider_status === "BLACKLIST" ? "bg-purple-100 text-purple-800" :
-                                "bg-red-100 text-red-800"
-                              }>
-                                {log.provider_status}
-                              </Badge>
-                            )}
-                            {(log.status === "sent" || log.status === "delivered") && <CheckCircle className="w-3 h-3 text-green-500" />}
-                            {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
-                            {(log.status === "pending" || log.status === "aguardando") && <AlertCircle className="w-3 h-3 text-amber-500" />}
-                            <span>{log.status}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {sendLogs.length > 0 && (() => {
+                  const isEmail = (selectedCampaign.channel || "").toLowerCase() === "email";
+                  const [logFilter, setLogFilter] = [undefined, undefined] as any; // placeholder to keep patch minimal
+                  return (
+                    <SendLogsPanel logs={sendLogs} isEmail={isEmail} channel={selectedCampaign.channel || ""} />
+                  );
+                })()}
 
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>Criada: {formatDate(selectedCampaign.created_at)}</p>
