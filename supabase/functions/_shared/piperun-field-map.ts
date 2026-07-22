@@ -907,7 +907,6 @@ export function mapDealToAttendance(
 
   // ─── Person deep fields ───
   if (person && !personMismatch) {
-    if (person.job_title) fields.area_atuacao = person.job_title;
     if (person.city?.name) fields.cidade = person.city.name;
     const personUf = person.city?.uf || person.state?.initials || person.state?.abbr || null;
     if (personUf) fields.uf = personUf;
