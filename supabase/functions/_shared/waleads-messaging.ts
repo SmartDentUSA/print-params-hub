@@ -307,7 +307,7 @@ export async function buildSellerNotification(
   }
 
   const lines: string[] = [
-    `🤖 *Novo Lead atribuído - Dra. L.I.A.*`,
+    `📊 *Análise SmartOps*`,
     ``,
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
