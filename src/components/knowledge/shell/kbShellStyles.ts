@@ -16,13 +16,20 @@ export const kbShellStyles = `
 .kbs-cta p{font-size:11.5px;line-height:1.45;margin:0 0 12px;opacity:.85;}
 .kbs-cta a{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#0F172A;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;text-decoration:none;}
 .kbs-main{flex:1;min-width:0;display:flex;flex-direction:column;}
-.kbs-topbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:14px 28px;background:#fff;border-bottom:1px solid #E5E7EB;}
+.kbs-topbar{display:flex;align-items:center;gap:10px;padding:12px 24px;background:#fff;border-bottom:1px solid #E5E7EB;}
+.kbs-toptabs{display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;}
+.kbs-toptabs::-webkit-scrollbar{display:none;}
+.kbs-toptab{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;font-weight:500;color:#475569;background:none;border:none;border-radius:10px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.kbs-toptab:hover{background:#F1F5F9;color:#0F172A;}
+.kbs-toptab.on{background:#0F172A;color:#fff;}
+.kbs-toptab svg{width:15px;height:15px;}
+.kbs-topright{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .kbs-content{padding:24px 28px 48px;max-width:1400px;width:100%;margin:0 auto;}
-.kbs-hero{position:relative;background:#fff;border-radius:16px;padding:28px 32px;margin-bottom:20px;overflow:hidden;min-height:150px;display:flex;align-items:center;}
+.kbs-hero{position:relative;background:#fff;border-radius:18px;padding:40px 44px;margin-bottom:20px;overflow:hidden;min-height:220px;display:flex;align-items:center;}
 .kbs-hero-text{max-width:560px;position:relative;z-index:1;}
-.kbs-hero-text h1{font-size:34px;line-height:1.1;margin:0 0 8px;font-weight:700;color:#0F172A;letter-spacing:-.02em;}
-.kbs-hero-text p{font-size:14px;color:#64748B;margin:0;}
-.kbs-hero-art{position:absolute;right:0;top:0;bottom:0;width:38%;background-size:cover;background-position:center right;opacity:.9;pointer-events:none;}
+.kbs-hero-text h1{font-size:48px;line-height:1.05;margin:0 0 10px;font-weight:800;color:#0F172A;letter-spacing:-.025em;}
+.kbs-hero-text p{font-size:15px;color:#64748B;margin:0;}
+.kbs-hero-art{position:absolute;right:-4%;top:0;bottom:0;width:46%;background-size:contain;background-repeat:no-repeat;background-position:center right;pointer-events:none;}
 .kbs-mobile-btn{display:none;}
 @media (max-width: 960px){
   .kbs-side{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .2s;z-index:60;box-shadow:0 10px 40px rgba(0,0,0,.15);}
