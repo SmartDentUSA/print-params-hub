@@ -330,11 +330,11 @@ Deno.serve(async (req) => {
       let seller: { nome: string; whatsapp: string } | undefined;
       if (log.lead_id) {
         const { data: la } = await supabase.from("lia_attendances")
-          .select("responsavel_id").eq("id", log.lead_id).maybeSingle();
-        const sid = (la as any)?.responsavel_id;
-        if (sid) {
+          .select("piperun_owner_id").eq("id", log.lead_id).maybeSingle();
+        const ownerId = (la as any)?.piperun_owner_id;
+        if (ownerId) {
           const { data: tm } = await supabase.from("team_members")
-            .select("nome_completo, whatsapp_number").eq("id", sid).maybeSingle();
+            .select("nome_completo, whatsapp_number").eq("piperun_owner_id", ownerId).maybeSingle();
           if (tm) seller = { nome: tm.nome_completo, whatsapp: tm.whatsapp_number };
         }
       }
@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
 
     // ────────── Mode: ENQUEUE — resolve audience and queue for the scheduler ──────────
     let q = supabase.from("lia_attendances")
-      .select("id, nome, email, responsavel_id")
+      .select("id, nome, email")
       .is("merged_into", null)
       .not("email", "is", null)
       .neq("email", "")
@@ -466,7 +466,16 @@ Deno.serve(async (req) => {
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[send-gmail] fatal", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    const detail = (err && typeof err === "object")
+      ? {
+          message: (err as any).message ?? null,
+          code: (err as any).code ?? null,
+          details: (err as any).details ?? null,
+          hint: (err as any).hint ?? null,
+          name: (err as any).name ?? null,
+        }
+      : { message: String(err) };
+    return new Response(JSON.stringify({ error: detail.message || "unknown", detail }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
