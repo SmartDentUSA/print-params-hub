@@ -38,14 +38,14 @@ export const kbStyles = `
 .kb-si { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #5F6368; pointer-events: none; display: inline-flex; }
 .kb-si-in {
   width: 100%; padding: 13px 20px 13px 50px;
-  border: 1px solid #C8CACF; border-radius: 40px;
-  font-size: 15px; color: #1C1E23; background: #E8ECF4;
-  box-shadow: none; outline: none;
+  border: 1px solid #E4E7EC; border-radius: 40px;
+  font-size: 15px; color: #1C1E23; background: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); outline: none;
   transition: border-color 0.15s, background 0.15s;
   font-family: inherit;
 }
 .kb-si-in::placeholder { color: #9AA0A6; font-size: 15px; }
-.kb-si-in:hover, .kb-si-in:focus { border-color: #9AA0A6; background: #E2E6EE; }
+.kb-si-in:hover, .kb-si-in:focus { border-color: #C8CACF; background: #FCFCFD; }
 
 /* Chips */
 .kb-cw { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
