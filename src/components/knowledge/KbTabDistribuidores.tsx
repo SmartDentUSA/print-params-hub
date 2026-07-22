@@ -192,7 +192,7 @@ export default function KbTabDistribuidores() {
 
   return (
     <section>
-      <KbSectionHeader title={t('kb.distribuidores.title')} subtitle={t('kb.distribuidores.subtitle')} />
+      {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
       {availableCountries.length > 1 && (
         <KbChips options={countryChips} active={country} onChange={setCountry} />
