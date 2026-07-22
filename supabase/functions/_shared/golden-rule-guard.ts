@@ -4,7 +4,9 @@
 // já tem QUALQUER deal VENDAS aberto OU criado/perdido nos últimos
 // GOLDEN_RULE_WINDOW_DAYS dias. Re-entrega Meta NÃO é nova conversão.
 //
-// Bypass único: opts.force_new_deal === true (Loja Integrada "Sob Consulta",
+// Deals CS são somente contexto: nunca são alterados e não bloqueiam uma nova
+// oportunidade VENDAS quando existe uma conversão comercial confirmada.
+// Bypass explícito: opts.force_new_deal === true (Loja Integrada "Sob Consulta",
 // override manual explícito de SDR). Re-entrega Meta NUNCA usa bypass.
 
 import { PIPELINES } from "./piperun-field-map.ts";
@@ -12,13 +14,6 @@ import { PIPELINES } from "./piperun-field-map.ts";
 export const GOLDEN_RULE_WINDOW_DAYS = 30;
 
 const PIPELINE_VENDAS = PIPELINES.VENDAS;
-const PIPELINE_CS_ONBOARDING = PIPELINES.CS_ONBOARDING;
-const PIPELINE_GANHOS_ALEATORIOS_CS = PIPELINES.GANHOS_ALEATORIOS_CS;
-
-const PROTECTED_PIPELINES = new Set<number>([
-  PIPELINE_CS_ONBOARDING,
-  PIPELINE_GANHOS_ALEATORIOS_CS,
-]);
 
 export interface GoldenRuleDeal {
   id: string | number;
@@ -88,20 +83,6 @@ export function assertCanCreateNewDeal(
       allowed: false,
       reason: `recent_vendas_deal_within_${windowDays}d`,
       preservedDeal: recentVendas,
-    };
-  }
-
-  // 3. Deal aberto em pipeline CS protegido → preservar (não criar deal novo).
-  const openCs = allDeals.find(
-    (d) =>
-      PROTECTED_PIPELINES.has(Number(d.pipeline_id)) &&
-      Number(d.status) === 0,
-  );
-  if (openCs) {
-    return {
-      allowed: false,
-      reason: "open_cs_deal_protected",
-      preservedDeal: openCs,
     };
   }
 
