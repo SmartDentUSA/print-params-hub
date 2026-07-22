@@ -2268,6 +2268,7 @@ function CampaignHistory() {
   const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
   const [emailStats, setEmailStats] = useState<Record<string, EmailStats>>({});
+  const [conversions, setConversions] = useState<Record<string, { conversions: number; deals_created: number }>>({});
 
   useEffect(() => {
     (async () => {
@@ -2333,6 +2334,20 @@ function CampaignHistory() {
         for (const [id, s] of entries) if (s) map[id] = s;
         setEmailStats(map);
       }
+
+      // Fetch conversion (novo deal criado após envio) para todas as campanhas
+      const convEntries = await Promise.all(merged.map(async (c) => {
+        try {
+          const { data } = await supabase.rpc("fn_campaign_conversions" as any, { p_campaign_id: c.id });
+          const row = Array.isArray(data) ? data[0] : data;
+          return [c.id, row as { conversions: number; deals_created: number } | undefined] as const;
+        } catch {
+          return [c.id, undefined] as const;
+        }
+      }));
+      const cmap: Record<string, { conversions: number; deals_created: number }> = {};
+      for (const [id, s] of convEntries) if (s) cmap[id] = s;
+      setConversions(cmap);
     })();
   }, []);
 
