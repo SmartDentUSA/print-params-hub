@@ -1,0 +1,1 @@
+UPDATE public.meta_sem_crm_reprocess_queue SET status='pending', processed_at=NULL, deal_vendas_id_after=NULL, last_error=NULL, scheduled_at=now() WHERE status='done' AND deal_vendas_id_after IS NULL;
