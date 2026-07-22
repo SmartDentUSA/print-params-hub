@@ -80,6 +80,21 @@ interface SendLog {
   provider_status?: string | null;
   provider_detail_code?: string | null;
   provider_detail_message?: string | null;
+  opened_at?: string | null;
+  clicked_at?: string | null;
+  bounced_at?: string | null;
+  bounce_reason?: string | null;
+}
+
+interface EmailStats {
+  total: number;
+  queued: number;
+  sent: number;
+  failed: number;
+  bounced: number;
+  opened: number;
+  clicked: number;
+  last_attempt_at: string | null;
 }
 
 interface SmsAttribution {
