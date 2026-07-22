@@ -146,10 +146,7 @@ export default function KbTabParametros() {
 
   return (
     <section>
-      <KbSectionHeader
-        title={t('kb.parametros.title')}
-        subtitle={t('kb.parametros.subtitle')}
-      />
+      {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <p className="kb-label">{t('kb.parametros.select_brand')}</p>
       <KbChips
         options={brandChips}
