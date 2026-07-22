@@ -3,6 +3,12 @@ project_id = "okeogjgqijbfkudfjadz"
 [functions.google-oauth-callback]
 verify_jwt = false
 
+[functions.meta-sem-crm-seed]
+verify_jwt = false
+
+[functions.meta-sem-crm-reprocess-worker]
+verify_jwt = false
+
 [functions.piperun-mirror-import]
 verify_jwt = false
 
