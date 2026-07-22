@@ -5,13 +5,13 @@ type NavKey = KbTab | 'overview';
 
 const NAV: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   { key: 'overview',       label: 'Visão geral',   icon: <Home /> },
-  { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
   { key: 'catalogo',       label: 'Catálogo',      icon: <LayoutGrid /> },
   { key: 'videos',         label: 'Vídeos',        icon: <PlaySquare /> },
   { key: 'artigos',        label: 'Artigos',       icon: <FileText /> },
   { key: 'ebooks',         label: 'Ebooks',        icon: <BookOpen /> },
   { key: 'eventos',        label: 'Eventos',       icon: <Calendar /> },
   { key: 'distribuidores', label: 'Revendas',      icon: <Store /> },
+  { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
 ];
 
 export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; }
