@@ -34,7 +34,7 @@ export const kbStyles = `
 .kb-section-header p { font-size: 14px; color: #5F6368; margin: 0; }
 
 /* Search */
-.kb-sw { position: relative; width: 33.333%; min-width: 320px; margin: 0 0 20px auto; }
+.kb-sw { position: relative; width: 33.333%; min-width: 320px; margin: 0 auto 20px 0; }
 .kb-si { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #5F6368; pointer-events: none; display: inline-flex; }
 .kb-si-in {
   width: 100%; padding: 13px 20px 13px 50px;
