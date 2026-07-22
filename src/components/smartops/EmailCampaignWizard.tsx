@@ -310,6 +310,9 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       });
       if (error) throw error;
       const d = data as any;
+      if (!d?.ok || !d?.campaign_id) {
+        throw new Error(d?.message || d?.error || "A campanha não foi adicionada à fila");
+      }
       setLastCampaignId(d?.campaign_id ?? null);
       toast.success(`Campanha enfileirada — ${d.audience} leads na fila global`);
       onSent?.(d);

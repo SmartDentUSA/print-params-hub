@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
       }
       const { data: log } = await supabase
         .from("campaign_send_log")
-        .select("id, campaign_id, lead_id, email, nome, status, subject_snapshot")
+        .select("id, source_campaign_id, lead_id, email, nome, status, subject_snapshot")
         .eq("id", send_log_id)
         .maybeSingle();
       if (!log) return new Response(JSON.stringify({ error: "log not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
       const { data: camp } = await supabase
         .from("campaigns")
         .select("id, email_subject, email_preheader, email_html, cta_config, nome")
-        .eq("id", log.campaign_id).maybeSingle();
+        .eq("id", log.source_campaign_id).maybeSingle();
       if (!camp) return new Response(JSON.stringify({ error: "campaign not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       // Resolve seller for this lead
@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
 
     // Bulk insert queued send-log rows in batches of 500
     const rows = leads.map((l: any) => ({
-      campaign_id: campaignId, lead_id: l.id,
+      source_campaign_id: campaignId, lead_id: l.id,
       email: String(l.email).trim(), nome: l.nome,
       provider: "gmail", status: "queued", subject_snapshot: subject,
     }));

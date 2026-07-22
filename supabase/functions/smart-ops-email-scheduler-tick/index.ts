@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       const { data: nextLog } = await supabase
         .from("campaign_send_log")
         .select("id")
-        .eq("campaign_id", cid)
+        .eq("source_campaign_id", cid)
         .eq("status", "queued")
         .order("created_at", { ascending: true })
         .limit(1)
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       const { count } = await supabase
         .from("campaign_send_log")
         .select("id", { count: "exact", head: true })
-        .eq("campaign_id", cid)
+        .eq("source_campaign_id", cid)
         .eq("status", "queued");
       if ((count ?? 0) === 0) {
         await supabase.from("campaigns")
