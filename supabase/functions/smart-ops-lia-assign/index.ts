@@ -2073,8 +2073,9 @@ async function executarReativacaoSdrCaptacao(
     return false;
   }
 
-  // ─── GOLDEN RULE: aborta antes de mexer em Estagnados e antes de criar
-  // novo Deal em VENDAS se já existe VENDAS aberto/recente.
+  // ─── GOLDEN RULE: bloqueia somente por VENDAS aberto/recente.
+  // Deals CS são intocáveis e não participam do gate: permanecem exatamente
+  // como estão enquanto a nova conversão segue para um deal separado VENDAS.
   const allDealsForVerdict = mergeDealsWithLocalHistory(allDeals, lead as Record<string, unknown>);
   const verdict = assertCanCreateNewDeal(
     allDealsForVerdict as unknown as Array<{ id: string | number; pipeline_id: number; status: number; freezed?: boolean; created_at?: string; updated_at?: string }>,
@@ -2106,10 +2107,8 @@ async function executarReativacaoSdrCaptacao(
     return false;
   }
 
-  // Funil Estagnados NÃO é mais fechado automaticamente — usuário pediu
-  // explicitamente "não toque". Apenas log para auditoria.
   console.log(
-    `[lia-assign] SDR-CAPTAÇÃO: ${estagnDeals.length} deal(s) Estagnados detectados, NÃO fechados (regra: não tocar em Estagnados via automação). ids=${estagnDeals.map((d) => d.id).join(",")}`,
+    `[lia-assign] SDR-CAPTAÇÃO: ${estagnDeals.length} deal(s) Estagnados serão fechados após a criação do novo VENDAS. ids=${estagnDeals.map((d) => d.id).join(",")}`,
   );
 
   // 4. Fresh Round Robin — NUNCA herda owner anterior
@@ -2159,17 +2158,14 @@ async function executarReativacaoSdrCaptacao(
       .select("piperun_id")
       .eq("id", leadId)
       .maybeSingle();
-    if (freshLead?.piperun_id) {
-      console.log(
-        `[lia-assign] SDR-CAPTAÇÃO: lead.piperun_id=${freshLead.piperun_id} já setado (race) → abortando criação`,
-      );
-      await releaseDealCreateSlot(supabase, leadId);
-      return false;
-    }
     // ── Cached Deal Validator (defesa #3): valida lead.piperun_id direto via
     // GET /deals/:id antes de criar novo. Cobre o cenário "findPersonDeals
     // empty silencioso por throttling" (Flavia Flores 2026-06-24).
-    const cachedDealIdSdr = (lead.piperun_id as string | number | null) ?? null;
+    // Um ID de Estagnados/CS já vinculado não bloqueia: somente VENDAS ativo
+    // ou recente é preservado pelo validator.
+    const cachedDealIdSdr = (freshLead?.piperun_id as string | number | null)
+      ?? (lead.piperun_id as string | number | null)
+      ?? null;
     if (cachedDealIdSdr) {
       const validation = await validateCachedDealIsActiveVendas(
         cachedDealIdSdr,
@@ -2249,6 +2245,25 @@ async function executarReativacaoSdrCaptacao(
   }
   console.log(`[lia-assign] SDR-CAPTAÇÃO: novo deal criado: ${newDealId}`);
 
+  // A criação em VENDAS foi confirmada; agora fecha somente os deals abertos
+  // em Estagnados. Deals CS nunca entram nesta lista e nunca são alterados.
+  const lostReasonId = await resolveLostReasonId(apiToken);
+  const closedEstagnados: string[] = [];
+  for (const estagnDeal of estagnDeals) {
+    try {
+      const closed = await closeDealAsLost(
+        apiToken,
+        Number(estagnDeal.id),
+        lostReasonId,
+        `Lead solicitou novo contato através de formulário em ${new Date().toLocaleDateString("pt-BR")} — novo deal VENDAS ${newDealId} criado via Dra. L.I.A.`,
+      );
+      if (closed) closedEstagnados.push(String(estagnDeal.id));
+      else console.warn(`[lia-assign] SDR-CAPTAÇÃO: PipeRun não confirmou fechamento do Estagnados ${estagnDeal.id}`);
+    } catch (e) {
+      console.warn(`[lia-assign] SDR-CAPTAÇÃO: falha ao fechar Estagnados ${estagnDeal.id}:`, e);
+    }
+  }
+
   // 6. Atualiza lia_attendances com novo owner e deal
   await supabase
     .from("lia_attendances")
@@ -2270,10 +2285,10 @@ async function executarReativacaoSdrCaptacao(
     entity_name: "Deal reativado — SDR Captação",
     event_data: {
       label: "Deal reativado via formulário sdr_captacao",
-      deals_fechados: estagnDeals.map((d) => String(d.id)),
+      deals_fechados: closedEstagnados,
       novo_deal_id: newDealId,
       novo_owner: newOwnerName,
-      motivo_fechamento: "reativacao_formulario",
+      motivo_fechamento: LOST_REASON_NOVO_INTERESSE,
     },
     source_channel: "form",
     event_timestamp: new Date().toISOString(),
