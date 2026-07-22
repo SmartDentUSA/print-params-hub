@@ -2883,13 +2883,12 @@ Deno.serve(async (req) => {
   }
 
   const userAgent = req.headers.get('User-Agent') || '';
-  
-  if (!isBot(userAgent)) {
-    return new Response('', { 
-      status: 200, 
-      headers: { ...corsHeaders, 'Content-Type': 'text/html' } 
-    });
-  }
+  // NOTA: removida a saída antecipada com body vazio. Antes, qualquer UA fora da
+  // allowlist (incluindo auditores de IA, curl, python-requests, etc.) recebia
+  // 200 com body '' — o que fazia toda "auditoria" ver página em branco. Agora
+  // sempre servimos o HTML pré-renderizado; o Vercel já direciona navegadores
+  // reais para o SPA, então esta função só é atingida por bots/auditores/API.
+  const uaIsBot = isBot(userAgent);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -2901,8 +2900,24 @@ Deno.serve(async (req) => {
   const originalPath = url.searchParams.get('originalPath') || '';
   const path = originalPath.replace(/^\/+$/, '').replace(/^\//, ''); // Remove leading/trailing slashes
   const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
+  const tab = (url.searchParams.get('tab') || '').toLowerCase();
 
-  console.log('SEO Proxy:', { path, segments, originalPath, userAgent });
+  console.log('SEO Proxy:', { path, segments, tab, originalPath, userAgent, uaIsBot });
+
+  // Normalização de case: se qualquer segmento de categoria vier em MAIÚSCULO
+  // dentro de /base-conhecimento/, /en/knowledge-base/, /es/base-conocimiento/
+  // ou /conhecimento/, redireciona 301 para a versão minúscula canônica.
+  const catRoots = ['base-conhecimento', 'knowledge-base', 'base-conocimiento', 'conhecimento'];
+  const catIdx = segments.findIndex((s) => catRoots.includes(s));
+  if (catIdx >= 0 && segments[catIdx + 1] && segments[catIdx + 1] !== segments[catIdx + 1].toLowerCase()) {
+    const normalized = [...segments];
+    normalized[catIdx + 1] = normalized[catIdx + 1].toLowerCase();
+    const canonical = `${BASE_URL}/${normalized.join('/')}${tab ? `?tab=${tab}` : ''}`;
+    return new Response(null, {
+      status: 301,
+      headers: { ...corsHeaders, Location: canonical, 'Cache-Control': 'public, s-maxage=86400' },
+    });
+  }
 
   let html = '';
   let notFoundReason: 'unknown_route' | 'not_found' | null = null;
@@ -2927,9 +2942,21 @@ Deno.serve(async (req) => {
     } else if (segments[0] === 'base-conhecimento') {
       // PT: /base-conhecimento/...
       if (segments.length === 1) {
-        html = await generateKnowledgeHubHTML(supabase);
+        // Dispatch por ?tab= para preservar o estado do separador no prerender.
+        if (tab === 'artigos') {
+          html = await generateArticlesHubHTML(supabase);
+        } else if (tab === 'catalogo') {
+          html = await generateKnowledgeCategoryHTML('g', supabase);
+        } else {
+          html = await generateKnowledgeHubHTML(supabase);
+        }
       } else if (segments.length === 2) {
-        html = await generateKnowledgeCategoryHTML(segments[1], supabase);
+        // Alias limpo: /base-conhecimento/artigos → hub agregador.
+        if (segments[1].toLowerCase() === 'artigos') {
+          html = await generateArticlesHubHTML(supabase);
+        } else {
+          html = await generateKnowledgeCategoryHTML(segments[1], supabase);
+        }
       } else if (segments.length === 3) {
         html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase);
       }
