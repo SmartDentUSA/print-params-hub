@@ -398,7 +398,8 @@ export default function KbTabCatalogo() {
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
   const [productShortLinks, setProductShortLinks] = useState<Map<string, ProductShortLinks>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [chip, setChip] = useState('all');
+  // Default view: Resinas 3D → Todas (subChip 'all'). Usuário pode trocar normalmente.
+  const [chip, setChip] = useState('RESINAS 3D');
   const [subChip, setSubChip] = useState('all');
   const [q, setQ] = useState('');
   const [sheetResin, setSheetResin] = useState<string | null>(null);
