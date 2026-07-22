@@ -132,6 +132,15 @@ function extractUrls(html: string): string[] {
   return [...set];
 }
 
+function forceFormDestination(html: string, ctaConfig: any): string {
+  const principal = ctaConfig?.cta_principal;
+  const formUrl = principal?.tipo === "form" && /^https:\/\/s\.smartdent\.com\.br\/[A-Za-z0-9_-]+$/i.test(principal?.url || "")
+    ? principal.url
+    : null;
+  if (!formUrl) throw new Error("CTA do e-mail deve usar a URL encurtada oficial do formulário");
+  return html.replace(/href\s*=\s*(["'])https?:\/\/[^"']+\1/gi, (_match, quote) => `href=${quote}${formUrl}${quote}`);
+}
+
 // Send a single email for a queued campaign_send_log row.
 // Updates the log row and short_links; returns { ok, sent, error }.
 async function sendOne(args: {
@@ -357,10 +366,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    let emailHtml: string;
+    try {
+      emailHtml = forceFormDestination(html, cta_config);
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "CTA de formulário inválido" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ────────── Mode: TEST EMAIL — send one right now, no queue ──────────
     if (test_email) {
       // Send test inline: no campaigns row, no send_log, no short_links, no pixel.
-      const personalHtml = html
+      const personalHtml = emailHtml
         .replaceAll("{{nome}}", "Teste")
         .replaceAll("{{primeiro_nome}}", "Teste")
         .replaceAll("{{vendedor_nome}}", from_name)
@@ -434,7 +452,7 @@ Deno.serve(async (req) => {
       nome: campaign_name || `Email — ${new Date().toISOString().slice(0, 10)}`,
       descricao: description || null,
       canal: "email",
-      email_subject: subject, email_preheader: preheader, email_html: html,
+       email_subject: subject, email_preheader: preheader, email_html: emailHtml,
       cta_config, lead_filter: filters,
       audience_count: leads.length, total_leads: leads.length,
       status: "scheduled",

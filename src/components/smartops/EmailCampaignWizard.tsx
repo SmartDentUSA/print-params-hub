@@ -209,15 +209,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
       setCtaOptions({ landing, form, custom: [] });
 
-      // Auto-select: LP as principal, Form as secondary (or reverse if only one exists)
-      const first = landing[0] || form[0] || null;
-      const second = landing[0] && form[0] ? form[0] : null;
+      // E-mail sempre converte no formulário oficial. A landing page continua
+      // disponível somente como fonte visual/copy para a geração do conteúdo.
+      const first = form[0] || null;
       setCtaPrincipal(first ? { tipo: first.tipo, id: first.id, url: first.url, label: first.label } : null);
-      setCtasSecundarios(second ? [{ tipo: second.tipo, id: second.id, url: second.url, label: second.label }] : []);
+      setCtasSecundarios([]);
     })();
   }, [produtoId]);
 
-  const allCtas = useMemo(() => [...ctaOptions.landing, ...ctaOptions.form], [ctaOptions]);
+  const allCtas = useMemo(() => [...ctaOptions.form], [ctaOptions]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -234,7 +234,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
   async function handleGenerate(mode: "all" | "subject" = "all") {
     if (!produtoId) return toast.error("Escolha um produto primeiro");
-    if (!ctaPrincipal) return toast.error("Este produto não tem landing page nem formulário vinculado. Cadastre um antes de gerar o e-mail.");
+    if (!ctaPrincipal) return toast.error("Este produto não tem formulário oficial com URL encurtada. Cadastre o link antes de gerar o e-mail.");
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
@@ -570,12 +570,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               >
                 <SelectTrigger><SelectValue placeholder="Escolha o destino principal" /></SelectTrigger>
                 <SelectContent className="max-h-96">
-                  {(["landing","form"] as CtaType[]).flatMap(t => {
+                  {(["form"] as CtaType[]).flatMap(t => {
                     const list = ctaOptions[t];
                     if (!list.length) return [];
                     return [
                       <div key={`h-${t}`} className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
-                        {({ landing: "Landing Page do produto", form: "Formulário do produto" } as any)[t]}
+                        Formulário oficial do produto
                       </div>,
                       ...list.map(o => (
                         <SelectItem key={`${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
@@ -585,7 +585,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   {!allCtas.length && (
                     <div className="px-2 py-4 text-xs text-muted-foreground text-center">
                       {produtoId
-                        ? "Este produto não tem landing page nem formulário vinculado."
+                        ? "Este produto não tem formulário oficial com URL encurtada."
                         : "Selecione um produto primeiro."}
                     </div>
                   )}
