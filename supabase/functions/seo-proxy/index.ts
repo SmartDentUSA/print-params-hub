@@ -2877,6 +2877,141 @@ async function generateEventosHTML(supabase: any): Promise<string> {
 </html>`;
 }
 
+// =====================================================================
+// Hub de Artigos — agrega categorias textuais (B, C, D, F) num único
+// landing citável, sem migrar nenhum dos 605 conteúdos existentes.
+// Rotas atendidas: /base-conhecimento?tab=artigos e /base-conhecimento/artigos
+// =====================================================================
+async function generateArticlesHubHTML(supabase: any): Promise<string> {
+  const ARTICLE_LETTERS = ['B', 'C', 'D', 'F'];
+  const baseUrl = 'https://parametros.smartdent.com.br';
+
+  const [catsRes, knowledgeCtx] = await Promise.all([
+    supabase
+      .from('knowledge_categories')
+      .select('id, letter, name')
+      .in('letter', ARTICLE_LETTERS)
+      .eq('enabled', true)
+      .order('letter'),
+    fetchKnowledgeContext(supabase),
+  ]);
+
+  const cats = (catsRes.data || []) as Array<{ id: string; letter: string; name: string }>;
+  const catIds = cats.map((c) => c.id);
+
+  const { data: articles } = catIds.length
+    ? await supabase
+        .from('knowledge_contents')
+        .select('title, slug, excerpt, category_id, updated_at')
+        .in('category_id', catIds)
+        .eq('active', true)
+        .order('updated_at', { ascending: false })
+        .limit(200)
+    : { data: [] as any[] };
+
+  const byCat = new Map<string, any[]>();
+  for (const c of cats) byCat.set(c.id, []);
+  for (const a of (articles || [])) {
+    const bucket = byCat.get(a.category_id);
+    if (bucket) bucket.push(a);
+  }
+
+  const title = 'Artigos sobre Odontologia Digital e Impressão 3D | Smart Dent';
+  const description = `Artigos técnicos, casos clínicos, evidência científica, resolução de falhas e parâmetros validados. ${articles?.length || 0} publicações da equipe Smart Dent.`;
+  const contextText = 'Hub de artigos editoriais da Smart Dent sobre impressão 3D odontológica: casos clínicos reais, evidência científica, resolução de falhas e parâmetros técnicos validados.';
+
+  const sections = cats
+    .map((c) => {
+      const list = (byCat.get(c.id) || [])
+        .map(
+          (a: any) => `<li><a href="/base-conhecimento/${c.letter.toLowerCase()}/${a.slug}">${escapeHtml(a.title)}</a>${a.excerpt ? `<br><small>${escapeHtml(String(a.excerpt).substring(0, 140))}</small>` : ''}</li>`,
+        )
+        .join('');
+      return `<section data-category="${c.letter.toLowerCase()}">
+        <h2>${escapeHtml(c.letter)} — ${escapeHtml(c.name)}</h2>
+        <p><a href="/base-conhecimento/${c.letter.toLowerCase()}">Ver todos os artigos desta categoria &rsaquo;</a></p>
+        <ul>${list || '<li><em>Sem artigos publicados no momento.</em></li>'}</ul>
+      </section>`;
+    })
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Artigos Smart Dent' })}
+  <link rel="canonical" href="${baseUrl}/base-conhecimento/artigos" />
+  <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento/artigos" />
+  <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/artigos" />
+  <meta property="og:title" content="Artigos Smart Dent — Odontologia Digital & Impressão 3D" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
+  <meta property="og:url" content="${baseUrl}/base-conhecimento/artigos" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/artigos` })}
+  <script type="application/ld+json">
+  ${safeLd({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: 'Artigos Smart Dent',
+        description,
+        url: `${baseUrl}/base-conhecimento/artigos`,
+        isPartOf: { '@type': 'WebSite', name: 'Smart Dent', url: baseUrl },
+      },
+      {
+        '@type': 'ItemList',
+        itemListElement: (articles || []).slice(0, 50).map((a: any, i: number) => {
+          const cat = cats.find((c) => c.id === a.category_id);
+          const letter = (cat?.letter || 'a').toLowerCase();
+          return {
+            '@type': 'ListItem',
+            position: i + 1,
+            url: `${baseUrl}/base-conhecimento/${letter}/${a.slug}`,
+            name: a.title,
+          };
+        }),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Início', item: baseUrl },
+          { '@type': 'ListItem', position: 2, name: 'Base de Conhecimento', item: `${baseUrl}/base-conhecimento` },
+          { '@type': 'ListItem', position: 3, name: 'Artigos', item: `${baseUrl}/base-conhecimento/artigos` },
+        ],
+      },
+    ],
+  })}
+  </script>
+  ${buildEntityIndexJsonLd('artigos impressão 3D odontológica evidência científica casos clínicos parâmetros', knowledgeCtx)}
+  ${buildGTMHead()}
+</head>
+<body>
+  ${buildGTMBody()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
+  <main id="main-content">
+    <article>
+      <h1>Artigos sobre Odontologia Digital e Impressão 3D</h1>
+      ${buildAISummaryBlock(contextText)}
+      <p data-section="definition">Conteúdo editorial da Smart Dent agrupando quatro linhas: resolução de falhas, evidência científica, casos clínicos e parâmetros validados. ${articles?.length || 0} publicações no total.</p>
+      ${sections}
+      ${buildLLMKnowledgeLayer('Artigos Smart Dent', 'Hub Editorial', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
+    </article>
+  </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/base-conhecimento?tab=artigos')}
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
