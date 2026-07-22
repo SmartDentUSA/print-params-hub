@@ -4,6 +4,8 @@
  * Used across all smart-ops edge functions for bidirectional sync
  */
 
+import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
+
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
 
 // ─── Origins ───
