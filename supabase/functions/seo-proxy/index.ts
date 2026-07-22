@@ -472,7 +472,8 @@ function buildAISummaryBlock(summary: string): string {
 const isBot = (ua: string): boolean => {
   if (!ua) return false;
   const lowerUa = ua.toLowerCase();
-  return ALL_BOTS.some(bot => lowerUa.includes(bot));
+  if (ALL_BOTS.some(bot => lowerUa.includes(bot))) return true;
+  return BOT_HEURISTIC.test(lowerUa);
 };
 
 // ===== ADVANCED SEO SCHEMAS - FASE AUDITORIA =====
